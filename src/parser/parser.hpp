@@ -18,7 +18,7 @@ class Parser {
         static void add_next_main_node(ProgramNode &program, token_list &tokens);
         static NodeType what_is_this(const token_list &tokens);
         static token_list get_definition_tokens(token_list &tokens);
-        static token_list get_body_tokens(uint definition_indentation, token_list &tokens);
+        static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
 
         static FunctionNode create_function(const token_list &definition, const token_list &body);
         static DataNode create_data(const token_list &definition, const token_list &body);

@@ -17,10 +17,10 @@ namespace Signature {
     std::string stringify(const token_list &tokens);
     bool tokens_contain(const token_list &tokens, const signature &signature);
     bool tokens_match(const token_list &tokens, const signature &signature);
-    std::vector<std::pair<uint, uint>> extract_matches(const token_list &tokens, const signature &signature);
+    std::vector<std::pair<unsigned int, unsigned int>> extract_matches(const token_list &tokens, const signature &signature);
 
-    std::optional<uint> get_leading_indents(const token_list &tokens, uint line);
-    std::optional<std::pair<uint, uint>> get_line_token_indices(const token_list &tokens, uint line);
+    std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line);
+    std::optional<std::pair<unsigned int, unsigned int>> get_line_token_indices(const token_list &tokens, unsigned int line);
 
     const signature type_prim = {"((", TOK_INT, ")|(", TOK_FLINT, ")|(", TOK_STR, ")|(", TOK_CHAR, ")|(", TOK_BOOL, "))"};
     const signature type = combine({

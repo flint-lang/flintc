@@ -55,8 +55,8 @@ namespace Signature {
 
     /// extract_matches
     ///     Extracts the indices of all the matches of the given signature inside the given tokens vector
-    std::vector<std::pair<uint, uint>> extract_matches(const token_list &tokens, const Signature::signature &signature) {
-        std::vector<std::pair<uint, uint>> matches;
+    std::vector<std::pair<unsigned int, unsigned int>> extract_matches(const token_list &tokens, const Signature::signature &signature) {
+        std::vector<std::pair<unsigned int, unsigned int>> matches;
         std::string search_string = stringify(tokens);
         std::regex pattern(get_regex_string(signature));
 
@@ -65,8 +65,8 @@ namespace Signature {
 
         for(std::sregex_iterator i = begin; i != end; ++i) {
             const std::smatch &match = *i;
-            uint start_idx = 0;
-            uint end_idx = 0;
+            unsigned int start_idx = 0;
+            unsigned int end_idx = 0;
 
             // Count tokens for the starting position
             std::string prefix = search_string.substr(0, match.position());
@@ -96,8 +96,8 @@ namespace Signature {
     /// get_leading_indents
     ///     Returns the leading indentations at the given line inside the vector of tokens
     ///     Returns none, when the given line does not exist in the list of vectors
-    std::optional<uint> get_leading_indents(const token_list &tokens, uint line) {
-        uint leading_indents = 0;
+    std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line) {
+        unsigned int leading_indents = 0;
         int start_index = -1;
         for(int i = 0; i < tokens.size(); i++) {
             if(start_index == -1 && tokens.at(i).line == line) {
@@ -122,9 +122,9 @@ namespace Signature {
     /// get_line_token_indices
     ///     Returns the start and end index of all the tokens inisde the given array which are at the given line.
     ///     If the line is not contained inside the token vector, a nullopt is returned
-    std::optional<std::pair<uint, uint>> get_line_token_indices(const token_list &tokens, uint line) {
+    std::optional<std::pair<unsigned int, unsigned int>> get_line_token_indices(const token_list &tokens, unsigned int line) {
         int start_index = -1;
-        uint end_index = 0;
+        unsigned int end_index = 0;
 
         for(int i = 0; i < tokens.size(); i++) {
             if(start_index == 0 && tokens.at(i).line == line) {

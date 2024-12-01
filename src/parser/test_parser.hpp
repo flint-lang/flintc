@@ -136,7 +136,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         ok_or_not(result);
@@ -148,7 +148,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_FLINT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         ok_or_not(result);
@@ -160,7 +160,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_STR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         ok_or_not(result);
@@ -172,7 +172,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         ok_or_not(result);
@@ -184,7 +184,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_BOOL, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type_prim);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         ok_or_not(result);
@@ -340,7 +340,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type);
         bool result = !result_vec.empty() &&
             result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         ok_or_not(result);
@@ -352,7 +352,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_FLINT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type);
         bool result = !result_vec.empty() &&
             result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         ok_or_not(result);
@@ -364,7 +364,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_STR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type);
         bool result = !result_vec.empty() &&
             result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         ok_or_not(result);
@@ -376,7 +376,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type);
         bool result = !result_vec.empty() &&
             result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         ok_or_not(result);
@@ -388,7 +388,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_BOOL, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type);
         bool result = !result_vec.empty() &&
             result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         ok_or_not(result);
@@ -400,7 +400,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::type);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::type);
         bool result = !result_vec.empty();
         result = result && result_vec.at(0).first == 1 && result_vec.at(0).second == 2;
         result = result && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
@@ -478,7 +478,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::reference);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::reference);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
         ok_or_not(result);
@@ -490,7 +490,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::reference);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::reference);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
         ok_or_not(result);
@@ -566,7 +566,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::args);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::args);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 3 && result_vec.at(0).second == 5;
         ok_or_not(result);
@@ -578,7 +578,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::args);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::args);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 3 && result_vec.at(0).second == 8;
         ok_or_not(result);
@@ -654,7 +654,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN, TOK_COLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::group);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::group);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 7 && result_vec.at(0).second == tokens.size() - 1;
         ok_or_not(result);
@@ -666,7 +666,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::group);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::group);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 10 && result_vec.at(0).second == 15;
         ok_or_not(result);
@@ -782,7 +782,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
            {TOK_INDENT, TOK_USE, TOK_STR_VALUE, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::use_statement);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::use_statement);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
         ok_or_not(result);
@@ -794,7 +794,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::use_statement);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::use_statement);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
         ok_or_not(result);
@@ -806,7 +806,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::use_statement);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::use_statement);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         ok_or_not(result);
@@ -818,7 +818,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::use_statement);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::use_statement);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         ok_or_not(result);
@@ -1054,7 +1054,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         ok_or_not(result);
@@ -1066,7 +1066,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         ok_or_not(result);
@@ -1078,7 +1078,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
         ok_or_not(result);
@@ -1090,7 +1090,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         ok_or_not(result);
@@ -1102,7 +1102,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
         ok_or_not(result);
@@ -1114,7 +1114,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
         ok_or_not(result);
@@ -1126,7 +1126,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 10;
         ok_or_not(result);
@@ -1138,7 +1138,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 11;
         ok_or_not(result);
@@ -1150,7 +1150,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
         ok_or_not(result);
@@ -1162,7 +1162,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::function_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 17;
         ok_or_not(result);
@@ -1278,7 +1278,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
            {TOK_INDENT, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::data_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::data_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         ok_or_not(result);
@@ -1290,7 +1290,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::data_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::data_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         ok_or_not(result);
@@ -1302,7 +1302,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::data_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::data_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         ok_or_not(result);
@@ -1314,7 +1314,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::data_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::data_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         ok_or_not(result);
@@ -1410,7 +1410,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
            {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::func_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::func_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         ok_or_not(result);
@@ -1422,7 +1422,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::func_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::func_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 9;
         ok_or_not(result);
@@ -1434,7 +1434,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::func_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::func_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
         ok_or_not(result);
@@ -1530,7 +1530,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::entity_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::entity_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         ok_or_not(result);
@@ -1542,7 +1542,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::entity_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::entity_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 9;
         ok_or_not(result);
@@ -1554,7 +1554,7 @@ namespace {
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
-        std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::entity_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::entity_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
         ok_or_not(result);

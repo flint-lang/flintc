@@ -17,7 +17,7 @@ static void init_test() {
     std::cout << WHITE;
 }
 
-static void print_test_name(const uint indent_level, const std::string &name, const bool is_section_header) {
+static void print_test_name(const unsigned int indent_level, const std::string &name, const bool is_section_header) {
     for(int i = 0; i < indent_level; i++) {
         std::cout << "    ";
     }

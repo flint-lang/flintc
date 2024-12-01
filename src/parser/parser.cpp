@@ -168,13 +168,13 @@ token_list Parser::get_definition_tokens(token_list &tokens) {
 
 /// get_body_tokens
 ///     Extracts all the body tokens based on their indentation
-token_list Parser::get_body_tokens(uint definition_indentation, token_list &tokens) {
+token_list Parser::get_body_tokens(unsigned int definition_indentation, token_list &tokens) {
     int current_line = tokens.at(0).line;
     int end_idx = 0;
     for(const TokenContext &tok : tokens) {
         if(tok.line != current_line) {
             current_line = tok.line;
-            std::optional<uint> indents_maybe = Signature::get_leading_indents(tokens, current_line);
+            std::optional<unsigned int> indents_maybe = Signature::get_leading_indents(tokens, current_line);
             if(indents_maybe.has_value() && indents_maybe.value() <= definition_indentation) {
                 break;
             }
