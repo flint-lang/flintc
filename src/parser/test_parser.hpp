@@ -480,7 +480,7 @@ namespace {
         );
         std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::reference);
         bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 4 && result_vec.at(0).second == 8;
+            result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
         ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -492,7 +492,7 @@ namespace {
         );
         std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::reference);
         bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 4 && result_vec.at(0).second == 11;
+            result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
         ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -656,7 +656,7 @@ namespace {
         );
         std::vector<std::pair<uint, uint>> result_vec = Signature::extract_matches(tokens, Signature::group);
         bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 7 && result_vec.at(0).second == 10;
+            result_vec.at(0).first == 7 && result_vec.at(0).second == tokens.size() - 1;
         ok_or_not(result);
         return result ? 0 : 1;
     }
