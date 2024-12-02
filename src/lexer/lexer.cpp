@@ -81,7 +81,13 @@ void Lexer::scan_token() {
         case ';': add_token(TOK_SEMICOLON); break;
         case ':': add_token_option(TOK_COLON, '=', TOK_COLON_EQUAL); break;
         case '?': add_token(TOK_QUESTION); break;
-        case '_': add_token(TOK_UNDERSCORE); break;
+        case '_':
+            if(is_alpha_num(peek_next())) {
+                str();
+            } else {
+                add_token(TOK_UNDERSCORE);
+            }
+            break;
         case '#': add_token(TOK_FLAG); break;
         case '\'':
             advance();
