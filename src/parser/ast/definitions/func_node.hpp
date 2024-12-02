@@ -12,7 +12,12 @@
 ///     Represents func module definitions
 class FuncNode : public ASTNode {
     public:
-
+        FuncNode(std::string &name,
+            std::vector<std::pair<std::string, std::string>> &required_data,
+            std::vector<FunctionNode> &functions)
+            : name(name),
+            required_data(std::move(required_data)),
+            functions(std::move(functions)) {}
     private:
         /// name
         ///     The name of the func module

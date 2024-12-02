@@ -22,6 +22,7 @@ namespace Signature {
     std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line);
     std::optional<std::pair<unsigned int, unsigned int>> get_line_token_indices(const token_list &tokens, unsigned int line);
 
+    // --- BASIC SIGNATURES ---
     const signature type_prim = {"((", TOK_INT, ")|(", TOK_FLINT, ")|(", TOK_STR, ")|(", TOK_CHAR, ")|(", TOK_BOOL, "))"};
     const signature type = combine({
         {"("}, type_prim, {"|(", TOK_IDENTIFIER, "))"}
@@ -35,6 +36,7 @@ namespace Signature {
         {TOK_LEFT_PAREN}, type, {"(", TOK_COMMA}, type, {")*", TOK_RIGHT_PAREN}
     });
 
+    // --- DEFINITIONS ---
     const signature use_statement = {TOK_USE, "((", TOK_STR_VALUE, ")|(", TOK_IDENTIFIER, "(", TOK_DOT, TOK_IDENTIFIER, ")*))"};
     const signature function_definition = combine({
         {"(", TOK_ALIGNED, ")?", "(", TOK_CONST, ")?", TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, args, {")?", TOK_RIGHT_PAREN, "((", TOK_ARROW}, group, {TOK_COLON, ")|(", TOK_ARROW}, type, {TOK_COLON, ")|(", TOK_COLON, "))"}
@@ -50,7 +52,7 @@ namespace Signature {
     const signature enum_definition = {TOK_ENUM, TOK_IDENTIFIER, TOK_COLON};
     const signature variant_definition = {TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON};
 
-
+    // --- STATEMENTS ---
     const signature initialization = combine({
         type, {TOK_IDENTIFIER, TOK_EQUAL}
     });

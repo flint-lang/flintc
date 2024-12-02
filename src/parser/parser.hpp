@@ -23,11 +23,12 @@ class Parser {
         static NodeType what_is_this(const token_list &tokens);
         static token_list get_definition_tokens(token_list &tokens);
         static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
+        static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
 
         static std::vector<StatementNode> create_body(const token_list &body);
         static FunctionNode create_function(const token_list &definition, const token_list &body);
         static DataNode create_data(const token_list &definition, const token_list &body);
-        static FuncNode create_func(const token_list &definition, const token_list &body);
+        static FuncNode create_func(const token_list &definition, token_list &body);
         static EntityNode create_entity(const token_list &definition, const token_list &body);
         static EnumNode create_enum(const token_list &definition, const token_list &body);
         static ErrorNode create_error(const token_list &definition, const token_list &body);

@@ -16,7 +16,9 @@ class FunctionNode : public ASTNode {
             std::vector<std::pair<std::string, std::string>> &parameters,
             std::vector<std::string> &return_types,
             std::vector<StatementNode> &body)
-            : name(name), parameters(std::move(parameters)), return_types(std::move(return_types)), body(std::move(body)) {}
+            : name(name),
+            parameters(std::move(parameters)), return_types(std::move(return_types)),
+            body(std::move(body)) {}
 
     private:
         /// name

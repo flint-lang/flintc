@@ -19,7 +19,7 @@
 #include "signature.hpp"
 
 #include <algorithm>
-#include <cstddef>
+#include <cassert>
 #include <vector>
 #include <string>
 #include <iterator>
@@ -40,6 +40,7 @@ void Parser::parse_file(ProgramNode &program, std::string &file)
 
 /// get_next_main_node
 ///     Finds the next main node inside the list of tokens and creates an ASTNode "tree" from it.
+///     Only Definition nodes are considered as 'main' nodes
 ///     It returns the built ASTNode tree
 void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
     token_list definition_tokens = get_definition_tokens(tokens);
@@ -144,7 +145,8 @@ NodeType Parser::what_is_this(const token_list &tokens) {
 }
 
 /// get_definition_tokens
-///     Returns all the tokens which are part of the definition. Removes all other tokens from the token vector
+///     Returns all the tokens which are part of the definition.
+///     Deletes all tokens which are part of the definition from the given tokens list
 token_list Parser::get_definition_tokens(token_list &tokens) {
     // Scan through all the tokens and first extract all tokens from this line
     int end_index = 0;
@@ -156,12 +158,7 @@ token_list Parser::get_definition_tokens(token_list &tokens) {
             break;
         }
     }
-    // Move elements from the tokens vector to a new slice vector and remove all these elements from the tokens vector
-    token_list definition_tokens;
-    definition_tokens.reserve(end_index);
-    std::move(tokens.begin(), tokens.begin() + end_index, std::back_inserter(definition_tokens));
-    tokens.erase(tokens.begin(), tokens.begin() + end_index);
-    return definition_tokens;
+    return extract_from_to(0, end_index, tokens);
 }
 
 /// get_body_tokens
@@ -183,12 +180,20 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
         throw_err(ERR_NO_BODY_DECLARED);
     }
 
-    token_list body;
-    body.reserve(end_idx);
-    std::move(tokens.begin(), tokens.begin() + end_idx, std::back_inserter(body));
-    tokens.erase(tokens.begin(), tokens.begin() + end_idx);
+    return extract_from_to(0, end_idx, tokens);
+}
 
-    return body;
+/// extract_from_to
+///     Extracts the tokens from a given index up to the given index from the given tokens list
+///     Extracts [from ; to) tokens
+///     Also deletes all the extracted tokens from the token list
+token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_list &tokens) {
+    assert(to > from);
+    token_list extraction;
+    extraction.reserve(to - from);
+    std::move(tokens.begin() + from, tokens.begin() + to, std::back_inserter(extraction));
+    tokens.erase(tokens.begin() + from, tokens.begin() + to);
+    return extraction;
 }
 
 /// create_body
@@ -217,11 +222,9 @@ FunctionNode Parser::create_function(const token_list &definition, const token_l
         // Adding the functions parameters
         if(tok_iterator->type == TOK_LEFT_PAREN && !begin_returns) {
             begin_params = true;
-            continue;
         }
         if (tok_iterator->type == TOK_RIGHT_PAREN && begin_params) {
             begin_params = false;
-            continue;
         }
         if(begin_params && Signature::tokens_match({TokenContext {tok_iterator->type, "", 0}}, Signature::type)
             && (tok_iterator + 1)->type == TOK_IDENTIFIER)
@@ -235,8 +238,7 @@ FunctionNode Parser::create_function(const token_list &definition, const token_l
                 return_types.push_back((tok_iterator + 1)->lexme);
                 break;
             }
-            begin_returns = true;
-            continue;
+            begin_returns = true;;
         }
         if(begin_returns && tok_iterator->type == TOK_IDENTIFIER) {
             return_types.push_back(tok_iterator->lexme);
@@ -260,8 +262,51 @@ DataNode Parser::create_data(const token_list &definition, const token_list &bod
 /// create_func
 ///     Creates a FuncNode from the given definition and body tokens.
 ///     The FuncNode's body is only allowed to house function definitions, and each function has a body respectively.
-FuncNode Parser::create_func(const token_list &definition, const token_list &body) {
-    return {};
+FuncNode Parser::create_func(const token_list &definition, token_list &body) {
+    std::string name;
+    std::vector<std::pair<std::string, std::string>> required_data;
+    std::vector<FunctionNode> functions;
+
+    auto definition_iterator = definition.begin();
+    bool requires_data = false;
+    while(definition_iterator != definition.end()) {
+        if(definition_iterator->type == TOK_FUNC && (definition_iterator + 1)->type == TOK_IDENTIFIER) {
+            name = (definition_iterator + 1)->lexme;
+        }
+        if(definition_iterator->type == TOK_REQUIRES) {
+            requires_data = true;
+        }
+        if(requires_data && definition_iterator->type == TOK_IDENTIFIER
+            && (definition_iterator + 1)->type == TOK_IDENTIFIER) {
+            required_data.emplace_back(
+                definition_iterator->lexme,
+                (definition_iterator + 1)->lexme
+            );
+        }
+        ++definition_iterator;
+    }
+
+    auto body_iterator = body.begin();
+    int current_line = -1;
+    while(body_iterator != body.end()) {
+        if(current_line == body_iterator->line) {
+            ++body_iterator;
+            continue;
+        }
+        current_line = body_iterator->line;
+
+        std::pair<unsigned int, unsigned int> definition_ids = Signature::get_line_token_indices(body, current_line).value();
+        token_list function_definition = extract_from_to(definition_ids.first, definition_ids.second, body);
+
+        unsigned int leading_indents = Signature::get_leading_indents(function_definition, current_line).value();
+        token_list function_body = get_body_tokens(leading_indents, body);
+
+        functions.emplace_back(create_function(function_definition, function_body));
+        ++body_iterator;
+    }
+
+    FuncNode func(name, required_data, functions);
+    return func;
 }
 
 /// create_entity
