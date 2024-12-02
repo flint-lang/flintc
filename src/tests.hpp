@@ -1,16 +1,19 @@
 #ifndef __TESTS_HPP__
 #define __TESTS_HPP__
 
-#include "parser/test_parser.hpp"
-#include "test_utils.hpp"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int test_all() {
-    init_test();
+struct TestResult {
+    const char* message;
+    int count;
+};
 
-    int test_sum = 0;
-    test_sum += test_parser();
+struct TestResult run_tests();
 
-    return test_sum;
+#ifdef __cplusplus
 }
+#endif
 
 #endif

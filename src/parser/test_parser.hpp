@@ -5,6 +5,8 @@
 #include "../test_utils.hpp"
 
 #include <string>
+#include <functional>
+#include <vector>
 
 // --- THE SIGNATURE TESTS ---
 
@@ -1565,10 +1567,8 @@ namespace {
 int test_parser() {
     print_test_name(0, "PARSER_TESTS:", true);
     print_test_name(1, "SIGNATURE_TESTS:", true);
-    int failure_sum = 0;
 
-    // Primary Tests
-    failure_sum += run_all_tests({
+    function_list primary_tests = {
         // Match Tests Primary
         test_match_prim,
         test_match_prim_int,
@@ -1590,9 +1590,8 @@ int test_parser() {
         test_extract_prim_str,
         test_extract_prim_char,
         test_extract_prim_bool,
-    });
-    // Type Tests
-    failure_sum += run_all_tests({
+    };
+    function_list type_tests = {
         // Match Tests Type
         test_match_type,
         test_match_type_int,
@@ -1617,9 +1616,8 @@ int test_parser() {
         test_extract_type_char,
         test_extract_type_bool,
         test_extract_type_identifier,
-    });
-    // Reference Tests
-    failure_sum += run_all_tests({
+    };
+    function_list reference_tests = {
         // Match Tests Reference
         test_match_reference,
         test_match_reference_single,
@@ -1632,9 +1630,8 @@ int test_parser() {
         test_extract_reference,
         test_extract_reference_single,
         test_extract_reference_multiple,
-    });
-    // Args Tests
-    failure_sum += run_all_tests({
+    };
+    function_list args_tests = {
         // Match Tests
         test_match_args,
         test_match_args_single,
@@ -1647,9 +1644,8 @@ int test_parser() {
         test_extract_args,
         test_extract_args_single,
         test_extract_args_multiple,
-    });
-    // Group Tests
-    failure_sum += run_all_tests({
+    };
+    function_list group_tests = {
         // Match Tests
         test_match_group,
         test_match_group_single,
@@ -1662,9 +1658,8 @@ int test_parser() {
         test_extract_group,
         test_extract_group_single,
         test_extract_group_multiple,
-    });
-    // Use Statement Tests
-    failure_sum += run_all_tests({
+    };
+    function_list use_statement_tests = {
         // Match Tests
         test_match_use_statement,
         test_match_use_statement_string,
@@ -1683,9 +1678,8 @@ int test_parser() {
         test_extract_use_statement_package_single,
         test_extract_use_statement_package_dual,
         test_extract_use_statement_package_multiple,
-    });
-    // Function Definition Tests
-    failure_sum += run_all_tests({
+    };
+    function_list function_definition_tests = {
        // Match Tests
        test_match_function_definition,
        test_match_function_definition_const,
@@ -1722,9 +1716,8 @@ int test_parser() {
        test_extract_function_definition_narg_0return,
        test_extract_function_definition_0arg_nreturn,
        test_extract_function_definition_narg_nreturn,
-    });
-    // Data Definition Tests
-    failure_sum += run_all_tests({
+    };
+    function_list data_definition_tests = {
        // Match Tests
        test_match_data_definition,
        test_match_data_definition_normal,
@@ -1743,9 +1736,8 @@ int test_parser() {
        test_extract_data_definition_shared,
        test_extract_data_definition_immutable,
        test_extract_data_definition_aligned,
-    });
-    // Func Definition Tests
-    failure_sum += run_all_tests({
+    };
+    function_list func_definition_tests = {
         // Match Tests
         test_match_func_definition,
         test_match_func_definition_normal,
@@ -1761,9 +1753,8 @@ int test_parser() {
         test_extract_func_definition_normal,
         test_extract_func_definition_requires_single,
         test_extract_func_definition_requires_multiple,
-    });
-    // Entity Definition Tests
-    failure_sum += run_all_tests({
+    };
+    function_list entity_definition_tests = {
         // Match Tests
         test_match_entity_definition,
         test_match_entity_definition_normal,
@@ -1779,9 +1770,21 @@ int test_parser() {
         test_extract_entity_definition_normal,
         test_extract_entity_definition_extends_single,
         test_extract_entity_definition_extends_multiple,
-    });
+    };
 
-    return failure_sum;
+    const std::vector<function_list> tests = {
+        primary_tests,
+        type_tests,
+        reference_tests,
+        args_tests,
+        group_tests,
+        use_statement_tests,
+        function_definition_tests,
+        data_definition_tests,
+        func_definition_tests,
+        entity_definition_tests
+    };
+    return run_all_tests(tests);
 }
 
 #endif

@@ -1,6 +1,5 @@
 #include "parser/ast/program_node.hpp"
 #include "parser/parser.hpp"
-#include "tests.hpp"
 
 #include <string>
 #include <filesystem> // to get cwd
@@ -24,8 +23,6 @@ class CommandLineParser {
 
                 if(arg == "--help" || arg == "-h") {
                     print_help();
-                } else if(arg == "--test" || arg == "-t") {
-                    int fails = test_all();
                 } else if(arg == "--file" || arg == "-f") {
                     if(!n_args_follow(i + 1, "<file>", arg)) {
                         return 1;
@@ -56,7 +53,6 @@ class CommandLineParser {
         static void print_help() {
             std::cout << "Usage: [OPTIONS]\n";
             std::cout << "--help, -h            Show help\n";
-            std::cout << "--test, -t            Run all builtin unit tests\n";
             std::cout << "--file, -f <file>     The file to compile\n";
             std::cout << "-o <file>             The name and path of the built output file\n";
         }
