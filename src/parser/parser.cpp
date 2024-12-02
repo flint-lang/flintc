@@ -15,9 +15,11 @@
 #include "ast/program_node.hpp"
 
 #include "../debug.hpp"
+#include "ast/statements/statement_node.hpp"
 #include "signature.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <vector>
 #include <string>
 #include <iterator>
@@ -189,44 +191,100 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
     return body;
 }
 
+/// create_body
+///     Creates a body containing of multiple statement nodes from a list of tokens
+std::vector<StatementNode> Parser::create_body(const token_list &body) {
+    std::vector<StatementNode> body_statements;
+
+    return body_statements;
+}
+
 /// create_function
-///
+///     Creates a FunctionNode from the given definiton tokens of the FunctionNode as well as its body. Will cause additional creation of AST Nodes for the body
 FunctionNode Parser::create_function(const token_list &definition, const token_list &body) {
-    return {};
+    std::string name;
+    std::vector<std::pair<std::string, std::string>> parameters;
+    std::vector<std::string> return_types;
+
+    bool begin_params = false;
+    bool begin_returns = false;
+    auto tok_iterator = definition.begin();
+    while(tok_iterator != definition.end()) {
+        // Finding the function name
+        if(tok_iterator->type == TOK_DEF) {
+            name = (tok_iterator + 1)->lexme;
+        }
+        // Adding the functions parameters
+        if(tok_iterator->type == TOK_LEFT_PAREN && !begin_returns) {
+            begin_params = true;
+            continue;
+        }
+        if (tok_iterator->type == TOK_RIGHT_PAREN && begin_params) {
+            begin_params = false;
+            continue;
+        }
+        if(begin_params && Signature::tokens_match({TokenContext {tok_iterator->type, "", 0}}, Signature::type)
+            && (tok_iterator + 1)->type == TOK_IDENTIFIER)
+        {
+            parameters.emplace_back(tok_iterator->lexme, (tok_iterator + 1)->lexme);
+        }
+        // Adding the functions return types
+        if(tok_iterator->type == TOK_ARROW) {
+            // Only one return type
+            if((tok_iterator + 1)->type == TOK_IDENTIFIER) {
+                return_types.push_back((tok_iterator + 1)->lexme);
+                break;
+            }
+            begin_returns = true;
+            continue;
+        }
+        if(begin_returns && tok_iterator->type == TOK_IDENTIFIER) {
+            return_types.push_back(tok_iterator->lexme);
+        }
+        if(begin_returns && tok_iterator->type == TOK_RIGHT_PAREN) {
+            break;
+        }
+        ++tok_iterator;
+    }
+    std::vector<StatementNode> body_node = create_body(body);
+    FunctionNode function(name, parameters, return_types, body_node);
+    return function;
 }
 
 /// create_data
-///
+///     Creates a DataNode from the given definition and body tokens.
 DataNode Parser::create_data(const token_list &definition, const token_list &body) {
     return {};
 }
 
 /// create_func
-///
+///     Creates a FuncNode from the given definition and body tokens.
+///     The FuncNode's body is only allowed to house function definitions, and each function has a body respectively.
 FuncNode Parser::create_func(const token_list &definition, const token_list &body) {
     return {};
 }
 
 /// create_entity
-///
+///     Creates an EntityNode from the given definition and body tokens.
+///     An Entity can either be monolithic or modular.
 EntityNode Parser::create_entity(const token_list &definition, const token_list &body) {
     return {};
 }
 
 /// create_enum
-///
+///     Creates an EnumNode from the given definition and body tokens.
 EnumNode Parser::create_enum(const token_list &definition, const token_list &body) {
     return {};
 }
 
 /// create_error
-///
+///     Creates an ErrorNode from the given definition and body tokens.
 ErrorNode Parser::create_error(const token_list &definition, const token_list &body) {
     return {};
 }
 
 /// create_variant
-///
+///     Creates a VariantNode from the given definition and body tokens.
 VariantNode Parser::create_variant(const token_list &definition, const token_list &body) {
     return {};
 }

@@ -11,6 +11,7 @@
 #include "ast/definitions/entity_node.hpp"
 #include "ast/definitions/variant_node.hpp"
 #include "ast/program_node.hpp"
+#include "ast/statements/statement_node.hpp"
 
 class Parser {
     public:
@@ -23,6 +24,7 @@ class Parser {
         static token_list get_definition_tokens(token_list &tokens);
         static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
 
+        static std::vector<StatementNode> create_body(const token_list &body);
         static FunctionNode create_function(const token_list &definition, const token_list &body);
         static DataNode create_data(const token_list &definition, const token_list &body);
         static FuncNode create_func(const token_list &definition, const token_list &body);

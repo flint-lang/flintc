@@ -12,6 +12,11 @@
 ///     Represents function definitions
 class FunctionNode : public ASTNode {
     public:
+        FunctionNode(std::string &name,
+            std::vector<std::pair<std::string, std::string>> &parameters,
+            std::vector<std::string> &return_types,
+            std::vector<StatementNode> &body)
+            : name(name), parameters(std::move(parameters)), return_types(std::move(return_types)), body(std::move(body)) {}
 
     private:
         /// name
@@ -24,8 +29,8 @@ class FunctionNode : public ASTNode {
         ///     The types of all return values
         std::vector<std::string> return_types;
         /// body
-        ///     The body of the function
-        StatementNode body;
+        ///     The body of the function containing all statements
+        std::vector<StatementNode> body;
 };
 
 #endif
