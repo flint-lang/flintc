@@ -114,8 +114,6 @@ void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
 /// what_is_this
 ///     Gets a list of tokens (from one line), checks its signature and returns the type of the node which matches this signature.
 NodeType Parser::what_is_this(const token_list &tokens) {
-    Debug::print_token_context_vector(tokens);
-
     if (Signature::tokens_contain(tokens, Signature::function_definition)) {
         return NodeType::FUNCTION;
     }
@@ -159,9 +157,6 @@ token_list Parser::get_definition_tokens(token_list &tokens) {
     // Move elements from the tokens vector to a new slice vector and remove all these elements from the tokens vector
     token_list definition_tokens;
     definition_tokens.reserve(end_index);
-    std::cout << "tokens size: " << tokens.size() << "\n";
-    std::cout << "end_index: " << end_index << "\n";
-    std::cout << "definition size: " << definition_tokens.size() << "\n";
     std::move(tokens.begin(), tokens.begin() + end_index, std::back_inserter(definition_tokens));
     tokens.erase(tokens.begin(), tokens.begin() + end_index);
     return definition_tokens;
