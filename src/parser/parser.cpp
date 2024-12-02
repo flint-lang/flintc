@@ -5,6 +5,7 @@
 #include "../error/error.hpp"
 #include "ast/definitions/data_node.hpp"
 #include "ast/definitions/entity_node.hpp"
+#include "ast/definitions/enum_node.hpp"
 #include "ast/definitions/error_node.hpp"
 #include "ast/definitions/func_node.hpp"
 #include "ast/definitions/function_node.hpp"
@@ -39,12 +40,12 @@ void Parser::parse_file(ProgramNode &program, std::string &file)
 ///     Finds the next main node inside the list of tokens and creates an ASTNode "tree" from it.
 ///     It returns the built ASTNode tree
 void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
-    token_list node_definition_tokens = get_definition_tokens(tokens);
-    NodeType next_type = what_is_this(node_definition_tokens);
+    token_list definition_tokens = get_definition_tokens(tokens);
+    NodeType next_type = what_is_this(definition_tokens);
 
     // Find the indentation of the definition
     int definition_indentation = 0;
-    for(const TokenContext &tok : node_definition_tokens) {
+    for(const TokenContext &tok : definition_tokens) {
         if(tok.type == TOK_INDENT) {
             definition_indentation++;
         } else {
@@ -66,44 +67,44 @@ void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
             break;
         }
         case NodeType::FUNCTION: {
-            token_list node_body_tokens = get_body_tokens(definition_indentation, tokens);
-            FunctionNode function_node = FunctionNode();
+            token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+            FunctionNode function_node = create_function(definition_tokens, body_tokens);
             program.add_function(function_node);
             break;
         }
         case NodeType::DATA: {
-            token_list node_body_tokens = get_body_tokens(definition_indentation, tokens);
-            DataNode data_node = DataNode();
+            token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+            DataNode data_node = create_data(definition_tokens, body_tokens);
             program.add_data(data_node);
             break;
         }
         case NodeType::FUNC: {
-            token_list node_body_tokens = get_body_tokens(definition_indentation, tokens);
-            FuncNode func_node = FuncNode();
+            token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+            FuncNode func_node = create_func(definition_tokens, body_tokens);
             program.add_func(func_node);
             break;
         }
         case NodeType::ENTITY: {
-            token_list node_body_tokens = get_body_tokens(definition_indentation, tokens);
-            EntityNode entity_node = EntityNode();
+            token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+            EntityNode entity_node = create_entity(definition_tokens, body_tokens);
             program.add_entity(entity_node);
             break;
         }
         case NodeType::ENUM: {
-            token_list node_body_tokens = get_body_tokens(definition_indentation, tokens);
-            EnumNode enum_node = EnumNode();
+            token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+            EnumNode enum_node = create_enum(definition_tokens, body_tokens);
             program.add_enum(enum_node);
             break;
         }
         case NodeType::ERROR: {
-            token_list node_body_tokens = get_body_tokens(definition_indentation, tokens);
-            ErrorNode error_node = ErrorNode();
+            token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+            ErrorNode error_node = create_error(definition_tokens, body_tokens);
             program.add_error(error_node);
             break;
         }
         case NodeType::VARIANT: {
-            token_list node_body_tokens = get_body_tokens(definition_indentation, tokens);
-            VariantNode variant_node = VariantNode();
+            token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+            VariantNode variant_node = create_variant(definition_tokens, body_tokens);
             program.add_variant(variant_node);
             break;
         }
@@ -156,14 +157,14 @@ token_list Parser::get_definition_tokens(token_list &tokens) {
         }
     }
     // Move elements from the tokens vector to a new slice vector and remove all these elements from the tokens vector
-    token_list node_definition_tokens;
-    node_definition_tokens.reserve(end_index);
+    token_list definition_tokens;
+    definition_tokens.reserve(end_index);
     std::cout << "tokens size: " << tokens.size() << "\n";
     std::cout << "end_index: " << end_index << "\n";
-    std::cout << "definition size: " << node_definition_tokens.size() << "\n";
-    std::move(tokens.begin(), tokens.begin() + end_index, std::back_inserter(node_definition_tokens));
+    std::cout << "definition size: " << definition_tokens.size() << "\n";
+    std::move(tokens.begin(), tokens.begin() + end_index, std::back_inserter(definition_tokens));
     tokens.erase(tokens.begin(), tokens.begin() + end_index);
-    return node_definition_tokens;
+    return definition_tokens;
 }
 
 /// get_body_tokens
@@ -193,6 +194,44 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
     return body;
 }
 
+/// create_function
+///
 FunctionNode Parser::create_function(const token_list &definition, const token_list &body) {
+    return {};
+}
+
+/// create_data
+///
+DataNode Parser::create_data(const token_list &definition, const token_list &body) {
+    return {};
+}
+
+/// create_func
+///
+FuncNode Parser::create_func(const token_list &definition, const token_list &body) {
+    return {};
+}
+
+/// create_entity
+///
+EntityNode Parser::create_entity(const token_list &definition, const token_list &body) {
+    return {};
+}
+
+/// create_enum
+///
+EnumNode Parser::create_enum(const token_list &definition, const token_list &body) {
+    return {};
+}
+
+/// create_error
+///
+ErrorNode Parser::create_error(const token_list &definition, const token_list &body) {
+    return {};
+}
+
+/// create_variant
+///
+VariantNode Parser::create_variant(const token_list &definition, const token_list &body) {
     return {};
 }
