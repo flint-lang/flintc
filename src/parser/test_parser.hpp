@@ -5,7 +5,6 @@
 #include "../test_utils.hpp"
 
 #include <string>
-#include <functional>
 #include <vector>
 
 // --- THE SIGNATURE TESTS ---
@@ -1564,6 +1563,206 @@ namespace {
     }
 }
 
+// --- ERROR DEFINITION TESTS ---
+// --- MATCH TEST ERROR DEFINITION ---
+namespace {
+    int test_match_error_definition() {
+        print_test_name(2, "ERROR_DEFINITION TESTS:", true);
+        print_test_name(3, "ERROR_DEFINITION_MATCH:", true);
+        return 0;
+    }
+
+    int test_match_error_definition_normal() {
+        print_test_name(4, "test_match_error_definition_normal", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_ERROR, TOK_IDENTIFIER, TOK_COLON}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::error_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_match_error_definition_extending() {
+        print_test_name(4, "test_match_error_definition_extending", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::error_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- CONTAIN TEST ERROR DEFINITION ---
+namespace {
+    int test_contain_error_definition() {
+        print_test_name(3, "ERROR_DEFINITION_CONTAIN:", true);
+        return 0;
+    }
+
+    int test_contain_error_definition_normal() {
+        print_test_name(4, "test_contain_error_definition_normal", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::error_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_contain_error_definition_extending() {
+        print_test_name(4, "test_contain_error_definition_extending", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::error_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- EXTRACT TEST ERROR DEFINITION ---
+namespace {
+    int test_extract_error_definition() {
+        print_test_name(3, "ERROR_DEFINITION_EXTRACT:", true);
+        return 0;
+    }
+
+    int test_extract_error_definition_normal() {
+        print_test_name(4, "test_extract_error_definition_normal", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+           {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::error_definition);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_extract_error_definition_extending() {
+        print_test_name(4, "test_extract_error_definition_extending", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::error_definition);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+
+// --- ENUM DEFINITION TESTS ---
+// --- MATCH TEST ENUM DEFINITION ---
+namespace {
+    int test_match_enum_definition() {
+        print_test_name(2, "ENUM_DEFINITION TESTS:", true);
+        print_test_name(3, "ENUM_DEFINITION_MATCH:", true);
+        return 0;
+    }
+
+    int test_match_enum_definition_normal() {
+        print_test_name(4, "test_match_enum_definition_normal", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_ENUM, TOK_IDENTIFIER, TOK_COLON}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::enum_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- CONTAIN TEST ENUM DEFINITION ---
+namespace {
+    int test_contain_enum_definition() {
+        print_test_name(3, "ENUM_DEFINITION_CONTAIN:", true);
+        return 0;
+    }
+
+    int test_contain_enum_definition_normal() {
+        print_test_name(4, "test_contain_enum_definition_normal", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::enum_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- EXTRACT TEST ENUM DEFINITION ---
+namespace {
+    int test_extract_enum_definition() {
+        print_test_name(3, "ENUM_DEFINITION_EXTRACT:", true);
+        return 0;
+    }
+
+    int test_extract_enum_definition_normal() {
+        print_test_name(4, "test_extract_enum_definition_normal", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+           {TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::enum_definition);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+
+// --- VARIANT DEFINITION TESTS ---
+// --- MATCH TEST VARIANT DEFINITION ---
+namespace {
+    int test_match_variant_definition() {
+        print_test_name(2, "VARIANT_DEFINITION TESTS:", true);
+        print_test_name(3, "VARIANT_DEFINITION_MATCH:", true);
+        return 0;
+    }
+
+    int test_match_variant_definition_normal() {
+        print_test_name(4, "test_match_variant_definition_normal", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::variant_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- CONTAIN TEST VARIANT DEFINITION ---
+namespace {
+    int test_contain_variant_definition() {
+        print_test_name(3, "VARIANT_DEFINITION_CONTAIN:", true);
+        return 0;
+    }
+
+    int test_contain_variant_definition_normal() {
+        print_test_name(4, "test_contain_variant_definition_normal", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::variant_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- EXTRACT TEST VARIANT DEFINITION ---
+namespace {
+    int test_extract_variant_definition() {
+        print_test_name(3, "VARIANT_DEFINITION_EXTRACT:", true);
+        return 0;
+    }
+
+    int test_extract_variant_definition_normal() {
+        print_test_name(4, "test_extract_variant_definition_normal", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+        {TOK_INDENT, TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::variant_definition);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+
 int test_parser() {
     print_test_name(0, "PARSER_TESTS:", true);
     print_test_name(1, "SIGNATURE_TESTS:", true);
@@ -1771,6 +1970,42 @@ int test_parser() {
         test_extract_entity_definition_extends_single,
         test_extract_entity_definition_extends_multiple,
     };
+    function_list error_definition_tests = {
+        // Match Tests
+        test_match_error_definition,
+        test_match_error_definition_normal,
+        test_match_error_definition_extending,
+        // Contain Tests
+        test_contain_error_definition,
+        test_contain_error_definition_normal,
+        test_contain_error_definition_extending,
+        // Extract Tests
+        test_extract_error_definition,
+        test_extract_error_definition_normal,
+        test_extract_error_definition_extending,
+    };
+    function_list enum_definition_tests = {
+        // Match Tests
+        test_match_enum_definition,
+        test_match_enum_definition_normal,
+        // Contain Tests
+        test_contain_enum_definition,
+        test_contain_enum_definition_normal,
+        // Extract Tests
+        test_extract_enum_definition,
+        test_extract_enum_definition_normal,
+    };
+    function_list variant_definition_tests = {
+        // Match Tests
+        test_match_variant_definition,
+        test_match_variant_definition_normal,
+        // Contain Tests
+        test_contain_variant_definition,
+        test_contain_variant_definition_normal,
+        // Extract Tests
+        test_extract_variant_definition,
+        test_extract_variant_definition_normal,
+    };
 
     const std::vector<function_list> tests = {
         primary_tests,
@@ -1782,7 +2017,10 @@ int test_parser() {
         function_definition_tests,
         data_definition_tests,
         func_definition_tests,
-        entity_definition_tests
+        entity_definition_tests,
+        error_definition_tests,
+        enum_definition_tests,
+        variant_definition_tests,
     };
     return run_all_tests(tests);
 }

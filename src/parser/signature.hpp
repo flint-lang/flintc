@@ -46,7 +46,7 @@ namespace Signature {
     const signature entity_definition = combine({
         {TOK_ENTITY, TOK_IDENTIFIER, "(", TOK_EXTENDS, TOK_LEFT_PAREN}, no_prim_args, {TOK_RIGHT_PAREN, ")?", TOK_COLON}
     });
-    const signature error_definition = {TOK_ERROR, TOK_IDENTIFIER, "(", TOK_IDENTIFIER,")?", TOK_COLON};
+    const signature error_definition = {TOK_ERROR, TOK_IDENTIFIER, "(", TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, ")?", TOK_COLON};
     const signature enum_definition = {TOK_ENUM, TOK_IDENTIFIER, TOK_COLON};
     const signature variant_definition = {TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON};
 
