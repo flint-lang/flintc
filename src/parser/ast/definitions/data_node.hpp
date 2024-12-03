@@ -11,6 +11,7 @@
 ///     Represents data definitions
 class DataNode : public ASTNode {
     public:
+        DataNode() = default;
         DataNode(bool is_shared,
             bool is_immutable,
             bool is_aligned,
@@ -28,13 +29,13 @@ class DataNode : public ASTNode {
     private:
         /// is_shared
         ///     Determines whether the data is shared between multiple entities
-        bool is_shared;
+        bool is_shared{false};
         /// is_immutable
         ///     Determines whether the data is immutable. Immutable data is automatically shared too.
-        bool is_immutable;
+        bool is_immutable{false};
         /// is_aligned
         ///     Determines whether the data is aligned to cache-lines
-        bool is_aligned;
+        bool is_aligned{false};
         /// name
         ///     The name of the data module
         std::string name;

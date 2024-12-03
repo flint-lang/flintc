@@ -10,16 +10,16 @@
 #include "ast/definitions/func_node.hpp"
 #include "ast/definitions/function_node.hpp"
 #include "ast/definitions/import_node.hpp"
+#include "ast/definitions/link_node.hpp"
 #include "ast/definitions/variant_node.hpp"
 #include "ast/node_type.hpp"
 #include "ast/program_node.hpp"
-
-#include "../debug.hpp"
 #include "ast/statements/statement_node.hpp"
 #include "signature.hpp"
 
 #include <algorithm>
 #include <cassert>
+#include <optional>
 #include <vector>
 #include <string>
 #include <iterator>
@@ -86,8 +86,12 @@ void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
         }
         case NodeType::ENTITY: {
             token_list body_tokens = get_body_tokens(definition_indentation, tokens);
-            EntityNode entity_node = create_entity(definition_tokens, body_tokens);
-            program.add_entity(entity_node);
+            std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> entity_creation = create_entity(definition_tokens, body_tokens);
+            program.add_entity(entity_creation.first);
+            if(entity_creation.second.has_value()) {
+                program.add_data(entity_creation.second.value().first);
+                program.add_func(entity_creation.second.value().second);
+            }
             break;
         }
         case NodeType::ENUM: {
@@ -379,8 +383,145 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
 /// create_entity
 ///     Creates an EntityNode from the given definition and body tokens.
 ///     An Entity can either be monolithic or modular.
-EntityNode Parser::create_entity(const token_list &definition, const token_list &body) {
-    return {};
+///     If its modular, only the EntityNode (result.first) will be returned
+///     If it is monolithic, the data and func content will be
+std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> Parser::create_entity(const token_list &definition, token_list &body) {
+    bool is_modular = Signature::tokens_match(body, Signature::entity_body);
+    std::string name;
+    std::vector<std::string> data_modules;
+    std::vector<std::string> func_modules;
+    std::vector<LinkNode> link_nodes;
+    std::vector<std::pair<std::string, std::string>> parent_entities;
+    std::vector<std::string> constructor_order;
+    std::optional<std::pair<DataNode, FuncNode>> monolithic_nodes = std::nullopt;
+
+    auto definition_iterator = definition.begin();
+    bool extract_parents = false;
+    while (definition_iterator != definition.end()) {
+        if(definition_iterator->type == TOK_ENTITY && (definition_iterator + 1)->type == TOK_IDENTIFIER) {
+            name = (definition_iterator + 1)->lexme;
+        }
+        if(definition_iterator->type == TOK_LEFT_PAREN
+            && (definition_iterator + 1)->type == TOK_IDENTIFIER) {
+                extract_parents = true;
+                ++definition_iterator;
+            }
+        if(extract_parents && definition_iterator->type == TOK_IDENTIFIER && (definition_iterator + 1)->type == TOK_IDENTIFIER) {
+            parent_entities.emplace_back(
+                definition_iterator->lexme,
+                (definition_iterator + 1)->lexme
+            );
+        }
+        ++definition_iterator;
+    }
+
+    if(is_modular) {
+        bool extracting_data = false;
+        bool extracting_func = false;
+        auto body_iterator = body.begin();
+        while (body_iterator != body.end()) {
+            if(body_iterator->type == TOK_DATA) {
+                extracting_data = true;
+            } else if(body_iterator->type == TOK_FUNC) {
+                extracting_func = true;
+            } else if(body_iterator->type == TOK_LINK) {
+                unsigned int link_indentation = Signature::get_leading_indents(body, body_iterator->line).value();
+                // copy all tokens from the body after the link declaration
+                token_list tokens_after_link;
+                tokens_after_link.reserve(body.size() - std::distance(body.begin(), body_iterator + 2));
+                std::copy(body_iterator + 2, body.end(), tokens_after_link.begin());
+                token_list link_tokens = get_body_tokens(link_indentation, tokens_after_link);
+                link_nodes = create_links(link_tokens);
+            }
+
+            if(extracting_data) {
+                if(body_iterator->type == TOK_IDENTIFIER) {
+                    data_modules.emplace_back(body_iterator->lexme);
+                    if((body_iterator + 1)->type == TOK_SEMICOLON) {
+                        extracting_data = false;
+                    }
+                }
+            } else if(extracting_func) {
+                if(body_iterator->type == TOK_IDENTIFIER) {
+                    func_modules.emplace_back(body_iterator->lexme);
+                    if((body_iterator + 1)->type == TOK_SEMICOLON) {
+                        extracting_func = false;
+                    }
+                }
+            }
+            ++body_iterator;
+        }
+    } else {
+        DataNode data_node;
+        FuncNode func_node;
+        auto body_iterator = body.begin();
+        while (body_iterator != body.end()) {
+            if(body_iterator->type == TOK_DATA) {
+                unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
+                token_list data_body = get_body_tokens(leading_indents, body);
+                token_list data_definition = {TokenContext{TOK_DATA, "", 0}, TokenContext{TOK_IDENTIFIER, name + "__D", 0}};
+                data_node = create_data(data_definition, data_body);
+                data_modules.emplace_back(name + "__D");
+            } else if (body_iterator->type == TOK_FUNC) {
+                unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
+                token_list func_body = get_body_tokens(leading_indents, body);
+                token_list func_definition = {TokenContext{TOK_FUNC, "", 0}, TokenContext{TOK_IDENTIFIER, name + "__F", 0}};
+                func_node = create_func(func_definition, func_body);
+                func_modules.emplace_back(name + "__F");
+            }
+            ++body_iterator;
+        }
+    }
+
+    std::pair<unsigned int, unsigned int> constructor_token_ids = Signature::extract_matches(body, Signature::entity_body_constructor).at(0);
+    for(unsigned int i = constructor_token_ids.first; i < constructor_token_ids.second; i++) {
+        if(body.at(i).type == TOK_IDENTIFIER) {
+            if(body.at(i + 1).type == TOK_LEFT_PAREN
+                && body.at(i).lexme != name) {
+                throw_err(ERR_ENTITY_CONSTRUCTOR_NAME_DOES_NOT_MATCH_ENTITY_NAME);
+            }
+            constructor_order.emplace_back(body.at(i).lexme);
+        }
+    }
+
+    EntityNode entity(name, data_modules, func_modules, link_nodes, parent_entities, constructor_order);
+    return {entity, monolithic_nodes};
+}
+
+/// create_links
+///     Creates a list of LinkNode's from a given body containing those links
+std::vector<LinkNode> Parser::create_links(token_list &body) {
+    std::vector<LinkNode> links;
+
+    std::vector<std::pair<unsigned int, unsigned int>> link_matches = Signature::extract_matches(body, Signature::entity_body_link);
+    for(std::pair<unsigned int, unsigned int> link_match : link_matches) {
+        links.emplace_back(create_link(body));
+    }
+
+    return links;
+}
+
+/// create_link
+///     Creates a LinkNode from the given tokens.
+LinkNode Parser::create_link(const token_list &tokens) {
+    std::vector<std::string> from_references;
+    std::vector<std::string> to_references;
+
+    std::vector<std::pair<unsigned int, unsigned int>> references = Signature::extract_matches(tokens, Signature::reference);
+
+    for(unsigned int i = references.at(0).first; i < references.at(0).second; i++) {
+        if(tokens.at(i).type == TOK_IDENTIFIER) {
+            from_references.emplace_back(tokens.at(i).lexme);
+        }
+    }
+    for(unsigned int i = references.at(1).first; i < references.at(1).second; i++) {
+        if(tokens.at(i).type == TOK_IDENTIFIER) {
+            to_references.emplace_back(tokens.at(i).lexme);
+        }
+    }
+
+    LinkNode link(from_references, to_references);
+    return link;
 }
 
 /// create_enum

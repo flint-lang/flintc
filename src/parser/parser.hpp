@@ -9,9 +9,13 @@
 #include "ast/definitions/data_node.hpp"
 #include "ast/definitions/func_node.hpp"
 #include "ast/definitions/entity_node.hpp"
+#include "ast/definitions/link_node.hpp"
 #include "ast/definitions/variant_node.hpp"
 #include "ast/program_node.hpp"
 #include "ast/statements/statement_node.hpp"
+
+#include <utility>
+#include <optional>
 
 class Parser {
     public:
@@ -29,7 +33,9 @@ class Parser {
         static FunctionNode create_function(const token_list &definition, const token_list &body);
         static DataNode create_data(const token_list &definition, const token_list &body);
         static FuncNode create_func(const token_list &definition, token_list &body);
-        static EntityNode create_entity(const token_list &definition, const token_list &body);
+        static std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> create_entity(const token_list &definition, token_list &body);
+        static std::vector<LinkNode> create_links(token_list &body);
+        static LinkNode create_link(const token_list &tokens);
         static EnumNode create_enum(const token_list &definition, const token_list &body);
         static ErrorNode create_error(const token_list &definition, const token_list &body);
         static VariantNode create_variant(const token_list &definition, const token_list &body);

@@ -23,6 +23,7 @@ namespace Signature {
     std::optional<std::pair<unsigned int, unsigned int>> get_line_token_indices(const token_list &tokens, unsigned int line);
 
     // --- BASIC SIGNATURES ---
+    const signature anytoken = {"#-?..#"};
     const signature type_prim = {"((", TOK_INT, ")|(", TOK_FLINT, ")|(", TOK_STR, ")|(", TOK_CHAR, ")|(", TOK_BOOL, "))"};
     const signature type = combine({
         {"("}, type_prim, {"|(", TOK_IDENTIFIER, "))"}
@@ -45,12 +46,30 @@ namespace Signature {
     const signature func_definition = combine({
         {TOK_FUNC, TOK_IDENTIFIER, "(", TOK_REQUIRES, TOK_LEFT_PAREN}, no_prim_args, {TOK_RIGHT_PAREN, ")?", TOK_COLON}
     });
-    const signature entity_definition = combine({
-        {TOK_ENTITY, TOK_IDENTIFIER, "(", TOK_EXTENDS, TOK_LEFT_PAREN}, no_prim_args, {TOK_RIGHT_PAREN, ")?", TOK_COLON}
-    });
     const signature error_definition = {TOK_ERROR, TOK_IDENTIFIER, "(", TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, ")?", TOK_COLON};
     const signature enum_definition = {TOK_ENUM, TOK_IDENTIFIER, TOK_COLON};
     const signature variant_definition = {TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON};
+
+    // --- ENTITY DEFINITION ---
+    const signature entity_definition = combine({
+        {TOK_ENTITY, TOK_IDENTIFIER, "(", TOK_EXTENDS, TOK_LEFT_PAREN}, no_prim_args, {TOK_RIGHT_PAREN, ")?", TOK_COLON}
+    });
+    const signature entity_body_data = combine({
+        {TOK_DATA, TOK_COLON, "("}, anytoken, {")*", TOK_IDENTIFIER, "(", TOK_COMMA, TOK_IDENTIFIER, ")*", TOK_SEMICOLON}
+    });
+    const signature entity_body_func = combine({
+        {TOK_FUNC, TOK_COLON, "("}, anytoken, {")*", TOK_IDENTIFIER, "(", TOK_COMMA, TOK_IDENTIFIER, ")*", TOK_SEMICOLON}
+    });
+    const signature entity_body_link = combine({
+        reference, {TOK_ARROW}, reference, {TOK_SEMICOLON}
+    });
+    const signature entity_body_links = combine({
+        {TOK_LINK, TOK_COLON, "("}, anytoken, {")*("}, entity_body_link, {"("}, anytoken,{")*)+"}
+    });
+    const signature entity_body_constructor = {TOK_IDENTIFIER, TOK_LEFT_PAREN, "(", TOK_IDENTIFIER, "(", TOK_COMMA, TOK_IDENTIFIER, ")*)?", TOK_RIGHT_PAREN, TOK_SEMICOLON};
+    const signature entity_body = combine({
+        {"("}, entity_body_data, {")?("}, anytoken, {")*("}, entity_body_func, {")?("}, anytoken, {")*("}, entity_body_links, {")?("}, anytoken, {")*"}, entity_body_constructor
+    });
 
     // --- STATEMENTS ---
     const signature initialization = combine({
