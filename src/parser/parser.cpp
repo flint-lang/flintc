@@ -457,6 +457,7 @@ std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> Parser::crea
         auto body_iterator = body.begin();
         while (body_iterator != body.end()) {
             if(body_iterator->type == TOK_DATA) {
+                // TODO: Add a generic constructor for the data module
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
                 token_list data_body = get_body_tokens(leading_indents, body);
                 token_list data_definition = {TokenContext{TOK_DATA, "", 0}, TokenContext{TOK_IDENTIFIER, name + "__D", 0}};
@@ -465,7 +466,17 @@ std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> Parser::crea
             } else if (body_iterator->type == TOK_FUNC) {
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
                 token_list func_body = get_body_tokens(leading_indents, body);
-                token_list func_definition = {TokenContext{TOK_FUNC, "", 0}, TokenContext{TOK_IDENTIFIER, name + "__F", 0}};
+                token_list func_definition = {
+                    TokenContext{TOK_FUNC},
+                    TokenContext{TOK_IDENTIFIER, name + "__F"},
+                    TokenContext{TOK_REQUIRES},
+                    TokenContext{TOK_LEFT_PAREN},
+                    TokenContext{TOK_IDENTIFIER, name + "__D"},
+                    TokenContext{TOK_IDENTIFIER, "d"},
+                    TokenContext{TOK_RIGHT_PAREN},
+                    TokenContext{TOK_COLON}
+                };
+                // TODO: change the functions accesses to the data by placing "d." in front of every variable access.
                 func_node = create_func(func_definition, func_body);
                 func_modules.emplace_back(name + "__F");
             }
