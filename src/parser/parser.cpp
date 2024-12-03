@@ -386,7 +386,33 @@ EntityNode Parser::create_entity(const token_list &definition, const token_list 
 /// create_enum
 ///     Creates an EnumNode from the given definition and body tokens.
 EnumNode Parser::create_enum(const token_list &definition, const token_list &body) {
-    return {};
+    std::string name;
+    std::vector<std::string> values;
+
+    auto definition_iterator = definition.begin();
+    while (definition_iterator != definition.end()) {
+        if(definition_iterator->type == TOK_ENUM && (definition_iterator + 1)->type == TOK_IDENTIFIER) {
+            name = (definition_iterator + 1)->lexme;
+            break;
+        }
+    }
+
+    auto body_iterator = body.begin();
+    while(body_iterator != body.end()) {
+        if(body_iterator->type == TOK_IDENTIFIER) {
+            if((body_iterator + 1)->type == TOK_COMMA) {
+                values.emplace_back(body_iterator->lexme);
+            } else if((body_iterator + 1)->type == TOK_SEMICOLON) {
+                values.emplace_back(body_iterator->lexme);
+                break;
+            } else {
+                throw_err(ERR_UNEXPECTED_TOKEN);
+            }
+        }
+    }
+
+    EnumNode enum_node(name, values);
+    return enum_node;
 }
 
 /// create_error
