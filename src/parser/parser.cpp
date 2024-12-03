@@ -418,7 +418,41 @@ EnumNode Parser::create_enum(const token_list &definition, const token_list &bod
 /// create_error
 ///     Creates an ErrorNode from the given definition and body tokens.
 ErrorNode Parser::create_error(const token_list &definition, const token_list &body) {
-    return {};
+    std::string name;
+    std::string parent_error;
+    std::vector<std::string> error_types;
+
+    auto definition_iterator = definition.begin();
+    while (definition_iterator != definition.end()) {
+        if(definition_iterator->type == TOK_ERROR && (definition_iterator + 1)->type == TOK_IDENTIFIER) {
+            name = (definition_iterator + 1)->lexme;
+        }
+        if(definition_iterator->type == TOK_LEFT_PAREN) {
+            if((definition_iterator + 1)->type == TOK_IDENTIFIER
+            && (definition_iterator + 2)->type == TOK_RIGHT_PAREN) {
+                parent_error = (definition_iterator + 1)->lexme;
+                break;
+            }
+            throw_err(ERR_CAN_ONLY_EXTEND_FROM_SINGLE_ERROR_SET);
+        }
+    }
+
+    auto body_iterator = body.begin();
+    while(body_iterator != body.end()) {
+        if(body_iterator->type == TOK_IDENTIFIER) {
+            if((body_iterator + 1)->type == TOK_COMMA) {
+                error_types.emplace_back(body_iterator->lexme);
+            } else if((body_iterator + 1)->type == TOK_SEMICOLON) {
+                error_types.emplace_back(body_iterator->lexme);
+                break;
+            } else {
+                throw_err(ERR_UNEXPECTED_TOKEN);
+            }
+        }
+    }
+
+    ErrorNode error(name, parent_error, error_types);
+    return error;
 }
 
 /// create_variant
