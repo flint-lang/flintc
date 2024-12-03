@@ -4,13 +4,37 @@
 #include "../ast_node.hpp"
 
 #include <string>
+#include <vector>
+#include <utility>
 
 /// DataNode
 ///     Represents data definitions
 class DataNode : public ASTNode {
     public:
-
+        DataNode(bool is_shared,
+            bool is_immutable,
+            bool is_aligned,
+            std::string &name,
+            std::vector<std::pair<std::string, std::string>> &fields,
+            std::vector<std::pair<std::string, std::string>> &default_values,
+            std::vector<std::string> &order)
+            : is_shared(is_shared),
+            is_immutable(is_immutable),
+            is_aligned(is_aligned),
+            name(name),
+            fields(std::move(fields)),
+            default_values(std::move(default_values)),
+            order(std::move(order)) {}
     private:
+        /// is_shared
+        ///     Determines whether the data is shared between multiple entities
+        bool is_shared;
+        /// is_immutable
+        ///     Determines whether the data is immutable. Immutable data is automatically shared too.
+        bool is_immutable;
+        /// is_aligned
+        ///     Determines whether the data is aligned to cache-lines
+        bool is_aligned;
         /// name
         ///     The name of the data module
         std::string name;

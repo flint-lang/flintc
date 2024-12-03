@@ -207,9 +207,9 @@ FunctionNode Parser::create_function(const token_list &definition, const token_l
     std::string name;
     std::vector<std::pair<std::string, std::string>> parameters;
     std::vector<std::string> return_types;
-
     bool is_aligned = false;
     bool is_const = false;
+
     bool begin_params = false;
     bool begin_returns = false;
     auto tok_iterator = definition.begin();
@@ -261,7 +261,69 @@ FunctionNode Parser::create_function(const token_list &definition, const token_l
 /// create_data
 ///     Creates a DataNode from the given definition and body tokens.
 DataNode Parser::create_data(const token_list &definition, const token_list &body) {
-    return {};
+    bool is_shared = false;
+    bool is_immutable = false;
+    bool is_aligned = false;
+    std::string name;
+
+    std::vector<std::pair<std::string, std::string>> fields;
+    std::vector<std::pair<std::string, std::string>> default_values;
+    std::vector<std::string> order;
+
+    auto definition_iterator = definition.begin();
+    while (definition_iterator != definition.end()) {
+        if(definition_iterator->type == TOK_SHARED) {
+            is_shared = true;
+        }
+        if(definition_iterator->type == TOK_IMMUTABLE) {
+            is_immutable = true;
+            // immutable data is shared by default
+            is_shared = true;
+        }
+        if(definition_iterator->type == TOK_ALIGNED) {
+            is_aligned = true;
+        }
+        if(definition_iterator->type == TOK_DATA) {
+            name = (definition_iterator + 1)->lexme;
+        }
+        ++definition_iterator;
+    }
+
+    auto body_iterator = body.begin();
+    bool parsing_constructor = false;
+    while (body_iterator != body.end()) {
+        if(Signature::tokens_match({TokenContext{body_iterator->type, "", 0}}, Signature::type) && (body_iterator + 1)->type == TOK_IDENTIFIER) {
+            fields.emplace_back(
+                body_iterator->lexme,
+                (body_iterator + 1)->lexme
+            );
+            if((body_iterator + 2)->type == TOK_EQUAL) {
+                default_values.emplace_back(
+                    (body_iterator + 1)->lexme,
+                    (body_iterator + 3)->lexme
+                );
+            }
+        }
+
+        if(body_iterator->type == TOK_IDENTIFIER && (body_iterator + 1)->type == TOK_LEFT_PAREN) {
+            if(body_iterator->lexme != name) {
+                throw_err(ERR_CONSTRUCTOR_NAME_DOES_NOT_MATCH_DATA_NAME);
+            }
+            parsing_constructor = true;
+            ++body_iterator;
+        }
+        if(parsing_constructor && body_iterator->type == TOK_IDENTIFIER) {
+            order.emplace_back(body_iterator->lexme);
+        }
+        if(body_iterator->type == TOK_RIGHT_PAREN) {
+            break;
+        }
+
+        ++body_iterator;
+    }
+
+    DataNode data(is_shared, is_immutable, is_aligned, name, fields, default_values, order);
+    return data;
 }
 
 /// create_func

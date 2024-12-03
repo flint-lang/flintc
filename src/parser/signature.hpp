@@ -41,7 +41,7 @@ namespace Signature {
     const signature function_definition = combine({
         {"(", TOK_ALIGNED, ")?", "(", TOK_CONST, ")?", TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, args, {")?", TOK_RIGHT_PAREN, "((", TOK_ARROW}, group, {TOK_COLON, ")|(", TOK_ARROW}, type, {TOK_COLON, ")|(", TOK_COLON, "))"}
     });
-    const signature data_definition = {"((", TOK_SHARED, ")|(", TOK_IMMUTABLE, ")|(", TOK_ALIGNED, "))?", TOK_DATA, TOK_IDENTIFIER, TOK_COLON};
+    const signature data_definition = {"((", TOK_SHARED, ")|(", TOK_IMMUTABLE, "))?(", TOK_ALIGNED, ")?", TOK_DATA, TOK_IDENTIFIER, TOK_COLON};
     const signature func_definition = combine({
         {TOK_FUNC, TOK_IDENTIFIER, "(", TOK_REQUIRES, TOK_LEFT_PAREN}, no_prim_args, {TOK_RIGHT_PAREN, ")?", TOK_COLON}
     });
