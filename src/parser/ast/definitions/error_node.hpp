@@ -4,6 +4,8 @@
 #include "../ast_node.hpp"
 
 #include <string>
+#include <vector>
+#include <utility>
 
 /// ErrorNode
 ///     Represents error definitions

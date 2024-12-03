@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <string>
+#include <utility>
 
 /// EnumNode
 ///     Represents enum type definitions

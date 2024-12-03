@@ -395,6 +395,7 @@ EnumNode Parser::create_enum(const token_list &definition, const token_list &bod
             name = (definition_iterator + 1)->lexme;
             break;
         }
+        ++definition_iterator;
     }
 
     auto body_iterator = body.begin();
@@ -409,6 +410,7 @@ EnumNode Parser::create_enum(const token_list &definition, const token_list &bod
                 throw_err(ERR_UNEXPECTED_TOKEN);
             }
         }
+        ++body_iterator;
     }
 
     EnumNode enum_node(name, values);
@@ -435,6 +437,7 @@ ErrorNode Parser::create_error(const token_list &definition, const token_list &b
             }
             throw_err(ERR_CAN_ONLY_EXTEND_FROM_SINGLE_ERROR_SET);
         }
+        ++definition_iterator;
     }
 
     auto body_iterator = body.begin();
@@ -449,6 +452,7 @@ ErrorNode Parser::create_error(const token_list &definition, const token_list &b
                 throw_err(ERR_UNEXPECTED_TOKEN);
             }
         }
+        ++body_iterator;
     }
 
     ErrorNode error(name, parent_error, error_types);
@@ -458,5 +462,34 @@ ErrorNode Parser::create_error(const token_list &definition, const token_list &b
 /// create_variant
 ///     Creates a VariantNode from the given definition and body tokens.
 VariantNode Parser::create_variant(const token_list &definition, const token_list &body) {
-    return {};
+    std::string name;
+    std::vector<std::string> possible_types;
+
+    auto definition_iterator = definition.begin();
+    while(definition_iterator != definition.end()) {
+        if(definition_iterator->type == TOK_VARIANT
+            && (definition_iterator + 1)->type == TOK_IDENTIFIER) {
+            name = (definition_iterator + 1)->lexme;
+            break;
+        }
+        ++definition_iterator;
+    }
+
+    auto body_iterator = body.begin();
+    while (body_iterator != body.end()) {
+        if(body_iterator->type == TOK_IDENTIFIER) {
+            if((body_iterator + 1)->type == TOK_COMMA) {
+                possible_types.emplace_back(body_iterator->lexme);
+            } else if((body_iterator + 1)->type == TOK_SEMICOLON) {
+                possible_types.emplace_back(body_iterator->lexme);
+                break;
+            } else {
+                throw_err(ERR_UNEXPECTED_TOKEN);
+            }
+        }
+        ++body_iterator;
+    }
+
+    VariantNode variant(name, possible_types);
+    return variant;
 }
