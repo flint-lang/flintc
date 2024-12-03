@@ -26,9 +26,6 @@
 
 /// parse_file
 ///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to the passed main ProgramNode
-using Signature::get_line_token_indices;
-using Signature::tokens_contain;
-
 void Parser::parse_file(ProgramNode &program, std::string &file)
 {
     token_list tokens = Lexer(file).scan();
@@ -211,10 +208,18 @@ FunctionNode Parser::create_function(const token_list &definition, const token_l
     std::vector<std::pair<std::string, std::string>> parameters;
     std::vector<std::string> return_types;
 
+    bool is_aligned = false;
+    bool is_const = false;
     bool begin_params = false;
     bool begin_returns = false;
     auto tok_iterator = definition.begin();
     while(tok_iterator != definition.end()) {
+        if(tok_iterator->type == TOK_ALIGNED) {
+            is_aligned = true;
+        }
+        if(tok_iterator->type == TOK_CONST && name.empty()) {
+            is_const = true;
+        }
         // Finding the function name
         if(tok_iterator->type == TOK_DEF) {
             name = (tok_iterator + 1)->lexme;
@@ -249,7 +254,7 @@ FunctionNode Parser::create_function(const token_list &definition, const token_l
         ++tok_iterator;
     }
     std::vector<StatementNode> body_node = create_body(body);
-    FunctionNode function(name, parameters, return_types, body_node);
+    FunctionNode function(is_aligned, is_const, name, parameters, return_types, body_node);
     return function;
 }
 
