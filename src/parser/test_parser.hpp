@@ -1701,7 +1701,7 @@ namespace {
         );
         std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::extract_matches(tokens, Signature::enum_definition);
         bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         ok_or_not(result);
         return result ? 0 : 1;
     }

@@ -14,7 +14,12 @@
 #include "ast/definitions/variant_node.hpp"
 #include "ast/node_type.hpp"
 #include "ast/program_node.hpp"
+#include "ast/statements/assignment_node.hpp"
+#include "ast/statements/declaration_node.hpp"
+#include "ast/statements/for_loop_node.hpp"
+#include "ast/statements/if_node.hpp"
 #include "ast/statements/statement_node.hpp"
+#include "ast/statements/while_node.hpp"
 #include "signature.hpp"
 
 #include <algorithm>
@@ -54,6 +59,7 @@ void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
     }
 
     switch(next_type) {
+        default:
         case NodeType::NONE: {
             throw_err(ERR_UNEXPECTED_DEFINITION);
             break;
@@ -142,6 +148,39 @@ NodeType Parser::what_is_this(const token_list &tokens) {
     if (Signature::tokens_contain(tokens, Signature::use_statement)) {
         return NodeType::IMPORT;
     }
+    if (Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
+        return NodeType::DECL_EXPLICIT;
+    }
+    if (Signature::tokens_contain(tokens, Signature::declaration_infered)) {
+        return NodeType::DECL_INFERED;
+    }
+    if (Signature::tokens_contain(tokens, Signature::assignment)) {
+        return NodeType::ASSIGNMENT;
+    }
+    if (Signature::tokens_contain(tokens, Signature::for_loop)) {
+        return NodeType::FOR_LOOP;
+    }
+    if (Signature::tokens_contain(tokens, Signature::enhanced_for_loop)) {
+        return NodeType::ENH_FOR_LOOP;
+    }
+    if (Signature::tokens_contain(tokens, Signature::par_for_loop)) {
+        return NodeType::PAR_FOR_LOOP;
+    }
+    if (Signature::tokens_contain(tokens, Signature::while_loop)) {
+        return NodeType::WHILE_LOOP;
+    }
+    if (Signature::tokens_contain(tokens, Signature::if_statement)) {
+        return NodeType::IF;
+    }
+    if (Signature::tokens_contain(tokens, Signature::else_if_statement)) {
+        return NodeType::ELSE_IF;
+    }
+    if (Signature::tokens_contain(tokens, Signature::else_statement)) {
+        return NodeType::ELSE;
+    }
+    if (Signature::tokens_contain(tokens, Signature::return_statement)) {
+        return NodeType::RETURN;
+    }
     return NodeType::NONE;
 }
 
@@ -197,17 +236,144 @@ token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_lis
     return extraction;
 }
 
+/// create_if
+std::optional<IfNode> Parser::create_if(const token_list &tokens) {
+
+}
+
+/// create_while_loop
+///
+std::optional<WhileNode> Parser::create_while_loop(const token_list &tokens) {
+
+}
+
+/// create_for_loop
+///
+std::optional<ForLoopNode> Parser::create_for_loop(const token_list &tokens, const bool &is_enhanced) {
+
+}
+
+/// create_assignment
+///
+std::optional<AssignmentNode> Parser::create_assignment(const token_list &tokens) {
+
+}
+
+/// create_declaration_statement
+///
+std::optional<DeclarationNode> Parser::create_declaration_statement(const token_list &tokens, const bool &is_infered) {
+
+}
+
+/// create_statement
+///     Creates a statement from the given list of tokens
+std::optional<StatementNode> Parser::create_statement(const token_list &tokens) {
+    NodeType statement_type = what_is_this(tokens);
+    std::optional<StatementNode> statement_node = std::nullopt;
+
+    switch(statement_type) {
+        default:
+        case NodeType::NONE: {
+            throw_err(ERR_UNDEFINED_STATEMENT);
+            break;
+        }
+        case NodeType::DECL_EXPLICIT: {
+            std::optional<DeclarationNode> decl = create_declaration_statement(tokens, false);
+            if(decl.has_value()) {
+                statement_node = decl.value();
+            } else {
+                throw_err(ERR_PARSING);
+            }
+            break;
+        }
+        case NodeType::DECL_INFERED: {
+            std::optional<DeclarationNode> decl = create_declaration_statement(tokens, true);
+            if(decl.has_value()) {
+                statement_node = decl.value();
+            } else {
+                throw_err(ERR_PARSING);
+            }
+            break;
+        }
+        case NodeType::ASSIGNMENT: {
+            std::optional<AssignmentNode> assign = create_assignment(tokens);
+            if(assign.has_value()) {
+                statement_node = assign.value();
+            } else {
+                throw_err(ERR_PARSING);
+            }
+            break;
+        }
+        case NodeType::FOR_LOOP: {
+            std::optional<ForLoopNode> for_loop = create_for_loop(tokens, false);
+            if(for_loop.has_value()) {
+                statement_node = for_loop.value();
+            } else {
+                throw_err(ERR_PARSING);
+            }
+            break;
+        }
+        case NodeType::PAR_FOR_LOOP:
+        case NodeType::ENH_FOR_LOOP: {
+            std::optional<ForLoopNode> enh_for_loop = create_for_loop(tokens, true);
+            if(enh_for_loop.has_value()) {
+                statement_node = enh_for_loop.value();
+            } else {
+                throw_err(ERR_PARSING);
+            }
+            break;
+        }
+        case NodeType::WHILE_LOOP: {
+            std::optional<WhileNode> while_loop = create_while_loop(tokens);
+            if(while_loop.has_value()) {
+                statement_node = while_loop.value();
+            } else {
+                throw_err(ERR_PARSING);
+            }
+            break;
+        }
+        case NodeType::IF:
+        case NodeType::ELSE_IF:
+        case NodeType::ELSE: {
+            std::optional<IfNode> if_node = create_if(tokens);
+            if(if_node.has_value()) {
+                statement_node = if_node.value();
+            } else {
+                throw_err(ERR_PARSING);
+            }
+        }
+    }
+
+    return statement_node;
+}
+
 /// create_body
 ///     Creates a body containing of multiple statement nodes from a list of tokens
-std::vector<StatementNode> Parser::create_body(const token_list &body) {
+std::vector<StatementNode> Parser::create_body(token_list &body) {
     std::vector<StatementNode> body_statements;
+
+    const Signature::signature statement_signature = Signature::match_until_signature({TOK_SEMICOLON});
+
+    const std::vector<std::pair<unsigned int, unsigned int>> statements = Signature::extract_matches(body, statement_signature);
+
+    for(std::pair<unsigned int, unsigned int> statement : statements) {
+        const token_list statement_tokens = extract_from_to(statement.first, statement.second, body);
+        std::optional<StatementNode> next_statement = create_statement(statement_tokens);
+        if(next_statement.has_value()) {
+            body_statements.emplace_back(
+                next_statement.value()
+            );
+        } else {
+            throw_err(ERR_UNDEFINED_STATEMENT);
+        }
+    }
 
     return body_statements;
 }
 
 /// create_function
 ///     Creates a FunctionNode from the given definiton tokens of the FunctionNode as well as its body. Will cause additional creation of AST Nodes for the body
-FunctionNode Parser::create_function(const token_list &definition, const token_list &body) {
+FunctionNode Parser::create_function(const token_list &definition, token_list &body) {
     std::string name;
     std::vector<std::pair<std::string, std::string>> parameters;
     std::vector<std::string> return_types;
@@ -384,7 +550,7 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
 ///     Creates an EntityNode from the given definition and body tokens.
 ///     An Entity can either be monolithic or modular.
 ///     If its modular, only the EntityNode (result.first) will be returned
-///     If it is monolithic, the data and func content will be
+///     If it is monolithic, the data and func content will be returned within the optional pair
 std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> Parser::create_entity(const token_list &definition, token_list &body) {
     bool is_modular = Signature::tokens_match(body, Signature::entity_body);
     std::string name;

@@ -81,6 +81,15 @@ namespace Signature {
         return matches;
     }
 
+    /// match_until_signature
+    ///     Creates a new signature where all token matches that are _not_ the given signature are matched until finnally the given signature is matched. Each "not until" match can be extracted separately.
+    ///     This function will be primarily used for extracting statements ('[^;]*;') matches
+    signature match_until_signature(const signature &signature) {
+        return combine({
+            {"((?:(?!"}, signature, {").)*"}, signature, {")"}
+        });
+    }
+
     /// stringify
     ///     makes a vector of TokenContexts to a string that can be checked by regex
     std::string stringify(const token_list &tokens) {

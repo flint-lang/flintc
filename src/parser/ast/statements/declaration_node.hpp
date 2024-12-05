@@ -5,23 +5,23 @@
 #include "../expressions/expression_node.hpp"
 
 #include <string>
-#include <memory>
 
 /// DeclarationNode
 ///     Represents variable or data declarations
 class DeclarationNode : public StatementNode {
     public:
-
+        DeclarationNode(std::string &type, std::string &name, ExpressionNode &initializer)
+        : type(type), name(name), initializer(initializer) {}
     private:
-        /// var_name
-        ///     The name of the variable
-        std::string var_name;
         /// var_type
         ///     The type of the variable
-        std::string var_type;
+        std::string type;
+        /// var_name
+        ///     The name of the variable
+        std::string name;
         /// initializer
         ///     The initial value
-        std::shared_ptr<ExpressionNode> initializer;
+        ExpressionNode initializer;
 };
 
 #endif

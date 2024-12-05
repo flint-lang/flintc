@@ -18,6 +18,7 @@ namespace Signature {
     bool tokens_contain(const token_list &tokens, const signature &signature);
     bool tokens_match(const token_list &tokens, const signature &signature);
     std::vector<std::pair<unsigned int, unsigned int>> extract_matches(const token_list &tokens, const signature &signature);
+    signature match_until_signature(const signature &signature);
 
     std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line);
     std::optional<std::pair<unsigned int, unsigned int>> get_line_token_indices(const token_list &tokens, unsigned int line);
@@ -72,10 +73,35 @@ namespace Signature {
     });
 
     // --- STATEMENTS ---
-    const signature initialization = combine({
+    const signature declaration_explicit = combine({
         type, {TOK_IDENTIFIER, TOK_EQUAL}
     });
+    const signature declaration_infered = {TOK_IDENTIFIER, TOK_COLON_EQUAL};
     const signature assignment = {TOK_IDENTIFIER, TOK_EQUAL};
+    const signature for_loop = combine({
+        {TOK_FOR}, match_until_signature({TOK_SEMICOLON}), match_until_signature({TOK_SEMICOLON}), match_until_signature({TOK_COLON})
+    });
+    const signature enhanced_for_loop = combine({
+        {TOK_FOR, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))", TOK_COMMA, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))", TOK_IN}, match_until_signature({TOK_COLON})
+    });
+    const signature par_for_loop = combine({
+        {TOK_PAR_FOR, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))", TOK_COMMA, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))", TOK_IN}, match_until_signature({TOK_COLON})
+    });
+    const signature while_loop = combine({
+       {TOK_WHILE}, match_until_signature({TOK_COLON})
+    });
+    const signature if_statement = combine({
+       {TOK_IF}, match_until_signature({TOK_COLON})
+    });
+    const signature else_if_statement = combine({
+        {TOK_ELSE, TOK_IF}, match_until_signature({TOK_COLON})
+    });
+    const signature else_statement = combine({
+        {TOK_ELSE}, match_until_signature({TOK_COLON})
+    });
+    const signature return_statement = combine({
+       {TOK_RETURN}, match_until_signature({TOK_SEMICOLON})
+    });
 }
 
 #endif
