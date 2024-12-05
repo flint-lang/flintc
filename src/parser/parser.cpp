@@ -238,31 +238,31 @@ token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_lis
 
 /// create_if
 std::optional<IfNode> Parser::create_if(const token_list &tokens) {
-
+    return {};
 }
 
 /// create_while_loop
 ///
 std::optional<WhileNode> Parser::create_while_loop(const token_list &tokens) {
-
+    return {};
 }
 
 /// create_for_loop
 ///
 std::optional<ForLoopNode> Parser::create_for_loop(const token_list &tokens, const bool &is_enhanced) {
-
+    return{};
 }
 
 /// create_assignment
 ///
 std::optional<AssignmentNode> Parser::create_assignment(const token_list &tokens) {
-
+    return {};
 }
 
 /// create_declaration_statement
 ///
 std::optional<DeclarationNode> Parser::create_declaration_statement(const token_list &tokens, const bool &is_infered) {
-
+    return {};
 }
 
 /// create_statement
