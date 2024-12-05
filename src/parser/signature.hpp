@@ -17,7 +17,7 @@ namespace Signature {
     std::string stringify(const token_list &tokens);
     bool tokens_contain(const token_list &tokens, const signature &signature);
     bool tokens_match(const token_list &tokens, const signature &signature);
-    std::vector<std::pair<unsigned int, unsigned int>> extract_matches(const token_list &tokens, const signature &signature);
+    std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges(const token_list &tokens, const signature &signature);
     signature match_until_signature(const signature &signature);
 
     std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line);

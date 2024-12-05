@@ -55,7 +55,7 @@ namespace Signature {
 
     /// extract_matches
     ///     Extracts the indices of all the matches of the given signature inside the given tokens vector
-    std::vector<std::pair<unsigned int, unsigned int>> extract_matches(const token_list &tokens, const Signature::signature &signature) {
+    std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges(const token_list &tokens, const Signature::signature &signature) {
         std::vector<std::pair<unsigned int, unsigned int>> matches;
         std::string search_string = stringify(tokens);
         std::regex pattern(get_regex_string(signature));
