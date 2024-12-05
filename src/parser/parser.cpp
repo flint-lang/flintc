@@ -13,12 +13,16 @@
 #include "ast/definitions/link_node.hpp"
 #include "ast/definitions/variant_node.hpp"
 #include "ast/expressions/expression_node.hpp"
+#include "ast/expressions/literal_node.hpp"
+#include "ast/expressions/unary_op_node.hpp"
+#include "ast/expressions/variable_node.hpp"
 #include "ast/node_type.hpp"
 #include "ast/program_node.hpp"
 #include "ast/statements/assignment_node.hpp"
 #include "ast/statements/declaration_node.hpp"
 #include "ast/statements/for_loop_node.hpp"
 #include "ast/statements/if_node.hpp"
+#include "ast/statements/return_node.hpp"
 #include "ast/statements/statement_node.hpp"
 #include "ast/statements/while_node.hpp"
 #include "signature.hpp"
@@ -238,27 +242,79 @@ token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_lis
     return extraction;
 }
 
+std::optional<VariableNode> Parser::create_variable(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
+/// create_unary_op
+///
+std::optional<UnaryOpNode> Parser::create_unary_op(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
+/// create_literal
+///
+std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
+/// create_call
+///
+std::optional<CallNode> Parser::create_call(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
+/// create_binary_op
+///
+std::optional<BinaryOpNode> Parser::create_binary_op(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
+/// create_expression
+///
+std::optional<ExpressionNode> Parser::create_expression(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
+/// create_return
+///
+std::optional<ReturnNode> Parser::create_return(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
 /// create_if
+///
 std::optional<IfNode> Parser::create_if(const token_list &tokens) {
-    return {};
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
 }
 
 /// create_while_loop
 ///
 std::optional<WhileNode> Parser::create_while_loop(const token_list &tokens) {
-    return {};
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
 }
 
 /// create_for_loop
 ///
 std::optional<ForLoopNode> Parser::create_for_loop(const token_list &tokens, const bool &is_enhanced) {
-    return {};
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
 }
 
 /// create_assignment
 ///
 std::optional<AssignmentNode> Parser::create_assignment(const token_list &tokens) {
-    return {};
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
 }
 
 /// create_declaration_statement
@@ -292,7 +348,8 @@ std::optional<DeclarationNode> Parser::create_declaration_statement(token_list &
             ++type_end;
             ++iterator;
         }
-
+        // TODO: Refine this
+        initializer = create_expression(lhs_tokens).value();
         declaration = DeclarationNode(type, name, initializer);
     }
 
@@ -375,6 +432,16 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
             } else {
                 throw_err(ERR_PARSING);
             }
+            break;
+        }
+        case NodeType::RETURN: {
+            std::optional<ReturnNode> return_node = create_return(tokens);
+            if(return_node.has_value()) {
+                statement_node = return_node.value();
+            } else {
+                throw_err(ERR_PARSING);
+            }
+            break;
         }
     }
 

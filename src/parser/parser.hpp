@@ -3,6 +3,8 @@
 
 #include "../types.hpp"
 
+#include "ast/program_node.hpp"
+
 #include "ast/definitions/enum_node.hpp"
 #include "ast/definitions/error_node.hpp"
 #include "ast/definitions/function_node.hpp"
@@ -11,13 +13,21 @@
 #include "ast/definitions/entity_node.hpp"
 #include "ast/definitions/link_node.hpp"
 #include "ast/definitions/variant_node.hpp"
-#include "ast/program_node.hpp"
+
+#include "ast/statements/statement_node.hpp"
 #include "ast/statements/assignment_node.hpp"
 #include "ast/statements/declaration_node.hpp"
 #include "ast/statements/for_loop_node.hpp"
 #include "ast/statements/if_node.hpp"
-#include "ast/statements/statement_node.hpp"
+#include "ast/statements/return_node.hpp"
 #include "ast/statements/while_node.hpp"
+
+#include "ast/expressions/expression_node.hpp"
+#include "ast/expressions/binary_op_node.hpp"
+#include "ast/expressions/call_node.hpp"
+#include "ast/expressions/literal_node.hpp"
+#include "ast/expressions/unary_op_node.hpp"
+#include "ast/expressions/variable_node.hpp"
 
 #include <utility>
 #include <optional>
@@ -34,6 +44,14 @@ class Parser {
         static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
         static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
 
+        static std::optional<VariableNode> create_variable(const token_list &tokens);
+        static std::optional<UnaryOpNode> create_unary_op(const token_list &tokens);
+        static std::optional<LiteralNode> create_literal(const token_list &tokens);
+        static std::optional<CallNode> create_call(const token_list &tokens);
+        static std::optional<BinaryOpNode> create_binary_op(const token_list &tokens);
+        static std::optional<ExpressionNode> create_expression(const token_list &tokens);
+
+        static std::optional<ReturnNode> create_return(const token_list &tokens);
         static std::optional<IfNode> create_if(const token_list &tokens);
         static std::optional<WhileNode> create_while_loop(const token_list &tokens);
         static std::optional<ForLoopNode> create_for_loop(const token_list &tokens, const bool &is_enhanced);
