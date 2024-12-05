@@ -319,7 +319,7 @@ std::optional<AssignmentNode> Parser::create_assignment(const token_list &tokens
 
 /// create_declaration_statement
 ///
-std::optional<DeclarationNode> Parser::create_declaration_statement(token_list &tokens, const bool &is_infered) {
+std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, const bool &is_infered) {
     std::optional<DeclarationNode> declaration = std::nullopt;
     std::string type;
     std::string name;
@@ -369,7 +369,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
             break;
         }
         case NodeType::DECL_EXPLICIT: {
-            std::optional<DeclarationNode> decl = create_declaration_statement(tokens, false);
+            std::optional<DeclarationNode> decl = create_declaration(tokens, false);
             if(decl.has_value()) {
                 statement_node = decl.value();
             } else {
@@ -378,7 +378,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
             break;
         }
         case NodeType::DECL_INFERED: {
-            std::optional<DeclarationNode> decl = create_declaration_statement(tokens, true);
+            std::optional<DeclarationNode> decl = create_declaration(tokens, true);
             if(decl.has_value()) {
                 statement_node = decl.value();
             } else {
