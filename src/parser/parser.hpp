@@ -38,8 +38,8 @@ class Parser {
         static std::optional<WhileNode> create_while_loop(const token_list &tokens);
         static std::optional<ForLoopNode> create_for_loop(const token_list &tokens, const bool &is_enhanced);
         static std::optional<AssignmentNode> create_assignment(const token_list &tokens);
-        static std::optional<DeclarationNode> create_declaration_statement(const token_list &tokens, const bool &is_infered);
-        static std::optional<StatementNode> create_statement(const token_list &tokens);
+        static std::optional<DeclarationNode> create_declaration_statement(token_list &tokens, const bool &is_infered);
+        static std::optional<StatementNode> create_statement(token_list &tokens);
         static std::vector<StatementNode> create_body(token_list &body);
 
         static FunctionNode create_function(const token_list &definition, token_list &body);

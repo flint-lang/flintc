@@ -12,6 +12,7 @@
 #include "ast/definitions/import_node.hpp"
 #include "ast/definitions/link_node.hpp"
 #include "ast/definitions/variant_node.hpp"
+#include "ast/expressions/expression_node.hpp"
 #include "ast/node_type.hpp"
 #include "ast/program_node.hpp"
 #include "ast/statements/assignment_node.hpp"
@@ -24,6 +25,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <optional>
 #include <vector>
 #include <string>
@@ -250,7 +252,7 @@ std::optional<WhileNode> Parser::create_while_loop(const token_list &tokens) {
 /// create_for_loop
 ///
 std::optional<ForLoopNode> Parser::create_for_loop(const token_list &tokens, const bool &is_enhanced) {
-    return{};
+    return {};
 }
 
 /// create_assignment
@@ -261,13 +263,45 @@ std::optional<AssignmentNode> Parser::create_assignment(const token_list &tokens
 
 /// create_declaration_statement
 ///
-std::optional<DeclarationNode> Parser::create_declaration_statement(const token_list &tokens, const bool &is_infered) {
-    return {};
+std::optional<DeclarationNode> Parser::create_declaration_statement(token_list &tokens, const bool &is_infered) {
+    std::optional<DeclarationNode> declaration = std::nullopt;
+    std::string type;
+    std::string name;
+    ExpressionNode initializer;
+
+    if(is_infered) {
+        throw_err(ERR_NOT_IMPLEMENTED_YET);
+    } else {
+        const Signature::signature lhs = Signature::match_until_signature({TOK_EQUAL});
+        std::pair<unsigned int, unsigned int> lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
+        token_list lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
+
+        auto iterator = lhs_tokens.begin();
+        unsigned int type_begin = 0;
+        unsigned int type_end = 0;
+        while(iterator != lhs_tokens.end()) {
+            if(iterator->type == TOK_INDENT) {
+                ++type_begin;
+            }
+            if((iterator + 1)->type == TOK_IDENTIFIER && (iterator + 2)->type == TOK_EQUAL) {
+                const token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
+                type = Lexer::to_string(type_tokens);
+                name = (iterator + 1)->lexme;
+                break;
+            }
+            ++type_end;
+            ++iterator;
+        }
+
+        declaration = DeclarationNode(type, name, initializer);
+    }
+
+    return declaration;
 }
 
 /// create_statement
 ///     Creates a statement from the given list of tokens
-std::optional<StatementNode> Parser::create_statement(const token_list &tokens) {
+std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
     NodeType statement_type = what_is_this(tokens);
     std::optional<StatementNode> statement_node = std::nullopt;
 
@@ -354,10 +388,10 @@ std::vector<StatementNode> Parser::create_body(token_list &body) {
 
     const Signature::signature statement_signature = Signature::match_until_signature({TOK_SEMICOLON});
 
-    const std::vector<std::pair<unsigned int, unsigned int>> statements = Signature::extract_matches(body, statement_signature);
+    const std::vector<std::pair<unsigned int, unsigned int>> statements = Signature::get_match_ranges(body, statement_signature);
 
     for(std::pair<unsigned int, unsigned int> statement : statements) {
-        const token_list statement_tokens = extract_from_to(statement.first, statement.second, body);
+        token_list statement_tokens = extract_from_to(statement.first, statement.second, body);
         std::optional<StatementNode> next_statement = create_statement(statement_tokens);
         if(next_statement.has_value()) {
             body_statements.emplace_back(
@@ -650,7 +684,7 @@ std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> Parser::crea
         }
     }
 
-    std::pair<unsigned int, unsigned int> constructor_token_ids = Signature::extract_matches(body, Signature::entity_body_constructor).at(0);
+    std::pair<unsigned int, unsigned int> constructor_token_ids = Signature::get_match_ranges(body, Signature::entity_body_constructor).at(0);
     for(unsigned int i = constructor_token_ids.first; i < constructor_token_ids.second; i++) {
         if(body.at(i).type == TOK_IDENTIFIER) {
             if(body.at(i + 1).type == TOK_LEFT_PAREN
@@ -670,7 +704,7 @@ std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> Parser::crea
 std::vector<LinkNode> Parser::create_links(token_list &body) {
     std::vector<LinkNode> links;
 
-    std::vector<std::pair<unsigned int, unsigned int>> link_matches = Signature::extract_matches(body, Signature::entity_body_link);
+    std::vector<std::pair<unsigned int, unsigned int>> link_matches = Signature::get_match_ranges(body, Signature::entity_body_link);
     for(std::pair<unsigned int, unsigned int> link_match : link_matches) {
         links.emplace_back(create_link(body));
     }
@@ -684,7 +718,7 @@ LinkNode Parser::create_link(const token_list &tokens) {
     std::vector<std::string> from_references;
     std::vector<std::string> to_references;
 
-    std::vector<std::pair<unsigned int, unsigned int>> references = Signature::extract_matches(tokens, Signature::reference);
+    std::vector<std::pair<unsigned int, unsigned int>> references = Signature::get_match_ranges(tokens, Signature::reference);
 
     for(unsigned int i = references.at(0).first; i < references.at(0).second; i++) {
         if(tokens.at(i).type == TOK_IDENTIFIER) {

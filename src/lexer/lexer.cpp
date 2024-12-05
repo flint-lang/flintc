@@ -3,6 +3,7 @@
 #include "token.hpp"
 #include "../error/error_type.hpp"
 #include "../error/error.hpp"
+#include "token_context.hpp"
 
 #include <string>
 #include <map>
@@ -59,6 +60,18 @@ token_list Lexer::scan() {
     }
 
     return tokens;
+}
+
+/// to_string
+///     Converts a token list back to its original string format
+std::string Lexer::to_string(const token_list &tokens) {
+    std::string token_string;
+
+    for(const TokenContext &tok : tokens) {
+        token_string += get_token_name(tok.type);
+    }
+
+    return token_string;
 }
 
 /// scan_token

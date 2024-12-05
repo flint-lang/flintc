@@ -182,6 +182,7 @@ class Lexer {
         }
 
         token_list scan();
+        static std::string to_string(const token_list &tokens);
 
     private:
         token_list tokens;

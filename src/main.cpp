@@ -12,7 +12,7 @@ class CommandLineParser {
             // Convert the char* argv[] to a vector of strings
             args.reserve(argc - 1);
             for(size_t i = 1; i < argc; ++i) {
-                args.push_back(std::string(argv[i]));
+                args.emplace_back(argv[i]);
             }
         }
 
