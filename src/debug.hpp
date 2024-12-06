@@ -1,23 +1,23 @@
 #ifndef __DEBUG_HPP__
 #define __DEBUG_HPP__
 
-#include "./lexer/token_context.hpp"
-#include "./lexer/lexer.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/statements/statement_node.hpp"
+#include "types.hpp"
 
-#include <vector>
-#include <iostream>
+#include "parser/ast/ast_node.hpp"
+#include "parser/ast/node_type.hpp"
+#include "parser/ast/program_node.hpp"
 
 namespace Debug {
-    static void print_token_context_vector(const std::vector<TokenContext> &tokens) {
-        for(const TokenContext &tc : tokens) {
-            std::string name = get_token_name(tc.type);
+    static void print_token_context_vector(const token_list &tokens);
 
-            std::string type_container(30, ' ');
-            std::string type = " | Type: '" + name + "' => " + std::to_string(static_cast<int>(tc.type));
-            type_container.replace(0, type.length(), type);
+    namespace AST {
+        static void print_ast_tree(const ProgramNode &program);
 
-            std::cout << "Line: " << tc.line << type_container << " | Lexme: " << tc.lexme << "\n";
-        }
+        static NodeType get_ast_type(const ASTNode &node);
+        static NodeType get_expression_type(const ExpressionNode &node);
+        static NodeType get_statement_type(const StatementNode &node);
     }
 }
 

@@ -4,7 +4,6 @@
 #include "node_type.hpp"
 
 #include <vector>
-#include <memory>
 
 /// ASTNode
 ///     Base class for all AST nodes.
@@ -13,7 +12,7 @@ class ASTNode {
 
     private:
         NodeType type;
-        std::vector<std::shared_ptr<ASTNode>> children;
+        std::vector<ASTNode> children;
 };
 
 #endif

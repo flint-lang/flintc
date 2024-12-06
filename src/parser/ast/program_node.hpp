@@ -50,7 +50,7 @@ class ProgramNode : public ASTNode {
         void add_variant(VariantNode &variant) {
             definitions.push_back(variant);
         }
-    private:
+    //private:
         /// definitions
         ///     All top-level definitions (functions, data, entities, etc.)
         std::vector<ASTNode> definitions;

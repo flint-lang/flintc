@@ -5,9 +5,7 @@ pub fn build(b: *std.Build) void {
     // Options
     //const tests = b.option(bool, "Test", "Runs all builtin tests (default: false)") orelse false;
 
-    const source_files = [_][]const u8{
-        "src/error/error.cpp", "src/lexer/lexer.cpp", "src/linker/linker.cpp", "src/parser/parser.cpp", "src/parser/signature.cpp",
-    };
+    const source_files = [_][]const u8{ "src/error/error.cpp", "src/lexer/lexer.cpp", "src/linker/linker.cpp", "src/parser/parser.cpp", "src/parser/signature.cpp", "src/debug.cpp" };
 
     // --- LINUX ---
     add_linux_executable(b, optimization, &source_files);
