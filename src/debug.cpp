@@ -1,5 +1,7 @@
 #include "debug.hpp"
 
+#include "error/error.hpp"
+#include "error/error_type.hpp"
 #include "lexer/lexer.hpp"
 
 #include "parser/ast/definitions/data_node.hpp"
@@ -27,6 +29,7 @@
 #include "types.hpp"
 
 #include <iostream>
+#include <typeinfo>
 
 namespace Debug {
     /// print_token_context_vector
@@ -51,6 +54,50 @@ namespace Debug {
             for(const ASTNode &node : program.definitions) {
                 std::cout << "    ";
                 NodeType type = get_ast_type(node);
+
+                switch(type) {
+                    default:
+                    case NodeType::NONE: {
+                        throw_err(ERR_NOT_IMPLEMENTED_YET);
+                        break;
+                    }
+                    case NodeType::DATA: {
+                        print_data(dynamic_cast<const DataNode&>(node));
+                        break;
+                    }
+                    case NodeType::ENTITY: {
+                        print_entity(dynamic_cast<const EntityNode&>(node));
+                        break;
+                    }
+                    case NodeType::ENUM: {
+                        print_enum(dynamic_cast<const EnumNode&>(node));
+                        break;
+                    }
+                    case NodeType::ERROR: {
+                        print_error(dynamic_cast<const ErrorNode&>(node));
+                        break;
+                    }
+                    case NodeType::FUNC: {
+                        print_func(dynamic_cast<const FuncNode&>(node));
+                        break;
+                    }
+                    case NodeType::FUNCTION: {
+                        print_function(dynamic_cast<const FunctionNode&>(node));
+                        break;
+                    }
+                    case NodeType::IMPORT: {
+                        print_import(dynamic_cast<const ImportNode&>(node));
+                        break;
+                    }
+                    case NodeType::LINK: {
+                        print_link(dynamic_cast<const LinkNode&>(node));
+                        break;
+                    }
+                    case NodeType::VARIANT: {
+                        print_variant(dynamic_cast<const VariantNode&>(node));
+                        break;
+                    }
+                }
             }
         }
 
@@ -131,6 +178,60 @@ namespace Debug {
             }
 
             return NodeType::NONE;
+        }
+
+        /// print_data
+        ///     Prints the content of the generated DataNode
+        void print_data(const DataNode &data) {
+
+        }
+
+        /// print_entity
+        ///     Prints the content of the generated EntityNode
+        void print_entity(const EntityNode &entity) {
+
+        }
+
+        /// print_enum
+        ///     Prints the content of the generated EnumNode
+        void print_enum(const EnumNode &enum_node) {
+
+        }
+
+        /// print_error
+        ///     Prints the content of the generated ErrorNode
+        void print_error(const ErrorNode &error) {
+
+        }
+
+        /// print_func
+        ///     Prints the content of the generated FuncNode
+        void print_func(const FuncNode &func) {
+
+        }
+
+        /// print_function
+        ///     Prints the content of the generated FunctionNode
+        void print_function(const FunctionNode &function) {
+
+        }
+
+        /// print_import
+        ///     Prints the content of the generated ImportNode
+        void print_import(const ImportNode &import) {
+
+        }
+
+        /// print_link
+        ///     Prints the content of the generated LinkNode
+        void print_link(const LinkNode &link) {
+
+        }
+
+        /// print_link
+        ///     Prints the content of the generated VariantNode
+        void print_variant(const VariantNode &variant) {
+
         }
     }
 }

@@ -9,6 +9,11 @@
 ///     Base class for all AST nodes.
 class ASTNode {
     public:
+        ASTNode(const ASTNode &) = default;
+        ASTNode(ASTNode &&) = delete;
+        ASTNode &operator=(const ASTNode &) = default;
+        ASTNode &operator=(ASTNode &&) = delete;
+        virtual ~ASTNode() = default;
 
     private:
         NodeType type;

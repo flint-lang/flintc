@@ -9,7 +9,11 @@
 ///     Base class for all expressions
 class ExpressionNode : public ASTNode {
     public:
-
+        ExpressionNode(const ExpressionNode &) = default;
+        ExpressionNode(ExpressionNode &&) = delete;
+        ExpressionNode &operator=(const ExpressionNode &) = default;
+        ExpressionNode &operator=(ExpressionNode &&) = delete;
+        virtual ~ExpressionNode() = default;
     private:
         std::string result_type;
 };

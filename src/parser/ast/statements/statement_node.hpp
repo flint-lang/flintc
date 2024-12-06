@@ -7,7 +7,11 @@
 ///     Base class for all statements
 class StatementNode : public ASTNode {
     public:
-
+        StatementNode(const StatementNode &) = default;
+        StatementNode(StatementNode &&) = delete;
+        StatementNode &operator=(const StatementNode &) = default;
+        StatementNode &operator=(StatementNode &&) = delete;
+        virtual ~StatementNode() = default;
     private:
 };
 
