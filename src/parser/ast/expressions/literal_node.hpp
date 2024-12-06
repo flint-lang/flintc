@@ -5,12 +5,13 @@
 
 #include <variant>
 #include <string>
+#include <utility>
 
 /// LiteralNode
 ///     Represents literal values
 class LiteralNode : public ExpressionNode {
     public:
-
+        explicit LiteralNode(std::variant<int, double, std::string, bool> &value) : value(std::move(value)) {}
     private:
         /// value
         ///     the literal value

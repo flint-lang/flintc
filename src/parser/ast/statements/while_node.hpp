@@ -4,20 +4,22 @@
 #include "statement_node.hpp"
 #include "../expressions/expression_node.hpp"
 
-#include <memory>
+#include <vector>
+#include <utility>
 
 /// WhileNode
 ///     Represents while loops
 class WhileNode : public StatementNode {
     public:
-
+        WhileNode(ExpressionNode &condition, std::vector<StatementNode> &body)
+        : condition(condition), body(std::move(body)) {}
     private:
         /// condition
         ///     The condition expression
-        std::shared_ptr<ExpressionNode> condition;
+        ExpressionNode condition;
         /// body
         ///     The body of the while loop
-        std::shared_ptr<StatementNode> body;
+        std::vector<StatementNode> body;
 };
 
 #endif

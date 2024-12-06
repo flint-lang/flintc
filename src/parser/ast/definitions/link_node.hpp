@@ -11,7 +11,7 @@
 ///     Represents links within entities
 class LinkNode : public ASTNode {
     public:
-        LinkNode(std::vector<std::string> &from, std::vector<std::string> &to) : from(std::move(from)), to(std::move(to)) {}
+        explicit LinkNode(std::vector<std::string> &from, std::vector<std::string> &to) : from(std::move(from)), to(std::move(to)) {}
     private:
         /// from
         ///     The function reference of the function that gets shadowed

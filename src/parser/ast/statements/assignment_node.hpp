@@ -11,7 +11,7 @@
 ///     Represents assignment statements
 class AssignmentNode : public StatementNode {
     public:
-        AssignmentNode(std::string &var_name, ExpressionNode &value): var_name(std::move(var_name)), value(std::move(value)) {}
+        AssignmentNode(std::string &var_name, ExpressionNode &value): var_name(std::move(var_name)), value(value) {}
     private:
         /// var_name
         ///     The name of the variable being assigned to

@@ -74,7 +74,7 @@ void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
             if(definition_indentation > 0) {
                 throw_err(ERR_USE_STATEMENT_MUST_BE_AT_TOP_LEVEL);
             }
-            ImportNode import_node = ImportNode();
+            ImportNode import_node = create_import(definition_tokens);
             program.add_import(import_node);
             break;
         }
@@ -323,7 +323,7 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
     std::optional<DeclarationNode> declaration = std::nullopt;
     std::string type;
     std::string name;
-    ExpressionNode initializer;
+    std::optional<ExpressionNode> initializer = std::nullopt;
 
     if(is_infered) {
         throw_err(ERR_NOT_IMPLEMENTED_YET);
@@ -348,9 +348,12 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
             ++type_end;
             ++iterator;
         }
-        // TODO: Refine this
-        initializer = create_expression(lhs_tokens).value();
-        declaration = DeclarationNode(type, name, initializer);
+
+        auto expr = create_expression(lhs_tokens);
+        if(expr.has_value()) {
+            initializer = expr.value();
+            declaration = DeclarationNode(type, name, initializer.value());
+        }
     }
 
     return declaration;
@@ -524,9 +527,8 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
         }
         ++tok_iterator;
     }
-    std::vector<StatementNode> body_node = create_body(body);
-    FunctionNode function(is_aligned, is_const, name, parameters, return_types, body_node);
-    return function;
+    std::vector<StatementNode> body_nodes = create_body(body);
+    return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_nodes);
 }
 
 /// create_data
@@ -593,8 +595,7 @@ DataNode Parser::create_data(const token_list &definition, const token_list &bod
         ++body_iterator;
     }
 
-    DataNode data(is_shared, is_immutable, is_aligned, name, fields, default_values, order);
-    return data;
+    return DataNode(is_shared, is_immutable, is_aligned, name, fields, default_values, order);
 }
 
 /// create_func
@@ -643,8 +644,7 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
         ++body_iterator;
     }
 
-    FuncNode func(name, required_data, functions);
-    return func;
+    return FuncNode(name, required_data, functions);
 }
 
 /// create_entity
@@ -762,8 +762,10 @@ std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> Parser::crea
         }
     }
 
-    EntityNode entity(name, data_modules, func_modules, link_nodes, parent_entities, constructor_order);
-    return {entity, monolithic_nodes};
+    return {
+        EntityNode(name, data_modules, func_modules, link_nodes, parent_entities, constructor_order),
+        monolithic_nodes
+    };
 }
 
 /// create_links
@@ -772,6 +774,7 @@ std::vector<LinkNode> Parser::create_links(token_list &body) {
     std::vector<LinkNode> links;
 
     std::vector<std::pair<unsigned int, unsigned int>> link_matches = Signature::get_match_ranges(body, Signature::entity_body_link);
+    links.reserve(link_matches.size());
     for(std::pair<unsigned int, unsigned int> link_match : link_matches) {
         links.emplace_back(create_link(body));
     }
@@ -798,8 +801,7 @@ LinkNode Parser::create_link(const token_list &tokens) {
         }
     }
 
-    LinkNode link(from_references, to_references);
-    return link;
+    return LinkNode(from_references, to_references);
 }
 
 /// create_enum
@@ -832,8 +834,7 @@ EnumNode Parser::create_enum(const token_list &definition, const token_list &bod
         ++body_iterator;
     }
 
-    EnumNode enum_node(name, values);
-    return enum_node;
+    return EnumNode(name, values);
 }
 
 /// create_error
@@ -874,8 +875,7 @@ ErrorNode Parser::create_error(const token_list &definition, const token_list &b
         ++body_iterator;
     }
 
-    ErrorNode error(name, parent_error, error_types);
-    return error;
+    return ErrorNode(name, parent_error, error_types);
 }
 
 /// create_variant
@@ -909,6 +909,14 @@ VariantNode Parser::create_variant(const token_list &definition, const token_lis
         ++body_iterator;
     }
 
-    VariantNode variant(name, possible_types);
-    return variant;
+    return VariantNode(name, possible_types);
+}
+
+/// create_import
+///     Creates an ImportNode from the given token list
+ImportNode Parser::create_import(const token_list &tokens) {
+    std::variant<std::string, std::vector<std::string>> import_path;
+
+
+    return ImportNode(import_path);
 }

@@ -12,9 +12,9 @@
 class DataNode : public ASTNode {
     public:
         DataNode() = default;
-        DataNode(bool is_shared,
-            bool is_immutable,
-            bool is_aligned,
+        explicit DataNode(bool &is_shared,
+            bool &is_immutable,
+            bool &is_aligned,
             std::string &name,
             std::vector<std::pair<std::string, std::string>> &fields,
             std::vector<std::pair<std::string, std::string>> &default_values,

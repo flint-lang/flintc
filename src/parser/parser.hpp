@@ -3,6 +3,7 @@
 
 #include "../types.hpp"
 
+#include "ast/definitions/import_node.hpp"
 #include "ast/program_node.hpp"
 
 #include "ast/definitions/enum_node.hpp"
@@ -73,6 +74,7 @@ class Parser {
         static EnumNode create_enum(const token_list &definition, const token_list &body);
         static ErrorNode create_error(const token_list &definition, const token_list &body);
         static VariantNode create_variant(const token_list &definition, const token_list &body);
+        static ImportNode create_import(const token_list &tokens);
 };
 
 #endif

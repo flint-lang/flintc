@@ -11,7 +11,8 @@
 ///     Represents the use definitions
 class ImportNode : public ASTNode {
     public:
-
+        explicit ImportNode(std::variant<std::string, std::vector<std::string>> &import_path)
+            : import_path(std::move(import_path)) {}
     private:
         /// import_path
         ///     Either the direct file import path (string) or a sequence of namespace declarations (for libraries: 'xxx.xxx.xxx')

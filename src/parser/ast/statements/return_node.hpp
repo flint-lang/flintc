@@ -8,7 +8,7 @@
 ///     Represents return statements
 class ReturnNode : public StatementNode {
     public:
-
+        explicit ReturnNode(ExpressionNode &return_value) : return_value(return_value) {}
     private:
         /// return_value
         ///     The return values expression

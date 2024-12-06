@@ -5,12 +5,15 @@
 #include "../expressions/expression_node.hpp"
 
 #include <string>
+#include <vector>
+#include <utility>
 
 /// ForLoopNode
 ///     Represents both traditional and enhanced for loops.
 class ForLoopNode : public StatementNode {
     public:
-
+        ForLoopNode(std::string &iterator_name, ExpressionNode &iterable, std::vector<StatementNode> &body)
+        : iterator_name(iterator_name), iterable(iterable), body(std::move(body)) {}
     private:
         /// iterator_name
         ///     The name of the iterator variable
@@ -20,7 +23,7 @@ class ForLoopNode : public StatementNode {
         ExpressionNode iterable;
         /// body
         ///     The body of the loop
-        StatementNode body;
+        std::vector<StatementNode> body;
 };
 
 #endif

@@ -12,12 +12,14 @@
 #include "definitions/variant_node.hpp"
 
 #include <vector>
+#include <utility>
 
 /// ProgramNode
 ///     Root node of the AST
 class ProgramNode : public ASTNode {
     public:
         ProgramNode() = default;
+        explicit ProgramNode(std::vector<ASTNode> &definitions) : definitions(std::move(definitions)) {}
 
         void add_import(ImportNode &import) {
             definitions.push_back(import);

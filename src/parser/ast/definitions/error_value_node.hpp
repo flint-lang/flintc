@@ -9,7 +9,7 @@
 ///
 class ErrorValueNode : public ASTNode {
     public:
-
+        ErrorValueNode(std::string &type, std::string &message) : type(type), message(message) {}
     private:
         /// type
         ///     The type of the error

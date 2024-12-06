@@ -11,7 +11,7 @@
 ///     Represents the variant type definition
 class VariantNode : public ASTNode {
     public:
-        VariantNode(std::string &name, std::vector<std::string> &possible_types)
+        explicit VariantNode(std::string &name, std::vector<std::string> &possible_types)
         : name(name), possible_types(std::move(possible_types)) {}
     private:
         /// name

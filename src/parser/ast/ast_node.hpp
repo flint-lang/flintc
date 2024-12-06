@@ -9,15 +9,19 @@
 ///     Base class for all AST nodes.
 class ASTNode {
     public:
-        ASTNode(const ASTNode &) = default;
-        ASTNode(ASTNode &&) = delete;
-        ASTNode &operator=(const ASTNode &) = default;
-        ASTNode &operator=(ASTNode &&) = delete;
+        // constructor
+        ASTNode() = default;
+        // destructor
         virtual ~ASTNode() = default;
-
+        // copy operators
+        ASTNode(const ASTNode &) = default;
+        ASTNode& operator=(const ASTNode &) = default;
+        // move operators
+        ASTNode(ASTNode &&) = default;
+        ASTNode& operator=(ASTNode &&) = default;
     private:
-        NodeType type;
-        std::vector<ASTNode> children;
+        //NodeType type;
+        //std::vector<ASTNode> children;
 };
 
 #endif

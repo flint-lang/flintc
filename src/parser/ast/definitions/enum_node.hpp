@@ -11,8 +11,8 @@
 ///     Represents enum type definitions
 class EnumNode : public ASTNode {
     public:
-        EnumNode(std::string &name,std::vector<std::string> &values)
-        : name(name), values(std::move(values)) {}
+        explicit EnumNode(std::string &name,std::vector<std::string> &values)
+            : name(name), values(std::move(values)) {}
     private:
         /// name
         ///     The name of the enum

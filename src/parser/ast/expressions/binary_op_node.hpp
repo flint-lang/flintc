@@ -4,13 +4,11 @@
 #include "expression_node.hpp"
 #include "../../../lexer/token.hpp"
 
-#include <utility>
-
 /// BinaryOpNode
 ///     Represents binary operations.
 class BinaryOpNode : public ExpressionNode {
     public:
-        BinaryOpNode(Token operator_token, ExpressionNode &left, ExpressionNode &right) : operator_token(operator_token), left(std::move(left)), right(std::move(right)) {}
+        BinaryOpNode(Token operator_token, ExpressionNode &left, ExpressionNode &right) : operator_token(operator_token), left(left), right(right) {}
     private:
         Token operator_token;
         ExpressionNode left;

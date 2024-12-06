@@ -11,12 +11,12 @@
 ///     Represents error definitions
 class ErrorNode : public ASTNode {
     public:
-        ErrorNode(std::string &name,
+        explicit ErrorNode(std::string &name,
             std::string &parent_error,
             std::vector<std::string> &error_types)
-        : name(name),
-        parent_error(parent_error),
-        error_types(std::move(error_types)) {}
+            : name(name),
+            parent_error(parent_error),
+            error_types(std::move(error_types)) {}
     private:
         /// name
         ///     The name of the new error type

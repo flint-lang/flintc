@@ -13,7 +13,7 @@
 class FuncNode : public ASTNode {
     public:
         FuncNode() = default;
-        FuncNode(std::string &name,
+        explicit FuncNode(std::string &name,
             std::vector<std::pair<std::string, std::string>> &required_data,
             std::vector<FunctionNode> &functions)
             : name(name),

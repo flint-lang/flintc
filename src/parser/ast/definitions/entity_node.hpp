@@ -13,18 +13,18 @@
 ///     Because an entity can either be monolithic or modular, there are two possibilities for the entity
 class EntityNode : public ASTNode {
     public:
-        EntityNode(std::string &name,
+        explicit EntityNode(std::string &name,
             std::vector<std::string> &data_modules,
             std::vector<std::string> &func_modules,
             std::vector<LinkNode> link_nodes,
             std::vector<std::pair<std::string, std::string>> &parent_entities,
             std::vector<std::string> &constructor_order)
-        : name(name),
-        data_modules(std::move(data_modules)),
-        func_modules(std::move(func_modules)),
-        link_nodes(std::move(link_nodes)),
-        parent_entities(std::move(parent_entities)),
-        constructor_order(std::move(constructor_order)) {}
+            : name(name),
+            data_modules(std::move(data_modules)),
+            func_modules(std::move(func_modules)),
+            link_nodes(std::move(link_nodes)),
+            parent_entities(std::move(parent_entities)),
+            constructor_order(std::move(constructor_order)) {}
     private:
         /// name
         ///     The name of the entity

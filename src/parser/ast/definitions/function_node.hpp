@@ -12,8 +12,8 @@
 ///     Represents function definitions
 class FunctionNode : public ASTNode {
     public:
-        FunctionNode(bool is_aligned,
-            bool is_const,
+        explicit FunctionNode(bool &is_aligned,
+            bool &is_const,
             std::string &name,
             std::vector<std::pair<std::string, std::string>> &parameters,
             std::vector<std::string> &return_types,
@@ -21,7 +21,8 @@ class FunctionNode : public ASTNode {
             : is_aligned(is_aligned),
             is_const(is_const),
             name(name),
-            parameters(std::move(parameters)), return_types(std::move(return_types)),
+            parameters(std::move(parameters)),
+            return_types(std::move(return_types)),
             body(std::move(body)) {}
 
     private:

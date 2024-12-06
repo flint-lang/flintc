@@ -9,13 +9,18 @@
 ///     Base class for all expressions
 class ExpressionNode : public ASTNode {
     public:
+        // constructor
+        ExpressionNode() = default;
+        // deconstructor
+        ~ExpressionNode() override = default;
+        // copy operations
         ExpressionNode(const ExpressionNode &) = default;
-        ExpressionNode(ExpressionNode &&) = delete;
-        ExpressionNode &operator=(const ExpressionNode &) = default;
-        ExpressionNode &operator=(ExpressionNode &&) = delete;
-        virtual ~ExpressionNode() = default;
+        ExpressionNode& operator=(const ExpressionNode &) = default;
+        // move operations
+        ExpressionNode(ExpressionNode &&) = default;
+        ExpressionNode& operator=(ExpressionNode &&) = default;
     private:
         std::string result_type;
-};
+};;
 
 #endif
