@@ -17,10 +17,10 @@ class ForLoopNode : public StatementNode {
         std::string iterator_name;
         /// iterable
         ///     Iterable expression (e.g. range or array)
-        std::shared_ptr<ExpressionNode> iterable;
+        ExpressionNode iterable;
         /// body
         ///     The body of the loop
-        std::shared_ptr<StatementNode> body;
+        StatementNode body;
 };
 
 #endif

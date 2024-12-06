@@ -12,7 +12,7 @@ class ReturnNode : public StatementNode {
     private:
         /// return_value
         ///     The return values expression
-        std::shared_ptr<ExpressionNode> return_value;
+        ExpressionNode return_value;
 };
 
 #endif

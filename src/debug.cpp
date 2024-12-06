@@ -1,5 +1,7 @@
 #include "debug.hpp"
 
+#include "lexer/lexer.hpp"
+
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/entity_node.hpp"
 #include "parser/ast/definitions/enum_node.hpp"
@@ -24,7 +26,6 @@
 #include "parser/ast/statements/while_node.hpp"
 #include "types.hpp"
 
-#include <vector>
 #include <iostream>
 
 namespace Debug {
@@ -41,7 +42,6 @@ namespace Debug {
             std::cout << "Line: " << tc.line << type_container << " | Lexme: " << tc.lexme << "\n";
         }
     }
-
 
     namespace AST {
         /// print_ast_tree
