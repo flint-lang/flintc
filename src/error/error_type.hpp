@@ -17,6 +17,7 @@ enum ErrorType {
     ERR_UNDEFINED_STATEMENT = 12,
     ERR_PARSING = 13,
     ERR_NOT_IMPLEMENTED_YET = 14,
+    ERR_DEBUG = 15,
 };
 
 #endif

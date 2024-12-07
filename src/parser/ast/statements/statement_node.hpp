@@ -11,9 +11,9 @@ class StatementNode : public ASTNode {
         StatementNode() = default;
         // destructor
         ~StatementNode() override = default;
-        // copy operations
-        StatementNode(const StatementNode &) = default;
-        StatementNode& operator=(const StatementNode &) = default;
+        // copy operations - disabled by default
+        StatementNode(const StatementNode &) = delete;
+        StatementNode& operator=(const StatementNode &) = delete;
         // move operations
         StatementNode(StatementNode &&) = default;
         StatementNode& operator=(StatementNode &&) = default;

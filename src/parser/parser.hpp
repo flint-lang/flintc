@@ -32,6 +32,7 @@
 
 #include <utility>
 #include <optional>
+#include <memory>
 
 class Parser {
     public:
@@ -52,7 +53,7 @@ class Parser {
         static std::optional<LiteralNode> create_literal(const token_list &tokens);
         static std::optional<CallNode> create_call(const token_list &tokens);
         static std::optional<BinaryOpNode> create_binary_op(const token_list &tokens);
-        static std::optional<ExpressionNode> create_expression(const token_list &tokens);
+        static std::optional<std::unique_ptr<ExpressionNode>> create_expression(const token_list &tokens);
 
         // --- STATEMENTS ---
         static std::optional<ReturnNode> create_return(const token_list &tokens);
@@ -61,15 +62,15 @@ class Parser {
         static std::optional<ForLoopNode> create_for_loop(const token_list &tokens, const bool &is_enhanced);
         static std::optional<AssignmentNode> create_assignment(const token_list &tokens);
         static std::optional<DeclarationNode> create_declaration(token_list &tokens, const bool &is_infered);
-        static std::optional<StatementNode> create_statement(token_list &tokens);
-        static std::vector<StatementNode> create_body(token_list &body);
+        static std::optional<std::unique_ptr<StatementNode>> create_statement(token_list &tokens);
+        static std::vector<std::unique_ptr<StatementNode>> create_body(token_list &body);
 
         // --- DEFINITIONS ---
         static FunctionNode create_function(const token_list &definition, token_list &body);
         static DataNode create_data(const token_list &definition, const token_list &body);
         static FuncNode create_func(const token_list &definition, token_list &body);
-        static std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> create_entity(const token_list &definition, token_list &body);
-        static std::vector<LinkNode> create_links(token_list &body);
+        static std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>> create_entity(const token_list &definition, token_list &body);
+        static std::vector<std::unique_ptr<LinkNode>> create_links(token_list &body);
         static LinkNode create_link(const token_list &tokens);
         static EnumNode create_enum(const token_list &definition, const token_list &body);
         static ErrorNode create_error(const token_list &definition, const token_list &body);

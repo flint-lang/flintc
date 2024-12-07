@@ -1,8 +1,15 @@
 #include "parser.hpp"
 
+#include "signature.hpp"
+
+#include "../debug.hpp"
 #include "../types.hpp"
 #include "../lexer/lexer.hpp"
 #include "../error/error.hpp"
+
+#include "ast/node_type.hpp"
+#include "ast/program_node.hpp"
+
 #include "ast/definitions/data_node.hpp"
 #include "ast/definitions/entity_node.hpp"
 #include "ast/definitions/enum_node.hpp"
@@ -12,12 +19,12 @@
 #include "ast/definitions/import_node.hpp"
 #include "ast/definitions/link_node.hpp"
 #include "ast/definitions/variant_node.hpp"
+
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/unary_op_node.hpp"
 #include "ast/expressions/variable_node.hpp"
-#include "ast/node_type.hpp"
-#include "ast/program_node.hpp"
+
 #include "ast/statements/assignment_node.hpp"
 #include "ast/statements/declaration_node.hpp"
 #include "ast/statements/for_loop_node.hpp"
@@ -25,7 +32,6 @@
 #include "ast/statements/return_node.hpp"
 #include "ast/statements/statement_node.hpp"
 #include "ast/statements/while_node.hpp"
-#include "signature.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -34,6 +40,8 @@
 #include <vector>
 #include <string>
 #include <iterator>
+#include <utility>
+#include <memory>
 
 /// parse_file
 ///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to the passed main ProgramNode
@@ -44,6 +52,8 @@ void Parser::parse_file(ProgramNode &program, std::string &file)
     while(!tokens.empty()) {
         add_next_main_node(program, tokens);
     }
+    using namespace Debug::AST;
+    print_program(program);
 }
 
 /// get_next_main_node
@@ -98,11 +108,13 @@ void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
         }
         case NodeType::ENTITY: {
             token_list body_tokens = get_body_tokens(definition_indentation, tokens);
-            std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> entity_creation = create_entity(definition_tokens, body_tokens);
+            auto entity_creation = create_entity(definition_tokens, body_tokens);
             program.add_entity(entity_creation.first);
             if(entity_creation.second.has_value()) {
-                program.add_data(entity_creation.second.value().first);
-                program.add_func(entity_creation.second.value().second);
+                std::unique_ptr<DataNode> data_node_ptr = std::move(entity_creation.second.value().first);
+                std::unique_ptr<FuncNode> func_node_ptr = std::move(entity_creation.second.value().second);
+                program.add_data(*data_node_ptr);
+                program.add_func(*func_node_ptr);
             }
             break;
         }
@@ -234,8 +246,11 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
 ///     Extracts [from ; to) tokens
 ///     Also deletes all the extracted tokens from the token list
 token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_list &tokens) {
-    assert(to > from);
+    assert(to >= from);
     token_list extraction;
+    if(to == from) {
+        return extraction;
+    }
     extraction.reserve(to - from);
     std::move(tokens.begin() + from, tokens.begin() + to, std::back_inserter(extraction));
     tokens.erase(tokens.begin() + from, tokens.begin() + to);
@@ -277,16 +292,23 @@ std::optional<BinaryOpNode> Parser::create_binary_op(const token_list &tokens) {
 
 /// create_expression
 ///
-std::optional<ExpressionNode> Parser::create_expression(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
-    return std::nullopt;
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(const token_list &tokens) {
+    // just return an empty expression for now
+    // TODO: make the code actually functional.
+    return std::make_unique<ExpressionNode>();
+    //throw_err(ERR_NOT_IMPLEMENTED_YET);
+    //return std::nullopt;
 }
 
 /// create_return
 ///
 std::optional<ReturnNode> Parser::create_return(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
-    return std::nullopt;
+    // just return an empty return for now
+    // TODO: make the code actually functional.
+    auto expr = ExpressionNode();
+    return ReturnNode(expr);
+    //throw_err(ERR_NOT_IMPLEMENTED_YET);
+    //return std::nullopt;
 }
 
 /// create_if
@@ -323,7 +345,7 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
     std::optional<DeclarationNode> declaration = std::nullopt;
     std::string type;
     std::string name;
-    std::optional<ExpressionNode> initializer = std::nullopt;
+    std::optional<std::unique_ptr<ExpressionNode>> initializer = std::nullopt;
 
     if(is_infered) {
         throw_err(ERR_NOT_IMPLEMENTED_YET);
@@ -351,7 +373,7 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
 
         auto expr = create_expression(lhs_tokens);
         if(expr.has_value()) {
-            initializer = expr.value();
+            initializer = std::move(expr.value());
             declaration = DeclarationNode(type, name, initializer.value());
         }
     }
@@ -361,9 +383,9 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
 
 /// create_statement
 ///     Creates a statement from the given list of tokens
-std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
+std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(token_list &tokens) {
     NodeType statement_type = what_is_this(tokens);
-    std::optional<StatementNode> statement_node = std::nullopt;
+    std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
     switch(statement_type) {
         default:
@@ -374,7 +396,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
         case NodeType::DECL_EXPLICIT: {
             std::optional<DeclarationNode> decl = create_declaration(tokens, false);
             if(decl.has_value()) {
-                statement_node = decl.value();
+                statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
@@ -383,7 +405,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
         case NodeType::DECL_INFERED: {
             std::optional<DeclarationNode> decl = create_declaration(tokens, true);
             if(decl.has_value()) {
-                statement_node = decl.value();
+                statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
@@ -392,7 +414,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
         case NodeType::ASSIGNMENT: {
             std::optional<AssignmentNode> assign = create_assignment(tokens);
             if(assign.has_value()) {
-                statement_node = assign.value();
+                statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
@@ -401,7 +423,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
         case NodeType::FOR_LOOP: {
             std::optional<ForLoopNode> for_loop = create_for_loop(tokens, false);
             if(for_loop.has_value()) {
-                statement_node = for_loop.value();
+                statement_node = std::make_unique<ForLoopNode>(std::move(for_loop.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
@@ -411,7 +433,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
         case NodeType::ENH_FOR_LOOP: {
             std::optional<ForLoopNode> enh_for_loop = create_for_loop(tokens, true);
             if(enh_for_loop.has_value()) {
-                statement_node = enh_for_loop.value();
+                statement_node = std::make_unique<ForLoopNode>(std::move(enh_for_loop.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
@@ -420,7 +442,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
         case NodeType::WHILE_LOOP: {
             std::optional<WhileNode> while_loop = create_while_loop(tokens);
             if(while_loop.has_value()) {
-                statement_node = while_loop.value();
+                statement_node = std::make_unique<WhileNode>(std::move(while_loop.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
@@ -431,7 +453,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
         case NodeType::ELSE: {
             std::optional<IfNode> if_node = create_if(tokens);
             if(if_node.has_value()) {
-                statement_node = if_node.value();
+                statement_node = std::make_unique<IfNode>(std::move(if_node.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
@@ -440,7 +462,7 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
         case NodeType::RETURN: {
             std::optional<ReturnNode> return_node = create_return(tokens);
             if(return_node.has_value()) {
-                statement_node = return_node.value();
+                statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
@@ -453,8 +475,8 @@ std::optional<StatementNode> Parser::create_statement(token_list &tokens) {
 
 /// create_body
 ///     Creates a body containing of multiple statement nodes from a list of tokens
-std::vector<StatementNode> Parser::create_body(token_list &body) {
-    std::vector<StatementNode> body_statements;
+std::vector<std::unique_ptr<StatementNode>> Parser::create_body(token_list &body) {
+    std::vector<std::unique_ptr<StatementNode>> body_statements;
 
     const Signature::signature statement_signature = Signature::match_until_signature({TOK_SEMICOLON});
 
@@ -462,10 +484,10 @@ std::vector<StatementNode> Parser::create_body(token_list &body) {
 
     for(std::pair<unsigned int, unsigned int> statement : statements) {
         token_list statement_tokens = extract_from_to(statement.first, statement.second, body);
-        std::optional<StatementNode> next_statement = create_statement(statement_tokens);
+        std::optional<std::unique_ptr<StatementNode>> next_statement = create_statement(statement_tokens);
         if(next_statement.has_value()) {
             body_statements.emplace_back(
-                next_statement.value()
+                std::move(next_statement.value())
             );
         } else {
             throw_err(ERR_UNDEFINED_STATEMENT);
@@ -527,8 +549,8 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
         }
         ++tok_iterator;
     }
-    std::vector<StatementNode> body_nodes = create_body(body);
-    return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_nodes);
+    std::vector<std::unique_ptr<StatementNode>> body_nodes = create_body(body);
+    return FunctionNode(is_aligned, is_const, name, parameters, return_types, std::move(create_body(body)));
 }
 
 /// create_data
@@ -604,7 +626,7 @@ DataNode Parser::create_data(const token_list &definition, const token_list &bod
 FuncNode Parser::create_func(const token_list &definition, token_list &body) {
     std::string name;
     std::vector<std::pair<std::string, std::string>> required_data;
-    std::vector<FunctionNode> functions;
+    std::vector<std::unique_ptr<FunctionNode>> functions;
 
     auto definition_iterator = definition.begin();
     bool requires_data = false;
@@ -640,11 +662,11 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
         unsigned int leading_indents = Signature::get_leading_indents(function_definition, current_line).value();
         token_list function_body = get_body_tokens(leading_indents, body);
 
-        functions.emplace_back(create_function(function_definition, function_body));
+        functions.emplace_back(std::make_unique<FunctionNode>(std::move(create_function(function_definition, function_body))));
         ++body_iterator;
     }
 
-    return FuncNode(name, required_data, functions);
+    return FuncNode(name, required_data, std::move(functions));
 }
 
 /// create_entity
@@ -652,15 +674,15 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
 ///     An Entity can either be monolithic or modular.
 ///     If its modular, only the EntityNode (result.first) will be returned
 ///     If it is monolithic, the data and func content will be returned within the optional pair
-std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> Parser::create_entity(const token_list &definition, token_list &body) {
+std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>> Parser::create_entity(const token_list &definition, token_list &body) {
     bool is_modular = Signature::tokens_match(body, Signature::entity_body);
     std::string name;
     std::vector<std::string> data_modules;
     std::vector<std::string> func_modules;
-    std::vector<LinkNode> link_nodes;
+    std::vector<std::unique_ptr<LinkNode>> link_nodes;
     std::vector<std::pair<std::string, std::string>> parent_entities;
     std::vector<std::string> constructor_order;
-    std::optional<std::pair<DataNode, FuncNode>> monolithic_nodes = std::nullopt;
+    std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>> monolithic_nodes = std::nullopt;
 
     auto definition_iterator = definition.begin();
     bool extract_parents = false;
@@ -761,22 +783,22 @@ std::pair<EntityNode, std::optional<std::pair<DataNode, FuncNode>>> Parser::crea
             constructor_order.emplace_back(body.at(i).lexme);
         }
     }
-
-    return {
-        EntityNode(name, data_modules, func_modules, link_nodes, parent_entities, constructor_order),
-        monolithic_nodes
-    };
+    EntityNode entity(name, data_modules, func_modules, std::move(link_nodes), parent_entities, constructor_order);
+    std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>> return_value = std::make_pair(std::move(entity), std::move(monolithic_nodes));
+    return return_value;
 }
 
 /// create_links
 ///     Creates a list of LinkNode's from a given body containing those links
-std::vector<LinkNode> Parser::create_links(token_list &body) {
-    std::vector<LinkNode> links;
+std::vector<std::unique_ptr<LinkNode>> Parser::create_links(token_list &body) {
+    std::vector<std::unique_ptr<LinkNode>> links;
 
     std::vector<std::pair<unsigned int, unsigned int>> link_matches = Signature::get_match_ranges(body, Signature::entity_body_link);
     links.reserve(link_matches.size());
     for(std::pair<unsigned int, unsigned int> link_match : link_matches) {
-        links.emplace_back(create_link(body));
+        links.emplace_back(
+            std::make_unique<LinkNode>(std::move(create_link(body)))
+        );
     }
 
     return links;

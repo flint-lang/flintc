@@ -12,13 +12,23 @@
 ///     Represents func module definitions
 class FuncNode : public ASTNode {
     public:
-        FuncNode() = default;
         explicit FuncNode(std::string &name,
             std::vector<std::pair<std::string, std::string>> &required_data,
-            std::vector<FunctionNode> &functions)
+            std::vector<std::unique_ptr<FunctionNode>> functions)
             : name(name),
             required_data(std::move(required_data)),
             functions(std::move(functions)) {}
+
+        // empty constructor
+        FuncNode() = default;
+        // destructor
+        ~FuncNode() override = default;
+        // copy operations - disabled due to unique_ptr member
+        FuncNode(const FuncNode &) = delete;
+        FuncNode& operator=(const FuncNode &) = delete;
+        // move operations
+        FuncNode(FuncNode &&) = default;
+        FuncNode& operator=(FuncNode &&) = default;
     private:
         /// name
         ///     The name of the func module
@@ -28,7 +38,7 @@ class FuncNode : public ASTNode {
         std::vector<std::pair<std::string, std::string>> required_data;
         /// functions
         ///     The functions defined inside the func module. These functions get passed the required data as arguments by default
-        std::vector<FunctionNode> functions;
+        std::vector<std::unique_ptr<FunctionNode>> functions;
 };
 
 #endif
