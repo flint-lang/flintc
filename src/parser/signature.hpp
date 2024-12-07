@@ -25,6 +25,7 @@ namespace Signature {
 
     std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line);
     std::optional<std::pair<unsigned int, unsigned int>> get_line_token_indices(const token_list &tokens, unsigned int line);
+std::optional<std::pair<unsigned int, unsigned int>> balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec);
 
     // --- BASIC SIGNATURES ---
     const signature anytoken = {"#-?..#"};

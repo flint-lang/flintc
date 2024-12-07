@@ -1,5 +1,7 @@
 #include "signature.hpp"
+
 #include "../types.hpp"
+#include "../error/error.hpp"
 
 #include <regex>
 #include <optional>
@@ -160,5 +162,40 @@ namespace Signature {
             return std::nullopt;
         }
         return std::make_pair(start_index, end_index);
+    }
+
+    /// balanced_range_extraction
+    ///     Extracts the range of the given signatures where the 'inc' signature increments the amount of 'dec' signatures needed to reach the end of the range.
+    ///     This can be used to extract all operations between parenthesis, for example
+    std::optional<std::pair<unsigned int, unsigned int>> balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec) {
+        if(!tokens_contain(tokens, inc) || !tokens_contain(tokens, dec)) {
+            return std::nullopt;
+        }
+
+        std::vector<std::pair<unsigned int, unsigned int>> inc_ranges = get_match_ranges(tokens, inc);
+        std::vector<std::pair<unsigned int, unsigned int>> dec_ranges = get_match_ranges(tokens, dec);
+
+        const unsigned int first_idx = inc_ranges.at(0).first;
+        auto inc_iterator = inc_ranges.begin() + 1;
+        auto dec_iterator = dec_ranges.begin();
+        unsigned int balance = 1;
+        unsigned int last_idx = 0;
+        while(inc_iterator != inc_ranges.end() && dec_iterator!= dec_ranges.end()) {
+            if(dec_iterator->first < inc_iterator->first) {
+                --balance;
+                ++dec_iterator;
+                if(balance == 0) {
+                    last_idx = dec_iterator->second;
+                    break;
+                }
+            } else {
+                ++balance;
+                ++inc_iterator;
+            }
+        }
+        if(balance != 0) {
+            throw_err(ERR_UNTERMINATED_OPENING_CHARACTER);
+        }
+        return std::make_pair(first_idx, last_idx);
     }
 }
