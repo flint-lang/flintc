@@ -6,8 +6,6 @@
 #include "error/error_type.hpp"
 #include "lexer/lexer.hpp"
 
-#include "parser/ast/node_type.hpp"
-
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/entity_node.hpp"
 #include "parser/ast/definitions/enum_node.hpp"

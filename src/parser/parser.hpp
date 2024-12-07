@@ -42,7 +42,6 @@ class Parser {
     private:
         // --- UTILITY ---
         static void add_next_main_node(ProgramNode &program, token_list &tokens);
-        static NodeType what_is_this(const token_list &tokens);
         static token_list get_definition_tokens(token_list &tokens);
         static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
         static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);

@@ -7,7 +7,6 @@
 #include "../lexer/lexer.hpp"
 #include "../error/error.hpp"
 
-#include "ast/node_type.hpp"
 #include "ast/program_node.hpp"
 
 #include "ast/definitions/data_node.hpp"
@@ -62,8 +61,7 @@ void Parser::parse_file(ProgramNode &program, std::string &file)
 ///     It returns the built ASTNode tree
 void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
     token_list definition_tokens = get_definition_tokens(tokens);
-    NodeType next_type = what_is_this(definition_tokens);
-
+    
     // Find the indentation of the definition
     int definition_indentation = 0;
     for(const TokenContext &tok : definition_tokens) {
@@ -74,39 +72,25 @@ void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
         }
     }
 
-    switch(next_type) {
-        default:
-        case NodeType::NONE: {
-            throw_err(ERR_UNEXPECTED_DEFINITION);
-            break;
-        }
-        case NodeType::IMPORT: {
+    if(Signature::tokens_contain(definition_tokens, Signature::use_statement)) {
             if(definition_indentation > 0) {
                 throw_err(ERR_USE_STATEMENT_MUST_BE_AT_TOP_LEVEL);
             }
             ImportNode import_node = create_import(definition_tokens);
             program.add_import(import_node);
-            break;
-        }
-        case NodeType::FUNCTION: {
+    } else if (Signature::tokens_contain(definition_tokens, Signature::function_definition)) {
             token_list body_tokens = get_body_tokens(definition_indentation, tokens);
             FunctionNode function_node = create_function(definition_tokens, body_tokens);
             program.add_function(function_node);
-            break;
-        }
-        case NodeType::DATA: {
+    } else if (Signature::tokens_contain(definition_tokens, Signature::data_definition)) {
             token_list body_tokens = get_body_tokens(definition_indentation, tokens);
             DataNode data_node = create_data(definition_tokens, body_tokens);
             program.add_data(data_node);
-            break;
-        }
-        case NodeType::FUNC: {
+    } else if (Signature::tokens_contain(definition_tokens, Signature::func_definition)) {
             token_list body_tokens = get_body_tokens(definition_indentation, tokens);
             FuncNode func_node = create_func(definition_tokens, body_tokens);
             program.add_func(func_node);
-            break;
-        }
-        case NodeType::ENTITY: {
+    } else if (Signature::tokens_contain(definition_tokens, Signature::entity_definition)) {
             token_list body_tokens = get_body_tokens(definition_indentation, tokens);
             auto entity_creation = create_entity(definition_tokens, body_tokens);
             program.add_entity(entity_creation.first);
@@ -116,90 +100,21 @@ void Parser::add_next_main_node(ProgramNode &program, token_list &tokens) {
                 program.add_data(*data_node_ptr);
                 program.add_func(*func_node_ptr);
             }
-            break;
-        }
-        case NodeType::ENUM: {
+    } else if (Signature::tokens_contain(definition_tokens, Signature::enum_definition)) {
             token_list body_tokens = get_body_tokens(definition_indentation, tokens);
             EnumNode enum_node = create_enum(definition_tokens, body_tokens);
             program.add_enum(enum_node);
-            break;
-        }
-        case NodeType::ERROR: {
+    } else if (Signature::tokens_contain(definition_tokens, Signature::error_definition)) {
             token_list body_tokens = get_body_tokens(definition_indentation, tokens);
             ErrorNode error_node = create_error(definition_tokens, body_tokens);
             program.add_error(error_node);
-            break;
-        }
-        case NodeType::VARIANT: {
+    } else if (Signature::tokens_contain(definition_tokens, Signature::variant_definition)) {
             token_list body_tokens = get_body_tokens(definition_indentation, tokens);
             VariantNode variant_node = create_variant(definition_tokens, body_tokens);
             program.add_variant(variant_node);
-            break;
-        }
+    } else {
+        throw_err(ERR_UNEXPECTED_DEFINITION);
     }
-}
-
-/// what_is_this
-///     Gets a list of tokens (from one line), checks its signature and returns the type of the node which matches this signature.
-NodeType Parser::what_is_this(const token_list &tokens) {
-    if (Signature::tokens_contain(tokens, Signature::function_definition)) {
-        return NodeType::FUNCTION;
-    }
-    if (Signature::tokens_contain(tokens, Signature::data_definition)) {
-        return NodeType::DATA;
-    }
-    if (Signature::tokens_contain(tokens, Signature::func_definition)) {
-        return NodeType::FUNC;
-    }
-    if (Signature::tokens_contain(tokens, Signature::entity_definition)) {
-        return NodeType::ENTITY;
-    }
-    if (Signature::tokens_contain(tokens, Signature::enum_definition)) {
-        return NodeType::ENUM;
-    }
-    if (Signature::tokens_contain(tokens, Signature::error_definition)) {
-        return NodeType::ERROR;
-    }
-    if (Signature::tokens_contain(tokens, Signature::variant_definition)) {
-        return NodeType::VARIANT;
-    }
-    if (Signature::tokens_contain(tokens, Signature::use_statement)) {
-        return NodeType::IMPORT;
-    }
-    if (Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
-        return NodeType::DECL_EXPLICIT;
-    }
-    if (Signature::tokens_contain(tokens, Signature::declaration_infered)) {
-        return NodeType::DECL_INFERED;
-    }
-    if (Signature::tokens_contain(tokens, Signature::assignment)) {
-        return NodeType::ASSIGNMENT;
-    }
-    if (Signature::tokens_contain(tokens, Signature::for_loop)) {
-        return NodeType::FOR_LOOP;
-    }
-    if (Signature::tokens_contain(tokens, Signature::enhanced_for_loop)) {
-        return NodeType::ENH_FOR_LOOP;
-    }
-    if (Signature::tokens_contain(tokens, Signature::par_for_loop)) {
-        return NodeType::PAR_FOR_LOOP;
-    }
-    if (Signature::tokens_contain(tokens, Signature::while_loop)) {
-        return NodeType::WHILE_LOOP;
-    }
-    if (Signature::tokens_contain(tokens, Signature::if_statement)) {
-        return NodeType::IF;
-    }
-    if (Signature::tokens_contain(tokens, Signature::else_if_statement)) {
-        return NodeType::ELSE_IF;
-    }
-    if (Signature::tokens_contain(tokens, Signature::else_statement)) {
-        return NodeType::ELSE;
-    }
-    if (Signature::tokens_contain(tokens, Signature::return_statement)) {
-        return NodeType::RETURN;
-    }
-    return NodeType::NONE;
 }
 
 /// get_definition_tokens
@@ -384,90 +299,70 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
 /// create_statement
 ///     Creates a statement from the given list of tokens
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(token_list &tokens) {
-    NodeType statement_type = what_is_this(tokens);
-    std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
+        std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
+Debug::print_token_context_vector(tokens);
 
-    switch(statement_type) {
-        default:
-        case NodeType::NONE: {
-            throw_err(ERR_UNDEFINED_STATEMENT);
-            break;
-        }
-        case NodeType::DECL_EXPLICIT: {
+    if(Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
             std::optional<DeclarationNode> decl = create_declaration(tokens, false);
             if(decl.has_value()) {
                 statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
-            break;
-        }
-        case NodeType::DECL_INFERED: {
+            } else if (Signature::tokens_contain(tokens, Signature::declaration_infered)) {
             std::optional<DeclarationNode> decl = create_declaration(tokens, true);
             if(decl.has_value()) {
                 statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
-            break;
-        }
-        case NodeType::ASSIGNMENT: {
+            } else if (Signature::tokens_contain(tokens, Signature::assignment)) {
             std::optional<AssignmentNode> assign = create_assignment(tokens);
             if(assign.has_value()) {
                 statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
-            break;
-        }
-        case NodeType::FOR_LOOP: {
+            } else if (Signature::tokens_contain(tokens, Signature::for_loop)) {
             std::optional<ForLoopNode> for_loop = create_for_loop(tokens, false);
             if(for_loop.has_value()) {
                 statement_node = std::make_unique<ForLoopNode>(std::move(for_loop.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
-            break;
-        }
-        case NodeType::PAR_FOR_LOOP:
-        case NodeType::ENH_FOR_LOOP: {
+            } else if (Signature::tokens_contain(tokens, Signature::par_for_loop)
+    || Signature::tokens_contain(tokens, Signature::enhanced_for_loop)) {
             std::optional<ForLoopNode> enh_for_loop = create_for_loop(tokens, true);
             if(enh_for_loop.has_value()) {
                 statement_node = std::make_unique<ForLoopNode>(std::move(enh_for_loop.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
-            break;
-        }
-        case NodeType::WHILE_LOOP: {
+            } else if (Signature::tokens_contain(tokens, Signature::while_loop)) {
             std::optional<WhileNode> while_loop = create_while_loop(tokens);
             if(while_loop.has_value()) {
                 statement_node = std::make_unique<WhileNode>(std::move(while_loop.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
-            break;
-        }
-        case NodeType::IF:
-        case NodeType::ELSE_IF:
-        case NodeType::ELSE: {
+            } else if (Signature::tokens_contain(tokens, Signature::if_statement)
+    || Signature::tokens_contain(tokens, Signature::else_if_statement)
+    || Signature::tokens_contain(tokens, Signature::else_statement)) {
             std::optional<IfNode> if_node = create_if(tokens);
             if(if_node.has_value()) {
                 statement_node = std::make_unique<IfNode>(std::move(if_node.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
-            break;
-        }
-        case NodeType::RETURN: {
+            } else if (Signature::tokens_contain(tokens, Signature::return_statement)) {
             std::optional<ReturnNode> return_node = create_return(tokens);
             if(return_node.has_value()) {
                 statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
             } else {
                 throw_err(ERR_PARSING);
             }
-            break;
-        }
+            } else {
+        throw_err(ERR_UNDEFINED_STATEMENT);
     }
 
     return statement_node;
