@@ -50,7 +50,7 @@ token_list Lexer::scan() {
     for(auto tok = tokens.begin(); tok != tokens.end();) {
         if(tok->type == TOK_EOL
             && tok->line != last_line
-            && tok->line != (tok + 1)->line
+            && (tok->line != (tok + 1)->line || (tok + 1) == tokens.end())
         ){
             tokens.erase(tok);
         } else {
