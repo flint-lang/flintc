@@ -81,6 +81,18 @@ namespace Signature {
         return matches;
     }
 
+    /// get_next_match
+    ///     Returns the next match range, if the token_list contains the specified signature
+    ///     Returns a nullopt if the token_list does not contain the signature
+    std::optional<std::pair<unsigned int, unsigned int>> get_next_match_range(const token_list &tokens, const signature &signature) {
+        if(tokens_contain(tokens, signature)) {
+            // This is kinda inefficient, but it works for now
+            // TODO: Rewrite this to be more efficient
+            return get_match_ranges(tokens, signature).at(0);
+        }
+        return std::nullopt;
+    }
+
     /// match_until_signature
     ///     Creates a new signature where all token matches that are _not_ the given signature are matched until finnally the given signature is matched. Each "not until" match can be extracted separately.
     ///     This function will be primarily used for extracting statements ('[^;]*;') matches
