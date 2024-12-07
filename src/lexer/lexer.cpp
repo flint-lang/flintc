@@ -11,7 +11,6 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-//#include <cctype> // for 'isascii'
 
 /// file_exists_and_is_readable
 ///     checks if the given file does exist and if it is readable or not
@@ -75,7 +74,7 @@ std::string Lexer::to_string(const token_list &tokens) {
 }
 
 /// scan_token
-///
+///     Scans the current character and creates tokens depending on the current character
 void Lexer::scan_token() {
     // ensure the first character isnt skipped
     start = current;
@@ -181,7 +180,7 @@ void Lexer::scan_token() {
 }
 
 /// identifier
-///
+///     Lexes an identifier
 void Lexer::identifier() {
     // Includes all characters in the identifier which are
     // alphanumerical
@@ -198,7 +197,7 @@ void Lexer::identifier() {
 }
 
 /// number
-///
+///     Lexes a number
 void Lexer::number() {
     while(is_digit(peek())) {
         advance();
@@ -211,15 +210,16 @@ void Lexer::number() {
         while(is_digit(peek())) {
             advance();
         }
-        add_token(TOK_FLINT);
+        add_token(TOK_FLINT_VALUE);
     } else {
-        add_token(TOK_INT);
+        add_token(TOK_INT_VALUE);
     }
 
     //addToken(NUMBER, Double.parseDouble(source.substring(start, current)));
 }
 
 /// str
+///     Lexes a string value
 void Lexer::str() {
     start = current + 1;
     while(peek_next() != '"' && !is_at_end()) {
@@ -336,17 +336,15 @@ void Lexer::add_token_option(Token single_token, char c, Token mult_token) {
 /// add_token_options
 ///     adds a token depending on the next character, multiple
 ///     next characters are possible
-void Lexer::add_token_options(Token single_token, std::map<char, Token> options) {
+void Lexer::add_token_options(Token single_token, const std::map<char, Token> &options) {
     bool token_added = false;
-    auto option = options.begin();
-    while(option != options.end()) {
-        if(peek_next() == option->first) {
-            add_token(option->second, source.substr(current, 2));
+    for(const auto &option : options) {
+        if(peek_next() == option.first) {
+            add_token(option.second, source.substr(current, 2));
             advance();
             token_added = true;
             break;
         }
-        ++option;
     }
     if(!token_added) {
         add_token(single_token);
