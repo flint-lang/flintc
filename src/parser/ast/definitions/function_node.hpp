@@ -36,7 +36,7 @@ class FunctionNode : public ASTNode {
         // move operations
         FunctionNode(FunctionNode &&) = default;
         FunctionNode& operator=(FunctionNode &&) = default;
-    private:
+
         /// is_aligned
         ///     Determines whether the function needs to be aligned
         bool is_aligned{false};

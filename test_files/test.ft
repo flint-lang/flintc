@@ -3,7 +3,7 @@ use flint.math.vectors;
 
 def main():
 	int num = 5;
-	num += 2;
+	num = num + 2;
 	print(num);
 
 def my_func() -> (int, int):

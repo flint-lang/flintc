@@ -51,8 +51,7 @@ void Parser::parse_file(ProgramNode &program, std::string &file)
     while(!tokens.empty()) {
         add_next_main_node(program, tokens);
     }
-    using namespace Debug::AST;
-    print_program(program);
+    Debug::AST::    print_program(program);
 }
 
 /// get_next_main_node
@@ -372,18 +371,13 @@ Debug::print_token_context_vector(tokens);
 ///     Creates a body containing of multiple statement nodes from a list of tokens
 std::vector<std::unique_ptr<StatementNode>> Parser::create_body(token_list &body) {
     std::vector<std::unique_ptr<StatementNode>> body_statements;
-
     const Signature::signature statement_signature = Signature::match_until_signature({TOK_SEMICOLON});
 
-    const std::vector<std::pair<unsigned int, unsigned int>> statements = Signature::get_match_ranges(body, statement_signature);
-
-    for(std::pair<unsigned int, unsigned int> statement : statements) {
-        token_list statement_tokens = extract_from_to(statement.first, statement.second, body);
+    while(auto next_match = Signature::get_next_match_range(body, statement_signature)) {
+        token_list statement_tokens = extract_from_to(next_match.value().first, next_match.value().second, body);
         std::optional<std::unique_ptr<StatementNode>> next_statement = create_statement(statement_tokens);
         if(next_statement.has_value()) {
-            body_statements.emplace_back(
-                std::move(next_statement.value())
-            );
+            body_statements.emplace_back(std::move(next_statement.value()));
         } else {
             throw_err(ERR_UNDEFINED_STATEMENT);
         }
@@ -430,14 +424,14 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
         // Adding the functions return types
         if(tok_iterator->type == TOK_ARROW) {
             // Only one return type
-            if((tok_iterator + 1)->type == TOK_IDENTIFIER) {
-                return_types.push_back((tok_iterator + 1)->lexme);
+            if(Signature::tokens_match({{(tok_iterator + 1)->type}}, Signature::type)) {
+                return_types.emplace_back((tok_iterator + 1)->lexme);
                 break;
             }
-            begin_returns = true;;
+            begin_returns = true;
         }
-        if(begin_returns && tok_iterator->type == TOK_IDENTIFIER) {
-            return_types.push_back(tok_iterator->lexme);
+        if(begin_returns && Signature::tokens_match({{tok_iterator->type}}, Signature::type)) {
+            return_types.emplace_back(tok_iterator->lexme);
         }
         if(begin_returns && tok_iterator->type == TOK_RIGHT_PAREN) {
             break;
