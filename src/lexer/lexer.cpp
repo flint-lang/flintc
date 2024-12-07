@@ -199,15 +199,18 @@ void Lexer::identifier() {
 /// number
 ///     Lexes a number
 void Lexer::number() {
-    while(is_digit(peek())) {
+    while(is_digit(peek_next())) {
         advance();
     }
 
-    if(peek() == '.' && is_digit(peek_next())) {
-        // Consume the '.'
+    if(peek_next() == '.') {
+        // Get to '.'
         advance();
+        if(!is_digit(peek_next())) {
+            throw_err(ERR_UNEXPECTED_TOKEN);
+        }
 
-        while(is_digit(peek())) {
+        while(is_digit(peek_next())) {
             advance();
         }
         add_token(TOK_FLINT_VALUE);
