@@ -939,6 +939,27 @@ VariantNode Parser::create_variant(const token_list &definition, const token_lis
 ImportNode Parser::create_import(const token_list &tokens) {
     std::variant<std::string, std::vector<std::string>> import_path;
 
+    if(Signature::tokens_contain(tokens, {TOK_STR_VALUE})) {
+        for(const auto &tok : tokens) {
+            if(tok.type == TOK_STR_VALUE) {
+                import_path = "\"" + tok.lexme + "\"";
+                break;
+            }
+        }
+    } else {
+        const Signature::signature reference = {"((", TOK_FLINT, ")|(", TOK_IDENTIFIER, "))", "(", TOK_DOT, TOK_IDENTIFIER, ")*"};
+        const auto matches = Signature::get_match_ranges(tokens, reference).at(0);
+        std::vector<std::string> path;
+        if(tokens.at(matches.first).type == TOK_FLINT) {
+            path.emplace_back("flint");
+        }
+        for(unsigned int i = matches.first; i < matches.second; i++) {
+            if(tokens.at(i).type == TOK_IDENTIFIER) {
+                path.emplace_back(tokens.at(i).lexme);
+            }
+        }
+        import_path = path;
+    }
 
     return ImportNode(import_path);
 }

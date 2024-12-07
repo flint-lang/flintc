@@ -32,21 +32,31 @@
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
+#include <cassert>
 #include <iostream>
 #include <ostream>
 #include <typeinfo>
 #include <memory>
+#include <variant>
 
 namespace Debug {
+    /// get_string_container
+    ///     Returns the given string inside a container of the given size
+    std::string get_string_container(const unsigned int size, const std::string &value) {
+        assert(size > value.size());
+        std::string container(size, ' ');
+        container.replace(0, value.size(), value);
+        return container;
+    }
+
     /// print_token_context_vector
     ///     Prints all the TokenContext elements of the vector to the console
     void print_token_context_vector(const token_list &tokens) {
         for(const TokenContext &tc : tokens) {
             std::string name = get_token_name(tc.type);
 
-            std::string type_container(30, ' ');
             std::string type = " | Type: '" + name + "' => " + std::to_string(static_cast<int>(tc.type));
-            type_container.replace(0, type.length(), type);
+            std::string type_container = get_string_container(30, type);
 
             std::cout << "Line: " << tc.line << type_container << " | Lexme: " << tc.lexme << "\n";
         }
@@ -89,56 +99,74 @@ namespace Debug {
         /// print_entity
         ///     Prints the content of the generated EntityNode
         void print_entity(const EntityNode &entity) {
-            std::cout << "    Data: " << typeid(entity).name() << "\n";
+            std::cout << "    Entity: " << typeid(entity).name() << "\n";
 
         }
 
         /// print_enum
         ///     Prints the content of the generated EnumNode
         void print_enum(const EnumNode &enum_node) {
-            std::cout << "    Data: " << typeid(enum_node).name() << "\n";
+            std::cout << "    Enum: " << typeid(enum_node).name() << "\n";
 
         }
 
         /// print_error
         ///     Prints the content of the generated ErrorNode
         void print_error(const ErrorNode &error) {
-            std::cout << "    Data: " << typeid(error).name() << "\n";
+            std::cout << "    Error: " << typeid(error).name() << "\n";
 
         }
 
         /// print_func
         ///     Prints the content of the generated FuncNode
         void print_func(const FuncNode &func) {
-            std::cout << "    Data: " << typeid(func).name() << "\n";
+            std::cout << "    Func: " << typeid(func).name() << "\n";
 
         }
 
         /// print_function
         ///     Prints the content of the generated FunctionNode
         void print_function(const FunctionNode &function) {
-            std::cout << "    Data: " << typeid(function).name() << "\n";
+            std::cout << "    ";
+            std::cout << get_string_container(15, "Function:");
 
+
+            std::cout << std::endl;
         }
 
         /// print_import
         ///     Prints the content of the generated ImportNode
         void print_import(const ImportNode &import) {
-            std::cout << "    Data: " << typeid(import).name() << "\n";
+            std::cout << "    ";
+            std::cout << get_string_container(15, "Import:");
+            if(std::holds_alternative<std::string>(import.path)) {
+                std::cout << std::get<std::string>(import.path);
+            } else if (std::holds_alternative<std::vector<std::string>>(import.path)) {
+                std::vector<std::string> path_vector = std::get<std::vector<std::string>>(import.path);
+                auto iterator = path_vector.begin();
+                while(iterator != path_vector.end()) {
+                    if(iterator != path_vector.begin()) {
+                        std::cout << "::";
+                    }
+                    std::cout << *iterator;
+                    ++iterator;
+                }
+            }
 
+            std::cout << std::endl;
         }
 
         /// print_link
         ///     Prints the content of the generated LinkNode
         void print_link(const LinkNode &link) {
-            std::cout << "    Data: " << typeid(link).name() << "\n";
+            std::cout << "    Link: " << typeid(link).name() << "\n";
 
         }
 
         /// print_link
         ///     Prints the content of the generated VariantNode
         void print_variant(const VariantNode &variant) {
-            std::cout << "    Data: " << typeid(variant).name() << "\n";
+            std::cout << "    Variant: " << typeid(variant).name() << "\n";
 
         }
     }

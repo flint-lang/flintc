@@ -9,16 +9,13 @@
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/ast/definitions/link_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
-#include "parser/ast/expressions/expression_node.hpp"
-#include "parser/ast/statements/statement_node.hpp"
 #include "types.hpp"
 
-#include "parser/ast/ast_node.hpp"
-#include "parser/ast/node_type.hpp"
 #include "parser/ast/program_node.hpp"
 
 namespace Debug {
-    static void print_token_context_vector(const token_list &tokens);
+    std::string get_string_container(int &size, std::string &value);
+    void print_token_context_vector(const token_list &tokens);
 
     namespace AST {
         void print_program(const ProgramNode &program);
