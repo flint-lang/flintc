@@ -144,17 +144,23 @@ static std::string get_token_name(Token token) {
     if(token == TOK_STR_VALUE) {
         return "STR_VALUE";
     }
-    if (token == TOK_CHAR_VALUE) {
+    if(token == TOK_CHAR_VALUE) {
         return "CHAR_VALUE";
     }
-    if (token == TOK_INDENT) {
+    if(token == TOK_INT_VALUE) {
+        return "INT_VALUE";
+    }
+    if(token == TOK_FLINT_VALUE) {
+        return "FLINT_VALUE";
+    }
+    if(token == TOK_INDENT) {
         return "\\t";
     }
-    if (token == TOK_EOL) {
+    if(token == TOK_EOL) {
         return "\\n";
     }
 
-    std::string type = "NA";
+    std::string type = "IDENTIFIER";
     for (const auto &kvp : symbols) {
        if (kvp.second == token) {
           type = kvp.first;
@@ -166,10 +172,6 @@ static std::string get_token_name(Token token) {
             type = kvp.first;
             break;
         }
-    }
-
-    if(type == "NA") {
-        type = "IDENTIFIER";
     }
     return type;
 }
