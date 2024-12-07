@@ -723,6 +723,36 @@ namespace {
         ok_or_not(result);
         return result ? 0 : 1;
     }
+
+    int test_match_use_statement_flint_package_single() {
+        print_test_name(4, "test_match_use_statement_flint_package_single", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_USE, TOK_FLINT}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::use_statement);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_match_use_statement_flint_package_dual() {
+        print_test_name(4, "test_match_use_statement_flint_package_dual", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::use_statement);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_match_use_statement_flint_package_multiple() {
+        print_test_name(4, "test_match_use_statement_flint_package_multiple", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::use_statement);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
 }
 // --- CONTAIN TEST USE STATEMENT ---
 namespace {
@@ -765,6 +795,36 @@ namespace {
         print_test_name(4, "test_contain_use_statement_package_multiple", false);
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::use_statement);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_contain_use_statement_flint_package_single() {
+        print_test_name(4, "test_contain_use_statement_flint_package_single", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::use_statement);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_contain_use_statement_flint_package_dual() {
+        print_test_name(4, "test_contain_use_statement_flint_package_dual", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::use_statement);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_contain_use_statement_flint_package_multiple() {
+        print_test_name(4, "test_contain_use_statement_flint_package_multiple", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
         bool result = Signature::tokens_contain(tokens, Signature::use_statement);
         ok_or_not(result);
@@ -818,6 +878,42 @@ namespace {
         print_test_name(4, "test_extract_use_statement_package_multiple", false);
         std::vector<TokenContext> tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_extract_use_statement_flint_package_single() {
+        print_test_name(4, "test_extract_use_statement_flint_package_single", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_extract_use_statement_flint_package_dual() {
+        print_test_name(4, "test_extract_use_statement_flint_package_dual", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_extract_use_statement_flint_package_multiple() {
+        print_test_name(4, "test_extract_use_statement_flint_package_multiple", false);
+        std::vector<TokenContext> tokens = create_token_vector(
+            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
         std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
         bool result = !result_vec.empty() &&
@@ -1701,7 +1797,7 @@ namespace {
         );
         std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::enum_definition);
         bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1865,18 +1961,27 @@ int test_parser() {
         test_match_use_statement_package_single,
         test_match_use_statement_package_dual,
         test_match_use_statement_package_multiple,
+        test_match_use_statement_flint_package_single,
+        test_match_use_statement_flint_package_dual,
+        test_match_use_statement_flint_package_multiple,
         // Contain Tests
         test_contain_use_statement,
         test_contain_use_statement_string,
         test_contain_use_statement_package_single,
         test_contain_use_statement_package_dual,
         test_contain_use_statement_package_multiple,
+        test_contain_use_statement_flint_package_single,
+        test_contain_use_statement_flint_package_dual,
+        test_contain_use_statement_flint_package_multiple,
         // Extract Tests
         test_extract_use_statement,
         test_extract_use_statement_string,
         test_extract_use_statement_package_single,
         test_extract_use_statement_package_dual,
         test_extract_use_statement_package_multiple,
+        test_extract_use_statement_flint_package_single,
+        test_extract_use_statement_flint_package_dual,
+        test_extract_use_statement_flint_package_multiple,
     };
     function_list function_definition_tests = {
        // Match Tests

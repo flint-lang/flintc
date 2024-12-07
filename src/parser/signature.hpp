@@ -7,9 +7,11 @@
 #include <string>
 #include <optional>
 #include <utility>
+#include <variant>
 
 // Inside this namespace, all the signatures are defined. A signature can contain multiple other signatures as well.
 namespace Signature {
+    using signature = std::vector<std::variant<Token, std::string>>;
 
     signature combine(std::initializer_list<signature> signatures);
 
@@ -39,7 +41,7 @@ namespace Signature {
     });
 
     // --- DEFINITIONS ---
-    const signature use_statement = {TOK_USE, "((", TOK_STR_VALUE, ")|(", TOK_IDENTIFIER, "(", TOK_DOT, TOK_IDENTIFIER, ")*))"};
+    const signature use_statement = {TOK_USE, "((", TOK_STR_VALUE, ")|(((", TOK_IDENTIFIER, ")|(", TOK_FLINT, "))(", TOK_DOT, TOK_IDENTIFIER, ")*))"};
     const signature function_definition = combine({
         {"(", TOK_ALIGNED, ")?", "(", TOK_CONST, ")?", TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, args, {")?", TOK_RIGHT_PAREN, "((", TOK_ARROW}, group, {TOK_COLON, ")|(", TOK_ARROW}, type, {TOK_COLON, ")|(", TOK_COLON, "))"}
     });
