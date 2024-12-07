@@ -248,8 +248,24 @@ std::optional<ForLoopNode> Parser::create_for_loop(const token_list &tokens, con
 
 /// create_assignment
 ///
-std::optional<AssignmentNode> Parser::create_assignment(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
+std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(token_list &tokens) {
+    auto iterator = tokens.begin();
+    while(iterator != tokens.end()) {
+        if(iterator->type == TOK_IDENTIFIER) {
+            if((iterator + 1)->type == TOK_EQUAL) {
+                const token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator), tokens.size(), tokens);
+                std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(expression_tokens);
+                if(expression.has_value()) {
+                    return std::make_unique<AssignmentNode>(iterator->lexme, expression.value());
+                }
+                throw_err(ERR_PARSING);
+            } else {
+                throw_err(ERR_PARSING);
+            }
+        }
+        ++iterator;
+    }
+
     return std::nullopt;
 }
 
@@ -316,9 +332,9 @@ Debug::print_token_context_vector(tokens);
                 throw_err(ERR_PARSING);
             }
             } else if (Signature::tokens_contain(tokens, Signature::assignment)) {
-            std::optional<AssignmentNode> assign = create_assignment(tokens);
+            std::optional<std::unique_ptr<AssignmentNode>> assign = create_assignment(tokens);
             if(assign.has_value()) {
-                statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
+                statement_node = std::move(assign.value());
             } else {
                 throw_err(ERR_PARSING);
             }
