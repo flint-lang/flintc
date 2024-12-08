@@ -104,6 +104,7 @@ pub fn add_unit_tests(b: *std.Build, optimization: std.builtin.OptimizeMode, sou
     unit_tests.addIncludePath(b.path("src"));
     unit_tests.addCSourceFiles(.{ .files = source_files, .flags = flags });
     unit_tests.addCSourceFile(.{ .file = .{ .cwd_relative = "src/tests.cpp" }, .flags = flags });
+    b.installArtifact(unit_tests);
 
     const run_unit_tests = b.addRunArtifact(unit_tests);
     run_unit_tests.has_side_effects = true;
