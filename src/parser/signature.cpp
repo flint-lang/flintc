@@ -1,12 +1,12 @@
 #include "signature.hpp"
 
 #include "../types.hpp"
-#include "../error/error.hpp"
 
 #include <regex>
 #include <optional>
 #include <vector>
 #include <utility>
+#include <cassert>
 
 namespace Signature {
     /// combine
@@ -174,27 +174,33 @@ namespace Signature {
 
         std::vector<std::pair<unsigned int, unsigned int>> inc_ranges = get_match_ranges(tokens, inc);
         std::vector<std::pair<unsigned int, unsigned int>> dec_ranges = get_match_ranges(tokens, dec);
+        assert(!inc_ranges.empty() && !dec_ranges.empty());
+        if(inc_ranges.size() == 1 && dec_ranges.size() == 1 && inc_ranges.at(0).first < dec_ranges.at(0).first) {
+            return std::make_pair(inc_ranges.at(0).first, dec_ranges.at(0).second);
+        }
 
-        const unsigned int first_idx = inc_ranges.at(0).first;
-        auto inc_iterator = inc_ranges.begin() + 1;
+        auto inc_iterator = inc_ranges.begin();
         auto dec_iterator = dec_ranges.begin();
+
+        const unsigned int first_idx = inc_iterator->first;
+        ++inc_iterator;
         unsigned int balance = 1;
         unsigned int last_idx = 0;
-        while(inc_iterator != inc_ranges.end() && dec_iterator!= dec_ranges.end()) {
-            if(dec_iterator->first < inc_iterator->first) {
-                --balance;
-                ++dec_iterator;
-                if(balance == 0) {
-                    last_idx = dec_iterator->second;
-                    break;
-                }
-            } else {
+        do {
+            if(inc_iterator != inc_ranges.end() && inc_iterator->first < dec_iterator->first) {
                 ++balance;
                 ++inc_iterator;
+            } else if (dec_iterator != dec_ranges.end()) {
+                --balance;
+                last_idx = dec_iterator->second;
+                ++dec_iterator;
+                if(balance == 0) {
+                    break;
+                }
             }
-        }
+        } while(inc_iterator != inc_ranges.end() || dec_iterator != dec_ranges.end());
         if(balance != 0) {
-            throw_err(ERR_UNTERMINATED_OPENING_CHARACTER);
+            return std::nullopt;
         }
         return std::make_pair(first_idx, last_idx);
     }

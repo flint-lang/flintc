@@ -76,4 +76,10 @@ static void print_regex_string(const Signature::signature &signature) {
     test_output_buffer += Signature::get_regex_string(signature) + "\n";
 }
 
+static void print_debug(const std::string &str) {
+    test_output_buffer += "\t";
+    test_output_buffer += str;
+    test_output_buffer += "\t...";
+}
+
 #endif

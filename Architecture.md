@@ -21,6 +21,28 @@ std::pair<DataNode, uint> get_data_node(const std::vector<TokenContext> &definit
 std::pair<ImportNode, uint> get_import_node(const std::vector<TokenContext> &definition);
 ```
 
+### Signature
+
+`balance_range_extraction`:
+
+The methods goal is to extract a balanced range within entities, meaning that each occurrence of the *inc_signature* increases the amount of the *dec_signature* needed for the balance to reach 0, meaning that all ranges have been found. Here an example:
+
+> The token\_list { ident, (, (, ident, +, ident, ), *, (, ident, -, ident, ), ) } is passed to the function. The function `balance_range_extraction` should then return a pair of indices, being (1, 14) because the match, being the first (, and the last ) begins at index 1 and goes all the way to the end at index 14, being the length of the list.
+
+```pseudo
+Opt<pair> balanced_range_extraction(list tokens, signature inc, signature dec):
+    if("token list contains neither inc nor dec")
+        return
+
+    list<pair> inc_ranges = get_match_ranges(tokens, inc)
+    list<pair> dec_ranges = get_match_ranges(tokens, inc)
+
+    // Then we create two iterators, one for each range list
+    // When the inc_range is before the next dec_range, the balance will be incremented, otherwise it will be decremented.
+    // The iterator which is first will always be the one which is being incremented
+
+```
+
 
 ### AST Generation
 

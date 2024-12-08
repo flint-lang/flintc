@@ -2333,7 +2333,7 @@ int test_signature() {
 
     const std::vector<function_list> tests = {
         // --- SIGNATURE METHODS ---
-        //balanced_range_extraction,
+        balanced_range_extraction,
         // --- BASIC SIGNATURES ---
         primary_tests,
         type_tests,
