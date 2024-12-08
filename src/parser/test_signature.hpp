@@ -1539,126 +1539,6 @@ namespace {
     }
 }
 
-// --- ENTITY DEFINITION TESTS ---
-// --- MATCH TEST ENTITY DEFINITION ---
-namespace {
-    int test_match_entity_definition() {
-        print_test_name(2, "ENTITY_DEFINITION TESTS:", true);
-        print_test_name(3, "ENTITY_DEFINITION_MATCH:", true);
-        return 0;
-    }
-
-    int test_match_entity_definition_normal() {
-        print_test_name(4, "test_match_entity_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON}
-        );
-        bool result = Signature::tokens_match(tokens, Signature::entity_definition);
-        ok_or_not(result);
-        return result ? 0 : 1;
-    }
-
-    int test_match_entity_definition_extends_single() {
-        print_test_name(4, "test_match_entity_definition_extends_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
-        bool result = Signature::tokens_match(tokens, Signature::entity_definition);
-        ok_or_not(result);
-        return result ? 0 : 1;
-    }
-
-    int test_match_entity_definition_extends_multiple() {
-        print_test_name(4, "test_match_entity_definition_extends_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
-        bool result = Signature::tokens_match(tokens, Signature::entity_definition);
-        ok_or_not(result);
-        return result ? 0 : 1;
-    }
-}
-// --- CONTAIN TEST ENTITY DEFINITION ---
-namespace {
-    int test_contain_entity_definition() {
-        print_test_name(3, "ENTITY_DEFINITION_CONTAIN:", true);
-        return 0;
-    }
-
-    int test_contain_entity_definition_normal() {
-        print_test_name(4, "test_contain_entity_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
-        bool result = Signature::tokens_contain(tokens, Signature::entity_definition);
-        ok_or_not(result);
-        return result ? 0 : 1;
-    }
-
-    int test_contain_entity_definition_extends_single() {
-        print_test_name(4, "test_contain_entity_definition_extends_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
-        bool result = Signature::tokens_contain(tokens, Signature::entity_definition);
-        ok_or_not(result);
-        return result ? 0 : 1;
-    }
-
-    int test_contain_entity_definition_extends_multiple() {
-        print_test_name(4, "test_contain_entity_definition_extends_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
-        bool result = Signature::tokens_contain(tokens, Signature::entity_definition);
-        ok_or_not(result);
-        return result ? 0 : 1;
-    }
-}
-// --- EXTRACT TEST ENTITY DEFINITION ---
-namespace {
-    int test_extract_entity_definition() {
-        print_test_name(3, "ENTITY_DEFINITION_EXTRACT:", true);
-        return 0;
-    }
-
-    int test_extract_entity_definition_normal() {
-        print_test_name(4, "test_extract_entity_definition_normal", false);
-        token_list tokens = create_token_vector(
-           {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
-        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
-        ok_or_not(result);
-        return result ? 0 : 1;
-    }
-
-    int test_extract_entity_definition_extends_single() {
-        print_test_name(4, "test_extract_entity_definition_extends_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
-        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 9;
-        ok_or_not(result);
-        return result ? 0 : 1;
-    }
-
-    int test_extract_entity_definition_extends_multiple() {
-        print_test_name(4, "test_extract_entity_definition_extends_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
-        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
-        ok_or_not(result);
-        return result ? 0 : 1;
-    }
-}
-
 // --- ERROR DEFINITION TESTS ---
 // --- MATCH TEST ERROR DEFINITION ---
 namespace {
@@ -1854,6 +1734,126 @@ namespace {
         std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::variant_definition);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+
+// --- ENTITY DEFINITION TESTS ---
+// --- MATCH TEST ENTITY DEFINITION ---
+namespace {
+    int test_match_entity_definition() {
+        print_test_name(2, "ENTITY_DEFINITION TESTS:", true);
+        print_test_name(3, "ENTITY_DEFINITION_MATCH:", true);
+        return 0;
+    }
+
+    int test_match_entity_definition_normal() {
+        print_test_name(4, "test_match_entity_definition_normal", false);
+        token_list tokens = create_token_vector(
+            {TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::entity_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_match_entity_definition_extends_single() {
+        print_test_name(4, "test_match_entity_definition_extends_single", false);
+        token_list tokens = create_token_vector(
+            {TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::entity_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_match_entity_definition_extends_multiple() {
+        print_test_name(4, "test_match_entity_definition_extends_multiple", false);
+        token_list tokens = create_token_vector(
+            {TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::entity_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- CONTAIN TEST ENTITY DEFINITION ---
+namespace {
+    int test_contain_entity_definition() {
+        print_test_name(3, "ENTITY_DEFINITION_CONTAIN:", true);
+        return 0;
+    }
+
+    int test_contain_entity_definition_normal() {
+        print_test_name(4, "test_contain_entity_definition_normal", false);
+        token_list tokens = create_token_vector(
+            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::entity_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_contain_entity_definition_extends_single() {
+        print_test_name(4, "test_contain_entity_definition_extends_single", false);
+        token_list tokens = create_token_vector(
+            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::entity_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_contain_entity_definition_extends_multiple() {
+        print_test_name(4, "test_contain_entity_definition_extends_multiple", false);
+        token_list tokens = create_token_vector(
+            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::entity_definition);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- EXTRACT TEST ENTITY DEFINITION ---
+namespace {
+    int test_extract_entity_definition() {
+        print_test_name(3, "ENTITY_DEFINITION_EXTRACT:", true);
+        return 0;
+    }
+
+    int test_extract_entity_definition_normal() {
+        print_test_name(4, "test_extract_entity_definition_normal", false);
+        token_list tokens = create_token_vector(
+           {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_extract_entity_definition_extends_single() {
+        print_test_name(4, "test_extract_entity_definition_extends_single", false);
+        token_list tokens = create_token_vector(
+            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 9;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_extract_entity_definition_extends_multiple() {
+        print_test_name(4, "test_extract_entity_definition_extends_multiple", false);
+        token_list tokens = create_token_vector(
+            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
         ok_or_not(result);
         return result ? 0 : 1;
     }
