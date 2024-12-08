@@ -9,17 +9,87 @@
 
 // --- THE SIGNATURE TESTS ---
 
+// --- TEST SIGNATURE METHODS ---
+// --- TEST BALANCED RANGE EXTRACTION ---
+namespace {
+    int test_balanced_range_extraction() {
+        print_test_name(1, "BALANCED_RANGE_EXTRACTION:", true);
+        return 0;
+    }
+
+    int test_balanced_range_extraction_lr() {
+        print_test_name(2, "test_balanced_range_extraction_lr", false);
+        // x := func()
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::optional<std::pair<unsigned int, unsigned int>> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        bool result = range.has_value() && range.value().first == 3 && range.value().second == 5;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_balanced_range_extraction_llrr() {
+        print_test_name(2, "test_balanced_range_extraction_llrr", false);
+        // x := func( func2() )
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::optional<std::pair<unsigned int, unsigned int>> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        bool result = range.has_value() && range.value().first == 3 && range.value().second == 8;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_balanced_range_extraction_llrlrr() {
+        print_test_name(2, "test_balanced_range_extraction_llrlrr", false);
+        // x := func( (a + b) * (b - a) )
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_PLUS, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_MULT, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MINUS, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::optional<std::pair<unsigned int, unsigned int>> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        bool result = range.has_value() && range.value().first == 3 && range.value().second == 15;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_balanced_range_extraction_lllrrr() {
+        print_test_name(2, "test_balanced_range_extraction_lllrrr", false);
+        // x := func( func2( func3() ) );
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::optional<std::pair<unsigned int, unsigned int>> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        bool result = range.has_value() && range.value().first == 3 && range.value().second == 11;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_balanced_range_extraction_llrlrlrr() {
+        print_test_name(2, "test_balanced_range_extraction_llrlrlrr", false);
+        // x := func((a * b) - func2() - func3());
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::optional<std::pair<unsigned int, unsigned int>> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        bool result = range.has_value() && range.value().first == 3 && range.value().second == 18;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+
+
 // --- PRIMARY TESTS ---
 // --- MATCH TEST PRIMARY ---
 namespace {
     int test_match_prim() {
-        print_test_name(2, "PRIMARY TESTS:", true);
-        print_test_name(3, "PRIMARY_MATCH:", true);
+        print_test_name(1, "PRIMARY TESTS:", true);
+        print_test_name(2, "PRIMARY_MATCH:", true);
         return 0;
     }
 
     int test_match_prim_int() {
-        print_test_name(4, "test_match_prim_int", false);
+        print_test_name(3, "test_match_prim_int", false);
         token_list tokens = create_token_vector(
             {TOK_INT}
         );
@@ -29,7 +99,7 @@ namespace {
     }
 
     int test_match_prim_flint() {
-        print_test_name(4, "test_match_prim_flint", false);
+        print_test_name(3, "test_match_prim_flint", false);
         token_list tokens = create_token_vector(
             {TOK_FLINT}
         );
@@ -39,7 +109,7 @@ namespace {
     }
 
     int test_match_prim_str() {
-        print_test_name(4, "test_match_prim_str", false);
+        print_test_name(3, "test_match_prim_str", false);
         token_list tokens = create_token_vector(
             {TOK_STR}
         );
@@ -49,7 +119,7 @@ namespace {
     }
 
     int test_match_prim_char() {
-            print_test_name(4, "test_match_char_int", false);
+            print_test_name(3, "test_match_char_int", false);
         token_list tokens = create_token_vector(
             {TOK_CHAR}
         );
@@ -59,7 +129,7 @@ namespace {
     }
 
     int test_match_prim_bool() {
-        print_test_name(4, "test_match_prim_bool", false);
+        print_test_name(3, "test_match_prim_bool", false);
         token_list tokens = create_token_vector(
             {TOK_BOOL}
         );
@@ -71,12 +141,12 @@ namespace {
 // --- CONTAIN TEST PRIMARY ---
 namespace {
     int test_contain_prim() {
-        print_test_name(3, "PRIMARY_CONTAIN:", true);
+        print_test_name(2, "PRIMARY_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_prim_int() {
-        print_test_name(4, "test_contain_prim_int", false);
+        print_test_name(3, "test_contain_prim_int", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_EOL, TOK_INT, TOK_DATA}
         );
@@ -86,7 +156,7 @@ namespace {
     }
 
     int test_contain_prim_flint() {
-        print_test_name(4, "test_contain_prim_flint", false);
+        print_test_name(3, "test_contain_prim_flint", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_EOL, TOK_FLINT, TOK_DATA}
         );
@@ -96,7 +166,7 @@ namespace {
     }
 
     int test_contain_prim_str() {
-        print_test_name(4, "test_contain_prim_str", false);
+        print_test_name(3, "test_contain_prim_str", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_EOL, TOK_STR, TOK_DATA}
         );
@@ -106,7 +176,7 @@ namespace {
     }
 
     int test_contain_prim_char() {
-        print_test_name(4, "test_contain_prim_char", false);
+        print_test_name(3, "test_contain_prim_char", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_EOL, TOK_CHAR, TOK_DATA}
         );
@@ -116,7 +186,7 @@ namespace {
     }
 
     int test_contain_prim_bool() {
-        print_test_name(4, "test_contain_prim_bool", false);
+        print_test_name(3, "test_contain_prim_bool", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_EOL, TOK_BOOL, TOK_DATA}
         );
@@ -128,12 +198,12 @@ namespace {
 // --- EXTRACT TEST PRIMARY ---
 namespace {
     int test_extract_prim() {
-        print_test_name(3, "PRIMARY_EXTRACT:", true);
+        print_test_name(2, "PRIMARY_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_prim_int() {
-        print_test_name(4, "test_extract_prim_int", false);
+        print_test_name(3, "test_extract_prim_int", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -145,7 +215,7 @@ namespace {
     }
 
     int test_extract_prim_flint() {
-        print_test_name(4, "test_extract_prim_flint", false);
+        print_test_name(3, "test_extract_prim_flint", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_FLINT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -157,7 +227,7 @@ namespace {
     }
 
     int test_extract_prim_str() {
-        print_test_name(4, "test_extract_prim_str", false);
+        print_test_name(3, "test_extract_prim_str", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_STR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -169,7 +239,7 @@ namespace {
     }
 
     int test_extract_prim_char() {
-        print_test_name(4, "test_extract_prim_char", false);
+        print_test_name(3, "test_extract_prim_char", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -181,7 +251,7 @@ namespace {
     }
 
     int test_extract_prim_bool() {
-        print_test_name(4, "test_extract_prim_bool", false);
+        print_test_name(3, "test_extract_prim_bool", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_BOOL, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -197,13 +267,13 @@ namespace {
 // --- MATCH TEST TYPE ---
 namespace {
     int test_match_type() {
-        print_test_name(2, "TYPE TESTS:", true);
-        print_test_name(3, "TYPE_MATCH:", true);
+        print_test_name(1, "TYPE TESTS:", true);
+        print_test_name(2, "TYPE_MATCH:", true);
         return 0;
     }
 
     int test_match_type_int() {
-        print_test_name(4, "test_match_type_int", false);
+        print_test_name(3, "test_match_type_int", false);
         token_list tokens = create_token_vector(
             {TOK_INT}
         );
@@ -213,7 +283,7 @@ namespace {
     }
 
     int test_match_type_flint() {
-        print_test_name(4, "test_match_type_flint", false);
+        print_test_name(3, "test_match_type_flint", false);
         token_list tokens = create_token_vector(
             {TOK_FLINT}
         );
@@ -223,7 +293,7 @@ namespace {
     }
 
     int test_match_type_str() {
-        print_test_name(4, "test_match_type_str", false);
+        print_test_name(3, "test_match_type_str", false);
         token_list tokens = create_token_vector(
             {TOK_STR}
         );
@@ -233,7 +303,7 @@ namespace {
     }
 
     int test_match_type_char() {
-        print_test_name(4, "test_match_type_char", false);
+        print_test_name(3, "test_match_type_char", false);
         token_list tokens = create_token_vector(
             {TOK_CHAR}
         );
@@ -243,7 +313,7 @@ namespace {
     }
 
     int test_match_type_bool() {
-        print_test_name(4, "test_match_type_bool", false);
+        print_test_name(3, "test_match_type_bool", false);
         token_list tokens = create_token_vector(
             {TOK_BOOL}
         );
@@ -253,7 +323,7 @@ namespace {
     }
 
     int test_match_type_identifier() {
-        print_test_name(4, "test_match_type_identifier", false);
+        print_test_name(3, "test_match_type_identifier", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER}
         );
@@ -265,12 +335,12 @@ namespace {
 // --- CONTAIN TEST TYPE ---
 namespace {
     int test_contain_type() {
-        print_test_name(3, "TYPE_CONTAIN:", true);
+        print_test_name(2, "TYPE_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_type_int() {
-        print_test_name(4, "test_contain_type_int", false);
+        print_test_name(3, "test_contain_type_int", false);
         token_list tokens = create_token_vector(
             {TOK_COLON, TOK_INT, TOK_DATA}
         );
@@ -280,7 +350,7 @@ namespace {
     }
 
     int test_contain_type_flint() {
-        print_test_name(4, "test_contain_type_flint", false);
+        print_test_name(3, "test_contain_type_flint", false);
         token_list tokens = create_token_vector(
             {TOK_COLON, TOK_FLINT, TOK_DATA}
         );
@@ -290,7 +360,7 @@ namespace {
     }
 
     int test_contain_type_str() {
-        print_test_name(4, "test_contain_type_str", false);
+        print_test_name(3, "test_contain_type_str", false);
         token_list tokens = create_token_vector(
             {TOK_COLON, TOK_STR, TOK_DATA}
         );
@@ -300,7 +370,7 @@ namespace {
     }
 
     int test_contain_type_char() {
-        print_test_name(4, "test_contain_type_char", false);
+        print_test_name(3, "test_contain_type_char", false);
         token_list tokens = create_token_vector(
             {TOK_COLON, TOK_CHAR, TOK_DATA}
         );
@@ -310,7 +380,7 @@ namespace {
     }
 
     int test_contain_type_bool() {
-        print_test_name(4, "test_contain_type_bool", false);
+        print_test_name(3, "test_contain_type_bool", false);
         token_list tokens = create_token_vector(
             {TOK_COLON, TOK_BOOL, TOK_DATA}
         );
@@ -320,7 +390,7 @@ namespace {
     }
 
     int test_contain_type_identifier() {
-        print_test_name(4, "test_contain_type_identifier", false);
+        print_test_name(3, "test_contain_type_identifier", false);
         token_list tokens = create_token_vector(
             {TOK_COLON, TOK_IDENTIFIER, TOK_DATA}
         );
@@ -332,12 +402,12 @@ namespace {
 // -- EXTRACT TEST TYPE ---
 namespace {
     int test_extract_type() {
-        print_test_name(3, "TYPE_EXTRACT:", true);
+        print_test_name(2, "TYPE_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_type_int() {
-        print_test_name(4, "test_extract_type_int", false);
+        print_test_name(3, "test_extract_type_int", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -349,7 +419,7 @@ namespace {
     }
 
     int test_extract_type_flint() {
-        print_test_name(4, "test_extract_type_flint", false);
+        print_test_name(3, "test_extract_type_flint", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_FLINT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -361,7 +431,7 @@ namespace {
     }
 
     int test_extract_type_str() {
-        print_test_name(4, "test_extract_type_str", false);
+        print_test_name(3, "test_extract_type_str", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_STR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -373,7 +443,7 @@ namespace {
     }
 
     int test_extract_type_char() {
-        print_test_name(4, "test_extract_type_char", false);
+        print_test_name(3, "test_extract_type_char", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -385,7 +455,7 @@ namespace {
     }
 
     int test_extract_type_bool() {
-        print_test_name(4, "test_extract_type_bool", false);
+        print_test_name(3, "test_extract_type_bool", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_BOOL, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -397,7 +467,7 @@ namespace {
     }
 
     int test_extract_type_identifier() {
-        print_test_name(4, "test_extract_type_identifier", false);
+        print_test_name(3, "test_extract_type_identifier", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -415,13 +485,13 @@ namespace {
 // --- MATCH TEST REFERENCE ---
 namespace {
     int test_match_reference() {
-        print_test_name(2, "REFERENCE TESTS:", true);
-        print_test_name(3, "REFERENCE_MATCH:", true);
+        print_test_name(1, "REFERENCE TESTS:", true);
+        print_test_name(2, "REFERENCE_MATCH:", true);
         return 0;
     }
 
     int test_match_reference_single() {
-        print_test_name(4, "test_match_reference_single", false);
+        print_test_name(3, "test_match_reference_single", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER}
         );
@@ -431,7 +501,7 @@ namespace {
     }
 
     int test_match_reference_multiple() {
-        print_test_name(4, "test_match_reference_multiple", false);
+        print_test_name(3, "test_match_reference_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER}
         );
@@ -443,12 +513,12 @@ namespace {
 // --- CONTAIN TEST REFERENCE ---
 namespace {
     int test_contain_reference() {
-        print_test_name(3, "REFERENCE_CONTAIN:", true);
+        print_test_name(2, "REFERENCE_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_reference_single() {
-        print_test_name(4, "test_contain_reference_single", false);
+        print_test_name(3, "test_contain_reference_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -458,7 +528,7 @@ namespace {
     }
 
     int test_contain_reference_multiple() {
-        print_test_name(4, "test_contain_reference_multiple", false);
+        print_test_name(3, "test_contain_reference_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -470,12 +540,12 @@ namespace {
 // --- EXTRACT TEST REFERENCE ---
 namespace {
     int test_extract_reference() {
-        print_test_name(3, "REFERENCE_EXTRACT:", true);
+        print_test_name(2, "REFERENCE_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_reference_single() {
-        print_test_name(4, "test_extract_reference_single", false);
+        print_test_name(3, "test_extract_reference_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -487,7 +557,7 @@ namespace {
     }
 
     int test_extract_reference_multiple() {
-        print_test_name(4, "test_extract_reference_multiple", false);
+        print_test_name(3, "test_extract_reference_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -503,13 +573,13 @@ namespace {
 // --- MATCH TEST ARGS ---
 namespace {
     int test_match_args() {
-        print_test_name(2, "ARGS TESTS:", true);
-        print_test_name(3, "ARGS_MATCH:", true);
+        print_test_name(1, "ARGS TESTS:", true);
+        print_test_name(2, "ARGS_MATCH:", true);
         return 0;
     }
 
     int test_match_args_single() {
-        print_test_name(4, "test_match_args_single", false);
+        print_test_name(3, "test_match_args_single", false);
         token_list tokens = create_token_vector(
             {TOK_INT, TOK_IDENTIFIER}
         );
@@ -519,7 +589,7 @@ namespace {
     }
 
     int test_match_args_multiple() {
-        print_test_name(4, "test_match_args_multiple", false);
+        print_test_name(3, "test_match_args_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER}
         );
@@ -531,12 +601,12 @@ namespace {
 // --- CONTAIN TEST ARGS ---
 namespace {
     int test_contain_args() {
-        print_test_name(3, "ARGS_CONTAIN:", true);
+        print_test_name(2, "ARGS_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_args_single() {
-        print_test_name(4, "test_contain_args_single", false);
+        print_test_name(3, "test_contain_args_single", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -546,7 +616,7 @@ namespace {
     }
 
     int test_contain_args_multiple() {
-        print_test_name(4, "test_contain_args_multiple", false);
+        print_test_name(3, "test_contain_args_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -558,12 +628,12 @@ namespace {
 // --- EXTRACT TEST ARGS ---
 namespace {
     int test_extract_args() {
-        print_test_name(3, "ARGS_EXTRACT:", true);
+        print_test_name(2, "ARGS_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_args_single() {
-        print_test_name(4, "test_extract_args_single", false);
+        print_test_name(3, "test_extract_args_single", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -575,7 +645,7 @@ namespace {
     }
 
     int test_extract_args_multiple() {
-        print_test_name(4, "test_extract_args_multiple", false);
+        print_test_name(3, "test_extract_args_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -591,13 +661,13 @@ namespace {
 // --- MATCH TEST GROUP ---
 namespace {
     int test_match_group() {
-        print_test_name(2, "GROUP TESTS:", true);
-        print_test_name(3, "GROUP_MATCH:", true);
+        print_test_name(1, "GROUP TESTS:", true);
+        print_test_name(2, "GROUP_MATCH:", true);
         return 0;
     }
 
     int test_match_group_single() {
-        print_test_name(4, "test_match_group_single", false);
+        print_test_name(3, "test_match_group_single", false);
         token_list tokens = create_token_vector(
             {TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN}
         );
@@ -607,7 +677,7 @@ namespace {
     }
 
     int test_match_group_multiple() {
-        print_test_name(4, "test_match_group_multiple", false);
+        print_test_name(3, "test_match_group_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN}
         );
@@ -619,12 +689,12 @@ namespace {
 // --- CONTAIN TEST GROUP ---
 namespace {
     int test_contain_group() {
-        print_test_name(3, "GROUP_CONTAIN:", true);
+        print_test_name(2, "GROUP_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_group_single() {
-        print_test_name(4, "test_contain_group_single", false);
+        print_test_name(3, "test_contain_group_single", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -634,7 +704,7 @@ namespace {
     }
 
     int test_contain_group_multiple() {
-        print_test_name(4, "test_contain_group_multiple", false);
+        print_test_name(3, "test_contain_group_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -646,12 +716,12 @@ namespace {
 // --- EXTRACT TEST GROUP ---
 namespace {
     int test_extract_group() {
-        print_test_name(3, "GROUP_EXTRACT:", true);
+        print_test_name(2, "GROUP_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_group_single() {
-        print_test_name(4, "test_extract_group_single", false);
+        print_test_name(3, "test_extract_group_single", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -663,7 +733,7 @@ namespace {
     }
 
     int test_extract_group_multiple() {
-        print_test_name(4, "test_extract_group_multiple", false);
+        print_test_name(3, "test_extract_group_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -679,13 +749,13 @@ namespace {
 // --- MATCH TEST USE STATEMENT ---
 namespace {
     int test_match_use_statement() {
-        print_test_name(2, "USE_STATEMENT TESTS:", true);
-        print_test_name(3, "USE_STATEMENT_MATCH:", true);
+        print_test_name(1, "USE_STATEMENT TESTS:", true);
+        print_test_name(2, "USE_STATEMENT_MATCH:", true);
         return 0;
     }
 
     int test_match_use_statement_string() {
-        print_test_name(4, "test_match_use_statement_string", false);
+        print_test_name(3, "test_match_use_statement_string", false);
         token_list tokens = create_token_vector(
             {TOK_USE, TOK_STR_VALUE}
         );
@@ -695,7 +765,7 @@ namespace {
     }
 
     int test_match_use_statement_package_single() {
-        print_test_name(4, "test_match_use_statement_package_single", false);
+        print_test_name(3, "test_match_use_statement_package_single", false);
         token_list tokens = create_token_vector(
             {TOK_USE, TOK_IDENTIFIER}
         );
@@ -705,7 +775,7 @@ namespace {
     }
 
     int test_match_use_statement_package_dual() {
-        print_test_name(4, "test_match_use_statement_package_dual", false);
+        print_test_name(3, "test_match_use_statement_package_dual", false);
         token_list tokens = create_token_vector(
             {TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER}
         );
@@ -715,7 +785,7 @@ namespace {
     }
 
     int test_match_use_statement_package_multiple() {
-        print_test_name(4, "test_match_use_statement_package_multiple", false);
+        print_test_name(3, "test_match_use_statement_package_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER}
         );
@@ -725,7 +795,7 @@ namespace {
     }
 
     int test_match_use_statement_flint_package_single() {
-        print_test_name(4, "test_match_use_statement_flint_package_single", false);
+        print_test_name(3, "test_match_use_statement_flint_package_single", false);
         token_list tokens = create_token_vector(
             {TOK_USE, TOK_FLINT}
         );
@@ -735,7 +805,7 @@ namespace {
     }
 
     int test_match_use_statement_flint_package_dual() {
-        print_test_name(4, "test_match_use_statement_flint_package_dual", false);
+        print_test_name(3, "test_match_use_statement_flint_package_dual", false);
         token_list tokens = create_token_vector(
             {TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER}
         );
@@ -745,7 +815,7 @@ namespace {
     }
 
     int test_match_use_statement_flint_package_multiple() {
-        print_test_name(4, "test_match_use_statement_flint_package_multiple", false);
+        print_test_name(3, "test_match_use_statement_flint_package_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER}
         );
@@ -757,12 +827,12 @@ namespace {
 // --- CONTAIN TEST USE STATEMENT ---
 namespace {
     int test_contain_use_statement() {
-        print_test_name(3, "USE_STATEMENT_CONTAIN:", true);
+        print_test_name(2, "USE_STATEMENT_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_use_statement_string() {
-        print_test_name(4, "test_contain_use_statement_string", false);
+        print_test_name(3, "test_contain_use_statement_string", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_STR_VALUE, TOK_SEMICOLON}
         );
@@ -772,7 +842,7 @@ namespace {
     }
 
     int test_contain_use_statement_package_single() {
-        print_test_name(4, "test_contain_use_statement_package_single", false);
+        print_test_name(3, "test_contain_use_statement_package_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -782,7 +852,7 @@ namespace {
     }
 
     int test_contain_use_statement_package_dual() {
-        print_test_name(4, "test_contain_use_statement_package_dual", false);
+        print_test_name(3, "test_contain_use_statement_package_dual", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -792,7 +862,7 @@ namespace {
     }
 
     int test_contain_use_statement_package_multiple() {
-        print_test_name(4, "test_contain_use_statement_package_multiple", false);
+        print_test_name(3, "test_contain_use_statement_package_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -802,7 +872,7 @@ namespace {
     }
 
     int test_contain_use_statement_flint_package_single() {
-        print_test_name(4, "test_contain_use_statement_flint_package_single", false);
+        print_test_name(3, "test_contain_use_statement_flint_package_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON}
         );
@@ -812,7 +882,7 @@ namespace {
     }
 
     int test_contain_use_statement_flint_package_dual() {
-        print_test_name(4, "test_contain_use_statement_flint_package_dual", false);
+        print_test_name(3, "test_contain_use_statement_flint_package_dual", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -822,7 +892,7 @@ namespace {
     }
 
     int test_contain_use_statement_flint_package_multiple() {
-        print_test_name(4, "test_contain_use_statement_flint_package_multiple", false);
+        print_test_name(3, "test_contain_use_statement_flint_package_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -834,12 +904,12 @@ namespace {
 // --- EXTRACT TEST USE STATEMENT ---
 namespace {
     int test_extract_use_statement() {
-        print_test_name(3, "USE_STATEMENT_EXTRACT:", true);
+        print_test_name(2, "USE_STATEMENT_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_use_statement_string() {
-        print_test_name(4, "test_extract_use_statement_string", false);
+        print_test_name(3, "test_extract_use_statement_string", false);
         token_list tokens = create_token_vector(
            {TOK_INDENT, TOK_USE, TOK_STR_VALUE, TOK_SEMICOLON}
         );
@@ -851,7 +921,7 @@ namespace {
     }
 
     int test_extract_use_statement_package_single() {
-        print_test_name(4, "test_extract_use_statement_package_single", false);
+        print_test_name(3, "test_extract_use_statement_package_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -863,7 +933,7 @@ namespace {
     }
 
     int test_extract_use_statement_package_dual() {
-        print_test_name(4, "test_extract_use_statement_package_dual", false);
+        print_test_name(3, "test_extract_use_statement_package_dual", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -875,7 +945,7 @@ namespace {
     }
 
     int test_extract_use_statement_package_multiple() {
-        print_test_name(4, "test_extract_use_statement_package_multiple", false);
+        print_test_name(3, "test_extract_use_statement_package_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -887,7 +957,7 @@ namespace {
     }
 
     int test_extract_use_statement_flint_package_single() {
-        print_test_name(4, "test_extract_use_statement_flint_package_single", false);
+        print_test_name(3, "test_extract_use_statement_flint_package_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON}
         );
@@ -899,7 +969,7 @@ namespace {
     }
 
     int test_extract_use_statement_flint_package_dual() {
-        print_test_name(4, "test_extract_use_statement_flint_package_dual", false);
+        print_test_name(3, "test_extract_use_statement_flint_package_dual", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -911,7 +981,7 @@ namespace {
     }
 
     int test_extract_use_statement_flint_package_multiple() {
-        print_test_name(4, "test_extract_use_statement_flint_package_multiple", false);
+        print_test_name(3, "test_extract_use_statement_flint_package_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
         );
@@ -927,13 +997,13 @@ namespace {
 // --- MATCH TEST FUNCTION DEFINITION ---
 namespace {
     int test_match_function_definition() {
-        print_test_name(2, "FUNCTION_DEFINITION TESTS:", true);
-        print_test_name(3, "FUNCTION_DEFINITION_MATCH:", true);
+        print_test_name(1, "FUNCTION_DEFINITION TESTS:", true);
+        print_test_name(2, "FUNCTION_DEFINITION_MATCH:", true);
         return 0;
     }
 
     int test_match_function_definition_const() {
-        print_test_name(4, "test_match_function_definition_const", false);
+        print_test_name(3, "test_match_function_definition_const", false);
         token_list tokens = create_token_vector(
             {TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -943,7 +1013,7 @@ namespace {
     }
 
     int test_match_function_definition_aligned() {
-        print_test_name(4, "test_match_function_definition_aligned", false);
+        print_test_name(3, "test_match_function_definition_aligned", false);
         token_list tokens = create_token_vector(
             {TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -953,7 +1023,7 @@ namespace {
     }
 
     int test_match_function_definition_aligned_const() {
-        print_test_name(4, "test_match_function_definition_aligned_const", false);
+        print_test_name(3, "test_match_function_definition_aligned_const", false);
         token_list tokens = create_token_vector(
             {TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -963,7 +1033,7 @@ namespace {
     }
 
     int test_match_function_definition_0arg_0return() {
-        print_test_name(4, "test_match_function_definition_0arg_0return", false);
+        print_test_name(3, "test_match_function_definition_0arg_0return", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -973,7 +1043,7 @@ namespace {
     }
 
     int test_match_function_definition_1arg_0return() {
-        print_test_name(4, "test_match_function_definition_1arg_0return", false);
+        print_test_name(3, "test_match_function_definition_1arg_0return", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -983,7 +1053,7 @@ namespace {
     }
 
     int test_match_function_definition_0arg_1return() {
-        print_test_name(4, "test_match_function_definition_0arg_1return", false);
+        print_test_name(3, "test_match_function_definition_0arg_1return", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON}
         );
@@ -993,7 +1063,7 @@ namespace {
     }
 
     int test_match_function_definition_1arg_1return() {
-        print_test_name(4, "test_match_function_definition_1arg_1return", false);
+        print_test_name(3, "test_match_function_definition_1arg_1return", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON}
         );
@@ -1003,7 +1073,7 @@ namespace {
     }
 
     int test_match_function_definition_narg_0return() {
-        print_test_name(4, "test_match_function_definition_narg_0return", false);
+        print_test_name(3, "test_match_function_definition_narg_0return", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -1013,7 +1083,7 @@ namespace {
     }
 
     int test_match_function_definition_0arg_nreturn() {
-        print_test_name(4, "test_match_function_definition_0arg_nreturn", false);
+        print_test_name(3, "test_match_function_definition_0arg_nreturn", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -1023,7 +1093,7 @@ namespace {
     }
 
     int test_match_function_definition_narg_nreturn() {
-        print_test_name(4, "test_match_function_definition_narg_nreturn", false);
+        print_test_name(3, "test_match_function_definition_narg_nreturn", false);
         token_list tokens = create_token_vector(
             {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -1035,12 +1105,12 @@ namespace {
 // --- CONTAIN TEST FUNCTION DEFINITION ---
 namespace {
     int test_contain_function_definition() {
-        print_test_name(3, "FUNCTION_DEFINITION_CONTAIN:", true);
+        print_test_name(2, "FUNCTION_DEFINITION_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_function_definition_const() {
-        print_test_name(4, "test_contain_function_definition_const", false);
+        print_test_name(3, "test_contain_function_definition_const", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1050,7 +1120,7 @@ namespace {
     }
 
     int test_contain_function_definition_aligned() {
-        print_test_name(4, "test_contain_function_definition_aligned", false);
+        print_test_name(3, "test_contain_function_definition_aligned", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1060,7 +1130,7 @@ namespace {
     }
 
     int test_contain_function_definition_aligned_const() {
-        print_test_name(4, "test_contain_function_definition_aligned_const", false);
+        print_test_name(3, "test_contain_function_definition_aligned_const", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1070,7 +1140,7 @@ namespace {
     }
 
     int test_contain_function_definition_0arg_0return() {
-        print_test_name(4, "test_contain_function_definition_0arg_0return", false);
+        print_test_name(3, "test_contain_function_definition_0arg_0return", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1080,7 +1150,7 @@ namespace {
     }
 
     int test_contain_function_definition_1arg_0return() {
-        print_test_name(4, "test_contain_function_definition_1arg_0return", false);
+        print_test_name(3, "test_contain_function_definition_1arg_0return", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1090,7 +1160,7 @@ namespace {
     }
 
     int test_contain_function_definition_0arg_1return() {
-        print_test_name(4, "test_contain_function_definition_0arg_1return", false);
+        print_test_name(3, "test_contain_function_definition_0arg_1return", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
         );
@@ -1100,7 +1170,7 @@ namespace {
     }
 
     int test_contain_function_definition_1arg_1return() {
-        print_test_name(4, "test_contain_function_definition_1arg_1return", false);
+        print_test_name(3, "test_contain_function_definition_1arg_1return", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
         );
@@ -1110,7 +1180,7 @@ namespace {
     }
 
     int test_contain_function_definition_narg_0return() {
-        print_test_name(4, "test_contain_function_definition_narg_0return", false);
+        print_test_name(3, "test_contain_function_definition_narg_0return", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1120,7 +1190,7 @@ namespace {
     }
 
     int test_contain_function_definition_0arg_nreturn() {
-        print_test_name(4, "test_contain_function_definition_0arg_nreturn", false);
+        print_test_name(3, "test_contain_function_definition_0arg_nreturn", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1130,7 +1200,7 @@ namespace {
     }
 
     int test_contain_function_definition_narg_nreturn() {
-        print_test_name(4, "test_contain_function_definition_narg_nreturn", false);
+        print_test_name(3, "test_contain_function_definition_narg_nreturn", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1142,12 +1212,12 @@ namespace {
 // --- EXTRACT TEST FUNCTION DEFINITION ---
 namespace {
     int test_extract_function_definition() {
-        print_test_name(3, "FUNCTION_DEFINITION_EXTRACT:", true);
+        print_test_name(2, "FUNCTION_DEFINITION_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_function_definition_const() {
-        print_test_name(4, "test_extract_function_definition_const", false);
+        print_test_name(3, "test_extract_function_definition_const", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1159,7 +1229,7 @@ namespace {
     }
 
     int test_extract_function_definition_aligned() {
-        print_test_name(4, "test_extract_function_definition_aligned", false);
+        print_test_name(3, "test_extract_function_definition_aligned", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1171,7 +1241,7 @@ namespace {
     }
 
     int test_extract_function_definition_aligned_const() {
-        print_test_name(4, "test_extract_function_definition_aligned_const", false);
+        print_test_name(3, "test_extract_function_definition_aligned_const", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1183,7 +1253,7 @@ namespace {
     }
 
     int test_extract_function_definition_0arg_0return() {
-        print_test_name(4, "test_extract_function_definition_0arg_0return", false);
+        print_test_name(3, "test_extract_function_definition_0arg_0return", false);
         token_list tokens = create_token_vector(
            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1195,7 +1265,7 @@ namespace {
     }
 
     int test_extract_function_definition_1arg_0return() {
-        print_test_name(4, "test_extract_function_definition_1arg_0return", false);
+        print_test_name(3, "test_extract_function_definition_1arg_0return", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1207,7 +1277,7 @@ namespace {
     }
 
     int test_extract_function_definition_0arg_1return() {
-        print_test_name(4, "test_extract_function_definition_0arg_1return", false);
+        print_test_name(3, "test_extract_function_definition_0arg_1return", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
         );
@@ -1219,7 +1289,7 @@ namespace {
     }
 
     int test_extract_function_definition_1arg_1return() {
-        print_test_name(4, "test_extract_function_definition_1arg_1return", false);
+        print_test_name(3, "test_extract_function_definition_1arg_1return", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
         );
@@ -1231,7 +1301,7 @@ namespace {
     }
 
     int test_extract_function_definition_narg_0return() {
-        print_test_name(4, "test_extract_function_definition_narg_0return", false);
+        print_test_name(3, "test_extract_function_definition_narg_0return", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1243,7 +1313,7 @@ namespace {
     }
 
     int test_extract_function_definition_0arg_nreturn() {
-        print_test_name(4, "test_extract_function_definition_0arg_nreturn", false);
+        print_test_name(3, "test_extract_function_definition_0arg_nreturn", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1255,7 +1325,7 @@ namespace {
     }
 
     int test_extract_function_definition_narg_nreturn() {
-        print_test_name(4, "test_extract_function_definition_narg_nreturn", false);
+        print_test_name(3, "test_extract_function_definition_narg_nreturn", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1271,13 +1341,13 @@ namespace {
 // --- MATCH TEST DATA DEFINITION ---
 namespace {
     int test_match_data_definition() {
-        print_test_name(2, "DATA_DEFINITION TESTS:", true);
-        print_test_name(3, "DATA_DEFINITION_MATCH:", true);
+        print_test_name(1, "DATA_DEFINITION TESTS:", true);
+        print_test_name(2, "DATA_DEFINITION_MATCH:", true);
         return 0;
     }
 
     int test_match_data_definition_normal() {
-        print_test_name(4, "test_match_data_definition_normal", false);
+        print_test_name(3, "test_match_data_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_DATA, TOK_IDENTIFIER, TOK_COLON}
         );
@@ -1287,7 +1357,7 @@ namespace {
     }
 
     int test_match_data_definition_shared() {
-        print_test_name(4, "test_match_data_definition_shared", false);
+        print_test_name(3, "test_match_data_definition_shared", false);
         token_list tokens = create_token_vector(
             {TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON}
         );
@@ -1297,7 +1367,7 @@ namespace {
     }
 
     int test_match_data_definition_immutable() {
-        print_test_name(4, "test_match_data_definition_immutable", false);
+        print_test_name(3, "test_match_data_definition_immutable", false);
         token_list tokens = create_token_vector(
             {TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON}
         );
@@ -1307,7 +1377,7 @@ namespace {
     }
 
     int test_match_data_definition_aligned() {
-        print_test_name(4, "test_match_data_definition_aligned", false);
+        print_test_name(3, "test_match_data_definition_aligned", false);
         token_list tokens = create_token_vector(
             {TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON}
         );
@@ -1319,12 +1389,12 @@ namespace {
 // --- CONTAIN TEST DATA DEFINITION ---
 namespace {
     int test_contain_data_definition() {
-        print_test_name(3, "DATA_DEFINITION_CONTAIN:", true);
+        print_test_name(2, "DATA_DEFINITION_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_data_definition_normal() {
-        print_test_name(4, "test_contain_data_definition_normal", false);
+        print_test_name(3, "test_contain_data_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1334,7 +1404,7 @@ namespace {
     }
 
     int test_contain_data_definition_shared() {
-        print_test_name(4, "test_contain_data_definition_shared", false);
+        print_test_name(3, "test_contain_data_definition_shared", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1344,7 +1414,7 @@ namespace {
     }
 
     int test_contain_data_definition_immutable() {
-        print_test_name(4, "test_contain_data_definition_immutable", false);
+        print_test_name(3, "test_contain_data_definition_immutable", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1354,7 +1424,7 @@ namespace {
     }
 
     int test_contain_data_definition_aligned() {
-        print_test_name(4, "test_contain_data_definition_aligned", false);
+        print_test_name(3, "test_contain_data_definition_aligned", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1366,12 +1436,12 @@ namespace {
 // --- EXTRACT TEST DATA DEFINITION ---
 namespace {
     int test_extract_data_definition() {
-        print_test_name(3, "DATA_DEFINITION_EXTRACT:", true);
+        print_test_name(2, "DATA_DEFINITION_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_data_definition_normal() {
-        print_test_name(4, "test_extract_data_definition_normal", false);
+        print_test_name(3, "test_extract_data_definition_normal", false);
         token_list tokens = create_token_vector(
            {TOK_INDENT, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1383,7 +1453,7 @@ namespace {
     }
 
     int test_extract_data_definition_shared() {
-        print_test_name(4, "test_extract_data_definition_shared", false);
+        print_test_name(3, "test_extract_data_definition_shared", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1395,7 +1465,7 @@ namespace {
     }
 
     int test_extract_data_definition_immutable() {
-        print_test_name(4, "test_extract_data_definition_immutable", false);
+        print_test_name(3, "test_extract_data_definition_immutable", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1407,7 +1477,7 @@ namespace {
     }
 
     int test_extract_data_definition_aligned() {
-        print_test_name(4, "test_extract_data_definition_aligned", false);
+        print_test_name(3, "test_extract_data_definition_aligned", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1423,13 +1493,13 @@ namespace {
 // --- MATCH TEST FUNC DEFINITION ---
 namespace {
     int test_match_func_definition() {
-        print_test_name(2, "FUNC_DEFINITION TESTS:", true);
-        print_test_name(3, "FUNC_DEFINITION_MATCH:", true);
+        print_test_name(1, "FUNC_DEFINITION TESTS:", true);
+        print_test_name(2, "FUNC_DEFINITION_MATCH:", true);
         return 0;
     }
 
     int test_match_func_definition_normal() {
-        print_test_name(4, "test_match_func_definition_normal", false);
+        print_test_name(3, "test_match_func_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_FUNC, TOK_IDENTIFIER, TOK_COLON}
         );
@@ -1439,7 +1509,7 @@ namespace {
     }
 
     int test_match_func_definition_requires_single() {
-        print_test_name(4, "test_match_func_definition_requires_single", false);
+        print_test_name(3, "test_match_func_definition_requires_single", false);
         token_list tokens = create_token_vector(
             {TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -1449,7 +1519,7 @@ namespace {
     }
 
     int test_match_func_definition_requires_multiple() {
-        print_test_name(4, "test_match_func_definition_requires_multiple", false);
+        print_test_name(3, "test_match_func_definition_requires_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -1461,12 +1531,12 @@ namespace {
 // --- CONTAIN TEST FUNC DEFINITION ---
 namespace {
     int test_contain_func_definition() {
-        print_test_name(3, "FUNC_DEFINITION_CONTAIN:", true);
+        print_test_name(2, "FUNC_DEFINITION_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_func_definition_normal() {
-        print_test_name(4, "test_contain_func_definition_normal", false);
+        print_test_name(3, "test_contain_func_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1476,7 +1546,7 @@ namespace {
     }
 
     int test_contain_func_definition_requires_single() {
-        print_test_name(4, "test_contain_func_definition_requires_single", false);
+        print_test_name(3, "test_contain_func_definition_requires_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1486,7 +1556,7 @@ namespace {
     }
 
     int test_contain_func_definition_requires_multiple() {
-        print_test_name(4, "test_contain_func_definition_requires_multiple", false);
+        print_test_name(3, "test_contain_func_definition_requires_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1498,12 +1568,12 @@ namespace {
 // --- EXTRACT TEST FUNC DEFINITION ---
 namespace {
     int test_extract_func_definition() {
-        print_test_name(3, "FUNC_DEFINITION_EXTRACT:", true);
+        print_test_name(2, "FUNC_DEFINITION_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_func_definition_normal() {
-        print_test_name(4, "test_extract_func_definition_normal", false);
+        print_test_name(3, "test_extract_func_definition_normal", false);
         token_list tokens = create_token_vector(
            {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1515,7 +1585,7 @@ namespace {
     }
 
     int test_extract_func_definition_requires_single() {
-        print_test_name(4, "test_extract_func_definition_requires_single", false);
+        print_test_name(3, "test_extract_func_definition_requires_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1527,7 +1597,7 @@ namespace {
     }
 
     int test_extract_func_definition_requires_multiple() {
-        print_test_name(4, "test_extract_func_definition_requires_multiple", false);
+        print_test_name(3, "test_extract_func_definition_requires_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1543,13 +1613,13 @@ namespace {
 // --- MATCH TEST ERROR DEFINITION ---
 namespace {
     int test_match_error_definition() {
-        print_test_name(2, "ERROR_DEFINITION TESTS:", true);
-        print_test_name(3, "ERROR_DEFINITION_MATCH:", true);
+        print_test_name(1, "ERROR_DEFINITION TESTS:", true);
+        print_test_name(2, "ERROR_DEFINITION_MATCH:", true);
         return 0;
     }
 
     int test_match_error_definition_normal() {
-        print_test_name(4, "test_match_error_definition_normal", false);
+        print_test_name(3, "test_match_error_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_ERROR, TOK_IDENTIFIER, TOK_COLON}
         );
@@ -1559,7 +1629,7 @@ namespace {
     }
 
     int test_match_error_definition_extending() {
-        print_test_name(4, "test_match_error_definition_extending", false);
+        print_test_name(3, "test_match_error_definition_extending", false);
         token_list tokens = create_token_vector(
             {TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -1571,12 +1641,12 @@ namespace {
 // --- CONTAIN TEST ERROR DEFINITION ---
 namespace {
     int test_contain_error_definition() {
-        print_test_name(3, "ERROR_DEFINITION_CONTAIN:", true);
+        print_test_name(2, "ERROR_DEFINITION_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_error_definition_normal() {
-        print_test_name(4, "test_contain_error_definition_normal", false);
+        print_test_name(3, "test_contain_error_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1586,7 +1656,7 @@ namespace {
     }
 
     int test_contain_error_definition_extending() {
-        print_test_name(4, "test_contain_error_definition_extending", false);
+        print_test_name(3, "test_contain_error_definition_extending", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1598,12 +1668,12 @@ namespace {
 // --- EXTRACT TEST ERROR DEFINITION ---
 namespace {
     int test_extract_error_definition() {
-        print_test_name(3, "ERROR_DEFINITION_EXTRACT:", true);
+        print_test_name(2, "ERROR_DEFINITION_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_error_definition_normal() {
-        print_test_name(4, "test_extract_error_definition_normal", false);
+        print_test_name(3, "test_extract_error_definition_normal", false);
         token_list tokens = create_token_vector(
            {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1615,7 +1685,7 @@ namespace {
     }
 
     int test_extract_error_definition_extending() {
-        print_test_name(4, "test_extract_error_definition_extending", false);
+        print_test_name(3, "test_extract_error_definition_extending", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1631,13 +1701,13 @@ namespace {
 // --- MATCH TEST ENUM DEFINITION ---
 namespace {
     int test_match_enum_definition() {
-        print_test_name(2, "ENUM_DEFINITION TESTS:", true);
-        print_test_name(3, "ENUM_DEFINITION_MATCH:", true);
+        print_test_name(1, "ENUM_DEFINITION TESTS:", true);
+        print_test_name(2, "ENUM_DEFINITION_MATCH:", true);
         return 0;
     }
 
     int test_match_enum_definition_normal() {
-        print_test_name(4, "test_match_enum_definition_normal", false);
+        print_test_name(3, "test_match_enum_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_ENUM, TOK_IDENTIFIER, TOK_COLON}
         );
@@ -1649,12 +1719,12 @@ namespace {
 // --- CONTAIN TEST ENUM DEFINITION ---
 namespace {
     int test_contain_enum_definition() {
-        print_test_name(3, "ENUM_DEFINITION_CONTAIN:", true);
+        print_test_name(2, "ENUM_DEFINITION_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_enum_definition_normal() {
-        print_test_name(4, "test_contain_enum_definition_normal", false);
+        print_test_name(3, "test_contain_enum_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1666,12 +1736,12 @@ namespace {
 // --- EXTRACT TEST ENUM DEFINITION ---
 namespace {
     int test_extract_enum_definition() {
-        print_test_name(3, "ENUM_DEFINITION_EXTRACT:", true);
+        print_test_name(2, "ENUM_DEFINITION_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_enum_definition_normal() {
-        print_test_name(4, "test_extract_enum_definition_normal", false);
+        print_test_name(3, "test_extract_enum_definition_normal", false);
         token_list tokens = create_token_vector(
            {TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1687,13 +1757,13 @@ namespace {
 // --- MATCH TEST VARIANT DEFINITION ---
 namespace {
     int test_match_variant_definition() {
-        print_test_name(2, "VARIANT_DEFINITION TESTS:", true);
-        print_test_name(3, "VARIANT_DEFINITION_MATCH:", true);
+        print_test_name(1, "VARIANT_DEFINITION TESTS:", true);
+        print_test_name(2, "VARIANT_DEFINITION_MATCH:", true);
         return 0;
     }
 
     int test_match_variant_definition_normal() {
-        print_test_name(4, "test_match_variant_definition_normal", false);
+        print_test_name(3, "test_match_variant_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON}
         );
@@ -1705,12 +1775,12 @@ namespace {
 // --- CONTAIN TEST VARIANT DEFINITION ---
 namespace {
     int test_contain_variant_definition() {
-        print_test_name(3, "VARIANT_DEFINITION_CONTAIN:", true);
+        print_test_name(2, "VARIANT_DEFINITION_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_variant_definition_normal() {
-        print_test_name(4, "test_contain_variant_definition_normal", false);
+        print_test_name(3, "test_contain_variant_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1722,12 +1792,12 @@ namespace {
 // --- EXTRACT TEST VARIANT DEFINITION ---
 namespace {
     int test_extract_variant_definition() {
-        print_test_name(3, "VARIANT_DEFINITION_EXTRACT:", true);
+        print_test_name(2, "VARIANT_DEFINITION_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_variant_definition_normal() {
-        print_test_name(4, "test_extract_variant_definition_normal", false);
+        print_test_name(3, "test_extract_variant_definition_normal", false);
         token_list tokens = create_token_vector(
         {TOK_INDENT, TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1743,13 +1813,13 @@ namespace {
 // --- MATCH TEST ENTITY DEFINITION ---
 namespace {
     int test_match_entity_definition() {
-        print_test_name(2, "ENTITY_DEFINITION TESTS:", true);
-        print_test_name(3, "ENTITY_DEFINITION_MATCH:", true);
+        print_test_name(1, "ENTITY_DEFINITION TESTS:", true);
+        print_test_name(2, "ENTITY_DEFINITION_MATCH:", true);
         return 0;
     }
 
     int test_match_entity_definition_normal() {
-        print_test_name(4, "test_match_entity_definition_normal", false);
+        print_test_name(3, "test_match_entity_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON}
         );
@@ -1759,7 +1829,7 @@ namespace {
     }
 
     int test_match_entity_definition_extends_single() {
-        print_test_name(4, "test_match_entity_definition_extends_single", false);
+        print_test_name(3, "test_match_entity_definition_extends_single", false);
         token_list tokens = create_token_vector(
             {TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -1769,7 +1839,7 @@ namespace {
     }
 
     int test_match_entity_definition_extends_multiple() {
-        print_test_name(4, "test_match_entity_definition_extends_multiple", false);
+        print_test_name(3, "test_match_entity_definition_extends_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
         );
@@ -1781,12 +1851,12 @@ namespace {
 // --- CONTAIN TEST ENTITY DEFINITION ---
 namespace {
     int test_contain_entity_definition() {
-        print_test_name(3, "ENTITY_DEFINITION_CONTAIN:", true);
+        print_test_name(2, "ENTITY_DEFINITION_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_entity_definition_normal() {
-        print_test_name(4, "test_contain_entity_definition_normal", false);
+        print_test_name(3, "test_contain_entity_definition_normal", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1796,7 +1866,7 @@ namespace {
     }
 
     int test_contain_entity_definition_extends_single() {
-        print_test_name(4, "test_contain_entity_definition_extends_single", false);
+        print_test_name(3, "test_contain_entity_definition_extends_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1806,7 +1876,7 @@ namespace {
     }
 
     int test_contain_entity_definition_extends_multiple() {
-        print_test_name(4, "test_contain_entity_definition_extends_multiple", false);
+        print_test_name(3, "test_contain_entity_definition_extends_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1818,12 +1888,12 @@ namespace {
 // --- EXTRACT TEST ENTITY DEFINITION ---
 namespace {
     int test_extract_entity_definition() {
-        print_test_name(3, "ENTITY_DEFINITION_EXTRACT:", true);
+        print_test_name(2, "ENTITY_DEFINITION_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_entity_definition_normal() {
-        print_test_name(4, "test_extract_entity_definition_normal", false);
+        print_test_name(3, "test_extract_entity_definition_normal", false);
         token_list tokens = create_token_vector(
            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
         );
@@ -1835,7 +1905,7 @@ namespace {
     }
 
     int test_extract_entity_definition_extends_single() {
-        print_test_name(4, "test_extract_entity_definition_extends_single", false);
+        print_test_name(3, "test_extract_entity_definition_extends_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1847,7 +1917,7 @@ namespace {
     }
 
     int test_extract_entity_definition_extends_multiple() {
-        print_test_name(4, "test_extract_entity_definition_extends_multiple", false);
+        print_test_name(3, "test_extract_entity_definition_extends_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
         );
@@ -1859,9 +1929,140 @@ namespace {
     }
 }
 
-int test_signature() {
-    print_test_name(1, "SIGNATURE_TESTS:", true);
 
+// --- FUNCTION CALL EXPRESSION TESTS ---
+// --- MATCH TEST FUNCTION CALL EXPRESSION ---
+namespace {
+    int test_match_function_call() {
+        print_test_name(1, "FUNCTION_CALL TESTS:", true);
+        print_test_name(2, "FUNCTION_CALL_MATCH:", true);
+        return 0;
+    }
+
+    int test_match_function_call_0arg() {
+        print_test_name(3, "test_match_function_call_0arg", false);
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::function_call);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_match_function_call_1arg_identifier() {
+        print_test_name(3, "test_match_function_call_1arg_identifier", false);
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::function_call);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_match_function_call_1arg_function_0arg() {
+        print_test_name(3, "test_match_function_call_1arg_function_0arg", false);
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::function_call);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- CONTAIN TEST FUNCTION CALL EXPRESSION ---
+namespace {
+    int test_contain_function_call() {
+        print_test_name(2, "FUNCTION_CALL_CONTAIN:", true);
+        return 0;
+    }
+
+    int test_contain_function_call_0arg() {
+        print_test_name(3, "test_contain_function_call_0arg", false);
+        token_list tokens = create_token_vector(
+            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::function_call);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_contain_function_call_1arg_identifier() {
+        print_test_name(3, "test_contain_function_call_1arg_identifier", false);
+        token_list tokens = create_token_vector(
+            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::function_call);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_contain_function_call_1arg_function_0arg() {
+        print_test_name(3, "test_contain_function_call_1arg_function_0arg", false);
+        token_list tokens = create_token_vector(
+            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::function_call);
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- EXTRACT TEST FUNCTION CALL EXPRESSION ---
+namespace {
+    int test_extract_function_call() {
+        print_test_name(2, "FUNCTION_CALL_EXTRACT:", true);
+        return 0;
+    }
+
+    int test_extract_function_call_0arg() {
+        print_test_name(3, "test_extract_function_call_0arg", false);
+        token_list tokens = create_token_vector(
+           {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::function_call);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_extract_function_call_1arg_identifier() {
+        print_test_name(3, "test_extract_function_call_1arg_identifier", false);
+        token_list tokens = create_token_vector(
+            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::function_call);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_extract_function_call_1arg_function_0arg() {
+        print_test_name(3, "test_extract_function_call_1arg_function_0arg", false);
+        token_list tokens = create_token_vector(
+            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
+        ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+
+int test_signature() {
+    print_test_name(0, "SIGNATURE_TESTS:", true);
+
+    // --- SIGNATURE METHODS ---
+    function_list balanced_range_extraction = {
+        test_balanced_range_extraction,
+        test_balanced_range_extraction_lr,
+        test_balanced_range_extraction_llrr,
+        test_balanced_range_extraction_llrlrr,
+        test_balanced_range_extraction_lllrrr,
+        test_balanced_range_extraction_llrlrlrr,
+    };
+    // --- BASIC SIGNATURES ---
     function_list primary_tests = {
         // Match Tests Primary
         test_match_prim,
@@ -1953,6 +2154,7 @@ int test_signature() {
         test_extract_group_single,
         test_extract_group_multiple,
     };
+    // --- DEFINITIONS ---
     function_list use_statement_tests = {
         // Match Tests
         test_match_use_statement,
@@ -2110,13 +2312,35 @@ int test_signature() {
         test_extract_variant_definition,
         test_extract_variant_definition_normal,
     };
+    // --- EXPRESSIONS ---
+    function_list function_call_tests = {
+        // Match Tests
+        test_match_function_call,
+        test_match_function_call_0arg,
+        test_match_function_call_1arg_identifier,
+        test_match_function_call_1arg_function_0arg,
+        // Contain Tests
+        test_contain_function_call,
+        test_contain_function_call_0arg,
+        test_contain_function_call_1arg_identifier,
+        test_contain_function_call_1arg_function_0arg,
+        // Extract Tests
+        test_extract_function_call,
+        test_extract_function_call_0arg,
+        test_extract_function_call_1arg_identifier,
+        test_extract_function_call_1arg_function_0arg,
+    };
 
     const std::vector<function_list> tests = {
+        // --- SIGNATURE METHODS ---
+        //balanced_range_extraction,
+        // --- BASIC SIGNATURES ---
         primary_tests,
         type_tests,
         reference_tests,
         args_tests,
         group_tests,
+        // --- DEFINITIONS ---
         use_statement_tests,
         function_definition_tests,
         data_definition_tests,
@@ -2125,6 +2349,8 @@ int test_signature() {
         error_definition_tests,
         enum_definition_tests,
         variant_definition_tests,
+        // --- EXPRESSIONS ---
+        function_call_tests,
     };
     return run_all_tests(tests);
 }

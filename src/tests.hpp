@@ -10,7 +10,8 @@ struct TestResult {
     int count;
 };
 
-struct TestResult run_tests();
+struct TestResult run_parser_tests();
+struct TestResult run_signature_tests();
 
 #ifdef __cplusplus
 }

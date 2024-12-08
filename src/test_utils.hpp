@@ -12,12 +12,18 @@
 const std::string RED = "\033[31m";
 const std::string GREEN = "\033[32m";
 const std::string WHITE = "\033[37m";
+const std::string DEFAULT = "\033[0m";
 
 using function_list = std::vector<std::function<int()>>;
 static std::string test_output_buffer;
 
 static void init_test() {
+    test_output_buffer.clear();
     test_output_buffer += WHITE;
+}
+
+static void end_test() {
+    test_output_buffer += DEFAULT;
 }
 
 static void print_test_name(const unsigned int indent_level, const std::string &name, const bool is_section_header) {
