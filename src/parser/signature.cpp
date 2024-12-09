@@ -55,6 +55,19 @@ namespace Signature {
         return std::regex_match(token_string, match, regex);
     }
 
+    /// tokens_contain_in_range
+    ///     Checks if a given vector of TokenContext elements matches a given signature within a given range of the vector
+    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, std::pair<unsigned int, unsigned int> &range) {
+        assert(range.second <= tokens.size());
+        std::vector<std::pair<unsigned int, unsigned int>> matches = get_match_ranges(tokens, signature);
+        for(const auto &match : matches) {
+            if(match.first >= range.first && match.second <= range.second) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// extract_matches
     ///     Extracts the indices of all the matches of the given signature inside the given tokens vector
     std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges(const token_list &tokens, const Signature::signature &signature) {
@@ -81,6 +94,19 @@ namespace Signature {
             matches.emplace_back(start_idx, end_idx);
         }
         return matches;
+    }
+
+    /// get_match_ranges_in_range
+    ///     Returns a vector of all match ranges whic hare within a given range
+    std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges_in_range(const token_list &tokens, const signature &signature, const std::pair<unsigned int, unsigned int> &range) {
+        std::vector<std::pair<unsigned int, unsigned int>> match_ranges = get_match_ranges(tokens, signature);
+        auto iterator = match_ranges.begin();
+        while(iterator != match_ranges.end()) {
+            if(iterator->first < range.first || iterator->second > range.second) {
+                match_ranges.erase(iterator);
+            }
+        }
+        return match_ranges;
     }
 
     /// get_next_match

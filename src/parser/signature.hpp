@@ -19,7 +19,9 @@ namespace Signature {
     std::string stringify(const token_list &tokens);
     bool tokens_contain(const token_list &tokens, const signature &signature);
     bool tokens_match(const token_list &tokens, const signature &signature);
+    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, std::pair<unsigned int, unsigned int> &range);
     std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges(const token_list &tokens, const signature &signature);
+    std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges_in_range(const token_list &tokens, const signature &signature, const std::pair<unsigned int, unsigned int> &range);
     std::optional<std::pair<unsigned int, unsigned int>> get_next_match_range(const token_list &tokens, const signature &signature);
     signature match_until_signature(const signature &signature);
 
