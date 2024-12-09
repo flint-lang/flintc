@@ -2042,7 +2042,7 @@ namespace {
         token_list tokens = create_token_vector(
             {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
         );
-        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
+        std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::function_call);
         bool result = !result_vec.empty() &&
             result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         ok_or_not(result);

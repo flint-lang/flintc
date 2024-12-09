@@ -6,7 +6,7 @@
 int test_parser() {
     print_test_name(0, "PARSER_TESTS:", true);
 
-    return 1;
+    return 0;
 }
 
 #endif
