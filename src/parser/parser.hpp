@@ -50,7 +50,7 @@ class Parser {
         static std::optional<VariableNode> create_variable(const token_list &tokens);
         static std::optional<UnaryOpNode> create_unary_op(const token_list &tokens);
         static std::optional<LiteralNode> create_literal(const token_list &tokens);
-        static std::optional<CallNode> create_call(const token_list &tokens);
+        static std::optional<std::unique_ptr<CallNode>> create_call(token_list &tokens);
         static std::optional<BinaryOpNode> create_binary_op(const token_list &tokens);
         static std::optional<std::unique_ptr<ExpressionNode>> create_expression(const token_list &tokens);
 
@@ -62,7 +62,7 @@ class Parser {
         static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(token_list &tokens);
         static std::optional<DeclarationNode> create_declaration(token_list &tokens, const bool &is_infered);
         static std::optional<std::unique_ptr<StatementNode>> create_statement(token_list &tokens);
-        static std::vector<std::unique_ptr<StatementNode>> create_body(token_list &body);
+        static std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> create_body(token_list &body);
 
         // --- DEFINITIONS ---
         static FunctionNode create_function(const token_list &definition, token_list &body);
