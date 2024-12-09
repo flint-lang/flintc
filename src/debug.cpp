@@ -176,7 +176,7 @@ namespace Debug {
                 {WIDE_WIDTH, "Return Types"}
             });
             unsigned int max_size = function.parameters.size() > function.return_types.size() ? function.parameters.size() : function.return_types.size();
-            for(unsigned int i = 0; i < max_size; i++) {
+            for(unsigned int i = 0; i < (max_size > 0 ? max_size : 1); i++) {
                 std::string param_str;
                 std::string return_str;
                 if(i < function.parameters.size()) {
