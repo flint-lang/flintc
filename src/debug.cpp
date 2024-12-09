@@ -175,14 +175,25 @@ namespace Debug {
                 {WIDE_WIDTH, "Parameters"},
                 {WIDE_WIDTH, "Return Types"}
             });
-            print_table_row(4, {
-                {STD_WIDTH, ""},
-                {STD_WIDTH, function.name},
-                {STD_WIDTH, function.is_aligned ? "true" : "false"},
-                {STD_WIDTH, function.is_const ? "true" : "false"},
-                {WIDE_WIDTH, function.parameters.empty() ? "" : (function.parameters.at(0).first + " " + function.parameters.at(0).second)},
-                {WIDE_WIDTH, function.return_types.empty() ? "" : function.return_types.at(0)}
-            });
+            unsigned int max_size = function.parameters.size() > function.return_types.size() ? function.parameters.size() : function.return_types.size();
+            for(unsigned int i = 0; i < max_size; i++) {
+                std::string param_str;
+                std::string return_str;
+                if(i < function.parameters.size()) {
+                    param_str = function.parameters.at(i).first + " " + function.parameters.at(i).second;
+                }
+                if(i < function.return_types.size()) {
+                    return_str = function.return_types.at(i);
+                }
+                print_table_row(4, {
+                    {STD_WIDTH, ""},
+                    {STD_WIDTH, i == 0 ? (function.name) : ""},
+                    {STD_WIDTH, i == 0 ? (function.is_aligned ? "true" : "false") : ""},
+                    {STD_WIDTH, i == 0 ? (function.is_const ? "true" : "false") : ""},
+                    {WIDE_WIDTH, param_str},
+                    {WIDE_WIDTH, return_str}
+                });
+            }
 
             std::cout << std::endl;
         }

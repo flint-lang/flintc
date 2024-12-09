@@ -9,8 +9,8 @@ def main():
 def my_func() -> (int, int):
 	return (10, 20);
 
-def my_func_2(int x) -> flint:
-	return x * 3.14;
+def my_func_2(int x, flint y) -> flint:
+	return x * 3.14 * y;
 
 
 

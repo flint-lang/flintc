@@ -41,14 +41,12 @@
 #include <iterator>
 #include <utility>
 #include <memory>
-#include <iostream>
 
 /// parse_file
 ///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to the passed main ProgramNode
 void Parser::parse_file(ProgramNode &program, std::string &file)
 {
     token_list tokens = Lexer(file).scan();
-    Debug::print_token_context_vector(tokens);
     // Consume all tokens and convert them to nodes
     while(!tokens.empty()) {
         add_next_main_node(program, tokens);
@@ -366,9 +364,6 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(token_list &tokens) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
-    std::cout << "TOKENS:\n";
-    Debug::print_token_context_vector(tokens);
-
     if(Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
         std::optional<DeclarationNode> decl = create_declaration(tokens, false);
         if(decl.has_value()) {
@@ -429,8 +424,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(token_lis
             throw_err(ERR_PARSING);
         }
     } else {
-        std::cout << "Undefined Statement: \n";
-        Debug::print_token_context_vector(tokens);
         throw_err(ERR_UNDEFINED_STATEMENT);
     }
 
