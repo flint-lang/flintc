@@ -164,9 +164,25 @@ namespace Debug {
         /// print_function
         ///     Prints the content of the generated FunctionNode
         void print_function(const FunctionNode &function) {
-            std::cout << "    ";
-            std::cout << get_string_container(15, "Function:");
+            constexpr unsigned int STD_WIDTH = 15;
+            constexpr unsigned int WIDE_WIDTH = 25;
 
+            print_table_header(4, {
+                {STD_WIDTH, "Function"},
+                {STD_WIDTH, "Name"},
+                {STD_WIDTH, "Is Aligned"},
+                {STD_WIDTH, "Is Const"},
+                {WIDE_WIDTH, "Parameters"},
+                {WIDE_WIDTH, "Return Types"}
+            });
+            print_table_row(4, {
+                {STD_WIDTH, ""},
+                {STD_WIDTH, function.name},
+                {STD_WIDTH, function.is_aligned ? "true" : "false"},
+                {STD_WIDTH, function.is_const ? "true" : "false"},
+                {WIDE_WIDTH, function.parameters.empty() ? "" : (function.parameters.at(0).first + " " + function.parameters.at(0).second)},
+                {WIDE_WIDTH, function.return_types.empty() ? "" : function.return_types.at(0)}
+            });
 
             std::cout << std::endl;
         }
@@ -175,7 +191,8 @@ namespace Debug {
         ///     Prints the content of the generated ImportNode
         void print_import(const ImportNode &import) {
             std::cout << "    ";
-            std::cout << get_string_container(15, "Import:");
+            std::cout << get_string_container(15, "Import");
+            std::cout << "| ";
             if(std::holds_alternative<std::string>(import.path)) {
                 std::cout << std::get<std::string>(import.path);
             } else if (std::holds_alternative<std::vector<std::string>>(import.path)) {
@@ -190,6 +207,7 @@ namespace Debug {
                 }
             }
 
+            std::cout << std::endl;
             std::cout << std::endl;
         }
 
