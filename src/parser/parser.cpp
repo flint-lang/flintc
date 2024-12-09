@@ -455,12 +455,13 @@ std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNod
             } else {
                 throw_err(ERR_UNDEFINED_STATEMENT);
             }
-        }
-        std::optional<std::unique_ptr<StatementNode>> next_statement = create_statement(statement_tokens);
-        if(next_statement.has_value()) {
-            body_statements.emplace_back(std::move(next_statement.value()));
         } else {
-            throw_err(ERR_UNDEFINED_STATEMENT);
+            std::optional<std::unique_ptr<StatementNode>> next_statement = create_statement(statement_tokens);
+            if(next_statement.has_value()) {
+                body_statements.emplace_back(std::move(next_statement.value()));
+            } else {
+                throw_err(ERR_UNDEFINED_STATEMENT);
+            }
         }
     }
 
