@@ -19,6 +19,10 @@ namespace Debug {
     void print_token_context_vector(const token_list &tokens);
 
     namespace AST {
+        namespace {
+            void print_table_header(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
+            void print_table_row(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
+        }
         void print_program(const ProgramNode &program);
 
         void print_data(const DataNode &data);

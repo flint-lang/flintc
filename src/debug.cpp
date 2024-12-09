@@ -33,6 +33,7 @@
 #include <cassert>
 #include <iostream>
 #include <ostream>
+#include <string>
 #include <typeinfo>
 #include <memory>
 #include <variant>
@@ -68,6 +69,37 @@ namespace Debug {
     }
 
     namespace AST {
+        namespace {
+            /// print_table_header
+            ///     Prints the header of a table from the AST tree
+            void print_table_header(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells) {
+                std::cout << get_string_container(padding, "");
+
+                for(const auto &cell : cells) {
+                    std::cout << get_string_container(cell.first, cell.second);
+                    std::cout << "| ";
+                }
+                std::cout << std::endl;
+                std::cout << get_string_container(padding, "");
+                for(const auto &cell : cells) {
+                    std::cout << fill_container_with(cell.first, '-');
+                    std::cout << "|-";
+                }
+                std::cout << std::endl;
+            }
+
+            /// print_table_row
+            ///     Prints a table row
+            void print_table_row(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells) {
+                std::cout << get_string_container(padding, "");
+
+                for(const auto &cell : cells) {
+                    std::cout << get_string_container(cell.first, cell.second);
+                    std::cout << "| ";
+                }
+                std::cout << std::endl;
+            }
+        }
         /// print_ast_tree
         ///     Prints the whole AST Tree recursively
         void print_program(const ProgramNode &program) {
