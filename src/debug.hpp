@@ -15,6 +15,7 @@
 
 namespace Debug {
     std::string get_string_container(int &size, std::string &value);
+    std::string fill_container_with(const unsigned int &size, const char &character);
     void print_token_context_vector(const token_list &tokens);
 
     namespace AST {

@@ -47,6 +47,13 @@ namespace Debug {
         return container;
     }
 
+    /// fill_container_with
+    ///     Fills a container of a given size with a given character
+    std::string fill_container_with(const unsigned int &size, const char &character) {
+        std::string container(size, character);
+        return container;
+    }
+
     /// print_token_context_vector
     ///     Prints all the TokenContext elements of the vector to the console
     void print_token_context_vector(const token_list &tokens) {
