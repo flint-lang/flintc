@@ -13,9 +13,9 @@ class ExpressionNode : public ASTNode {
         ExpressionNode() = default;
         // deconstructor
         ~ExpressionNode() override = default;
-        // copy operations
-        ExpressionNode(const ExpressionNode &) = default;
-        ExpressionNode& operator=(const ExpressionNode &) = default;
+        // copy operations - deleted because of unique_ptr member
+        ExpressionNode(const ExpressionNode &) = delete;
+        ExpressionNode& operator=(const ExpressionNode &) = delete;
         // move operations
         ExpressionNode(ExpressionNode &&) = default;
         ExpressionNode& operator=(ExpressionNode &&) = default;
