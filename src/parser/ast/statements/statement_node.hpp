@@ -6,9 +6,10 @@
 /// StatementNode
 ///     Base class for all statements
 class StatementNode : public ASTNode {
-    public:
+    protected:
         // constructor
         StatementNode() = default;
+    public:
         // destructor
         ~StatementNode() override = default;
         // copy operations - disabled by default
@@ -17,7 +18,6 @@ class StatementNode : public ASTNode {
         // move operations
         StatementNode(StatementNode &&) = default;
         StatementNode& operator=(StatementNode &&) = default;
-    private:
 };
 
 #endif

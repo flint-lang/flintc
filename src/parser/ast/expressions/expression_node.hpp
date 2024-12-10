@@ -8,9 +8,10 @@
 /// ExpressionNode
 ///     Base class for all expressions
 class ExpressionNode : public ASTNode {
-    public:
+    protected:
         // constructor
         ExpressionNode() = default;
+    public:
         // deconstructor
         ~ExpressionNode() override = default;
         // copy operations - deleted because of unique_ptr member

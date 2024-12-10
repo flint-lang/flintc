@@ -257,7 +257,8 @@ std::optional<BinaryOpNode> Parser::create_binary_op(const token_list &tokens) {
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(const token_list &tokens) {
     // just return an empty expression for now
     // TODO: make the code actually functional.
-    return std::make_unique<ExpressionNode>();
+    std::string var;
+    return std::make_unique<VariableNode>(var);
     //throw_err(ERR_NOT_IMPLEMENTED_YET);
     //return std::nullopt;
 }
@@ -267,8 +268,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(const t
 std::optional<ReturnNode> Parser::create_return(const token_list &tokens) {
     // just return an empty return for now
     // TODO: make the code actually functional.
-    auto expr = std::make_unique<ExpressionNode>();
-    return ReturnNode(expr);
+    std::string var;
+    std::unique_ptr<ExpressionNode> var_node = std::make_unique<VariableNode>(var);
+    return ReturnNode(var_node);
     //throw_err(ERR_NOT_IMPLEMENTED_YET);
     //return std::nullopt;
 }

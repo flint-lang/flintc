@@ -4,9 +4,10 @@
 /// ASTNode
 ///     Base class for all AST nodes.
 class ASTNode {
-    public:
-        // constructor
+    protected:
+        // private constructor
         ASTNode() = default;
+    public:
         // destructor
         virtual ~ASTNode() = default;
         // copy operators
@@ -15,9 +16,6 @@ class ASTNode {
         // move operators
         ASTNode(ASTNode &&) = default;
         ASTNode& operator=(ASTNode &&) = default;
-    private:
-        //NodeType type;
-        //std::vector<ASTNode> children;
 };
 
 #endif
