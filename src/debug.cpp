@@ -171,21 +171,21 @@ namespace Debug {
                     print_tree_row({(BRANCH)}, false);
                 }
                 if(const auto *data_node = dynamic_cast<const DataNode*>(node.get())) {
-                    print_data(*data_node);
+                    print_data(1, *data_node);
                 } else if (const auto *entity_node = dynamic_cast<const EntityNode*>(node.get())) {
-                    print_entity(*entity_node);
+                    print_entity(1, *entity_node);
                 } else if (const auto *enum_node = dynamic_cast<const EnumNode*>(node.get())) {
-                    print_enum(*enum_node);
+                    print_enum(1, *enum_node);
                 } else if (const auto *func_node = dynamic_cast<const FuncNode*>(node.get())) {
-                    print_func(*func_node);
+                    print_func(1, *func_node);
                 } else if (const auto *function_node = dynamic_cast<const FunctionNode*>(node.get())) {
-                    print_function(*function_node);
+                    print_function(1, *function_node);
                 } else if (const auto *import_node = dynamic_cast<const ImportNode*>(node.get())) {
-                    print_import(*import_node);
+                    print_import(1, *import_node);
                 } else if (const auto *link_node = dynamic_cast<const LinkNode*>(node.get())) {
-                    print_link(*link_node);
+                    print_link(1, *link_node);
                 } else if (const auto *variant_node = dynamic_cast<const VariantNode*>(node.get())) {
-                    print_variant(*variant_node);
+                    print_variant(1, *variant_node);
                 } else {
                     throw_err(ERR_DEBUG);
                 }
@@ -195,110 +195,109 @@ namespace Debug {
 
         // --- EXPRESSIONS ---
 
-        void print_variable(const VariableNode &var) {
+        void print_variable(unsigned int indent_lvl, const VariableNode &var) {
 
         }
 
-        void print_unary_op(const UnaryOpNode &unary) {
+        void print_unary_op(unsigned int indent_lvl, const UnaryOpNode &unary) {
 
         }
 
-        void print_literal(const LiteralNode &lit) {
+        void print_literal(unsigned int indent_lvl, const LiteralNode &lit) {
 
         }
 
-        void print_call(const CallNode &call) {
+        void print_call(unsigned int indent_lvl, const CallNode &call) {
 
         }
 
-        void print_binary_op(const BinaryOpNode &bin) {
+        void print_binary_op(unsigned int indent_lvl, const BinaryOpNode &bin) {
 
         }
 
-        void print_expression(const ExpressionNode &expr) {
+        void print_expression(unsigned int indent_lvl, const ExpressionNode &expr) {
 
-        }
-
-        void print_assignments(const AssignmentNode &assign) {
-
-        }
-
-        void print_declaration(const DeclarationNode &decl) {
-
-        }
-
-        void print_statement(const StatementNode &statement) {
-
-        }
-
-        void print_body(const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body) {
-            for(const auto &body_line : body) {
-                if(std::holds_alternative<std::unique_ptr<StatementNode>>(body_line)) {
-                    print_statement(*std::get<std::unique_ptr<StatementNode>>(body_line));
-                } else if (std::holds_alternative<std::unique_ptr<CallNode>>(body_line)) {
-                    print_call(*std::get<std::unique_ptr<CallNode>>(body_line));
-                }
-            }
         }
 
 
         // --- STATEMENTS ---
 
-        void print_return(const ReturnNode &return_node) {
+        void print_return(unsigned int indent_lvl, const ReturnNode &return_node) {
 
         }
 
-        void print_if(const IfNode &if_node) {
+        void print_if(unsigned int indent_lvl, const IfNode &if_node) {
 
         }
 
-        void print_while(const WhileNode &while_node) {
+        void print_while(unsigned int indent_lvl, const WhileNode &while_node) {
 
         }
 
-        void print_for(const ForLoopNode &for_node) {
+        void print_for(unsigned int indent_lvl, const ForLoopNode &for_node) {
 
+        }
+
+        void print_assignments(unsigned int indent_lvl, const AssignmentNode &assign) {
+
+        }
+
+        void print_declaration(unsigned int indent_lvl, const DeclarationNode &decl) {
+
+        }
+
+        void print_statement(unsigned int indent_lvl, const StatementNode &statement) {
+        }
+
+        void print_body(unsigned int indent_lvl, const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body) {
+            for(const auto &body_line : body) {
+                if(std::holds_alternative<std::unique_ptr<StatementNode>>(body_line)) {
+                    print_statement(indent_lvl + 1, *std::get<std::unique_ptr<StatementNode>>(body_line));
+                } else if (std::holds_alternative<std::unique_ptr<CallNode>>(body_line)) {
+                    print_call(indent_lvl + 1, *std::get<std::unique_ptr<CallNode>>(body_line));
+                }
+            }
         }
 
         // --- DEFINITIONS ---
 
         /// print_data
         ///     Prints the content of the generated DataNode
-        void print_data(const DataNode &data) {
+        void print_data(unsigned int indent_lvl, const DataNode &data) {
             std::cout << "    Data: " << typeid(data).name() << "\n";
         }
 
         /// print_entity
         ///     Prints the content of the generated EntityNode
-        void print_entity(const EntityNode &entity) {
+        void print_entity(unsigned int indent_lvl, const EntityNode &entity) {
             std::cout << "    Entity: " << typeid(entity).name() << "\n";
 
         }
 
         /// print_enum
         ///     Prints the content of the generated EnumNode
-        void print_enum(const EnumNode &enum_node) {
+        void print_enum(unsigned int indent_lvl, const EnumNode &enum_node) {
             std::cout << "    Enum: " << typeid(enum_node).name() << "\n";
 
         }
 
         /// print_error
         ///     Prints the content of the generated ErrorNode
-        void print_error(const ErrorNode &error) {
+        void print_error(unsigned int indent_lvl, const ErrorNode &error) {
             std::cout << "    Error: " << typeid(error).name() << "\n";
 
         }
 
         /// print_func
         ///     Prints the content of the generated FuncNode
-        void print_func(const FuncNode &func) {
+        void print_func(unsigned int indent_lvl, const FuncNode &func) {
             std::cout << "    Func: " << typeid(func).name() << "\n";
 
         }
 
         /// print_function
         ///     Prints the content of the generated FunctionNode
-        void print_function(const FunctionNode &function) {
+        void print_function(unsigned int indent_lvl, const FunctionNode &function) {
             const std::string header = "Function ";
             std::cout << header;
             print_tree_characters({BRANCH});
@@ -341,12 +340,12 @@ namespace Debug {
             std::cout << std::endl;
 
             // The function body
-            print_body(function.body);
+            print_body(++indent_lvl, function.body);
         }
 
         /// print_import
         ///     Prints the content of the generated ImportNode
-        void print_import(const ImportNode &import) {
+        void print_import(unsigned int indent_lvl, const ImportNode &import) {
             const std::string header = "Import ";
             std::cout << header;
             print_tree_characters({BRANCH});
@@ -373,14 +372,14 @@ namespace Debug {
 
         /// print_link
         ///     Prints the content of the generated LinkNode
-        void print_link(const LinkNode &link) {
+        void print_link(unsigned int indent_lvl, const LinkNode &link) {
             std::cout << "    Link: " << typeid(link).name() << "\n";
 
         }
 
         /// print_link
         ///     Prints the content of the generated VariantNode
-        void print_variant(const VariantNode &variant) {
+        void print_variant(unsigned int indent_lvl, const VariantNode &variant) {
             std::cout << "    Variant: " << typeid(variant).name() << "\n";
 
         }
