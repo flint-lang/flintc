@@ -24,6 +24,7 @@
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
+#include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -191,6 +192,76 @@ namespace Debug {
             }
         }
 
+
+        // --- EXPRESSIONS ---
+
+        void print_variable(const VariableNode &var) {
+
+        }
+
+        void print_unary_op(const UnaryOpNode &unary) {
+
+        }
+
+        void print_literal(const LiteralNode &lit) {
+
+        }
+
+        void print_call(const CallNode &call) {
+
+        }
+
+        void print_binary_op(const BinaryOpNode &bin) {
+
+        }
+
+        void print_expression(const ExpressionNode &expr) {
+
+        }
+
+        void print_assignments(const AssignmentNode &assign) {
+
+        }
+
+        void print_declaration(const DeclarationNode &decl) {
+
+        }
+
+        void print_statement(const StatementNode &statement) {
+
+        }
+
+        void print_body(const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body) {
+            for(const auto &body_line : body) {
+                if(std::holds_alternative<std::unique_ptr<StatementNode>>(body_line)) {
+                    print_statement(*std::get<std::unique_ptr<StatementNode>>(body_line));
+                } else if (std::holds_alternative<std::unique_ptr<CallNode>>(body_line)) {
+                    print_call(*std::get<std::unique_ptr<CallNode>>(body_line));
+                }
+            }
+        }
+
+
+        // --- STATEMENTS ---
+
+        void print_return(const ReturnNode &return_node) {
+
+        }
+
+        void print_if(const IfNode &if_node) {
+
+        }
+
+        void print_while(const WhileNode &while_node) {
+
+        }
+
+        void print_for(const ForLoopNode &for_node) {
+
+        }
+
+        // --- DEFINITIONS ---
+
         /// print_data
         ///     Prints the content of the generated DataNode
         void print_data(const DataNode &data) {
@@ -270,6 +341,7 @@ namespace Debug {
             std::cout << std::endl;
 
             // The function body
+            print_body(function.body);
         }
 
         /// print_import

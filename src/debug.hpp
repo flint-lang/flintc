@@ -9,6 +9,19 @@
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/ast/definitions/link_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
+#include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/expressions/call_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/unary_op_node.hpp"
+#include "parser/ast/expressions/variable_node.hpp"
+#include "parser/ast/statements/assignment_node.hpp"
+#include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/for_loop_node.hpp"
+#include "parser/ast/statements/if_node.hpp"
+#include "parser/ast/statements/return_node.hpp"
+#include "parser/ast/statements/statement_node.hpp"
+#include "parser/ast/statements/while_node.hpp"
 #include "types.hpp"
 
 #include "parser/ast/program_node.hpp"
@@ -45,6 +58,25 @@ namespace Debug {
         }
         void print_program(const ProgramNode &program);
 
+        // --- EXPRESSIONS ---
+        void print_variable(const VariableNode &var);
+        void print_unary_op(const UnaryOpNode &unary);
+        void print_literal(const LiteralNode &lit);
+        void print_call(const CallNode &call);
+        void print_binary_op(const BinaryOpNode &bin);
+        void print_expression(const ExpressionNode &expr);
+        void print_assignments(const AssignmentNode &assign);
+        void print_declaration(const DeclarationNode &decl);
+        void print_statement(const StatementNode &statement);
+        void print_body(const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body);
+
+        // --- STATEMENTS ---
+        void print_return(const ReturnNode &return_node);
+        void print_if(const IfNode &if_node);
+        void print_while(const WhileNode &while_node);
+        void print_for(const ForLoopNode &for_node);
+
+        // --- DEFINITIONS ---
         void print_data(const DataNode &data);
         void print_entity(const EntityNode &entity);
         void print_enum(const EnumNode &enum_node);
