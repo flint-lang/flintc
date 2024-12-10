@@ -13,10 +13,26 @@
 
 #include "parser/ast/program_node.hpp"
 
+#include <map>
+#include <string>
+#include <vector>
+#include <utility>
+
 namespace Debug {
+    enum TreeType {
+        VERT, BRANCH, SINGLE, HOR, NONE
+    };
+    static const std::map<TreeType, std::string> tree_characters = {
+        {VERT, "\u2502"},
+        {BRANCH, "\u251C"},
+        {SINGLE, "\u2514"},
+        {HOR, "\u2500"},
+    };
+
     std::string get_string_container(int &size, std::string &value);
     std::string fill_container_with(const unsigned int &size, const char &character);
     void print_token_context_vector(const token_list &tokens);
+    void print_tree_row(const std::vector<TreeType> &types, bool is_test);
 
     namespace AST {
         namespace {

@@ -5,6 +5,7 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "lexer/lexer.hpp"
+#include "test_utils.hpp"
 
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/entity_node.hpp"
@@ -65,6 +66,33 @@ namespace Debug {
             std::string type_container = get_string_container(30, type);
 
             std::cout << "Line: " << tc.line << type_container << " | Lexme: " << tc.lexme << "\n";
+        }
+    }
+
+    /// print_tree_row
+    ///
+    void print_tree_row(const std::vector<TreeType> &types, bool is_test) {
+        std::string addition;
+        for(const TreeType &type: types) {
+            addition += " ";
+            switch(type) {
+                case VERT:
+                    addition += tree_characters.at(type) + "  ";
+                    break;
+                case BRANCH:
+                case SINGLE:
+                    addition += tree_characters.at(type) + tree_characters.at(TreeType::HOR) + " ";
+                    break;
+                case HOR:
+                addition += tree_characters.at(type) + tree_characters.at(type) + tree_characters.at(type) + tree_characters.at(type);
+                    break;
+                case NONE:
+                    addition += "    ";
+            }
+        }
+        if(is_test) {
+        } else {
+            std::cout << addition;
         }
     }
 
