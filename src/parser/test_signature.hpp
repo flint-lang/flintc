@@ -2260,7 +2260,7 @@ namespace {
         );
         std::vector<std::pair<unsigned int, unsigned int>> result_vec = Signature::get_match_ranges(tokens, Signature::function_call);
         bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
+            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }

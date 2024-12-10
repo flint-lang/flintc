@@ -6,12 +6,10 @@ def main():
 	num = num + 2;
 	print(num);
 
-def my_func() -> (int, int):
+const def my_func() -> (int, int):
 	return (10, 20);
 
 def my_func_2(int x, flint y) -> flint:
 	return x * 3.14 * y;
-
-
 
 
