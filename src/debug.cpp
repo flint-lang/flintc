@@ -32,6 +32,7 @@
 #include "parser/ast/statements/while_node.hpp"
 
 #include <cassert>
+#include <cmath>
 #include <iostream>
 #include <ostream>
 #include <string>
@@ -40,13 +41,23 @@
 #include <variant>
 
 namespace Debug {
+    static const unsigned int C_SIZE = 12;
+
     /// get_string_container
     ///     Returns the given string inside a container of the given size
-    std::string get_string_container(const unsigned int size, const std::string &value) {
-        assert(size > value.size());
+    std::string get_string_container(unsigned int size, const std::string &value) {
+        if(value.size() > size) {
+            size = value.size();
+        }
         std::string container(size, ' ');
         container.replace(0, value.size(), value);
         return container;
+    }
+
+    /// print_in_container
+    ///     Prints the given string in a container of the given size
+    void print_in_container(unsigned int size, const std::string &str) {
+        std::cout << get_string_container(size, str);
     }
 
     /// fill_container_with
@@ -97,6 +108,24 @@ namespace Debug {
         }
     }
 
+    /// print_tree_characters
+    ///     Prints the tree characters to the console
+    void print_tree_characters(const std::vector<TreeType> &types) {
+        for(const TreeType &type : types) {
+            std::cout << tree_characters.at(type);
+        }
+    }
+
+    /// create_n_str
+    ///     Takes the given string and puts it into a result string n times
+    std::string create_n_str(unsigned int n, const std::string &str) {
+        std::string ret;
+        for(unsigned int i = 0; i < n; i++) {
+            ret.append(str);
+        }
+        return ret;
+    }
+
     namespace AST {
         namespace {
             /// print_table_header
@@ -133,7 +162,13 @@ namespace Debug {
         ///     Prints the whole AST Tree recursively
         void print_program(const ProgramNode &program) {
             std::cout << "Program:\n";
+            size_t counter = 0;
             for(const std::unique_ptr<ASTNode> &node : program.definitions) {
+                if(++counter == program.definitions.size()) {
+                    print_tree_row({(SINGLE)}, false);
+                } else {
+                    print_tree_row({(BRANCH)}, false);
+                }
                 if(const auto *data_node = dynamic_cast<const DataNode*>(node.get())) {
                     print_data(*data_node);
                 } else if (const auto *entity_node = dynamic_cast<const EntityNode*>(node.get())) {
@@ -193,46 +228,60 @@ namespace Debug {
         /// print_function
         ///     Prints the content of the generated FunctionNode
         void print_function(const FunctionNode &function) {
-            constexpr unsigned int STD_WIDTH = 15;
-            constexpr unsigned int WIDE_WIDTH = 25;
+            const std::string header = "Function ";
+            std::cout << header;
+            print_tree_characters({BRANCH});
+            std::cout << create_n_str(C_SIZE - header.size(), tree_characters.at(HOR));
+            print_tree_characters({BRANCH_L});
+            std::cout << " ";
 
-            print_table_header(4, {
-                {STD_WIDTH, "Function"},
-                {STD_WIDTH, "Name"},
-                {STD_WIDTH, "Is Aligned"},
-                {STD_WIDTH, "Is Const"},
-                {WIDE_WIDTH, "Parameters"},
-                {WIDE_WIDTH, "Return Types"}
-            });
-            unsigned int max_size = function.parameters.size() > function.return_types.size() ? function.parameters.size() : function.return_types.size();
-            for(unsigned int i = 0; i < (max_size > 0 ? max_size : 1); i++) {
-                std::string param_str;
-                std::string return_str;
-                if(i < function.parameters.size()) {
-                    param_str = function.parameters.at(i).first + " " + function.parameters.at(i).second;
-                }
-                if(i < function.return_types.size()) {
-                    return_str = function.return_types.at(i);
-                }
-                print_table_row(4, {
-                    {STD_WIDTH, ""},
-                    {STD_WIDTH, i == 0 ? (function.name) : ""},
-                    {STD_WIDTH, i == 0 ? (function.is_aligned ? "true" : "false") : ""},
-                    {STD_WIDTH, i == 0 ? (function.is_const ? "true" : "false") : ""},
-                    {WIDE_WIDTH, param_str},
-                    {WIDE_WIDTH, return_str}
-                });
+            if(function.is_aligned) {
+                std::cout << "aligned ";
             }
-
+            if(function.is_const) {
+                std::cout << "const ";
+            }
+            std::cout << function.name << "(";
+            size_t counter = 0;
+            for(const std::pair<std::string, std::string> &param: function.parameters) {
+                std::cout << param.first << " " << param.second;
+                if(++counter != function.parameters.size()) {
+                    std::cout << ", ";
+                }
+            }
+            std::cout << ")";
+            if(!function.return_types.empty()) {
+                std::cout <<" -> ";
+            }
+            if(function.return_types.size() > 1) {
+                std::cout << "(";
+            }
+            counter = 0;
+            for(const std::string &ret: function.return_types) {
+                std::cout << ret;
+                if(++counter != function.return_types.size()) {
+                    std::cout << ", ";
+                }
+            }
+            if(function.return_types.size() > 1) {
+                std::cout << ")";
+            }
+            std::cout << ":";
             std::cout << std::endl;
+
+            // The function body
         }
 
         /// print_import
         ///     Prints the content of the generated ImportNode
         void print_import(const ImportNode &import) {
-            std::cout << "    ";
-            std::cout << get_string_container(15, "Import");
-            std::cout << "| ";
+            const std::string header = "Import ";
+            std::cout << header;
+            print_tree_characters({BRANCH});
+            std::cout << create_n_str(C_SIZE - header.size(), tree_characters.at(HOR));
+            print_tree_characters({BRANCH_L});
+            std::cout << " ";
+
             if(std::holds_alternative<std::string>(import.path)) {
                 std::cout << std::get<std::string>(import.path);
             } else if (std::holds_alternative<std::vector<std::string>>(import.path)) {
@@ -247,7 +296,6 @@ namespace Debug {
                 }
             }
 
-            std::cout << std::endl;
             std::cout << std::endl;
         }
 

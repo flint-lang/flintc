@@ -20,19 +20,23 @@
 
 namespace Debug {
     enum TreeType {
-        VERT, BRANCH, SINGLE, HOR, NONE
+        VERT, BRANCH, BRANCH_L, SINGLE, HOR, NONE
     };
     static const std::map<TreeType, std::string> tree_characters = {
         {VERT, "\u2502"},
         {BRANCH, "\u251C"},
+        {BRANCH_L, "\u2524"},
         {SINGLE, "\u2514"},
         {HOR, "\u2500"},
     };
 
-    std::string get_string_container(int &size, std::string &value);
+    std::string get_string_container(unsigned int size, const std::string &value);
+    void print_in_container(unsigned int size, const std::string &str);
     std::string fill_container_with(const unsigned int &size, const char &character);
     void print_token_context_vector(const token_list &tokens);
     void print_tree_row(const std::vector<TreeType> &types, bool is_test);
+    void print_tree_characters(const std::vector<TreeType> &types);
+    std::string create_n_str(unsigned int n, const std::string &str);
 
     namespace AST {
         namespace {
