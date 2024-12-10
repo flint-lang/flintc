@@ -4,7 +4,7 @@
 #include "../test_utils.hpp"
 
 int test_parser() {
-    print_test_name(0, "PARSER_TESTS:", true);
+    TestUtils::print_test_name("PARSER_TESTS:", true);
 
     return 0;
 }
