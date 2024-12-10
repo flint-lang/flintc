@@ -91,6 +91,7 @@ namespace Debug {
             }
         }
         if(is_test) {
+            TestUtils::append_string(addition);
         } else {
             std::cout << addition;
         }

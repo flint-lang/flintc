@@ -5,45 +5,87 @@
 #include "lexer/token_context.hpp"
 #include "parser/signature.hpp"
 
+#include <codecvt>
 #include <functional>
+#include <locale>
 #include <string>
 #include <vector>
 
-const std::string RED = "\033[31m";
-const std::string GREEN = "\033[32m";
-const std::string WHITE = "\033[37m";
-const std::string DEFAULT = "\033[0m";
-
 using function_list = std::vector<std::function<int()>>;
-static std::string test_output_buffer;
 
-static void init_test() {
-    test_output_buffer.clear();
-    test_output_buffer += WHITE;
-}
+const std::wstring RED = L"\033[31m";
+const std::wstring GREEN = L"\033[32m";
+const std::wstring WHITE = L"\033[37m";
+const std::wstring DEFAULT = L"\033[0m";
 
-static void end_test() {
-    test_output_buffer += DEFAULT;
-}
+class TestUtils {
+    private:
+        static std::wstring& get_buffer() {
+            static std::wstring buffer;
+            return buffer;
+        }
 
-static void print_test_name(const unsigned int indent_level, const std::string &name, const bool is_section_header) {
-    for(int i = 0; i < indent_level; i++) {
-        test_output_buffer += "    ";
-    }
-    if(is_section_header) {
-        test_output_buffer += name + "\n";
-    } else {
-        test_output_buffer += name + "...";
-    }
-}
+        static std::wstring convert(const std::string &str) {
+            static std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+            return converter.from_bytes(str);
+        }
 
-static void ok_or_not(bool was_ok) {
-    if(was_ok) {
-        test_output_buffer += GREEN + "OK" + WHITE + "\n";
-    } else {
-        test_output_buffer += RED + "FAILED" + WHITE + "\n";
-    }
-}
+        // Private constructor to prevent instantiation
+        TestUtils() = delete;
+    public:
+        static void append(const std::wstring &text) {
+            get_buffer() += text;
+        }
+
+        static void clear() {
+            get_buffer().clear();
+        }
+
+        static const std::wstring& get_output() {
+            return get_buffer();
+        }
+
+        static void init_test() {
+            get_buffer().clear();
+            append(WHITE);
+        }
+
+        static void end_test() {
+            append(DEFAULT);
+        }
+
+        static void print_test_name(const std::string &name, const bool is_section_header) {
+            if(is_section_header) {
+                append(convert(name) + L"\n");
+            } else {
+                append(convert(name) + L"...");
+            }
+        }
+
+        static void append_string(const std::string &str) {
+            append(convert(str));
+        }
+
+        static void ok_or_not(bool was_ok) {
+            if(was_ok) {
+                append(GREEN + L"OK" + WHITE + L"\n");
+            } else {
+                append(RED + L"FAILED" + WHITE + L"\n");
+            }
+        }
+
+        static void print_token_stringified(const std::vector<TokenContext> &tokens) {
+            append(convert(Signature::stringify(tokens)) + L"\n");
+        }
+
+        static void print_regex_string(const Signature::signature &signature) {
+            append(convert(Signature::get_regex_string(signature)) + L"\n");
+        }
+
+        static void print_debug(const std::string &str) {
+            append(L"\t" + convert(str) + L"\t...");
+        }
+};
 
 /// create_token_vector
 ///     Creates a token vector from a given list of tokens
@@ -58,6 +100,8 @@ static std::vector<TokenContext> create_token_vector(const std::vector<Token> &t
     return token_contexts;
 }
 
+/// run_all_tests
+///     Runs all the tests from the given tests list
 static int run_all_tests(const std::vector<function_list> &tests_list) {
     int failed_tests = 0;
     for(const function_list &tests : tests_list) {
@@ -66,20 +110,6 @@ static int run_all_tests(const std::vector<function_list> &tests_list) {
         }
     }
     return failed_tests;
-}
-
-static void print_token_stringified(const std::vector<TokenContext> &tokens) {
-    test_output_buffer += Signature::stringify(tokens) + "\n";
-}
-
-static void print_regex_string(const Signature::signature &signature) {
-    test_output_buffer += Signature::get_regex_string(signature) + "\n";
-}
-
-static void print_debug(const std::string &str) {
-    test_output_buffer += "\t";
-    test_output_buffer += str;
-    test_output_buffer += "\t...";
 }
 
 #endif
