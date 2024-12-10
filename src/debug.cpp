@@ -158,18 +158,26 @@ namespace Debug {
                 }
                 std::cout << std::endl;
             }
+
+            /// print_header
+            ///     Prints the header of the AST node (the left part incl. the header name)
+            void print_header(unsigned int indent_lvl, const std::string &header) {
+                for(int i = 0; i < indent_lvl - 1; i++) {
+                    print_tree_row({VERT}, false);
+                }
+                print_tree_row({BRANCH}, false);
+                std::cout << header;
+                print_tree_characters({BRANCH});
+                std::cout << create_n_str(C_SIZE - header.size(), tree_characters.at(HOR));
+                print_tree_characters({BRANCH_L});
+                std::cout << " ";
+            }
         }
         /// print_ast_tree
         ///     Prints the whole AST Tree recursively
         void print_program(const ProgramNode &program) {
             std::cout << "Program:\n";
-            size_t counter = 0;
             for(const std::unique_ptr<ASTNode> &node : program.definitions) {
-                if(++counter == program.definitions.size()) {
-                    print_tree_row({(SINGLE)}, false);
-                } else {
-                    print_tree_row({(BRANCH)}, false);
-                }
                 if(const auto *data_node = dynamic_cast<const DataNode*>(node.get())) {
                     print_data(1, *data_node);
                 } else if (const auto *entity_node = dynamic_cast<const EntityNode*>(node.get())) {
@@ -238,7 +246,7 @@ namespace Debug {
 
         }
 
-        void print_assignments(unsigned int indent_lvl, const AssignmentNode &assign) {
+        void print_assignment(unsigned int indent_lvl, const AssignmentNode &assign) {
 
         }
 
@@ -298,12 +306,7 @@ namespace Debug {
         /// print_function
         ///     Prints the content of the generated FunctionNode
         void print_function(unsigned int indent_lvl, const FunctionNode &function) {
-            const std::string header = "Function ";
-            std::cout << header;
-            print_tree_characters({BRANCH});
-            std::cout << create_n_str(C_SIZE - header.size(), tree_characters.at(HOR));
-            print_tree_characters({BRANCH_L});
-            std::cout << " ";
+            print_header(indent_lvl, "Function ");
 
             if(function.is_aligned) {
                 std::cout << "aligned ";
@@ -336,7 +339,6 @@ namespace Debug {
             if(function.return_types.size() > 1) {
                 std::cout << ")";
             }
-            std::cout << ":";
             std::cout << std::endl;
 
             // The function body
@@ -346,12 +348,7 @@ namespace Debug {
         /// print_import
         ///     Prints the content of the generated ImportNode
         void print_import(unsigned int indent_lvl, const ImportNode &import) {
-            const std::string header = "Import ";
-            std::cout << header;
-            print_tree_characters({BRANCH});
-            std::cout << create_n_str(C_SIZE - header.size(), tree_characters.at(HOR));
-            print_tree_characters({BRANCH_L});
-            std::cout << " ";
+            print_header(indent_lvl, "Import ");
 
             if(std::holds_alternative<std::string>(import.path)) {
                 std::cout << std::get<std::string>(import.path);

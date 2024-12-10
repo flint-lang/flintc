@@ -55,6 +55,7 @@ namespace Debug {
         namespace {
             void print_table_header(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
             void print_table_row(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
+            void print_header(unsigned int indent_lvl, const std::string &header);
         }
         void print_program(const ProgramNode &program);
 
@@ -71,7 +72,7 @@ namespace Debug {
         void print_if(unsigned int indent_lvl, const IfNode &if_node);
         void print_while(unsigned int indent_lvl, const WhileNode &while_node);
         void print_for(unsigned int indent_lvl, const ForLoopNode &for_node);
-        void print_assignments(unsigned int indent_lvl, const AssignmentNode &assign);
+        void print_assignment(unsigned int indent_lvl, const AssignmentNode &assign);
         void print_declaration(unsigned int indent_lvl, const DeclarationNode &decl);
         void print_statement(unsigned int indent_lvl, const StatementNode &statement);
         void print_body(unsigned int indent_lvl, const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body);
