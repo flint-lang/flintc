@@ -55,27 +55,27 @@ namespace Debug {
         namespace {
             void print_table_header(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
             void print_table_row(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
-            void print_header(unsigned int indent_lvl, const std::string &header);
+            void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header);
         }
         void print_program(const ProgramNode &program);
 
         // --- EXPRESSIONS ---
-        void print_variable(unsigned int indent_lvl, const VariableNode &var);
-        void print_unary_op(unsigned int indent_lvl, const UnaryOpNode &unary);
-        void print_literal(unsigned int indent_lvl, const LiteralNode &lit);
-        void print_call(unsigned int indent_lvl, const CallNode &call);
-        void print_binary_op(unsigned int indent_lvl, const BinaryOpNode &bin);
-        void print_expression(unsigned int indent_lvl, const std::unique_ptr<ExpressionNode> &expr);
+        void print_variable(unsigned int indent_lvl, uint2 empty, const VariableNode &var);
+        void print_unary_op(unsigned int indent_lvl, uint2 empty, const UnaryOpNode &unary);
+        void print_literal(unsigned int indent_lvl, uint2 empty, const LiteralNode &lit);
+        void print_call(unsigned int indent_lvl, uint2 empty, const CallNode &call);
+        void print_binary_op(unsigned int indent_lvl, uint2 empty, const BinaryOpNode &bin);
+        void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr);
 
         // --- STATEMENTS ---
-        void print_return(unsigned int indent_lvl, const ReturnNode &return_node);
-        void print_if(unsigned int indent_lvl, const IfNode &if_node);
-        void print_while(unsigned int indent_lvl, const WhileNode &while_node);
-        void print_for(unsigned int indent_lvl, const ForLoopNode &for_node);
-        void print_assignment(unsigned int indent_lvl, const AssignmentNode &assign);
-        void print_declaration(unsigned int indent_lvl, const DeclarationNode &decl);
-        void print_statement(unsigned int indent_lvl, const std::unique_ptr<StatementNode> &statement);
-        void print_body(unsigned int indent_lvl, const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body);
+        void print_return(unsigned int indent_lvl, uint2 empty, const ReturnNode &return_node);
+        void print_if(unsigned int indent_lvl, uint2 empty, const IfNode &if_node);
+        void print_while(unsigned int indent_lvl, uint2 empty, const WhileNode &while_node);
+        void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node);
+        void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign);
+        void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl);
+        void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement);
+        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body);
 
         // --- DEFINITIONS ---
         void print_data(unsigned int indent_lvl, const DataNode &data);
@@ -83,9 +83,9 @@ namespace Debug {
         void print_enum(unsigned int indent_lvl, const EnumNode &enum_node);
         void print_error(unsigned int indent_lvl, const ErrorNode &error);
         void print_func(unsigned int indent_lvl, const FuncNode &func);
-        void print_function(unsigned int indent_lvl, const FunctionNode &function);
+        void print_function(unsigned int indent_lvl, uint2 empty, const FunctionNode &function);
         void print_import(unsigned int indent_lvl, const ImportNode &import);
-        void print_link(unsigned int indent_lvl, const LinkNode &link);
+        void print_link(unsigned int indent_lvl, uint2 empty, const LinkNode &link);
         void print_variant(unsigned int indent_lvl, const VariantNode &variant);
     }
 }
