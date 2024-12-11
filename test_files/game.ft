@@ -1,0 +1,90 @@
+data Vector3:
+	flint x, y, z;
+	Vector3(x, y, z);
+
+data Transform:
+	Vector3 pos;
+	Vector3 dir;
+	flint speed;
+	Transform(pos, dir, speed);
+
+func Movement requires(Transform t):
+	def move():
+		t.pos.(x, y, z) += t.dir.(x, y, z) * t.speed;
+
+	def move_fn(fn<() -> Vector3> op):
+		t.pos.(x, y, z) += op().(x, y, z);
+
+	def get_dist_sqr(Vector3 p2) -> flint:
+		diff := Vector3(p2.x - t.pos.x, p2.y - t.pos.y, p2.z - t.pos.z);
+		diff.(x, y, z) *= diff.(x, y, z);
+		return diff.x + diff.y + diff.z;
+
+
+data Health:
+	int current;
+	int max;
+	Health(current, max);
+
+func HealthUtils requires(Health h):
+	def heal(int amount):
+	    h.current += amount if amount < h.max else h.max - h.current;
+
+	def damage(int amount):
+		h.current -= h.current if amount > h.current else amount;
+
+	def is_alive() -> bool:
+		return h.current != 0;
+
+
+entity Entity:
+	data:
+		Transform, Health;
+	func:
+		Movement, HealthUtils;
+	Entity(Position, Health);
+
+
+enum SyncGroup:
+    MAIN, PHYSICS, GRAPHICS;
+
+const def get_rand_pos() -> Vector3:
+	return Vector3(randr(-200, 200), randr(-200, 200), randr(-200, 200));
+
+def update_positions():
+	center := Vector3(x, y, z);
+	sync SyncGroup.MAIN;
+	while(true):
+	    // Only let the entities move which are within a given radius of the center
+        // This center could also be the player, and entities outside the cameras view wont move, for example
+		map_on_all(Movement, Movement::get_dist_sqr(center))
+			|> filter_on_all(Movement, (flint x) -> x < 20, _)
+			|> run_on_all(Movement, Movement::move, _);
+		sync SyncGroup.MAIN;
+
+
+def update_health():
+	int dps = 1;
+	sync SyncGroup.MAIN;
+	while(true):
+		// Decrease the health of each entity per iteration
+		run_on_all(HealthUtils, HealthUtils::damage(dps));
+		// Filter out the entities which are dead and free them (delte them)
+		filter_on_all(HealthUtils, HealthUtils::is_dead)
+			|> queue_free_all(Entiy, _);
+		sync SyncGroup.MAIN;
+
+
+def main():
+	// Create 100.000 entites with default values
+	entities := Entity[100000](_);
+
+	// Assign random positions to all 100.000 entites concurrently
+	run_on_all(Entity, Entity::move_fn(get_rand_pos));
+
+	spawn "position_thread" update_positions();
+	spawn "health_thread" update_health();
+	sync SyncGroup.MAIN;
+	while(true):
+		// Game loop
+		sync SyncGroup.MAIN;
