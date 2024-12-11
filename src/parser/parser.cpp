@@ -264,15 +264,19 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(const t
 }
 
 /// create_return
-///
-std::optional<ReturnNode> Parser::create_return(const token_list &tokens) {
-    // just return an empty return for now
-    // TODO: make the code actually functional.
-    std::string var;
-    std::unique_ptr<ExpressionNode> var_node = std::make_unique<VariableNode>(var);
-    return ReturnNode(var_node);
-    //throw_err(ERR_NOT_IMPLEMENTED_YET);
-    //return std::nullopt;
+///     Creates a ReturnNode from the given list of tokens
+std::optional<ReturnNode> Parser::create_return(token_list &tokens) {
+    std::vector<uint2> matches = Signature::get_match_ranges(tokens, {TOK_RETURN});
+    if(matches.empty()) {
+        throw_err(ERR_PARSING);
+    }
+    unsigned int return_id = matches.at(0).first;
+    token_list expression_tokens = extract_from_to(return_id, tokens.size(), tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(expression_tokens);
+    if(expr.has_value()) {
+        return ReturnNode(expr.value());
+    }
+    return std::nullopt;
 }
 
 /// create_if
@@ -297,7 +301,7 @@ std::optional<ForLoopNode> Parser::create_for_loop(const token_list &tokens, con
 }
 
 /// create_assignment
-///
+///     Creates an AssignmentNode from the given list of tokens
 std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(token_list &tokens) {
     auto iterator = tokens.begin();
     while(iterator != tokens.end()) {
@@ -320,12 +324,11 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(token_l
 }
 
 /// create_declaration_statement
-///
+///     Creates a DeclarationNode from the given list of tokens
 std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, const bool &is_infered) {
     std::optional<DeclarationNode> declaration = std::nullopt;
     std::string type;
     std::string name;
-    std::optional<std::unique_ptr<ExpressionNode>> initializer = std::nullopt;
 
     if(is_infered) {
         throw_err(ERR_NOT_IMPLEMENTED_YET);
@@ -353,8 +356,7 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
 
         auto expr = create_expression(lhs_tokens);
         if(expr.has_value()) {
-            initializer = std::move(expr.value());
-            declaration = DeclarationNode(type, name, initializer.value());
+            declaration = DeclarationNode(type, name, expr.value());
         }
     }
 

@@ -55,7 +55,7 @@ class Parser {
         static std::optional<std::unique_ptr<ExpressionNode>> create_expression(const token_list &tokens);
 
         // --- STATEMENTS ---
-        static std::optional<ReturnNode> create_return(const token_list &tokens);
+        static std::optional<ReturnNode> create_return(token_list &tokens);
         static std::optional<IfNode> create_if(const token_list &tokens);
         static std::optional<WhileNode> create_while_loop(const token_list &tokens);
         static std::optional<ForLoopNode> create_for_loop(const token_list &tokens, const bool &is_enhanced);
