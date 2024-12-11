@@ -181,9 +181,7 @@ namespace Debug {
                     print_tree_row({BRANCH}, false);
                 }
                 std::cout << header;
-                print_tree_characters({BRANCH});
                 std::cout << create_n_str(C_SIZE - header.size() - (4 * indent_lvl), tree_characters.at(HOR));
-                //print_tree_characters({ARROW});
                 std::cout << "> ";
             }
         }
