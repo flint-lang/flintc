@@ -25,7 +25,7 @@ class DeclarationNode : public StatementNode {
         // move operations
         DeclarationNode(DeclarationNode &&) = default;
         DeclarationNode& operator=(DeclarationNode &&) = default;
-    private:
+
         /// var_type
         ///     The type of the variable
         std::string type;

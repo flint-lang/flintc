@@ -25,7 +25,7 @@ class CallNode : public ExpressionNode {
         // move operations
         CallNode(CallNode &&) = default;
         CallNode& operator=(CallNode &&) = default;
-    private:
+
         std::string function_name;
         std::vector<std::unique_ptr<ExpressionNode>> arguments;
 };

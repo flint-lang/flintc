@@ -3,9 +3,9 @@
 
 #include "statement_node.hpp"
 #include "../expressions/expression_node.hpp"
+#include "../../../types.hpp"
 
 #include <string>
-#include <vector>
 #include <utility>
 #include <memory>
 
@@ -15,7 +15,7 @@ class ForLoopNode : public StatementNode {
     public:
         ForLoopNode(std::string &iterator_name,
             std::unique_ptr<ExpressionNode> &iterable,
-            std::vector<std::unique_ptr<StatementNode>> &body)
+            body_statements &body)
         : iterator_name(iterator_name),
         iterable(std::move(iterable)),
         body(std::move(body)) {}
@@ -30,7 +30,7 @@ class ForLoopNode : public StatementNode {
         // move operations
         ForLoopNode(ForLoopNode &&) = default;
         ForLoopNode& operator=(ForLoopNode &&) = delete;
-    private:
+
         /// iterator_name
         ///     The name of the iterator variable
         std::string iterator_name;
@@ -39,7 +39,7 @@ class ForLoopNode : public StatementNode {
         std::unique_ptr<ExpressionNode> iterable;
         /// body
         ///     The body of the loop
-        std::vector<std::unique_ptr<StatementNode>> body;
+        body_statements body;
 };
 
 #endif

@@ -23,7 +23,7 @@ class ReturnNode : public StatementNode {
         // move operations
         ReturnNode(ReturnNode &&) = default;
         ReturnNode& operator=(ReturnNode &&) = default;
-    private:
+
         /// return_value
         ///     The return values expression
         std::unique_ptr<ExpressionNode> return_value;

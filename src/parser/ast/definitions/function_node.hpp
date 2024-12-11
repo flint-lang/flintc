@@ -2,14 +2,11 @@
 #define __FUNCTION_NODE_HPP__
 
 #include "../ast_node.hpp"
-#include "../statements/statement_node.hpp"
-#include "../expressions/call_node.hpp"
+#include "../../../types.hpp"
 
 #include <string>
 #include <vector>
 #include <utility>
-#include <memory>
-#include <variant>
 
 /// FunctionNode
 ///     Represents function definitions
@@ -18,9 +15,9 @@ class FunctionNode : public ASTNode {
         explicit FunctionNode(bool is_aligned,
             bool is_const,
             std::string &name,
-            std::vector<std::pair<std::string, std::string>> parameters,
-            std::vector<std::string> return_types,
-            std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> body)
+            std::vector<std::pair<std::string, std::string>> &parameters,
+            std::vector<std::string> &return_types,
+            body_statements &body)
             : is_aligned(is_aligned),
             is_const(is_const),
             name(name),
@@ -56,7 +53,7 @@ class FunctionNode : public ASTNode {
         std::vector<std::string> return_types;
         /// body
         ///     The body of the function containing all statements
-        std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> body;
+        body_statements body;
 };
 
 #endif

@@ -29,8 +29,8 @@ class BinaryOpNode : public ExpressionNode {
         // move operations
         BinaryOpNode(BinaryOpNode &&) = default;
         BinaryOpNode& operator=(BinaryOpNode &&) = default;
-    private:
-        Token operator_token;
+
+        Token operator_token{};
         std::unique_ptr<ExpressionNode> left;
         std::unique_ptr<ExpressionNode> right;
 };

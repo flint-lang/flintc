@@ -3,8 +3,8 @@
 
 #include "statement_node.hpp"
 #include "../expressions/expression_node.hpp"
+#include "../../../types.hpp"
 
-#include <vector>
 #include <utility>
 #include <memory>
 
@@ -13,8 +13,8 @@
 class IfNode : public StatementNode {
     public:
         IfNode(std::unique_ptr<ExpressionNode> &condition,
-            std::vector<std::unique_ptr<StatementNode>> &then_branch,
-            std::vector<std::unique_ptr<StatementNode>> &else_branch)
+            body_statements &then_branch,
+            body_statements &else_branch)
         : condition(std::move(condition)),
         then_branch(std::move(then_branch)),
         else_branch(std::move(else_branch)) {}
@@ -29,16 +29,16 @@ class IfNode : public StatementNode {
         // move operations
         IfNode(IfNode &&) = default;
         IfNode& operator=(IfNode &&) = default;
-    private:
+
         /// condition
         ///     The COndition expression
         std::unique_ptr<ExpressionNode> condition;
         /// then_branch
         ///     The statements to execute when the condition evaluates to 'true'
-        std::vector<std::unique_ptr<StatementNode>> then_branch;
+        body_statements then_branch;
         /// else_branch
         ///     The statements to execute when the condition evaluates to 'false'
-        std::vector<std::unique_ptr<StatementNode>> else_branch;
+        body_statements else_branch;
 };
 
 #endif
