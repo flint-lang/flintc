@@ -25,7 +25,7 @@ class UnaryOpNode : public ExpressionNode {
         // move operations
         UnaryOpNode(UnaryOpNode &&) = default;
         UnaryOpNode& operator=(UnaryOpNode &&) = default;
-    private:
+
         Token operator_token{TOK_EOF};
         std::unique_ptr<ExpressionNode> operand;
 };

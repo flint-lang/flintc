@@ -204,26 +204,66 @@ namespace Debug {
         // --- EXPRESSIONS ---
 
         void print_variable(unsigned int indent_lvl, const VariableNode &var) {
-
+            print_header(indent_lvl, "Variable ");
+            std::cout << var.name;
+            std::cout << std::endl;
         }
 
         void print_unary_op(unsigned int indent_lvl, const UnaryOpNode &unary) {
+            print_header(indent_lvl, "UnOp ");
+            std::cout << "operation: " << get_token_name(unary.operator_token);
+            std::cout << std::endl;
 
+            print_expression(++indent_lvl, unary.operand);
         }
 
         void print_literal(unsigned int indent_lvl, const LiteralNode &lit) {
-
+            print_header(indent_lvl, "Lit ");
+            std::cout << "value: ";
+            if(std::holds_alternative<int>(lit.value)) {
+                std::cout << std::get<int>(lit.value);
+            } else if (std::holds_alternative<double>(lit.value)) {
+                std::cout << std::get<double>(lit.value);
+            } else if (std::holds_alternative<bool>(lit.value)) {
+                std::cout << (std::get<bool>(lit.value) ? "true" : "false");
+            } else if (std::holds_alternative<std::string>(lit.value)) {
+                std::cout << std::get<std::string>(lit.value);
+            }
         }
 
         void print_call(unsigned int indent_lvl, const CallNode &call) {
-
+            print_header(indent_lvl, "Call ");
+            std::cout << call.function_name << " args:";
+            std::cout << std::endl;
+            for(const auto &arg : call.arguments) {
+                print_expression(indent_lvl + 1, arg);
+            }
         }
 
         void print_binary_op(unsigned int indent_lvl, const BinaryOpNode &bin) {
-
+            print_header(indent_lvl, "BinOp ");
+            std::cout << get_token_name(bin.operator_token);
+            std::cout << std::endl;
+            print_header(indent_lvl + 1, "LHS ");
+            print_expression(indent_lvl + 1, bin.left);
+            print_header(indent_lvl + 1, "RHS ");
+            print_expression(indent_lvl, bin.right);
         }
 
         void print_expression(unsigned int indent_lvl, const std::unique_ptr<ExpressionNode> &expr) {
+            if(const auto *variable_node = dynamic_cast<const VariableNode*>(expr.get())) {
+                print_variable(indent_lvl, *variable_node);
+            } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode*>(expr.get())) {
+                print_unary_op(indent_lvl, *unary_op_node);
+            } else if (const auto *literal_node = dynamic_cast<const LiteralNode*>(expr.get())) {
+                print_literal(indent_lvl, *literal_node);
+            } else if (const auto *call_node = dynamic_cast<const CallNode*>(expr.get())) {
+                print_call(indent_lvl, *call_node);
+            } else if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode*>(expr.get())) {
+                print_binary_op(indent_lvl, *binary_op_node);
+            } else {
+                throw_err(ERR_DEBUG);
+            }
         }
 
 

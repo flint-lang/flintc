@@ -12,7 +12,7 @@
 class LiteralNode : public ExpressionNode {
     public:
         explicit LiteralNode(std::variant<int, double, std::string, bool> &value) : value(std::move(value)) {}
-    private:
+
         /// value
         ///     the literal value
         std::variant<int, double, std::string, bool> value;

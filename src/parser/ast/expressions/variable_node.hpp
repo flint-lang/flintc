@@ -10,7 +10,7 @@
 class VariableNode : public ExpressionNode {
     public:
         explicit VariableNode(std::string &name) : name(name) {}
-    private:
+
         /// name
         ///     Name of the variable
         std::string name;
