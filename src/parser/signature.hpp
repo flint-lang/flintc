@@ -112,6 +112,18 @@ namespace Signature {
     const signature function_call = combine({
         {TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, anytoken, {")*", TOK_RIGHT_PAREN}
     });
+    const signature bin_op_expr = combine({
+
+    });
+    const signature literal_expr = combine({
+
+    });
+    const signature unary_op_expr = combine({
+
+    });
+    const signature variable_expr = combine({
+
+    });
 }
 
 #endif

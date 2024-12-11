@@ -1,5 +1,6 @@
 #include "parser.hpp"
 
+#include "ast/expressions/binary_op_node.hpp"
 #include "signature.hpp"
 
 #include "../debug.hpp"
@@ -253,14 +254,50 @@ std::optional<BinaryOpNode> Parser::create_binary_op(const token_list &tokens) {
 }
 
 /// create_expression
-///
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(const token_list &tokens) {
-    // just return an empty expression for now
-    // TODO: make the code actually functional.
-    std::string var;
-    return std::make_unique<VariableNode>(var);
-    //throw_err(ERR_NOT_IMPLEMENTED_YET);
-    //return std::nullopt;
+///     Creates an ExpressionNode from the given list of tokens
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(token_list &tokens) {
+    std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
+
+    if(Signature::tokens_contain(tokens, Signature::bin_op_expr)) {
+        std::optional<BinaryOpNode> bin_op = create_binary_op(tokens);
+        if(bin_op.has_value()) {
+            expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
+        } else {
+            throw_err(ERR_PARSING);
+        }
+    } else if (Signature::tokens_contain(tokens, Signature::function_call)) {
+        std::optional<std::unique_ptr<CallNode>> call = create_call(tokens);
+        if(call.has_value()) {
+            expression = std::move(call.value());
+        } else {
+            throw_err(ERR_PARSING);
+        }
+    } else if (Signature::tokens_contain(tokens, Signature::literal_expr)) {
+        std::optional<LiteralNode> lit = create_literal(tokens);
+        if(lit.has_value()) {
+            expression = std::make_unique<LiteralNode>(std::move(lit.value()));
+        } else {
+            throw_err(ERR_PARSING);
+        }
+    } else if (Signature::tokens_match(tokens, Signature::unary_op_expr)) {
+        std::optional<UnaryOpNode> unary_op = create_unary_op(tokens);
+        if(unary_op.has_value()) {
+            expression = std::make_unique<UnaryOpNode>(std::move(unary_op.value()));
+        } else {
+            throw_err(ERR_PARSING);
+        }
+    } else if (Signature::tokens_match(tokens, Signature::variable_expr)) {
+        std::optional<VariableNode> variable = create_variable(tokens);
+        if(variable.has_value()) {
+            expression = std::make_unique<VariableNode>(std::move(variable.value()));
+        } else {
+            throw_err(ERR_PARSING);
+        }
+    }else {
+        throw_err(ERR_UNDEFINED_EXPRESSION);
+    }
+
+    return expression;
 }
 
 /// create_return

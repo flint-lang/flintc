@@ -18,6 +18,7 @@ enum ErrorType {
     ERR_PARSING = 13,
     ERR_NOT_IMPLEMENTED_YET = 14,
     ERR_DEBUG = 15,
+    ERR_UNDEFINED_EXPRESSION = 16,
 };
 
 #endif

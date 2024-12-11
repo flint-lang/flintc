@@ -52,7 +52,7 @@ class Parser {
         static std::optional<LiteralNode> create_literal(const token_list &tokens);
         static std::optional<std::unique_ptr<CallNode>> create_call(token_list &tokens);
         static std::optional<BinaryOpNode> create_binary_op(const token_list &tokens);
-        static std::optional<std::unique_ptr<ExpressionNode>> create_expression(const token_list &tokens);
+        static std::optional<std::unique_ptr<ExpressionNode>> create_expression(token_list &tokens);
 
         // --- STATEMENTS ---
         static std::optional<ReturnNode> create_return(token_list &tokens);
