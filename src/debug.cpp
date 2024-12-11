@@ -188,7 +188,7 @@ namespace Debug {
         /// print_ast_tree
         ///     Prints the whole AST Tree recursively
         void print_program(const ProgramNode &program) {
-            std::cout << "Program:\n";
+            std::cout << std::endl << "Program" << std::endl;
             unsigned int counter = 0;
             uint2 empty = {0, 0};
             for(const std::unique_ptr<ASTNode> &node : program.definitions) {
@@ -216,6 +216,7 @@ namespace Debug {
                     throw_err(ERR_DEBUG);
                 }
             }
+            std::cout << std::endl;
         }
 
 
