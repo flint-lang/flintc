@@ -230,30 +230,76 @@ namespace Debug {
         // --- STATEMENTS ---
 
         void print_return(unsigned int indent_lvl, const ReturnNode &return_node) {
+            print_header(indent_lvl, "Return ");
+            std::cout << "return";
+            std::cout << std::endl;
 
+            print_expression(++indent_lvl, return_node.return_value);
         }
 
         void print_if(unsigned int indent_lvl, const IfNode &if_node) {
-
+            print_header(indent_lvl, "If ");
+            std::cout << "if ";
+            print_expression(0, if_node.condition);
+            print_header(indent_lvl + 1, "Then ");
+            std::cout << std::endl;
+            print_body(indent_lvl + 2, if_node.then_branch);
+            print_header(indent_lvl + 1, "Else ");
+            std::cout << std::endl;
+            print_body(indent_lvl + 2, if_node.else_branch);
         }
 
         void print_while(unsigned int indent_lvl, const WhileNode &while_node) {
+            print_header(indent_lvl, "While ");
+            std::cout << "while ";
+            print_expression(0, while_node.condition);
 
+            print_body(++indent_lvl, while_node.body);
         }
 
         void print_for(unsigned int indent_lvl, const ForLoopNode &for_node) {
+            print_header(indent_lvl, "For ");
+            std::cout << "for ";
+            std::cout << for_node.iterator_name;
+            std::cout << " in ";
+            print_expression(0, for_node.iterable);
 
+            print_body(++indent_lvl, for_node.body);
         }
 
         void print_assignment(unsigned int indent_lvl, const AssignmentNode &assign) {
+            print_header(indent_lvl, "Assign ");
+            std::cout << assign.var_name;
+            std::cout << std::endl;
 
+            print_expression(++indent_lvl, assign.value);
         }
 
         void print_declaration(unsigned int indent_lvl, const DeclarationNode &decl) {
+            print_header(indent_lvl, "Decl ");
+            std::cout << decl.type << " ";
+            std::cout << decl.name;
+            std::cout << std::endl;
 
+            print_expression(++indent_lvl, decl.initializer);
         }
 
         void print_statement(unsigned int indent_lvl, const std::unique_ptr<StatementNode> &statement) {
+            if(const auto *return_node = dynamic_cast<const ReturnNode*>(statement.get())) {
+                print_return(indent_lvl, *return_node);
+            } else if (const auto *if_node = dynamic_cast<const IfNode*>(statement.get())) {
+                print_if(indent_lvl, *if_node);
+            } else if (const auto *while_node = dynamic_cast<const WhileNode*>(statement.get())) {
+                print_while(indent_lvl, *while_node);
+            } else if (const auto *for_node = dynamic_cast<const ForLoopNode*>(statement.get())) {
+                print_for(indent_lvl, *for_node);
+            } else if (const auto *assignment = dynamic_cast<const AssignmentNode*>(statement.get())) {
+                print_assignment(indent_lvl, *assignment);
+            } else if (const auto *declaration = dynamic_cast<const DeclarationNode*>(statement.get())) {
+                print_declaration(indent_lvl, *declaration);
+            } else {
+                throw_err(ERR_DEBUG);
+            }
         }
 
         void print_body(unsigned int indent_lvl, const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body) {
