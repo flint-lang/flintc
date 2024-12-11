@@ -65,7 +65,7 @@ namespace Debug {
         void print_literal(unsigned int indent_lvl, const LiteralNode &lit);
         void print_call(unsigned int indent_lvl, const CallNode &call);
         void print_binary_op(unsigned int indent_lvl, const BinaryOpNode &bin);
-        void print_expression(unsigned int indent_lvl, const ExpressionNode &expr);
+        void print_expression(unsigned int indent_lvl, const std::unique_ptr<ExpressionNode> &expr);
 
         // --- STATEMENTS ---
         void print_return(unsigned int indent_lvl, const ReturnNode &return_node);
@@ -74,7 +74,7 @@ namespace Debug {
         void print_for(unsigned int indent_lvl, const ForLoopNode &for_node);
         void print_assignment(unsigned int indent_lvl, const AssignmentNode &assign);
         void print_declaration(unsigned int indent_lvl, const DeclarationNode &decl);
-        void print_statement(unsigned int indent_lvl, const StatementNode &statement);
+        void print_statement(unsigned int indent_lvl, const std::unique_ptr<StatementNode> &statement);
         void print_body(unsigned int indent_lvl, const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body);
 
         // --- DEFINITIONS ---

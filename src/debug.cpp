@@ -42,7 +42,7 @@
 #include <variant>
 
 namespace Debug {
-    static const unsigned int C_SIZE = 12;
+    static const unsigned int C_SIZE = 25;
 
     /// get_string_container
     ///     Returns the given string inside a container of the given size
@@ -98,7 +98,7 @@ namespace Debug {
                 case HOR:
                 addition += tree_characters.at(type) + tree_characters.at(type) + tree_characters.at(type) + tree_characters.at(type);
                     break;
-                case NONE:
+                default:
                     addition += "    ";
             }
         }
@@ -168,9 +168,9 @@ namespace Debug {
                 print_tree_row({BRANCH}, false);
                 std::cout << header;
                 print_tree_characters({BRANCH});
-                std::cout << create_n_str(C_SIZE - header.size(), tree_characters.at(HOR));
-                print_tree_characters({BRANCH_L});
-                std::cout << " ";
+                std::cout << create_n_str(C_SIZE - header.size() - (4 * indent_lvl), tree_characters.at(HOR));
+                //print_tree_characters({ARROW});
+                std::cout << "> ";
             }
         }
         /// print_ast_tree
@@ -223,8 +223,7 @@ namespace Debug {
 
         }
 
-        void print_expression(unsigned int indent_lvl, const ExpressionNode &expr) {
-
+        void print_expression(unsigned int indent_lvl, const std::unique_ptr<ExpressionNode> &expr) {
         }
 
 
@@ -254,15 +253,15 @@ namespace Debug {
 
         }
 
-        void print_statement(unsigned int indent_lvl, const StatementNode &statement) {
+        void print_statement(unsigned int indent_lvl, const std::unique_ptr<StatementNode> &statement) {
         }
 
         void print_body(unsigned int indent_lvl, const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body) {
             for(const auto &body_line : body) {
                 if(std::holds_alternative<std::unique_ptr<StatementNode>>(body_line)) {
-                    print_statement(indent_lvl + 1, *std::get<std::unique_ptr<StatementNode>>(body_line));
+                    print_statement(indent_lvl, std::get<std::unique_ptr<StatementNode>>(body_line));
                 } else if (std::holds_alternative<std::unique_ptr<CallNode>>(body_line)) {
-                    print_call(indent_lvl + 1, *std::get<std::unique_ptr<CallNode>>(body_line));
+                    print_call(indent_lvl, *std::get<std::unique_ptr<CallNode>>(body_line));
                 }
             }
         }
