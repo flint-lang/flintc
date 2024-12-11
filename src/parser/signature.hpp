@@ -6,7 +6,6 @@
 #include <vector>
 #include <string>
 #include <optional>
-#include <utility>
 #include <variant>
 
 // Inside this namespace, all the signatures are defined. A signature can contain multiple other signatures as well.
@@ -19,15 +18,15 @@ namespace Signature {
     std::string stringify(const token_list &tokens);
     bool tokens_contain(const token_list &tokens, const signature &signature);
     bool tokens_match(const token_list &tokens, const signature &signature);
-    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, std::pair<unsigned int, unsigned int> &range);
-    std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges(const token_list &tokens, const signature &signature);
-    std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges_in_range(const token_list &tokens, const signature &signature, const std::pair<unsigned int, unsigned int> &range);
-    std::optional<std::pair<unsigned int, unsigned int>> get_next_match_range(const token_list &tokens, const signature &signature);
+    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, uint2 &range);
+    std::vector<uint2> get_match_ranges(const token_list &tokens, const signature &signature);
+    std::vector<uint2> get_match_ranges_in_range(const token_list &tokens, const signature &signature, const uint2 &range);
+    std::optional<uint2> get_next_match_range(const token_list &tokens, const signature &signature);
     signature match_until_signature(const signature &signature);
 
     std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line);
-    std::optional<std::pair<unsigned int, unsigned int>> get_line_token_indices(const token_list &tokens, unsigned int line);
-    std::optional<std::pair<unsigned int, unsigned int>> balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec);
+    std::optional<uint2> get_line_token_indices(const token_list &tokens, unsigned int line);
+    std::optional<uint2> balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec);
 
     // --- BASIC SIGNATURES ---
     const signature anytoken = {"#-?..#"};

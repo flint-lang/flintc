@@ -193,7 +193,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
 /// create_call
 ///     Creates a CallNode, being a function call, from the given tokens
 std::optional<std::unique_ptr<CallNode>> Parser::create_call(token_list &tokens) {
-    std::optional<std::pair<unsigned int, unsigned int>> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+    std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
     if(!arg_range.has_value()) {
         return std::nullopt;
     }
@@ -331,7 +331,7 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
         throw_err(ERR_NOT_IMPLEMENTED_YET);
     } else {
         const Signature::signature lhs = Signature::match_until_signature({TOK_EQUAL});
-        std::pair<unsigned int, unsigned int> lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
+        uint2 lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
         token_list lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
 
         auto iterator = lhs_tokens.begin();
@@ -622,7 +622,7 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
         }
         current_line = body_iterator->line;
 
-        std::pair<unsigned int, unsigned int> definition_ids = Signature::get_line_token_indices(body, current_line).value();
+        uint2 definition_ids = Signature::get_line_token_indices(body, current_line).value();
         token_list function_definition = extract_from_to(definition_ids.first, definition_ids.second, body);
 
         unsigned int leading_indents = Signature::get_leading_indents(function_definition, current_line).value();
@@ -739,7 +739,7 @@ std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::un
         }
     }
 
-    std::pair<unsigned int, unsigned int> constructor_token_ids = Signature::get_match_ranges(body, Signature::entity_body_constructor).at(0);
+    uint2 constructor_token_ids = Signature::get_match_ranges(body, Signature::entity_body_constructor).at(0);
     for(unsigned int i = constructor_token_ids.first; i < constructor_token_ids.second; i++) {
         if(body.at(i).type == TOK_IDENTIFIER) {
             if(body.at(i + 1).type == TOK_LEFT_PAREN
@@ -759,9 +759,9 @@ std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::un
 std::vector<std::unique_ptr<LinkNode>> Parser::create_links(token_list &body) {
     std::vector<std::unique_ptr<LinkNode>> links;
 
-    std::vector<std::pair<unsigned int, unsigned int>> link_matches = Signature::get_match_ranges(body, Signature::entity_body_link);
+    std::vector<uint2> link_matches = Signature::get_match_ranges(body, Signature::entity_body_link);
     links.reserve(link_matches.size());
-    for(std::pair<unsigned int, unsigned int> link_match : link_matches) {
+    for(uint2 link_match : link_matches) {
         links.emplace_back(
             std::make_unique<LinkNode>(std::move(create_link(body)))
         );
@@ -776,7 +776,7 @@ LinkNode Parser::create_link(const token_list &tokens) {
     std::vector<std::string> from_references;
     std::vector<std::string> to_references;
 
-    std::vector<std::pair<unsigned int, unsigned int>> references = Signature::get_match_ranges(tokens, Signature::reference);
+    std::vector<uint2> references = Signature::get_match_ranges(tokens, Signature::reference);
 
     for(unsigned int i = references.at(0).first; i < references.at(0).second; i++) {
         if(tokens.at(i).type == TOK_IDENTIFIER) {

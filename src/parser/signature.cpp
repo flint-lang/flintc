@@ -57,9 +57,9 @@ namespace Signature {
 
     /// tokens_contain_in_range
     ///     Checks if a given vector of TokenContext elements matches a given signature within a given range of the vector
-    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, std::pair<unsigned int, unsigned int> &range) {
+    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, uint2 &range) {
         assert(range.second <= tokens.size());
-        std::vector<std::pair<unsigned int, unsigned int>> matches = get_match_ranges(tokens, signature);
+        std::vector<uint2> matches = get_match_ranges(tokens, signature);
         for(const auto &match : matches) {
             if(match.first >= range.first && match.second <= range.second) {
                 return true;
@@ -70,8 +70,8 @@ namespace Signature {
 
     /// extract_matches
     ///     Extracts the indices of all the matches of the given signature inside the given tokens vector
-    std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges(const token_list &tokens, const Signature::signature &signature) {
-        std::vector<std::pair<unsigned int, unsigned int>> matches;
+    std::vector<uint2> get_match_ranges(const token_list &tokens, const Signature::signature &signature) {
+        std::vector<uint2> matches;
         std::string search_string = stringify(tokens);
         std::regex pattern(get_regex_string(signature));
 
@@ -98,8 +98,8 @@ namespace Signature {
 
     /// get_match_ranges_in_range
     ///     Returns a vector of all match ranges whic hare within a given range
-    std::vector<std::pair<unsigned int, unsigned int>> get_match_ranges_in_range(const token_list &tokens, const signature &signature, const std::pair<unsigned int, unsigned int> &range) {
-        std::vector<std::pair<unsigned int, unsigned int>> match_ranges = get_match_ranges(tokens, signature);
+    std::vector<uint2> get_match_ranges_in_range(const token_list &tokens, const signature &signature, const uint2 &range) {
+        std::vector<uint2> match_ranges = get_match_ranges(tokens, signature);
         auto iterator = match_ranges.begin();
         while(iterator != match_ranges.end()) {
             if(iterator->first < range.first || iterator->second > range.second) {
@@ -112,7 +112,7 @@ namespace Signature {
     /// get_next_match
     ///     Returns the next match range, if the token_list contains the specified signature
     ///     Returns a nullopt if the token_list does not contain the signature
-    std::optional<std::pair<unsigned int, unsigned int>> get_next_match_range(const token_list &tokens, const signature &signature) {
+    std::optional<uint2> get_next_match_range(const token_list &tokens, const signature &signature) {
         if(tokens_contain(tokens, signature)) {
             // This is kinda inefficient, but it works for now
             // TODO: Rewrite this to be more efficient
@@ -171,7 +171,7 @@ namespace Signature {
     /// get_line_token_indices
     ///     Returns the start and end index of all the tokens inisde the given array which are at the given line.
     ///     If the line is not contained inside the token vector, a nullopt is returned
-    std::optional<std::pair<unsigned int, unsigned int>> get_line_token_indices(const token_list &tokens, unsigned int line) {
+    std::optional<uint2> get_line_token_indices(const token_list &tokens, unsigned int line) {
         int start_index = -1;
         unsigned int end_index = 0;
 
@@ -193,13 +193,13 @@ namespace Signature {
     /// balanced_range_extraction
     ///     Extracts the range of the given signatures where the 'inc' signature increments the amount of 'dec' signatures needed to reach the end of the range.
     ///     This can be used to extract all operations between parenthesis, for example
-    std::optional<std::pair<unsigned int, unsigned int>> balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec) {
+    std::optional<uint2> balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec) {
         if(!tokens_contain(tokens, inc) || !tokens_contain(tokens, dec)) {
             return std::nullopt;
         }
 
-        std::vector<std::pair<unsigned int, unsigned int>> inc_ranges = get_match_ranges(tokens, inc);
-        std::vector<std::pair<unsigned int, unsigned int>> dec_ranges = get_match_ranges(tokens, dec);
+        std::vector<uint2> inc_ranges = get_match_ranges(tokens, inc);
+        std::vector<uint2> dec_ranges = get_match_ranges(tokens, dec);
         assert(!inc_ranges.empty() && !dec_ranges.empty());
         if(inc_ranges.size() == 1 && dec_ranges.size() == 1 && inc_ranges.at(0).first < dec_ranges.at(0).first) {
             return std::make_pair(inc_ranges.at(0).first, dec_ranges.at(0).second);
