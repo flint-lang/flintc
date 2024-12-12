@@ -88,6 +88,46 @@ class ImportNode : ASTNode;             // Represents the use definitions
 class ProgramNode : ASTNode;            // Root node of the AST
 ```
 
+#### BinaryOpNode
+
+The BinaryOpNode creation needs to have a fixed token precedence.
+
+| Token | Precedence |
+| ----- | ---------- |
+| **    | 8          |
+| *     | 7          |
+| /     | 7          |
+| +     | 6          |
+| -     | 6          |
+| <     | 5          |
+| >     | 5          |
+| <=    | 5          |
+| >=    | 5          |
+| not   | 4          |
+| and   | 3          |
+| or    | 2          |
+| ==    | 1          |
+| !=    | 1          |
+| =     | 0          |
+
+`(3 ** 5 * 3) + (5 / 3 - 1)`
+
+should result in:
+
+```pseudo
+BinOp +
+    BinOp *
+        BinOp **
+            3
+            5
+        3
+    BinOp -
+        BinOp /
+            5
+            3
+        1
+```
+
 ## Linker
 
 The Linker originally was part of the Lexer. One file was tokenized, then it was checked for fiile imports, and then the Linker would also tokenize the linked file and include all TokenContext elements at the index the import was in the TokenContext vector. This meant that
