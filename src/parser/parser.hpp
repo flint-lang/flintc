@@ -33,6 +33,25 @@
 #include <utility>
 #include <optional>
 #include <memory>
+#include <map>
+
+static const std::map<Token, unsigned int> token_precedence = {
+    {TOK_SQUARE,        8},
+    {TOK_MULT,          7},
+    {TOK_DIV,           7},
+    {TOK_PLUS,          6},
+    {TOK_MINUS,         6},
+    {TOK_LESS,          5},
+    {TOK_GREATER,       5},
+    {TOK_LESS_EQUAL,    5},
+    {TOK_GREATER_EQUAL, 5},
+    {TOK_NOT,           4},
+    {TOK_AND,           3},
+    {TOK_OR,            2},
+    {TOK_EQUAL_EQUAL,   1},
+    {TOK_NOT_EQUAL,     1},
+    {TOK_EQUAL,         0},
+};
 
 class Parser {
     public:

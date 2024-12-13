@@ -128,6 +128,17 @@ BinOp +
         1
 ```
 
+`3 ** 5 * 3 + 5 / 3 - 1`
+
+With the "from left to right-approach":
+
+// 1. Search for every token until you find an operator. Save the range. In this case 0-1 and the operator is at 1.
+// 2. Search for every token until you find another operator or the end of the token list
+// 2.1 If you found a second operator, compare the operators precedences
+// 2.2 If the first operator has a higher precedence than the second one, all tokens until the second operator will be passed to a call of the createExpression function. The rhs of the second operator will be passed to the createExpression function as well and their results are saved in the lhs and rhs of the BinOpNode
+// 2.3 If the second operator has a higher precedence than the first one, all tokens until the first operator will be passed to a calal of the createExpression function.
+// By searching through the tokens, all tokens between parenthesis will be handled as their own createExpression call
+
 ## Linker
 
 The Linker originally was part of the Lexer. One file was tokenized, then it was checked for fiile imports, and then the Linker would also tokenize the linked file and include all TokenContext elements at the index the import was in the TokenContext vector. This meant that

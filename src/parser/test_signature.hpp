@@ -2186,15 +2186,15 @@ namespace {
 // --- MATCH TEST FUNCTION CALL EXPRESSION ---
 namespace {
     int test_match_function_call() {
-        Debug::print_tree_row({Debug::SINGLE}, true);
+        Debug::print_tree_row({Debug::BRANCH}, true);
         TestUtils::print_test_name("FUNCTION_CALL TESTS:", true);
-        Debug::print_tree_row({Debug::NONE, Debug::BRANCH}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("FUNCTION_CALL_MATCH:", true);
         return 0;
     }
 
     int test_match_function_call_0arg() {
-        Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::BRANCH}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_call_0arg", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN}
@@ -2205,7 +2205,7 @@ namespace {
     }
 
     int test_match_function_call_1arg_identifier() {
-        Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::BRANCH}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_call_1arg_identifier", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN}
@@ -2216,7 +2216,7 @@ namespace {
     }
 
     int test_match_function_call_1arg_function_0arg() {
-        Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::SINGLE}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_function_call_1arg_function_0arg", false);
         token_list tokens = create_token_vector(
             {TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN}
@@ -2229,13 +2229,13 @@ namespace {
 // --- CONTAIN TEST FUNCTION CALL EXPRESSION ---
 namespace {
     int test_contain_function_call() {
-        Debug::print_tree_row({Debug::NONE, Debug::BRANCH}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("FUNCTION_CALL_CONTAIN:", true);
         return 0;
     }
 
     int test_contain_function_call_0arg() {
-        Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::BRANCH}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_call_0arg", false);
         token_list tokens = create_token_vector(
             {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
@@ -2246,7 +2246,7 @@ namespace {
     }
 
     int test_contain_function_call_1arg_identifier() {
-        Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::BRANCH}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_call_1arg_identifier", false);
         token_list tokens = create_token_vector(
             {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON}
@@ -2257,7 +2257,7 @@ namespace {
     }
 
     int test_contain_function_call_1arg_function_0arg() {
-        Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::SINGLE}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_function_call_1arg_function_0arg", false);
         token_list tokens = create_token_vector(
             {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
@@ -2270,13 +2270,13 @@ namespace {
 // --- EXTRACT TEST FUNCTION CALL EXPRESSION ---
 namespace {
     int test_extract_function_call() {
-        Debug::print_tree_row({Debug::NONE, Debug::SINGLE}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("FUNCTION_CALL_EXTRACT:", true);
         return 0;
     }
 
     int test_extract_function_call_0arg() {
-        Debug::print_tree_row({Debug::NONE, Debug::NONE, Debug::BRANCH}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_call_0arg", false);
         token_list tokens = create_token_vector(
            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
@@ -2289,7 +2289,7 @@ namespace {
     }
 
     int test_extract_function_call_1arg_identifier() {
-        Debug::print_tree_row({Debug::NONE, Debug::NONE, Debug::BRANCH}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_call_1arg_identifier", false);
         token_list tokens = create_token_vector(
             {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON}
@@ -2302,7 +2302,7 @@ namespace {
     }
 
     int test_extract_function_call_1arg_function_0arg() {
-        Debug::print_tree_row({Debug::NONE, Debug::NONE, Debug::SINGLE}, true);
+        Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_function_call_1arg_function_0arg", false);
         token_list tokens = create_token_vector(
             {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
@@ -2314,6 +2314,71 @@ namespace {
         return result ? 0 : 1;
     }
 }
+
+// --- BINARY OPERATOR EXPRESSION TESTS ---
+// --- MATCH TEST BINARY OPERATOR EXPRESSION ---
+namespace {
+    int test_match_bin_op_expr() {
+        Debug::print_tree_row({Debug::SINGLE}, true);
+        TestUtils::print_test_name("BINARY_OPERATOR_EXPRESSION TESTS:", true);
+        Debug::print_tree_row({Debug::NONE, Debug::BRANCH}, true);
+        TestUtils::print_test_name("BIN_OP_EXPR_MATCH:", true);
+        return 0;
+    }
+
+    int test_match_bin_op_expr_vars_square_int() {
+        Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::SINGLE}, true);
+        TestUtils::print_test_name("test_match_bin_op_expr_vars_square", false);
+        // 4 ** 5
+        token_list tokens = create_token_vector(
+            {TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE}
+        );
+        bool result = Signature::tokens_match(tokens, Signature::bin_op_expr);
+        TestUtils::ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- CONTAIN TEST BINARY OPERATOR EXPRESSION ---
+namespace {
+    int test_contain_bin_op_expr() {
+        Debug::print_tree_row({Debug::NONE, Debug::BRANCH}, true);
+        TestUtils::print_test_name("BIN_OP_EXPR_CONTAIN:", true);
+        return 0;
+    }
+
+    int test_contain_bin_op_expr_vars_square_int() {
+        Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::SINGLE}, true);
+        TestUtils::print_test_name("test_contain_bin_op_expr_vars_square_int", false);
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_EQUAL, TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE, TOK_SEMICOLON}
+        );
+        bool result = Signature::tokens_contain(tokens, Signature::bin_op_expr);
+        TestUtils::ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+// --- EXTRACT TEST BINARY OPERATOR EXPRESSION ---
+namespace {
+    int test_extract_bin_op_expr() {
+        Debug::print_tree_row({Debug::NONE, Debug::SINGLE}, true);
+        TestUtils::print_test_name("BIN_OP_EXPR_EXTRACT:", true);
+        return 0;
+    }
+
+    int test_extract_bin_op_expr_vars_square_int() {
+        Debug::print_tree_row({Debug::NONE, Debug::NONE, Debug::SINGLE}, true);
+        TestUtils::print_test_name("test_extract_bin_op_expr_vars_square_int", false);
+        token_list tokens = create_token_vector(
+           {TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE, TOK_SEMICOLON}
+        );
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::bin_op_expr);
+        bool result = !result_vec.empty() &&
+            result_vec.at(0).first == 0 && result_vec.at(0).second == 4;
+        TestUtils::ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
+
 
 int test_signature() {
     TestUtils::print_test_name("SIGNATURE_TESTS:", true);
@@ -2601,6 +2666,17 @@ int test_signature() {
         test_extract_function_call_1arg_identifier,
         test_extract_function_call_1arg_function_0arg,
     };
+    function_list bin_op_expr_tests = {
+        // Match Tests
+        test_match_bin_op_expr,
+        test_match_bin_op_expr_vars_square_int,
+        // Contain Tests
+        test_contain_bin_op_expr,
+        test_contain_bin_op_expr_vars_square_int,
+        // Extract Tests
+        test_extract_bin_op_expr,
+        test_extract_bin_op_expr_vars_square_int,
+    };
 
     const std::vector<function_list> tests = {
         // --- SIGNATURE METHODS ---
@@ -2623,6 +2699,7 @@ int test_signature() {
         variant_definition_tests,
         // --- EXPRESSIONS ---
         function_call_tests,
+        bin_op_expr_tests,
     };
     return run_all_tests(tests);
 }

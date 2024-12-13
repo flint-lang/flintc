@@ -32,9 +32,12 @@ namespace Signature {
     // --- BASIC SIGNATURES ---
     const signature anytoken = {"#-?..#"};
     const signature type_prim = {"((", TOK_INT, ")|(", TOK_FLINT, ")|(", TOK_STR, ")|(", TOK_CHAR, ")|(", TOK_BOOL, "))"};
+    const signature literal = {"((", TOK_STR_VALUE, ")|(", TOK_INT_VALUE, ")|(", TOK_FLINT_VALUE, ")|(", TOK_CHAR_VALUE, "))"};
     const signature type = combine({
         {"("}, type_prim, {"|(", TOK_IDENTIFIER, "))"}
     });
+    const signature binary_operator = {"((", TOK_PLUS, ")|(", TOK_MINUS, ")|(", TOK_MULT, ")|(", TOK_DIV, ")|(", TOK_SQUARE, ")|(", TOK_EQUAL_EQUAL, ")|(", TOK_NOT_EQUAL, ")|(", TOK_LESS, ")|(", TOK_LESS_EQUAL, ")|(", TOK_GREATER, ")|(", TOK_GREATER_EQUAL, "))"};
+    const signature unary_operator = {"((", TOK_INCREMENT, ")|(", TOK_DECREMENT, "))"};
     const signature reference = {TOK_IDENTIFIER, "(", TOK_COLON, TOK_COLON, TOK_IDENTIFIER, ")+"};
     const signature args = combine({
         type, {TOK_IDENTIFIER, "(", TOK_COMMA}, type , {TOK_IDENTIFIER, ")*"}
@@ -110,21 +113,22 @@ namespace Signature {
     });
 
     // Expressions
+    const signature expression = combine({
+        {"("}, anytoken, {")*"}
+    });
     const signature function_call = combine({
-        {TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, anytoken, {")*", TOK_RIGHT_PAREN}
+        {TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, expression, {")?", TOK_RIGHT_PAREN}
     });
     const signature bin_op_expr = combine({
-
-    });
-    const signature literal_expr = combine({
-
+        expression, binary_operator, expression
     });
     const signature unary_op_expr = combine({
-
+        {"(("}, expression, unary_operator, {")|("}, unary_operator, expression, {"))"}
     });
-    const signature variable_expr = combine({
-
+    const signature literal_expr = combine({
+        {"(("}, literal, {"("}, binary_operator, literal, {")*)|("}, unary_operator, literal, {")|("}, literal, unary_operator, {"))"}
     });
+    const signature variable_expr = {TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
 }
 
 #endif

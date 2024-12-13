@@ -43,6 +43,7 @@ enum Token {
     TOK_IDENTIFIER = -62,
     // primitives
     TOK_STR = -63, TOK_INT = -64, TOK_FLINT = -65, TOK_BOOL = -66, TOK_BYTE = -67, TOK_CHAR = -68, TOK_OPT = -69, TOK_VOID = 70,
+    // literals
     TOK_STR_VALUE = -71, TOK_INT_VALUE = -72, TOK_FLINT_VALUE = -73, TOK_CHAR_VALUE = -74,
     // builtin values
     TOK_TRUE = -75, TOK_FALSE = -76, TOK_NONE = -77, TOK_SOME = -78,

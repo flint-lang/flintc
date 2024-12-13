@@ -247,10 +247,73 @@ std::optional<std::unique_ptr<CallNode>> Parser::create_call(token_list &tokens)
 }
 
 /// create_binary_op
-///
-std::optional<BinaryOpNode> Parser::create_binary_op(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
-    return std::nullopt;
+///     Creates a BinaryOpNode from the given list of tokens
+std::optional<BinaryOpNode> Parser::create_binary_op(token_list &tokens) {
+    unsigned int first_operator_idx = 0;
+    unsigned int second_operator_idx = 0;
+    Token first_operator_token = Token::TOK_EOL;
+    Token second_operator_token = Token::TOK_EOL;
+    for(auto iterator = tokens.begin(); iterator != tokens.end(); ++iterator) {
+        // Check if there is a function call ahead
+        if(Signature::tokens_contain_in_range(tokens, Signature::function_call, std::make_pair<unsigned int, unsigned int>(std::distance(tokens.begin(), iterator), tokens.size()))) {
+            // skip the identifier(s)
+            while(iterator->type != TOK_LEFT_PAREN) {
+                ++iterator;
+            }
+            // skip the function call
+            std::vector<uint2> next_groups = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+            if(next_groups.empty()) {
+                throw_err(ERR_PARSING);
+            }
+            for(const uint2 &group : next_groups) {
+                if(group.first == std::distance(tokens.begin(), iterator)) {
+                    iterator = tokens.begin() + group.second;
+                }
+            }
+        }
+        // Check if there is a group ahead, skip that one too
+        if(iterator->type == TOK_LEFT_PAREN) {
+            std::vector<uint2> next_groups = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+            if(next_groups.empty()) {
+                throw_err(ERR_PARSING);
+            }
+            for(const uint2 &group : next_groups) {
+                if(group.first == std::distance(tokens.begin(), iterator)) {
+                    iterator = tokens.begin() + group.second;
+                }
+            }
+        }
+        // Check if the next token is a binary operator token
+        if(Signature::tokens_match({{iterator->type}}, Signature::binary_operator)) {
+            if(first_operator_token == TOK_EOL) {
+                first_operator_idx = std::distance(tokens.begin(), iterator);
+                first_operator_token = iterator->type;
+            } else {
+                second_operator_idx = std::distance(tokens.begin(), iterator);
+                second_operator_token = iterator->type;
+                break;
+            }
+        }
+    }
+
+    // Compare the token precenences, extract different areas depending on the precedences
+    token_list lhs_tokens;
+    Token operator_token = TOK_EOL;
+    if (token_precedence.at(first_operator_token) > token_precedence.at(second_operator_token)) {
+        lhs_tokens = extract_from_to(0, second_operator_idx, tokens);
+        operator_token = second_operator_token;
+    } else {
+        lhs_tokens = extract_from_to(0, first_operator_idx, tokens);
+        operator_token = first_operator_token;
+    }
+    token_list rhs_tokens = extract_from_to(0, tokens.size(), tokens);
+
+    std::optional<std::unique_ptr<ExpressionNode>> lhs = create_expression(lhs_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> rhs = create_expression(rhs_tokens);
+    if(!lhs.has_value() || !rhs.has_value()) {
+        throw_err(ERR_PARSING);
+    }
+    return BinaryOpNode(operator_token, lhs.value(), rhs.value());
 }
 
 /// create_expression
@@ -344,7 +407,7 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(token_l
     while(iterator != tokens.end()) {
         if(iterator->type == TOK_IDENTIFIER) {
             if((iterator + 1)->type == TOK_EQUAL) {
-                const token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator), tokens.size(), tokens);
+                token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator), tokens.size(), tokens);
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(expression_tokens);
                 if(expression.has_value()) {
                     return std::make_unique<AssignmentNode>(iterator->lexme, expression.value());
