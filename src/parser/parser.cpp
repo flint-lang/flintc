@@ -454,7 +454,7 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
             ++iterator;
         }
 
-        auto expr = create_expression(lhs_tokens);
+        auto expr = create_expression(tokens);
         if(expr.has_value()) {
             declaration = DeclarationNode(type, name, expr.value());
         }
