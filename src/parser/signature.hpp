@@ -18,7 +18,7 @@ namespace Signature {
     std::string stringify(const token_list &tokens);
     bool tokens_contain(const token_list &tokens, const signature &signature);
     bool tokens_match(const token_list &tokens, const signature &signature);
-    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, uint2 &range);
+    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, const uint2 &range);
     std::vector<uint2> get_match_ranges(const token_list &tokens, const signature &signature);
     std::vector<uint2> get_match_ranges_in_range(const token_list &tokens, const signature &signature, const uint2 &range);
     std::optional<uint2> get_next_match_range(const token_list &tokens, const signature &signature);
@@ -27,6 +27,7 @@ namespace Signature {
     std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line);
     std::optional<uint2> get_line_token_indices(const token_list &tokens, unsigned int line);
     std::optional<uint2> balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec);
+    std::vector<uint2> balanced_range_extraction_vec(const token_list &tokens, const signature &inc, const signature &dec);
 
     // --- BASIC SIGNATURES ---
     const signature anytoken = {"#-?..#"};

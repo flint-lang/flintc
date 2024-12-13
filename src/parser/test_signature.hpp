@@ -84,6 +84,55 @@ namespace {
         return result ? 0 : 1;
     }
 }
+// --- TEST BALANCED RANGE EXTRACTION VEC ---
+namespace {
+    int test_balanced_range_extraction_vec() {
+        Debug::print_tree_row({Debug::BRANCH}, true);
+        TestUtils::print_test_name("BALANCED_RANGE_EXTRACTION_VEC:", true);
+        return 0;
+    }
+
+    int test_balanced_range_extraction_vec_lr() {
+        Debug::print_tree_row({Debug::VERT, Debug::BRANCH}, true);
+        TestUtils::print_test_name("test_balanced_range_extraction_vec_lr", false);
+        // x := func()
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::vector<uint2> ranges = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        bool result = ranges.size() == 1 && ranges.at(0).first == 3 && ranges.at(0).second == 5;
+        TestUtils::ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_balanced_range_extraction_vec_llrlrlrr() {
+        Debug::print_tree_row({Debug::VERT, Debug::BRANCH}, true);
+        TestUtils::print_test_name("test_balanced_range_extraction_vec_llrlrlrr", false);
+        // x := func((a * b) - func2() - func3());
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::vector<uint2> ranges = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        bool result = ranges.size() == 1 && ranges.at(0).first == 3 && ranges.at(0).second == 18;
+        TestUtils::ok_or_not(result);
+        return result ? 0 : 1;
+    }
+
+    int test_balanced_range_extraction_vec_llrrlr() {
+        Debug::print_tree_row({Debug::VERT, Debug::SINGLE}, true);
+        TestUtils::print_test_name("test_balanced_range_extraction_vec_llrrlr", false);
+        // x := (a * func(2)) ** (3 - 4 * 5);
+        token_list tokens = create_token_vector(
+            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT_VALUE, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SQUARE, TOK_LEFT_PAREN, TOK_INT_VALUE, TOK_MINUS, TOK_INT_VALUE, TOK_MULT, TOK_INT_VALUE, TOK_RIGHT_PAREN, TOK_SEMICOLON}
+        );
+        std::vector<uint2> ranges = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        bool result = ranges.size() == 2
+            && ranges.at(0).first == 2 && ranges.at(0).second == 10
+            && ranges.at(1).first == 11 && ranges.at(1).second == 18;
+        TestUtils::ok_or_not(result);
+        return result ? 0 : 1;
+    }
+}
 
 
 // --- PRIMARY TESTS ---
@@ -2278,6 +2327,12 @@ int test_signature() {
         test_balanced_range_extraction_lllrrr,
         test_balanced_range_extraction_llrlrlrr,
     };
+    function_list balanced_range_extraction_vec = {
+        test_balanced_range_extraction_vec,
+        test_balanced_range_extraction_vec_lr,
+        test_balanced_range_extraction_vec_llrlrlrr,
+        test_balanced_range_extraction_vec_llrrlr,
+    };
     // --- BASIC SIGNATURES ---
     function_list primary_tests = {
         // Match Tests Primary
@@ -2550,6 +2605,7 @@ int test_signature() {
     const std::vector<function_list> tests = {
         // --- SIGNATURE METHODS ---
         balanced_range_extraction,
+        balanced_range_extraction_vec,
         // --- BASIC SIGNATURES ---
         primary_tests,
         type_tests,

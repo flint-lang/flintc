@@ -7,6 +7,8 @@
 #include <vector>
 #include <utility>
 #include <cassert>
+#include <algorithm>
+#include <iterator>
 
 namespace Signature {
     /// combine
@@ -57,7 +59,7 @@ namespace Signature {
 
     /// tokens_contain_in_range
     ///     Checks if a given vector of TokenContext elements matches a given signature within a given range of the vector
-    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, uint2 &range) {
+    bool tokens_contain_in_range(const token_list &tokens, const signature &signature, const uint2 &range) {
         assert(range.second <= tokens.size());
         std::vector<uint2> matches = get_match_ranges(tokens, signature);
         for(const auto &match : matches) {
@@ -229,5 +231,28 @@ namespace Signature {
             return std::nullopt;
         }
         return std::make_pair(first_idx, last_idx);
+    }
+
+    /// balanced_range_extraction_vec
+    ///     Extracts all balanced ranges of the given inc and dec signatures
+    std::vector<uint2> balanced_range_extraction_vec(const token_list &tokens, const signature &inc, const signature &dec) {
+        // create a local, mutable, copy of the tokens
+        token_list tokens_mut;
+        tokens_mut.reserve(tokens.size());
+        std::copy(tokens.begin(), tokens.end(), std::back_inserter(tokens_mut));
+        std::vector<uint2> ranges;
+        unsigned int removed_tokens = 0;
+        while(true) {
+            std::optional<uint2> next_range = balanced_range_extraction(tokens_mut, inc, dec);
+            if(!next_range.has_value()) {
+                break;
+            }
+            tokens_mut.erase(tokens_mut.begin() + next_range.value().first, tokens_mut.begin() + next_range.value().second);
+            next_range.value().first += removed_tokens;
+            next_range.value().second += removed_tokens;
+            ranges.push_back(next_range.value());
+            removed_tokens += next_range.value().second - next_range.value().first;
+        }
+        return ranges;
     }
 }
