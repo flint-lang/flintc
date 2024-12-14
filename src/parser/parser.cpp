@@ -406,12 +406,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(token_l
 /// create_return
 ///     Creates a ReturnNode from the given list of tokens
 std::optional<ReturnNode> Parser::create_return(token_list &tokens) {
-    std::vector<uint2> matches = Signature::get_match_ranges(tokens, {TOK_RETURN});
-    if(matches.empty()) {
-        throw_err(ERR_PARSING);
+    unsigned int return_id = 0;
+    for(auto it = tokens.begin(); it != tokens.end(); ++it) {
+        if(it->type == TOK_RETURN) {
+            if((it + 1) == tokens.end()) {
+                throw_err(ERR_PARSING);
+            }
+            return_id = std::distance(tokens.begin(), it);
+        }
     }
-    unsigned int return_id = matches.at(0).first;
-    token_list expression_tokens = extract_from_to(return_id, tokens.size(), tokens);
+    token_list expression_tokens = extract_from_to(return_id + 1, tokens.size(), tokens);
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(expression_tokens);
     if(expr.has_value()) {
         return ReturnNode(expr.value());
