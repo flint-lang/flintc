@@ -434,8 +434,8 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(token_l
     auto iterator = tokens.begin();
     while(iterator != tokens.end()) {
         if(iterator->type == TOK_IDENTIFIER) {
-            if((iterator + 1)->type == TOK_EQUAL) {
-                token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator), tokens.size(), tokens);
+            if((iterator + 1)->type == TOK_EQUAL && (iterator + 2) != tokens.end()) {
+                token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(expression_tokens);
                 if(expression.has_value()) {
                     return std::make_unique<AssignmentNode>(iterator->lexme, expression.value());
