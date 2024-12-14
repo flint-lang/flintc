@@ -174,12 +174,20 @@ token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_lis
 }
 
 std::optional<VariableNode> Parser::create_variable(const token_list &tokens) {
-    return std::nullopt;
+    std::optional<VariableNode> var = std::nullopt;
+    for(const auto &tok : tokens) {
+        if(tok.type == TOK_IDENTIFIER) {
+            std::string name = tok.lexme;
+            return VariableNode(name);
+        }
+    }
+    return var;
 }
 
 /// create_unary_op
 ///
 std::optional<UnaryOpNode> Parser::create_unary_op(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
@@ -414,18 +422,21 @@ std::optional<ReturnNode> Parser::create_return(token_list &tokens) {
 /// create_if
 ///
 std::optional<IfNode> Parser::create_if(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
 /// create_while_loop
 ///
 std::optional<WhileNode> Parser::create_while_loop(const token_list &tokens) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
 /// create_for_loop
 ///
 std::optional<ForLoopNode> Parser::create_for_loop(const token_list &tokens, const bool &is_enhanced) {
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
