@@ -337,7 +337,8 @@ std::optional<BinaryOpNode> Parser::create_binary_op(token_list &tokens) {
         lhs_tokens = extract_from_to(0, first_operator_idx, tokens);
         operator_token = first_operator_token;
     }
-    token_list rhs_tokens = extract_from_to(0, tokens.size(), tokens);
+    // 1 to skip the operator token
+    token_list rhs_tokens = extract_from_to(1, tokens.size(), tokens);
 
     std::optional<std::unique_ptr<ExpressionNode>> lhs = create_expression(lhs_tokens);
     std::optional<std::unique_ptr<ExpressionNode>> rhs = create_expression(rhs_tokens);
