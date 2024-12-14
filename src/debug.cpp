@@ -253,6 +253,7 @@ namespace Debug {
             } else if (std::holds_alternative<std::string>(lit.value)) {
                 std::cout << std::get<std::string>(lit.value);
             }
+            std::cout << std::endl;
         }
 
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNode &call) {
@@ -273,10 +274,14 @@ namespace Debug {
             std::cout << get_token_name(bin.operator_token);
             std::cout << std::endl;
             print_header(indent_lvl + 1, empty, "LHS ");
-            print_expression(indent_lvl + 1, empty, bin.left);
+            std::cout << std::endl;
             empty.second = indent_lvl + 1;
+            print_expression(indent_lvl + 2, empty, bin.left);
+            empty.second = indent_lvl + 2;
             print_header(indent_lvl + 1, empty, "RHS ");
-            print_expression(indent_lvl + 1, empty, bin.right);
+            std::cout << std::endl;
+            empty.second = indent_lvl + 3;
+            print_expression(indent_lvl + 2, empty, bin.right);
         }
 
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr) {
