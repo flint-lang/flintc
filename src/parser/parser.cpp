@@ -360,6 +360,14 @@ std::optional<BinaryOpNode> Parser::create_binary_op(token_list &tokens) {
 ///     Creates an ExpressionNode from the given list of tokens
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(token_list &tokens) {
     std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
+    // remove trailing semicolons
+    for(auto iterator = tokens.rbegin(); iterator != tokens.rend(); ++iterator) {
+        if(iterator->type == TOK_SEMICOLON) {
+            tokens.erase(std::next(iterator).base());
+        } else {
+            break;
+        }
+    }
 
     if(Signature::tokens_contain(tokens, Signature::bin_op_expr)) {
         std::optional<BinaryOpNode> bin_op = create_binary_op(tokens);
