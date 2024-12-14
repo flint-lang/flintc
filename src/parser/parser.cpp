@@ -299,7 +299,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(token_list &tokens) {
     // Compare the token precenences, extract different areas depending on the precedences
     token_list lhs_tokens;
     Token operator_token = TOK_EOL;
-    if (token_precedence.at(first_operator_token) > token_precedence.at(second_operator_token)) {
+    if (second_operator_token != TOK_EOL && token_precedence.at(first_operator_token) > token_precedence.at(second_operator_token)) {
         lhs_tokens = extract_from_to(0, second_operator_idx, tokens);
         operator_token = second_operator_token;
     } else {
