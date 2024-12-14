@@ -32,7 +32,7 @@ namespace Signature {
     // --- BASIC SIGNATURES ---
     const signature anytoken = {"#-?..#"};
     const signature type_prim = {"((", TOK_INT, ")|(", TOK_FLINT, ")|(", TOK_STR, ")|(", TOK_CHAR, ")|(", TOK_BOOL, "))"};
-    const signature literal = {"((", TOK_STR_VALUE, ")|(", TOK_INT_VALUE, ")|(", TOK_FLINT_VALUE, ")|(", TOK_CHAR_VALUE, "))"};
+    const signature literal = {"((", TOK_STR_VALUE, ")|(", TOK_INT_VALUE, ")|(", TOK_FLINT_VALUE, ")|(", TOK_CHAR_VALUE, ")|(", TOK_TRUE, ")|(", TOK_FALSE, "))"};
     const signature type = combine({
         {"("}, type_prim, {"|(", TOK_IDENTIFIER, "))"}
     });

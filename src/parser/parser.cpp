@@ -6,6 +6,7 @@
 #include "../debug.hpp"
 #include "../types.hpp"
 #include "../lexer/lexer.hpp"
+#include "../lexer/token.hpp"
 #include "../error/error.hpp"
 
 #include "ast/program_node.hpp"
@@ -173,21 +174,51 @@ token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_lis
 }
 
 std::optional<VariableNode> Parser::create_variable(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
 /// create_unary_op
 ///
 std::optional<UnaryOpNode> Parser::create_unary_op(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
 /// create_literal
-///
+///     Createss a LiteralNode from a given list of tokens
 std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    for(const auto &tok : tokens) {
+        if(Signature::tokens_match({tok}, Signature::literal)) {
+            switch(tok.type) {
+                default: {
+                    throw_err(ERR_PARSING);
+                }
+                case TOK_INT_VALUE: {
+                    std::variant<int, double, std::string, bool, char> value = std::stoi(tok.lexme);
+                    return LiteralNode(value);
+                }
+                case TOK_FLINT_VALUE: {
+                    std::variant<int, double, std::string, bool, char> value = std::stod(tok.lexme);
+                    return LiteralNode(value);
+                }
+                case TOK_STR_VALUE: {
+                    std::variant<int, double, std::string, bool, char> value = tok.lexme;
+                    return LiteralNode(value);
+                }
+                case TOK_TRUE: {
+                    std::variant<int, double, std::string, bool, char> value = true;
+                    return LiteralNode(value);
+                }
+                case TOK_FALSE: {
+                    std::variant<int, double, std::string, bool, char> value = false;
+                    return LiteralNode(value);
+                }
+                case TOK_CHAR_VALUE: {
+                    std::variant<int, double, std::string, bool, char> value = tok.lexme[0];
+                    return LiteralNode(value);
+                }
+            }
+        }
+    }
     return std::nullopt;
 }
 
@@ -382,21 +413,18 @@ std::optional<ReturnNode> Parser::create_return(token_list &tokens) {
 /// create_if
 ///
 std::optional<IfNode> Parser::create_if(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
 /// create_while_loop
 ///
 std::optional<WhileNode> Parser::create_while_loop(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
 /// create_for_loop
 ///
 std::optional<ForLoopNode> Parser::create_for_loop(const token_list &tokens, const bool &is_enhanced) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
