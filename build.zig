@@ -18,6 +18,7 @@ pub fn build(b: *std.Build) void {
         "-O0", // disable optimization for easier debugging
         "-fno-omit-frame-pointer", // ensures that the frame pointer is reserved for accurate stack traces
         "-DEBUG", // enables assertions and other debugging-related macros
+        "-std=c++23", // Use C++ standard 23
     };
 
     // --- LINUX ---
