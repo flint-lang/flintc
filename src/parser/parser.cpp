@@ -443,11 +443,12 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
         while(iterator != lhs_tokens.end()) {
             if(iterator->type == TOK_INDENT) {
                 ++type_begin;
+                ++type_end;
             }
             if((iterator + 1)->type == TOK_IDENTIFIER && (iterator + 2)->type == TOK_EQUAL) {
                 const token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
                 type = Lexer::to_string(type_tokens);
-                name = (iterator + 1)->lexme;
+                name = iterator->lexme;
                 break;
             }
             ++type_end;
