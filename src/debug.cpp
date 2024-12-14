@@ -42,7 +42,7 @@
 #include <variant>
 
 namespace Debug {
-    static const unsigned int C_SIZE = 25;
+    static const unsigned int C_SIZE = 35;
 
     /// get_string_container
     ///     Returns the given string inside a container of the given size
@@ -181,7 +181,11 @@ namespace Debug {
                     print_tree_row({BRANCH}, false);
                 }
                 std::cout << header;
-                std::cout << create_n_str(C_SIZE - header.size() - (4 * indent_lvl), tree_characters.at(HOR));
+                if(header.size() + (4 * indent_lvl) > C_SIZE) {
+                    std::cout << tree_characters.at(HOR);
+                } else {
+                    std::cout << create_n_str(C_SIZE - header.size() - (4 * indent_lvl), tree_characters.at(HOR));
+                }
                 std::cout << "> ";
             }
         }
