@@ -1,3 +1,4 @@
 .zig-cache
+.vscode
 zig-out
 LLDB_Cheatsheet.md
