@@ -19,10 +19,10 @@ pub fn build(b: *std.Build) void {
         "-O0", // disable optimization for easier debugging
         "-fno-omit-frame-pointer", // ensures that the frame pointer is reserved for accurate stack traces
         "-DEBUG", // enables assertions and other debugging-related macros
-        "-std=c++23", // Use C++ standard 23
+        "-std=c++17", // Use C++ standard 17
         // LLVM Flags
         "-I/nix/store/3yn73cwkl9sqmcw41jkmzv33bq7qldkp-llvm-19.1.4-dev/include",
-        "-fno-exceptions",
+        //"-fno-exceptions",
         "-funwind-tables",
         "-D_GNU_SOURCE",
         "-D__STDC_CONSTANT_MACROS",

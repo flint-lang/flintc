@@ -1,6 +1,6 @@
 -I/nix/store/3yn73cwkl9sqmcw41jkmzv33bq7qldkp-llvm-19.1.4-dev/include
--std=c++23
--fno-exceptions
+-std=c++17
+//-fno-exceptions
 -funwind-tables
 -D_GNU_SOURCE
 -D__STDC_CONSTANT_MACROS
