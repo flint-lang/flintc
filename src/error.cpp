@@ -1,5 +1,5 @@
-#include "error.hpp"
-#include "error_type.hpp"
+#include "error/error.hpp"
+#include "error/error_type.hpp"
 
 #include <stdexcept>
 #include <string>

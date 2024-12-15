@@ -1,6 +1,6 @@
-#include "generator.hpp"
+#include "generator/generator.hpp"
 
-#include "../debug.hpp"
+#include "debug.hpp"
 
 /// generate_ir
 ///     Generates the llvm IR code from a given AST ProgramNode

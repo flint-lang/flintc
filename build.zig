@@ -6,13 +6,13 @@ pub fn build(b: *std.Build) void {
     //const tests = b.option(bool, "Test", "Runs all builtin tests (default: false)") orelse false;
 
     const source_files = [_][]const u8{
-        "src/error/error.cpp", // error
-        "src/lexer/lexer.cpp", // lexer
-        "src/linker/linker.cpp", //linker
-        "src/parser/parser.cpp", //parser
-        "src/parser/signature.cpp", // signature
+        "src/error.cpp", // error
+        "src/lexer.cpp", // lexer
+        "src/linker.cpp", //linker
+        "src/parser.cpp", //parser
+        "src/signature.cpp", // signature
         "src/debug.cpp", // debug
-        "src/generator/generator.cpp", // generator
+        "src/generator.cpp", // generator
     };
     const compile_flags = [_][]const u8{
         "-g", // generate debug information like stack traces
@@ -22,6 +22,7 @@ pub fn build(b: *std.Build) void {
         "-std=c++17", // Use C++ standard 17
         // LLVM Flags
         "-I/nix/store/3yn73cwkl9sqmcw41jkmzv33bq7qldkp-llvm-19.1.4-dev/include",
+        "-Iinclude", // include my header files
         //"-fno-exceptions",
         "-funwind-tables",
         "-D_GNU_SOURCE",

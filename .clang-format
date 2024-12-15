@@ -42,10 +42,10 @@ IndentWrappedFunctionNames: false
 
 # List formatting
 PackConstructorInitializers: Never
-BreakConstructorInitializers: BeforeColon
+BreakConstructorInitializers: AfterColon
 BreakBeforeConceptDeclarations: Always
 AlwaysBreakAfterReturnType: None
-AllowShortBlocksOnASingleLine: Empty
+AllowShortBlocksOnASingleLine: true
 AllowShortFunctionsOnASingleLine: Empty
 AlwaysBreakBeforeMultilineStrings: false
 BreakStringLiterals: false

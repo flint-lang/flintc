@@ -1,6 +1,5 @@
-#include "signature.hpp"
-
-#include "../types.hpp"
+#include "parser/signature.hpp"
+#include "types.hpp"
 
 #include <algorithm>
 #include <cassert>

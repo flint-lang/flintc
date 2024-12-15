@@ -1,9 +1,10 @@
-#include "lexer.hpp"
-#include "../error/error.hpp"
-#include "../error/error_type.hpp"
-#include "../types.hpp"
-#include "token.hpp"
-#include "token_context.hpp"
+#include "lexer/lexer.hpp"
+#include "lexer/token.hpp"
+#include "lexer/token_context.hpp"
+
+#include "error/error.hpp"
+#include "error/error_type.hpp"
+#include "types.hpp"
 
 #include <fstream>
 #include <iostream>

@@ -2,7 +2,7 @@
 const std = @import("std");
 const tests = @cImport({
     @cInclude("wchar.h");
-    @cInclude("tests.hpp");
+    @cInclude("../include/tests.hpp");
 });
 
 pub const wchar_t = tests.wchar_t;

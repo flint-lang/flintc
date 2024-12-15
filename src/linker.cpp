@@ -1,8 +1,8 @@
-#include "./linker.hpp"
-#include "../error/error.hpp"
-#include "../error/error_type.hpp"
-#include "../lexer/lexer.hpp"
-#include "../types.hpp"
+#include "linker/linker.hpp"
+#include "error/error.hpp"
+#include "error/error_type.hpp"
+#include "lexer/lexer.hpp"
+#include "types.hpp"
 
 #include <optional>
 #include <string>
