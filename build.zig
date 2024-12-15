@@ -12,6 +12,7 @@ pub fn build(b: *std.Build) void {
         "src/parser/parser.cpp", //parser
         "src/parser/signature.cpp", // signature
         "src/debug.cpp", // debug
+        "src/generator/generator.cpp", // generator
     };
     const compile_flags = [_][]const u8{
         "-g", // generate debug information like stack traces
@@ -19,6 +20,14 @@ pub fn build(b: *std.Build) void {
         "-fno-omit-frame-pointer", // ensures that the frame pointer is reserved for accurate stack traces
         "-DEBUG", // enables assertions and other debugging-related macros
         "-std=c++23", // Use C++ standard 23
+        // LLVM Flags
+        "-I/nix/store/3yn73cwkl9sqmcw41jkmzv33bq7qldkp-llvm-19.1.4-dev/include",
+        "-fno-exceptions",
+        "-funwind-tables",
+        "-D_GNU_SOURCE",
+        "-D__STDC_CONSTANT_MACROS",
+        "-D__STDC_FORMAT_MACROS",
+        "-D__STDC_LIMIT_MACROS",
     };
 
     // --- LINUX ---

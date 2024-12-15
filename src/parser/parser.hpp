@@ -55,9 +55,9 @@ static const std::map<Token, unsigned int> token_precedence = {
 
 class Parser {
     public:
-        Parser() = default;
+        Parser() = delete;
 
-        static void parse_file(ProgramNode &program, std::string &file);
+        static ProgramNode parse_file(std::string &file);
     private:
         // --- UTILITY ---
         static void add_next_main_node(ProgramNode &program, token_list &tokens);

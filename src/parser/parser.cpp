@@ -46,14 +46,15 @@
 
 /// parse_file
 ///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to the passed main ProgramNode
-void Parser::parse_file(ProgramNode &program, std::string &file)
+ProgramNode Parser::parse_file(std::string &file)
 {
+    ProgramNode program;
     token_list tokens = Lexer(file).scan();
     // Consume all tokens and convert them to nodes
     while(!tokens.empty()) {
         add_next_main_node(program, tokens);
     }
-    Debug::AST::print_program(program);
+    return program;
 }
 
 /// get_next_main_node
