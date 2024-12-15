@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 struct TestResult {
-    const wchar_t* message;
+    const wchar_t *message;
     int count;
 };
 

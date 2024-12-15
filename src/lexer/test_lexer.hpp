@@ -6,13 +6,11 @@
 #include <string>
 #include <vector>
 
-namespace {
-
-}
+namespace {}
 
 int test_lexer() {
-    print_test_name(0, "LEXER_TESTS:", true);
-    print_test_name(1, "SOME_TESTS:", true);
+    TestUtils::print_test_name("LEXER_TESTS:", true);
+    TestUtils::print_test_name("SOME_TESTS:", true);
 
     function_list some_tests = {
 

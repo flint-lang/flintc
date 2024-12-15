@@ -6,7 +6,8 @@
 #include "token.hpp"
 
 /// TokenContext
-///     The context for a token: where was the token (line), what is the context of the token (string) and of course, of which type was the token (type)
+///     The context for a token: where was the token (line), what is the context of the token (string) and of course, of
+///     which type was the token (type)
 struct TokenContext {
     Token type;
     std::string lexme;

@@ -24,10 +24,10 @@
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
-#include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
+#include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
@@ -35,10 +35,10 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <typeinfo>
-#include <memory>
 #include <variant>
 
 namespace Debug {
@@ -47,7 +47,7 @@ namespace Debug {
     /// get_string_container
     ///     Returns the given string inside a container of the given size
     std::string get_string_container(unsigned int size, const std::string &value) {
-        if(value.size() > size) {
+        if (value.size() > size) {
             size = value.size();
         }
         std::string container(size, ' ');
@@ -71,7 +71,7 @@ namespace Debug {
     /// print_token_context_vector
     ///     Prints all the TokenContext elements of the vector to the console
     void print_token_context_vector(const token_list &tokens) {
-        for(const TokenContext &tc : tokens) {
+        for (const TokenContext &tc : tokens) {
             std::string name = get_token_name(tc.type);
 
             std::string type = " | Type: '" + name + "' => " + std::to_string(static_cast<int>(tc.type));
@@ -85,9 +85,9 @@ namespace Debug {
     ///
     void print_tree_row(const std::vector<TreeType> &types, bool is_test) {
         std::string addition;
-        for(const TreeType &type: types) {
+        for (const TreeType &type : types) {
             addition += " ";
-            switch(type) {
+            switch (type) {
                 case VERT:
                     addition += tree_characters.at(type) + "  ";
                     break;
@@ -96,13 +96,13 @@ namespace Debug {
                     addition += tree_characters.at(type) + tree_characters.at(TreeType::HOR) + " ";
                     break;
                 case HOR:
-                addition += tree_characters.at(type) + tree_characters.at(type) + tree_characters.at(type) + tree_characters.at(type);
+                    addition += tree_characters.at(type) + tree_characters.at(type) + tree_characters.at(type) + tree_characters.at(type);
                     break;
                 default:
                     addition += "   ";
             }
         }
-        if(is_test) {
+        if (is_test) {
             TestUtils::append_string(addition);
         } else {
             std::cout << addition;
@@ -112,7 +112,7 @@ namespace Debug {
     /// print_tree_characters
     ///     Prints the tree characters to the console
     void print_tree_characters(const std::vector<TreeType> &types) {
-        for(const TreeType &type : types) {
+        for (const TreeType &type : types) {
             std::cout << tree_characters.at(type);
         }
     }
@@ -121,7 +121,7 @@ namespace Debug {
     ///     Takes the given string and puts it into a result string n times
     std::string create_n_str(unsigned int n, const std::string &str) {
         std::string ret;
-        for(unsigned int i = 0; i < n; i++) {
+        for (unsigned int i = 0; i < n; i++) {
             ret.append(str);
         }
         return ret;
@@ -134,13 +134,13 @@ namespace Debug {
             void print_table_header(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells) {
                 std::cout << get_string_container(padding, "");
 
-                for(const auto &cell : cells) {
+                for (const auto &cell : cells) {
                     std::cout << get_string_container(cell.first, cell.second);
                     std::cout << "| ";
                 }
                 std::cout << std::endl;
                 std::cout << get_string_container(padding, "");
-                for(const auto &cell : cells) {
+                for (const auto &cell : cells) {
                     std::cout << fill_container_with(cell.first, '-');
                     std::cout << "|-";
                 }
@@ -152,7 +152,7 @@ namespace Debug {
             void print_table_row(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells) {
                 std::cout << get_string_container(padding, "");
 
-                for(const auto &cell : cells) {
+                for (const auto &cell : cells) {
                     std::cout << get_string_container(cell.first, cell.second);
                     std::cout << "| ";
                 }
@@ -163,58 +163,58 @@ namespace Debug {
             ///     Prints the header of the AST node (the left part incl. the header name)
             void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header) {
                 // print "normal" verts up to the "empty's" first part
-                for(unsigned int i = 0; i < empty.first; i++) {
+                for (unsigned int i = 0; i < empty.first; i++) {
                     print_tree_row({VERT}, false);
                 }
                 // print "empty" for all the elements from empty.first -> empty.second
-                for(unsigned int i = empty.first; i < (empty.second < indent_lvl ? empty.second : indent_lvl); i++) {
+                for (unsigned int i = empty.first; i < (empty.second < indent_lvl ? empty.second : indent_lvl); i++) {
                     print_tree_row({NONE}, false);
                 }
                 // print "vert" for all elements from empty.second to indent_lvl
-                for(unsigned int i = empty.second; i < indent_lvl; i++) {
+                for (unsigned int i = empty.second; i < indent_lvl; i++) {
                     print_tree_row({VERT}, false);
                 }
                 // print either "single" or "branch" depending on the emptys second value
-                if(empty.second > indent_lvl) {
+                if (empty.second > indent_lvl) {
                     print_tree_row({SINGLE}, false);
                 } else {
                     print_tree_row({BRANCH}, false);
                 }
                 std::cout << header;
-                if(header.size() + (4 * indent_lvl) > C_SIZE) {
+                if (header.size() + (4 * indent_lvl) > C_SIZE) {
                     std::cout << tree_characters.at(HOR);
                 } else {
                     std::cout << create_n_str(C_SIZE - header.size() - (4 * indent_lvl), tree_characters.at(HOR));
                 }
                 std::cout << "> ";
             }
-        }
+        } // namespace
         /// print_ast_tree
         ///     Prints the whole AST Tree recursively
         void print_program(const ProgramNode &program) {
             std::cout << std::endl << "Program" << std::endl;
             unsigned int counter = 0;
             uint2 empty = {0, 0};
-            for(const std::unique_ptr<ASTNode> &node : program.definitions) {
-                if(++counter == program.definitions.size()) {
+            for (const std::unique_ptr<ASTNode> &node : program.definitions) {
+                if (++counter == program.definitions.size()) {
                     empty.first = 0;
                     empty.second = 2;
                 }
-                if(const auto *data_node = dynamic_cast<const DataNode*>(node.get())) {
+                if (const auto *data_node = dynamic_cast<const DataNode *>(node.get())) {
                     print_data(0, *data_node);
-                } else if (const auto *entity_node = dynamic_cast<const EntityNode*>(node.get())) {
+                } else if (const auto *entity_node = dynamic_cast<const EntityNode *>(node.get())) {
                     print_entity(0, *entity_node);
-                } else if (const auto *enum_node = dynamic_cast<const EnumNode*>(node.get())) {
+                } else if (const auto *enum_node = dynamic_cast<const EnumNode *>(node.get())) {
                     print_enum(0, *enum_node);
-                } else if (const auto *func_node = dynamic_cast<const FuncNode*>(node.get())) {
+                } else if (const auto *func_node = dynamic_cast<const FuncNode *>(node.get())) {
                     print_func(0, *func_node);
-                } else if (const auto *function_node = dynamic_cast<const FunctionNode*>(node.get())) {
+                } else if (const auto *function_node = dynamic_cast<const FunctionNode *>(node.get())) {
                     print_function(0, empty, *function_node);
-                } else if (const auto *import_node = dynamic_cast<const ImportNode*>(node.get())) {
+                } else if (const auto *import_node = dynamic_cast<const ImportNode *>(node.get())) {
                     print_import(0, *import_node);
-                } else if (const auto *link_node = dynamic_cast<const LinkNode*>(node.get())) {
+                } else if (const auto *link_node = dynamic_cast<const LinkNode *>(node.get())) {
                     print_link(0, empty, *link_node);
-                } else if (const auto *variant_node = dynamic_cast<const VariantNode*>(node.get())) {
+                } else if (const auto *variant_node = dynamic_cast<const VariantNode *>(node.get())) {
                     print_variant(0, *variant_node);
                 } else {
                     throw_err(ERR_DEBUG);
@@ -222,7 +222,6 @@ namespace Debug {
             }
             std::cout << std::endl;
         }
-
 
         // --- EXPRESSIONS ---
 
@@ -244,7 +243,7 @@ namespace Debug {
         void print_literal(unsigned int indent_lvl, uint2 empty, const LiteralNode &lit) {
             print_header(indent_lvl, empty, "Lit ");
             std::cout << "value: ";
-            if(std::holds_alternative<int>(lit.value)) {
+            if (std::holds_alternative<int>(lit.value)) {
                 std::cout << std::get<int>(lit.value);
             } else if (std::holds_alternative<double>(lit.value)) {
                 std::cout << std::get<double>(lit.value);
@@ -261,8 +260,8 @@ namespace Debug {
             std::cout << "'" << call.function_name << "' with args";
             std::cout << std::endl;
             unsigned int counter = 0;
-            for(const auto &arg : call.arguments) {
-                if(++counter == call.arguments.size()) {
+            for (const auto &arg : call.arguments) {
+                if (++counter == call.arguments.size()) {
                     empty.second = indent_lvl + 2;
                 }
                 print_expression(indent_lvl + 1, empty, arg);
@@ -285,21 +284,20 @@ namespace Debug {
         }
 
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr) {
-            if(const auto *variable_node = dynamic_cast<const VariableNode*>(expr.get())) {
+            if (const auto *variable_node = dynamic_cast<const VariableNode *>(expr.get())) {
                 print_variable(indent_lvl, empty, *variable_node);
-            } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode*>(expr.get())) {
+            } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode *>(expr.get())) {
                 print_unary_op(indent_lvl, empty, *unary_op_node);
-            } else if (const auto *literal_node = dynamic_cast<const LiteralNode*>(expr.get())) {
+            } else if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expr.get())) {
                 print_literal(indent_lvl, empty, *literal_node);
-            } else if (const auto *call_node = dynamic_cast<const CallNode*>(expr.get())) {
+            } else if (const auto *call_node = dynamic_cast<const CallNode *>(expr.get())) {
                 print_call(indent_lvl, empty, *call_node);
-            } else if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode*>(expr.get())) {
+            } else if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expr.get())) {
                 print_binary_op(indent_lvl, empty, *binary_op_node);
             } else {
                 throw_err(ERR_DEBUG);
             }
         }
-
 
         // --- STATEMENTS ---
 
@@ -368,30 +366,31 @@ namespace Debug {
         }
 
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement) {
-            if(const auto *return_node = dynamic_cast<const ReturnNode*>(statement.get())) {
+            if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
                 print_return(indent_lvl, empty, *return_node);
-            } else if (const auto *if_node = dynamic_cast<const IfNode*>(statement.get())) {
+            } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement.get())) {
                 print_if(indent_lvl, empty, *if_node);
-            } else if (const auto *while_node = dynamic_cast<const WhileNode*>(statement.get())) {
+            } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement.get())) {
                 print_while(indent_lvl, empty, *while_node);
-            } else if (const auto *for_node = dynamic_cast<const ForLoopNode*>(statement.get())) {
+            } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
                 print_for(indent_lvl, empty, *for_node);
-            } else if (const auto *assignment = dynamic_cast<const AssignmentNode*>(statement.get())) {
+            } else if (const auto *assignment = dynamic_cast<const AssignmentNode *>(statement.get())) {
                 print_assignment(indent_lvl, empty, *assignment);
-            } else if (const auto *declaration = dynamic_cast<const DeclarationNode*>(statement.get())) {
+            } else if (const auto *declaration = dynamic_cast<const DeclarationNode *>(statement.get())) {
                 print_declaration(indent_lvl, empty, *declaration);
             } else {
                 throw_err(ERR_DEBUG);
             }
         }
 
-        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body) {
+        void print_body(unsigned int indent_lvl, uint2 empty,
+            const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body) {
             unsigned int counter = 0;
-            for(const auto &body_line : body) {
-                if(++counter == body.size()) {
+            for (const auto &body_line : body) {
+                if (++counter == body.size()) {
                     empty.second = indent_lvl + 1;
                 }
-                if(std::holds_alternative<std::unique_ptr<StatementNode>>(body_line)) {
+                if (std::holds_alternative<std::unique_ptr<StatementNode>>(body_line)) {
                     print_statement(indent_lvl, empty, std::get<std::unique_ptr<StatementNode>>(body_line));
                 } else if (std::holds_alternative<std::unique_ptr<CallNode>>(body_line)) {
                     print_call(indent_lvl, empty, *std::get<std::unique_ptr<CallNode>>(body_line));
@@ -411,28 +410,24 @@ namespace Debug {
         ///     Prints the content of the generated EntityNode
         void print_entity(unsigned int indent_lvl, const EntityNode &entity) {
             std::cout << "    Entity: " << typeid(entity).name() << "\n";
-
         }
 
         /// print_enum
         ///     Prints the content of the generated EnumNode
         void print_enum(unsigned int indent_lvl, const EnumNode &enum_node) {
             std::cout << "    Enum: " << typeid(enum_node).name() << "\n";
-
         }
 
         /// print_error
         ///     Prints the content of the generated ErrorNode
         void print_error(unsigned int indent_lvl, const ErrorNode &error) {
             std::cout << "    Error: " << typeid(error).name() << "\n";
-
         }
 
         /// print_func
         ///     Prints the content of the generated FuncNode
         void print_func(unsigned int indent_lvl, const FuncNode &func) {
             std::cout << "    Func: " << typeid(func).name() << "\n";
-
         }
 
         /// print_function
@@ -440,35 +435,35 @@ namespace Debug {
         void print_function(unsigned int indent_lvl, uint2 empty, const FunctionNode &function) {
             print_header(indent_lvl, empty, "Function ");
 
-            if(function.is_aligned) {
+            if (function.is_aligned) {
                 std::cout << "aligned ";
             }
-            if(function.is_const) {
+            if (function.is_const) {
                 std::cout << "const ";
             }
             std::cout << function.name << "(";
             size_t counter = 0;
-            for(const std::pair<std::string, std::string> &param: function.parameters) {
+            for (const std::pair<std::string, std::string> &param : function.parameters) {
                 std::cout << param.first << " " << param.second;
-                if(++counter != function.parameters.size()) {
+                if (++counter != function.parameters.size()) {
                     std::cout << ", ";
                 }
             }
             std::cout << ")";
-            if(!function.return_types.empty()) {
-                std::cout <<" -> ";
+            if (!function.return_types.empty()) {
+                std::cout << " -> ";
             }
-            if(function.return_types.size() > 1) {
+            if (function.return_types.size() > 1) {
                 std::cout << "(";
             }
             counter = 0;
-            for(const std::string &ret: function.return_types) {
+            for (const std::string &ret : function.return_types) {
                 std::cout << ret;
-                if(++counter != function.return_types.size()) {
+                if (++counter != function.return_types.size()) {
                     std::cout << ", ";
                 }
             }
-            if(function.return_types.size() > 1) {
+            if (function.return_types.size() > 1) {
                 std::cout << ")";
             }
             std::cout << std::endl;
@@ -484,13 +479,13 @@ namespace Debug {
         void print_import(unsigned int indent_lvl, const ImportNode &import) {
             print_header(indent_lvl, {0, 0}, "Import ");
 
-            if(std::holds_alternative<std::string>(import.path)) {
+            if (std::holds_alternative<std::string>(import.path)) {
                 std::cout << std::get<std::string>(import.path);
             } else if (std::holds_alternative<std::vector<std::string>>(import.path)) {
                 std::vector<std::string> path_vector = std::get<std::vector<std::string>>(import.path);
                 auto iterator = path_vector.begin();
-                while(iterator != path_vector.end()) {
-                    if(iterator != path_vector.begin()) {
+                while (iterator != path_vector.end()) {
+                    if (iterator != path_vector.begin()) {
                         std::cout << "::";
                     }
                     std::cout << *iterator;
@@ -505,14 +500,12 @@ namespace Debug {
         ///     Prints the content of the generated LinkNode
         void print_link(unsigned int indent_lvl, uint2 empty, const LinkNode &link) {
             std::cout << "    Link: " << typeid(link).name() << "\n";
-
         }
 
         /// print_link
         ///     Prints the content of the generated VariantNode
         void print_variant(unsigned int indent_lvl, const VariantNode &variant) {
             std::cout << "    Variant: " << typeid(variant).name() << "\n";
-
         }
-    }
-}
+    } // namespace AST
+} // namespace Debug

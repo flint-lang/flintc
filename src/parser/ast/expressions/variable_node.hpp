@@ -8,12 +8,13 @@
 /// VaraibleNode
 ///     Represents variables or identifiers
 class VariableNode : public ExpressionNode {
-    public:
-        explicit VariableNode(std::string &name) : name(name) {}
+  public:
+    explicit VariableNode(std::string &name)
+        : name(name) {}
 
-        /// name
-        ///     Name of the variable
-        std::string name;
+    /// name
+    ///     Name of the variable
+    std::string name;
 };
 
 #endif

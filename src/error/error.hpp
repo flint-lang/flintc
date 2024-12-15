@@ -3,10 +3,6 @@
 
 #include "error_type.hpp"
 
-//#include <string>
-//#include <map>
-
-
 void throw_err(ErrorType error_type);
 
 #endif

@@ -1,16 +1,16 @@
-#include "../types.hpp"
 #include "lexer.hpp"
-#include "token.hpp"
-#include "../error/error_type.hpp"
 #include "../error/error.hpp"
+#include "../error/error_type.hpp"
+#include "../types.hpp"
+#include "token.hpp"
 #include "token_context.hpp"
 
-#include <string>
-#include <map>
-#include <vector>
-#include <iostream>
-#include <sstream>
 #include <fstream>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
 
 /// file_exists_and_is_readable
 ///     checks if the given file does exist and if it is readable or not
@@ -23,7 +23,7 @@ bool Lexer::file_exists_and_is_readable(const std::string &file_path) {
 ///     reads a file and returns the read file as a string
 std::string Lexer::load_file(const std::string &file_path) {
     std::ifstream file(file_path);
-    if(!file) {
+    if (!file) {
         throw std::runtime_error("Failed to load file " + file_path);
     }
     std::stringstream buffer;
@@ -40,17 +40,14 @@ std::string Lexer::load_file(const std::string &file_path) {
 token_list Lexer::scan() {
     tokens = token_list();
 
-    while(!is_at_end()) {
+    while (!is_at_end()) {
         scan_token();
     }
 
     // Remove all empty lines (EOL tokens which are alone in a single line)
     int last_line = -1;
-    for(auto tok = tokens.begin(); tok != tokens.end();) {
-        if(tok->type == TOK_EOL
-            && tok->line != last_line
-            && (tok->line != (tok + 1)->line || (tok + 1) == tokens.end())
-        ){
+    for (auto tok = tokens.begin(); tok != tokens.end();) {
+        if (tok->type == TOK_EOL && tok->line != last_line && (tok->line != (tok + 1)->line || (tok + 1) == tokens.end())) {
             tokens.erase(tok);
         } else {
             last_line = tok->line;
@@ -66,7 +63,7 @@ token_list Lexer::scan() {
 std::string Lexer::to_string(const token_list &tokens) {
     std::string token_string;
 
-    for(const TokenContext &tok : tokens) {
+    for (const TokenContext &tok : tokens) {
         token_string += get_token_name(tok.type);
     }
 
@@ -74,73 +71,91 @@ std::string Lexer::to_string(const token_list &tokens) {
 }
 
 /// scan_token
-///     Scans the current character and creates tokens depending on the current character
+///     Scans the current character and creates tokens depending on the current
+///     character
 void Lexer::scan_token() {
     // ensure the first character isnt skipped
     start = current;
     char character = peek();
 
-    switch(character) {
+    switch (character) {
         // single character tokens
-        case '(': add_token(TOK_LEFT_PAREN); break;
-        case ')': add_token(TOK_RIGHT_PAREN); break;
-        case '[': add_token(TOK_LEFT_PAREN); break;
-        case ']': add_token(TOK_RIGHT_SQUARE); break;
-        case '{': add_token(TOK_LEFT_BRACE); break;
-        case '}': add_token(TOK_RIGHT_BRACE); break;
-        case ',': add_token(TOK_COMMA); break;
-        case '.': add_token(TOK_DOT); break;
-        case ';': add_token(TOK_SEMICOLON); break;
-        case ':': add_token_option(TOK_COLON, '=', TOK_COLON_EQUAL); break;
-        case '?': add_token(TOK_QUESTION); break;
+        case '(':
+            add_token(TOK_LEFT_PAREN);
+            break;
+        case ')':
+            add_token(TOK_RIGHT_PAREN);
+            break;
+        case '[':
+            add_token(TOK_LEFT_PAREN);
+            break;
+        case ']':
+            add_token(TOK_RIGHT_SQUARE);
+            break;
+        case '{':
+            add_token(TOK_LEFT_BRACE);
+            break;
+        case '}':
+            add_token(TOK_RIGHT_BRACE);
+            break;
+        case ',':
+            add_token(TOK_COMMA);
+            break;
+        case '.':
+            add_token(TOK_DOT);
+            break;
+        case ';':
+            add_token(TOK_SEMICOLON);
+            break;
+        case ':':
+            add_token_option(TOK_COLON, '=', TOK_COLON_EQUAL);
+            break;
+        case '?':
+            add_token(TOK_QUESTION);
+            break;
         case '_':
-            if(is_alpha_num(peek_next())) {
+            if (is_alpha_num(peek_next())) {
                 str();
             } else {
                 add_token(TOK_UNDERSCORE);
             }
             break;
-        case '#': add_token(TOK_FLAG); break;
+        case '#':
+            add_token(TOK_FLAG);
+            break;
         case '\'':
             advance();
-            if(isascii(peek()) == 0) {
+            if (isascii(peek()) == 0) {
                 throw_err(ERR_NON_CHAR_VALUE_INSIDE_CHAR);
             }
-            if(peek_next() != '\'') {
+            if (peek_next() != '\'') {
                 throw_err(ERR_CHAR_LONGER_THAN_SINGLE_CHARACTER);
             }
             start = current;
             add_token(TOK_CHAR_VALUE);
         // calculational tokens
         case '+':
-            add_token_options(TOK_PLUS, {
-                {'+', TOK_INCREMENT},
-                {'=', TOK_PLUS_EQUALS}
-            }); break;
+            add_token_options(TOK_PLUS, {{'+', TOK_INCREMENT}, {'=', TOK_PLUS_EQUALS}});
+            break;
         case '-':
-            add_token_options(TOK_MINUS, {
-                {'>', TOK_ARROW},
-                {'-', TOK_DECREMENT},
-                {'=', TOK_MINUS_EQUALS}
-            }); break;
+            add_token_options(TOK_MINUS, {{'>', TOK_ARROW}, {'-', TOK_DECREMENT}, {'=', TOK_MINUS_EQUALS}});
+            break;
         case '*':
-            add_token_options(TOK_MULT, {
-                {'*', TOK_SQUARE},
-                {'=', TOK_MULT_EQUALS}
-            }); break;
+            add_token_options(TOK_MULT, {{'*', TOK_SQUARE}, {'=', TOK_MULT_EQUALS}});
+            break;
         case '/':
-            if(peek_next() == '=') {
-               add_token(TOK_DIV_EQUALS);
+            if (peek_next() == '=') {
+                add_token(TOK_DIV_EQUALS);
             } else if (peek_next() == '/') {
                 // traverse until the end of the line
-                while(peek() != '\n' && !is_at_end()) {
+                while (peek() != '\n' && !is_at_end()) {
                     advance();
                 }
             } else if (peek_next() == '*') {
                 // eat the '*'
                 advance();
-                while(peek() != '*' && peek_next() != '/') {
-                    if(is_at_end()) {
+                while (peek() != '*' && peek_next() != '/') {
+                    if (is_at_end()) {
                         throw_err(ERR_UNTERMINATED_MULTILINE_STRING);
                     }
                     advance();
@@ -152,22 +167,36 @@ void Lexer::scan_token() {
             }
             break;
         // relational symbols
-        case '=': add_token_option(TOK_EQUAL, '=', TOK_EQUAL_EQUAL); break;
-        case '<': add_token_option(TOK_LESS, '=', TOK_LESS_EQUAL); break;
-        case '>': add_token_option(TOK_GREATER, '=', TOK_GREATER_EQUAL); break;
+        case '=':
+            add_token_option(TOK_EQUAL, '=', TOK_EQUAL_EQUAL);
+            break;
+        case '<':
+            add_token_option(TOK_LESS, '=', TOK_LESS_EQUAL);
+            break;
+        case '>':
+            add_token_option(TOK_GREATER, '=', TOK_GREATER_EQUAL);
+            break;
         case '|':
-            if(peek_next() == '>') {
+            if (peek_next() == '>') {
                 add_token(TOK_PIPE);
             } else {
                 throw_err(ERR_UNEXPECTED_TOKEN);
             }
-        case '"': str(); break;
-        case '\t': add_token(TOK_INDENT); break;
+        case '"':
+            str();
+            break;
+        case '\t':
+            add_token(TOK_INDENT);
+            break;
         case ' ':
-        case '\r': break;
-        case '\n': add_token(TOK_EOL); line++; break;
+        case '\r':
+            break;
+        case '\n':
+            add_token(TOK_EOL);
+            line++;
+            break;
         default:
-            if(is_digit(character)) {
+            if (is_digit(character)) {
                 number();
             } else if (is_alpha(character)) {
                 identifier();
@@ -184,14 +213,12 @@ void Lexer::scan_token() {
 void Lexer::identifier() {
     // Includes all characters in the identifier which are
     // alphanumerical
-    while(is_alpha_num(peek_next())) {
+    while (is_alpha_num(peek_next())) {
         advance();
     }
 
     std::string identifier = source.substr(start, current - start + 1);
-    Token type = (keywords.count(identifier) > 0)
-        ? keywords.at(identifier)
-        : TOK_IDENTIFIER;
+    Token type = (keywords.count(identifier) > 0) ? keywords.at(identifier) : TOK_IDENTIFIER;
 
     add_token(type, identifier);
 }
@@ -199,18 +226,18 @@ void Lexer::identifier() {
 /// number
 ///     Lexes a number
 void Lexer::number() {
-    while(is_digit(peek_next())) {
+    while (is_digit(peek_next())) {
         advance();
     }
 
-    if(peek_next() == '.') {
+    if (peek_next() == '.') {
         // Get to '.'
         advance();
-        if(!is_digit(peek_next())) {
+        if (!is_digit(peek_next())) {
             throw_err(ERR_UNEXPECTED_TOKEN);
         }
 
-        while(is_digit(peek_next())) {
+        while (is_digit(peek_next())) {
             advance();
         }
         add_token(TOK_FLINT_VALUE);
@@ -218,25 +245,25 @@ void Lexer::number() {
         add_token(TOK_INT_VALUE);
     }
 
-    //addToken(NUMBER, Double.parseDouble(source.substring(start, current)));
+    // addToken(NUMBER, Double.parseDouble(source.substring(start, current)));
 }
 
 /// str
 ///     Lexes a string value
 void Lexer::str() {
     start = current + 1;
-    while(peek_next() != '"' && !is_at_end()) {
-        if(peek() == '\n') {
+    while (peek_next() != '"' && !is_at_end()) {
+        if (peek() == '\n') {
             line++;
         }
         advance();
     }
 
-    if(is_at_end()) {
+    if (is_at_end()) {
         throw_err(ERR_UNTERMINATED_STRING);
     }
 
-    if(start == current + 1) {
+    if (start == current + 1) {
         add_token(TOK_STR_VALUE, "");
     } else {
         add_token(TOK_STR_VALUE);
@@ -249,7 +276,7 @@ void Lexer::str() {
 ///     Peeks at the current character whithout advancing
 ///     the current index.
 char Lexer::peek() {
-    if(is_at_end()) {
+    if (is_at_end()) {
         return '\0'; // Not EOF, but end of string
     }
     return source.at(current);
@@ -259,7 +286,7 @@ char Lexer::peek() {
 ///     Peeks at the next character without advancing the
 ///     current index.
 char Lexer::peek_next() {
-    if(current + 1 >= source.size()) {
+    if (current + 1 >= source.size()) {
         return '\0'; // Not EOF, but end of string
     }
     return source.at(current + 1);
@@ -275,9 +302,7 @@ bool Lexer::match(char expected) {
 ///     Determines whether the given character is allowed
 ///     to be used in identifiers('[a-zA-Z_]')
 bool Lexer::is_alpha(char c) {
-    return (c >= 'a' && c <= 'z')
-        || (c >= 'A' && c <= 'Z')
-        || c == '_';
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
 /// is_digit
@@ -318,16 +343,14 @@ void Lexer::add_token(Token token) {
 /// add_token
 ///     adds a token combined with a given string
 void Lexer::add_token(Token token, std::string lexme) {
-    tokens.emplace_back(TokenContext {
-        token, std::move(lexme), line
-    });
+    tokens.emplace_back(TokenContext{token, std::move(lexme), line});
 }
 
 /// add_token_option
 ///     adds the 'mult_token' when the next character is equal
 ///     to 'c', otherwise adds the 'single_token'
 void Lexer::add_token_option(Token single_token, char c, Token mult_token) {
-    if(peek_next() == c) {
+    if (peek_next() == c) {
         std::string substr = source.substr(current, 2);
         add_token(mult_token, substr);
         advance();
@@ -341,15 +364,15 @@ void Lexer::add_token_option(Token single_token, char c, Token mult_token) {
 ///     next characters are possible
 void Lexer::add_token_options(Token single_token, const std::map<char, Token> &options) {
     bool token_added = false;
-    for(const auto &option : options) {
-        if(peek_next() == option.first) {
+    for (const auto &option : options) {
+        if (peek_next() == option.first) {
             add_token(option.second, source.substr(current, 2));
             advance();
             token_added = true;
             break;
         }
     }
-    if(!token_added) {
+    if (!token_added) {
         add_token(single_token);
     }
 }

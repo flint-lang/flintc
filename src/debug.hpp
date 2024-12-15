@@ -1,6 +1,8 @@
 #ifndef __DEBUG_HPP__
 #define __DEBUG_HPP__
 
+#include "types.hpp"
+
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/entity_node.hpp"
 #include "parser/ast/definitions/enum_node.hpp"
@@ -9,12 +11,14 @@
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/ast/definitions/link_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
+
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/call_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
+
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -22,19 +26,16 @@
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
-#include "types.hpp"
 
 #include "parser/ast/program_node.hpp"
 
 #include <map>
 #include <string>
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace Debug {
-    enum TreeType {
-        VERT, BRANCH, BRANCH_L, SINGLE, HOR, NONE
-    };
+    enum TreeType { VERT, BRANCH, BRANCH_L, SINGLE, HOR, NONE };
     static const std::map<TreeType, std::string> tree_characters = {
         {VERT, "\u2502"},
         {BRANCH, "\u251C"},
@@ -56,7 +57,7 @@ namespace Debug {
             void print_table_header(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
             void print_table_row(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
             void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header);
-        }
+        } // namespace
         void print_program(const ProgramNode &program);
 
         // --- EXPRESSIONS ---
@@ -75,7 +76,8 @@ namespace Debug {
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign);
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl);
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement);
-        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body);
+        void print_body(unsigned int indent_lvl, uint2 empty,
+            const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body);
 
         // --- DEFINITIONS ---
         void print_data(unsigned int indent_lvl, const DataNode &data);
@@ -87,7 +89,7 @@ namespace Debug {
         void print_import(unsigned int indent_lvl, const ImportNode &import);
         void print_link(unsigned int indent_lvl, uint2 empty, const LinkNode &link);
         void print_variant(unsigned int indent_lvl, const VariantNode &variant);
-    }
-}
+    } // namespace AST
+} // namespace Debug
 
 #endif

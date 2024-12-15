@@ -3,19 +3,20 @@
 
 #include "expression_node.hpp"
 
-#include <variant>
 #include <string>
 #include <utility>
+#include <variant>
 
 /// LiteralNode
 ///     Represents literal values
 class LiteralNode : public ExpressionNode {
-    public:
-        explicit LiteralNode(std::variant<int, double, std::string, bool, char> &value) : value(std::move(value)) {}
+  public:
+    explicit LiteralNode(std::variant<int, double, std::string, bool, char> &value)
+        : value(std::move(value)) {}
 
-        /// value
-        ///     the literal value
-        std::variant<int, double, std::string, bool, char> value;
+    /// value
+    ///     the literal value
+    std::variant<int, double, std::string, bool, char> value;
 };
 
 #endif

@@ -1,9 +1,9 @@
 #ifndef __TEST_SIGNATURE_HPP__
 #define __TEST_SIGNATURE_HPP__
 
-#include "signature.hpp"
-#include "../test_utils.hpp"
 #include "../debug.hpp"
+#include "../test_utils.hpp"
+#include "signature.hpp"
 
 #include <string>
 #include <vector>
@@ -23,9 +23,8 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_balanced_range_extraction_lr", false);
         // x := func()
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 5;
         TestUtils::ok_or_not(result);
@@ -36,9 +35,8 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_balanced_range_extraction_llrr", false);
         // x := func( func2() )
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 8;
         TestUtils::ok_or_not(result);
@@ -50,8 +48,8 @@ namespace {
         TestUtils::print_test_name("test_balanced_range_extraction_llrlrr", false);
         // x := func( (a + b) * (b - a) )
         token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_PLUS, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_MULT, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MINUS, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_PLUS, TOK_IDENTIFIER,
+                TOK_RIGHT_PAREN, TOK_MULT, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MINUS, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 15;
         TestUtils::ok_or_not(result);
@@ -62,9 +60,8 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_balanced_range_extraction_lllrrr", false);
         // x := func( func2( func3() ) );
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 11;
         TestUtils::ok_or_not(result);
@@ -75,15 +72,15 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_balanced_range_extraction_llrlrlrr", false);
         // x := func((a * b) - func2() - func3());
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN,
+            TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN,
+            TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 18;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- TEST BALANCED RANGE EXTRACTION VEC ---
 namespace {
     int test_balanced_range_extraction_vec() {
@@ -96,9 +93,8 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_balanced_range_extraction_vec_lr", false);
         // x := func()
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::vector<uint2> ranges = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
         bool result = ranges.size() == 1 && ranges.at(0).first == 3 && ranges.at(0).second == 5;
         TestUtils::ok_or_not(result);
@@ -109,9 +105,9 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_balanced_range_extraction_vec_llrlrlrr", false);
         // x := func((a * b) - func2() - func3());
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN,
+            TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN,
+            TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::vector<uint2> ranges = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
         bool result = ranges.size() == 1 && ranges.at(0).first == 3 && ranges.at(0).second == 18;
         TestUtils::ok_or_not(result);
@@ -122,18 +118,16 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_balanced_range_extraction_vec_llrrlr", false);
         // x := (a * func(2)) ** (3 - 4 * 5);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT_VALUE, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SQUARE, TOK_LEFT_PAREN, TOK_INT_VALUE, TOK_MINUS, TOK_INT_VALUE, TOK_MULT, TOK_INT_VALUE, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER,
+            TOK_LEFT_PAREN, TOK_INT_VALUE, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SQUARE, TOK_LEFT_PAREN, TOK_INT_VALUE, TOK_MINUS,
+            TOK_INT_VALUE, TOK_MULT, TOK_INT_VALUE, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::vector<uint2> ranges = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
-        bool result = ranges.size() == 2
-            && ranges.at(0).first == 2 && ranges.at(0).second == 10
-            && ranges.at(1).first == 11 && ranges.at(1).second == 18;
+        bool result = ranges.size() == 2 && ranges.at(0).first == 2 && ranges.at(0).second == 10 && ranges.at(1).first == 11 &&
+            ranges.at(1).second == 18;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
-
+} // namespace
 
 // --- PRIMARY TESTS ---
 // --- MATCH TEST PRIMARY ---
@@ -146,12 +140,11 @@ namespace {
         return 0;
     }
 
-    int test_match_prim_int() {;
+    int test_match_prim_int() {
+        ;
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_prim_int", false);
-        token_list tokens = create_token_vector(
-            {TOK_INT}
-        );
+        token_list tokens = create_token_vector({TOK_INT});
         bool result = Signature::tokens_match(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -160,9 +153,7 @@ namespace {
     int test_match_prim_flint() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_prim_flint", false);
-        token_list tokens = create_token_vector(
-            {TOK_FLINT}
-        );
+        token_list tokens = create_token_vector({TOK_FLINT});
         bool result = Signature::tokens_match(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -171,9 +162,7 @@ namespace {
     int test_match_prim_str() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_prim_str", false);
-        token_list tokens = create_token_vector(
-            {TOK_STR}
-        );
+        token_list tokens = create_token_vector({TOK_STR});
         bool result = Signature::tokens_match(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -181,10 +170,8 @@ namespace {
 
     int test_match_prim_char() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
-            TestUtils::print_test_name("test_match_char_int", false);
-        token_list tokens = create_token_vector(
-            {TOK_CHAR}
-        );
+        TestUtils::print_test_name("test_match_char_int", false);
+        token_list tokens = create_token_vector({TOK_CHAR});
         bool result = Signature::tokens_match(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -193,14 +180,12 @@ namespace {
     int test_match_prim_bool() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_prim_bool", false);
-        token_list tokens = create_token_vector(
-            {TOK_BOOL}
-        );
+        token_list tokens = create_token_vector({TOK_BOOL});
         bool result = Signature::tokens_match(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST PRIMARY ---
 namespace {
     int test_contain_prim() {
@@ -212,9 +197,7 @@ namespace {
     int test_contain_prim_int() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_prim_int", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_EOL, TOK_INT, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_EOL, TOK_INT, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -223,9 +206,7 @@ namespace {
     int test_contain_prim_flint() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_prim_flint", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_EOL, TOK_FLINT, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_EOL, TOK_FLINT, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -234,9 +215,7 @@ namespace {
     int test_contain_prim_str() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_prim_str", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_EOL, TOK_STR, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_EOL, TOK_STR, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -245,9 +224,7 @@ namespace {
     int test_contain_prim_char() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_prim_char", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_EOL, TOK_CHAR, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_EOL, TOK_CHAR, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -256,14 +233,12 @@ namespace {
     int test_contain_prim_bool() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_prim_bool", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_EOL, TOK_BOOL, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_EOL, TOK_BOOL, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type_prim);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST PRIMARY ---
 namespace {
     int test_extract_prim() {
@@ -275,12 +250,9 @@ namespace {
     int test_extract_prim_int() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_prim_int", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type_prim);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -288,12 +260,9 @@ namespace {
     int test_extract_prim_flint() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_prim_flint", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_FLINT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_FLINT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type_prim);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -301,12 +270,9 @@ namespace {
     int test_extract_prim_str() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_prim_str", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_STR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_STR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type_prim);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -314,12 +280,9 @@ namespace {
     int test_extract_prim_char() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_prim_char", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type_prim);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -327,16 +290,13 @@ namespace {
     int test_extract_prim_bool() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_prim_bool", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_BOOL, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_BOOL, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type_prim);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- TYPE TESTS ---
 // --- MATCH TEST TYPE ---
@@ -352,9 +312,7 @@ namespace {
     int test_match_type_int() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_type_int", false);
-        token_list tokens = create_token_vector(
-            {TOK_INT}
-        );
+        token_list tokens = create_token_vector({TOK_INT});
         bool result = Signature::tokens_match(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -363,9 +321,7 @@ namespace {
     int test_match_type_flint() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_type_flint", false);
-        token_list tokens = create_token_vector(
-            {TOK_FLINT}
-        );
+        token_list tokens = create_token_vector({TOK_FLINT});
         bool result = Signature::tokens_match(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -374,9 +330,7 @@ namespace {
     int test_match_type_str() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_type_str", false);
-        token_list tokens = create_token_vector(
-            {TOK_STR}
-        );
+        token_list tokens = create_token_vector({TOK_STR});
         bool result = Signature::tokens_match(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -385,9 +339,7 @@ namespace {
     int test_match_type_char() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_type_char", false);
-        token_list tokens = create_token_vector(
-            {TOK_CHAR}
-        );
+        token_list tokens = create_token_vector({TOK_CHAR});
         bool result = Signature::tokens_match(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -396,9 +348,7 @@ namespace {
     int test_match_type_bool() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_type_bool", false);
-        token_list tokens = create_token_vector(
-            {TOK_BOOL}
-        );
+        token_list tokens = create_token_vector({TOK_BOOL});
         bool result = Signature::tokens_match(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -407,14 +357,12 @@ namespace {
     int test_match_type_identifier() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_type_identifier", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST TYPE ---
 namespace {
     int test_contain_type() {
@@ -426,9 +374,7 @@ namespace {
     int test_contain_type_int() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_type_int", false);
-        token_list tokens = create_token_vector(
-            {TOK_COLON, TOK_INT, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_COLON, TOK_INT, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -437,9 +383,7 @@ namespace {
     int test_contain_type_flint() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_type_flint", false);
-        token_list tokens = create_token_vector(
-            {TOK_COLON, TOK_FLINT, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_COLON, TOK_FLINT, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -448,9 +392,7 @@ namespace {
     int test_contain_type_str() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_type_str", false);
-        token_list tokens = create_token_vector(
-            {TOK_COLON, TOK_STR, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_COLON, TOK_STR, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -459,9 +401,7 @@ namespace {
     int test_contain_type_char() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_type_char", false);
-        token_list tokens = create_token_vector(
-            {TOK_COLON, TOK_CHAR, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_COLON, TOK_CHAR, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -470,9 +410,7 @@ namespace {
     int test_contain_type_bool() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_type_bool", false);
-        token_list tokens = create_token_vector(
-            {TOK_COLON, TOK_BOOL, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_COLON, TOK_BOOL, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -481,14 +419,12 @@ namespace {
     int test_contain_type_identifier() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_type_identifier", false);
-        token_list tokens = create_token_vector(
-            {TOK_COLON, TOK_IDENTIFIER, TOK_DATA}
-        );
+        token_list tokens = create_token_vector({TOK_COLON, TOK_IDENTIFIER, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // -- EXTRACT TEST TYPE ---
 namespace {
     int test_extract_type() {
@@ -500,12 +436,9 @@ namespace {
     int test_extract_type_int() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_type_int", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
-        bool result = !result_vec.empty() &&
-            result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -513,12 +446,9 @@ namespace {
     int test_extract_type_flint() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_type_flint", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_FLINT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_FLINT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
-        bool result = !result_vec.empty() &&
-            result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -526,12 +456,9 @@ namespace {
     int test_extract_type_str() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_type_str", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_STR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_STR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
-        bool result = !result_vec.empty() &&
-            result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -539,12 +466,9 @@ namespace {
     int test_extract_type_char() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_type_char", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
-        bool result = !result_vec.empty() &&
-            result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -552,12 +476,9 @@ namespace {
     int test_extract_type_bool() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_type_bool", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_BOOL, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_BOOL, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
-        bool result = !result_vec.empty() &&
-            result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -565,9 +486,7 @@ namespace {
     int test_extract_type_identifier() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_type_identifier", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
         bool result = !result_vec.empty();
         result = result && result_vec.at(0).first == 1 && result_vec.at(0).second == 2;
@@ -576,7 +495,7 @@ namespace {
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- REFERENCE TESTS ---
 // --- MATCH TEST REFERENCE ---
@@ -592,9 +511,7 @@ namespace {
     int test_match_reference_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_reference_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::reference);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -603,14 +520,13 @@ namespace {
     int test_match_reference_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_reference_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER}
-        );
+        token_list tokens =
+            create_token_vector({TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::reference);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST REFERENCE ---
 namespace {
     int test_contain_reference() {
@@ -622,9 +538,7 @@ namespace {
     int test_contain_reference_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_reference_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::reference);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -634,13 +548,12 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_reference_multiple", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+            {TOK_INDENT, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::reference);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST REFERENCE ---
 namespace {
     int test_extract_reference() {
@@ -653,11 +566,9 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_reference_single", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+            {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::reference);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -665,16 +576,14 @@ namespace {
     int test_extract_reference_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_reference_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON,
+            TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::reference);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- ARGS TESTS ---
 // --- MATCH TEST ARGS ---
@@ -690,9 +599,7 @@ namespace {
     int test_match_args_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_args_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INT, TOK_IDENTIFIER}
-        );
+        token_list tokens = create_token_vector({TOK_INT, TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::args);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -701,14 +608,12 @@ namespace {
     int test_match_args_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_args_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER}
-        );
+        token_list tokens = create_token_vector({TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::args);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST ARGS ---
 namespace {
     int test_contain_args() {
@@ -720,9 +625,8 @@ namespace {
     int test_contain_args_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_args_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_contain(tokens, Signature::args);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -731,14 +635,13 @@ namespace {
     int test_contain_args_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_args_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_contain(tokens, Signature::args);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST ARGS ---
 namespace {
     int test_extract_args() {
@@ -750,12 +653,10 @@ namespace {
     int test_extract_args_single() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_args_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::args);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 3 && result_vec.at(0).second == 5;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 3 && result_vec.at(0).second == 5;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -763,16 +664,14 @@ namespace {
     int test_extract_args_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_args_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::args);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 3 && result_vec.at(0).second == 8;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 3 && result_vec.at(0).second == 8;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- GROUP TESTS ---
 // --- MATCH TEST GROUP ---
@@ -788,9 +687,7 @@ namespace {
     int test_match_group_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_group_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN}
-        );
+        token_list tokens = create_token_vector({TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN});
         bool result = Signature::tokens_match(tokens, Signature::group);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -799,14 +696,12 @@ namespace {
     int test_match_group_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_group_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN}
-        );
+        token_list tokens = create_token_vector({TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN});
         bool result = Signature::tokens_match(tokens, Signature::group);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST GROUP ---
 namespace {
     int test_contain_group() {
@@ -818,9 +713,8 @@ namespace {
     int test_contain_group_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_group_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN,
+            TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_contain(tokens, Signature::group);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -829,14 +723,13 @@ namespace {
     int test_contain_group_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_group_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_contain(tokens, Signature::group);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST GROUP ---
 namespace {
     int test_extract_group() {
@@ -848,12 +741,10 @@ namespace {
     int test_extract_group_single() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_group_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN,
+            TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_RIGHT_PAREN, TOK_COLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::group);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 7 && result_vec.at(0).second == tokens.size() - 1;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 7 && result_vec.at(0).second == tokens.size() - 1;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -861,16 +752,14 @@ namespace {
     int test_extract_group_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_group_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::group);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 10 && result_vec.at(0).second == 15;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 10 && result_vec.at(0).second == 15;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- USE STATEMENT TESTS ---
 // --- MATCH TEST USE STATEMENT ---
@@ -886,9 +775,7 @@ namespace {
     int test_match_use_statement_string() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_use_statement_string", false);
-        token_list tokens = create_token_vector(
-            {TOK_USE, TOK_STR_VALUE}
-        );
+        token_list tokens = create_token_vector({TOK_USE, TOK_STR_VALUE});
         bool result = Signature::tokens_match(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -897,9 +784,7 @@ namespace {
     int test_match_use_statement_package_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_use_statement_package_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_USE, TOK_IDENTIFIER}
-        );
+        token_list tokens = create_token_vector({TOK_USE, TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -908,9 +793,7 @@ namespace {
     int test_match_use_statement_package_dual() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_use_statement_package_dual", false);
-        token_list tokens = create_token_vector(
-            {TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER}
-        );
+        token_list tokens = create_token_vector({TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -919,9 +802,7 @@ namespace {
     int test_match_use_statement_package_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_use_statement_package_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER}
-        );
+        token_list tokens = create_token_vector({TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -930,9 +811,7 @@ namespace {
     int test_match_use_statement_flint_package_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_use_statement_flint_package_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_USE, TOK_FLINT}
-        );
+        token_list tokens = create_token_vector({TOK_USE, TOK_FLINT});
         bool result = Signature::tokens_match(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -941,9 +820,7 @@ namespace {
     int test_match_use_statement_flint_package_dual() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_use_statement_flint_package_dual", false);
-        token_list tokens = create_token_vector(
-            {TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER}
-        );
+        token_list tokens = create_token_vector({TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -952,14 +829,12 @@ namespace {
     int test_match_use_statement_flint_package_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_use_statement_flint_package_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER}
-        );
+        token_list tokens = create_token_vector({TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER});
         bool result = Signature::tokens_match(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST USE STATEMENT ---
 namespace {
     int test_contain_use_statement() {
@@ -971,9 +846,7 @@ namespace {
     int test_contain_use_statement_string() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_use_statement_string", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_STR_VALUE, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_STR_VALUE, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -982,9 +855,7 @@ namespace {
     int test_contain_use_statement_package_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_use_statement_package_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -993,9 +864,7 @@ namespace {
     int test_contain_use_statement_package_dual() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_use_statement_package_dual", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1004,9 +873,8 @@ namespace {
     int test_contain_use_statement_package_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_use_statement_package_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1015,9 +883,7 @@ namespace {
     int test_contain_use_statement_flint_package_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_use_statement_flint_package_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1026,9 +892,7 @@ namespace {
     int test_contain_use_statement_flint_package_dual() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_use_statement_flint_package_dual", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1037,14 +901,13 @@ namespace {
     int test_contain_use_statement_flint_package_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_use_statement_flint_package_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::use_statement);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST USE STATEMENT ---
 namespace {
     int test_extract_use_statement() {
@@ -1056,12 +919,9 @@ namespace {
     int test_extract_use_statement_string() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_use_statement_string", false);
-        token_list tokens = create_token_vector(
-           {TOK_INDENT, TOK_USE, TOK_STR_VALUE, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_STR_VALUE, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1069,12 +929,9 @@ namespace {
     int test_extract_use_statement_package_single() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_use_statement_package_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1082,12 +939,9 @@ namespace {
     int test_extract_use_statement_package_dual() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_use_statement_package_dual", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1095,12 +949,10 @@ namespace {
     int test_extract_use_statement_package_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_use_statement_package_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1108,12 +960,9 @@ namespace {
     int test_extract_use_statement_flint_package_single() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_use_statement_flint_package_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1121,12 +970,9 @@ namespace {
     int test_extract_use_statement_flint_package_dual() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_use_statement_flint_package_dual", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1134,16 +980,14 @@ namespace {
     int test_extract_use_statement_flint_package_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_use_statement_flint_package_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::use_statement);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- FUNCTION DEFINITION TESTS ---
 // --- MATCH TEST FUNCTION DEFINITION ---
@@ -1159,9 +1003,7 @@ namespace {
     int test_match_function_definition_const() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_definition_const", false);
-        token_list tokens = create_token_vector(
-            {TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1170,9 +1012,7 @@ namespace {
     int test_match_function_definition_aligned() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_definition_aligned", false);
-        token_list tokens = create_token_vector(
-            {TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1181,9 +1021,8 @@ namespace {
     int test_match_function_definition_aligned_const() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_definition_aligned_const", false);
-        token_list tokens = create_token_vector(
-            {TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1192,9 +1031,7 @@ namespace {
     int test_match_function_definition_0arg_0return() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_definition_0arg_0return", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1203,9 +1040,8 @@ namespace {
     int test_match_function_definition_1arg_0return() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_definition_1arg_0return", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1214,9 +1050,7 @@ namespace {
     int test_match_function_definition_0arg_1return() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_definition_0arg_1return", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1226,8 +1060,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_definition_1arg_1return", false);
         token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON}
-        );
+            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1236,9 +1069,8 @@ namespace {
     int test_match_function_definition_narg_0return() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_definition_narg_0return", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1247,9 +1079,8 @@ namespace {
     int test_match_function_definition_0arg_nreturn() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_definition_0arg_nreturn", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN,
+            TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1258,14 +1089,13 @@ namespace {
     int test_match_function_definition_narg_nreturn() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_function_definition_narg_nreturn", false);
-        token_list tokens = create_token_vector(
-            {TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST FUNCTION DEFINITION ---
 namespace {
     int test_contain_function_definition() {
@@ -1277,9 +1107,8 @@ namespace {
     int test_contain_function_definition_const() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_definition_const", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens =
+            create_token_vector({TOK_INDENT, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1288,9 +1117,8 @@ namespace {
     int test_contain_function_definition_aligned() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_definition_aligned", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens =
+            create_token_vector({TOK_INDENT, TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1300,8 +1128,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_definition_aligned_const", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1310,9 +1137,7 @@ namespace {
     int test_contain_function_definition_0arg_0return() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_definition_0arg_0return", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1322,8 +1147,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_definition_1arg_0return", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1333,8 +1157,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_definition_0arg_1return", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1343,9 +1166,8 @@ namespace {
     int test_contain_function_definition_1arg_1return() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_definition_1arg_1return", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER,
+            TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1354,9 +1176,8 @@ namespace {
     int test_contain_function_definition_narg_0return() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_definition_narg_0return", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA,
+            TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1365,9 +1186,8 @@ namespace {
     int test_contain_function_definition_0arg_nreturn() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_definition_0arg_nreturn", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW,
+            TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1377,13 +1197,13 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_function_definition_narg_nreturn", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER,
+                TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::function_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST FUNCTION DEFINITION ---
 namespace {
     int test_extract_function_definition() {
@@ -1395,12 +1215,10 @@ namespace {
     int test_extract_function_definition_const() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_definition_const", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens =
+            create_token_vector({TOK_INDENT, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1408,12 +1226,10 @@ namespace {
     int test_extract_function_definition_aligned() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_definition_aligned", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens =
+            create_token_vector({TOK_INDENT, TOK_ALIGNED, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1422,11 +1238,9 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_definition_aligned_const", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_ALIGNED, TOK_CONST, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1434,12 +1248,9 @@ namespace {
     int test_extract_function_definition_0arg_0return() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_definition_0arg_0return", false);
-        token_list tokens = create_token_vector(
-           {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1448,11 +1259,9 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_definition_1arg_0return", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1461,11 +1270,9 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_definition_0arg_1return", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1473,12 +1280,10 @@ namespace {
     int test_extract_function_definition_1arg_1return() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_definition_1arg_1return", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER,
+            TOK_RIGHT_PAREN, TOK_ARROW, TOK_INT, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 10;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 10;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1486,12 +1291,10 @@ namespace {
     int test_extract_function_definition_narg_0return() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_definition_narg_0return", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA,
+            TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 11;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 11;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1499,12 +1302,10 @@ namespace {
     int test_extract_function_definition_0arg_nreturn() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_definition_0arg_nreturn", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_ARROW,
+            TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1513,15 +1314,14 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_function_definition_narg_nreturn", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER,
+                TOK_RIGHT_PAREN, TOK_ARROW, TOK_LEFT_PAREN, TOK_INT, TOK_COMMA, TOK_FLINT, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 17;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 17;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- DATA DEFINITION TESTS ---
 // --- MATCH TEST DATA DEFINITION ---
@@ -1537,9 +1337,7 @@ namespace {
     int test_match_data_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_data_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_DATA, TOK_IDENTIFIER, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_DATA, TOK_IDENTIFIER, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::data_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1548,9 +1346,7 @@ namespace {
     int test_match_data_definition_shared() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_data_definition_shared", false);
-        token_list tokens = create_token_vector(
-            {TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::data_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1559,9 +1355,7 @@ namespace {
     int test_match_data_definition_immutable() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_data_definition_immutable", false);
-        token_list tokens = create_token_vector(
-            {TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::data_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1570,14 +1364,12 @@ namespace {
     int test_match_data_definition_aligned() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_data_definition_aligned", false);
-        token_list tokens = create_token_vector(
-            {TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::data_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST DATA DEFINITION ---
 namespace {
     int test_contain_data_definition() {
@@ -1589,9 +1381,7 @@ namespace {
     int test_contain_data_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_data_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::data_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1600,9 +1390,7 @@ namespace {
     int test_contain_data_definition_shared() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_data_definition_shared", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::data_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1611,9 +1399,7 @@ namespace {
     int test_contain_data_definition_immutable() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_data_definition_immutable", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::data_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1622,14 +1408,12 @@ namespace {
     int test_contain_data_definition_aligned() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_data_definition_aligned", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::data_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST DATA DEFINITION ---
 namespace {
     int test_extract_data_definition() {
@@ -1641,12 +1425,9 @@ namespace {
     int test_extract_data_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_data_definition_normal", false);
-        token_list tokens = create_token_vector(
-           {TOK_INDENT, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::data_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1654,12 +1435,9 @@ namespace {
     int test_extract_data_definition_shared() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_data_definition_shared", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_SHARED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::data_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1667,12 +1445,9 @@ namespace {
     int test_extract_data_definition_immutable() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_data_definition_immutable", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_IMMUTABLE, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::data_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1680,16 +1455,13 @@ namespace {
     int test_extract_data_definition_aligned() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_data_definition_aligned", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ALIGNED, TOK_DATA, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::data_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- FUNC DEFINITION TESTS ---
 // --- MATCH TEST FUNC DEFINITION ---
@@ -1705,9 +1477,7 @@ namespace {
     int test_match_func_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_func_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_FUNC, TOK_IDENTIFIER, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_FUNC, TOK_IDENTIFIER, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::func_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1717,8 +1487,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_func_definition_requires_single", false);
         token_list tokens = create_token_vector(
-            {TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+            {TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::func_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1727,14 +1496,13 @@ namespace {
     int test_match_func_definition_requires_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_func_definition_requires_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER,
+            TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::func_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST FUNC DEFINITION ---
 namespace {
     int test_contain_func_definition() {
@@ -1746,9 +1514,7 @@ namespace {
     int test_contain_func_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_func_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::func_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1757,9 +1523,8 @@ namespace {
     int test_contain_func_definition_requires_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_func_definition_requires_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::func_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1768,14 +1533,13 @@ namespace {
     int test_contain_func_definition_requires_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_func_definition_requires_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::func_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST FUNC DEFINITION ---
 namespace {
     int test_extract_func_definition() {
@@ -1787,12 +1551,9 @@ namespace {
     int test_extract_func_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_func_definition_normal", false);
-        token_list tokens = create_token_vector(
-           {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::func_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1800,12 +1561,10 @@ namespace {
     int test_extract_func_definition_requires_single() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_func_definition_requires_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::func_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 9;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 9;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1813,16 +1572,14 @@ namespace {
     int test_extract_func_definition_requires_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_func_definition_requires_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::func_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- ERROR DEFINITION TESTS ---
 // --- MATCH TEST ERROR DEFINITION ---
@@ -1838,9 +1595,7 @@ namespace {
     int test_match_error_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_error_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_ERROR, TOK_IDENTIFIER, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_ERROR, TOK_IDENTIFIER, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::error_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1849,14 +1604,12 @@ namespace {
     int test_match_error_definition_extending() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_error_definition_extending", false);
-        token_list tokens = create_token_vector(
-            {TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::error_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST ERROR DEFINITION ---
 namespace {
     int test_contain_error_definition() {
@@ -1868,9 +1621,7 @@ namespace {
     int test_contain_error_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_error_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::error_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -1880,13 +1631,12 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_error_definition_extending", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::error_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST ERROR DEFINITION ---
 namespace {
     int test_extract_error_definition() {
@@ -1898,12 +1648,9 @@ namespace {
     int test_extract_error_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_error_definition_normal", false);
-        token_list tokens = create_token_vector(
-           {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::error_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -1912,15 +1659,13 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_error_definition_extending", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+            {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::error_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- ENUM DEFINITION TESTS ---
 // --- MATCH TEST ENUM DEFINITION ---
@@ -1936,14 +1681,12 @@ namespace {
     int test_match_enum_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_enum_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_ENUM, TOK_IDENTIFIER, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_ENUM, TOK_IDENTIFIER, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::enum_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST ENUM DEFINITION ---
 namespace {
     int test_contain_enum_definition() {
@@ -1955,14 +1698,12 @@ namespace {
     int test_contain_enum_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_enum_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::enum_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST ENUM DEFINITION ---
 namespace {
     int test_extract_enum_definition() {
@@ -1974,16 +1715,13 @@ namespace {
     int test_extract_enum_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_enum_definition_normal", false);
-        token_list tokens = create_token_vector(
-           {TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::enum_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- VARIANT DEFINITION TESTS ---
 // --- MATCH TEST VARIANT DEFINITION ---
@@ -1999,14 +1737,12 @@ namespace {
     int test_match_variant_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_variant_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::variant_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST VARIANT DEFINITION ---
 namespace {
     int test_contain_variant_definition() {
@@ -2018,14 +1754,12 @@ namespace {
     int test_contain_variant_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_variant_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::variant_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST VARIANT DEFINITION ---
 namespace {
     int test_extract_variant_definition() {
@@ -2037,16 +1771,13 @@ namespace {
     int test_extract_variant_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_variant_definition_normal", false);
-        token_list tokens = create_token_vector(
-        {TOK_INDENT, TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_VARIANT, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::variant_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- ENTITY DEFINITION TESTS ---
 // --- MATCH TEST ENTITY DEFINITION ---
@@ -2062,9 +1793,7 @@ namespace {
     int test_match_entity_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_entity_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::entity_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -2074,8 +1803,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_entity_definition_extends_single", false);
         token_list tokens = create_token_vector(
-            {TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+            {TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::entity_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -2084,14 +1812,13 @@ namespace {
     int test_match_entity_definition_extends_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_entity_definition_extends_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON}
-        );
+        token_list tokens = create_token_vector({TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER,
+            TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
         bool result = Signature::tokens_match(tokens, Signature::entity_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST ENTITY DEFINITION ---
 namespace {
     int test_contain_entity_definition() {
@@ -2103,9 +1830,7 @@ namespace {
     int test_contain_entity_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_entity_definition_normal", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::entity_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -2114,9 +1839,8 @@ namespace {
     int test_contain_entity_definition_extends_single() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_entity_definition_extends_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::entity_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -2125,14 +1849,13 @@ namespace {
     int test_contain_entity_definition_extends_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_entity_definition_extends_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         bool result = Signature::tokens_contain(tokens, Signature::entity_definition);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST ENTITY DEFINITION ---
 namespace {
     int test_extract_entity_definition() {
@@ -2144,12 +1867,9 @@ namespace {
     int test_extract_entity_definition_normal() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_entity_definition_normal", false);
-        token_list tokens = create_token_vector(
-           {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -2157,12 +1877,10 @@ namespace {
     int test_extract_entity_definition_extends_single() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_entity_definition_extends_single", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 9;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 9;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -2170,17 +1888,14 @@ namespace {
     int test_extract_entity_definition_extends_multiple() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_entity_definition_extends_multiple", false);
-        token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL}
-        );
+        token_list tokens = create_token_vector({TOK_INDENT, TOK_ENTITY, TOK_IDENTIFIER, TOK_EXTENDS, TOK_LEFT_PAREN, TOK_IDENTIFIER,
+            TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::entity_definition);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
-
+} // namespace
 
 // --- FUNCTION CALL EXPRESSION TESTS ---
 // --- MATCH TEST FUNCTION CALL EXPRESSION ---
@@ -2196,9 +1911,7 @@ namespace {
     int test_match_function_call_0arg() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_call_0arg", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN});
         bool result = Signature::tokens_match(tokens, Signature::function_call);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -2207,9 +1920,7 @@ namespace {
     int test_match_function_call_1arg_identifier() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_match_function_call_1arg_identifier", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN});
         bool result = Signature::tokens_match(tokens, Signature::function_call);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -2218,14 +1929,13 @@ namespace {
     int test_match_function_call_1arg_function_0arg() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_function_call_1arg_function_0arg", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN}
-        );
+        token_list tokens =
+            create_token_vector({TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN});
         bool result = Signature::tokens_match(tokens, Signature::function_call);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST FUNCTION CALL EXPRESSION ---
 namespace {
     int test_contain_function_call() {
@@ -2237,9 +1947,7 @@ namespace {
     int test_contain_function_call_0arg() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_call_0arg", false);
-        token_list tokens = create_token_vector(
-            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::function_call);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -2248,9 +1956,8 @@ namespace {
     int test_contain_function_call_1arg_identifier() {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_contain_function_call_1arg_identifier", false);
-        token_list tokens = create_token_vector(
-            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::function_call);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
@@ -2260,13 +1967,12 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_function_call_1arg_function_0arg", false);
         token_list tokens = create_token_vector(
-            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::function_call);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST FUNCTION CALL EXPRESSION ---
 namespace {
     int test_extract_function_call() {
@@ -2278,12 +1984,9 @@ namespace {
     int test_extract_function_call_0arg() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_call_0arg", false);
-        token_list tokens = create_token_vector(
-           {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_call);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -2291,12 +1994,10 @@ namespace {
     int test_extract_function_call_1arg_identifier() {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, true);
         TestUtils::print_test_name("test_extract_function_call_1arg_identifier", false);
-        token_list tokens = create_token_vector(
-            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+        token_list tokens =
+            create_token_vector({TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_call);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
@@ -2305,15 +2006,13 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_function_call_1arg_function_0arg", false);
         token_list tokens = create_token_vector(
-            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON}
-        );
+            {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::function_call);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 
 // --- BINARY OPERATOR EXPRESSION TESTS ---
 // --- MATCH TEST BINARY OPERATOR EXPRESSION ---
@@ -2330,14 +2029,12 @@ namespace {
         Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_match_bin_op_expr_vars_square", false);
         // 4 ** 5
-        token_list tokens = create_token_vector(
-            {TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE}
-        );
+        token_list tokens = create_token_vector({TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE});
         bool result = Signature::tokens_match(tokens, Signature::bin_op_expr);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- CONTAIN TEST BINARY OPERATOR EXPRESSION ---
 namespace {
     int test_contain_bin_op_expr() {
@@ -2349,14 +2046,12 @@ namespace {
     int test_contain_bin_op_expr_vars_square_int() {
         Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_contain_bin_op_expr_vars_square_int", false);
-        token_list tokens = create_token_vector(
-            {TOK_IDENTIFIER, TOK_EQUAL, TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_IDENTIFIER, TOK_EQUAL, TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, Signature::bin_op_expr);
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
+} // namespace
 // --- EXTRACT TEST BINARY OPERATOR EXPRESSION ---
 namespace {
     int test_extract_bin_op_expr() {
@@ -2368,17 +2063,13 @@ namespace {
     int test_extract_bin_op_expr_vars_square_int() {
         Debug::print_tree_row({Debug::NONE, Debug::NONE, Debug::SINGLE}, true);
         TestUtils::print_test_name("test_extract_bin_op_expr_vars_square_int", false);
-        token_list tokens = create_token_vector(
-           {TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE, TOK_SEMICOLON}
-        );
+        token_list tokens = create_token_vector({TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::bin_op_expr);
-        bool result = !result_vec.empty() &&
-            result_vec.at(0).first == 0 && result_vec.at(0).second == 4;
+        bool result = !result_vec.empty() && result_vec.at(0).first == 0 && result_vec.at(0).second == 4;
         TestUtils::ok_or_not(result);
         return result ? 0 : 1;
     }
-}
-
+} // namespace
 
 int test_signature() {
     TestUtils::print_test_name("SIGNATURE_TESTS:", true);
@@ -2521,62 +2212,62 @@ int test_signature() {
         test_extract_use_statement_flint_package_multiple,
     };
     function_list function_definition_tests = {
-       // Match Tests
-       test_match_function_definition,
-       test_match_function_definition_const,
-       test_match_function_definition_aligned,
-       test_match_function_definition_aligned_const,
-       test_match_function_definition_0arg_0return,
-       test_match_function_definition_1arg_0return,
-       test_match_function_definition_0arg_1return,
-       test_match_function_definition_1arg_1return,
-       test_match_function_definition_narg_0return,
-       test_match_function_definition_0arg_nreturn,
-       test_match_function_definition_narg_nreturn,
-       // Contain Tests
-       test_contain_function_definition,
-       test_contain_function_definition_const,
-       test_contain_function_definition_aligned,
-       test_contain_function_definition_aligned_const,
-       test_contain_function_definition_0arg_0return,
-       test_contain_function_definition_1arg_0return,
-       test_contain_function_definition_0arg_1return,
-       test_contain_function_definition_1arg_1return,
-       test_contain_function_definition_narg_0return,
-       test_contain_function_definition_0arg_nreturn,
-       test_contain_function_definition_narg_nreturn,
-       // Extract Tests
-       test_extract_function_definition,
-       test_extract_function_definition_const,
-       test_extract_function_definition_aligned,
-       test_extract_function_definition_aligned_const,
-       test_extract_function_definition_0arg_0return,
-       test_extract_function_definition_1arg_0return,
-       test_extract_function_definition_0arg_1return,
-       test_extract_function_definition_1arg_1return,
-       test_extract_function_definition_narg_0return,
-       test_extract_function_definition_0arg_nreturn,
-       test_extract_function_definition_narg_nreturn,
+        // Match Tests
+        test_match_function_definition,
+        test_match_function_definition_const,
+        test_match_function_definition_aligned,
+        test_match_function_definition_aligned_const,
+        test_match_function_definition_0arg_0return,
+        test_match_function_definition_1arg_0return,
+        test_match_function_definition_0arg_1return,
+        test_match_function_definition_1arg_1return,
+        test_match_function_definition_narg_0return,
+        test_match_function_definition_0arg_nreturn,
+        test_match_function_definition_narg_nreturn,
+        // Contain Tests
+        test_contain_function_definition,
+        test_contain_function_definition_const,
+        test_contain_function_definition_aligned,
+        test_contain_function_definition_aligned_const,
+        test_contain_function_definition_0arg_0return,
+        test_contain_function_definition_1arg_0return,
+        test_contain_function_definition_0arg_1return,
+        test_contain_function_definition_1arg_1return,
+        test_contain_function_definition_narg_0return,
+        test_contain_function_definition_0arg_nreturn,
+        test_contain_function_definition_narg_nreturn,
+        // Extract Tests
+        test_extract_function_definition,
+        test_extract_function_definition_const,
+        test_extract_function_definition_aligned,
+        test_extract_function_definition_aligned_const,
+        test_extract_function_definition_0arg_0return,
+        test_extract_function_definition_1arg_0return,
+        test_extract_function_definition_0arg_1return,
+        test_extract_function_definition_1arg_1return,
+        test_extract_function_definition_narg_0return,
+        test_extract_function_definition_0arg_nreturn,
+        test_extract_function_definition_narg_nreturn,
     };
     function_list data_definition_tests = {
-       // Match Tests
-       test_match_data_definition,
-       test_match_data_definition_normal,
-       test_match_data_definition_shared,
-       test_match_data_definition_immutable,
-       test_match_data_definition_aligned,
-       // Contain Tests
-       test_contain_data_definition,
-       test_contain_data_definition_normal,
-       test_contain_data_definition_shared,
-       test_contain_data_definition_immutable,
-       test_contain_data_definition_aligned,
-       // Extract Tests
-       test_extract_data_definition,
-       test_extract_data_definition_normal,
-       test_extract_data_definition_shared,
-       test_extract_data_definition_immutable,
-       test_extract_data_definition_aligned,
+        // Match Tests
+        test_match_data_definition,
+        test_match_data_definition_normal,
+        test_match_data_definition_shared,
+        test_match_data_definition_immutable,
+        test_match_data_definition_aligned,
+        // Contain Tests
+        test_contain_data_definition,
+        test_contain_data_definition_normal,
+        test_contain_data_definition_shared,
+        test_contain_data_definition_immutable,
+        test_contain_data_definition_aligned,
+        // Extract Tests
+        test_extract_data_definition,
+        test_extract_data_definition_normal,
+        test_extract_data_definition_shared,
+        test_extract_data_definition_immutable,
+        test_extract_data_definition_aligned,
     };
     function_list func_definition_tests = {
         // Match Tests
