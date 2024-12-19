@@ -15,17 +15,17 @@
 #include <utility>
 #include <vector>
 
-/// ProgramNode
-///     Root node of the AST
-class ProgramNode : public ASTNode {
+/// FileNode
+///     Root node of the File AST
+class FileNode : public ASTNode {
   public:
     /// definitions
     ///     All top-level definitions (functions, data, entities, etc.)
     std::vector<std::unique_ptr<ASTNode>> definitions;
 
-    ProgramNode() = default;
-    explicit ProgramNode(std::vector<std::unique_ptr<ASTNode>> &definitions)
-        : definitions(std::move(definitions)) {}
+    FileNode() = default;
+    explicit FileNode(std::vector<std::unique_ptr<ASTNode>> &definitions) :
+        definitions(std::move(definitions)) {}
 
     void add_import(ImportNode &import) {
         definitions.emplace_back(std::make_unique<ImportNode>(std::move(import)));

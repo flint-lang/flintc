@@ -1,11 +1,10 @@
 #include "debug.hpp"
 
-#include "types.hpp"
-
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "lexer/lexer.hpp"
 #include "test_utils.hpp"
+#include "types.hpp"
 
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/entity_node.hpp"
@@ -31,6 +30,8 @@
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
+
+#include "parser/ast/file_node.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -191,12 +192,12 @@ namespace Debug {
         } // namespace
         /// print_ast_tree
         ///     Prints the whole AST Tree recursively
-        void print_program(const ProgramNode &program) {
+        void print_file(const FileNode &file) {
             std::cout << std::endl << "Program" << std::endl;
             unsigned int counter = 0;
             uint2 empty = {0, 0};
-            for (const std::unique_ptr<ASTNode> &node : program.definitions) {
-                if (++counter == program.definitions.size()) {
+            for (const std::unique_ptr<ASTNode> &node : file.definitions) {
+                if (++counter == file.definitions.size()) {
                     empty.first = 0;
                     empty.second = 2;
                 }

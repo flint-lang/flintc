@@ -27,7 +27,7 @@
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
-#include "parser/ast/program_node.hpp"
+#include "parser/ast/file_node.hpp"
 
 #include <map>
 #include <string>
@@ -58,7 +58,7 @@ namespace Debug {
             void print_table_row(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
             void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header);
         } // namespace
-        void print_program(const ProgramNode &program);
+        void print_file(const FileNode &file);
 
         // --- EXPRESSIONS ---
         void print_variable(unsigned int indent_lvl, uint2 empty, const VariableNode &var);

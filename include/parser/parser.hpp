@@ -4,7 +4,7 @@
 #include "../types.hpp"
 
 #include "ast/definitions/import_node.hpp"
-#include "ast/program_node.hpp"
+#include "ast/file_node.hpp"
 
 #include "ast/definitions/data_node.hpp"
 #include "ast/definitions/entity_node.hpp"
@@ -57,11 +57,11 @@ class Parser {
   public:
     Parser() = delete;
 
-    static ProgramNode parse_file(std::string &file);
+    static FileNode parse_file(std::string &file);
 
   private:
     // --- UTILITY ---
-    static void add_next_main_node(ProgramNode &program, token_list &tokens);
+    static void add_next_main_node(FileNode &file, token_list &tokens);
     static token_list get_definition_tokens(token_list &tokens);
     static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
     static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);

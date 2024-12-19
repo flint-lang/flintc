@@ -1,5 +1,5 @@
 #include "generator/generator.hpp"
-#include "parser/ast/program_node.hpp"
+#include "parser/ast/file_node.hpp"
 #include "parser/parser.hpp"
 
 #include <filesystem> // to get cwd
@@ -32,8 +32,7 @@ class CommandLineParser {
                 std::string cwd = cwd_path.string() + "/";
                 std::string file_path = args.at(i + 1);
 
-                ProgramNode program = Parser::parse_file(file_path);
-                Generator::generate_ir(program);
+                FileNode file = Parser::parse_file(file_path);
                 ++i;
             } else if (arg == "-o") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
