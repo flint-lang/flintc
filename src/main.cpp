@@ -33,6 +33,8 @@ class CommandLineParser {
                 std::string file_path = args.at(i + 1);
 
                 FileNode file = Parser::parse_file(file_path);
+                Generator::init("TEST");
+                Generator::generate_ir(file);
                 ++i;
             } else if (arg == "-o") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
