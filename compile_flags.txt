@@ -1,4 +1,5 @@
--I/nix/store/3yn73cwkl9sqmcw41jkmzv33bq7qldkp-llvm-19.1.4-dev/include
+-Illvm/llvm-dev/include
+-Iinclude
 -std=c++17
 //-fno-exceptions
 -funwind-tables
@@ -6,4 +7,3 @@
 -D__STDC_CONSTANT_MACROS
 -D__STDC_FORMAT_MACROS
 -D__STDC_LIMIT_MACROS
--Iinclude
