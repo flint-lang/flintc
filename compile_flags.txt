@@ -1,5 +1,6 @@
 -Illvm/llvm-dev/include
 -Iinclude
+-Itests
 -std=c++17
 //-fno-exceptions
 -funwind-tables

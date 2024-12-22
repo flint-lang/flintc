@@ -35,6 +35,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <ostream>
@@ -84,7 +85,7 @@ namespace Debug {
 
     /// print_tree_row
     ///
-    void print_tree_row(const std::vector<TreeType> &types, bool is_test) {
+    void print_tree_row(const std::vector<TreeType> &types, TestResult *result) {
         std::string addition;
         for (const TreeType &type : types) {
             addition += " ";
@@ -103,8 +104,8 @@ namespace Debug {
                     addition += "   ";
             }
         }
-        if (is_test) {
-            TestUtils::append_string(addition);
+        if (result != nullptr) {
+            result->append(addition);
         } else {
             std::cout << addition;
         }
@@ -165,21 +166,21 @@ namespace Debug {
             void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header) {
                 // print "normal" verts up to the "empty's" first part
                 for (unsigned int i = 0; i < empty.first; i++) {
-                    print_tree_row({VERT}, false);
+                    print_tree_row({VERT}, nullptr);
                 }
                 // print "empty" for all the elements from empty.first -> empty.second
                 for (unsigned int i = empty.first; i < (empty.second < indent_lvl ? empty.second : indent_lvl); i++) {
-                    print_tree_row({NONE}, false);
+                    print_tree_row({NONE}, nullptr);
                 }
                 // print "vert" for all elements from empty.second to indent_lvl
                 for (unsigned int i = empty.second; i < indent_lvl; i++) {
-                    print_tree_row({VERT}, false);
+                    print_tree_row({VERT}, nullptr);
                 }
                 // print either "single" or "branch" depending on the emptys second value
                 if (empty.second > indent_lvl) {
-                    print_tree_row({SINGLE}, false);
+                    print_tree_row({SINGLE}, nullptr);
                 } else {
-                    print_tree_row({BRANCH}, false);
+                    print_tree_row({BRANCH}, nullptr);
                 }
                 std::cout << header;
                 if (header.size() + (4 * indent_lvl) > C_SIZE) {

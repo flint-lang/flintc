@@ -1,7 +1,7 @@
 MAIN_FILE = src/main.cpp
-TEST_FILE = src/tests.cpp
-SRC_FILES = src/error.cpp src/lexer.cpp src/linker.cpp src/parser.cpp src/signature.cpp src/debug.cpp src/generator.cpp
-HEADER_FILES = $(shell find ./include -name '*.hpp')
+TEST_FILE = tests/tests.cpp
+SRC_FILES = $(filter-out $(MAIN_FILE), $(wildcard src/*.cpp))
+HEADER_FILES = $(shell find ./include -name '*.hpp') $(shell find ./tests -name '*.hpp')
 
 OBJ_DIR = build/obj
 OUT_DIR = build/out
@@ -14,20 +14,33 @@ TEST_OBJ = $(OBJ_DIR)/$(notdir $(TEST_FILE:.cpp=.o))
 SRC_OBJS = $(patsubst src/%.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES))
 
 CXX = clang++
-CXX_FLAGS = -g -O0 -Wall -Iinclude -std=c++17 -funwind-tables -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -I$(shell llvm-config --includedir)
+CXX_FLAGS = -g -O0 -Wall -Iinclude -Itests -std=c++17 -funwind-tables -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -I$(shell llvm-config --includedir)
 LD_FLAGS = $(shell llvm-config --link-static --ldflags --system-libs --libs core)
 
 TARGET = $(OUT_DIR)/flintc
+TEST_TARGET = $(OUT_DIR)/tests
 
 .PHONY: clean all
 
-all: $(TARGET)
+all: $(TARGET) $(TEST_TARGET)
 
+# Rule for compiling source files
 $(OBJ_DIR)/%.o: src/%.cpp $(HEADER_FILES)
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
+
+# Rule for compiling main file
+$(MAIN_OBJ): $(MAIN_FILE) $(HEADER_FILES)
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
+
+# Rule for compiling test file
+$(TEST_OBJ): $(TEST_FILE) $(HEADER_FILES)
 	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 $(TARGET): $(MAIN_OBJ) $(SRC_OBJS)
 	$(CXX) $(MAIN_OBJ) $(SRC_OBJS) -o $(TARGET) $(LD_FLAGS)
 
+$(TEST_TARGET): $(TEST_OBJ) $(SRC_OBJS)
+	$(CXX) $(TEST_OBJ) $(SRC_OBJS) -o $(TEST_TARGET) $(LD_FLAGS)
+
 clean:
-	rm $(OBJ_DIR)/*.o
+	rm -f $(OBJ_DIR)/*.o $(TARGET) $(TEST_TARGET)
