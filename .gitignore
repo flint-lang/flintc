@@ -1,5 +1,4 @@
 .vscode
 documents/LLDB_Cheatsheet.md
 llvm/llvm-dev
-zig-out
-LLDB_Cheatsheet.md
+build
