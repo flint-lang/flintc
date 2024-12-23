@@ -326,7 +326,7 @@ function_list get_type_tests() {
         test_extract_type_bool,
         test_extract_type_identifier,
     };
-    return type_tests
+    return type_tests;
 }
 
 #endif
