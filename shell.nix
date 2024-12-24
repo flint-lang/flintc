@@ -10,9 +10,9 @@ pkgs.mkShell {
   ];
 
   shellHook = ''
-      echo "Entering Nix-Shell"
+      echo "Building started"
       make
-      echo "Exitin Nix-Shell"
+      echo "Build done!"
       exit
   '';
 }
