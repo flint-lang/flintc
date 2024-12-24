@@ -40,10 +40,9 @@ std::pair<std::string, std::string> Resolver::split_string(const std::string &pa
     while (iterator != path.rend() && *iterator != '/') {
         ++iterator;
     }
-    ++iterator; // Move to the character after the last '/'
-    std::string base(iterator.base(), path.end());
     std::string split_path(path.begin(), iterator.base());
-    return {base, split_path};
+    std::string base(iterator.base(), path.end());
+    return {split_path, base};
 }
 
 /// create_dependency
