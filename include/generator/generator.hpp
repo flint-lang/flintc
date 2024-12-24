@@ -6,33 +6,15 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Target/TargetMachine.h>
 
 #include <string>
 
 /// Class which is responsible for the IR code generation
-class Generator {
-  public:
-    Generator() = delete;
-
-    /// init
-    ///     Initializes the generator (Creates the context, module ang generator pointers)
-    static void init(const std::string &name) {
-        // Assert that the pointer are uninitialized
-        assert(!context);
-        assert(!module);
-        assert(!builder);
-
-        context = std::make_unique<llvm::LLVMContext>();
-        module = std::make_unique<llvm::Module>(name, *context);
-        builder = std::make_unique<llvm::IRBuilder<>>(*context);
-    }
-
-    static void generate_ir(const FileNode &file);
-
-  private:
-    static std::unique_ptr<llvm::LLVMContext> context;
-    static std::unique_ptr<llvm::Module> module;
-    static std::unique_ptr<llvm::IRBuilder<>> builder;
-};
+namespace Generator {
+    std::unique_ptr<llvm::Module> generate_program_ir(const std::string &program_name);
+    std::unique_ptr<llvm::Module> generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext *context,
+        llvm::IRBuilder<> *builder);
+}; // namespace Generator
 
 #endif

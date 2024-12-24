@@ -19,6 +19,7 @@ enum ErrorType {
     ERR_NOT_IMPLEMENTED_YET = 14,
     ERR_DEBUG = 15,
     ERR_UNDEFINED_EXPRESSION = 16,
+    ERR_LINKING = 17,
 };
 
 #endif
