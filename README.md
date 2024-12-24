@@ -4,10 +4,14 @@ This project contains the custom **Flint Compiler** built in C++. The Compiler i
 
 ## Todos
 
+- [x] Tokenizer (Lexer)
+- [x] AST Generation (Parser)
 - [ ] IR Generation (Generator)
-- [ ] Semantics Checking Stage (SemanticsChecker)
+- [ ] Semantics Checking Stage (Checker)
 - [ ] Linking of IR Files (Linker)
-- [ ] Dependency Management via FlintHub (Fetcher)
+- [ ] Fetching libraries from FlintHub (Fetcher)
+- [ ] Creation and Management of dependencies (Resolver)
+- [ ] Compilation of IR code to a binary (Compiler)
 
 ## Building
 

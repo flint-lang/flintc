@@ -2,7 +2,6 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/signature.hpp"
 
-#include "debug.hpp"
 #include "error/error.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
@@ -47,7 +46,7 @@
 ///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to
 ///     the passed main ProgramNode
 FileNode Parser::parse_file(std::string &file) {
-    FileNode file_node;
+    FileNode file_node(file);
     token_list tokens = Lexer(file).scan();
     // Consume all tokens and convert them to nodes
     while (!tokens.empty()) {
