@@ -1,9 +1,13 @@
 #include "generator/generator.hpp"
+#include "linker/linker.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/parser.hpp"
 
+#include <llvm/IR/Module.h>
+
 #include <filesystem> // to get cwd
 #include <iostream>
+#include <memory>
 #include <string>
 #include <sys/types.h>
 
@@ -33,8 +37,9 @@ class CommandLineParser {
                 std::string file_path = args.at(i + 1);
 
                 FileNode file = Parser::parse_file(file_path);
-                Generator::init("TEST");
-                Generator::generate_ir(file);
+                Linker::resolve_links(file);
+                std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main");
+
                 ++i;
             } else if (arg == "-o") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
