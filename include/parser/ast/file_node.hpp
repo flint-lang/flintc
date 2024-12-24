@@ -22,10 +22,14 @@ class FileNode : public ASTNode {
     /// definitions
     ///     All top-level definitions (functions, data, entities, etc.)
     std::vector<std::unique_ptr<ASTNode>> definitions;
+    std::string file_name;
 
     FileNode() = default;
-    explicit FileNode(std::vector<std::unique_ptr<ASTNode>> &definitions) :
-        definitions(std::move(definitions)) {}
+    explicit FileNode(std::string &file_name) :
+        file_name(file_name) {}
+    FileNode(std::vector<std::unique_ptr<ASTNode>> &definitions, std::string &file_name) :
+        definitions(std::move(definitions)),
+        file_name(file_name) {}
 
     void add_import(ImportNode &import) {
         definitions.emplace_back(std::make_unique<ImportNode>(std::move(import)));
