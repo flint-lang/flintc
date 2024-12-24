@@ -1,13 +1,15 @@
 #include "resolver/resolver.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
+
 #include <string>
 #include <variant>
 
 /// add_dependencies_and_file
 ///     Adds the dependencies of a given file node to the dependency_map
 ///     Adds the FileNode to the file_map
-void Resolver::add_dependencies_and_file(const FileNode &file_node) {
+///     Moves ownership of the file_node, so it is considered unsafe to access it after this function call!
+void Resolver::add_dependencies_and_file(FileNode &file_node) {
     std::string file_name = file_node.file_name;
     if (get_dependency_map().find(file_name) != get_dependency_map().end() || get_file_map().find(file_name) != get_file_map().end()) {
         return;
@@ -21,13 +23,13 @@ void Resolver::add_dependencies_and_file(const FileNode &file_node) {
     }
 
     get_dependency_map().emplace(file_name, dependencies);
-    get_file_map().emplace(file_name, file_node);
+    get_file_map().emplace(file_name, std::move(file_node));
 }
 
 /// add_ir
 ///     Adds the llvm module to the module_map of the Resolver
-void Resolver::add_ir(const std::string &file_name, llvm::Module &module) {
-    get_module_map().emplace(file_name, std::move(module));
+void Resolver::add_ir(const std::string &file_name, std::unique_ptr<const llvm::Module> &module) {
+    get_module_map().emplace(std::string(file_name), std::move(module));
 }
 
 /// split_string

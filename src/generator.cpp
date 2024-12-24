@@ -23,6 +23,8 @@
 #include <llvm/Linker/Linker.h>
 #include <llvm/Support/Error.h>
 
+#include <llvm/Transforms/Utils/Cloning.h>
+
 #include <memory>
 #include <string>
 
@@ -40,14 +42,15 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
         std::unique_ptr<llvm::Module> file_module = generate_file_ir(file.second, file.first, context.get(), builder.get());
 
         // Store the generated module in the resolver
-        Resolver::add_ir(file.first, *file_module);
+        std::unique_ptr<const llvm::Module> file_module_copy = llvm::CloneModule(*file_module);
+        Resolver::add_ir(file.first, file_module_copy);
 
         if (linker.linkInModule(std::move(file_module))) {
             throw_err(ERR_LINKING);
         }
     }
 
-    return std::move(module);
+    return module;
 }
 
 /// generate_file_ir
@@ -101,5 +104,5 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
     // Verify and emit the module
     llvm::verifyModule(*module, &llvm::errs());
     module->print(llvm::outs(), nullptr);
-    return std::move(module);
+    return module;
 }

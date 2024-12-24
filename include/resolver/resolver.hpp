@@ -27,13 +27,16 @@ class Resolver {
         static std::map<std::string, FileNode> files;
         return files;
     }
-    static std::map<std::string, llvm::Module> &get_module_map() {
-        static std::map<std::string, llvm::Module> modules;
+    /// get_module_map
+    ///     Returns the map of Modules, where the key is the file name
+    ///     Note that these modules should be handled
+    static std::map<std::string, std::unique_ptr<const llvm::Module>> &get_module_map() {
+        static std::map<std::string, std::unique_ptr<const llvm::Module>> modules;
         return modules;
     }
 
-    static void add_dependencies_and_file(const FileNode &file_node);
-    static void add_ir(const std::string &file, llvm::Module &module);
+    static void add_dependencies_and_file(FileNode &file_node);
+    static void add_ir(const std::string &file, std::unique_ptr<const llvm::Module> &module);
 
   private:
     static std::pair<std::string, std::string> split_string(const std::string &path);
