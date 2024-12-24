@@ -34,14 +34,17 @@ void Resolver::add_ir(const std::string &file_name, std::unique_ptr<const llvm::
 
 /// split_string
 ///     Returns a pair of strings, the first containing the "path" component, the second containing the "basename" (filename) component of
-///     the string
+///     the string. Also removes *any* '"' characters from the string!
 std::pair<std::string, std::string> Resolver::split_string(const std::string &path) {
-    auto iterator = path.rbegin();
-    while (iterator != path.rend() && *iterator != '/') {
+    std::string file_path = path;
+    file_path.erase(std::remove(file_path.begin(), file_path.end(), '"'), file_path.end());
+
+    auto iterator = file_path.rbegin();
+    while (iterator != file_path.rend() && *iterator != '/') {
         ++iterator;
     }
-    std::string split_path(path.begin(), iterator.base());
-    std::string base(iterator.base(), path.end());
+    std::string split_path(file_path.begin(), iterator.base());
+    std::string base(iterator.base(), file_path.end());
     return {split_path, base};
 }
 
