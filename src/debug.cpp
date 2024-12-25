@@ -482,7 +482,7 @@ namespace Debug {
             print_header(indent_lvl, {0, 0}, "Import ");
 
             if (std::holds_alternative<std::string>(import.path)) {
-                std::cout << std::get<std::string>(import.path);
+                std::cout << "\"" << std::get<std::string>(import.path) << "\"";
             } else if (std::holds_alternative<std::vector<std::string>>(import.path)) {
                 std::vector<std::string> path_vector = std::get<std::vector<std::string>>(import.path);
                 auto iterator = path_vector.begin();

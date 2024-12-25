@@ -1042,7 +1042,7 @@ ImportNode Parser::create_import(const token_list &tokens) {
     if (Signature::tokens_contain(tokens, {TOK_STR_VALUE})) {
         for (const auto &tok : tokens) {
             if (tok.type == TOK_STR_VALUE) {
-                import_path = "\"" + tok.lexme + "\"";
+                import_path = tok.lexme;
                 break;
             }
         }
