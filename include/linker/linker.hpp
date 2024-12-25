@@ -3,11 +3,13 @@
 
 #include "parser/ast/file_node.hpp"
 
+#include <filesystem>
+
 /// Linker
 ///     The linker is responsible for linking all .ll files together and creating the executable from the .ll files
 class Linker {
   public:
-    static void resolve_links(FileNode &file_node);
+    static void resolve_links(FileNode &file_node, const std::filesystem::path &path);
 };
 
 #endif

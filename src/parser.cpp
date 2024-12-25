@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <filesystem>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -45,8 +46,9 @@
 /// parse_file
 ///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to
 ///     the passed main ProgramNode
-FileNode Parser::parse_file(std::string &file) {
-    FileNode file_node(file);
+FileNode Parser::parse_file(const std::filesystem::path &file) {
+    std::string file_name = file.filename();
+    FileNode file_node(file_name);
     token_list tokens = Lexer(file).scan();
     // Consume all tokens and convert them to nodes
     while (!tokens.empty()) {

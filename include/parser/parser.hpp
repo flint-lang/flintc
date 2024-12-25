@@ -30,6 +30,7 @@
 #include "ast/expressions/unary_op_node.hpp"
 #include "ast/expressions/variable_node.hpp"
 
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <optional>
@@ -57,7 +58,7 @@ class Parser {
   public:
     Parser() = delete;
 
-    static FileNode parse_file(std::string &file);
+    static FileNode parse_file(const std::filesystem::path &file);
 
   private:
     // --- UTILITY ---

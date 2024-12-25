@@ -6,6 +6,7 @@
 
 #include <llvm/IR/Module.h>
 
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
@@ -15,14 +16,18 @@
 /// - pair<string, string>:
 /// - - Left: The directory of the file relative to the file it imports
 /// - - Right: The name of the imported file
-using dependency = std::variant<std::vector<std::string>, std::pair<std::string, std::string>>;
+using dependency = std::variant<std::vector<std::string>, std::pair<std::filesystem::path, std::string>>;
 
 class Resolver {
   public:
+    /// get_dependency_map
+    ///     Returns the map of all dependencies of each file
     static std::map<std::string, std::vector<dependency>> &get_dependency_map() {
         static std::map<std::string, std::vector<dependency>> dep;
         return dep;
     }
+    /// get_file_map
+    ///     Returns the map of all FileNodes for each file
     static std::map<std::string, FileNode> &get_file_map() {
         static std::map<std::string, FileNode> files;
         return files;
@@ -34,13 +39,19 @@ class Resolver {
         static std::map<std::string, std::unique_ptr<const llvm::Module>> modules;
         return modules;
     }
+    /// get_path_map
+    ///     Returns the map of paths, where the second value is the path the file (first) is contained in
+    static std::map<std::string, std::filesystem::path> &get_path_map() {
+        static std::map<std::string, std::filesystem::path> paths;
+        return paths;
+    }
 
-    static void add_dependencies_and_file(FileNode &file_node);
-    static void add_ir(const std::string &file, std::unique_ptr<const llvm::Module> &module);
+    static void add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path);
+    static void add_ir(const std::string &file_name, std::unique_ptr<const llvm::Module> &module);
+    static void add_path(const std::string &file_name, const std::filesystem::path &path);
 
   private:
-    static std::pair<std::string, std::string> split_string(const std::string &path);
-    static dependency create_dependency(const ImportNode &node);
+    static dependency create_dependency(const ImportNode &node, const std::filesystem::path &path);
 };
 
 #endif

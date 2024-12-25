@@ -194,7 +194,7 @@ namespace Debug {
         /// print_ast_tree
         ///     Prints the whole AST Tree recursively
         void print_file(const FileNode &file) {
-            std::cout << std::endl << "Program" << std::endl;
+            std::cout << std::endl << "File \"" << file.file_name << "\"" << std::endl;
             unsigned int counter = 0;
             uint2 empty = {0, 0};
             for (const std::unique_ptr<ASTNode> &node : file.definitions) {

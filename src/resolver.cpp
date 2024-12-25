@@ -2,6 +2,7 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 
+#include <filesystem>
 #include <string>
 #include <variant>
 
@@ -9,7 +10,7 @@
 ///     Adds the dependencies of a given file node to the dependency_map
 ///     Adds the FileNode to the file_map
 ///     Moves ownership of the file_node, so it is considered unsafe to access it after this function call!
-void Resolver::add_dependencies_and_file(FileNode &file_node) {
+void Resolver::add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path) {
     std::string file_name = file_node.file_name;
     if (get_dependency_map().find(file_name) != get_dependency_map().end() || get_file_map().find(file_name) != get_file_map().end()) {
         return;
@@ -18,7 +19,7 @@ void Resolver::add_dependencies_and_file(FileNode &file_node) {
 
     for (const std::unique_ptr<ASTNode> &node : file_node.definitions) {
         if (const auto *import_node = dynamic_cast<const ImportNode *>(node.get())) {
-            dependencies.emplace_back(create_dependency(*import_node));
+            dependencies.emplace_back(create_dependency(*import_node, path));
         }
     }
 
@@ -50,10 +51,11 @@ std::pair<std::string, std::string> Resolver::split_string(const std::string &pa
 
 /// create_dependency
 ///     Creates a dependency struct from a given ImportNode
-dependency Resolver::create_dependency(const ImportNode &node) {
+dependency Resolver::create_dependency(const ImportNode &node, const std::filesystem::path &path) {
     dependency dep;
     if (std::holds_alternative<std::string>(node.path)) {
-        dep = split_string(std::get<std::string>(node.path));
+        std::string fileName = std::get<std::string>(node.path);
+        dep = std::make_pair(path, fileName);
     } else {
         dep = std::get<std::vector<std::string>>(node.path);
     }

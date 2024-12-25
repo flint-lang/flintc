@@ -170,7 +170,7 @@ static std::string get_token_name(Token token) {
 
 class Lexer {
   public:
-    Lexer(std::string &path) {
+    explicit Lexer(const std::string &path) {
         if (!file_exists_and_is_readable(path)) {
             throw std::runtime_error("The passed file '" + path + "' could not be opened!");
         }

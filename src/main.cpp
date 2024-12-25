@@ -33,11 +33,11 @@ class CommandLineParser {
                     return 1;
                 }
                 std::filesystem::path cwd_path = std::filesystem::current_path();
-                std::string cwd = cwd_path.string() + "/";
-                std::string file_path = args.at(i + 1);
+                std::filesystem::path file_path = cwd_path / args.at(i + 1);
+                std::string test_path = file_path.parent_path();
 
                 FileNode file = Parser::parse_file(file_path);
-                Linker::resolve_links(file);
+                Linker::resolve_links(file, file_path.parent_path());
                 std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main");
 
                 ++i;
