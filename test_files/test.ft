@@ -1,5 +1,5 @@
-use "library.ft";
-use flint.math.vectors;
+//use "library.ft";
+//use flint.math.vectors;
 
 def main():
 	int num = 5;
