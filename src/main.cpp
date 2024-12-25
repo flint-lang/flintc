@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <sys/types.h>
+#include <system_error>
 
 class CommandLineParser {
   public:
@@ -43,8 +44,15 @@ class CommandLineParser {
 
                 llvm::LLVMContext context;
                 std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main", &context);
-                std::string ir_string = Generator::get_module_ir_string(program.get());
-                std::cout << "IR_CODE:\n" << ir_string << std::endl;
+                // std::cout << "IR_CODE:\n" << Generator::get_module_ir_string(program.get()) << std::endl;
+
+                // Write the code to a .ll file
+                std::error_code EC;
+                llvm::raw_fd_ostream ll_file("output.ll", EC);
+                if (!EC) {
+                    program->print(ll_file, nullptr);
+                    ll_file.close();
+                }
 
                 // Clean up the module
                 Resolver::clear();
@@ -55,10 +63,23 @@ class CommandLineParser {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
                 }
+                std::filesystem::path ll_file = std::filesystem::current_path() / "output.ll";
+                if (std::filesystem::exists(ll_file)) {
+                    std::cout << "Using clang to build the executable '" << args[i + 1] << "' ..." << std::endl;
+                    system(std::string("clang output.ll -o" + args[i + 1]).c_str());
+                    std::filesystem::remove(ll_file);
+                }
             } else {
                 print_err("Unknown argument: " + arg);
                 return 1;
             }
+        }
+        // Compile the output.ll file if it exists. This means that the -o option wasnt used
+        std::filesystem::path ll_file = std::filesystem::current_path() / "output.ll";
+        if (std::filesystem::exists(ll_file)) {
+            std::cout << "Using clang to build the executable 'main' ..." << std::endl;
+            system("clang output.ll -o main");
+            std::filesystem::remove(ll_file);
         }
         return 0;
     }
