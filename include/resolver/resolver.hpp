@@ -46,6 +46,7 @@ class Resolver {
         return paths;
     }
 
+    static void clear();
     static void add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path);
     static void add_ir(const std::string &file_name, std::unique_ptr<const llvm::Module> &module);
     static void add_path(const std::string &file_name, const std::filesystem::path &path);

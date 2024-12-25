@@ -6,6 +6,16 @@
 #include <string>
 #include <variant>
 
+/// clear
+///     Clears all maps of the resolver. IMPORTANT: This method NEEDS to be called before the LLVMContext responsible for all Modules get
+///     freed!
+void Resolver::clear() {
+    get_dependency_map().clear();
+    get_file_map().clear();
+    get_module_map().clear();
+    get_path_map().clear();
+}
+
 /// add_dependencies_and_file
 ///     Adds the dependencies of a given file node to the dependency_map
 ///     Adds the FileNode to the file_map

@@ -2,7 +2,9 @@
 #include "linker/linker.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/parser.hpp"
+#include "resolver/resolver.hpp"
 
+#include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 
 #include <filesystem> // to get cwd
@@ -43,6 +45,11 @@ class CommandLineParser {
                 std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main", &context);
                 std::string ir_string = Generator::get_module_ir_string(program.get());
                 std::cout << "IR_CODE:\n" << ir_string << std::endl;
+
+                // Clean up the module
+                Resolver::clear();
+                program->dropAllReferences();
+                program.reset();
                 ++i;
             } else if (arg == "-o") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
