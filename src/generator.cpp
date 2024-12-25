@@ -25,6 +25,8 @@
 
 #include <llvm/Transforms/Utils/Cloning.h>
 
+#include <llvm/Support/raw_ostream.h>
+
 #include <memory>
 #include <string>
 
@@ -103,6 +105,16 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
 
     // Verify and emit the module
     llvm::verifyModule(*module, &llvm::errs());
-    module->print(llvm::outs(), nullptr);
+    // module->print(llvm::outs(), nullptr);
     return module;
+}
+
+/// get_module_ir_string
+///     Returns the module string
+std::string Generator::get_module_ir_string(const llvm::Module *module) {
+    std::string ir_string;
+    llvm::raw_string_ostream stream(ir_string);
+    module->print(stream, nullptr);
+    stream.flush();
+    return ir_string;
 }
