@@ -32,8 +32,7 @@
 
 /// generate_program_ir
 ///     Generates the llvm IR code for a complete program
-std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &program_name) {
-    auto context = std::make_unique<llvm::LLVMContext>();
+std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &program_name, llvm::LLVMContext *context) {
     auto builder = std::make_unique<llvm::IRBuilder<>>(*context);
     auto module = std::make_unique<llvm::Module>(program_name, *context);
 
@@ -41,8 +40,11 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
 
     for (const auto &file : Resolver::get_file_map()) {
         // Generate the IR for a single file
-        std::unique_ptr<llvm::Module> file_module = generate_file_ir(file.second, file.first, context.get(), builder.get());
+        std::unique_ptr<llvm::Module> file_module = generate_file_ir(file.second, file.first, context, builder.get());
 
+        // TODO DONE:   This results in a segmentation fault when the context goes out of scope / memory, because then the module will have
+        //              dangling references to the context. All modules in the Resolver must be cleared and deleted before the context goes
+        //              oom! Its the reason to why Resolver::clear() was implemented!
         // Store the generated module in the resolver
         std::unique_ptr<const llvm::Module> file_module_copy = llvm::CloneModule(*file_module);
         Resolver::add_ir(file.first, file_module_copy);

@@ -33,20 +33,12 @@ void Resolver::add_ir(const std::string &file_name, std::unique_ptr<const llvm::
     get_module_map().emplace(std::string(file_name), std::move(module));
 }
 
-/// split_string
-///     Returns a pair of strings, the first containing the "path" component, the second containing the "basename" (filename) component of
-///     the string. Also removes *any* '"' characters from the string!
-std::pair<std::string, std::string> Resolver::split_string(const std::string &path) {
-    std::string file_path = path;
-    file_path.erase(std::remove(file_path.begin(), file_path.end(), '"'), file_path.end());
-
-    auto iterator = file_path.rbegin();
-    while (iterator != file_path.rend() && *iterator != '/') {
-        ++iterator;
-    }
-    std::string split_path(file_path.begin(), iterator.base());
-    std::string base(iterator.base(), file_path.end());
-    return {split_path, base};
+/// add_path
+///     Adds the path to the path_map of the Resolver
+void Resolver::add_path(const std::string &file_name, const std::filesystem::path &path) {
+    std::string file_name_copy = file_name;
+    std::string path_copy = path;
+    get_path_map().emplace(file_name_copy, path_copy);
 }
 
 /// create_dependency

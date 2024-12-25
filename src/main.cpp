@@ -38,6 +38,9 @@ class CommandLineParser {
 
                 FileNode file = Parser::parse_file(file_path);
                 Linker::resolve_links(file, file_path.parent_path());
+
+                llvm::LLVMContext context;
+                std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main", &context);
                 std::string ir_string = Generator::get_module_ir_string(program.get());
                 std::cout << "IR_CODE:\n" << ir_string << std::endl;
                 ++i;

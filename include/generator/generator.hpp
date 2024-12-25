@@ -12,7 +12,7 @@
 
 /// Class which is responsible for the IR code generation
 namespace Generator {
-    std::unique_ptr<llvm::Module> generate_program_ir(const std::string &program_name);
+    std::unique_ptr<llvm::Module> generate_program_ir(const std::string &program_name, llvm::LLVMContext *context);
     std::unique_ptr<llvm::Module> generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext *context,
         llvm::IRBuilder<> *builder);
 
