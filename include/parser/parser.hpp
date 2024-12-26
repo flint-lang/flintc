@@ -83,7 +83,7 @@ class Parser {
     static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(token_list &tokens);
     static std::optional<DeclarationNode> create_declaration(token_list &tokens, const bool &is_infered);
     static std::optional<std::unique_ptr<StatementNode>> create_statement(token_list &tokens);
-    static body_statements create_body(token_list &body);
+    static std::vector<body_statement> create_body(token_list &body);
 
     // --- DEFINITIONS ---
     static FunctionNode create_function(const token_list &definition, token_list &body);

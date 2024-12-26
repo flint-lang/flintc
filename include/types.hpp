@@ -10,7 +10,7 @@
 #include <vector>
 
 using token_list = std::vector<TokenContext>;
-using body_statements = std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>>;
+using body_statement = std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>;
 using uint2 = std::pair<unsigned int, unsigned int>;
 
 #endif

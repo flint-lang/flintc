@@ -13,10 +13,10 @@
 ///     Represents both traditional and enhanced for loops.
 class ForLoopNode : public StatementNode {
   public:
-    ForLoopNode(std::string &iterator_name, std::unique_ptr<ExpressionNode> &iterable, body_statements &body)
-        : iterator_name(iterator_name),
-          iterable(std::move(iterable)),
-          body(std::move(body)) {}
+    ForLoopNode(std::string &iterator_name, std::unique_ptr<ExpressionNode> &iterable, std::vector<body_statement> &body) :
+        iterator_name(iterator_name),
+        iterable(std::move(iterable)),
+        body(std::move(body)) {}
 
     // constructor
     ForLoopNode() = default;
@@ -37,7 +37,7 @@ class ForLoopNode : public StatementNode {
     std::unique_ptr<ExpressionNode> iterable;
     /// body
     ///     The body of the loop
-    body_statements body;
+    std::vector<body_statement> body;
 };
 
 #endif

@@ -591,8 +591,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(token_lis
 
 /// create_body
 ///     Creates a body containing of multiple statement nodes from a list of tokens
-body_statements Parser::create_body(token_list &body) {
-    body_statements body_statements;
+std::vector<body_statement> Parser::create_body(token_list &body) {
+    std::vector<body_statement> body_statements;
     const Signature::signature statement_signature = Signature::match_until_signature({TOK_SEMICOLON});
 
     while (auto next_match = Signature::get_next_match_range(body, statement_signature)) {
@@ -672,7 +672,7 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
         }
         ++tok_iterator;
     }
-    body_statements body_statements = create_body(body);
+    std::vector<body_statement> body_statements = create_body(body);
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_statements);
 }
 

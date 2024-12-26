@@ -12,10 +12,10 @@
 ///     Represents if statements
 class IfNode : public StatementNode {
   public:
-    IfNode(std::unique_ptr<ExpressionNode> &condition, body_statements &then_branch, body_statements &else_branch)
-        : condition(std::move(condition)),
-          then_branch(std::move(then_branch)),
-          else_branch(std::move(else_branch)) {}
+    IfNode(std::unique_ptr<ExpressionNode> &condition, std::vector<body_statement> &then_branch, std::vector<body_statement> &else_branch) :
+        condition(std::move(condition)),
+        then_branch(std::move(then_branch)),
+        else_branch(std::move(else_branch)) {}
 
     // constructor
     IfNode() = default;
@@ -33,10 +33,10 @@ class IfNode : public StatementNode {
     std::unique_ptr<ExpressionNode> condition;
     /// then_branch
     ///     The statements to execute when the condition evaluates to 'true'
-    body_statements then_branch;
+    std::vector<body_statement> then_branch;
     /// else_branch
     ///     The statements to execute when the condition evaluates to 'false'
-    body_statements else_branch;
+    std::vector<body_statement> else_branch;
 };
 
 #endif

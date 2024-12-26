@@ -12,9 +12,9 @@
 ///     Represents while loops
 class WhileNode : public StatementNode {
   public:
-    WhileNode(std::unique_ptr<ExpressionNode> &condition, body_statements &body)
-        : condition(std::move(condition)),
-          body(std::move(body)) {}
+    WhileNode(std::unique_ptr<ExpressionNode> &condition, std::vector<body_statement> &body) :
+        condition(std::move(condition)),
+        body(std::move(body)) {}
 
     // constructor
     WhileNode() = default;
@@ -32,7 +32,7 @@ class WhileNode : public StatementNode {
     std::unique_ptr<ExpressionNode> condition;
     /// body
     ///     The body of the while loop
-    body_statements body;
+    std::vector<body_statement> body;
 };
 
 #endif

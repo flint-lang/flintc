@@ -13,13 +13,13 @@
 class FunctionNode : public ASTNode {
   public:
     explicit FunctionNode(bool is_aligned, bool is_const, std::string &name, std::vector<std::pair<std::string, std::string>> &parameters,
-        std::vector<std::string> &return_types, body_statements &body)
-        : is_aligned(is_aligned),
-          is_const(is_const),
-          name(name),
-          parameters(std::move(parameters)),
-          return_types(std::move(return_types)),
-          body(std::move(body)) {}
+        std::vector<std::string> &return_types, std::vector<body_statement> &body) :
+        is_aligned(is_aligned),
+        is_const(is_const),
+        name(name),
+        parameters(std::move(parameters)),
+        return_types(std::move(return_types)),
+        body(std::move(body)) {}
 
     // empty constructor
     FunctionNode() = default;
@@ -49,7 +49,7 @@ class FunctionNode : public ASTNode {
     std::vector<std::string> return_types;
     /// body
     ///     The body of the function containing all statements
-    body_statements body;
+    std::vector<body_statement> body;
 };
 
 #endif

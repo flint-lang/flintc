@@ -124,7 +124,9 @@ static const std::map<std::string, Token> keywords = {
     {"const", TOK_CONST}, // -91
 };
 
-static const std::array<std::string, 10> builtin_functions = {
+static const std::array<std::string, 11> builtin_functions = {
+    // main
+    "main",
     // printing
     "print", "printerr",
     // assertions
