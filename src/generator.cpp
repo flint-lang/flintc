@@ -65,22 +65,10 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
 
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(file_name, *context);
 
-    // // Create the main function signature
-    llvm::FunctionType *mainFuncType = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(*context),                       // Return type: int
-        false                                                   // No arguments
-    );
-
-    // Create the main function itself
-    llvm::Function *mainFunc = llvm::Function::Create( //
-        mainFuncType,                                  //
-        llvm::Function::ExternalLinkage,               //
-        "main",                                        //
-        module.get()                                   //
-    );
+    llvm::Function *main_func = generate_builtin_main(module.get());
 
     // Create the entry block for main function
-    llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context, "entry", mainFunc);
+    llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context, "entry", main_func);
     builder->SetInsertPoint(entry);
 
     // Create the "Hello, World!\n" string
@@ -94,7 +82,6 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
 
     // Verify and emit the module
     llvm::verifyModule(*module, &llvm::errs());
-    // module->print(llvm::outs(), nullptr);
     return module;
 }
 
@@ -106,6 +93,21 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
     module->print(stream, nullptr);
     stream.flush();
     return ir_string;
+}
+
+llvm::Function *Generator::generate_builtin_main(llvm::Module *module) {
+    llvm::FunctionType *main_func_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(module->getContext()),             // Return type: int
+        false                                                     // No arguments
+    );
+
+    llvm::Function *main_func = llvm::Function::Create( //
+        main_func_type,                                 //
+        llvm::Function::ExternalLinkage,                //
+        "main",                                         //
+        module                                          //
+    );
+    return main_func;
 }
 
 /// generate_builtin_print
