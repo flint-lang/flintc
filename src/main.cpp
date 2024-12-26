@@ -99,7 +99,7 @@ class CommandLineParser {
         print_help();
     }
 
-    bool n_args_follow(unsigned int count, const std::string &arg, const std::string &option) {
+    bool n_args_follow(const unsigned int count, const std::string &arg, const std::string &option) {
         if (args.size() <= count) {
             std::cerr << "Expected " << arg << " after '" << option << "' option!\n";
             print_help();

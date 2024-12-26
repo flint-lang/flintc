@@ -11,12 +11,16 @@
 #include <string>
 
 /// Class which is responsible for the IR code generation
-namespace Generator {
-    std::unique_ptr<llvm::Module> generate_program_ir(const std::string &program_name, llvm::LLVMContext *context);
-    std::unique_ptr<llvm::Module> generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext *context,
+class Generator {
+  public:
+    Generator() = delete;
+    static std::unique_ptr<llvm::Module> generate_program_ir(const std::string &program_name, llvm::LLVMContext *context);
+
+  private:
+    static std::unique_ptr<llvm::Module> generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext *context,
         llvm::IRBuilder<> *builder);
 
-    std::string get_module_ir_string(const llvm::Module *module);
-}; // namespace Generator
+    static std::string get_module_ir_string(const llvm::Module *module);
+};
 
 #endif
