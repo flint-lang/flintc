@@ -24,6 +24,7 @@ class Generator {
 
   private:
     static llvm::Function *generate_builtin_print(llvm::LLVMContext *context, llvm::Module *module);
+    static llvm::Function *generate_builtin_print(llvm::Module *module);
 };
 
 #endif

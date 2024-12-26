@@ -86,7 +86,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
     // Create the "Hello, World!\n" string
     llvm::Value *helloWorld = builder->CreateGlobalStringPtr("Hello, World!\n");
 
-    llvm::Function *print_function = generate_builtin_print(context, module.get());
+    llvm::Function *print_function = generate_builtin_print(module.get());
     builder->CreateCall(print_function, helloWorld);
 
     // Add return statement
@@ -110,11 +110,11 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
 
 /// generate_builtin_print
 ///     Generates the builtin 'print()' function to utilize C io calls of the IO C stdlib
-llvm::Function *Generator::generate_builtin_print(llvm::LLVMContext *context, llvm::Module *module) {
-    llvm::FunctionType *printfType = llvm::FunctionType::get(          //
-        llvm::Type::getInt32Ty(*context),                              // Return type: int
-        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(*context)), // Takes char*
-        true                                                           // Variadic arguments
+llvm::Function *Generator::generate_builtin_print(llvm::Module *module) {
+    llvm::FunctionType *printfType = llvm::FunctionType::get(                      //
+        llvm::Type::getInt32Ty(module->getContext()),                              // Return type: int
+        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(module->getContext())), // Takes char*
+        true                                                                       // Variadic arguments
     );
     llvm::Function *printfFunc = llvm::Function::Create( //
         printfType,                                      //
