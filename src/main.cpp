@@ -14,6 +14,15 @@
 #include <sys/types.h>
 #include <system_error>
 
+void build_executable(const std::string &file_name) {
+    std::filesystem::path ll_file = std::filesystem::current_path() / "output.ll";
+    if (std::filesystem::exists(ll_file)) {
+        std::cout << "Using clang to build the executable '" << file_name << "' ..." << std::endl;
+        system(std::string("clang output.ll -o " + file_name).c_str());
+        std::filesystem::remove(ll_file);
+    }
+}
+
 class CommandLineParser {
   public:
     CommandLineParser(int argc, char *argv[]) {
@@ -63,24 +72,14 @@ class CommandLineParser {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
                 }
-                std::filesystem::path ll_file = std::filesystem::current_path() / "output.ll";
-                if (std::filesystem::exists(ll_file)) {
-                    std::cout << "Using clang to build the executable '" << args[i + 1] << "' ..." << std::endl;
-                    system(std::string("clang output.ll -o" + args[i + 1]).c_str());
-                    std::filesystem::remove(ll_file);
-                }
+                build_executable(args[i + 1]);
+                ++i;
             } else {
                 print_err("Unknown argument: " + arg);
                 return 1;
             }
         }
-        // Compile the output.ll file if it exists. This means that the -o option wasnt used
-        std::filesystem::path ll_file = std::filesystem::current_path() / "output.ll";
-        if (std::filesystem::exists(ll_file)) {
-            std::cout << "Using clang to build the executable 'main' ..." << std::endl;
-            system("clang output.ll -o main");
-            std::filesystem::remove(ll_file);
-        }
+        build_executable("main");
         return 0;
     }
 
