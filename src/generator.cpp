@@ -83,24 +83,11 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
     llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context, "entry", mainFunc);
     builder->SetInsertPoint(entry);
 
-    // Create your own printf. As llvm does not have internal IO, the printf function from the c std lib will be used instead
-    llvm::FunctionType *printfType = llvm::FunctionType::get(          //
-        llvm::Type::getInt32Ty(*context),                              // Return type: int
-        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(*context)), // Takes char*
-        true                                                           // Variadic arguments
-    );
-    llvm::Function *printfFunc = llvm::Function::Create( //
-        printfType,                                      //
-        llvm::Function::ExternalLinkage,                 //
-        "printf",                                        //
-        module.get()                                     //
-    );
-
     // Create the "Hello, World!\n" string
     llvm::Value *helloWorld = builder->CreateGlobalStringPtr("Hello, World!\n");
 
-    // Generate the prinf call
-    builder->CreateCall(printfFunc, helloWorld);
+    llvm::Function *print_function = generate_builtin_print(context, module.get());
+    builder->CreateCall(print_function, helloWorld);
 
     // Add return statement
     builder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), 0));
@@ -119,4 +106,21 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
     module->print(stream, nullptr);
     stream.flush();
     return ir_string;
+}
+
+/// generate_builtin_print
+///     Generates the builtin 'print()' function to utilize C io calls of the IO C stdlib
+llvm::Function *Generator::generate_builtin_print(llvm::LLVMContext *context, llvm::Module *module) {
+    llvm::FunctionType *printfType = llvm::FunctionType::get(          //
+        llvm::Type::getInt32Ty(*context),                              // Return type: int
+        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(*context)), // Takes char*
+        true                                                           // Variadic arguments
+    );
+    llvm::Function *printfFunc = llvm::Function::Create( //
+        printfType,                                      //
+        llvm::Function::ExternalLinkage,                 //
+        "printf",                                        //
+        module                                           //
+    );
+    return printfFunc;
 }

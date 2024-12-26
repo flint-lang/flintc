@@ -2,6 +2,7 @@
 #define __GENERATOR_HPP__
 
 #include "../parser/ast/file_node.hpp"
+#include "parser/ast/definitions/function_node.hpp"
 
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
@@ -16,11 +17,13 @@ class Generator {
     Generator() = delete;
     static std::unique_ptr<llvm::Module> generate_program_ir(const std::string &program_name, llvm::LLVMContext *context);
 
-  private:
     static std::unique_ptr<llvm::Module> generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext *context,
         llvm::IRBuilder<> *builder);
 
     static std::string get_module_ir_string(const llvm::Module *module);
+
+  private:
+    static llvm::Function *generate_builtin_print(llvm::LLVMContext *context, llvm::Module *module);
 };
 
 #endif
