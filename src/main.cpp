@@ -19,7 +19,7 @@ void build_executable(const std::string &file_name) {
     if (std::filesystem::exists(ll_file)) {
         std::cout << "Using clang to build the executable '" << file_name << "' ..." << std::endl;
         system(std::string("clang output.ll -o " + file_name).c_str());
-        std::filesystem::remove(ll_file);
+        // std::filesystem::remove(ll_file);
     }
 }
 

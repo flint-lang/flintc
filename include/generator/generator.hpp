@@ -3,6 +3,7 @@
 
 #include "../parser/ast/file_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
+#include "types.hpp"
 
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
@@ -25,6 +26,11 @@ class Generator {
   private:
     static llvm::Function *generate_builtin_main(llvm::Module *module);
     static llvm::Function *generate_builtin_print(llvm::Module *module);
+    static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
+    static void generate_body(llvm::Module *module, llvm::Function *function, std::vector<body_statement> &body);
+    static void generate_statement(llvm::IRBuilder<> &builder, const body_statement &statement);
+
+    static llvm::Type *get_type_from_str(llvm::Module *module, const std::string &str);
 };
 
 #endif

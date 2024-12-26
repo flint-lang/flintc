@@ -2,6 +2,10 @@
 
 #include "debug.hpp"
 #include "error/error.hpp"
+#include "error/error_type.hpp"
+#include "lexer/lexer.hpp"
+#include "lexer/token.hpp"
+#include "parser/ast/ast_node.hpp"
 #include "resolver/resolver.hpp"
 
 // #include <llvm/IR/DerivedTypes.h>
@@ -65,6 +69,13 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
 
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(file_name, *context);
 
+    // Iterate through all AST Nodes in the file and parse them accordingly (only functions for now!)
+    for (const std::unique_ptr<ASTNode> &node : file.definitions) {
+        if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
+            llvm::Function *function_definition = generate_function(module.get(), function_node);
+        }
+    }
+
     llvm::Function *main_func = generate_builtin_main(module.get());
 
     // Create the entry block for main function
@@ -113,16 +124,117 @@ llvm::Function *Generator::generate_builtin_main(llvm::Module *module) {
 /// generate_builtin_print
 ///     Generates the builtin 'print()' function to utilize C io calls of the IO C stdlib
 llvm::Function *Generator::generate_builtin_print(llvm::Module *module) {
-    llvm::FunctionType *printfType = llvm::FunctionType::get(                      //
+    llvm::FunctionType *printf_type = llvm::FunctionType::get(                     //
         llvm::Type::getInt32Ty(module->getContext()),                              // Return type: int
         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(module->getContext())), // Takes char*
         true                                                                       // Variadic arguments
     );
-    llvm::Function *printfFunc = llvm::Function::Create( //
-        printfType,                                      //
-        llvm::Function::ExternalLinkage,                 //
-        "printf",                                        //
-        module                                           //
+    llvm::Function *printf_func = llvm::Function::Create( //
+        printf_type,                                      //
+        llvm::Function::ExternalLinkage,                  //
+        "printf",                                         //
+        module                                            //
     );
-    return printfFunc;
+    return printf_func;
+}
+
+/// generate_function
+///     Generates a function from a given FunctionNode
+llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode *function_node) {
+    // Get the return types
+    std::vector<llvm::Type *> return_types_vec;
+    return_types_vec.reserve(function_node->return_types.size());
+    for (const auto &ret_value : function_node->return_types) {
+        return_types_vec.emplace_back(get_type_from_str(module, ret_value));
+    }
+    llvm::ArrayRef<llvm::Type *> return_types(return_types_vec);
+    llvm::StructType *return_types_struct = llvm::StructType::create( //
+        module->getContext(),                                         //
+        return_types,                                                 //
+        function_node->name + "__RET",                                //
+        true                                                          //
+    );
+
+    // Get the parameter types
+    std::vector<llvm::Type *> param_types_vec;
+    param_types_vec.reserve(function_node->parameters.size());
+    for (const auto &param : function_node->parameters) {
+        param_types_vec.emplace_back(get_type_from_str(module, param.first));
+    }
+    llvm::ArrayRef<llvm::Type *> param_types(param_types_vec);
+
+    // Complete the functions definition
+    llvm::FunctionType *function_type = llvm::FunctionType::get( //
+        return_types_struct,                                     //
+        param_types,                                             //
+        false                                                    //
+    );
+
+    // Creating the function itself
+    llvm::Function *function = llvm::Function::Create( //
+        function_type,                                 //
+        llvm::Function::ExternalLinkage,               //
+        function_node->name,                           //
+        module                                         //
+    );
+
+    generate_body(module, function, function_node->body);
+
+    return function;
+}
+
+/// generate_body
+///     Generates a whole body
+void Generator::generate_body(llvm::Module *module, llvm::Function *function, std::vector<body_statement> &body) {
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
+        module->getContext(),                                 //
+        "entry",                                              //
+        function                                              //
+    );
+    llvm::IRBuilder<> builder(entry_block);
+
+    // Example: Add instructions to the body
+    for (const auto &stmt : body) {
+        generate_statement(builder, stmt);
+    }
+}
+
+/// generate_statement
+///     Generates a single statement
+void Generator::generate_statement(llvm::IRBuilder<> &builder, const body_statement &statement) {
+    // **Return a dummy value** (adapt for your actual return type logic)
+    // llvm::Value *return_value = llvm::ConstantAggregateZero::get(return_types_struct);
+    // builder.CreateRet(return_value);
+}
+
+/// get_type_from_str
+///
+llvm::Type *Generator::get_type_from_str(llvm::Module *module, const std::string &str) {
+    // Check if its a primitive or not. If it is not a primitive, its just a pointer type
+    if (keywords.find(str) != keywords.end()) {
+        //
+        switch (keywords.at(str)) {
+            default:
+                throw_err(ERR_GENERATING);
+                return nullptr;
+            case TOK_INT:
+                return llvm::Type::getInt32Ty(module->getContext());
+            case TOK_FLINT:
+                return llvm::Type::getFloatTy(module->getContext());
+            case TOK_CHAR:
+                return llvm::Type::getInt8Ty(module->getContext());
+            case TOK_STR:
+                // Pointer to an array of i8 values representing the characters
+                return llvm::PointerType::get(llvm::Type::getInt8Ty(module->getContext()), 0);
+            case TOK_BOOL:
+                return llvm::Type::getInt1Ty(module->getContext());
+            case TOK_BYTE:
+                return llvm::IntegerType::get(module->getContext(), 8);
+            case TOK_VOID:
+                return llvm::Type::getVoidTy(module->getContext());
+        }
+    }
+    // Pointer to more complex data type
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return nullptr;
 }
