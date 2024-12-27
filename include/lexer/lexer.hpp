@@ -4,7 +4,6 @@
 #include "../types.hpp"
 #include "token.hpp"
 
-#include <array>
 #include <filesystem>
 #include <map>
 #include <stdexcept>
@@ -124,15 +123,30 @@ static const std::map<std::string, Token> keywords = {
     {"const", TOK_CONST}, // -91
 };
 
-static const std::array<std::string, 11> builtin_functions = {
-    // main
-    "main",
+enum BuiltinFunctions { //
+    MAIN,
+    PRINT,
+    PRINT_ERR,
+    ASSERT,
+    ASSERT_ARG,
+    RUN_ON_ALL,
+    MAP_ON_ALL,
+    FILTER_ON_ALL,
+    REDUCE_ON_ALL,
+    REDUCE_ON_PAIRS,
+    PARTITION_ON_ALL,
+    SPLIT_ON_ALL,
+};
+
+static const std::map<std::string, BuiltinFunctions> builtin_functions = { //
+    {"main", MAIN},
     // printing
-    "print", "printerr",
+    {"print", PRINT}, {"printerr", PRINT_ERR},
     // assertions
-    "assert", "assert_arg",
+    {"assert", ASSERT}, {"assert_arg", ASSERT_ARG},
     // concurrency
-    "run_on_all", "map_on_all", "filter_on_all", "reduce_on_all", "reduce_on_pairs", "partition_on_all"};
+    {"run_on_all", RUN_ON_ALL}, {"map_on_all", MAP_ON_ALL}, {"filter_on_all", FILTER_ON_ALL}, {"reduce_on_all", REDUCE_ON_ALL},
+    {"reduce_on_pairs", REDUCE_ON_PAIRS}, {"partition_on_all", PARTITION_ON_ALL}};
 
 static std::string get_token_name(Token token) {
     if (token == TOK_STR_VALUE) {

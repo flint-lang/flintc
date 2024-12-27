@@ -426,6 +426,19 @@ llvm::Value *Generator::generate_literal(llvm::IRBuilder<> &builder, llvm::Funct
 /// generate_call
 ///     Generates the call from the given CallNode
 llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function *parent, const CallNode *call_node) {
+    if (builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
+        switch (builtin_functions.at(call_node->function_name)) {
+            default:
+                throw_err(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
+            case MAIN:
+                return generate_builtin_main(parent->getParent());
+            case PRINT:
+                return generate_builtin_print(parent->getParent());
+        }
+    }
+    // Calling custom functions
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
     return nullptr;
 }
 
