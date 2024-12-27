@@ -232,7 +232,8 @@ void Generator::generate_statement(llvm::IRBuilder<> &builder, llvm::Function *p
 /// generate_return_statement
 ///     Generates the return statement from the given ReturnNode
 void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const ReturnNode *return_node) {
-    llvm::Type *return_type = get_type_from_str(parent->getParent(), return_node->return_value->result_type);
+    // TODO: The result type string is not yet saved in the ExpressionNode, so it cannot be used for now as this results in an error
+    // llvm::Type *return_type = get_type_from_str(parent->getParent(), return_node->return_value->result_type);
 
     // Check if return_node or return_value is null
     if (return_node == nullptr || return_node->return_value == nullptr) {
@@ -250,9 +251,10 @@ void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Func
     }
 
     // Check if the return type specified in the ReturnNode is the same as the return type of the expression
-    if (return_value->getType() != return_type) {
-        throw_err(ERR_GENERATING);
-    }
+    // SEE TODO ABOVE
+    // if (return_value->getType() != return_type) {
+    //     throw_err(ERR_GENERATING);
+    // }
 
     // Generate the return instruction with the evaluated value
     builder.CreateRet(return_value);
