@@ -6,6 +6,7 @@
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "parser/ast/ast_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "resolver/resolver.hpp"
 
 // #include <llvm/IR/DerivedTypes.h>
@@ -223,7 +224,7 @@ void Generator::generate_statement(llvm::IRBuilder<> &builder, llvm::Function *p
         }
     } else {
         const CallNode *call_node = std::get<std::unique_ptr<CallNode>>(statement).get();
-        generate_call(builder, parent, call_node);
+        llvm::Value *call = generate_call(builder, parent, call_node);
     }
 }
 
@@ -251,9 +252,54 @@ void Generator::generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *
 ///     Generates the declaration from the given DeclarationNode
 void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function *parent, const DeclarationNode *declaration_node) {}
 
+/// generate_expression
+///     Generates an expression from the given ExpressionNode
+llvm::Value *Generator::generate_expression(llvm::IRBuilder<> &builder, llvm::Function *parent, const ExpressionNode *expression_node) {
+
+    if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
+        //
+    } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode *>(expression_node)) {
+        //
+    } else if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
+        //
+    } else if (const auto *call_node = dynamic_cast<const CallNode *>(expression_node)) {
+        //
+    } else if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
+        //
+    }
+    throw_err(ERR_GENERATING);
+    return nullptr;
+}
+
+/// generate_variable
+///     Generates the variable from the given VariableNode
+llvm::Value *Generator::generate_variable(llvm::IRBuilder<> &builder, llvm::Function *parent, const VariableNode *variable_node) {
+    return nullptr;
+}
+
+/// generate_unary_op
+///     Generates the unary operation value from the given UnaryOpNode
+llvm::Value *Generator::generate_unary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const UnaryOpNode *unary_op_node) {
+    return nullptr;
+}
+
+/// generate_literal
+///     Generates the literal value from the given LiteralNode
+llvm::Value *Generator::generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node) {
+    return nullptr;
+}
+
 /// generate_call
 ///     Generates the call from the given CallNode
-void Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function *parent, const CallNode *call_node) {}
+llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function *parent, const CallNode *call_node) {
+    return nullptr;
+}
+
+/// generate_binary_op
+///     Generates a binary operation from the given BinaryOpNode
+llvm::Value *Generator::generate_binary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const BinaryOpNode *bin_op_node) {
+    return nullptr;
+}
 
 /// get_type_from_str
 ///

@@ -3,7 +3,12 @@
 
 #include "../parser/ast/file_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
+#include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/call_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/unary_op_node.hpp"
+#include "parser/ast/expressions/variable_node.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -44,7 +49,12 @@ class Generator {
     static void generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *parent, const AssignmentNode *assignment_node);
     static void generate_declaration(llvm::IRBuilder<> &builder, llvm::Function *parent, const DeclarationNode *declaration_node);
 
-    static void generate_call(llvm::IRBuilder<> &builder, llvm::Function *parent, const CallNode *call_node);
+    static llvm::Value *generate_expression(llvm::IRBuilder<> &builder, llvm::Function *parent, const ExpressionNode *expression_node);
+    static llvm::Value *generate_variable(llvm::IRBuilder<> &builder, llvm::Function *parent, const VariableNode *variable_node);
+    static llvm::Value *generate_unary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const UnaryOpNode *unary_op_node);
+    static llvm::Value *generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node);
+    static llvm::Value *generate_call(llvm::IRBuilder<> &builder, llvm::Function *parent, const CallNode *call_node);
+    static llvm::Value *generate_binary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const BinaryOpNode *bin_op_node);
 
     static llvm::Type *get_type_from_str(llvm::Module *module, const std::string &str);
 };

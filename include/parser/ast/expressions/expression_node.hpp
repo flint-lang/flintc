@@ -22,7 +22,6 @@ class ExpressionNode : public ASTNode {
     ExpressionNode(ExpressionNode &&) = default;
     ExpressionNode &operator=(ExpressionNode &&) = default;
 
-  private:
     std::string result_type;
 };
 
