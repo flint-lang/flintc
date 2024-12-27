@@ -391,6 +391,35 @@ llvm::Value *Generator::generate_unary_op(llvm::IRBuilder<> &builder, llvm::Func
 /// generate_literal
 ///     Generates the literal value from the given LiteralNode
 llvm::Value *Generator::generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node) {
+    if (std::holds_alternative<int>(literal_node->value)) {
+        return llvm::ConstantInt::get(                    //
+            llvm::Type::getInt32Ty(parent->getContext()), //
+            std::get<int>(literal_node->value)            //
+        );
+    }
+    if (std::holds_alternative<double>(literal_node->value)) {
+        return llvm::ConstantFP::get(                     //
+            llvm::Type::getFloatTy(parent->getContext()), //
+            std::get<double>(literal_node->value)         //
+        );
+    }
+    if (std::holds_alternative<std::string>(literal_node->value)) {
+        throw_err(ERR_NOT_IMPLEMENTED_YET);
+        return nullptr;
+    }
+    if (std::holds_alternative<bool>(literal_node->value)) {
+        return llvm::ConstantInt::get(                                 //
+            llvm::Type::getInt1Ty(parent->getContext()),               //
+            static_cast<uint64_t>(std::get<bool>(literal_node->value)) //
+        );
+    }
+    if (std::holds_alternative<char>(literal_node->value)) {
+        return llvm::ConstantInt::get(                   //
+            llvm::Type::getInt8Ty(parent->getContext()), //
+            std::get<char>(literal_node->value)          //
+        );
+    }
+    throw_err(ERR_PARSING);
     return nullptr;
 }
 
