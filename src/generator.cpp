@@ -81,10 +81,10 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
         }
     }
 
-    llvm::Function *main_func = generate_builtin_main(module.get());
+    llvm::Function *main_function = generate_main(module.get());
 
     // Create the entry block for main function
-    llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context, "entry", main_func);
+    llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context, "entry", main_function);
     builder->SetInsertPoint(entry);
 
     // Create the "Hello, World!\n" string
@@ -111,7 +111,7 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
     return ir_string;
 }
 
-llvm::Function *Generator::generate_builtin_main(llvm::Module *module) {
+llvm::Function *Generator::generate_main(llvm::Module *module) {
     llvm::FunctionType *main_func_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(module->getContext()),             // Return type: int
         false                                                     // No arguments
@@ -499,7 +499,7 @@ llvm::Value *Generator::generate_binary_op(llvm::IRBuilder<> &builder, llvm::Fun
 }
 
 /// get_type_from_str
-///
+///     Returns the type of the given string
 llvm::Type *Generator::get_type_from_str(llvm::Module *module, const std::string &str) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
     if (keywords.find(str) != keywords.end()) {

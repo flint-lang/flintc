@@ -124,7 +124,6 @@ static const std::map<std::string, Token> keywords = {
 };
 
 enum BuiltinFunctions { //
-    MAIN,
     PRINT,
     PRINT_ERR,
     ASSERT,
@@ -139,7 +138,6 @@ enum BuiltinFunctions { //
 };
 
 static const std::map<std::string, BuiltinFunctions> builtin_functions = { //
-    {"main", MAIN},
     // printing
     {"print", PRINT}, {"printerr", PRINT_ERR},
     // assertions
