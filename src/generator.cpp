@@ -179,16 +179,16 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
         module                                         //
     );
 
-    generate_body(module, function, function_node->body);
+    generate_body(function, function_node->body);
 
     return function;
 }
 
 /// generate_body
 ///     Generates a whole body
-void Generator::generate_body(llvm::Module *module, llvm::Function *parent, std::vector<body_statement> &body) {
+void Generator::generate_body(llvm::Function *parent, const std::vector<body_statement> &body) {
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
-        module->getContext(),                                 //
+        parent->getParent()->getContext(),                    //
         "entry",                                              //
         parent                                                //
     );

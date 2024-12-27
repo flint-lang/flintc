@@ -34,7 +34,7 @@ class Generator {
     static llvm::Function *generate_builtin_main(llvm::Module *module);
     static llvm::Function *generate_builtin_print(llvm::Module *module);
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
-    static void generate_body(llvm::Module *module, llvm::Function *parent, std::vector<body_statement> &body);
+    static void generate_body(llvm::Function *parent, const std::vector<body_statement> &body);
 
     static void generate_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const body_statement &statement);
     static void generate_return_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const ReturnNode *return_node);
