@@ -18,6 +18,7 @@
 // #include <llvm/Target/TargetMachine.h>
 // #include <llvm/Target/TargetOptions.h>
 
+#include <llvm/IR/Argument.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>  // A basic function like in c
@@ -196,6 +197,13 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
         function_node->name,                           //
         module                                         //
     );
+
+    // Assign names to function arguments and add them to the function's body
+    size_t paramIndex = 0;
+    for (auto &arg : function->args()) {
+        arg.setName(function_node->parameters.at(paramIndex).second);
+        ++paramIndex;
+    }
 
     generate_body(function, function_node->body);
 
