@@ -38,6 +38,9 @@ class Generator {
   private:
     static llvm::Function *generate_builtin_main(llvm::Module *module);
     static llvm::Function *generate_builtin_print(llvm::Module *module);
+
+    static llvm::Value *lookup_variable(llvm::Function *parent, const std::string &name);
+
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
     static void generate_body(llvm::Function *parent, const std::vector<body_statement> &body);
 

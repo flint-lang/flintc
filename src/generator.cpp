@@ -25,6 +25,7 @@
 #include <llvm/IR/LLVMContext.h> // Manages types and global states
 #include <llvm/IR/Module.h>      // Container for the IR code
 #include <llvm/IR/Type.h>
+#include <llvm/IR/ValueSymbolTable.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/Support/Error.h>
@@ -139,6 +140,14 @@ llvm::Function *Generator::generate_builtin_print(llvm::Module *module) {
         module                                            //
     );
     return printf_func;
+}
+
+/// lookup_variable
+///     Looks up if the specified variable exists within the given function and returns its Value
+llvm::Value *Generator::lookup_variable(llvm::Function *parent, const std::string &var_name) {
+    llvm::ValueSymbolTable *symbol_table = parent->getValueSymbolTable();
+    llvm::Value *variable = symbol_table->lookup(var_name);
+    return variable;
 }
 
 /// generate_function
