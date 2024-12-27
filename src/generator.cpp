@@ -7,6 +7,7 @@
 #include "lexer/token.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/expressions/literal_node.hpp"
 #include "resolver/resolver.hpp"
 
 // #include <llvm/IR/DerivedTypes.h>
@@ -325,17 +326,20 @@ void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function 
 /// generate_expression
 ///     Generates an expression from the given ExpressionNode
 llvm::Value *Generator::generate_expression(llvm::IRBuilder<> &builder, llvm::Function *parent, const ExpressionNode *expression_node) {
-
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
-        //
-    } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode *>(expression_node)) {
-        //
-    } else if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
-        //
-    } else if (const auto *call_node = dynamic_cast<const CallNode *>(expression_node)) {
-        //
-    } else if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
-        //
+        return generate_variable(builder, parent, variable_node);
+    }
+    if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode *>(expression_node)) {
+        return generate_unary_op(builder, parent, unary_op_node);
+    }
+    if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
+        return generate_literal(builder, parent, literal_node);
+    }
+    if (const auto *call_node = dynamic_cast<const CallNode *>(expression_node)) {
+        return generate_call(builder, parent, call_node);
+    }
+    if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
+        return generate_binary_op(builder, parent, binary_op_node);
     }
     throw_err(ERR_GENERATING);
     return nullptr;
