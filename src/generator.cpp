@@ -445,7 +445,39 @@ llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function
 /// generate_binary_op
 ///     Generates a binary operation from the given BinaryOpNode
 llvm::Value *Generator::generate_binary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const BinaryOpNode *bin_op_node) {
-    return nullptr;
+    llvm::Value *lhs = generate_expression(builder, parent, bin_op_node->left.get());
+    llvm::Value *rhs = generate_expression(builder, parent, bin_op_node->right.get());
+    switch (bin_op_node->operator_token) {
+        default:
+            throw_err(ERR_GENERATING);
+            return nullptr;
+        case TOK_PLUS:
+            return llvm::BinaryOperator::Create( //
+                llvm::BinaryOperator::Add,       //
+                lhs,                             //
+                rhs                              //
+            );
+        case TOK_MINUS:
+            return llvm::BinaryOperator::Create( //
+                llvm::BinaryOperator::Sub,       //
+                lhs,                             //
+                rhs                              //
+            );
+        case TOK_MULT:
+            return llvm::BinaryOperator::Create( //
+                llvm::BinaryOperator::Mul,       //
+                lhs,                             //
+                rhs                              //
+            );
+        case TOK_DIV:
+            return llvm::BinaryOperator::Create( //
+                llvm::BinaryOperator::SDiv,      //
+                lhs,                             //
+                rhs                              //
+            );
+        case TOK_SQUARE:
+            return nullptr;
+    }
 }
 
 /// get_type_from_str
