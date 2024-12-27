@@ -335,11 +335,22 @@ void Generator::generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *pa
 
 /// generate_assignment
 ///     Generates the assignment from the given AssignmentNode
-void Generator::generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *parent, const AssignmentNode *assignment_node) {}
+void Generator::generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *parent, const AssignmentNode *assignment_node) {
+    llvm::Value *expression = generate_expression(builder, parent, assignment_node->value.get());
+    llvm::Value *lhs = lookup_variable(parent, assignment_node->var_name);
+    builder.CreateStore(expression, lhs);
+}
 
 /// generate_declaration
 ///     Generates the declaration from the given DeclarationNode
-void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function *parent, const DeclarationNode *declaration_node) {}
+void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function *parent, const DeclarationNode *declaration_node) {
+    llvm::Value *expression = generate_expression(builder, parent, declaration_node->initializer.get());
+
+    // TODO: Change 'expression->getType()' to 'get_type_from_str(parent->getParent(), declaration_node->type)' when saving of an
+    // expressions type is actually implemented in the parser
+    llvm::AllocaInst *alloca = builder.CreateAlloca(expression->getType(), nullptr, declaration_node->name);
+    builder.CreateStore(expression, alloca);
+}
 
 /// generate_expression
 ///     Generates an expression from the given ExpressionNode
