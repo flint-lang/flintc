@@ -186,74 +186,74 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
 
 /// generate_body
 ///     Generates a whole body
-void Generator::generate_body(llvm::Module *module, llvm::Function *function, std::vector<body_statement> &body) {
+void Generator::generate_body(llvm::Module *module, llvm::Function *parent, std::vector<body_statement> &body) {
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
         module->getContext(),                                 //
         "entry",                                              //
-        function                                              //
+        parent                                                //
     );
     llvm::IRBuilder<> builder(entry_block);
 
     // Example: Add instructions to the body
     for (const auto &stmt : body) {
-        generate_statement(builder, stmt);
+        generate_statement(builder, parent, stmt);
     }
 }
 
 /// generate_statement
 ///     Generates a single statement
-void Generator::generate_statement(llvm::IRBuilder<> &builder, const body_statement &statement) {
+void Generator::generate_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const body_statement &statement) {
     if (std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
         const StatementNode *statement_node = std::get<std::unique_ptr<StatementNode>>(statement).get();
 
         if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node)) {
-            generate_return_statement(builder, return_node);
+            generate_return_statement(builder, parent, return_node);
         } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
-            generate_if_statement(builder, if_node);
+            generate_if_statement(builder, parent, if_node);
         } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
-            generate_while_loop(builder, while_node);
+            generate_while_loop(builder, parent, while_node);
         } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
-            generate_for_loop(builder, for_node);
+            generate_for_loop(builder, parent, for_node);
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
-            generate_assignment(builder, assignment_node);
+            generate_assignment(builder, parent, assignment_node);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
-            generate_declaration(builder, declaration_node);
+            generate_declaration(builder, parent, declaration_node);
         } else {
             throw_err(ERR_GENERATING);
         }
     } else {
         const CallNode *call_node = std::get<std::unique_ptr<CallNode>>(statement).get();
-        generate_call(builder, call_node);
+        generate_call(builder, parent, call_node);
     }
 }
 
 /// generate_return_statement
 ///     Generates the return statement from the given ReturnNode
-void Generator::generate_return_statement(llvm::IRBuilder<> &builder, const ReturnNode *return_node) {}
+void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const ReturnNode *return_node) {
 
 /// generate_if_statement
 ///     Generates the if statement from the given IfNode
-void Generator::generate_if_statement(llvm::IRBuilder<> &builder, const IfNode *if_node) {}
+void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const IfNode *if_node) {
 
 /// generate_while_loop
 ///     Generates the while loop from the given WhileNode
-void Generator::generate_while_loop(llvm::IRBuilder<> &builder, const WhileNode *while_node) {}
+void Generator::generate_while_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const WhileNode *while_node) {}
 
 /// generate_for_loop
 ///     Generates the for loop from the given ForLoopNode
-void Generator::generate_for_loop(llvm::IRBuilder<> &builder, const ForLoopNode *for_node) {}
+void Generator::generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node) {}
 
 /// generate_assignment
 ///     Generates the assignment from the given AssignmentNode
-void Generator::generate_assignment(llvm::IRBuilder<> &builder, const AssignmentNode *assignment_node) {}
+void Generator::generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *parent, const AssignmentNode *assignment_node) {}
 
 /// generate_declaration
 ///     Generates the declaration from the given DeclarationNode
-void Generator::generate_declaration(llvm::IRBuilder<> &builder, const DeclarationNode *declaration_node) {}
+void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function *parent, const DeclarationNode *declaration_node) {}
 
 /// generate_call
 ///     Generates the call from the given CallNode
-void Generator::generate_call(llvm::IRBuilder<> &builder, const CallNode *call_node) {}
+void Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function *parent, const CallNode *call_node) {}
 
 /// get_type_from_str
 ///
