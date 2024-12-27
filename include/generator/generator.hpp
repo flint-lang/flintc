@@ -2,6 +2,7 @@
 #define __GENERATOR_HPP__
 
 #include "../parser/ast/file_node.hpp"
+#include "lexer/lexer.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/call_node.hpp"
@@ -22,6 +23,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Target/TargetMachine.h>
 
+#include <map>
 #include <string>
 
 /// Class which is responsible for the IR code generation
@@ -36,6 +38,20 @@ class Generator {
     static std::string get_module_ir_string(const llvm::Module *module);
 
   private:
+    static inline std::map<BuiltinFunctions, llvm::Function *> builtins = {
+        {BuiltinFunctions::PRINT, nullptr},
+        {BuiltinFunctions::PRINT_ERR, nullptr},
+        {BuiltinFunctions::ASSERT, nullptr},
+        {BuiltinFunctions::ASSERT_ARG, nullptr},
+        {BuiltinFunctions::RUN_ON_ALL, nullptr},
+        {BuiltinFunctions::MAP_ON_ALL, nullptr},
+        {BuiltinFunctions::FILTER_ON_ALL, nullptr},
+        {BuiltinFunctions::REDUCE_ON_ALL, nullptr},
+        {BuiltinFunctions::REDUCE_ON_PAIRS, nullptr},
+        {BuiltinFunctions::PARTITION_ON_ALL, nullptr},
+        {BuiltinFunctions::SPLIT_ON_ALL, nullptr},
+    };
+
     static llvm::Function *generate_main(llvm::Module *module);
     static llvm::Function *generate_builtin_print(llvm::Module *module);
 

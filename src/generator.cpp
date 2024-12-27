@@ -90,8 +90,8 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
     // Create the "Hello, World!\n" string
     llvm::Value *helloWorld = builder->CreateGlobalStringPtr("Hello, World!\n");
 
-    llvm::Function *print_function = generate_builtin_print(module.get());
-    builder->CreateCall(print_function, helloWorld);
+    builtins.at(PRINT) = generate_builtin_print(module.get());
+    builder->CreateCall(builtins.at(PRINT), helloWorld);
 
     // Add return statement
     builder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), 0));
@@ -444,17 +444,24 @@ llvm::Value *Generator::generate_literal(llvm::IRBuilder<> &builder, llvm::Funct
 /// generate_call
 ///     Generates the call from the given CallNode
 llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function *parent, const CallNode *call_node) {
-    if (builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
-        switch (builtin_functions.at(call_node->function_name)) {
-            default:
-                throw_err(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            case MAIN:
-                return generate_builtin_main(parent->getParent());
-            case PRINT:
-                return generate_builtin_print(parent->getParent());
-        }
+    // Get the arguments
+    std::vector<llvm::Value *> args;
+    args.reserve(call_node->arguments.size());
+    for (const auto &arg : call_node->arguments) {
+        args.emplace_back(generate_expression(builder, parent, arg.get()));
     }
+
+    // Check if it is a builtin function and call it
+    if (builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
+        llvm::Function *builtin_function = builtins.at(builtin_functions.at(call_node->function_name));
+        if (builtin_function == nullptr) {
+            // Function has not been generated yet, but it should have been
+            throw_err(ERR_NOT_IMPLEMENTED_YET);
+            return nullptr;
+        }
+        return builder.CreateCall(builtin_function, args);
+    }
+
     // Calling custom functions
     throw_err(ERR_NOT_IMPLEMENTED_YET);
     return nullptr;
