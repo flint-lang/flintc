@@ -359,7 +359,27 @@ llvm::Value *Generator::generate_expression(llvm::IRBuilder<> &builder, llvm::Fu
 /// generate_variable
 ///     Generates the variable from the given VariableNode
 llvm::Value *Generator::generate_variable(llvm::IRBuilder<> &builder, llvm::Function *parent, const VariableNode *variable_node) {
-    return nullptr;
+    if (variable_node == nullptr) {
+        // Error: Null Node
+        throw_err(ERR_GENERATING);
+    }
+
+    llvm::Value *variable = lookup_variable(parent, variable_node->name);
+    if (variable == nullptr) {
+        // Error: Undeclared Variable
+        throw_err(ERR_GENERATING);
+    }
+
+    // Ensure the variable's type matches the expected result type
+    // TODO: The ExpressionNode does not yet implement its result_type string correctly, so this check would actually always cause an error!
+    // llvm::Type *expected_type = get_type_from_str(parent->getParent(), variable_node->result_type);
+    // if (variable->getType() != expected_type->getPointerTo()) {
+    //     // Error: Type Mismatch
+    //     throw_err(ERR_GENERATING);
+    // }
+
+    // Load the variable's value if it's a pointer
+    return builder.CreateLoad(variable->getType(), variable, variable_node->name + "_value");
 }
 
 /// generate_unary_op
