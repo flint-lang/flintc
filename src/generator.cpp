@@ -260,6 +260,51 @@ void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Func
 /// generate_if_statement
 ///     Generates the if statement from the given IfNode
 void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const IfNode *if_node) {
+    if (if_node == nullptr || if_node->condition == nullptr) {
+        // throw std::runtime_error("Invalid IfNode: missing condition.");
+        throw_err(ERR_GENERATING);
+    }
+
+    // Generate the condition expression
+    llvm::Value *condition = generate_expression(builder, parent, if_node->condition.get());
+    if (condition == nullptr) {
+        // throw std::runtime_error("Failed to generate condition expression.");
+        throw_err(ERR_GENERATING);
+    }
+
+    // Convert the condition to a boolean (i1 type)
+    llvm::Value *cond_bool = builder.CreateICmpNE(condition, llvm::ConstantInt::get(condition->getType(), 0), "ifcond");
+
+    llvm::BasicBlock *then_bb = llvm::BasicBlock::Create(builder.getContext(), "then", parent);
+    llvm::BasicBlock *else_bb = llvm::BasicBlock::Create(builder.getContext(), "else");
+    llvm::BasicBlock *merge_bb = llvm::BasicBlock::Create(builder.getContext(), "ifcont");
+
+    // Generate conditional branch
+    if (if_node->else_branch.empty()) {
+        builder.CreateCondBr(cond_bool, then_bb, merge_bb);
+    } else {
+        builder.CreateCondBr(cond_bool, then_bb, else_bb);
+    }
+
+    // Generate 'then' block
+    builder.SetInsertPoint(then_bb);
+    generate_body(parent, if_node->then_branch);
+    builder.CreateBr(merge_bb); // Jump to merge after 'then'
+
+    // Generate 'else' block (if it exists)
+    if (!if_node->else_branch.empty()) {
+        else_bb->insertInto(parent);
+        builder.SetInsertPoint(else_bb);
+
+        generate_body(parent, if_node->else_branch);
+
+        builder.CreateBr(merge_bb); // Jump to merge after 'else'
+    }
+
+    // Set insertion point to the merge block
+    merge_bb->insertInto(parent);
+    builder.SetInsertPoint(merge_bb);
+}
 
 /// generate_while_loop
 ///     Generates the while loop from the given WhileNode
