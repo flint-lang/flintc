@@ -33,6 +33,7 @@
 
 #include <memory>
 #include <string>
+#include <variant>
 
 /// generate_program_ir
 ///     Generates the llvm IR code for a complete program
@@ -202,10 +203,57 @@ void Generator::generate_body(llvm::Module *module, llvm::Function *function, st
 /// generate_statement
 ///     Generates a single statement
 void Generator::generate_statement(llvm::IRBuilder<> &builder, const body_statement &statement) {
-    // **Return a dummy value** (adapt for your actual return type logic)
-    // llvm::Value *return_value = llvm::ConstantAggregateZero::get(return_types_struct);
-    // builder.CreateRet(return_value);
+    if (std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
+        const StatementNode *statement_node = std::get<std::unique_ptr<StatementNode>>(statement).get();
+
+        if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node)) {
+            generate_return_statement(builder, return_node);
+        } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
+            generate_if_statement(builder, if_node);
+        } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
+            generate_while_loop(builder, while_node);
+        } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
+            generate_for_loop(builder, for_node);
+        } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
+            generate_assignment(builder, assignment_node);
+        } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
+            generate_declaration(builder, declaration_node);
+        } else {
+            throw_err(ERR_GENERATING);
+        }
+    } else {
+        const CallNode *call_node = std::get<std::unique_ptr<CallNode>>(statement).get();
+        generate_call(builder, call_node);
+    }
 }
+
+/// generate_return_statement
+///     Generates the return statement from the given ReturnNode
+void Generator::generate_return_statement(llvm::IRBuilder<> &builder, const ReturnNode *return_node) {}
+
+/// generate_if_statement
+///     Generates the if statement from the given IfNode
+void Generator::generate_if_statement(llvm::IRBuilder<> &builder, const IfNode *if_node) {}
+
+/// generate_while_loop
+///     Generates the while loop from the given WhileNode
+void Generator::generate_while_loop(llvm::IRBuilder<> &builder, const WhileNode *while_node) {}
+
+/// generate_for_loop
+///     Generates the for loop from the given ForLoopNode
+void Generator::generate_for_loop(llvm::IRBuilder<> &builder, const ForLoopNode *for_node) {}
+
+/// generate_assignment
+///     Generates the assignment from the given AssignmentNode
+void Generator::generate_assignment(llvm::IRBuilder<> &builder, const AssignmentNode *assignment_node) {}
+
+/// generate_declaration
+///     Generates the declaration from the given DeclarationNode
+void Generator::generate_declaration(llvm::IRBuilder<> &builder, const DeclarationNode *declaration_node) {}
+
+/// generate_call
+///     Generates the call from the given CallNode
+void Generator::generate_call(llvm::IRBuilder<> &builder, const CallNode *call_node) {}
 
 /// get_type_from_str
 ///
