@@ -20,8 +20,9 @@
 
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/Function.h>    // A basic function like in c
-#include <llvm/IR/IRBuilder.h>   // Utility to generate instructions
+#include <llvm/IR/Function.h>  // A basic function like in c
+#include <llvm/IR/IRBuilder.h> // Utility to generate instructions
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h> // Manages types and global states
 #include <llvm/IR/Module.h>      // Container for the IR code
 #include <llvm/IR/Type.h>
@@ -140,6 +141,12 @@ llvm::Function *Generator::generate_builtin_print(llvm::Module *module) {
         module                                            //
     );
     return printf_func;
+}
+
+/// generate_pow_instruction
+///     Generates the instruction to power the lhs rhs times (lhs ** rhs)
+llvm::Value *Generator::generate_pow_instruction(llvm::IRBuilder<> &builder, llvm::Function *parent, llvm::Value *lhs, llvm::Value *rhs) {
+    return nullptr;
 }
 
 /// lookup_variable
@@ -476,7 +483,7 @@ llvm::Value *Generator::generate_binary_op(llvm::IRBuilder<> &builder, llvm::Fun
                 rhs                              //
             );
         case TOK_SQUARE:
-            return nullptr;
+            return generate_pow_instruction(builder, parent, lhs, rhs);
     }
 }
 

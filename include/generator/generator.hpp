@@ -39,6 +39,8 @@ class Generator {
     static llvm::Function *generate_builtin_main(llvm::Module *module);
     static llvm::Function *generate_builtin_print(llvm::Module *module);
 
+    static llvm::Value *generate_pow_instruction(llvm::IRBuilder<> &builder, llvm::Function *parent, llvm::Value *lhs, llvm::Value *rhs);
+
     static llvm::Value *lookup_variable(llvm::Function *parent, const std::string &name);
 
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
