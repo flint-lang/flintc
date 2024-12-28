@@ -46,11 +46,26 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
     auto builder = std::make_unique<llvm::IRBuilder<>>(*context);
     auto module = std::make_unique<llvm::Module>(program_name, *context);
 
+    // Generate built-in functions in the main module
+    builtins[PRINT] = generate_builtin_print(module.get());
+
     llvm::Linker linker(*module);
 
     for (const auto &file : Resolver::get_file_map()) {
         // Generate the IR for a single file
         std::unique_ptr<llvm::Module> file_module = generate_file_ir(file.second, file.first, context, builder.get());
+
+        // Declare the built-in functions in the file module to reference the main module's versions
+        for (auto &builtin_func : builtins) {
+            if (builtin_func.second != nullptr) {
+                llvm::Function *decl = llvm::Function::Create( //
+                    builtin_func.second->getFunctionType(),    //
+                    llvm::Function::ExternalLinkage,           //
+                    builtin_func.second->getName(),            //
+                    file_module.get()                          //
+                );
+            }
+        }
 
         // TODO DONE:   This results in a segmentation fault when the context goes out of scope / memory, because then the module will have
         //              dangling references to the context. All modules in the Resolver must be cleared and deleted before the context goes
@@ -75,6 +90,16 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
 
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(file_name, *context);
 
+    llvm::Function *main_function = generate_main(module.get());
+
+    // Create the entry block for main function
+    llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context, "entry", main_function);
+    builder->SetInsertPoint(entry);
+
+    // Create the "Hello, World!\n" string and print it
+    llvm::Value *helloWorld = builder->CreateGlobalStringPtr("Hello, World!\n");
+    builder->CreateCall(builtins.at(PRINT), helloWorld);
+
     // Iterate through all AST Nodes in the file and parse them accordingly (only functions for now!)
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
@@ -82,19 +107,8 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
         }
     }
 
-    llvm::Function *main_function = generate_main(module.get());
-
-    // Create the entry block for main function
-    llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context, "entry", main_function);
-    builder->SetInsertPoint(entry);
-
-    // Create the "Hello, World!\n" string
-    llvm::Value *helloWorld = builder->CreateGlobalStringPtr("Hello, World!\n");
-
-    builtins.at(PRINT) = generate_builtin_print(module.get());
-    builder->CreateCall(builtins.at(PRINT), helloWorld);
-
     // Add return statement
+    builder->SetInsertPoint(entry);
     builder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), 0));
 
     // Verify and emit the module
