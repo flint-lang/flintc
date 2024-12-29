@@ -506,21 +506,30 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
         uint2 lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
         token_list lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
 
+        // Remove all \n and \t from the lhs tokens
+        for(auto it = lhs_tokens.begin(); it != lhs_tokens.end();) {
+            if(it->type == TOK_INDENT || it->type == TOK_EOL) {
+                it = lhs_tokens.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+        if(lhs_tokens.size() == 0) {
+            // Nothing present to the left of the equal sign
+            throw_err(ERR_PARSING);
+        }
+
         auto iterator = lhs_tokens.begin();
         unsigned int type_begin = 0;
-        unsigned int type_end = 0;
+        unsigned int type_end = lhs_tokens.size() - 2;
         while (iterator != lhs_tokens.end()) {
-            if (iterator->type == TOK_INDENT) {
-                ++type_begin;
-                ++type_end;
-            }
             if ((iterator + 1)->type == TOK_IDENTIFIER && (iterator + 2)->type == TOK_EQUAL) {
                 const token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
                 type = Lexer::to_string(type_tokens);
                 name = iterator->lexme;
                 break;
             }
-            ++type_end;
             ++iterator;
         }
 
