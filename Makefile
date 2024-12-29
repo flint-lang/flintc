@@ -14,7 +14,7 @@ TEST_OBJ = $(OBJ_DIR)/$(notdir $(TEST_FILE:.cpp=.o))
 SRC_OBJS = $(patsubst src/%.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES))
 
 CXX = clang++
-CXX_FLAGS = -g -O0 -Wall -Iinclude -Itests -std=c++17 -funwind-tables -fstandalone-debug -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -I$(shell llvm-config --includedir)
+CXX_FLAGS = -g -O0 -Wall -Iinclude -Itests -std=c++17 -fno-omit-frame-pointer -DEBUG -funwind-tables -fstandalone-debug -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -I$(shell llvm-config --includedir)
 LD_FLAGS = $(shell llvm-config --link-static --ldflags --system-libs --libs all)
 
 TARGET = $(OUT_DIR)/flintc

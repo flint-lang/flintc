@@ -9,7 +9,7 @@ def main():
 const def my_func() -> int:
 	return 10;
 
-def my_func_2(int x, flint y) -> flint:
-	return x * 3.14 * y;
+def my_func_2(int x, int y) -> int:
+	return x * 3 * y;
 
 

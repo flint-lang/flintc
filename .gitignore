@@ -3,3 +3,4 @@ documents/LLDB_Cheatsheet.md
 llvm/llvm-dev
 build
 main
+output.ll
