@@ -349,32 +349,34 @@ void Generator::generate_statement(llvm::IRBuilder<> &builder, llvm::Function *p
 /// generate_return_statement
 ///     Generates the return statement from the given ReturnNode
 void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const ReturnNode *return_node) {
-    // TODO: The result type string is not yet saved in the ExpressionNode, so it cannot be used for now as this results in an error
-    // llvm::Type *return_type = get_type_from_str(parent->getParent(), return_node->return_value->result_type);
+    // Get the return type of the function
+    auto *return_struct_type = llvm::cast<llvm::StructType>(parent->getReturnType());
 
-    // Check if return_node or return_value is null
-    if (return_node == nullptr || return_node->return_value == nullptr) {
-        // Generate a void return for functions with no return value
-        builder.CreateRetVoid();
-        return;
+    // Allocate space for the function's return type (should be a struct type)
+    llvm::AllocaInst *return_struct = builder.CreateAlloca(return_struct_type, nullptr, "return_struct");
+
+    // First, always store the error code (0 for no error)
+    llvm::Value *error_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 0, "error_ptr");
+    builder.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(builder.getContext()), 0), error_ptr);
+
+    // If we have a return value, store it in the struct
+    if (return_node != nullptr && return_node->return_value != nullptr) {
+        // Generate the expression for the return value
+        llvm::Value *return_value = generate_expression(builder, parent, return_node->return_value.get());
+
+        // Ensure the return value matches the function's return type
+        if (return_value == nullptr) {
+            throw_err(ERR_GENERATING);
+        }
+
+        // Store the return value in the struct (at index 1)
+        llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "value_ptr");
+        builder.CreateStore(return_value, value_ptr);
     }
-
-    // Generate the expression for the return value
-    llvm::Value *return_value = generate_expression(builder, parent, return_node->return_value.get());
-
-    // Ensure the return value matches the function's return type
-    if (return_value == nullptr) {
-        throw_err(ERR_GENERATING);
-    }
-
-    // Check if the return type specified in the ReturnNode is the same as the return type of the expression
-    // SEE TODO ABOVE
-    // if (return_value->getType() != return_type) {
-    //     throw_err(ERR_GENERATING);
-    // }
 
     // Generate the return instruction with the evaluated value
-    builder.CreateRet(return_value);
+    llvm::Value *return_struct_val = builder.CreateLoad(return_struct_type, return_struct, "return_value");
+    builder.CreateRet(return_struct_val);
 }
 
 /// generate_if_statement
