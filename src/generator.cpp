@@ -568,6 +568,13 @@ llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function
             throw_err(ERR_NOT_IMPLEMENTED_YET);
             return nullptr;
         }
+        if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
+            print_functions.find(call_node->arguments.at(0)->type) != print_functions.end()) {
+            return builder.CreateCall(                             //
+                print_functions[call_node->arguments.at(0)->type], //
+                args                                               //
+            );
+        }
         return builder.CreateCall(builtin_function, args);
     }
 
