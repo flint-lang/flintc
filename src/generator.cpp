@@ -132,21 +132,6 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
     return ir_string;
 }
 
-llvm::Function *Generator::generate_main(llvm::Module *module) {
-    llvm::FunctionType *main_func_type = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(module->getContext()),             // Return type: int
-        false                                                     // No arguments
-    );
-
-    llvm::Function *main_func = llvm::Function::Create( //
-        main_func_type,                                 //
-        llvm::Function::ExternalLinkage,                //
-        "main",                                         //
-        module                                          //
-    );
-    return main_func;
-}
-
 /// generate_builtin_print
 ///     Generates the builtin 'print()' function to utilize C io calls of the IO C stdlib
 void Generator::generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module *module) {
