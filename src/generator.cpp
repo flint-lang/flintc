@@ -172,6 +172,19 @@ llvm::Value *Generator::lookup_variable(llvm::Function *parent, const std::strin
     return variable;
 }
 
+/// function_has_return
+///     Checks if a given function has a return statement within its bodies instructions
+bool Generator::function_has_return(llvm::Function *function) {
+    for (const llvm::BasicBlock &block : *function) {
+        for (const llvm::Instruction &instr : block) {
+            if (llvm::isa<llvm::ReturnInst>(&instr)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 /// generate_function
 ///     Generates a function from a given FunctionNode
 llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode *function_node) {
