@@ -4,12 +4,13 @@
 def main():
 	int num = 5;
 	num = num + 2;
-	print(num);
+	int num3 = num / 2;
+	int num4 = (num - 2) * num3;
+	print(num4);
+	print(num * (8 - 2));
 
 const def my_func() -> int:
 	return 10;
 
 def my_func_2(int x, int y) -> int:
 	return x * 3 * y;
-
-

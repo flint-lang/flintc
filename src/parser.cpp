@@ -331,7 +331,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(token_list &tokens) {
             }
             for (const uint2 &group : next_groups) {
                 if (group.first == std::distance(tokens.begin(), iterator)) {
-                    iterator = tokens.begin() + group.second;
+                    iterator = tokens.begin() + group.second - 1;
                 }
             }
         }
