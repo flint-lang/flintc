@@ -11,8 +11,10 @@
 ///     Represents literal values
 class LiteralNode : public ExpressionNode {
   public:
-    explicit LiteralNode(std::variant<int, double, std::string, bool, char> &value)
-        : value(std::move(value)) {}
+    explicit LiteralNode(std::variant<int, double, std::string, bool, char> &value, const std::string &type) :
+        value(std::move(value)) {
+        this->type = type;
+    }
 
     /// value
     ///     the literal value

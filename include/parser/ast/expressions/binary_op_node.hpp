@@ -11,10 +11,13 @@
 ///     Represents binary operations.
 class BinaryOpNode : public ExpressionNode {
   public:
-    BinaryOpNode(Token operator_token, std::unique_ptr<ExpressionNode> &left, std::unique_ptr<ExpressionNode> &right)
-        : operator_token(operator_token),
-          left(std::move(left)),
-          right(std::move(right)) {}
+    BinaryOpNode(Token operator_token, std::unique_ptr<ExpressionNode> &left, std::unique_ptr<ExpressionNode> &right,
+        const std::string &type) :
+        operator_token(operator_token),
+        left(std::move(left)),
+        right(std::move(right)) {
+        this->type = type;
+    }
 
     // empty constructor
     BinaryOpNode() = default;

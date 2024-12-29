@@ -213,27 +213,27 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
                 }
                 case TOK_INT_VALUE: {
                     std::variant<int, double, std::string, bool, char> value = std::stoi(tok.lexme);
-                    return LiteralNode(value);
+                    return LiteralNode(value, "int");
                 }
                 case TOK_FLINT_VALUE: {
                     std::variant<int, double, std::string, bool, char> value = std::stod(tok.lexme);
-                    return LiteralNode(value);
+                    return LiteralNode(value, "flint");
                 }
                 case TOK_STR_VALUE: {
                     std::variant<int, double, std::string, bool, char> value = tok.lexme;
-                    return LiteralNode(value);
+                    return LiteralNode(value, "str");
                 }
                 case TOK_TRUE: {
                     std::variant<int, double, std::string, bool, char> value = true;
-                    return LiteralNode(value);
+                    return LiteralNode(value, "bool");
                 }
                 case TOK_FALSE: {
                     std::variant<int, double, std::string, bool, char> value = false;
-                    return LiteralNode(value);
+                    return LiteralNode(value, "bool");
                 }
                 case TOK_CHAR_VALUE: {
                     std::variant<int, double, std::string, bool, char> value = tok.lexme[0];
-                    return LiteralNode(value);
+                    return LiteralNode(value, "char");
                 }
             }
         }
@@ -366,7 +366,10 @@ std::optional<BinaryOpNode> Parser::create_binary_op(token_list &tokens) {
     if (!lhs.has_value() || !rhs.has_value()) {
         throw_err(ERR_PARSING);
     }
-    return BinaryOpNode(operator_token, lhs.value(), rhs.value());
+    if (lhs.value()->type != rhs.value()->type) {
+        throw_err(ERR_PARSING);
+    }
+    return BinaryOpNode(operator_token, lhs.value(), rhs.value(), lhs.value()->type);
 }
 
 /// create_expression
