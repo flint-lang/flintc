@@ -593,29 +593,13 @@ llvm::Value *Generator::generate_binary_op(llvm::IRBuilder<> &builder, llvm::Fun
             throw_err(ERR_GENERATING);
             return nullptr;
         case TOK_PLUS:
-            return llvm::BinaryOperator::Create( //
-                llvm::BinaryOperator::Add,       //
-                lhs,                             //
-                rhs                              //
-            );
+            return builder.CreateAdd(lhs, rhs, "addtmp");
         case TOK_MINUS:
-            return llvm::BinaryOperator::Create( //
-                llvm::BinaryOperator::Sub,       //
-                lhs,                             //
-                rhs                              //
-            );
+            return builder.CreateSub(lhs, rhs, "subtmp");
         case TOK_MULT:
-            return llvm::BinaryOperator::Create( //
-                llvm::BinaryOperator::Mul,       //
-                lhs,                             //
-                rhs                              //
-            );
+            return builder.CreateMul(lhs, rhs, "multmp");
         case TOK_DIV:
-            return llvm::BinaryOperator::Create( //
-                llvm::BinaryOperator::SDiv,      //
-                lhs,                             //
-                rhs                              //
-            );
+            return builder.CreateSDiv(lhs, rhs, "sdivtmp");
         case TOK_SQUARE:
             return generate_pow_instruction(builder, parent, lhs, rhs);
     }
