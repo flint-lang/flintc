@@ -246,19 +246,27 @@ bool Generator::function_has_return(llvm::Function *function) {
 /// generate_function
 ///     Generates a function from a given FunctionNode
 llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode *function_node) {
-    // Get the return types
-    std::vector<llvm::Type *> return_types_vec;
-    return_types_vec.reserve(function_node->return_types.size());
-    for (const auto &ret_value : function_node->return_types) {
-        return_types_vec.emplace_back(get_type_from_str(module, ret_value));
+    llvm::Type *return_types = nullptr;
+    if (function_node->name == "main") {
+        return_types = llvm::Type::getInt32Ty(module->getContext());
+    } else {
+        // Get the return types
+        std::vector<llvm::Type *> return_types_vec;
+        return_types_vec.reserve(function_node->return_types.size() + 1);
+        // First element is always the error code (i32)
+        return_types_vec.push_back(llvm::Type::getInt32Ty(module->getContext()));
+        // Rest of the elements are the return types
+        for (const auto &ret_value : function_node->return_types) {
+            return_types_vec.emplace_back(get_type_from_str(module, ret_value));
+        }
+        llvm::ArrayRef<llvm::Type *> return_types_arr(return_types_vec);
+        return_types = llvm::StructType::create( //
+            module->getContext(),                //
+            return_types_arr,                    //
+            function_node->name + "__RET",       //
+            true                                 //
+        );
     }
-    llvm::ArrayRef<llvm::Type *> return_types(return_types_vec);
-    llvm::StructType *return_types_struct = llvm::StructType::create( //
-        module->getContext(),                                         //
-        return_types,                                                 //
-        function_node->name + "__RET",                                //
-        true                                                          //
-    );
 
     // Get the parameter types
     std::vector<llvm::Type *> param_types_vec;
@@ -270,7 +278,7 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
 
     // Complete the functions definition
     llvm::FunctionType *function_type = llvm::FunctionType::get( //
-        return_types_struct,                                     //
+        return_types,                                            //
         param_types,                                             //
         false                                                    //
     );
