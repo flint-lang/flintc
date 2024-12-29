@@ -381,6 +381,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(token_l
             break;
         }
     }
+    // remove surrounding parenthesis when the first and last token are '(' and ')'
+    if (tokens.begin()->type == TOK_LEFT_PAREN && tokens.at(tokens.size() - 1).type == TOK_RIGHT_PAREN) {
+        tokens.erase(tokens.begin());
+        tokens.pop_back();
+    }
 
     if (Signature::tokens_contain(tokens, Signature::bin_op_expr)) {
         std::optional<BinaryOpNode> bin_op = create_binary_op(tokens);
@@ -507,15 +512,15 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
         token_list lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
 
         // Remove all \n and \t from the lhs tokens
-        for(auto it = lhs_tokens.begin(); it != lhs_tokens.end();) {
-            if(it->type == TOK_INDENT || it->type == TOK_EOL) {
+        for (auto it = lhs_tokens.begin(); it != lhs_tokens.end();) {
+            if (it->type == TOK_INDENT || it->type == TOK_EOL) {
                 it = lhs_tokens.erase(it);
             } else {
                 ++it;
             }
         }
 
-        if(lhs_tokens.size() == 0) {
+        if (lhs_tokens.size() == 0) {
             // Nothing present to the left of the equal sign
             throw_err(ERR_PARSING);
         }
