@@ -52,7 +52,7 @@ class CommandLineParser {
                 Linker::resolve_links(file, file_path.parent_path());
 
                 llvm::LLVMContext context;
-                std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main", &context);
+                std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main", context);
                 // std::cout << "IR_CODE:\n" << Generator::get_module_ir_string(program.get()) << std::endl;
 
                 // Write the code to a .ll file

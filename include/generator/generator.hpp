@@ -30,9 +30,9 @@
 class Generator {
   public:
     Generator() = delete;
-    static std::unique_ptr<llvm::Module> generate_program_ir(const std::string &program_name, llvm::LLVMContext *context);
+    static std::unique_ptr<llvm::Module> generate_program_ir(const std::string &program_name, llvm::LLVMContext &context);
 
-    static std::unique_ptr<llvm::Module> generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext *context,
+    static std::unique_ptr<llvm::Module> generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext &context,
         llvm::IRBuilder<> *builder);
 
     static std::string get_module_ir_string(const llvm::Module *module);
@@ -91,7 +91,7 @@ class Generator {
     static llvm::Value *generate_call(llvm::IRBuilder<> &builder, llvm::Function *parent, const CallNode *call_node);
     static llvm::Value *generate_binary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const BinaryOpNode *bin_op_node);
 
-    static llvm::Type *get_type_from_str(llvm::Module *module, const std::string &str);
+    static llvm::Type *get_type_from_str(llvm::LLVMContext &context, const std::string &str);
 };
 
 #endif

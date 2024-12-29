@@ -42,9 +42,9 @@
 
 /// generate_program_ir
 ///     Generates the llvm IR code for a complete program
-std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &program_name, llvm::LLVMContext *context) {
-    auto builder = std::make_unique<llvm::IRBuilder<>>(*context);
-    auto module = std::make_unique<llvm::Module>(program_name, *context);
+std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &program_name, llvm::LLVMContext &context) {
+    auto builder = std::make_unique<llvm::IRBuilder<>>(context);
+    auto module = std::make_unique<llvm::Module>(program_name, context);
 
     // Generate built-in functions in the main module
     generate_builtin_print(builder.get(), module.get());
@@ -72,11 +72,11 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
 
 /// generate_file_ir
 ///     Generates the llvm IR code from a given AST FileNode for a given file
-std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext *context,
+std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext &context,
     llvm::IRBuilder<> *builder) {
     Debug::AST::print_file(file);
 
-    std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(file_name, *context);
+    std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(file_name, context);
 
     // Declare the built-in functions in the file module to reference the main module's versions
     for (auto &builtin_func : builtins) {
@@ -112,7 +112,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
                 llvm::BasicBlock &last_block = function_definition->back();
                 builder->SetInsertPoint(&last_block);
                 // Create the return instruction
-                builder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), 0));
+                builder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0));
             }
         }
     }
@@ -503,7 +503,7 @@ llvm::Value *Generator::generate_variable(llvm::IRBuilder<> &builder, llvm::Func
     }
 
     // Get the type that the pointer points to
-    llvm::Type *value_type = get_type_from_str(parent->getParent(), variable_node->type);
+    llvm::Type *value_type = get_type_from_str(parent->getParent()->getContext(), variable_node->type);
 
     // Load the variable's value if it's a pointer
     return builder.CreateLoad(value_type, variable, variable_node->name + "_value");
@@ -607,7 +607,7 @@ llvm::Value *Generator::generate_binary_op(llvm::IRBuilder<> &builder, llvm::Fun
 
 /// get_type_from_str
 ///     Returns the type of the given string
-llvm::Type *Generator::get_type_from_str(llvm::Module *module, const std::string &str) {
+llvm::Type *Generator::get_type_from_str(llvm::LLVMContext &context, const std::string &str) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
     if (keywords.find(str) != keywords.end()) {
         //
@@ -616,20 +616,20 @@ llvm::Type *Generator::get_type_from_str(llvm::Module *module, const std::string
                 throw_err(ERR_GENERATING);
                 return nullptr;
             case TOK_INT:
-                return llvm::Type::getInt32Ty(module->getContext());
+                return llvm::Type::getInt32Ty(context);
             case TOK_FLINT:
-                return llvm::Type::getFloatTy(module->getContext());
+                return llvm::Type::getFloatTy(context);
             case TOK_CHAR:
-                return llvm::Type::getInt8Ty(module->getContext());
+                return llvm::Type::getInt8Ty(context);
             case TOK_STR:
                 // Pointer to an array of i8 values representing the characters
-                return llvm::PointerType::get(llvm::Type::getInt8Ty(module->getContext()), 0);
+                return llvm::PointerType::get(llvm::Type::getInt8Ty(context), 0);
             case TOK_BOOL:
-                return llvm::Type::getInt1Ty(module->getContext());
+                return llvm::Type::getInt1Ty(context);
             case TOK_BYTE:
-                return llvm::IntegerType::get(module->getContext(), 8);
+                return llvm::IntegerType::get(context, 8);
             case TOK_VOID:
-                return llvm::Type::getVoidTy(module->getContext());
+                return llvm::Type::getVoidTy(context);
         }
     }
     // Pointer to more complex data type
