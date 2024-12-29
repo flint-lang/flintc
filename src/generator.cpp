@@ -483,24 +483,30 @@ llvm::Value *Generator::generate_variable(llvm::IRBuilder<> &builder, llvm::Func
     if (variable_node == nullptr) {
         // Error: Null Node
         throw_err(ERR_GENERATING);
+        return nullptr;
     }
 
+    // First, check if this is a function parameter
+    for (auto &arg : parent->args()) {
+        if (arg.getName() == variable_node->name) {
+            // If it's a parameter, return it directly - no need to load
+            return &arg;
+        }
+    }
+
+    // If not a parameter, handle as local variable
     llvm::Value *variable = lookup_variable(parent, variable_node->name);
     if (variable == nullptr) {
         // Error: Undeclared Variable
         throw_err(ERR_GENERATING);
+        return nullptr;
     }
 
-    // Ensure the variable's type matches the expected result type
-    // TODO: The ExpressionNode does not yet implement its result_type string correctly, so this check would actually always cause an error!
-    // llvm::Type *expected_type = get_type_from_str(parent->getParent(), variable_node->result_type);
-    // if (variable->getType() != expected_type->getPointerTo()) {
-    //     // Error: Type Mismatch
-    //     throw_err(ERR_GENERATING);
-    // }
+    // Get the type that the pointer points to
+    llvm::Type *value_type = get_type_from_str(parent->getParent(), variable_node->type);
 
     // Load the variable's value if it's a pointer
-    return builder.CreateLoad(variable->getType(), variable, variable_node->name + "_value");
+    return builder.CreateLoad(value_type, variable, variable_node->name + "_value");
 }
 
 /// generate_unary_op
