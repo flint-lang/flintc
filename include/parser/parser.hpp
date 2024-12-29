@@ -61,6 +61,8 @@ class Parser {
     static FileNode parse_file(const std::filesystem::path &file);
 
   private:
+    static std::map<std::string, std::string> variable_types;
+
     // --- UTILITY ---
     static void add_next_main_node(FileNode &file, token_list &tokens);
     static token_list get_definition_tokens(token_list &tokens);

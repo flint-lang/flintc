@@ -1,4 +1,5 @@
 #include "parser/parser.hpp"
+#include "error/error_type.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/signature.hpp"
 
@@ -42,6 +43,11 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+/// variable_types
+///     All the types of all variables of the program.
+///     There is no scope-awareness yet, so each variable can only be declared once (for now)
+std::map<std::string, std::string> Parser::variable_types;
 
 /// parse_file
 ///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to
@@ -179,7 +185,11 @@ std::optional<VariableNode> Parser::create_variable(const token_list &tokens) {
     for (const auto &tok : tokens) {
         if (tok.type == TOK_IDENTIFIER) {
             std::string name = tok.lexme;
-            return VariableNode(name);
+            if (variable_types.find(name) == variable_types.end()) {
+                // Variable not declared anywhere yet!
+                throw_err(ERR_PARSING);
+            }
+            return VariableNode(name, variable_types.at(name));
         }
     }
     return var;
@@ -465,6 +475,10 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(token_l
                 token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(expression_tokens);
                 if (expression.has_value()) {
+                    if (variable_types.find(iterator->lexme) == variable_types.end()) {
+                        // Assignment on undeclared variable!
+                        throw_err(ERR_PARSING);
+                    }
                     return std::make_unique<AssignmentNode>(iterator->lexme, expression.value());
                 }
                 throw_err(ERR_PARSING);
@@ -512,6 +526,11 @@ std::optional<DeclarationNode> Parser::create_declaration(token_list &tokens, co
 
         auto expr = create_expression(tokens);
         if (expr.has_value()) {
+            if (variable_types.find(name) != variable_types.end()) {
+                // Variable shadowing!
+                throw_err(ERR_PARSING);
+            }
+            variable_types[name] = type;
             declaration = DeclarationNode(type, name, expr.value());
         }
     }
@@ -672,6 +691,16 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
         }
         ++tok_iterator;
     }
+
+    // Add the parameters to the list of variables
+    for (const auto &param : parameters) {
+        if (variable_types.find(param.second) != variable_types.end()) {
+            // Variable already exists somewhere in the program
+            throw_err(ERR_PARSING);
+        }
+        variable_types[param.second] = param.first;
+    }
+
     std::vector<body_statement> body_statements = create_body(body);
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_statements);
 }

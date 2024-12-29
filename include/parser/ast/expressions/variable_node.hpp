@@ -9,8 +9,10 @@
 ///     Represents variables or identifiers
 class VariableNode : public ExpressionNode {
   public:
-    explicit VariableNode(std::string &name)
-        : name(name) {}
+    VariableNode(std::string &name, std::string &type) :
+        name(name) {
+        this->type = type;
+    }
 
     /// name
     ///     Name of the variable
