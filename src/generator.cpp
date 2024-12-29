@@ -47,25 +47,13 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
     auto module = std::make_unique<llvm::Module>(program_name, *context);
 
     // Generate built-in functions in the main module
-    builtins[PRINT] = generate_builtin_print(module.get());
+    generate_builtin_print(builder.get(), module.get());
 
     llvm::Linker linker(*module);
 
     for (const auto &file : Resolver::get_file_map()) {
         // Generate the IR for a single file
         std::unique_ptr<llvm::Module> file_module = generate_file_ir(file.second, file.first, context, builder.get());
-
-        // Declare the built-in functions in the file module to reference the main module's versions
-        for (auto &builtin_func : builtins) {
-            if (builtin_func.second != nullptr) {
-                llvm::Function *decl = llvm::Function::Create( //
-                    builtin_func.second->getFunctionType(),    //
-                    llvm::Function::ExternalLinkage,           //
-                    builtin_func.second->getName(),            //
-                    file_module.get()                          //
-                );
-            }
-        }
 
         // TODO DONE:   This results in a segmentation fault when the context goes out of scope / memory, because then the module will have
         //              dangling references to the context. All modules in the Resolver must be cleared and deleted before the context goes
@@ -90,26 +78,44 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
 
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(file_name, *context);
 
-    llvm::Function *main_function = generate_main(module.get());
-
-    // Create the entry block for main function
-    llvm::BasicBlock *entry = llvm::BasicBlock::Create(*context, "entry", main_function);
-    builder->SetInsertPoint(entry);
-
-    // Create the "Hello, World!\n" string and print it
-    llvm::Value *helloWorld = builder->CreateGlobalStringPtr("Hello, World!\n");
-    builder->CreateCall(builtins.at(PRINT), helloWorld);
+    // Declare the built-in functions in the file module to reference the main module's versions
+    for (auto &builtin_func : builtins) {
+        if (builtin_func.second != nullptr) {
+            module->getOrInsertFunction(               //
+                builtin_func.second->getName(),        //
+                builtin_func.second->getFunctionType() //
+            );
+        }
+    }
+    // Declare the build-in print functions in the file module to reference the main module's versions
+    for (auto &prints : print_functions) {
+        if (prints.second != nullptr) {
+            module->getOrInsertFunction(         //
+                prints.second->getName(),        //
+                prints.second->getFunctionType() //
+            );
+        }
+    }
 
     // Iterate through all AST Nodes in the file and parse them accordingly (only functions for now!)
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             llvm::Function *function_definition = generate_function(module.get(), function_node);
+            // No return statement found despite the signature requires return OR
+            // Rerutn statement found but the signature has no return type defined (basically a simple xnor between the two booleans)
+            if ((function_has_return(function_definition) ^ function_node->return_types.empty()) == 0) {
+                throw_err(ERR_GENERATING);
+            }
+            // If the function is the main function and does not contain a return statement, add 'return 0' to it
+            if (function_node->name == "main" && !function_has_return(function_definition)) {
+                // Set the insertion point to the end of the last (or only) basic block of the function
+                llvm::BasicBlock &last_block = function_definition->back();
+                builder->SetInsertPoint(&last_block);
+                // Create the return instruction
+                builder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), 0));
+            }
         }
     }
-
-    // Add return statement
-    builder->SetInsertPoint(entry);
-    builder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), 0));
 
     // Verify and emit the module
     llvm::verifyModule(*module, &llvm::errs());
@@ -143,7 +149,10 @@ llvm::Function *Generator::generate_main(llvm::Module *module) {
 
 /// generate_builtin_print
 ///     Generates the builtin 'print()' function to utilize C io calls of the IO C stdlib
-llvm::Function *Generator::generate_builtin_print(llvm::Module *module) {
+void Generator::generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    if (builtins[PRINT] != nullptr) {
+        return;
+    }
     llvm::FunctionType *printf_type = llvm::FunctionType::get(                     //
         llvm::Type::getInt32Ty(module->getContext()),                              // Return type: int
         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(module->getContext())), // Takes char*
@@ -155,8 +164,39 @@ llvm::Function *Generator::generate_builtin_print(llvm::Module *module) {
         "printf",                                         //
         module                                            //
     );
-    return printf_func;
+    builtins[PRINT] = printf_func;
+    generate_builtin_print_int(builder, module);
+    generate_builtin_print_flint(builder, module);
+    generate_builtin_print_char(builder, module);
+    generate_builtin_print_str(builder, module);
+    generate_builtin_print_bool(builder, module);
+    generate_builtin_print_byte(builder, module);
 }
+
+/// generate_builtin_print_int
+///     Generates the printf call with the correct format string for integer types
+void Generator::generate_builtin_print_int(llvm::IRBuilder<> *builder, llvm::Module *module) {
+}
+
+/// generate_builtin_print_flint
+///     Generates the printf call with the correct format string for floating point types
+void Generator::generate_builtin_print_flint(llvm::IRBuilder<> *builder, llvm::Module *module) {}
+
+/// generate_builtin_print_char
+///     Generates the printf call with the correct format string for char types
+void Generator::generate_builtin_print_char(llvm::IRBuilder<> *builder, llvm::Module *module) {}
+
+/// generate_builtin_print_str
+///     Generates the printf call with the correct format string for string types
+void Generator::generate_builtin_print_str(llvm::IRBuilder<> *builder, llvm::Module *module) {}
+
+/// generate_builtin_print_bool
+///     Generates the printf call with the correct format string for bool types
+void Generator::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module) {}
+
+/// generate_builtin_print_byte
+///     Generates the printf call with the correct format string for byte types
+void Generator::generate_builtin_print_byte(llvm::IRBuilder<> *builder, llvm::Module *module) {}
 
 /// generate_pow_instruction
 ///     Generates the instruction to power the lhs rhs times (lhs ** rhs)
