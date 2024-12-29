@@ -36,9 +36,12 @@
 
 #include <llvm/Support/raw_ostream.h>
 
+#include <iterator>
 #include <memory>
 #include <string>
 #include <variant>
+
+std::map<std::string, llvm::StructType *> Generator::type_map;
 
 /// generate_program_ir
 ///     Generates the llvm IR code for a complete program
@@ -97,6 +100,17 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
         }
     }
 
+    // Declare all functions in the file at the top of the module
+    for (const std::unique_ptr<ASTNode> &node : file.definitions) {
+        if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
+            // Create a forward declaration for the function only if it is not the main function!
+            if (function_node->name != "main") {
+                llvm::FunctionType *function_type = generate_function_type(context, function_node);
+                module->getOrInsertFunction(function_node->name, function_type);
+            }
+        }
+    }
+
     // Iterate through all AST Nodes in the file and parse them accordingly (only functions for now!)
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
@@ -130,6 +144,39 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
     module->print(stream, nullptr);
     stream.flush();
     return ir_string;
+}
+
+/// get_type_map_key
+///     Returns the string-encoded type representation of a given functions signature
+llvm::StructType *Generator::add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node) {
+    std::string return_types;
+    for (auto return_it = function_node->return_types.begin(); return_it < function_node->return_types.end(); ++return_it) {
+        return_types.append(*return_it);
+        if (std::distance(return_it, function_node->return_types.end()) > 1) {
+            return_types.append(",");
+        }
+    }
+    if (type_map.find(return_types) != type_map.end()) {
+        return type_map[return_types];
+    }
+
+    // Get the return types
+    std::vector<llvm::Type *> return_types_vec;
+    return_types_vec.reserve(function_node->return_types.size() + 1);
+    // First element is always the error code (i32)
+    return_types_vec.push_back(llvm::Type::getInt32Ty(*context));
+    // Rest of the elements are the return types
+    for (const auto &ret_value : function_node->return_types) {
+        return_types_vec.emplace_back(get_type_from_str(*context, ret_value));
+    }
+    llvm::ArrayRef<llvm::Type *> return_types_arr(return_types_vec);
+    type_map[return_types] = llvm::StructType::create( //
+        *context,                                      //
+        return_types_arr,                              //
+        "type_" + return_types,                        //
+        true                                           //
+    );
+    return type_map[return_types];
 }
 
 /// generate_builtin_print
@@ -243,36 +290,21 @@ bool Generator::function_has_return(llvm::Function *function) {
     return false;
 }
 
-/// generate_function
-///     Generates a function from a given FunctionNode
-llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode *function_node) {
+/// generate_function_type
+///     Generates the type information of a given FunctionNode
+llvm::FunctionType *Generator::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;
     if (function_node->name == "main") {
-        return_types = llvm::Type::getInt32Ty(module->getContext());
+        return_types = llvm::Type::getInt32Ty(context);
     } else {
-        // Get the return types
-        std::vector<llvm::Type *> return_types_vec;
-        return_types_vec.reserve(function_node->return_types.size() + 1);
-        // First element is always the error code (i32)
-        return_types_vec.push_back(llvm::Type::getInt32Ty(module->getContext()));
-        // Rest of the elements are the return types
-        for (const auto &ret_value : function_node->return_types) {
-            return_types_vec.emplace_back(get_type_from_str(module, ret_value));
-        }
-        llvm::ArrayRef<llvm::Type *> return_types_arr(return_types_vec);
-        return_types = llvm::StructType::create( //
-            module->getContext(),                //
-            return_types_arr,                    //
-            function_node->name + "__RET",       //
-            true                                 //
-        );
+        return_types = add_and_or_get_type(&context, function_node);
     }
 
     // Get the parameter types
     std::vector<llvm::Type *> param_types_vec;
     param_types_vec.reserve(function_node->parameters.size());
     for (const auto &param : function_node->parameters) {
-        param_types_vec.emplace_back(get_type_from_str(module, param.first));
+        param_types_vec.emplace_back(get_type_from_str(context, param.first));
     }
     llvm::ArrayRef<llvm::Type *> param_types(param_types_vec);
 
@@ -282,6 +314,13 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
         param_types,                                             //
         false                                                    //
     );
+    return function_type;
+}
+
+/// generate_function
+///     Generates a function from a given FunctionNode
+llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode *function_node) {
+    llvm::FunctionType *function_type = generate_function_type(module->getContext(), function_node);
 
     // Creating the function itself
     llvm::Function *function = llvm::Function::Create( //

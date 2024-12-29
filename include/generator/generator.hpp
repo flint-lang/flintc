@@ -59,6 +59,8 @@ class Generator {
         {"bool", nullptr},
         {"byte", nullptr},
     };
+    static std::map<std::string, llvm::StructType *> type_map;
+    static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
 
     static void generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module *module);
     static void generate_builtin_print_int(llvm::IRBuilder<> *builder, llvm::Module *module);
@@ -73,6 +75,7 @@ class Generator {
     static llvm::Value *lookup_variable(llvm::Function *parent, const std::string &name);
     static bool function_has_return(llvm::Function *function);
 
+    static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
     static void generate_body(llvm::Function *parent, const std::vector<body_statement> &body);
 
