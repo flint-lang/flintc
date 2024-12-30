@@ -42,6 +42,7 @@
 #include <variant>
 
 std::map<std::string, llvm::StructType *> Generator::type_map;
+std::map<std::string, std::vector<llvm::CallInst *>> Generator::unresolved_functions;
 
 /// generate_program_ir
 ///     Generates the llvm IR code for a complete program
@@ -70,6 +71,8 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
         }
     }
 
+    // Verify and emit the module
+    llvm::verifyModule(*module, &llvm::errs());
     return module;
 }
 
@@ -131,8 +134,18 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
         }
     }
 
-    // Verify and emit the module
-    llvm::verifyModule(*module, &llvm::errs());
+    // Iterate through all unresolved function calls and resolve them to call the _actual_ mangled function, not its definition
+    for (std::pair<std::string, std::vector<llvm::CallInst *>> fns : unresolved_functions) {
+        for (llvm::CallInst *call : fns.second) {
+            llvm::Function *actual_function = module->getFunction(fns.first + ".1");
+            if (actual_function == nullptr) {
+                throw_err(ERR_GENERATING);
+            }
+            call->getCalledOperandUse().set(actual_function);
+        }
+    }
+    unresolved_functions.clear();
+
     return module;
 }
 
@@ -617,9 +630,20 @@ llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function
         return builder.CreateCall(builtin_function, args);
     }
 
-    // Calling custom functions
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
-    return nullptr;
+    // Get the (already existent) function definition
+    llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
+
+    // Create the call instruction using the original declaration
+    llvm::CallInst *call = builder.CreateCall(func_decl, args);
+
+    // Add the call instruction to the list of unresolved functions
+    if (unresolved_functions.find(call_node->function_name) == unresolved_functions.end()) {
+        unresolved_functions[call_node->function_name] = {call};
+    } else {
+        unresolved_functions[call_node->function_name].push_back(call);
+    }
+
+    return call;
 }
 
 /// generate_binary_op

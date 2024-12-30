@@ -4,6 +4,7 @@
 def main():
 	int num = 5;
 	num = num + 2;
+	int num2 = my_func();
 	int num3 = num / 2;
 	int num4 = (num - 2) * num3;
 	print(num4);
