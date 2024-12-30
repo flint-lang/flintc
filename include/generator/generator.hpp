@@ -84,7 +84,8 @@ class Generator {
 
     static void generate_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const body_statement &statement);
     static void generate_return_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const ReturnNode *return_node);
-    static void generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const IfNode *if_node);
+    static void generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const IfNode *if_node, unsigned int nesting_level,
+        const std::vector<llvm::BasicBlock *> &blocks);
     static void generate_while_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const WhileNode *while_node);
     static void generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node);
     static void generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *parent, const AssignmentNode *assignment_node);

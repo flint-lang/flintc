@@ -8,7 +8,9 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/statements/if_node.hpp"
 #include "resolver/resolver.hpp"
+#include "types.hpp"
 
 // #include <llvm/IR/DerivedTypes.h>
 // #include <llvm/IRReader/IRReader.h>
@@ -362,7 +364,7 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
 ///     Generates a whole body
 void Generator::generate_body(llvm::Function *parent, const std::vector<body_statement> &body) {
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
-        parent->getParent()->getContext(),                    //
+        parent->getContext(),                                 //
         "entry",                                              //
         parent                                                //
     );
@@ -383,7 +385,7 @@ void Generator::generate_statement(llvm::IRBuilder<> &builder, llvm::Function *p
         if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node)) {
             generate_return_statement(builder, parent, return_node);
         } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
-            generate_if_statement(builder, parent, if_node);
+            generate_if_statement(builder, parent, if_node, 0, {});
         } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
             generate_while_loop(builder, parent, while_node);
         } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
@@ -436,51 +438,124 @@ void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Func
 
 /// generate_if_statement
 ///     Generates the if statement from the given IfNode
-void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const IfNode *if_node) {
+void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const IfNode *if_node, unsigned int nesting_level,
+    const std::vector<llvm::BasicBlock *> &blocks) {
     if (if_node == nullptr || if_node->condition == nullptr) {
-        // throw std::runtime_error("Invalid IfNode: missing condition.");
+        // Invalid IfNode: missing condition
         throw_err(ERR_GENERATING);
     }
 
-    // Generate the condition expression
+    llvm::LLVMContext &context = parent->getContext();
+    std::vector<llvm::BasicBlock *> current_blocks = blocks;
+
+    // First call (nesting_level == 0): Create all blocks for entire if-chain
+    if (nesting_level == 0) {
+        // Create merge block (shared by all branches)
+        current_blocks.push_back(llvm::BasicBlock::Create(context, "merge", parent));
+
+        // Count total number of branches and create blocks
+        const IfNode *current = if_node;
+        unsigned int branch_count = 0;
+
+        while (current != nullptr) {
+            // Create then block
+            current_blocks.push_back(llvm::BasicBlock::Create( //
+                context,                                       //
+                "then" + std::to_string(branch_count),         //
+                parent)                                        //
+            );
+
+            // Check for else-if or else
+            if (std::holds_alternative<IfNode *>(current->else_branch)) {
+                current = std::get<IfNode *>(current->else_branch);
+                ++branch_count;
+            } else {
+                // If there's a final else block, create it
+                const auto &else_statements = std::get<std::vector<body_statement>>(current->else_branch);
+                if (!else_statements.empty()) {
+                    current_blocks.push_back(llvm::BasicBlock::Create( //
+                        context,                                       //
+                        "else" + std::to_string(branch_count),         //
+                        parent)                                        //
+                    );
+                    current = nullptr;
+                }
+            }
+        }
+    }
+
+    // Generate the condition
     llvm::Value *condition = generate_expression(builder, parent, if_node->condition.get());
     if (condition == nullptr) {
-        // throw std::runtime_error("Failed to generate condition expression.");
+        // Failed to generate condition expression
         throw_err(ERR_GENERATING);
     }
 
-    // Convert the condition to a boolean (i1 type)
-    llvm::Value *cond_bool = builder.CreateICmpNE(condition, llvm::ConstantInt::get(condition->getType(), 0), "ifcond");
+    // Index calculation for current blocks, +1 because merge block is at index 0
+    unsigned int then_idx = nesting_level + 1;
+    unsigned int next_idx;
 
-    llvm::BasicBlock *then_bb = llvm::BasicBlock::Create(builder.getContext(), "then", parent);
-    llvm::BasicBlock *else_bb = llvm::BasicBlock::Create(builder.getContext(), "else");
-    llvm::BasicBlock *merge_bb = llvm::BasicBlock::Create(builder.getContext(), "ifcont");
-
-    // Generate conditional branch
-    if (if_node->else_branch.empty()) {
-        builder.CreateCondBr(cond_bool, then_bb, merge_bb);
+    // Determine the next block (either else-if/else block or merge block)
+    if (std::holds_alternative<IfNode *>(if_node->else_branch)) {
+        next_idx = then_idx + 1;
     } else {
-        builder.CreateCondBr(cond_bool, then_bb, else_bb);
+        const auto &else_statements = std::get<std::vector<body_statement>>(if_node->else_branch);
+        if (else_statements.empty()) {
+            // No else block, jump to merge block, which is always at index 0
+            next_idx = 0;
+        } else {
+            // Next block is the final else block
+            next_idx = then_idx + 1;
+        }
     }
 
-    // Generate 'then' block
-    builder.SetInsertPoint(then_bb);
+    // Create conditional branch
+    builder.CreateCondBr(         //
+        condition,                //
+        current_blocks[then_idx], //
+        current_blocks[next_idx]  //
+    );
+
+    // Generate then branch
+    builder.SetInsertPoint(current_blocks[then_idx]);
     generate_body(parent, if_node->then_branch);
-    builder.CreateBr(merge_bb); // Jump to merge after 'then'
-
-    // Generate 'else' block (if it exists)
-    if (!if_node->else_branch.empty()) {
-        else_bb->insertInto(parent);
-        builder.SetInsertPoint(else_bb);
-
-        generate_body(parent, if_node->else_branch);
-
-        builder.CreateBr(merge_bb); // Jump to merge after 'else'
+    if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+        // Branch to merge block
+        builder.CreateBr(current_blocks[0]);
     }
 
-    // Set insertion point to the merge block
-    merge_bb->insertInto(parent);
-    builder.SetInsertPoint(merge_bb);
+    // Handle else-if or else
+    if (std::holds_alternative<IfNode *>(if_node->else_branch)) {
+        // Recursive call for else-if
+        builder.SetInsertPoint(current_blocks[next_idx]);
+        generate_if_statement(                        //
+            builder,                                  //
+            parent,                                   //
+            std::get<IfNode *>(if_node->else_branch), //
+            nesting_level + 1,                        //
+            current_blocks                            //
+        );
+    } else {
+        // Handle final else if, if it exists
+        const auto &else_statements = std::get<std::vector<body_statement>>(if_node->else_branch);
+        if (!else_statements.empty()) {
+            builder.SetInsertPoint(current_blocks[next_idx]);
+            generate_body(parent, else_statements);
+            if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+                builder.CreateBr(current_blocks[0]);
+            }
+        }
+    }
+
+    // For the top-level call, set insert point to merge block
+    if (nesting_level == 0) {
+        builder.SetInsertPoint(current_blocks[0]);
+        // TODO:    The whole phi implementation needs to work for now, as i need to create a whole scoping-system before i can even
+        //          remotely think about knowing which variable was mutated in which block! So...i need a robust scoping system before i can
+        //          implement the phi calls for each variable..
+        // llvm::PHINode *phi = builder.CreatePHI(llvm::Type::getInt32Ty(context), blocks.size() / 2); Here you
+        // would handle PHI nodes if needed
+    }
 }
 
 /// generate_while_loop
