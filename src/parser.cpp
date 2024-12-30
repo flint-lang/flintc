@@ -284,20 +284,28 @@ std::optional<std::unique_ptr<CallNode>> Parser::create_call(token_list &tokens)
         // passed
         if (Signature::tokens_contain_in_range(tokens, {{TOK_COMMA}}, arg_range.value())) {
             const auto match_ranges = Signature::get_match_ranges_in_range(tokens, {{TOK_COMMA}}, arg_range.value());
-            for (auto match = match_ranges.begin(); match != match_ranges.end();) {
+            if (match_ranges.empty()) {
+                // No arguments
+                return std::make_unique<CallNode>(function_name, arguments);
+            }
+
+            for (auto match = match_ranges.begin();; ++match) {
                 token_list argument_tokens;
                 if (match == match_ranges.begin()) {
-                    argument_tokens = extract_from_to(arg_range.value().first, match->first, tokens);
+                    argument_tokens = clone_from_to(arg_range.value().first, match->first, tokens);
                 } else if (match == match_ranges.end()) {
-                    argument_tokens = extract_from_to((match - 1)->second, arg_range.value().second, tokens);
+                    argument_tokens = clone_from_to((match - 1)->second, arg_range.value().second, tokens);
                 } else {
-                    argument_tokens = extract_from_to((match - 1)->second, match->first, tokens);
+                    argument_tokens = clone_from_to((match - 1)->second, match->first, tokens);
                 }
                 auto expression = create_expression(argument_tokens);
                 if (!expression.has_value()) {
                     throw_err(ERR_PARSING);
                 }
                 arguments.emplace_back(std::move(expression.value()));
+                if(match == match_ranges.end()) {
+                    break;
+                }
             }
         } else {
             token_list argument_tokens = extract_from_to(arg_range.value().first, arg_range.value().second, tokens);
