@@ -109,6 +109,8 @@ namespace Signature {
         while (iterator != match_ranges.end()) {
             if (iterator->first < range.first || iterator->second > range.second) {
                 match_ranges.erase(iterator);
+            } else {
+                ++iterator;
             }
         }
         return match_ranges;
