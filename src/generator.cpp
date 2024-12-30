@@ -504,10 +504,36 @@ void Generator::generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *
 void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function *parent, const DeclarationNode *declaration_node) {
     llvm::Value *expression = generate_expression(builder, parent, declaration_node->initializer.get());
 
-    // TODO: Change 'expression->getType()' to 'get_type_from_str(parent->getParent(), declaration_node->type)' when saving of an
-    // expressions type is actually implemented in the parser
-    llvm::AllocaInst *alloca = builder.CreateAlloca(expression->getType(), nullptr, declaration_node->name);
-    builder.CreateStore(expression, alloca);
+    // Temporary allocation for the entire return struct
+    llvm::AllocaInst *temp_struct_alloca = builder.CreateAlloca( //
+        expression->getType(),                                   //
+        nullptr,                                                 //
+        declaration_node->name + "__TMP"                         //
+    );
+    builder.CreateStore(expression, temp_struct_alloca);
+
+    // Create the actual variable allocation with the declared type
+    llvm::AllocaInst *alloca = builder.CreateAlloca(                     //
+        get_type_from_str(parent->getContext(), declaration_node->type), //
+        nullptr,                                                         //
+        declaration_node->name                                           //
+    );
+
+    // Extract the second field (index 1) from the struct - this is the actual return value
+    llvm::Value *value_ptr = builder.CreateStructGEP( //
+        expression->getType(),                        //
+        temp_struct_alloca,                           //
+        1,                                            //
+        declaration_node->name + "__VAL_PTR"          //
+    );
+    llvm::Value *actual_value = builder.CreateLoad(                      //
+        get_type_from_str(parent->getContext(), declaration_node->type), //
+        value_ptr,                                                       //
+        declaration_node->name + "__VAL"                                 //
+    );
+
+    // Store the actual value in the declared variable
+    builder.CreateStore(actual_value, alloca);
 }
 
 /// generate_expression
