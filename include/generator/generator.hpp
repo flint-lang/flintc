@@ -63,6 +63,7 @@ class Generator {
     static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
 
     static std::map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
+    static std::map<std::string, unsigned int> function_mangle_ids;
 
     static void generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module *module);
     static void generate_builtin_print_int(llvm::IRBuilder<> *builder, llvm::Module *module);

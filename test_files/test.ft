@@ -9,6 +9,7 @@ def main():
 	int num4 = (num - 2) * num3;
 	print(num4);
 	print(num * (8 - 2));
+	int my_num = my_func_2(4, 5);
 
 const def my_func() -> int:
 	return 10;

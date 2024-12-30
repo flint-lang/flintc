@@ -43,6 +43,7 @@
 
 std::map<std::string, llvm::StructType *> Generator::type_map;
 std::map<std::string, std::vector<llvm::CallInst *>> Generator::unresolved_functions;
+std::map<std::string, unsigned int> Generator::function_mangle_ids;
 
 /// generate_program_ir
 ///     Generates the llvm IR code for a complete program
@@ -102,6 +103,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
         }
     }
 
+    unsigned int mangle_id = 1;
     // Declare all functions in the file at the top of the module
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
@@ -109,6 +111,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
             if (function_node->name != "main") {
                 llvm::FunctionType *function_type = generate_function_type(context, function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
+                function_mangle_ids[function_node->name] = mangle_id++;
             }
         }
     }
@@ -136,7 +139,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
     // Iterate through all unresolved function calls and resolve them to call the _actual_ mangled function, not its definition
     for (std::pair<std::string, std::vector<llvm::CallInst *>> fns : unresolved_functions) {
         for (llvm::CallInst *call : fns.second) {
-            llvm::Function *actual_function = module->getFunction(fns.first + ".1");
+            llvm::Function *actual_function = module->getFunction(fns.first + "." + std::to_string(function_mangle_ids[fns.first]));
             if (actual_function == nullptr) {
                 throw_err(ERR_GENERATING);
             }
@@ -144,6 +147,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
         }
     }
     unresolved_functions.clear();
+    function_mangle_ids.clear();
 
     return module;
 }
