@@ -180,6 +180,21 @@ token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_lis
     return extraction;
 }
 
+/// clone_from_to
+///     Clones the tokens from a given index up to the given index from the given tokens list
+///     Clones [from ; to) tokens
+///     Does not change the passed in token_list
+token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token_list &tokens) {
+    assert(to >= from);
+    token_list extraction;
+    if (to == from) {
+        return extraction;
+    }
+    extraction.reserve(to - from);
+    std::copy(tokens.begin() + from, tokens.begin() + to, std::back_inserter(extraction));
+    return extraction;
+}
+
 std::optional<VariableNode> Parser::create_variable(const token_list &tokens) {
     std::optional<VariableNode> var = std::nullopt;
     for (const auto &tok : tokens) {

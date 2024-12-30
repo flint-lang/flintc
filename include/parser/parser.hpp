@@ -68,6 +68,7 @@ class Parser {
     static token_list get_definition_tokens(token_list &tokens);
     static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
     static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
+    static token_list clone_from_to(unsigned int from, unsigned int to, const token_list &tokens);
 
     // --- EXPRESSIONS ---
     static std::optional<VariableNode> create_variable(const token_list &tokens);
