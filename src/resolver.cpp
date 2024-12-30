@@ -39,8 +39,8 @@ void Resolver::add_dependencies_and_file(FileNode &file_node, const std::filesys
 
 /// add_ir
 ///     Adds the llvm module to the module_map of the Resolver
-void Resolver::add_ir(const std::string &file_name, std::unique_ptr<const llvm::Module> &module) {
-    get_module_map().emplace(std::string(file_name), std::move(module));
+void Resolver::add_ir(const std::string &file_name, const llvm::Module *module) {
+    get_module_map().emplace(std::string(file_name), module);
 }
 
 /// add_path

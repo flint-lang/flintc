@@ -63,8 +63,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
         //              dangling references to the context. All modules in the Resolver must be cleared and deleted before the context goes
         //              oom! Its the reason to why Resolver::clear() was implemented!
         // Store the generated module in the resolver
-        // std::unique_ptr<const llvm::Module> file_module_copy = llvm::CloneModule(*file_module);
-        // Resolver::add_ir(file.first, file_module_copy);
+        Resolver::add_ir(file.first, file_module.get());
 
         if (linker.linkInModule(std::move(file_module))) {
             throw_err(ERR_LINKING);

@@ -35,8 +35,8 @@ class Resolver {
     /// get_module_map
     ///     Returns the map of Modules, where the key is the file name
     ///     Note that these modules should be handled
-    static std::map<std::string, std::unique_ptr<const llvm::Module>> &get_module_map() {
-        static std::map<std::string, std::unique_ptr<const llvm::Module>> modules;
+    static std::map<std::string, const llvm::Module *> &get_module_map() {
+        static std::map<std::string, const llvm::Module *> modules;
         return modules;
     }
     /// get_path_map
@@ -48,7 +48,7 @@ class Resolver {
 
     static void clear();
     static void add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path);
-    static void add_ir(const std::string &file_name, std::unique_ptr<const llvm::Module> &module);
+    static void add_ir(const std::string &file_name, const llvm::Module *module);
     static void add_path(const std::string &file_name, const std::filesystem::path &path);
 
   private:
