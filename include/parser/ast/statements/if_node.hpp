@@ -7,12 +7,14 @@
 
 #include <memory>
 #include <utility>
+#include <variant>
 
 /// IfNode
 ///     Represents if statements
 class IfNode : public StatementNode {
   public:
-    IfNode(std::unique_ptr<ExpressionNode> &condition, std::vector<body_statement> &then_branch, std::vector<body_statement> &else_branch) :
+    IfNode(std::unique_ptr<ExpressionNode> &condition, std::vector<body_statement> &then_branch,
+        std::variant<IfNode *, std::vector<body_statement>> &else_branch) :
         condition(std::move(condition)),
         then_branch(std::move(then_branch)),
         else_branch(std::move(else_branch)) {}
@@ -36,7 +38,7 @@ class IfNode : public StatementNode {
     std::vector<body_statement> then_branch;
     /// else_branch
     ///     The statements to execute when the condition evaluates to 'false'
-    std::vector<body_statement> else_branch;
+    std::variant<IfNode *, std::vector<body_statement>> else_branch;
 };
 
 #endif

@@ -323,7 +323,11 @@ namespace Debug {
             print_header(indent_lvl + 1, empty, "Else ");
             std::cout << std::endl;
             empty.second = indent_lvl + 2;
-            print_body(indent_lvl + 2, empty, if_node.else_branch);
+            if (std::holds_alternative<std::vector<body_statement>>(if_node.else_branch)) {
+                print_body(indent_lvl + 2, empty, std::get<std::vector<body_statement>>(if_node.else_branch));
+            } else {
+                print_if(indent_lvl + 2, empty, *std::get<IfNode *>(if_node.else_branch));
+            }
         }
 
         void print_while(unsigned int indent_lvl, uint2 empty, const WhileNode &while_node) {
