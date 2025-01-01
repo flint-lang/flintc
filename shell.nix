@@ -6,12 +6,15 @@ pkgs.mkShell {
     clang_19
     llvmPackages_19.libllvm
     gnumake
-    libz
+    zlib.static
+    glibc.static
   ];
 
   shellHook = ''
       echo "Building started"
-      make
+      export GLIBCPATH="${pkgs.glibc.static}/lib"
+      export ZLIBPATH="${pkgs.zlib.static}/lib"
+      make static
       echo "Build done!"
       exit
   '';

@@ -1,6 +1,7 @@
 .vscode
 documents/LLDB_Cheatsheet.md
 llvm/llvm-dev
+xml2/xml2
 build
 main
 output.ll
