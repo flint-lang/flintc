@@ -1,8 +1,8 @@
 #ifndef __FUNCTION_NODE_HPP__
 #define __FUNCTION_NODE_HPP__
 
-#include "../../../types.hpp"
-#include "../ast_node.hpp"
+#include "parser/ast/ast_node.hpp"
+#include "parser/ast/scope.hpp"
 
 #include <string>
 #include <utility>
@@ -13,13 +13,13 @@
 class FunctionNode : public ASTNode {
   public:
     explicit FunctionNode(bool is_aligned, bool is_const, std::string &name, std::vector<std::pair<std::string, std::string>> &parameters,
-        std::vector<std::string> &return_types, std::vector<body_statement> &body) :
+        std::vector<std::string> &return_types, std::unique_ptr<Scope> &scope) :
         is_aligned(is_aligned),
         is_const(is_const),
         name(name),
         parameters(std::move(parameters)),
         return_types(std::move(return_types)),
-        body(std::move(body)) {}
+        scope(std::move(scope)) {}
 
     // empty constructor
     FunctionNode() = default;
@@ -49,7 +49,7 @@ class FunctionNode : public ASTNode {
     std::vector<std::string> return_types;
     /// body
     ///     The body of the function containing all statements
-    std::vector<body_statement> body;
+    std::unique_ptr<Scope> scope;
 };
 
 #endif

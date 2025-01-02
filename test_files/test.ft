@@ -2,17 +2,13 @@
 //use flint.math.vectors;
 
 def main():
-	int num = 5;
-	num = num + 2;
-	int num2 = my_func();
-	int num3 = num / 2;
-	int num4 = (num - 2) * num3;
-	print(num4);
-	print(num * (8 - 2));
-	int my_num = my_func_2(4, 5);
+	int num = my_func();
+	//if num > 4:
+    //    print(num);
+    print(7);
 
 const def my_func() -> int:
 	return 10;
 
-def my_func_2(int x, int y) -> int:
-	return x * 3 * y;
+//def my_func_2(int x, int y) -> int:
+//	return x * 3 * y;

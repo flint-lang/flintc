@@ -36,9 +36,9 @@ enum Token {
     TOK_MULT_EQUALS = -24,
     TOK_DIV_EQUALS = -25,
     TOK_COLON_EQUAL = -26,
+    TOK_EQUAL = -27,
 
     // relational symbols
-    TOK_EQUAL = -27,
     TOK_EQUAL_EQUAL = -28,
     TOK_NOT_EQUAL = -29,
     TOK_LESS = -30,

@@ -1,8 +1,8 @@
 #ifndef __WHILE_NODE_HPP__
 #define __WHILE_NODE_HPP__
 
-#include "../../../types.hpp"
-#include "../expressions/expression_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/scope.hpp"
 #include "statement_node.hpp"
 
 #include <memory>
@@ -12,9 +12,9 @@
 ///     Represents while loops
 class WhileNode : public StatementNode {
   public:
-    WhileNode(std::unique_ptr<ExpressionNode> &condition, std::vector<body_statement> &body) :
+    WhileNode(std::unique_ptr<ExpressionNode> &condition, std::unique_ptr<Scope> &scope) :
         condition(std::move(condition)),
-        body(std::move(body)) {}
+        scope(std::move(scope)) {}
 
     // constructor
     WhileNode() = default;
@@ -32,7 +32,7 @@ class WhileNode : public StatementNode {
     std::unique_ptr<ExpressionNode> condition;
     /// body
     ///     The body of the while loop
-    std::vector<body_statement> body;
+    std::unique_ptr<Scope> scope;
 };
 
 #endif

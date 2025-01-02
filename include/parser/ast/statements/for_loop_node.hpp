@@ -1,8 +1,8 @@
 #ifndef __FOR_LOOP_NODE_HPP__
 #define __FOR_LOOP_NODE_HPP__
 
-#include "../../../types.hpp"
-#include "../expressions/expression_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/scope.hpp"
 #include "statement_node.hpp"
 
 #include <memory>
@@ -13,10 +13,10 @@
 ///     Represents both traditional and enhanced for loops.
 class ForLoopNode : public StatementNode {
   public:
-    ForLoopNode(std::string &iterator_name, std::unique_ptr<ExpressionNode> &iterable, std::vector<body_statement> &body) :
+    ForLoopNode(std::string &iterator_name, std::unique_ptr<ExpressionNode> &iterable, std::unique_ptr<Scope> &scope) :
         iterator_name(iterator_name),
         iterable(std::move(iterable)),
-        body(std::move(body)) {}
+        scope(std::move(scope)) {}
 
     // constructor
     ForLoopNode() = default;
@@ -37,7 +37,7 @@ class ForLoopNode : public StatementNode {
     std::unique_ptr<ExpressionNode> iterable;
     /// body
     ///     The body of the loop
-    std::vector<body_statement> body;
+    std::unique_ptr<Scope> scope;
 };
 
 #endif

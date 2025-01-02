@@ -303,7 +303,7 @@ std::optional<std::unique_ptr<CallNode>> Parser::create_call(token_list &tokens)
                     throw_err(ERR_PARSING);
                 }
                 arguments.emplace_back(std::move(expression.value()));
-                if(match == match_ranges.end()) {
+                if (match == match_ranges.end()) {
                     break;
                 }
             }
@@ -741,8 +741,8 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
         variable_types[param.second] = param.first;
     }
 
-    std::vector<body_statement> body_statements = create_body(body);
-    return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_statements);
+    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(create_body(body));
+    return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);
 }
 
 /// create_data

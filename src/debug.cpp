@@ -31,6 +31,7 @@
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
+#include "parser/ast/scope.hpp"
 #include "parser/ast/file_node.hpp"
 
 #include <cassert>
@@ -318,15 +319,15 @@ namespace Debug {
             print_expression(0, {0, 0}, if_node.condition);
             print_header(indent_lvl + 1, empty, "Then ");
             std::cout << std::endl;
-            print_body(indent_lvl + 2, empty, if_node.then_branch);
+            print_body(indent_lvl + 2, empty, if_node.then_scope->body);
             empty.second = indent_lvl + 1;
             print_header(indent_lvl + 1, empty, "Else ");
             std::cout << std::endl;
             empty.second = indent_lvl + 2;
-            if (std::holds_alternative<std::vector<body_statement>>(if_node.else_branch)) {
-                print_body(indent_lvl + 2, empty, std::get<std::vector<body_statement>>(if_node.else_branch));
+            if (std::holds_alternative<std::unique_ptr<Scope>>(if_node.else_scope)) {
+                print_body(indent_lvl + 2, empty, std::get<std::unique_ptr<Scope>>(if_node.else_scope)->body);
             } else {
-                print_if(indent_lvl + 2, empty, *std::get<IfNode *>(if_node.else_branch));
+                print_if(indent_lvl + 2, empty, *std::get<IfNode *>(if_node.else_scope));
             }
         }
 
@@ -336,7 +337,7 @@ namespace Debug {
             print_expression(0, {0, 0}, while_node.condition);
 
             empty.second = ++indent_lvl;
-            print_body(indent_lvl, empty, while_node.body);
+            print_body(indent_lvl, empty, while_node.scope->body);
         }
 
         void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node) {
@@ -347,7 +348,7 @@ namespace Debug {
             print_expression(0, {0, 0}, for_node.iterable);
 
             empty.second = ++indent_lvl;
-            print_body(indent_lvl, empty, for_node.body);
+            print_body(indent_lvl, empty, for_node.scope->body);
         }
 
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign) {
@@ -477,7 +478,7 @@ namespace Debug {
             // The function body
             empty.first++;
             empty.second = ++indent_lvl;
-            print_body(indent_lvl, empty, function.body);
+            print_body(indent_lvl, empty, function.scope->body);
         }
 
         /// print_import

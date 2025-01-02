@@ -10,6 +10,7 @@
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
+#include "parser/ast/scope.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -80,7 +81,7 @@ class Generator {
 
     static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
-    static void generate_body(llvm::Function *parent, const std::vector<body_statement> &body);
+    static void generate_body(llvm::Function *parent, Scope *scope);
 
     static void generate_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const body_statement &statement);
     static void generate_return_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const ReturnNode *return_node);

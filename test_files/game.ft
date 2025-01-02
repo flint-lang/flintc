@@ -53,28 +53,33 @@ const def get_rand_pos() -> Vector3:
 
 def update_positions():
 	center := Vector3(x, y, z);
-	sync SyncGroup.MAIN;
+	sync SyncGroup::MAIN;
 	while(true):
 	    // Only let the entities move which are within a given radius of the center
         // This center could also be the player, and entities outside the cameras view wont move, for example
 		map_on_all(Movement, Movement::get_dist_sqr(center))
 			|> filter_on_all(Movement, (flint x) -> x < 20, _)
 			|> run_on_all(Movement, Movement::move, _);
-		sync SyncGroup.MAIN;
+		sync SyncGroup::MAIN;
 
-
+/**
+ * This function updates the health of all entities.
+ * It runs on it's own thread and syncs with other threads too!
+ */ 
 def update_health():
 	int dps = 1;
-	sync SyncGroup.MAIN;
+	sync SyncGroup::MAIN;
 	while(true):
 		// Decrease the health of each entity per iteration
 		run_on_all(HealthUtils, HealthUtils::damage(dps));
 		// Filter out the entities which are dead and free them (delte them)
 		filter_on_all(HealthUtils, HealthUtils::is_dead)
 			|> queue_free_all(Entiy, _);
-		sync SyncGroup.MAIN;
+		sync SyncGroup::MAIN;
 
-
+/**
+* This is a FlintDoc comment
+*/
 def main():
 	// Create 100.000 entites with default values
 	entities := Entity[100000](_);
@@ -84,7 +89,7 @@ def main():
 
 	spawn "position_thread" update_positions();
 	spawn "health_thread" update_health();
-	sync SyncGroup.MAIN;
+	sync SyncGroup::MAIN;
 	while(true):
 		// Game loop
-		sync SyncGroup.MAIN;
+		sync SyncGroup::MAIN;

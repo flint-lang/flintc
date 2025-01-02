@@ -1,8 +1,8 @@
 #ifndef __IF_NODE_HPP__
 #define __IF_NODE_HPP__
 
-#include "../../../types.hpp"
-#include "../expressions/expression_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/scope.hpp"
 #include "statement_node.hpp"
 
 #include <memory>
@@ -13,11 +13,11 @@
 ///     Represents if statements
 class IfNode : public StatementNode {
   public:
-    IfNode(std::unique_ptr<ExpressionNode> &condition, std::vector<body_statement> &then_branch,
-        std::variant<IfNode *, std::vector<body_statement>> &else_branch) :
+    IfNode(std::unique_ptr<ExpressionNode> &condition, std::unique_ptr<Scope> &then_scope,
+        std::variant<IfNode *, std::unique_ptr<Scope>> &else_scope) :
         condition(std::move(condition)),
-        then_branch(std::move(then_branch)),
-        else_branch(std::move(else_branch)) {}
+        then_scope(std::move(then_scope)),
+        else_scope(std::move(else_scope)) {}
 
     // constructor
     IfNode() = default;
@@ -35,10 +35,10 @@ class IfNode : public StatementNode {
     std::unique_ptr<ExpressionNode> condition;
     /// then_branch
     ///     The statements to execute when the condition evaluates to 'true'
-    std::vector<body_statement> then_branch;
+    std::unique_ptr<Scope> then_scope;
     /// else_branch
     ///     The statements to execute when the condition evaluates to 'false'
-    std::variant<IfNode *, std::vector<body_statement>> else_branch;
+    std::variant<IfNode *, std::unique_ptr<Scope>> else_scope;
 };
 
 #endif

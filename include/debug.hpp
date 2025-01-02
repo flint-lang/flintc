@@ -31,14 +31,14 @@
 
 #include <test_utils.hpp>
 
-#include <map>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 namespace Debug {
     enum TreeType { VERT, BRANCH, BRANCH_L, SINGLE, HOR, NONE };
-    static const std::map<TreeType, std::string> tree_characters = {
+    static const std::unordered_map<TreeType, std::string> tree_characters = {
         {VERT, "\u2502"},
         {BRANCH, "\u251C"},
         {BRANCH_L, "\u2524"},
