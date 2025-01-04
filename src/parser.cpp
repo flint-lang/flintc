@@ -474,7 +474,7 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens
 
 /// create_if
 ///
-std::optional<IfNode> Parser::create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain, token_list &else_body) {
+std::optional<IfNode> Parser::create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain) {
 
     return std::nullopt;
 }
@@ -643,8 +643,39 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement(Sc
         Signature::tokens_contain(definition, Signature::else_if_statement) ||
         Signature::tokens_contain(definition, Signature::else_statement)) {
         std::vector<std::pair<token_list, token_list>> if_chain;
-    } else if (Signature::tokens_contain(tokens, Signature::for_loop)) {
-        std::optional<ForLoopNode> for_loop = create_for_loop(tokens, false);
+        if_chain.emplace_back(definition, scoped_body);
+
+        token_list next_definition = definition;
+        while (true) {
+            if (body.size() == 0) {
+                break;
+            }
+            if (body.at(0).type == TOK_EOL) {
+                body.erase(body.begin());
+            }
+            // Get the next indices of the next definition
+            std::optional<uint2> next_line_range = Signature::get_tokens_line_range(body, body.at(0).line);
+            if (!next_line_range.has_value()) {
+                break;
+            }
+            // Check if the definition contains a 'else if' or 'else' statement. It cannot only contain a 'if' statement, as this then will
+            // be part of its own IfNode and not part of this if-chain! This can be simplified to just check if the definition contains a
+            // 'else' statement
+            if (!Signature::tokens_contain_in_range(body, {TOK_ELSE}, next_line_range.value())) {
+                break;
+            }
+
+            next_definition = extract_from_to(next_line_range.value().first, next_line_range.value().second, body);
+            scoped_body = get_body_tokens(indent_lvl_maybe.value(), body);
+            if_chain.emplace_back(next_definition, scoped_body);
+        }
+
+        std::optional<IfNode> if_node = create_if(scope, if_chain);
+        if (if_node.has_value()) {
+            statement_node = std::make_unique<IfNode>(std::move(if_node.value()));
+        } else {
+            throw_err(ERR_PARSING);
+        }
     } else if (Signature::tokens_contain(definition, Signature::for_loop)) {
         std::optional<ForLoopNode> for_loop = create_for_loop(scope, definition, scoped_body);
         if (for_loop.has_value()) {

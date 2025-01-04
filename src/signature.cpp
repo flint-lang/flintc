@@ -85,6 +85,7 @@ namespace Signature {
                 start = std::distance(tokens.begin(), tok);
             } else if ((tok + 1) == tokens.end() || ((tok + 1)->line != tok->line && tok->line == line)) {
                 end = std::distance(tokens.begin(), tok);
+                break;
             }
         }
 
