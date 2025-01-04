@@ -21,6 +21,7 @@ enum ErrorType {
     ERR_UNDEFINED_EXPRESSION = 16,
     ERR_LINKING = 17,
     ERR_GENERATING = 18,
+    ERR_SCOPE = 19,
 };
 
 #endif
