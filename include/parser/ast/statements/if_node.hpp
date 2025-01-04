@@ -6,6 +6,7 @@
 #include "statement_node.hpp"
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include <variant>
 
@@ -14,7 +15,7 @@
 class IfNode : public StatementNode {
   public:
     IfNode(std::unique_ptr<ExpressionNode> &condition, std::unique_ptr<Scope> &then_scope,
-        std::variant<IfNode *, std::unique_ptr<Scope>> &else_scope) :
+        std::optional<std::variant<IfNode *, std::unique_ptr<Scope>>> &else_scope) :
         condition(std::move(condition)),
         then_scope(std::move(then_scope)),
         else_scope(std::move(else_scope)) {}
@@ -38,7 +39,7 @@ class IfNode : public StatementNode {
     std::unique_ptr<Scope> then_scope;
     /// else_branch
     ///     The statements to execute when the condition evaluates to 'false'
-    std::variant<IfNode *, std::unique_ptr<Scope>> else_scope;
+    std::optional<std::variant<IfNode *, std::unique_ptr<Scope>>> else_scope;
 };
 
 #endif

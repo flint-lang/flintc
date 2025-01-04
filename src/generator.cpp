@@ -466,20 +466,27 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
             );
 
             // Check for else-if or else
-            if (std::holds_alternative<IfNode *>(current->else_scope)) {
-                current = std::get<IfNode *>(current->else_scope);
+            if (!current->else_scope.has_value()) {
+                break;
+            }
+
+            const auto &else_scope = current->else_scope.value();
+            if (std::holds_alternative<IfNode *>(else_scope)) {
+                current = std::get<IfNode *>(else_scope);
                 ++branch_count;
             } else {
                 // If there's a final else block, create it
-                const auto &else_statements = std::get<std::unique_ptr<Scope>>(current->else_scope)->body;
-                if (!else_statements.empty()) {
-                    current_blocks.push_back(llvm::BasicBlock::Create( //
-                        context,                                       //
-                        "else" + std::to_string(branch_count),         //
-                        parent)                                        //
-                    );
-                    current = nullptr;
+                const auto &else_statements = std::get<std::unique_ptr<Scope>>(else_scope)->body;
+                if (else_statements.empty()) {
+                    // No empty body allowed
+                    throw_err(ERR_GENERATING);
                 }
+                current_blocks.push_back(llvm::BasicBlock::Create( //
+                    context,                                       //
+                    "else" + std::to_string(branch_count),         //
+                    parent)                                        //
+                );
+                current = nullptr;
             }
         }
     }
@@ -493,19 +500,20 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
 
     // Index calculation for current blocks, +1 because merge block is at index 0
     unsigned int then_idx = nesting_level + 1;
-    unsigned int next_idx;
+    // Defaults to the merge block
+    unsigned int next_idx = 0;
 
     // Determine the next block (either else-if/else block or merge block)
-    if (std::holds_alternative<IfNode *>(if_node->else_scope)) {
-        next_idx = then_idx + 1;
-    } else {
-        const auto &else_statements = std::get<std::unique_ptr<Scope>>(if_node->else_scope)->body;
-        if (else_statements.empty()) {
-            // No else block, jump to merge block, which is always at index 0
-            next_idx = 0;
-        } else {
+    if (if_node->else_scope.has_value()) {
+        const auto &else_scope = if_node->else_scope.value();
+        if (std::holds_alternative<IfNode *>(else_scope)) {
             // Next block is the final else block
             next_idx = then_idx + 1;
+        } else {
+            const auto &else_statements = std::get<std::unique_ptr<Scope>>(else_scope)->body;
+            if (!else_statements.empty()) {
+                next_idx = then_idx + 1;
+            }
         }
     }
 
@@ -525,24 +533,27 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
     }
 
     // Handle else-if or else
-    if (std::holds_alternative<IfNode *>(if_node->else_scope)) {
-        // Recursive call for else-if
-        builder.SetInsertPoint(current_blocks[next_idx]);
-        generate_if_statement(                       //
-            builder,                                 //
-            parent,                                  //
-            std::get<IfNode *>(if_node->else_scope), //
-            nesting_level + 1,                       //
-            current_blocks                           //
-        );
-    } else {
-        // Handle final else if, if it exists
-        const auto &else_scope = std::get<std::unique_ptr<Scope>>(if_node->else_scope);
-        if (!else_scope->body.empty()) {
+    if (if_node->else_scope.has_value()) {
+        const auto &else_scope = if_node->else_scope.value();
+        if (std::holds_alternative<IfNode *>(else_scope)) {
+            // Recursive call for else-if
             builder.SetInsertPoint(current_blocks[next_idx]);
-            generate_body(parent, else_scope.get());
-            if (builder.GetInsertBlock()->getTerminator() == nullptr) {
-                builder.CreateBr(current_blocks[0]);
+            generate_if_statement(              //
+                builder,                        //
+                parent,                         //
+                std::get<IfNode *>(else_scope), //
+                nesting_level + 1,              //
+                current_blocks                  //
+            );
+        } else {
+            // Handle final else if, if it exists
+            const auto &last_else_scope = std::get<std::unique_ptr<Scope>>(else_scope);
+            if (!last_else_scope->body.empty()) {
+                builder.SetInsertPoint(current_blocks[next_idx]);
+                generate_body(parent, last_else_scope.get());
+                if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+                    builder.CreateBr(current_blocks[0]);
+                }
             }
         }
     }

@@ -31,8 +31,8 @@
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
-#include "parser/ast/scope.hpp"
 #include "parser/ast/file_node.hpp"
+#include "parser/ast/scope.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -324,10 +324,12 @@ namespace Debug {
             print_header(indent_lvl + 1, empty, "Else ");
             std::cout << std::endl;
             empty.second = indent_lvl + 2;
-            if (std::holds_alternative<std::unique_ptr<Scope>>(if_node.else_scope)) {
-                print_body(indent_lvl + 2, empty, std::get<std::unique_ptr<Scope>>(if_node.else_scope)->body);
-            } else {
-                print_if(indent_lvl + 2, empty, *std::get<IfNode *>(if_node.else_scope));
+            if (if_node.else_scope.has_value()) {
+                if (std::holds_alternative<std::unique_ptr<Scope>>(if_node.else_scope.value())) {
+                    print_body(indent_lvl + 2, empty, std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->body);
+                } else {
+                    print_if(indent_lvl + 2, empty, *std::get<IfNode *>(if_node.else_scope.value()));
+                }
             }
         }
 
