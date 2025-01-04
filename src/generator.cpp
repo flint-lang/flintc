@@ -124,7 +124,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
             llvm::Function *function_definition = generate_function(module.get(), function_node);
             // No return statement found despite the signature requires return OR
             // Rerutn statement found but the signature has no return type defined (basically a simple xnor between the two booleans)
-            
+
             // TODO: Because i _always_ have a return type (the error return), this does no longer work, as there can be a return type of
             // the function despite the function node not having any return types declared. This error check will be commented out for now
             // because of this reason.
@@ -482,8 +482,8 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
             }
 
             const auto &else_scope = current->else_scope.value();
-            if (std::holds_alternative<IfNode *>(else_scope)) {
-                current = std::get<IfNode *>(else_scope);
+            if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope)) {
+                current = std::get<std::unique_ptr<IfNode>>(else_scope).get();
                 ++branch_count;
             } else {
                 // If there's a final else block, create it
@@ -517,7 +517,7 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
     // Determine the next block (either else-if/else block or merge block)
     if (if_node->else_scope.has_value()) {
         const auto &else_scope = if_node->else_scope.value();
-        if (std::holds_alternative<IfNode *>(else_scope)) {
+        if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope)) {
             // Next block is the final else block
             next_idx = then_idx + 1;
         } else {
@@ -546,15 +546,15 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
     // Handle else-if or else
     if (if_node->else_scope.has_value()) {
         const auto &else_scope = if_node->else_scope.value();
-        if (std::holds_alternative<IfNode *>(else_scope)) {
+        if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope)) {
             // Recursive call for else-if
             builder.SetInsertPoint(current_blocks[next_idx]);
-            generate_if_statement(              //
-                builder,                        //
-                parent,                         //
-                std::get<IfNode *>(else_scope), //
-                nesting_level + 1,              //
-                current_blocks                  //
+            generate_if_statement(                                   //
+                builder,                                             //
+                parent,                                              //
+                std::get<std::unique_ptr<IfNode>>(else_scope).get(), //
+                nesting_level + 1,                                   //
+                current_blocks                                       //
             );
         } else {
             // Handle final else if, if it exists
