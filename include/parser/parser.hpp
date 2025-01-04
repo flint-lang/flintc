@@ -61,8 +61,6 @@ class Parser {
     static FileNode parse_file(const std::filesystem::path &file);
 
   private:
-    static std::map<std::string, std::string> variable_types;
-
     // --- UTILITY ---
     static void add_next_main_node(FileNode &file_node, token_list &tokens);
     static token_list get_definition_tokens(token_list &tokens);
@@ -71,22 +69,24 @@ class Parser {
     static token_list clone_from_to(unsigned int from, unsigned int to, const token_list &tokens);
 
     // --- EXPRESSIONS ---
-    static std::optional<VariableNode> create_variable(const token_list &tokens);
-    static std::optional<UnaryOpNode> create_unary_op(const token_list &tokens);
+    static std::optional<VariableNode> create_variable(Scope *scope, const token_list &tokens);
+    static std::optional<UnaryOpNode> create_unary_op(Scope *scope, const token_list &tokens);
     static std::optional<LiteralNode> create_literal(const token_list &tokens);
-    static std::optional<std::unique_ptr<CallNode>> create_call(token_list &tokens);
-    static std::optional<BinaryOpNode> create_binary_op(token_list &tokens);
-    static std::optional<std::unique_ptr<ExpressionNode>> create_expression(token_list &tokens);
+    static std::optional<std::unique_ptr<CallNode>> create_call(Scope *scope, token_list &tokens);
+    static std::optional<BinaryOpNode> create_binary_op(Scope *scope, token_list &tokens);
+    static std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, token_list &tokens);
 
     // --- STATEMENTS ---
-    static std::optional<ReturnNode> create_return(token_list &tokens);
-    static std::optional<IfNode> create_if(const token_list &tokens);
-    static std::optional<WhileNode> create_while_loop(const token_list &tokens);
-    static std::optional<ForLoopNode> create_for_loop(const token_list &tokens, const bool &is_enhanced);
-    static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(token_list &tokens);
-    static std::optional<DeclarationNode> create_declaration(token_list &tokens, const bool &is_infered);
-    static std::optional<std::unique_ptr<StatementNode>> create_statement(token_list &tokens);
-    static std::vector<body_statement> create_body(token_list &body);
+    static std::optional<ReturnNode> create_return(Scope *scope, token_list &tokens);
+    static std::optional<WhileNode> create_while_loop(Scope *scope, const token_list &definition, const token_list &body);
+    static std::optional<ForLoopNode> create_for_loop(Scope *scope, const token_list &definition, const token_list &body);
+    static std::optional<ForLoopNode> create_enh_for_loop(Scope *scope, const token_list &definition, const token_list &body);
+    static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(Scope *scope, token_list &tokens);
+    static std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool &is_infered);
+    static std::optional<std::unique_ptr<StatementNode>> create_statement(Scope *scope, token_list &tokens);
+    static std::optional<std::unique_ptr<StatementNode>> create_scoped_statement(Scope *scope, const token_list &definition,
+        token_list &body);
+    static std::vector<body_statement> create_body(Scope *scope, token_list &body);
 
     // --- DEFINITIONS ---
     static FunctionNode create_function(const token_list &definition, token_list &body);
