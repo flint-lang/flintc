@@ -149,7 +149,7 @@ void Lexer::scan_token() {
                 add_token(TOK_DIV_EQUALS);
             } else if (peek_next() == '/') {
                 // traverse until the end of the line
-                while (peek() != '\n' && !is_at_end()) {
+                while (peek() != '\n' && peek_next() != '\n' && !is_at_end()) {
                     advance();
                 }
             } else if (peek_next() == '*') {
