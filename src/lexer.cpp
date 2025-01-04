@@ -8,6 +8,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <sstream>
 #include <string>
@@ -45,14 +46,39 @@ token_list Lexer::scan() {
         scan_token();
     }
 
-    // Remove all empty lines (EOL tokens which are alone in a single line)
-    int last_line = -1;
+    // Remove all empty lines
+    bool is_empty_line = true;
+    unsigned int line_start_idx = 0;
+    unsigned int current_line = 0;
     for (auto tok = tokens.begin(); tok != tokens.end();) {
-        if (tok->type == TOK_EOL && tok->line != last_line && (tok->line != (tok + 1)->line || (tok + 1) == tokens.end())) {
-            tokens.erase(tok);
+        // Check if on a new line
+        if (current_line != tok->line) {
+            is_empty_line = true;
+            line_start_idx = std::distance(tokens.begin(), tok);
+            current_line = tok->line;
+        }
+
+        // Check if at the end of a line (either next token is EOL or EOF)
+        bool is_line_end = (tok + 1) == tokens.end() || tok->line != (tok + 1)->line;
+
+        if (is_line_end) {
+            if (is_empty_line) {
+                // Erase from line start to current position (inclusive)
+                tok = tokens.erase(tokens.begin() + line_start_idx, tok + 1);
+                if (tok == tokens.end()) {
+                    break;
+                }
+                line_start_idx = std::distance(tokens.begin(), tok);
+                current_line = tok->line;
+            } else {
+                ++tok;
+            }
         } else {
-            last_line = tok->line;
-            tok++;
+            // Line is not empty if it contains a token thats _not_ INDENT
+            if (tok->type != TOK_INDENT) {
+                is_empty_line = false;
+            }
+            ++tok;
         }
     }
 
