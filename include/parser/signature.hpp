@@ -95,7 +95,7 @@ namespace Signature {
     const signature else_statement = combine({{TOK_ELSE}, match_until_signature({TOK_COLON})});
     const signature return_statement = combine({{TOK_RETURN}, match_until_signature({TOK_SEMICOLON})});
 
-    // Expressions
+    // --- EXPRESSIONS ---
     const signature expression = combine({{"("}, anytoken, {")*"}});
     const signature function_call = combine({{TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, expression, {")?", TOK_RIGHT_PAREN}});
     const signature bin_op_expr = combine({expression, binary_operator, expression});

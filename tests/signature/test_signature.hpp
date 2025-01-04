@@ -24,6 +24,10 @@
 #include "expressions/bin_op_expression_tests.hpp"
 #include "expressions/function_call_expression_tests.hpp"
 
+// #include "statements/else_if_statement_tests.hpp"
+#include "statements/else_statement_tests.hpp"
+#include "statements/if_statement_tests.hpp"
+
 #include <string>
 #include <vector>
 
@@ -33,28 +37,33 @@ TestResult test_signature() {
 
     const std::vector<function_list> tests = {
         // --- SIGNATURE METHODS ---
-        get_balanced_range_extraction_tests(),
-        get_balanced_range_extraction_vec_tests(),
+        get_balanced_range_extraction_tests(),     //
+        get_balanced_range_extraction_vec_tests(), //
         // --- BASIC SIGNATURES ---
-        get_primary_tests(),
-        get_type_tests(),
-        get_reference_tests(),
-        get_args_tests(),
-        get_group_tests(),
+        get_primary_tests(),   //
+        get_type_tests(),      //
+        get_reference_tests(), //
+        get_args_tests(),      //
+        get_group_tests(),     //
         // --- DEFINITIONS ---
-        get_use_statement_tests(),
-        get_function_definition_tests(),
-        get_data_definition_tests(),
-        get_func_definition_tests(),
-        get_entity_definition_tests(),
-        get_error_definition_tests(),
-        get_enum_definition_tests(),
-        get_variant_definition_tests(),
+        get_use_statement_tests(),       //
+        get_function_definition_tests(), //
+        get_data_definition_tests(),     //
+        get_func_definition_tests(),     //
+        get_entity_definition_tests(),   //
+        get_error_definition_tests(),    //
+        get_enum_definition_tests(),     //
+        get_variant_definition_tests(),  //
+        // --- STATEMENTS ---
+        get_if_statement_tests(), //
+        // get_else_if_statement_tests(), //
+        get_else_statement_tests(), //
         // --- EXPRESSIONS ---
-        get_function_call_expression_tests(),
-        get_bin_op_expression_tests(),
+        get_function_call_expression_tests(), //
+        get_bin_op_expression_tests(),        //
     };
-    run_all_tests(result, tests, false);
+    run_all_tests(result, tests, true);
+    return result;
 
     if (result.get_count() == 0) {
         return {};
