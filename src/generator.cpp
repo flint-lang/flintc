@@ -124,9 +124,14 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
             llvm::Function *function_definition = generate_function(module.get(), function_node);
             // No return statement found despite the signature requires return OR
             // Rerutn statement found but the signature has no return type defined (basically a simple xnor between the two booleans)
-            if ((function_has_return(function_definition) ^ function_node->return_types.empty()) == 0) {
-                throw_err(ERR_GENERATING);
-            }
+            
+            // TODO: Because i _always_ have a return type (the error return), this does no longer work, as there can be a return type of
+            // the function despite the function node not having any return types declared. This error check will be commented out for now
+            // because of this reason.
+            // if ((function_has_return(function_definition) ^ function_node->return_types.empty()) == 0) {
+            //     throw_err(ERR_GENERATING);
+            // }
+
             // If the function is the main function and does not contain a return statement, add 'return 0' to it
             if (function_node->name == "main" && !function_has_return(function_definition)) {
                 // Set the insertion point to the end of the last (or only) basic block of the function
