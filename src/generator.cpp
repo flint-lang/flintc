@@ -362,6 +362,12 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
 
     generate_body(function, function_node->scope.get());
 
+    // Check if the function has a terminator, if not add an "empty" return (only the error return)
+    if (function_node->name != "main" && !function->empty() && function->getEntryBlock().getTerminator() == nullptr) {
+        llvm::IRBuilder<> builder(&function->getEntryBlock());
+        generate_return_statement(builder, function, {});
+    }
+
     return function;
 }
 
