@@ -20,6 +20,7 @@ namespace Signature {
     bool tokens_contain(const token_list &tokens, const signature &signature);
     bool tokens_match(const token_list &tokens, const signature &signature);
     bool tokens_contain_in_range(const token_list &tokens, const signature &signature, const uint2 &range);
+    std::optional<uint2> get_tokens_line_range(const token_list &tokens, unsigned int line);
     std::vector<uint2> get_match_ranges(const token_list &tokens, const signature &signature);
     std::vector<uint2> get_match_ranges_in_range(const token_list &tokens, const signature &signature, const uint2 &range);
     std::optional<uint2> get_next_match_range(const token_list &tokens, const signature &signature);

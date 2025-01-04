@@ -72,6 +72,28 @@ namespace Signature {
         return false;
     }
 
+    /// get_tokens_line_range
+    ///     Returns the range of a given line within the tokens_list
+    ///     Retruns a nullopt if the given token_list does not contain the specified line
+    std::optional<uint2> get_tokens_line_range(const token_list &tokens, unsigned int line) {
+        std::optional<uint2> result = std::nullopt;
+        unsigned int start = 0;
+        unsigned int end = 0;
+
+        for (auto tok = tokens.begin(); tok != tokens.end(); ++tok) {
+            if ((tok + 1) != tokens.end() && (tok + 1)->line != tok->line && (tok + 1)->line == line) {
+                start = std::distance(tokens.begin(), tok);
+            } else if ((tok + 1) == tokens.end() || ((tok + 1)->line != tok->line && tok->line == line)) {
+                end = std::distance(tokens.begin(), tok);
+            }
+        }
+
+        if (start != end && end != 0) {
+            result = {start, end};
+        }
+        return result;
+    }
+
     /// extract_matches
     ///     Extracts the indices of all the matches of the given signature inside
     ///     the given tokens vector
