@@ -65,7 +65,7 @@ def update_positions():
 /**
  * This function updates the health of all entities.
  * It runs on it's own thread and syncs with other threads too!
- */ 
+ */
 def update_health():
 	int dps = 1;
 	sync SyncGroup::MAIN;
@@ -77,9 +77,6 @@ def update_health():
 			|> queue_free_all(Entiy, _);
 		sync SyncGroup::MAIN;
 
-/**
-* This is a FlintDoc comment
-*/
 def main():
 	// Create 100.000 entites with default values
 	entities := Entity[100000](_);

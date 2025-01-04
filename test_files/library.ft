@@ -1,2 +1,7 @@
+// data MyData:
+// 	int x;
+// 	int y;
+// 	MyData(x, y);
+
 def add(int x, int y) -> int:
 	return x + y;

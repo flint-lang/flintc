@@ -473,10 +473,62 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens
 }
 
 /// create_if
-///
-std::optional<IfNode> Parser::create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain) {
+///     Creates an IfNode from the given if chain
+std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain) {
+    assert(!if_chain.empty());
+    std::pair<token_list, token_list> this_if_pair = if_chain.at(0);
+    if_chain.erase(if_chain.begin());
 
-    return std::nullopt;
+    bool has_if = false;
+    bool has_else = false;
+    // Remove everything in front of the expression (\n, \t, else, if)
+    for (auto it = this_if_pair.first.begin(); it != this_if_pair.first.end();) {
+        if (it->type == TOK_ELSE) {
+            has_else = true;
+        } else if (it->type == TOK_IF) {
+            has_if = true;
+            this_if_pair.first.erase(it);
+            break;
+        }
+        this_if_pair.first.erase(it);
+    }
+    // Remove everything everything after the expression (:, \n)
+    for (auto rev_it = this_if_pair.first.rbegin(); rev_it != this_if_pair.first.rend();) {
+        if (rev_it->type == TOK_COLON) {
+            this_if_pair.first.erase(rev_it.base());
+            break;
+        }
+        this_if_pair.first.erase(rev_it.base());
+    }
+
+    // Dangling else statement without if statement
+    if (has_else && !has_if) {
+        throw_err(ERR_PARSING);
+    }
+
+    // Create the if statements condition and body statements
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, this_if_pair.first);
+    if (!condition.has_value()) {
+        // Invalid expression inside if statement
+        throw_err(ERR_PARSING);
+    }
+    std::vector<body_statement> body_statements = create_body(scope, this_if_pair.second);
+    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(std::move(body_statements));
+    std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> else_scope = std::nullopt;
+
+    // Check if the chain contains any values (more if blocks in the chain) and parse them accordingly
+    if (!if_chain.empty()) {
+        if (Signature::tokens_contain(if_chain.at(0).first, {TOK_IF})) {
+            // 'else if'
+            else_scope = create_if(scope, if_chain);
+        } else {
+            // 'else'
+            std::vector<body_statement> body_statements = create_body(scope, if_chain.at(0).second);
+            else_scope = std::make_unique<Scope>(std::move(body_statements));
+        }
+    }
+
+    return std::make_unique<IfNode>(condition.value(), body_scope, else_scope);
 }
 
 /// create_while_loop
@@ -670,9 +722,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement(Sc
             if_chain.emplace_back(next_definition, scoped_body);
         }
 
-        std::optional<IfNode> if_node = create_if(scope, if_chain);
+        std::optional<std::unique_ptr<IfNode>> if_node = create_if(scope, if_chain);
         if (if_node.has_value()) {
-            statement_node = std::make_unique<IfNode>(std::move(if_node.value()));
+            statement_node = std::move(if_node.value());
         } else {
             throw_err(ERR_PARSING);
         }

@@ -32,7 +32,7 @@ class IfNode : public StatementNode {
     IfNode &operator=(IfNode &&) = default;
 
     /// condition
-    ///     The COndition expression
+    ///     The Condition expression
     std::unique_ptr<ExpressionNode> condition;
     /// then_branch
     ///     The statements to execute when the condition evaluates to 'true'

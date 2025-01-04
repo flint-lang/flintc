@@ -3,12 +3,32 @@
 
 def main():
 	int num = my_func();
-	//if num > 4:
-    //    print(num);
-    print(7);
+	num = num + 1;
+	// int x = my_func_2(2, 4);
+	// bool cmp = gt3(5);
+	//
+	// int num = 5;
+	if num > 4:
+		print(num);
+		// print(x);
+	else:
+		print(2);
+		// print(7);
+	// print_num(42);
+	// fn1(0);
+
+// def print_num(int num):
+// 	print(num);
+
+// def gt3(int x) -> bool:
+// 	return x > 3;
+
+// def fn1(int x):
+// 	print(x);
+// 	fn1(x + 1);
 
 const def my_func() -> int:
-	return 10;
+	return 9;
 
-//def my_func_2(int x, int y) -> int:
-//	return x * 3 * y;
+// def my_func_2(int x, int y) -> int:
+// 	return x * 3 * y;

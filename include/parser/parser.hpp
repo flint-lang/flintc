@@ -78,7 +78,7 @@ class Parser {
 
     // --- STATEMENTS ---
     static std::optional<ReturnNode> create_return(Scope *scope, token_list &tokens);
-    static std::optional<IfNode> create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain);
+    static std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain);
     static std::optional<WhileNode> create_while_loop(Scope *scope, const token_list &definition, const token_list &body);
     static std::optional<ForLoopNode> create_for_loop(Scope *scope, const token_list &definition, const token_list &body);
     static std::optional<ForLoopNode> create_enh_for_loop(Scope *scope, const token_list &definition, const token_list &body);

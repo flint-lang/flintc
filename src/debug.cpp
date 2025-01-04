@@ -315,20 +315,26 @@ namespace Debug {
 
         void print_if(unsigned int indent_lvl, uint2 empty, const IfNode &if_node) {
             print_header(indent_lvl, empty, "If ");
-            std::cout << "if ";
-            print_expression(0, {0, 0}, if_node.condition);
-            print_header(indent_lvl + 1, empty, "Then ");
-            std::cout << std::endl;
-            print_body(indent_lvl + 2, empty, if_node.then_scope->body);
-            empty.second = indent_lvl + 1;
-            print_header(indent_lvl + 1, empty, "Else ");
-            std::cout << std::endl;
+            std::cout << "if " << std::endl;
+
             empty.second = indent_lvl + 2;
+            print_expression(indent_lvl + 1, empty, if_node.condition);
+
+            empty.second = indent_lvl + 1;
+            print_header(indent_lvl, empty, "Then ");
+            std::cout << std::endl;
+            print_body(indent_lvl + 1, empty, if_node.then_scope->body);
+
+            // empty.second = indent_lvl + 1;
+            print_header(indent_lvl, empty, "Else ");
+            std::cout << std::endl;
+
+            // empty.second = indent_lvl + 2;
             if (if_node.else_scope.has_value()) {
                 if (std::holds_alternative<std::unique_ptr<Scope>>(if_node.else_scope.value())) {
-                    print_body(indent_lvl + 2, empty, std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->body);
+                    print_body(indent_lvl + 1, empty, std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->body);
                 } else {
-                    print_if(indent_lvl + 2, empty, *std::get<IfNode *>(if_node.else_scope.value()));
+                    print_if(indent_lvl + 1, empty, *std::get<std::unique_ptr<IfNode>>(if_node.else_scope.value()));
                 }
             }
         }
@@ -397,7 +403,10 @@ namespace Debug {
             unsigned int counter = 0;
             for (const auto &body_line : body) {
                 if (++counter == body.size()) {
-                    empty.second = indent_lvl + 1;
+                    if (!std::holds_alternative<std::unique_ptr<StatementNode>>(body_line) ||
+                        dynamic_cast<const IfNode *>(std::get<std::unique_ptr<StatementNode>>(body_line).get()) != nullptr) {
+                        empty.second = indent_lvl + 1;
+                    }
                 }
                 if (std::holds_alternative<std::unique_ptr<StatementNode>>(body_line)) {
                     print_statement(indent_lvl, empty, std::get<std::unique_ptr<StatementNode>>(body_line));

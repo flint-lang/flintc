@@ -1,7 +1,7 @@
 MAIN_FILE = src/main.cpp
 TEST_FILE = tests/tests.cpp
 SRC_FILES = $(filter-out $(MAIN_FILE), $(wildcard src/*.cpp))
-HEADER_FILES = $(shell find ./include -name '*.hpp') $(shell find ./tests -name '*.hpp')
+HEADER_FILES = $(wildcard include/*.hpp) $(wildcard tests/*.hpp)
 
 OBJ_DIR = build/obj
 OUT_DIR = build/out
