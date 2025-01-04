@@ -474,8 +474,8 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens
 
 /// create_if
 ///
-std::optional<IfNode> Parser::create_if(const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
+std::optional<IfNode> Parser::create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain, token_list &else_body) {
+
     return std::nullopt;
 }
 
@@ -609,40 +609,61 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         } else {
             throw_err(ERR_PARSING);
         }
+    } else if (Signature::tokens_contain(tokens, Signature::return_statement)) {
+        std::optional<ReturnNode> return_node = create_return(scope, tokens);
+        if (return_node.has_value()) {
+            statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
+        } else {
+            throw_err(ERR_PARSING);
+        }
+    } else {
+        throw_err(ERR_UNDEFINED_STATEMENT);
+    }
+
+    return statement_node;
+}
+
+/// create_scoped_statement
+///     Creates the AST of a scoped statement like if, loops, catch, switch, etc.
+std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement(Scope *scope, const token_list &definition,
+    token_list &body) {
+    std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
+
+    std::optional<unsigned int> indent_lvl_maybe = Signature::get_leading_indents(       //
+        definition,                                                                      //
+        definition.at(0).type == TOK_EOL ? definition.at(1).line : definition.at(0).line //
+    );
+    if (!indent_lvl_maybe.has_value()) {
+        // Scoped statement has no body
+        throw_err(ERR_PARSING);
+    }
+    token_list scoped_body = get_body_tokens(indent_lvl_maybe.value(), body);
+
+    if (Signature::tokens_contain(definition, Signature::if_statement) ||
+        Signature::tokens_contain(definition, Signature::else_if_statement) ||
+        Signature::tokens_contain(definition, Signature::else_statement)) {
+        std::vector<std::pair<token_list, token_list>> if_chain;
     } else if (Signature::tokens_contain(tokens, Signature::for_loop)) {
         std::optional<ForLoopNode> for_loop = create_for_loop(tokens, false);
+    } else if (Signature::tokens_contain(definition, Signature::for_loop)) {
+        std::optional<ForLoopNode> for_loop = create_for_loop(scope, definition, scoped_body);
         if (for_loop.has_value()) {
             statement_node = std::make_unique<ForLoopNode>(std::move(for_loop.value()));
         } else {
             throw_err(ERR_PARSING);
         }
-    } else if (Signature::tokens_contain(tokens, Signature::par_for_loop) ||
-        Signature::tokens_contain(tokens, Signature::enhanced_for_loop)) {
-        std::optional<ForLoopNode> enh_for_loop = create_for_loop(tokens, true);
+    } else if (Signature::tokens_contain(definition, Signature::par_for_loop) ||
+        Signature::tokens_contain(definition, Signature::enhanced_for_loop)) {
+        std::optional<ForLoopNode> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body);
         if (enh_for_loop.has_value()) {
             statement_node = std::make_unique<ForLoopNode>(std::move(enh_for_loop.value()));
         } else {
             throw_err(ERR_PARSING);
         }
-    } else if (Signature::tokens_contain(tokens, Signature::while_loop)) {
-        std::optional<WhileNode> while_loop = create_while_loop(tokens);
+    } else if (Signature::tokens_contain(definition, Signature::while_loop)) {
+        std::optional<WhileNode> while_loop = create_while_loop(scope, definition, scoped_body);
         if (while_loop.has_value()) {
             statement_node = std::make_unique<WhileNode>(std::move(while_loop.value()));
-        } else {
-            throw_err(ERR_PARSING);
-        }
-    } else if (Signature::tokens_contain(tokens, Signature::if_statement) ||
-        Signature::tokens_contain(tokens, Signature::else_if_statement) || Signature::tokens_contain(tokens, Signature::else_statement)) {
-        std::optional<IfNode> if_node = create_if(tokens);
-        if (if_node.has_value()) {
-            statement_node = std::make_unique<IfNode>(std::move(if_node.value()));
-        } else {
-            throw_err(ERR_PARSING);
-        }
-    } else if (Signature::tokens_contain(tokens, Signature::return_statement)) {
-        std::optional<ReturnNode> return_node = create_return(tokens);
-        if (return_node.has_value()) {
-            statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
         } else {
             throw_err(ERR_PARSING);
         }
@@ -673,7 +694,14 @@ std::vector<body_statement> Parser::create_body(Scope *scope, token_list &body) 
                 throw_err(ERR_UNDEFINED_STATEMENT);
             }
         } else {
-            std::optional<std::unique_ptr<StatementNode>> next_statement = create_statement(statement_tokens);
+            std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
+            if (Signature::tokens_contain(statement_tokens, {TOK_COLON})) {
+                // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
+                next_statement = create_scoped_statement(scope, statement_tokens, body);
+            } else {
+                // --- NORMAL STATEMENT ---
+                next_statement = create_statement(scope, statement_tokens);
+            }
             if (next_statement.has_value()) {
                 body_statements.emplace_back(std::move(next_statement.value()));
             } else {
