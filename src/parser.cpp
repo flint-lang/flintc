@@ -67,7 +67,7 @@ FileNode Parser::parse_file(const std::filesystem::path &file) {
 ///     Finds the next main node inside the list of tokens and creates an ASTNode "tree" from it.
 ///     Only Definition nodes are considered as 'main' nodes
 ///     It returns the built ASTNode tree
-void Parser::add_next_main_node(FileNode &file, token_list &tokens) {
+void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     token_list definition_tokens = get_definition_tokens(tokens);
 
     // Find the indentation of the definition
@@ -85,41 +85,41 @@ void Parser::add_next_main_node(FileNode &file, token_list &tokens) {
             throw_err(ERR_USE_STATEMENT_MUST_BE_AT_TOP_LEVEL);
         }
         ImportNode import_node = create_import(definition_tokens);
-        file.add_import(import_node);
+        file_node.add_import(import_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::function_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         FunctionNode function_node = create_function(definition_tokens, body_tokens);
-        file.add_function(function_node);
+        file_node.add_function(function_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::data_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         DataNode data_node = create_data(definition_tokens, body_tokens);
-        file.add_data(data_node);
+        file_node.add_data(data_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::func_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         FuncNode func_node = create_func(definition_tokens, body_tokens);
-        file.add_func(func_node);
+        file_node.add_func(func_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::entity_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         auto entity_creation = create_entity(definition_tokens, body_tokens);
-        file.add_entity(entity_creation.first);
+        file_node.add_entity(entity_creation.first);
         if (entity_creation.second.has_value()) {
             std::unique_ptr<DataNode> data_node_ptr = std::move(entity_creation.second.value().first);
             std::unique_ptr<FuncNode> func_node_ptr = std::move(entity_creation.second.value().second);
-            file.add_data(*data_node_ptr);
-            file.add_func(*func_node_ptr);
+            file_node.add_data(*data_node_ptr);
+            file_node.add_func(*func_node_ptr);
         }
     } else if (Signature::tokens_contain(definition_tokens, Signature::enum_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         EnumNode enum_node = create_enum(definition_tokens, body_tokens);
-        file.add_enum(enum_node);
+        file_node.add_enum(enum_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::error_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         ErrorNode error_node = create_error(definition_tokens, body_tokens);
-        file.add_error(error_node);
+        file_node.add_error(error_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::variant_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         VariantNode variant_node = create_variant(definition_tokens, body_tokens);
-        file.add_variant(variant_node);
+        file_node.add_variant(variant_node);
     } else {
         throw_err(ERR_UNEXPECTED_DEFINITION);
     }

@@ -64,7 +64,7 @@ class Parser {
     static std::map<std::string, std::string> variable_types;
 
     // --- UTILITY ---
-    static void add_next_main_node(FileNode &file, token_list &tokens);
+    static void add_next_main_node(FileNode &file_node, token_list &tokens);
     static token_list get_definition_tokens(token_list &tokens);
     static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
     static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
