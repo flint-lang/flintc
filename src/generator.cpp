@@ -193,11 +193,11 @@ llvm::StructType *Generator::add_and_or_get_type(llvm::LLVMContext *context, con
         return_types_vec.emplace_back(get_type_from_str(*context, ret_value));
     }
     llvm::ArrayRef<llvm::Type *> return_types_arr(return_types_vec);
-    type_map[return_types] = llvm::StructType::create( //
-        *context,                                      //
-        return_types_arr,                              //
-        "type_" + return_types,                        //
-        true                                           //
+    type_map[return_types] = llvm::StructType::create(          //
+        *context,                                               //
+        return_types_arr,                                       //
+        "type_" + (return_types == "" ? "void" : return_types), //
+        true                                                    //
     );
     return type_map[return_types];
 }
