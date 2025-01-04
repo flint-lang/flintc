@@ -798,6 +798,18 @@ llvm::Value *Generator::generate_binary_op(llvm::IRBuilder<> &builder, llvm::Fun
             return builder.CreateSDiv(lhs, rhs, "sdivtmp");
         case TOK_SQUARE:
             return generate_pow_instruction(builder, parent, lhs, rhs);
+        case TOK_LESS:
+            return builder.CreateICmpSLT(lhs, rhs, "cmptmp");
+        case TOK_GREATER:
+            return builder.CreateICmpSGT(lhs, rhs, "cmptmp");
+        case TOK_LESS_EQUAL:
+            return builder.CreateICmpSLE(lhs, rhs, "cmptmp");
+        case TOK_GREATER_EQUAL:
+            return builder.CreateICmpSGE(lhs, rhs, "cmptmp");
+        case TOK_EQUAL_EQUAL:
+            return builder.CreateICmpEQ(lhs, rhs, "cmptmp");
+        case TOK_NOT_EQUAL:
+            return builder.CreateICmpNE(lhs, rhs, "cmptmp");
     }
 }
 
