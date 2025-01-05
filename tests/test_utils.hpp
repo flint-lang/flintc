@@ -5,9 +5,11 @@
 #include "lexer/token_context.hpp"
 #include "parser/signature.hpp"
 
+#include <chrono>
 #include <codecvt>
 #include <filesystem>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <locale>
 #include <string>
@@ -167,16 +169,22 @@ static void run_performance_test(const std::string &path) {
     get_command_output(c_compile_command + " 2>&1");
     get_command_output(ft_compile_command + " 2>&1");
     // Finally, run both programs and save their outputs
+    auto start = std::chrono::high_resolution_clock::now();
     const std::string c_test = get_command_output(c_bin);
+    auto middle = std::chrono::high_resolution_clock::now();
     const std::string ft_test = get_command_output(ft_bin);
+    auto end = std::chrono::high_resolution_clock::now();
 
+    long c_duration = std::chrono::duration_cast<std::chrono::microseconds>(middle - start).count();
+    long ft_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - middle).count();
+
+    double c_duration_ms = ((double)c_duration) / 1000;
+    double ft_duration_ms = ((double)ft_duration) / 1000;
+
+    // Output the results
     std::cout << "TEST: " << this_path << std::endl;
-    // std::cout << "\tC_COMP: " << c_compile_command << std::endl;
-    // std::cout << "\tC_RUN: " << c_bin << std::endl;
-    std::cout << "\tC: " << c_test;
-    // std::cout << "\tFT_COMP: " << ft_compile_command << std::endl;
-    // std::cout << "\tFT_RUN: " << ft_bin << std::endl;
-    std::cout << "\tFT: " << ft_test;
+    std::cout << "\tC  [" << std::fixed << std::setprecision(2) << c_duration_ms << " ms]: " << c_test;
+    std::cout << "\tFT [" << std::fixed << std::setprecision(2) << ft_duration_ms << " ms]: " << ft_test;
 }
 
 #endif
