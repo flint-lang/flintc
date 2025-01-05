@@ -578,6 +578,20 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
         }
     }
 
+    // If the merge block is empty and all other blocks contain return statements, it can be removed entirely
+    if (merge_block->empty() && merge_block->hasNPredecessors(0)) {
+        bool every_block_has_return = true;
+        for (auto block = current_blocks.begin(); block != current_blocks.end() - 1; ++block) {
+            if (block != current_blocks.end() && (*block)->getTerminator() == nullptr) {
+                every_block_has_return = false;
+                break;
+            }
+        }
+        if (every_block_has_return) {
+            merge_block->eraseFromParent();
+        }
+    }
+
     // For the top-level call, set insert point to merge block
     // if (nesting_level == 0) {
     // builder.SetInsertPoint(merge_block);
