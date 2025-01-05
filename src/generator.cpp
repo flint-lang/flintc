@@ -467,9 +467,6 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
 
     // First call (nesting_level == 0): Create all blocks for entire if-chain
     if (nesting_level == 0) {
-        // Create merge block (shared by all branches)
-        current_blocks.push_back(llvm::BasicBlock::Create(context, "merge", parent));
-
         // Count total number of branches and create blocks
         const IfNode *current = if_node;
         unsigned int branch_count = 0;
@@ -506,7 +503,13 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
                 current = nullptr;
             }
         }
+
+        // Create merge block (shared by all branches)
+        current_blocks.push_back(llvm::BasicBlock::Create(context, "merge", parent));
     }
+
+    // Reference to the merge block
+    llvm::BasicBlock *merge_block = current_blocks[current_blocks.size() - 1];
 
     // Generate the condition
     llvm::Value *condition = generate_expression(builder, parent, if_node->condition.get());
@@ -515,9 +518,9 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
         throw_err(ERR_GENERATING);
     }
 
-    // Index calculation for current blocks, +1 because merge block is at index 0
-    unsigned int then_idx = nesting_level + 1;
-    // Defaults to the merge block
+    // Index calculation for current blocks
+    unsigned int then_idx = nesting_level;
+    // Defaults to the first if statement
     unsigned int next_idx = 0;
 
     // Determine the next block (either else-if/else block or merge block)
@@ -546,7 +549,7 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
     generate_body(parent, if_node->then_scope.get());
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
         // Branch to merge block
-        builder.CreateBr(current_blocks[0]);
+        builder.CreateBr(merge_block);
     }
 
     // Handle else-if or else
@@ -569,7 +572,7 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
                 builder.SetInsertPoint(current_blocks[next_idx]);
                 generate_body(parent, last_else_scope.get());
                 if (builder.GetInsertBlock()->getTerminator() == nullptr) {
-                    builder.CreateBr(current_blocks[0]);
+                    builder.CreateBr(merge_block);
                 }
             }
         }
