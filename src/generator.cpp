@@ -546,7 +546,7 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
 
     // Generate then branch
     builder.SetInsertPoint(current_blocks[then_idx]);
-    generate_body(parent, if_node->then_scope.get());
+    generate_body(parent, if_node->then_scope.get(), &builder);
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
         // Branch to merge block
         builder.CreateBr(merge_block);
@@ -570,7 +570,7 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
             const auto &last_else_scope = std::get<std::unique_ptr<Scope>>(else_scope);
             if (!last_else_scope->body.empty()) {
                 builder.SetInsertPoint(current_blocks[next_idx]);
-                generate_body(parent, last_else_scope.get());
+                generate_body(parent, last_else_scope.get(), &builder);
                 if (builder.GetInsertBlock()->getTerminator() == nullptr) {
                     builder.CreateBr(merge_block);
                 }
@@ -579,14 +579,15 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
     }
 
     // For the top-level call, set insert point to merge block
-    if (nesting_level == 0) {
-        builder.SetInsertPoint(current_blocks[0]);
-        // TODO:    The whole phi implementation needs to work for now, as i need to create a whole scoping-system before i can even
-        //          remotely think about knowing which variable was mutated in which block! So...i need a robust scoping system before i can
-        //          implement the phi calls for each variable..
-        // llvm::PHINode *phi = builder.CreatePHI(llvm::Type::getInt32Ty(context), blocks.size() / 2); Here you
-        // would handle PHI nodes if needed
-    }
+    // if (nesting_level == 0) {
+    // builder.SetInsertPoint(merge_block);
+    // TODO:    The whole phi implementation needs to work for now, as i need to create a whole scoping-system before i can even
+    //          remotely think about knowing which variable was mutated in which block! So...i need a robust scoping system before i can
+    //          implement the phi calls for each variable..
+    // llvm::PHINode *phi = builder.CreatePHI(llvm::Type::getInt32Ty(context), blocks.size() / 2); Here you
+    // would handle PHI nodes if needed
+    // return merge_block;
+    // }
 }
 
 /// generate_while_loop
