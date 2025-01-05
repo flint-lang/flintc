@@ -5,3 +5,5 @@ xml2/xml2
 build
 main
 output.ll
+ft_test
+c_test

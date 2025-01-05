@@ -73,7 +73,7 @@ class CommandLineParser {
                     return 1;
                 }
                 build_executable(args[i + 1]);
-                ++i;
+                return 0;
             } else {
                 print_err("Unknown argument: " + arg);
                 return 1;

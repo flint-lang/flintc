@@ -2,13 +2,23 @@
 //use flint.math.vectors;
 
 def main():
-	int fib = fibonnaci(40);
-	print(fib);
+	// int fib = fibonacci(40);
+	// print(fib);
 
-def fibonnaci(int num) -> int:
-	if num <= 1:
-		return num;
+	int fac = factorial(12);
+	print(fac);
+
+// def fibonacci(int num) -> int:
+// 	if num <= 1:
+// 		return num;
+// 	else:
+// 		int fib_n_1 = fibonacci(num - 1);
+// 		int fib_n_2 = fibonacci(num - 2);
+// 		return fib_n_1 + fib_n_2;
+
+def factorial(int num) -> int:
+	if num == 0:
+		return 1;
 	else:
-		int fib_n_1 = fibonnaci(num - 1);
-		int fib_n_2 = fibonnaci(num - 2);
-		return fib_n_1 + fib_n_2;
+		int n_1 = factorial(num - 1);
+		return num * n_1;

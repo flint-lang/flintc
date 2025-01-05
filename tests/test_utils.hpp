@@ -6,7 +6,9 @@
 #include "parser/signature.hpp"
 
 #include <codecvt>
+#include <filesystem>
 #include <functional>
+#include <iostream>
 #include <locale>
 #include <string>
 #include <vector>
@@ -120,6 +122,61 @@ static void run_all_tests(TestResult &result, const std::vector<function_list> &
             result.add_result_if(test_group);
         }
     }
+}
+
+/// get_command_output
+///     Executes an command and returns the output of the command
+static std::string get_command_output(const std::string &command) {
+    constexpr std::size_t BUFFER_SIZE = 128;
+    std::string output;
+    FILE *pipe = popen(command.c_str(), "r");
+
+    if (pipe == nullptr) {
+        throw std::runtime_error("popen() failed!");
+    }
+
+    try {
+        std::array<char, BUFFER_SIZE> buffer{};
+        while (fgets(buffer.data(), BUFFER_SIZE, pipe) != nullptr) {
+            output.append(buffer.data());
+        }
+
+        if (pclose(pipe) == -1) {
+            throw std::runtime_error("pclose() failed!");
+        }
+    } catch (...) {
+        pclose(pipe);
+        throw;
+    }
+
+    return output;
+}
+
+/// run_performance_test
+///
+static void run_performance_test(const std::string &path) {
+    // Create all the paths of all strings
+    std::string cwd = std::filesystem::current_path().string();
+    const std::string this_path = cwd + path;
+    const std::string c_bin = this_path + "/c_test";
+    const std::string ft_bin = this_path + "/ft_test";
+    const std::string c_compile_command = "clang " + this_path + "/test.c -o " + c_bin;
+    const std::string ft_compile_command = cwd + "/build/out/flintc -f " + this_path + "/test.ft -o " + ft_bin;
+    // Then, compile both the .ft and the .c file to their respective executables
+    // Use the 'get_command_output' to not print any of the output to the console
+    get_command_output(c_compile_command + " 2>&1");
+    get_command_output(ft_compile_command + " 2>&1");
+    // Finally, run both programs and save their outputs
+    const std::string c_test = get_command_output(c_bin);
+    const std::string ft_test = get_command_output(ft_bin);
+
+    std::cout << "TEST: " << this_path << std::endl;
+    // std::cout << "\tC_COMP: " << c_compile_command << std::endl;
+    // std::cout << "\tC_RUN: " << c_bin << std::endl;
+    std::cout << "\tC: " << c_test;
+    // std::cout << "\tFT_COMP: " << ft_compile_command << std::endl;
+    // std::cout << "\tFT_RUN: " << ft_bin << std::endl;
+    std::cout << "\tFT: " << ft_test;
 }
 
 #endif

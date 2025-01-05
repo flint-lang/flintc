@@ -1,0 +1,11 @@
+def fibonacci(int num) -> int:
+	if num <= 1:
+		return num;
+	else:
+		int fib_n_1 = fibonacci(num - 1);
+		int fib_n_2 = fibonacci(num - 2);
+		return fib_n_1 + fib_n_2;
+
+def main():
+	int fib = fibonacci(40);
+	print(fib);

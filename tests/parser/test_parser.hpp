@@ -1,7 +1,7 @@
 #ifndef __TEST_PARSER_HPP__
 #define __TEST_PARSER_HPP__
 
-#include "../test_utils.hpp"
+#include "test_utils.hpp"
 
 TestResult test_parser() {
     TestResult result;

@@ -62,12 +62,8 @@ TestResult test_signature() {
         get_function_call_expression_tests(), //
         get_bin_op_expression_tests(),        //
     };
-    run_all_tests(result, tests, true);
-    return result;
 
-    if (result.get_count() == 0) {
-        return {};
-    }
+    run_all_tests(result, tests, true);
     return result;
 }
 

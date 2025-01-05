@@ -1,6 +1,7 @@
 #include "test_utils.hpp"
 
 #include "parser/test_parser.hpp"
+#include "performance/test_performance.hpp"
 #include "signature/test_signature.hpp"
 
 #include <iostream>
@@ -20,7 +21,8 @@ int main() {
     run_test(result, test_parser);
     run_test(result, test_signature);
 
-    print_result(result);
+    test_performance();
 
+    print_result(result);
     std::cout << DEFAULT;
 }
