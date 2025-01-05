@@ -410,17 +410,18 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
         tokens.pop_back();
     }
 
-    if (Signature::tokens_contain(tokens, Signature::bin_op_expr)) {
-        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, tokens);
-        if (bin_op.has_value()) {
-            expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
-        } else {
-            throw_err(ERR_PARSING);
-        }
-    } else if (Signature::tokens_contain(tokens, Signature::function_call)) {
+    // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
+    if (Signature::tokens_contain(tokens, Signature::function_call)) {
         std::optional<std::unique_ptr<CallNode>> call = create_call(scope, tokens);
         if (call.has_value()) {
             expression = std::move(call.value());
+        } else {
+            throw_err(ERR_PARSING);
+        }
+    } else if (Signature::tokens_contain(tokens, Signature::bin_op_expr)) {
+        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, tokens);
+        if (bin_op.has_value()) {
+            expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
         } else {
             throw_err(ERR_PARSING);
         }
