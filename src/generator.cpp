@@ -373,17 +373,23 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
 
 /// generate_body
 ///     Generates a whole body
-void Generator::generate_body(llvm::Function *parent, Scope *scope) {
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
-        parent->getContext(),                                 //
-        "entry",                                              //
-        parent                                                //
-    );
-    llvm::IRBuilder<> builder(entry_block);
-
-    // Example: Add instructions to the body
-    for (const auto &stmt : scope->body) {
-        generate_statement(builder, parent, stmt);
+void Generator::generate_body(llvm::Function *parent, Scope *scope, llvm::IRBuilder<> *builder) {
+    if (builder == nullptr) {
+        llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
+            parent->getContext(),                                 //
+            "entry",                                              //
+            parent                                                //
+        );
+        llvm::IRBuilder<> new_builder(entry_block);
+        // Add instructions to the body
+        for (const auto &stmt : scope->body) {
+            generate_statement(new_builder, parent, stmt);
+        }
+    } else {
+        // Add instructions to the body
+        for (const auto &stmt : scope->body) {
+            generate_statement(*builder, parent, stmt);
+        }
     }
 }
 

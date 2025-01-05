@@ -81,7 +81,7 @@ class Generator {
 
     static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
-    static void generate_body(llvm::Function *parent, Scope *scope);
+    static void generate_body(llvm::Function *parent, Scope *scope, llvm::IRBuilder<> *builder = nullptr);
 
     static void generate_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const body_statement &statement);
     static void generate_return_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const ReturnNode *return_node);
