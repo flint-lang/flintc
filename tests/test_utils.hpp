@@ -6,6 +6,7 @@
 #include "parser/signature.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <codecvt>
 #include <filesystem>
 #include <functional>
@@ -15,10 +16,12 @@
 #include <string>
 #include <vector>
 
-const std::string RED = "\033[31m";
-const std::string GREEN = "\033[32m";
-const std::string WHITE = "\033[37m";
-const std::string DEFAULT = "\033[0m";
+static const std::string RED = "\033[31m";
+static const std::string GREEN = "\033[32m";
+static const std::string YELLOW = "\033[33m";
+static const std::string BLUE = "\033[34m";
+static const std::string WHITE = "\033[37m";
+static const std::string DEFAULT = "\033[0m";
 
 class TestResult {
   private:
@@ -156,10 +159,10 @@ static std::string get_command_output(const std::string &command) {
 
 /// run_performance_test
 ///
-static void run_performance_test(const std::string &path) {
+static void run_performance_test(const std::filesystem::path &test_path) {
     // Create all the paths of all strings
-    std::string cwd = std::filesystem::current_path().string();
-    const std::string this_path = cwd + path;
+    const std::string cwd = std::filesystem::current_path().string();
+    const std::string this_path = cwd / test_path;
     const std::string c_bin = this_path + "/c_test";
     const std::string ft_bin = this_path + "/ft_test";
     const std::string c_compile_command = "clang " + this_path + "/test.c -o " + c_bin;
@@ -169,22 +172,44 @@ static void run_performance_test(const std::string &path) {
     get_command_output(c_compile_command + " 2>&1");
     get_command_output(ft_compile_command + " 2>&1");
     // Finally, run both programs and save their outputs
-    auto start = std::chrono::high_resolution_clock::now();
+    const auto start = std::chrono::high_resolution_clock::now();
     const std::string c_test = get_command_output(c_bin);
-    auto middle = std::chrono::high_resolution_clock::now();
+    const auto middle = std::chrono::high_resolution_clock::now();
     const std::string ft_test = get_command_output(ft_bin);
-    auto end = std::chrono::high_resolution_clock::now();
+    const auto end = std::chrono::high_resolution_clock::now();
 
-    long c_duration = std::chrono::duration_cast<std::chrono::microseconds>(middle - start).count();
-    long ft_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - middle).count();
+    const long c_duration = std::chrono::duration_cast<std::chrono::microseconds>(middle - start).count();
+    const long ft_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - middle).count();
 
-    double c_duration_ms = ((double)c_duration) / 1000;
-    double ft_duration_ms = ((double)ft_duration) / 1000;
+    const double c_duration_ms = ((double)c_duration) / 1000;
+    const double ft_duration_ms = ((double)ft_duration) / 1000;
+
+    const double perf_factor = ft_duration_ms / c_duration_ms;
+    const double perf_diff_percent = -1 + perf_factor;
+
+    std::string color;
+    if (perf_diff_percent >= 0.3) {
+        // FT is more than 30% slower than C
+        color = RED;
+    } else if (perf_diff_percent >= 0.2) {
+        // FT is 20% - 30% slower than C
+        color = YELLOW;
+    } else if (perf_diff_percent >= 0.1) {
+        // FT is 10% - 20% slower than C
+        color = BLUE;
+    } else if (perf_diff_percent >= 0) {
+        // FT is up to 10% slower than C
+        color = WHITE;
+    } else {
+        // FT is faster than C
+        color = GREEN;
+    }
 
     // Output the results
-    std::cout << "TEST: " << this_path << std::endl;
-    std::cout << "\tC  [" << std::fixed << std::setprecision(2) << c_duration_ms << " ms]: " << c_test;
-    std::cout << "\tFT [" << std::fixed << std::setprecision(2) << ft_duration_ms << " ms]: " << ft_test;
+    std::cout << "TEST: " << test_path.string() << std::endl;
+    std::cout << "\tC  [" << std::fixed << std::setprecision(2) << c_duration_ms << " ms]:        " << c_test;
+    std::cout << "\tFT [" << std::fixed << std::setprecision(2) << ft_duration_ms << " ms] [" << color << (perf_diff_percent > 0 ? "+" : "")
+              << int(perf_diff_percent * 100) << "\%" << DEFAULT << "]: " << ft_test;
 }
 
 #endif

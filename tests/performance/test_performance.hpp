@@ -7,8 +7,8 @@ TestResult test_performance() {
     TestResult result;
     result.append_test_name("PERFORMANCE_TESTS:", true);
 
-    run_performance_test("/tests/performance/recursion/factorial");
-    run_performance_test("/tests/performance/recursion/fibonacci");
+    run_performance_test("tests/performance/recursion/factorial");
+    run_performance_test("tests/performance/recursion/fibonacci");
 
     return result;
 }
