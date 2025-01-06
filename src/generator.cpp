@@ -172,7 +172,7 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
 /// resolve_ir_comments
 ///     Resolves all IR file module comments
 std::string Generator::resolve_ir_comments(const std::string &ir_string) {
-    // LLVM's automatic comments tart at the 50th character, so i will start 10 characters later
+    // LLVM's automatic comments tart at the 50th character, so we will start 10 characters later
     static const unsigned int COMMENT_OFFSET = 60;
 
     // Step 1: Create containers for regex operations
@@ -491,10 +491,14 @@ void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Func
     auto *return_struct_type = llvm::cast<llvm::StructType>(parent->getReturnType());
 
     // Allocate space for the function's return type (should be a struct type)
-    llvm::AllocaInst *return_struct = builder.CreateAlloca(return_struct_type, nullptr, "return_struct");
+    llvm::AllocaInst *return_struct = builder.CreateAlloca(return_struct_type, nullptr, "ret_struct");
+    return_struct->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(),
+                "Create ret struct '" + return_struct->getName().str() + "' of type '" + return_struct_type->getName().str() + "'")));
 
     // First, always store the error code (0 for no error)
-    llvm::Value *error_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 0, "error_ptr");
+    llvm::Value *error_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 0, "err_ptr");
     builder.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(builder.getContext()), 0), error_ptr);
 
     // If we have a return value, store it in the struct
@@ -508,12 +512,19 @@ void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Func
         }
 
         // Store the return value in the struct (at index 1)
-        llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "value_ptr");
-        builder.CreateStore(return_value, value_ptr);
+        llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "val_ptr");
+        llvm::StoreInst *value_store = builder.CreateStore(return_value, value_ptr);
+        value_store->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(),
+                    "Store result of expr '" + return_value->getName().str() + "' in '" + value_store->getName().str() + "'")));
     }
 
     // Generate the return instruction with the evaluated value
-    llvm::Value *return_struct_val = builder.CreateLoad(return_struct_type, return_struct, "return_value");
+    llvm::LoadInst *return_struct_val = builder.CreateLoad(return_struct_type, return_struct, "ret_val");
+    return_struct_val->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Load allocated ret struct of type '" + return_struct_type->getName().str() + "'")));
     builder.CreateRet(return_struct_val);
 }
 
@@ -602,11 +613,16 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
     }
 
     // Create conditional branch
-    builder.CreateCondBr(         //
-        condition,                //
-        current_blocks[then_idx], //
-        current_blocks[next_idx]  //
+    llvm::BranchInst *branch = builder.CreateCondBr( //
+        condition,                                   //
+        current_blocks[then_idx],                    //
+        current_blocks[next_idx]                     //
     );
+    branch->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(),
+                "Branch between '" + current_blocks[then_idx]->getName().str() + "' and '" + current_blocks[next_idx]->getName().str() +
+                    "' based on condition '" + condition->getName().str() + "'")));
 
     // Generate then branch
     builder.SetInsertPoint(current_blocks[then_idx]);
@@ -666,6 +682,7 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
     // would handle PHI nodes if needed
     // return merge_block;
     // }
+    return nullptr;
 }
 
 /// generate_while_loop
@@ -681,7 +698,10 @@ void Generator::generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *pa
 void Generator::generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *parent, const AssignmentNode *assignment_node) {
     llvm::Value *expression = generate_expression(builder, parent, assignment_node->value.get());
     llvm::Value *lhs = lookup_variable(parent, assignment_node->var_name);
-    builder.CreateStore(expression, lhs);
+    llvm::StoreInst *store = builder.CreateStore(expression, lhs);
+    store->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Store result of expr in var '" + assignment_node->var_name + "'")));
 }
 
 /// generate_declaration
@@ -698,7 +718,14 @@ void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function 
             nullptr,                                                 //
             declaration_node->name + "__TMP"                         //
         );
-        builder.CreateStore(expression, temp_struct_alloca);
+        temp_struct_alloca->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(), "Create temp ret struct of called function '" + call_node->function_name + "'")));
+
+        llvm::StoreInst *temp_struct_store = builder.CreateStore(expression, temp_struct_alloca);
+        temp_struct_store->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(), "Store result of '" + call_node->function_name + "' call in temp ret struct")));
 
         // Create the actual variable allocation with the declared type
         llvm::AllocaInst *alloca = builder.CreateAlloca(                     //
@@ -706,6 +733,9 @@ void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function 
             nullptr,                                                         //
             declaration_node->name                                           //
         );
+        alloca->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(), "Create the actual alloc of var '" + declaration_node->name + "'")));
 
         // Extract the second field (index 1) from the struct - this is the actual return value
         llvm::Value *value_ptr = builder.CreateStructGEP( //
@@ -714,18 +744,32 @@ void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function 
             1,                                            //
             declaration_node->name + "__VAL_PTR"          //
         );
-        llvm::Value *actual_value = builder.CreateLoad(                      //
+        llvm::LoadInst *actual_value = builder.CreateLoad(                   //
             get_type_from_str(parent->getContext(), declaration_node->type), //
             value_ptr,                                                       //
             declaration_node->name + "__VAL"                                 //
         );
+        actual_value->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(), "Load the actual val of '" + declaration_node->name + "' from its ptr")));
+
         // Store the actual value in the declared variable
-        builder.CreateStore(actual_value, alloca);
+        llvm::StoreInst *actual_value_store = builder.CreateStore(actual_value, alloca);
+        actual_value_store->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
         return;
     }
 
     llvm::AllocaInst *alloca = builder.CreateAlloca(expression->getType(), nullptr, declaration_node->name);
-    builder.CreateStore(expression, alloca);
+    alloca->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Create alloc of var '" + declaration_node->name + "'")));
+
+    llvm::StoreInst *store = builder.CreateStore(expression, alloca);
+    store->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
 }
 
 /// generate_expression
@@ -779,7 +823,12 @@ llvm::Value *Generator::generate_variable(llvm::IRBuilder<> &builder, llvm::Func
     llvm::Type *value_type = get_type_from_str(parent->getParent()->getContext(), variable_node->type);
 
     // Load the variable's value if it's a pointer
-    return builder.CreateLoad(value_type, variable, variable_node->name + "_value");
+    llvm::LoadInst *load = builder.CreateLoad(value_type, variable, variable_node->name + "_val");
+    load->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Load val of var '" + variable_node->name + "'")));
+
+    return load;
 }
 
 /// generate_unary_op
@@ -841,6 +890,7 @@ llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function
             throw_err(ERR_NOT_IMPLEMENTED_YET);
             return nullptr;
         }
+        // Call the builtin function 'print'
         if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
             print_functions.find(call_node->arguments.at(0)->type) != print_functions.end()) {
             return builder.CreateCall(                             //
@@ -856,10 +906,9 @@ llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function
 
     // Create the call instruction using the original declaration
     llvm::CallInst *call = builder.CreateCall(func_decl, args);
-    // Add metadata comment to the alloca instruction
-    llvm::MDNode *metadata = llvm::MDNode::get(parent->getContext(),
-        llvm::MDString::get(parent->getContext(), "Call of function '" + call_node->function_name + "'"));
-    call->setMetadata("comment", metadata);
+    call->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Call of function '" + call_node->function_name + "'")));
 
     // Add the call instruction to the list of unresolved functions
     if (unresolved_functions.find(call_node->function_name) == unresolved_functions.end()) {
