@@ -189,10 +189,13 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
         metadata_map[it->str(1)] = it->str(2);
     }
 
-    // Step 3: Replace comment references with aligned inline comments
+    // Step 3: Collect all matches and save them into the 'remplacements' vector
     std::string processed_ir = ir_string;
+    std::vector<std::pair<size_t, std::pair<size_t, std::string>>> replacements;
     std::sregex_iterator comment_begin(processed_ir.begin(), processed_ir.end(), comment_reference_regex);
-    for (auto it = comment_begin; it != metadata_end; ++it) {
+    std::sregex_iterator comment_end;
+
+    for (auto it = comment_begin; it != comment_end; ++it) {
         std::string comment_id = it->str(1);
         auto metadata_it = metadata_map.find(comment_id);
         if (metadata_it != metadata_map.end()) {
@@ -214,12 +217,17 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
             // Create the replacement string with proper spacing
             std::string comment_text = std::string(spaces, ' ') + "; " + metadata_it->second;
 
-            // Replace the metadata reference with the aligned comment
-            processed_ir.replace(it->position(), it->length(), comment_text);
+            // Store position, length and replacement text
+            replacements.push_back({(size_t)it->position(), {it->length(), comment_text}});
         }
     }
 
-    // Step 4: Remove metadata definition lines
+    // Step 4: Apply replacements in reverse order to maintain correct positions
+    for (auto it = replacements.rbegin(); it != replacements.rend(); ++it) {
+        processed_ir.replace(it->first, it->second.first, it->second.second);
+    }
+
+    // Step 5: Remove metadata definition lines
     processed_ir = std::regex_replace(processed_ir, metadata_line_regex, "");
 
     return processed_ir;
