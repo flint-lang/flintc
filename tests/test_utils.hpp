@@ -158,7 +158,7 @@ static std::string get_command_output(const std::string &command) {
 }
 
 /// run_performance_test
-///
+///     Runs a performance test to compare Flint to C code
 static void run_performance_test(const std::filesystem::path &test_path) {
     // Create all the paths of all strings
     const std::string cwd = std::filesystem::current_path().string();

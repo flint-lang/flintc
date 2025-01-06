@@ -33,14 +33,14 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/Support/Error.h>
-
-#include <llvm/Transforms/Utils/Cloning.h>
-
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 
 #include <iterator>
 #include <memory>
+#include <regex>
 #include <string>
+#include <unordered_map>
 #include <variant>
 
 std::map<std::string, llvm::StructType *> Generator::type_map;
@@ -167,6 +167,62 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
     module->print(stream, nullptr);
     stream.flush();
     return ir_string;
+}
+
+/// resolve_ir_comments
+///     Resolves all IR file module comments
+std::string Generator::resolve_ir_comments(const std::string &ir_string) {
+    // LLVM's automatic comments tart at the 50th character, so i will start 10 characters later
+    static const unsigned int COMMENT_OFFSET = 60;
+
+    // Step 1: Create containers for regex operations
+    std::unordered_map<std::string, std::string> metadata_map;
+    std::regex metadata_regex(R"(\!(\d+) = \!\{\!\s*\"([^\"]*)\"\})");
+    std::regex comment_reference_regex(R"(, \!comment \!(\d+))");
+    std::regex metadata_line_regex(R"(\!(\d+) = \!\{\!\s*\"([^\"]*)\"\}\n?)");
+
+    // Step 2: Extract metadata definitions
+    std::sregex_iterator metadata_begin(ir_string.begin(), ir_string.end(), metadata_regex);
+    std::sregex_iterator metadata_end;
+    for (auto it = metadata_begin; it != metadata_end; ++it) {
+        // Map '!X' to its comment text
+        metadata_map[it->str(1)] = it->str(2);
+    }
+
+    // Step 3: Replace comment references with aligned inline comments
+    std::string processed_ir = ir_string;
+    std::sregex_iterator comment_begin(processed_ir.begin(), processed_ir.end(), comment_reference_regex);
+    for (auto it = comment_begin; it != metadata_end; ++it) {
+        std::string comment_id = it->str(1);
+        auto metadata_it = metadata_map.find(comment_id);
+        if (metadata_it != metadata_map.end()) {
+            // Find the start of the line containing this comment
+            size_t line_start = processed_ir.rfind('\n', it->position());
+            if (line_start == std::string::npos) {
+                line_start = 0;
+            } else {
+                // Move past the newline
+                line_start++;
+            }
+
+            // Calculate the current line length up to the comma
+            size_t line_length = it->position() - line_start;
+
+            // Calculate needed spacing
+            unsigned int spaces = (line_length > COMMENT_OFFSET ? 1 : COMMENT_OFFSET - line_length);
+
+            // Create the replacement string with proper spacing
+            std::string comment_text = std::string(spaces, ' ') + "; " + metadata_it->second;
+
+            // Replace the metadata reference with the aligned comment
+            processed_ir.replace(it->position(), it->length(), comment_text);
+        }
+    }
+
+    // Step 4: Remove metadata definition lines
+    processed_ir = std::regex_replace(processed_ir, metadata_line_regex, "");
+
+    return processed_ir;
 }
 
 /// get_type_map_key
@@ -792,6 +848,10 @@ llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function
 
     // Create the call instruction using the original declaration
     llvm::CallInst *call = builder.CreateCall(func_decl, args);
+    // Add metadata comment to the alloca instruction
+    llvm::MDNode *metadata = llvm::MDNode::get(parent->getContext(),
+        llvm::MDString::get(parent->getContext(), "Call of function '" + call_node->function_name + "'"));
+    call->setMetadata("comment", metadata);
 
     // Add the call instruction to the list of unresolved functions
     if (unresolved_functions.find(call_node->function_name) == unresolved_functions.end()) {

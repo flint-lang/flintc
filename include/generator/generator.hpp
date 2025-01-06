@@ -37,6 +37,7 @@ class Generator {
         llvm::IRBuilder<> *builder);
 
     static std::string get_module_ir_string(const llvm::Module *module);
+    static std::string resolve_ir_comments(const std::string &ir_string);
 
   private:
     static inline std::map<BuiltinFunctions, llvm::Function *> builtins = {
