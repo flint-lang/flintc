@@ -1,6 +1,7 @@
 #include "parser/parser.hpp"
 #include "error/error_type.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/scope.hpp"
 #include "parser/signature.hpp"
 
 #include "error/error.hpp"
@@ -513,8 +514,9 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
         // Invalid expression inside if statement
         throw_err(ERR_PARSING);
     }
-    std::vector<body_statement> body_statements = create_body(scope, this_if_pair.second);
-    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(std::move(body_statements));
+    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
+    std::vector<body_statement> body_statements = create_body(body_scope.get(), this_if_pair.second);
+    body_scope->body = std::move(body_statements);
     std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> else_scope = std::nullopt;
 
     // Check if the chain contains any values (more if blocks in the chain) and parse them accordingly
@@ -524,8 +526,10 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
             else_scope = create_if(scope, if_chain);
         } else {
             // 'else'
-            std::vector<body_statement> body_statements = create_body(scope, if_chain.at(0).second);
-            else_scope = std::make_unique<Scope>(std::move(body_statements));
+            std::unique_ptr<Scope> else_scope_ptr = std::make_unique<Scope>(scope);
+            std::vector<body_statement> body_statements = create_body(else_scope_ptr.get(), if_chain.at(0).second);
+            else_scope_ptr->body = std::move(body_statements);
+            else_scope = std::move(else_scope_ptr);
         }
     }
 
@@ -567,7 +571,6 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                         // Assignment on undeclared variable!
                         throw_err(ERR_PARSING);
                     }
-                    scope->set_variable_mutated(iterator->lexme, true);
                     return std::make_unique<AssignmentNode>(iterator->lexme, expression.value());
                 }
                 throw_err(ERR_PARSING);
@@ -624,11 +627,10 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
 
         auto expr = create_expression(scope, tokens);
         if (expr.has_value()) {
-            if (!scope->add_variable(name)) {
+            if (!scope->add_variable_type(name, type)) {
                 // Variable shadowing!
                 throw_err(ERR_PARSING);
             }
-            scope->add_variable_type(name, type);
             declaration = DeclarationNode(type, name, expr.value());
         }
     }
@@ -855,10 +857,6 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
-        if (!body_scope->add_variable(param.second)) {
-            // Variable already exists in the func definition list
-            throw_err(ERR_PARSING);
-        }
         if (!body_scope->add_variable_type(param.second, param.first)) {
             // Variable already exists in the func definition list
             throw_err(ERR_PARSING);

@@ -192,6 +192,7 @@ namespace Debug {
                 std::cout << "> ";
             }
         } // namespace
+
         /// print_ast_tree
         ///     Prints the whole AST Tree recursively
         void print_file(const FileNode &file) {

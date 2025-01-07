@@ -59,7 +59,7 @@ class CommandLineParser {
                 std::error_code EC;
                 llvm::raw_fd_ostream ll_file("output.ll", EC);
                 if (!EC) {
-                    program->print(ll_file, nullptr);
+                    ll_file << Generator::resolve_ir_comments(Generator::get_module_ir_string(program.get()));
                     ll_file.close();
                 }
 

@@ -1,24 +1,13 @@
-//use "library.ft";
-//use flint.math.vectors;
 
 def main():
-	// int fib = fibonacci(40);
-	// print(fib);
+	int num = 0;
+	int num2 = 10;
 
-	int fac = factorial(12);
-	print(fac);
-
-// def fibonacci(int num) -> int:
-// 	if num <= 1:
-// 		return num;
-// 	else:
-// 		int fib_n_1 = fibonacci(num - 1);
-// 		int fib_n_2 = fibonacci(num - 2);
-// 		return fib_n_1 + fib_n_2;
-
-def factorial(int num) -> int:
-	if num == 0:
-		return 1;
+	if num2 > 10:
+		num = 1;
+	else if num2 < 10:
+		num = 2;
 	else:
-		int n_1 = factorial(num - 1);
-		return num * n_1;
+		num = 3;
+
+	print(num);
