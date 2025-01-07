@@ -44,9 +44,9 @@
 #include <utility>
 #include <variant>
 
-std::map<std::string, llvm::StructType *> Generator::type_map;
-std::map<std::string, std::vector<llvm::CallInst *>> Generator::unresolved_functions;
-std::map<std::string, unsigned int> Generator::function_mangle_ids;
+std::unordered_map<std::string, llvm::StructType *> Generator::type_map;
+std::unordered_map<std::string, std::vector<llvm::CallInst *>> Generator::unresolved_functions;
+std::unordered_map<std::string, unsigned int> Generator::function_mangle_ids;
 
 /// generate_program_ir
 ///     Generates the llvm IR code for a complete program

@@ -53,8 +53,8 @@ class Scope {
         return variable_types.insert({var, type}).second;
     }
 
-    Scope *parent_scope{nullptr};
     std::vector<body_statement> body;
+    Scope *parent_scope{nullptr};
     std::unordered_map<std::string, std::string> variable_types;
 };
 
