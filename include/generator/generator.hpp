@@ -24,8 +24,10 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Target/TargetMachine.h>
 
-#include <map>
 #include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 /// Class which is responsible for the IR code generation
 class Generator {
@@ -40,7 +42,7 @@ class Generator {
     static std::string resolve_ir_comments(const std::string &ir_string);
 
   private:
-    static inline std::map<BuiltinFunctions, llvm::Function *> builtins = {
+    static inline std::unordered_map<BuiltinFunctions, llvm::Function *> builtins = {
         {BuiltinFunctions::PRINT, nullptr},
         {BuiltinFunctions::PRINT_ERR, nullptr},
         {BuiltinFunctions::ASSERT, nullptr},
@@ -53,7 +55,7 @@ class Generator {
         {BuiltinFunctions::PARTITION_ON_ALL, nullptr},
         {BuiltinFunctions::SPLIT_ON_ALL, nullptr},
     };
-    static inline std::map<std::string, llvm::Function *> print_functions = {
+    static inline std::unordered_map<std::string, llvm::Function *> print_functions = {
         {"int", nullptr},
         {"flint", nullptr},
         {"char", nullptr},
@@ -61,11 +63,11 @@ class Generator {
         {"bool", nullptr},
         {"byte", nullptr},
     };
-    static std::map<std::string, llvm::StructType *> type_map;
+    static std::unordered_map<std::string, llvm::StructType *> type_map;
     static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
 
-    static std::map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
-    static std::map<std::string, unsigned int> function_mangle_ids;
+    static std::unordered_map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
+    static std::unordered_map<std::string, unsigned int> function_mangle_ids;
 
     static void generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module *module);
     static void generate_builtin_print_int(llvm::IRBuilder<> *builder, llvm::Module *module);
@@ -82,15 +84,36 @@ class Generator {
 
     static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
-    static void generate_body(llvm::Function *parent, Scope *scope, llvm::IRBuilder<> *builder = nullptr);
+    static void generate_body(                                                                                  //
+        llvm::Function *parent,                                                                                 //
+        Scope *scope,                                                                                           //
+        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
+        llvm::IRBuilder<> *builder = nullptr                                                                    //
+    );
 
-    static void generate_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const body_statement &statement);
+    static void generate_statement(                                                                            //
+        llvm::IRBuilder<> &builder,                                                                            //
+        llvm::Function *parent,                                                                                //
+        const body_statement &statement,                                                                       //
+        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+    );
     static void generate_return_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const ReturnNode *return_node);
-    static void generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const IfNode *if_node, unsigned int nesting_level,
-        const std::vector<llvm::BasicBlock *> &blocks);
+    static void generate_if_statement(                                                                         //
+        llvm::IRBuilder<> &builder,                                                                            //
+        llvm::Function *parent,                                                                                //
+        const IfNode *if_node,                                                                                 //
+        unsigned int nesting_level,                                                                            //
+        const std::vector<llvm::BasicBlock *> &blocks,                                                         //
+        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+    );
     static void generate_while_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const WhileNode *while_node);
     static void generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node);
-    static void generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *parent, const AssignmentNode *assignment_node);
+    static void generate_assignment(                                                                           //
+        llvm::IRBuilder<> &builder,                                                                            //
+        llvm::Function *parent,                                                                                //
+        const AssignmentNode *assignment_node,                                                                 //
+        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+    );
     static void generate_declaration(llvm::IRBuilder<> &builder, llvm::Function *parent, const DeclarationNode *declaration_node);
 
     static llvm::Value *generate_expression(llvm::IRBuilder<> &builder, llvm::Function *parent, const ExpressionNode *expression_node);

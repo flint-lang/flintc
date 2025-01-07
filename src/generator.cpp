@@ -41,6 +41,7 @@
 #include <regex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 
 std::map<std::string, llvm::StructType *> Generator::type_map;
@@ -424,7 +425,8 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
         ++paramIndex;
     }
 
-    generate_body(function, function_node->scope.get());
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
+    generate_body(function, function_node->scope.get(), phi_lookup);
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (function_node->name != "main" && !function->empty() && function->getEntryBlock().getTerminator() == nullptr) {
@@ -437,7 +439,13 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
 
 /// generate_body
 ///     Generates a whole body
-void Generator::generate_body(llvm::Function *parent, Scope *scope, llvm::IRBuilder<> *builder) {
+void Generator::generate_body(                                                                              //
+    llvm::Function *parent,                                                                                 //
+    Scope *scope,                                                                                           //
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
+    llvm::IRBuilder<> *builder                                                                              //
+) {
+    // If a builder is given, use it, otherwise create a new one
     if (builder == nullptr) {
         llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
             parent->getContext(),                                 //
@@ -447,32 +455,38 @@ void Generator::generate_body(llvm::Function *parent, Scope *scope, llvm::IRBuil
         llvm::IRBuilder<> new_builder(entry_block);
         // Add instructions to the body
         for (const auto &stmt : scope->body) {
-            generate_statement(new_builder, parent, stmt);
+            generate_statement(new_builder, parent, stmt, phi_lookup);
         }
     } else {
         // Add instructions to the body
         for (const auto &stmt : scope->body) {
-            generate_statement(*builder, parent, stmt);
+            generate_statement(*builder, parent, stmt, phi_lookup);
         }
     }
 }
 
 /// generate_statement
 ///     Generates a single statement
-void Generator::generate_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const body_statement &statement) {
+void Generator::generate_statement(                                                                        //
+    llvm::IRBuilder<> &builder,                                                                            //
+    llvm::Function *parent,                                                                                //
+    const body_statement &statement,                                                                       //
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+) {
     if (std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
         const StatementNode *statement_node = std::get<std::unique_ptr<StatementNode>>(statement).get();
 
         if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node)) {
             generate_return_statement(builder, parent, return_node);
         } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
-            generate_if_statement(builder, parent, if_node, 0, {});
+            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
+            generate_if_statement(builder, parent, if_node, 0, {}, phi_lookup);
         } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
             generate_while_loop(builder, parent, while_node);
         } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
             generate_for_loop(builder, parent, for_node);
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
-            generate_assignment(builder, parent, assignment_node);
+            generate_assignment(builder, parent, assignment_node, phi_lookup);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
             generate_declaration(builder, parent, declaration_node);
         } else {
@@ -530,8 +544,14 @@ void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Func
 
 /// generate_if_statement
 ///     Generates the if statement from the given IfNode
-void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const IfNode *if_node, unsigned int nesting_level,
-    const std::vector<llvm::BasicBlock *> &blocks) {
+void Generator::generate_if_statement(                                                                     //
+    llvm::IRBuilder<> &builder,                                                                            //
+    llvm::Function *parent,                                                                                //
+    const IfNode *if_node,                                                                                 //
+    unsigned int nesting_level,                                                                            //
+    const std::vector<llvm::BasicBlock *> &blocks,                                                         //
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+) {
     if (if_node == nullptr || if_node->condition == nullptr) {
         // Invalid IfNode: missing condition
         throw_err(ERR_GENERATING);
@@ -547,6 +567,15 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
         unsigned int branch_count = 0;
 
         while (current != nullptr) {
+            if (branch_count != 0) {
+                // Create then condition block (for the else if blocks)
+                current_blocks.push_back(llvm::BasicBlock::Create( //
+                    context,                                       //
+                    "then_cond" + std::to_string(branch_count),    //
+                    parent)                                        //
+                );
+            }
+
             // Create then block
             current_blocks.push_back(llvm::BasicBlock::Create( //
                 context,                                       //
@@ -586,13 +615,6 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
     // Reference to the merge block
     llvm::BasicBlock *merge_block = current_blocks[current_blocks.size() - 1];
 
-    // Generate the condition
-    llvm::Value *condition = generate_expression(builder, parent, if_node->condition.get());
-    if (condition == nullptr) {
-        // Failed to generate condition expression
-        throw_err(ERR_GENERATING);
-    }
-
     // Index calculation for current blocks
     unsigned int then_idx = nesting_level;
     // Defaults to the first if statement
@@ -612,6 +634,18 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
         }
     }
 
+    // Cehck if this is the if and the next index is not the last index. This needs to be done for the elif branches
+    if (then_idx != 0 && next_idx + 1 < current_blocks.size()) {
+        then_idx++;
+        next_idx++;
+    }
+
+    // Generate the condition
+    llvm::Value *condition = generate_expression(builder, parent, if_node->condition.get());
+    if (condition == nullptr) {
+        // Failed to generate condition expression
+        throw_err(ERR_GENERATING);
+    }
     // Create conditional branch
     llvm::BranchInst *branch = builder.CreateCondBr( //
         condition,                                   //
@@ -624,9 +658,17 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
                 "Branch between '" + current_blocks[then_idx]->getName().str() + "' and '" + current_blocks[next_idx]->getName().str() +
                     "' based on condition '" + condition->getName().str() + "'")));
 
+    // Create the phi variable mutation lookup map if the phi_lookup is empty (for initial call of the if node. In recursive calls its not
+    // empty of course)
+    if (phi_lookup.empty()) {
+        for (const auto &scoped_variable : if_node->then_scope->get_parent()->variable_types) {
+            phi_lookup[scoped_variable.first] = {};
+        }
+    }
+
     // Generate then branch
     builder.SetInsertPoint(current_blocks[then_idx]);
-    generate_body(parent, if_node->then_scope.get(), &builder);
+    generate_body(parent, if_node->then_scope.get(), phi_lookup, &builder);
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
         // Branch to merge block
         builder.CreateBr(merge_block);
@@ -643,14 +685,15 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
                 parent,                                              //
                 std::get<std::unique_ptr<IfNode>>(else_scope).get(), //
                 nesting_level + 1,                                   //
-                current_blocks                                       //
+                current_blocks,                                      //
+                phi_lookup                                           //
             );
         } else {
             // Handle final else if, if it exists
             const auto &last_else_scope = std::get<std::unique_ptr<Scope>>(else_scope);
             if (!last_else_scope->body.empty()) {
                 builder.SetInsertPoint(current_blocks[next_idx]);
-                generate_body(parent, last_else_scope.get(), &builder);
+                generate_body(parent, last_else_scope.get(), phi_lookup, &builder);
                 if (builder.GetInsertBlock()->getTerminator() == nullptr) {
                     builder.CreateBr(merge_block);
                 }
@@ -672,17 +715,28 @@ void Generator::generate_if_statement(llvm::IRBuilder<> &builder, llvm::Function
         }
     }
 
-    // For the top-level call, set insert point to merge block
-    // if (nesting_level == 0) {
-    // builder.SetInsertPoint(merge_block);
-    // TODO:    The whole phi implementation needs to work for now, as i need to create a whole scoping-system before i can even
-    //          remotely think about knowing which variable was mutated in which block! So...i need a robust scoping system before i can
-    //          implement the phi calls for each variable..
-    // llvm::PHINode *phi = builder.CreatePHI(llvm::Type::getInt32Ty(context), blocks.size() / 2); Here you
-    // would handle PHI nodes if needed
-    // return merge_block;
-    // }
-    return nullptr;
+    // Only create phi nodes for the variables mutated in one of the if blocks
+    if (nesting_level == 0) {
+        builder.SetInsertPoint(merge_block);
+        for (const auto &variable : phi_lookup) {
+            if (variable.second.empty()) {
+                // No mutations of this variable occured
+                continue;
+            }
+
+            // Create a new phi node
+            llvm::PHINode *phi = builder.CreatePHI(      //
+                variable.second.at(0).second->getType(), // Type of the variable
+                variable.second.size(),                  // Number of mutations (number of blocks in which the variable got mutated)
+                variable.first + "_phi"                  // Name of the phi node
+            );
+
+            // Add all the variable mutations from all the blocks it was mutated
+            for (const auto &mutation : variable.second) {
+                phi->addIncoming(mutation.second, mutation.first);
+            }
+        }
+    }
 }
 
 /// generate_while_loop
@@ -695,13 +749,21 @@ void Generator::generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *pa
 
 /// generate_assignment
 ///     Generates the assignment from the given AssignmentNode
-void Generator::generate_assignment(llvm::IRBuilder<> &builder, llvm::Function *parent, const AssignmentNode *assignment_node) {
+void Generator::generate_assignment(                                                                       //
+    llvm::IRBuilder<> &builder,                                                                            //
+    llvm::Function *parent,                                                                                //
+    const AssignmentNode *assignment_node,                                                                 //
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+) {
     llvm::Value *expression = generate_expression(builder, parent, assignment_node->value.get());
     llvm::Value *lhs = lookup_variable(parent, assignment_node->var_name);
     llvm::StoreInst *store = builder.CreateStore(expression, lhs);
     store->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(), "Store result of expr in var '" + assignment_node->var_name + "'")));
+
+    // Set the value of the variable mutation
+    phi_lookup[assignment_node->var_name].emplace_back(std::make_pair(builder.GetInsertBlock(), expression));
 }
 
 /// generate_declaration
