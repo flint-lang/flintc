@@ -9,6 +9,7 @@
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
+#include "parser/ast/statements/while_node.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
 
@@ -751,6 +752,65 @@ void Generator::generate_if_statement(                                          
 /// generate_while_loop
 ///     Generates the while loop from the given WhileNode
 void Generator::generate_while_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const WhileNode *while_node) {
+    // Get the current block, we need to add a branch instruction to this block to point to the while condition block
+    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+
+    // Create the basic blocks for the condition check, the while body and the merge block
+    std::array<llvm::BasicBlock *, 3> while_blocks{};
+    // Create then condition block (for the else if blocks)
+    while_blocks[0] = llvm::BasicBlock::Create( //
+        builder.getContext(),                   //
+        "while_cond",                           //
+        parent                                  //
+    );
+    while_blocks[1] = llvm::BasicBlock::Create( //
+        builder.getContext(),                   //
+        "while_body",                           //
+        parent                                  //
+    );
+    while_blocks[2] = llvm::BasicBlock::Create( //
+        builder.getContext(),                   //
+        "merge",                                //
+        parent                                  //
+    );
+
+    // Create the branch instruction in the predecessor block to point to the while_cond block
+    builder.SetInsertPoint(pred_block);
+    llvm::BranchInst *init_while_br = builder.CreateBr(while_blocks[0]);
+    init_while_br->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Start while loop in '" + while_blocks[0]->getName().str() + "'")));
+
+    // Create the condition block's content
+    builder.SetInsertPoint(while_blocks[0]);
+    llvm::Value *expression = generate_expression(builder, parent, while_node->condition.get());
+    llvm::BranchInst *branch = builder.CreateCondBr( //
+        expression,                                  //
+        while_blocks[1],                             //
+        while_blocks[2]                              //
+    );
+    branch->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(),
+                "Continue loop in '" + while_blocks[1]->getName().str() + "' based on cond '" + expression->getName().str() + "'")));
+
+    // Create the phi lookup to detect all variable mutations done within the while loops body
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
+    for (const auto &scoped_variable : while_node->scope->get_parent()->variable_types) {
+        phi_lookup[scoped_variable.first] = {};
+    }
+
+    // Create the while block's body
+    builder.SetInsertPoint(while_blocks[1]);
+    generate_body(parent, while_node->scope.get(), phi_lookup, &builder);
+    if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+        // Point back to the condition block to create the loop
+        builder.CreateBr(while_blocks[0]);
+    }
+
+    // Finally set the builder to the merge block again and resolve all phi mutations
+    builder.SetInsertPoint(while_blocks[2]);
+    generate_phi_calls(builder, phi_lookup);
 }
 
 /// generate_for_loop
