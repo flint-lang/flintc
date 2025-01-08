@@ -9,6 +9,7 @@
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
+#include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
@@ -483,11 +484,29 @@ void Generator::generate_body(                                                  
         // Add instructions to the body
         for (const auto &stmt : scope->body) {
             generate_statement(new_builder, parent, stmt, phi_lookup);
+            // Check if the statment was an if statement, if so check if the last block does contain any instructions
+            // If it does not, delete the last block
+            if (std::holds_alternative<std::unique_ptr<StatementNode>>(stmt)) {
+                if (const auto *if_node = dynamic_cast<const IfNode *>(std::get<std::unique_ptr<StatementNode>>(stmt).get())) {
+                    if (new_builder.GetInsertBlock()->empty() && stmt == scope->body.back()) {
+                        new_builder.GetInsertBlock()->eraseFromParent();
+                    }
+                }
+            }
         }
     } else {
         // Add instructions to the body
         for (const auto &stmt : scope->body) {
             generate_statement(*builder, parent, stmt, phi_lookup);
+            // Check if the statment was an if statement, if so check if the last block does contain any instructions
+            // If it does not, delete the last block
+            if (std::holds_alternative<std::unique_ptr<StatementNode>>(stmt)) {
+                if (const auto *if_node = dynamic_cast<const IfNode *>(std::get<std::unique_ptr<StatementNode>>(stmt).get())) {
+                    if (builder->GetInsertBlock()->empty() && stmt == scope->body.back()) {
+                        builder->GetInsertBlock()->eraseFromParent();
+                    }
+                }
+            }
         }
     }
 }
@@ -725,20 +744,6 @@ void Generator::generate_if_statement(                                          
                     builder.CreateBr(merge_block);
                 }
             }
-        }
-    }
-
-    // If the merge block is empty and all other blocks contain return statements, it can be removed entirely
-    if (merge_block->empty() && merge_block->hasNPredecessors(0)) {
-        bool every_block_has_return = true;
-        for (auto block = current_blocks.begin(); block != current_blocks.end() - 1; ++block) {
-            if (block != current_blocks.end() && (*block)->getTerminator() == nullptr) {
-                every_block_has_return = false;
-                break;
-            }
-        }
-        if (every_block_has_return) {
-            merge_block->eraseFromParent();
         }
     }
 
