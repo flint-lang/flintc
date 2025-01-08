@@ -172,6 +172,7 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
     // Use the 'get_command_output' to not print any of the output to the console
     get_command_output(c_compile_command + " 2>&1");
     get_command_output(ft_compile_command + " 2>&1");
+
     // Finally, run both programs and save their outputs
     const auto start = std::chrono::high_resolution_clock::now();
     const std::string c_test = get_command_output(c_bin);
@@ -206,11 +207,14 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
         color = GREEN;
     }
 
+    bool outputs_differ = c_test != ft_test;
+    // outputs_differ = false;
+
     // Output the results
     std::cout << "TEST: " << test_path.string() << std::endl;
-    std::cout << "\tC  [" << std::fixed << std::setprecision(2) << c_duration_ms << " ms]:        " << c_test;
+    std::cout << "\tC  [" << std::fixed << std::setprecision(2) << c_duration_ms << " ms]:        " << (outputs_differ ? c_test : "\n");
     std::cout << "\tFT [" << std::fixed << std::setprecision(2) << ft_duration_ms << " ms] [" << color << (perf_diff_percent > 0 ? "+" : "")
-              << int(perf_diff_percent * 100) << "\%" << DEFAULT << "]: " << ft_test;
+              << int(perf_diff_percent * 100) << "\%" << DEFAULT << "]: " << (outputs_differ ? ft_test : "\n");
 }
 
 #endif
