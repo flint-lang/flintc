@@ -659,12 +659,12 @@ void Generator::generate_if_statement(                                          
     }
 
     // Reference to the merge block
-    llvm::BasicBlock *merge_block = current_blocks[current_blocks.size() - 1];
+    llvm::BasicBlock *merge_block = current_blocks.back();
 
     // Index calculation for current blocks
     unsigned int then_idx = nesting_level;
-    // Defaults to the first if statement
-    unsigned int next_idx = 0;
+    // Defaults to the block after the current block
+    unsigned int next_idx = nesting_level + 1;
 
     // Determine the next block (either else-if/else block or merge block)
     if (if_node->else_scope.has_value()) {
@@ -735,7 +735,7 @@ void Generator::generate_if_statement(                                          
                 phi_lookup                                           //
             );
         } else {
-            // Handle final else if, if it exists
+            // Handle final else, if it exists
             const auto &last_else_scope = std::get<std::unique_ptr<Scope>>(else_scope);
             if (!last_else_scope->body.empty()) {
                 builder.SetInsertPoint(current_blocks[next_idx]);
