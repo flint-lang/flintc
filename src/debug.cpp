@@ -342,11 +342,15 @@ namespace Debug {
 
         void print_while(unsigned int indent_lvl, uint2 empty, const WhileNode &while_node) {
             print_header(indent_lvl, empty, "While ");
-            std::cout << "while ";
-            print_expression(0, {0, 0}, while_node.condition);
+            std::cout << "while" << std::endl;
+            empty.second = indent_lvl + 1;
+            print_expression(indent_lvl + 1, empty, while_node.condition);
 
-            empty.second = ++indent_lvl;
-            print_body(indent_lvl, empty, while_node.scope->body);
+            empty.second = indent_lvl;
+            print_header(indent_lvl, empty, "Do ");
+            std::cout << "do" << std::endl;
+            empty.second = indent_lvl + 1;
+            print_body(indent_lvl + 1, empty, while_node.scope->body);
         }
 
         void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node) {

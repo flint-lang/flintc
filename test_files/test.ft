@@ -1,13 +1,7 @@
 
 def main():
 	int num = 0;
-	int num2 = 10;
-
-	if num2 > 10:
-		num = 1;
-	else if num2 < 10:
-		num = 2;
-	else:
-		num = 3;
-
-	print(num);
+	
+	while num < 10:
+		print(num);
+		num = num + 1;

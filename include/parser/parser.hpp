@@ -79,9 +79,10 @@ class Parser {
     // --- STATEMENTS ---
     static std::optional<ReturnNode> create_return(Scope *scope, token_list &tokens);
     static std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain);
-    static std::optional<WhileNode> create_while_loop(Scope *scope, const token_list &definition, const token_list &body);
-    static std::optional<ForLoopNode> create_for_loop(Scope *scope, const token_list &definition, const token_list &body);
-    static std::optional<ForLoopNode> create_enh_for_loop(Scope *scope, const token_list &definition, const token_list &body);
+    static std::optional<std::unique_ptr<WhileNode>> create_while_loop(Scope *scope, const token_list &definition, token_list &body);
+    static std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(Scope *scope, const token_list &definition, const token_list &body);
+    static std::optional<std::unique_ptr<ForLoopNode>> create_enh_for_loop(Scope *scope, const token_list &definition,
+        const token_list &body);
     static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(Scope *scope, token_list &tokens);
     static std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool &is_infered);
     static std::optional<std::unique_ptr<StatementNode>> create_statement(Scope *scope, token_list &tokens);

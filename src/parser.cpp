@@ -494,7 +494,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
         }
         this_if_pair.first.erase(it);
     }
-    // Remove everything everything after the expression (:, \n)
+    // Remove everything after the expression (:, \n)
     for (auto rev_it = this_if_pair.first.rbegin(); rev_it != this_if_pair.first.rend();) {
         if (rev_it->type == TOK_COLON) {
             this_if_pair.first.erase(rev_it.base());
@@ -537,22 +537,51 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
 }
 
 /// create_while_loop
+///     Creates a WhileNode from the given definition and body tokens inside the given scope
+std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop(Scope *scope, const token_list &definition, token_list &body) {
+    token_list condition_tokens = definition;
+    // Remove everything in front of the expression (\n, \t, else, if)
+    for (auto it = condition_tokens.begin(); it != condition_tokens.end();) {
+        if (it->type == TOK_WHILE) {
+            condition_tokens.erase(it);
+            break;
+        }
+        condition_tokens.erase(it);
+    }
+    // Remove everything after the expression (:, \n)
+    for (auto rev_it = condition_tokens.rbegin(); rev_it != condition_tokens.rend();) {
+        if (rev_it->type == TOK_COLON) {
+            condition_tokens.erase(rev_it.base());
+            break;
+        }
+        condition_tokens.erase(rev_it.base());
+    }
+
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens);
+    if (!condition.has_value()) {
+        // Invalid expression inside while statement
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
+    std::vector<body_statement> body_statements = create_body(body_scope.get(), body);
+    body_scope->body = std::move(body_statements);
+    std::unique_ptr<WhileNode> while_node = std::make_unique<WhileNode>(condition.value(), body_scope);
+    return while_node;
+}
+
+/// create_for_loop
 ///
-std::optional<WhileNode> Parser::create_while_loop(Scope *scope, const token_list &definition, const token_list &body) {
+std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop(Scope *scope, const token_list &definition, const token_list &body) {
     throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
 /// create_for_loop
 ///
-std::optional<ForLoopNode> Parser::create_for_loop(Scope *scope, const token_list &definition, const token_list &body) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
-    return std::nullopt;
-}
-
-/// create_for_loop
-///
-std::optional<ForLoopNode> Parser::create_enh_for_loop(Scope *scope, const token_list &definition, const token_list &body) {
+std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop(Scope *scope, const token_list &definition,
+    const token_list &body) {
     throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
@@ -732,24 +761,24 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement(Sc
             throw_err(ERR_PARSING);
         }
     } else if (Signature::tokens_contain(definition, Signature::for_loop)) {
-        std::optional<ForLoopNode> for_loop = create_for_loop(scope, definition, scoped_body);
+        std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, definition, scoped_body);
         if (for_loop.has_value()) {
-            statement_node = std::make_unique<ForLoopNode>(std::move(for_loop.value()));
+            statement_node = std::move(for_loop.value());
         } else {
             throw_err(ERR_PARSING);
         }
     } else if (Signature::tokens_contain(definition, Signature::par_for_loop) ||
         Signature::tokens_contain(definition, Signature::enhanced_for_loop)) {
-        std::optional<ForLoopNode> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body);
+        std::optional<std::unique_ptr<ForLoopNode>> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body);
         if (enh_for_loop.has_value()) {
-            statement_node = std::make_unique<ForLoopNode>(std::move(enh_for_loop.value()));
+            statement_node = std::move(enh_for_loop.value());
         } else {
             throw_err(ERR_PARSING);
         }
     } else if (Signature::tokens_contain(definition, Signature::while_loop)) {
-        std::optional<WhileNode> while_loop = create_while_loop(scope, definition, scoped_body);
+        std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, definition, scoped_body);
         if (while_loop.has_value()) {
-            statement_node = std::make_unique<WhileNode>(std::move(while_loop.value()));
+            statement_node = std::move(while_loop.value());
         } else {
             throw_err(ERR_PARSING);
         }
