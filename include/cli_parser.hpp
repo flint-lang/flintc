@@ -44,12 +44,14 @@ class CommandLineParser {
                 if (!n_args_follow(i + 1, "\"[flags]\"", arg)) {
                     return 1;
                 }
-                compile_flags = args.at(i + 1);
-                if (compile_flags.at(0) != '"' || compile_flags.at(compile_flags.length() - 1) != '"') {
-                    throw_err(ERR_CLI_PARSING);
+                if (!args.at(i + 1).empty()) {
+                    compile_flags = args.at(i + 1);
+                    if (compile_flags.at(0) != '"' || compile_flags.at(compile_flags.length() - 1) != '"') {
+                        throw_err(ERR_CLI_PARSING);
+                    }
+                    // Remove the " symbols of the left and right of the flags
+                    compile_flags = compile_flags.substr(1, compile_flags.length() - 2);
                 }
-                // Remove the " symbols of the left and right of the flags
-                compile_flags = compile_flags.substr(1, compile_flags.length() - 2);
                 i++;
             } else if (arg == "--output-ll-file") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
