@@ -81,6 +81,10 @@ class Generator {
 
     static llvm::Value *lookup_variable(llvm::Function *parent, const std::string &name);
     static bool function_has_return(llvm::Function *function);
+    static void generate_phi_calls(                                                                            //
+        llvm::IRBuilder<> &builder,                                                                            //
+        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+    );
 
     static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);

@@ -378,6 +378,32 @@ bool Generator::function_has_return(llvm::Function *function) {
     return false;
 }
 
+/// generate_phi_calls
+///     Generates all phi calls from the given phi_lookup within the currently active block of the builder
+void Generator::generate_phi_calls(                                                                        //
+    llvm::IRBuilder<> &builder,                                                                            //
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+) {
+    for (const auto &variable : phi_lookup) {
+        if (variable.second.empty()) {
+            // No mutations of this variable occured
+            continue;
+        }
+
+        // Create a new phi node
+        llvm::PHINode *phi = builder.CreatePHI(      //
+            variable.second.at(0).second->getType(), // Type of the variable
+            variable.second.size(),                  // Number of mutations (number of blocks in which the variable got mutated)
+            variable.first + "_phi"                  // Name of the phi node
+        );
+
+        // Add all the variable mutations from all the blocks it was mutated
+        for (const auto &mutation : variable.second) {
+            phi->addIncoming(mutation.second, mutation.first);
+        }
+    }
+}
+
 /// generate_function_type
 ///     Generates the type information of a given FunctionNode
 llvm::FunctionType *Generator::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {
@@ -718,30 +744,14 @@ void Generator::generate_if_statement(                                          
     // Only create phi nodes for the variables mutated in one of the if blocks
     if (nesting_level == 0) {
         builder.SetInsertPoint(merge_block);
-        for (const auto &variable : phi_lookup) {
-            if (variable.second.empty()) {
-                // No mutations of this variable occured
-                continue;
-            }
-
-            // Create a new phi node
-            llvm::PHINode *phi = builder.CreatePHI(      //
-                variable.second.at(0).second->getType(), // Type of the variable
-                variable.second.size(),                  // Number of mutations (number of blocks in which the variable got mutated)
-                variable.first + "_phi"                  // Name of the phi node
-            );
-
-            // Add all the variable mutations from all the blocks it was mutated
-            for (const auto &mutation : variable.second) {
-                phi->addIncoming(mutation.second, mutation.first);
-            }
-        }
+        generate_phi_calls(builder, phi_lookup);
     }
 }
 
 /// generate_while_loop
 ///     Generates the while loop from the given WhileNode
-void Generator::generate_while_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const WhileNode *while_node) {}
+void Generator::generate_while_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const WhileNode *while_node) {
+}
 
 /// generate_for_loop
 ///     Generates the for loop from the given ForLoopNode
