@@ -8,6 +8,7 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
@@ -449,6 +450,21 @@ void Generator::generate_phi_calls(                                             
     }
 }
 
+/// generate_allocation
+///     Generates a custom allocation call. Currently i use malloc, in the future i will use DIMA for it
+llvm::Value *Generator::generate_allocation(                               //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    llvm::Type *type,                                                      //
+    const std::string &name,                                               //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+) {
+    uint64_t size = parent->getParent()->getDataLayout().getTypeAllocSize(type);
+    llvm::Value *malloc_call = builder.CreateCall(builtins[MALLOC], {builder.getInt64(size)}, name);
+    allocations.emplace_back(builder.GetInsertBlock(), malloc_call);
+    return malloc_call;
+}
+
 /// generate_function_type
 ///     Generates the type information of a given FunctionNode
 llvm::FunctionType *Generator::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {
@@ -502,7 +518,8 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (function_node->name != "main" && !function->empty() && function->getEntryBlock().getTerminator() == nullptr) {
         llvm::IRBuilder<> builder(&function->getEntryBlock());
-        generate_return_statement(builder, function, {});
+        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> allocations;
+        generate_return_statement(builder, function, {}, allocations);
     }
 
     return function;
@@ -516,6 +533,9 @@ void Generator::generate_body(                                                  
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
     llvm::IRBuilder<> *builder                                                                              //
 ) {
+    // Create a list of all pointers allocated within this scope which need to get freed at the end of this scope
+    // Out of Scope = Out of Memory
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> allocations;
     // If a builder is given, use it, otherwise create a new one
     if (builder == nullptr) {
         llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
@@ -524,72 +544,83 @@ void Generator::generate_body(                                                  
             parent                                                //
         );
         llvm::IRBuilder<> new_builder(entry_block);
-        // Add instructions to the body
-        for (const auto &stmt : scope->body) {
-            generate_statement(new_builder, parent, stmt, phi_lookup);
-            // Check if the statment was an if statement, if so check if the last block does contain any instructions
-            // If it does not, delete the last block
-            if (std::holds_alternative<std::unique_ptr<StatementNode>>(stmt)) {
-                if (const auto *if_node = dynamic_cast<const IfNode *>(std::get<std::unique_ptr<StatementNode>>(stmt).get())) {
-                    if (new_builder.GetInsertBlock()->empty() && stmt == scope->body.back()) {
-                        new_builder.GetInsertBlock()->eraseFromParent();
-                    }
-                }
-            }
-        }
-    } else {
-        // Add instructions to the body
-        for (const auto &stmt : scope->body) {
-            generate_statement(*builder, parent, stmt, phi_lookup);
-            // Check if the statment was an if statement, if so check if the last block does contain any instructions
-            // If it does not, delete the last block
-            if (std::holds_alternative<std::unique_ptr<StatementNode>>(stmt)) {
-                if (const auto *if_node = dynamic_cast<const IfNode *>(std::get<std::unique_ptr<StatementNode>>(stmt).get())) {
-                    if (builder->GetInsertBlock()->empty() && stmt == scope->body.back()) {
-                        builder->GetInsertBlock()->eraseFromParent();
-                    }
+        // Call recursively, but now with the builder created
+        generate_body(parent, scope, phi_lookup, &new_builder);
+        return;
+    }
+
+    // Add instructions to the body
+    for (const auto &stmt : scope->body) {
+        generate_statement(*builder, parent, stmt, phi_lookup, allocations);
+        // Check if the statment was an if statement, if so check if the last block does contain any instructions
+        // If it does not, delete the last block
+        if (std::holds_alternative<std::unique_ptr<StatementNode>>(stmt)) {
+            if (const auto *if_node = dynamic_cast<const IfNode *>(std::get<std::unique_ptr<StatementNode>>(stmt).get())) {
+                if (builder->GetInsertBlock()->empty() && stmt == scope->body.back()) {
+                    builder->GetInsertBlock()->eraseFromParent();
                 }
             }
         }
     }
+
+    // Go through all allocations and free them at the end of the block, if the block does not contain any return statements
+    // and if the block is not called 'entry' (the "main" block of a function, at the end of the function no deallocations are needed)
+    llvm::BasicBlock *insert_point = builder->GetInsertBlock();
+    for (const auto &[block, allocation] : allocations) {
+        if (llvm::Instruction *terminator = block->getTerminator()) { //&& block->getName().str() != "entry") {
+            builder->SetInsertPoint(terminator);
+        } else {
+            builder->SetInsertPoint(block);
+        }
+        // Create function call to the C "free" function and pass in the pointer (allocation)
+        builder->CreateCall(builtins[FREE], {allocation});
+    }
+    allocations.clear();
+    builder->SetInsertPoint(insert_point);
 }
 
 /// generate_statement
 ///     Generates a single statement
-void Generator::generate_statement(                                                                        //
-    llvm::IRBuilder<> &builder,                                                                            //
-    llvm::Function *parent,                                                                                //
-    const body_statement &statement,                                                                       //
-    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+void Generator::generate_statement(                                                                         //
+    llvm::IRBuilder<> &builder,                                                                             //
+    llvm::Function *parent,                                                                                 //
+    const body_statement &statement,                                                                        //
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
 ) {
     if (std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
         const StatementNode *statement_node = std::get<std::unique_ptr<StatementNode>>(statement).get();
 
         if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node)) {
-            generate_return_statement(builder, parent, return_node);
+            generate_return_statement(builder, parent, return_node, allocations);
         } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
-            generate_if_statement(builder, parent, if_node, 0, {}, phi_lookup);
+            generate_if_statement(builder, parent, if_node, 0, {}, phi_lookup, allocations);
         } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
-            generate_while_loop(builder, parent, while_node);
+            generate_while_loop(builder, parent, while_node, allocations);
         } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
             generate_for_loop(builder, parent, for_node);
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
-            generate_assignment(builder, parent, assignment_node, phi_lookup);
+            generate_assignment(builder, parent, assignment_node, phi_lookup, allocations);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
-            generate_declaration(builder, parent, declaration_node);
+            generate_declaration(builder, parent, declaration_node, allocations);
         } else {
             throw_err(ERR_GENERATING);
         }
     } else {
         const CallNode *call_node = std::get<std::unique_ptr<CallNode>>(statement).get();
-        llvm::Value *call = generate_call(builder, parent, call_node);
+        llvm::Value *call = generate_call(builder, parent, call_node, allocations);
     }
 }
 
 /// generate_return_statement
 ///     Generates the return statement from the given ReturnNode
-void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Function *parent, const ReturnNode *return_node) {
+void Generator::generate_return_statement(                                 //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const ReturnNode *return_node,                                         //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+) {
     // Get the return type of the function
     auto *return_struct_type = llvm::cast<llvm::StructType>(parent->getReturnType());
 
@@ -599,6 +630,7 @@ void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Func
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(),
                 "Create ret struct '" + return_struct->getName().str() + "' of type '" + return_struct_type->getName().str() + "'")));
+    // allocations.emplace_back(builder.GetInsertBlock(), return_struct);
 
     // First, always store the error code (0 for no error)
     llvm::Value *error_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 0, "err_ptr");
@@ -607,7 +639,7 @@ void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Func
     // If we have a return value, store it in the struct
     if (return_node != nullptr && return_node->return_value != nullptr) {
         // Generate the expression for the return value
-        llvm::Value *return_value = generate_expression(builder, parent, return_node->return_value.get());
+        llvm::Value *return_value = generate_expression(builder, parent, return_node->return_value.get(), allocations);
 
         // Ensure the return value matches the function's return type
         if (return_value == nullptr) {
@@ -633,13 +665,14 @@ void Generator::generate_return_statement(llvm::IRBuilder<> &builder, llvm::Func
 
 /// generate_if_statement
 ///     Generates the if statement from the given IfNode
-void Generator::generate_if_statement(                                                                     //
-    llvm::IRBuilder<> &builder,                                                                            //
-    llvm::Function *parent,                                                                                //
-    const IfNode *if_node,                                                                                 //
-    unsigned int nesting_level,                                                                            //
-    const std::vector<llvm::BasicBlock *> &blocks,                                                         //
-    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+void Generator::generate_if_statement(                                                                      //
+    llvm::IRBuilder<> &builder,                                                                             //
+    llvm::Function *parent,                                                                                 //
+    const IfNode *if_node,                                                                                  //
+    unsigned int nesting_level,                                                                             //
+    const std::vector<llvm::BasicBlock *> &blocks,                                                          //
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
 ) {
     if (if_node == nullptr || if_node->condition == nullptr) {
         // Invalid IfNode: missing condition
@@ -730,7 +763,7 @@ void Generator::generate_if_statement(                                          
     }
 
     // Generate the condition
-    llvm::Value *condition = generate_expression(builder, parent, if_node->condition.get());
+    llvm::Value *condition = generate_expression(builder, parent, if_node->condition.get(), allocations);
     if (condition == nullptr) {
         // Failed to generate condition expression
         throw_err(ERR_GENERATING);
@@ -775,7 +808,8 @@ void Generator::generate_if_statement(                                          
                 std::get<std::unique_ptr<IfNode>>(else_scope).get(), //
                 nesting_level + 1,                                   //
                 current_blocks,                                      //
-                phi_lookup                                           //
+                phi_lookup,                                          //
+                allocations                                          //
             );
         } else {
             // Handle final else, if it exists
@@ -799,7 +833,12 @@ void Generator::generate_if_statement(                                          
 
 /// generate_while_loop
 ///     Generates the while loop from the given WhileNode
-void Generator::generate_while_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const WhileNode *while_node) {
+void Generator::generate_while_loop(                                       //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const WhileNode *while_node,                                           //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+) {
     // Get the current block, we need to add a branch instruction to this block to point to the while condition block
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
 
@@ -831,7 +870,7 @@ void Generator::generate_while_loop(llvm::IRBuilder<> &builder, llvm::Function *
 
     // Create the condition block's content
     builder.SetInsertPoint(while_blocks[0]);
-    llvm::Value *expression = generate_expression(builder, parent, while_node->condition.get());
+    llvm::Value *expression = generate_expression(builder, parent, while_node->condition.get(), allocations);
     llvm::BranchInst *branch = builder.CreateCondBr( //
         expression,                                  //
         while_blocks[1],                             //
@@ -867,13 +906,14 @@ void Generator::generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *pa
 
 /// generate_assignment
 ///     Generates the assignment from the given AssignmentNode
-void Generator::generate_assignment(                                                                       //
-    llvm::IRBuilder<> &builder,                                                                            //
-    llvm::Function *parent,                                                                                //
-    const AssignmentNode *assignment_node,                                                                 //
-    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+void Generator::generate_assignment(                                                                        //
+    llvm::IRBuilder<> &builder,                                                                             //
+    llvm::Function *parent,                                                                                 //
+    const AssignmentNode *assignment_node,                                                                  //
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
 ) {
-    llvm::Value *expression = generate_expression(builder, parent, assignment_node->value.get());
+    llvm::Value *expression = generate_expression(builder, parent, assignment_node->value.get(), allocations);
     llvm::Value *lhs = lookup_variable(parent, assignment_node->var_name);
     llvm::StoreInst *store = builder.CreateStore(expression, lhs);
     store->setMetadata("comment",
@@ -886,36 +926,41 @@ void Generator::generate_assignment(                                            
 
 /// generate_declaration
 ///     Generates the declaration from the given DeclarationNode
-void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function *parent, const DeclarationNode *declaration_node) {
-    llvm::Value *expression = generate_expression(builder, parent, declaration_node->initializer.get());
+void Generator::generate_declaration(                                      //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const DeclarationNode *declaration_node,                               //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+) {
+    llvm::Value *expression = generate_expression(builder, parent, declaration_node->initializer.get(), allocations);
 
     // Check if the declaration_node is a function call.
     // If it is, the "real" value of the call has to be extracted. Otherwise, it can be used directly!
     if (const auto *call_node = dynamic_cast<const CallNode *>(declaration_node->initializer.get())) {
-        // Temporary allocation for the entire return struct
-        llvm::AllocaInst *temp_struct_alloca = builder.CreateAlloca( //
-            expression->getType(),                                   //
-            nullptr,                                                 //
-            declaration_node->name + "__TMP"                         //
+        // Temporary temp struct for return value
+        llvm::Value *temp_struct_alloca = generate_allocation( //
+            builder,                                           //
+            parent,                                            //
+            expression->getType(),                             //
+            declaration_node->name + "__TMP",                  //
+            allocations                                        //
         );
-        temp_struct_alloca->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(), "Create temp ret struct of called function '" + call_node->function_name + "'")));
 
-        llvm::StoreInst *temp_struct_store = builder.CreateStore(expression, temp_struct_alloca);
-        temp_struct_store->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(), "Store result of '" + call_node->function_name + "' call in temp ret struct")));
+        builder.CreateStore(expression, temp_struct_alloca)
+            ->setMetadata("comment",
+                llvm::MDNode::get(parent->getContext(),
+                    llvm::MDString::get(parent->getContext(),
+                        "Store result of '" + call_node->function_name + "' call in temp ret struct")));
 
         // Create the actual variable allocation with the declared type
-        llvm::AllocaInst *alloca = builder.CreateAlloca(                     //
-            get_type_from_str(parent->getContext(), declaration_node->type), //
-            nullptr,                                                         //
-            declaration_node->name                                           //
+        llvm::Type *declared_type = get_type_from_str(parent->getContext(), declaration_node->type);
+        llvm::Value *var_alloca = generate_allocation( //
+            builder,                                   //
+            parent,                                    //
+            declared_type,                             //
+            declaration_node->name,                    //
+            allocations                                //
         );
-        alloca->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(), "Create the actual alloc of var '" + declaration_node->name + "'")));
 
         // Extract the second field (index 1) from the struct - this is the actual return value
         llvm::Value *value_ptr = builder.CreateStructGEP( //
@@ -934,17 +979,19 @@ void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function 
                 llvm::MDString::get(parent->getContext(), "Load the actual val of '" + declaration_node->name + "' from its ptr")));
 
         // Store the actual value in the declared variable
-        llvm::StoreInst *actual_value_store = builder.CreateStore(actual_value, alloca);
-        actual_value_store->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
+        builder.CreateStore(actual_value, var_alloca)
+            ->setMetadata("comment",
+                llvm::MDNode::get(parent->getContext(),
+                    llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
         return;
     }
 
+    // Create primitive type allocation
     llvm::AllocaInst *alloca = builder.CreateAlloca(expression->getType(), nullptr, declaration_node->name);
     alloca->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(), "Create alloc of var '" + declaration_node->name + "'")));
+    // allocations.emplace_back(builder.GetInsertBlock(), alloca);
 
     llvm::StoreInst *store = builder.CreateStore(expression, alloca);
     store->setMetadata("comment",
@@ -954,7 +1001,12 @@ void Generator::generate_declaration(llvm::IRBuilder<> &builder, llvm::Function 
 
 /// generate_expression
 ///     Generates an expression from the given ExpressionNode
-llvm::Value *Generator::generate_expression(llvm::IRBuilder<> &builder, llvm::Function *parent, const ExpressionNode *expression_node) {
+llvm::Value *Generator::generate_expression(                               //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const ExpressionNode *expression_node,                                 //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+) {
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
         return generate_variable(builder, parent, variable_node);
     }
@@ -965,10 +1017,10 @@ llvm::Value *Generator::generate_expression(llvm::IRBuilder<> &builder, llvm::Fu
         return generate_literal(builder, parent, literal_node);
     }
     if (const auto *call_node = dynamic_cast<const CallNode *>(expression_node)) {
-        return generate_call(builder, parent, call_node);
+        return generate_call(builder, parent, call_node, allocations);
     }
     if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
-        return generate_binary_op(builder, parent, binary_op_node);
+        return generate_binary_op(builder, parent, binary_op_node, allocations);
     }
     throw_err(ERR_GENERATING);
     return nullptr;
@@ -1054,12 +1106,17 @@ llvm::Value *Generator::generate_literal(llvm::IRBuilder<> &builder, llvm::Funct
 
 /// generate_call
 ///     Generates the call from the given CallNode
-llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function *parent, const CallNode *call_node) {
+llvm::Value *Generator::generate_call(                                     //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const CallNode *call_node,                                             //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+) {
     // Get the arguments
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
     for (const auto &arg : call_node->arguments) {
-        args.emplace_back(generate_expression(builder, parent, arg.get()));
+        args.emplace_back(generate_expression(builder, parent, arg.get(), allocations));
     }
 
     // Check if it is a builtin function and call it
@@ -1102,9 +1159,14 @@ llvm::Value *Generator::generate_call(llvm::IRBuilder<> &builder, llvm::Function
 
 /// generate_binary_op
 ///     Generates a binary operation from the given BinaryOpNode
-llvm::Value *Generator::generate_binary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const BinaryOpNode *bin_op_node) {
-    llvm::Value *lhs = generate_expression(builder, parent, bin_op_node->left.get());
-    llvm::Value *rhs = generate_expression(builder, parent, bin_op_node->right.get());
+llvm::Value *Generator::generate_binary_op(                                //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const BinaryOpNode *bin_op_node,                                       //
+    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+) {
+    llvm::Value *lhs = generate_expression(builder, parent, bin_op_node->left.get(), allocations);
+    llvm::Value *rhs = generate_expression(builder, parent, bin_op_node->right.get(), allocations);
     switch (bin_op_node->operator_token) {
         default:
             throw_err(ERR_GENERATING);
