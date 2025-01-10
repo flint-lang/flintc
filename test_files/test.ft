@@ -18,7 +18,7 @@ def square_root(int n) -> int:
 // Calculate the sqrt of every number from 0 to 100000
 def main():
 	int num = 0;
-	while num < 100000:
+	while num < 1000000:
 		int sqrt = square_root(num);
 		print(num);
 		num = num + 1;

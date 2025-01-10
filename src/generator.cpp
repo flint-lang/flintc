@@ -56,6 +56,9 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
     auto module = std::make_unique<llvm::Module>(program_name, context);
 
+    generate_malloc(builder.get(), module.get());
+    generate_free(builder.get(), module.get());
+
     // Generate built-in functions in the main module
     generate_builtin_print(builder.get(), module.get());
 
@@ -267,6 +270,46 @@ llvm::StructType *Generator::add_and_or_get_type(llvm::LLVMContext *context, con
         true                                                    //
     );
     return type_map[return_types];
+}
+
+/// generate_malloc
+///     Generates the builtin 'malloc(i64)' function call from C
+void Generator::generate_malloc(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    if (builtins[MALLOC] != nullptr) {
+        return;
+    }
+    llvm::FunctionType *malloc_type = llvm::FunctionType::get( //
+        llvm::PointerType::get(builder->getContext(), 0),      //
+        {llvm::Type::getInt64Ty(builder->getContext())},       //
+        false                                                  //
+    );
+    llvm::Function *malloc_func = llvm::Function::Create( //
+        malloc_type,                                      //
+        llvm::Function::ExternalLinkage,                  //
+        "malloc",                                         //
+        module                                            //
+    );
+    builtins[MALLOC] = malloc_func;
+}
+
+/// generate_free
+///     Generates the builtin 'free()' function call from C
+void Generator::generate_free(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    if (builtins[FREE] != nullptr) {
+        return;
+    }
+    llvm::FunctionType *free_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(builder->getContext()),        //
+        {llvm::PointerType::get(builder->getContext(), 0)},  //
+        false                                                //
+    );
+    llvm::Function *free_func = llvm::Function::Create( //
+        free_type,                                      //
+        llvm::Function::ExternalLinkage,                //
+        "free",                                         //
+        module                                          //
+    );
+    builtins[FREE] = free_func;
 }
 
 /// generate_builtin_print
