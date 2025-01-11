@@ -135,9 +135,6 @@ enum BuiltinFunctions { //
     REDUCE_ON_PAIRS,
     PARTITION_ON_ALL,
     SPLIT_ON_ALL,
-    // TODO: Temporal solution for memory deallocation until DIMA is implemented
-    MALLOC,
-    FREE,
 };
 
 static const std::map<std::string, BuiltinFunctions> builtin_functions = { //

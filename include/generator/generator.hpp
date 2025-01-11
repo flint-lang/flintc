@@ -69,9 +69,6 @@ class Generator {
     static std::unordered_map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
     static std::unordered_map<std::string, unsigned int> function_mangle_ids;
 
-    static void generate_malloc(llvm::IRBuilder<> *builder, llvm::Module *module);
-    static void generate_free(llvm::IRBuilder<> *builder, llvm::Module *module);
-
     static void generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module *module);
     static void generate_builtin_print_int(llvm::IRBuilder<> *builder, llvm::Module *module);
     static void generate_builtin_print_flint(llvm::IRBuilder<> *builder, llvm::Module *module);
