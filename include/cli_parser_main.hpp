@@ -1,7 +1,9 @@
 #ifndef __CLI_PARSER_HPP__
 #define __CLI_PARSER_HPP__
 
+#include "cli_parser_base.hpp"
 #include "error/error.hpp"
+
 #include <filesystem>
 #include <iostream>
 #include <sys/types.h>
@@ -9,17 +11,12 @@
 
 /// CommandLineParser
 ///     Parses all the command line arguments and saves their values locally, accessible from outside
-class CommandLineParser {
+class CLIParserMain : public CLIParserBase {
   public:
-    CommandLineParser(int argc, char *argv[]) {
-        // Convert the char* argv[] to a vector of strings
-        args.reserve(argc - 1);
-        for (size_t i = 1; i < argc; ++i) {
-            args.emplace_back(argv[i]);
-        }
-    }
+    CLIParserMain(int argc, char *argv[]) :
+        CLIParserBase(argc, argv) {}
 
-    int parse() {
+    int parse() override {
         // Iterate through all command-line arguments
         std::filesystem::path cwd_path = std::filesystem::current_path();
         for (size_t i = 0; i < args.size(); ++i) {
@@ -28,7 +25,8 @@ class CommandLineParser {
             if (arg == "--help" || arg == "-h") {
                 print_help();
                 return 1;
-            } else if (arg == "--file" || arg == "-f") {
+            }
+            if (arg == "--file" || arg == "-f") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
                 }
@@ -46,11 +44,6 @@ class CommandLineParser {
                 }
                 if (!args.at(i + 1).empty()) {
                     compile_flags = args.at(i + 1);
-                    if (compile_flags.at(0) != '"' || compile_flags.at(compile_flags.length() - 1) != '"') {
-                        throw_err(ERR_CLI_PARSING);
-                    }
-                    // Remove the " symbols of the left and right of the flags
-                    compile_flags = compile_flags.substr(1, compile_flags.length() - 2);
                 }
                 i++;
             } else if (arg == "--output-ll-file") {
@@ -73,10 +66,7 @@ class CommandLineParser {
     std::filesystem::path ll_file_path = "";
 
   private:
-    std::vector<std::string> args;
-    std::string argument_value;
-
-    static void print_help() {
+    void print_help() override {
         std::cout << "Usage: flintc [OPTIONS]\n";
         std::cout << std::endl;
         std::cout << "Available Options:\n";
@@ -86,32 +76,6 @@ class CommandLineParser {
         std::cout << "  --flags \"[flags]\"           The clang flags used to build the executable\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code.\n";
         std::cout << "                              HINT: The compiler will still compile the input file as usual.\n";
-    }
-
-    static std::filesystem::path get_absolute(const std::filesystem::path &cwd, const std::string &path) {
-        std::filesystem::path file_path;
-        if (path[0] == '/') {
-            // Absolute path
-            file_path = path;
-        } else {
-            // Relative path
-            file_path = cwd / path;
-        }
-        return file_path;
-    }
-
-    static void print_err(const std::string &err) {
-        std::cerr << err << "\n";
-        print_help();
-    }
-
-    bool n_args_follow(const unsigned int count, const std::string &arg, const std::string &option) {
-        if (args.size() <= count) {
-            std::cerr << "Expected " << arg << " after '" << option << "' option!\n";
-            print_help();
-            return false;
-        }
-        return true;
     }
 };
 

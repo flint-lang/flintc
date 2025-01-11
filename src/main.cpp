@@ -1,4 +1,4 @@
-#include "cli_parser.hpp"
+#include "cli_parser_main.hpp"
 #include "generator/generator.hpp"
 #include "linker/linker.hpp"
 #include "parser/ast/file_node.hpp"
@@ -55,7 +55,7 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
 }
 
 int main(int argc, char *argv[]) {
-    CommandLineParser clp(argc, argv);
+    CLIParserMain clp(argc, argv);
     int result = clp.parse();
     if (result != 0) {
         return result;

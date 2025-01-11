@@ -159,7 +159,7 @@ static std::string get_command_output(const std::string &command) {
 
 /// run_performance_test
 ///     Runs a performance test to compare Flint to C code
-static void run_performance_test(const std::filesystem::path &test_path, const std::string &compile_flags) {
+static void run_performance_test(const std::filesystem::path &test_path, const std::string &compile_flags, const unsigned int count) {
     // Create all the paths of all strings
     const std::string cwd = std::filesystem::current_path().string();
     const std::string this_path = cwd / test_path;
@@ -173,18 +173,28 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
     get_command_output(c_compile_command + " 2>&1");
     get_command_output(ft_compile_command + " 2>&1");
 
+    // Set both timers to 0
+    long c_duration = 0;
+    long ft_duration = 0;
+    std::string c_output{};
+    std::string ft_output{};
+
     // Finally, run both programs and save their outputs
-    const auto start = std::chrono::high_resolution_clock::now();
-    const std::string c_test = get_command_output(c_bin);
-    const auto middle = std::chrono::high_resolution_clock::now();
-    const std::string ft_test = get_command_output(ft_bin);
-    const auto end = std::chrono::high_resolution_clock::now();
+    for (unsigned int i = 0; i < count; ++i) {
+        const auto start = std::chrono::high_resolution_clock::now();
+        const std::string c_test = get_command_output(c_bin);
+        const auto middle = std::chrono::high_resolution_clock::now();
+        const std::string ft_test = get_command_output(ft_bin);
+        const auto end = std::chrono::high_resolution_clock::now();
 
-    const long c_duration = std::chrono::duration_cast<std::chrono::microseconds>(middle - start).count();
-    const long ft_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - middle).count();
+        c_duration += std::chrono::duration_cast<std::chrono::microseconds>(middle - start).count();
+        ft_duration += std::chrono::duration_cast<std::chrono::microseconds>(end - middle).count();
+        c_output += c_test;
+        ft_output += ft_test;
+    }
 
-    const double c_duration_ms = ((double)c_duration) / 1000;
-    const double ft_duration_ms = ((double)ft_duration) / 1000;
+    const double c_duration_ms = ((double)c_duration) / (1000 * count);
+    const double ft_duration_ms = ((double)ft_duration) / (1000 * count);
 
     const double perf_factor = ft_duration_ms / c_duration_ms;
     const double perf_diff_percent = -1 + perf_factor;
@@ -207,14 +217,14 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
         color = GREEN;
     }
 
-    bool outputs_differ = c_test != ft_test;
+    bool outputs_differ = c_output != ft_output;
     // outputs_differ = false;
 
     // Output the results
     std::cout << "TEST: " << test_path.string() << std::endl;
-    std::cout << "\tC  [" << std::fixed << std::setprecision(2) << c_duration_ms << " ms]:        " << (outputs_differ ? c_test : "\n");
+    std::cout << "\tC  [" << std::fixed << std::setprecision(2) << c_duration_ms << " ms]:        " << (outputs_differ ? c_output : "\n");
     std::cout << "\tFT [" << std::fixed << std::setprecision(2) << ft_duration_ms << " ms] [" << color << (perf_diff_percent > 0 ? "+" : "")
-              << int(perf_diff_percent * 100) << "\%" << DEFAULT << "]: " << (outputs_differ ? ft_test : "\n");
+              << int(perf_diff_percent * 100) << "\%" << DEFAULT << "]: " << (outputs_differ ? ft_output : "\n");
 }
 
 #endif
