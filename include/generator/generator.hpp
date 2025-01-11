@@ -88,21 +88,30 @@ class Generator {
         llvm::IRBuilder<> &builder,                                                                            //
         std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
     );
-    static llvm::Value *generate_allocation(                                   //
+    static void generate_allocation(                                           //
         llvm::IRBuilder<> &builder,                                            //
-        llvm::Function *parent,                                                //
+        Scope *scope,                                                          //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+        const std::string &alloca_name,                                        //
         llvm::Type *type,                                                      //
-        const std::string &name,                                               //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+        const std::string &ir_name,                                            //
+        const std::string &ir_comment                                          //
+    );
+    static void generate_allocations(                                         //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        Scope *scope,                                                         //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
 
     static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
     static void generate_body(                                                                                  //
+        llvm::IRBuilder<> &builder,                                                                             //
         llvm::Function *parent,                                                                                 //
         Scope *scope,                                                                                           //
         std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-        llvm::IRBuilder<> *builder = nullptr                                                                    //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
     );
 
     static void generate_statement(                                                                             //

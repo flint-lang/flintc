@@ -451,18 +451,104 @@ void Generator::generate_phi_calls(                                             
 }
 
 /// generate_allocation
-///     Generates a custom allocation call. Currently i use malloc, in the future i will use DIMA for it
-llvm::Value *Generator::generate_allocation(                               //
+///     Generates a custom allocation call
+void Generator::generate_allocation(                                       //
     llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
+    Scope *scope,                                                          //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const std::string &alloca_name,                                        //
     llvm::Type *type,                                                      //
-    const std::string &name,                                               //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+    const std::string &ir_name,                                            //
+    const std::string &ir_comment                                          //
 ) {
-    uint64_t size = parent->getParent()->getDataLayout().getTypeAllocSize(type);
-    llvm::Value *malloc_call = builder.CreateCall(builtins[MALLOC], {builder.getInt64(size)}, name);
-    allocations.emplace_back(builder.GetInsertBlock(), malloc_call);
-    return malloc_call;
+    llvm::AllocaInst *alloca = builder.CreateAlloca( //
+        type,                                        //
+        nullptr,                                     //
+        ir_name                                      //
+    );
+    alloca->setMetadata("comment", llvm::MDNode::get(builder.getContext(), llvm::MDString::get(builder.getContext(), ir_comment)));
+    if (allocations.find(alloca_name) != allocations.end()) {
+        // Variable allocation was already made somewhere else
+        throw_err(ERR_GENERATING);
+    }
+    allocations.insert({alloca_name, alloca});
+}
+
+/// generate_allocation
+///     Generates all allocations of the given scope. Adds all AllocaInst pointer to the allocations map
+void Generator::generate_allocations(                                     //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    Scope *scope,                                                         //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+) {
+    for (const auto &statement : scope->body) {
+        if (!std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
+            continue;
+        }
+
+        StatementNode *statement_node = std::get<std::unique_ptr<StatementNode>>(statement).get();
+        if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
+            generate_allocations(builder, parent, while_node->scope.get(), allocations);
+        } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
+            while (if_node != nullptr) {
+                generate_allocations(builder, parent, if_node->then_scope.get(), allocations);
+                if (if_node->else_scope.has_value()) {
+                    if (std::holds_alternative<std::unique_ptr<IfNode>>(if_node->else_scope.value())) {
+                        if_node = std::get<std::unique_ptr<IfNode>>(if_node->else_scope.value()).get();
+                    } else {
+                        Scope *else_scope = std::get<std::unique_ptr<Scope>>(if_node->else_scope.value()).get();
+                        generate_allocations(builder, parent, else_scope, allocations);
+                        if_node = nullptr;
+                    }
+                } else {
+                    if_node = nullptr;
+                }
+            }
+        } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
+            //
+        } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
+
+            if (auto *call_node = dynamic_cast<CallNode *>(declaration_node->initializer.get())) {
+                // Get the (already existent) function definition
+                llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
+                // Set the scope the call happens in
+                call_node->scope_id = scope->scope_id;
+
+                // Temporary allocation for the entire return struct
+                const std::string ret_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name + "::ret";
+                generate_allocation(builder, scope, allocations, ret_alloca_name,                                                        //
+                    func_decl->getType(),                                                                                                //
+                    declaration_node->name + "__RET",                                                                                    //
+                    "Create alloc of struct for called function '" + call_node->function_name + "', called by '" + ret_alloca_name + "'" //
+                );
+
+                // Create the error return valua allocation
+                const std::string err_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name + "::err";
+                generate_allocation(builder, scope, allocations, err_alloca_name, //
+                    llvm::Type::getInt32Ty(parent->getContext()),                 //
+                    declaration_node->name + "__ERR",                             //
+                    "Create alloc of err ret var '" + err_alloca_name + "'"       //
+                );
+
+                // Create the actual variable allocation with the declared type
+                const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
+                generate_allocation(builder, scope, allocations, var_alloca_name,    //
+                    get_type_from_str(parent->getContext(), declaration_node->type), //
+                    declaration_node->name + "__VAL_1",                              //
+                    "Create alloc of 1st ret var '" + var_alloca_name + "'"          //
+                );
+            } else {
+                // A "normal" allocation
+                const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
+                generate_allocation(builder, scope, allocations, alloca_name,        //
+                    get_type_from_str(parent->getContext(), declaration_node->type), //
+                    declaration_node->name + "__VAR",                                //
+                    "Create alloc of var '" + alloca_name + "'"                      //
+                );
+            }
+        }
+    }
 }
 
 /// generate_function_type
@@ -512,8 +598,22 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
         ++paramIndex;
     }
 
+    // Create the functions entry block
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
+        module->getContext(),                                 //
+        "entry",                                              //
+        function                                              //
+    );
+    llvm::IRBuilder<> builder(entry_block);
+
+    // Create all the functions allocations (declarations, etc.) at the beginning, before the actual function body
+    // The key is a combination of the scope id and the variable name, e.g. 1::var1, 2::var2
+    std::unordered_map<std::string, llvm::AllocaInst *const> allocations;
+    generate_allocations(builder, function, function_node->scope.get(), allocations);
+
+    // Generate all instructions of the functions body
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
-    generate_body(function, function_node->scope.get(), phi_lookup);
+    generate_body(builder, function, function_node->scope.get(), phi_lookup, allocations);
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (function_node->name != "main" && !function->empty() && function->getEntryBlock().getTerminator() == nullptr) {
@@ -528,55 +628,24 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
 /// generate_body
 ///     Generates a whole body
 void Generator::generate_body(                                                                              //
+    llvm::IRBuilder<> &builder,                                                                             //
     llvm::Function *parent,                                                                                 //
     Scope *scope,                                                                                           //
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-    llvm::IRBuilder<> *builder                                                                              //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
 ) {
-    // Create a list of all pointers allocated within this scope which need to get freed at the end of this scope
-    // Out of Scope = Out of Memory
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> allocations;
-    // If a builder is given, use it, otherwise create a new one
-    if (builder == nullptr) {
-        llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
-            parent->getContext(),                                 //
-            "entry",                                              //
-            parent                                                //
-        );
-        llvm::IRBuilder<> new_builder(entry_block);
-        // Call recursively, but now with the builder created
-        generate_body(parent, scope, phi_lookup, &new_builder);
-        return;
-    }
-
-    // Add instructions to the body
     for (const auto &stmt : scope->body) {
         generate_statement(*builder, parent, stmt, phi_lookup, allocations);
         // Check if the statment was an if statement, if so check if the last block does contain any instructions
         // If it does not, delete the last block
         if (std::holds_alternative<std::unique_ptr<StatementNode>>(stmt)) {
             if (const auto *if_node = dynamic_cast<const IfNode *>(std::get<std::unique_ptr<StatementNode>>(stmt).get())) {
-                if (builder->GetInsertBlock()->empty() && stmt == scope->body.back()) {
-                    builder->GetInsertBlock()->eraseFromParent();
+                if (builder.GetInsertBlock()->empty() && stmt == scope->body.back()) {
+                    builder.GetInsertBlock()->eraseFromParent();
                 }
             }
         }
     }
-
-    // Go through all allocations and free them at the end of the block, if the block does not contain any return statements
-    // and if the block is not called 'entry' (the "main" block of a function, at the end of the function no deallocations are needed)
-    llvm::BasicBlock *insert_point = builder->GetInsertBlock();
-    for (const auto &[block, allocation] : allocations) {
-        if (llvm::Instruction *terminator = block->getTerminator()) { //&& block->getName().str() != "entry") {
-            builder->SetInsertPoint(terminator);
-        } else {
-            builder->SetInsertPoint(block);
-        }
-        // Create function call to the C "free" function and pass in the pointer (allocation)
-        builder->CreateCall(builtins[FREE], {allocation});
-    }
-    allocations.clear();
-    builder->SetInsertPoint(insert_point);
 }
 
 /// generate_statement
