@@ -142,9 +142,10 @@ class Generator {
     static void generate_assignment(                                                                            //
         llvm::IRBuilder<> &builder,                                                                             //
         llvm::Function *parent,                                                                                 //
+        Scope *scope,                                                                                           //
         const AssignmentNode *assignment_node,                                                                  //
         std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
     );
     static void generate_declaration(                                          //
         llvm::IRBuilder<> &builder,                                            //

@@ -927,12 +927,20 @@ void Generator::generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *pa
 void Generator::generate_assignment(                                                                        //
     llvm::IRBuilder<> &builder,                                                                             //
     llvm::Function *parent,                                                                                 //
+    Scope *scope,                                                                                           //
     const AssignmentNode *assignment_node,                                                                  //
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
 ) {
-    llvm::Value *expression = generate_expression(builder, parent, assignment_node->value.get(), allocations);
-    llvm::Value *lhs = lookup_variable(parent, assignment_node->var_name);
+    llvm::Value *expression = generate_expression(builder, parent, scope, assignment_node->value.get(), allocations);
+
+    if (scope->variable_types.find(assignment_node->var_name) == scope->variable_types.end()) {
+        // Error: Undeclared Variable
+        throw_err(ERR_GENERATING);
+    }
+    const unsigned int variable_decl_scope = scope->variable_types.at(assignment_node->var_name).second;
+    llvm::AllocaInst *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->var_name);
+
     llvm::StoreInst *store = builder.CreateStore(expression, lhs);
     store->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
