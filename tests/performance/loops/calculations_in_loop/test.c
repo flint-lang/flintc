@@ -25,9 +25,11 @@ int square_root(int n) {
 // Calculate the sqrt of every number from 0 to 100000
 int main() {
     int num = 0;
-    while (num < 1000000) {
+    int sum = 0;
+    while (num < 10000000) {
         int sqrt = square_root(num);
-        printf("%i\n", num);
         ++num;
+        sum = sum + sqrt;
     }
+    printf("%i\n", sum);
 }
