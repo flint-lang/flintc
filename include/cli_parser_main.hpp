@@ -2,7 +2,6 @@
 #define __CLI_PARSER_HPP__
 
 #include "cli_parser_base.hpp"
-#include "error/error.hpp"
 
 #include <filesystem>
 #include <iostream>
