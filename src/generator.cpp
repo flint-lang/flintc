@@ -1065,7 +1065,13 @@ llvm::Value *Generator::generate_expression(                               //
 
 /// generate_variable
 ///     Generates the variable from the given VariableNode
-llvm::Value *Generator::generate_variable(llvm::IRBuilder<> &builder, llvm::Function *parent, const VariableNode *variable_node) {
+llvm::Value *Generator::generate_variable(                                //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    Scope *scope,                                                         //
+    const VariableNode *variable_node,                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+) {
     if (variable_node == nullptr) {
         // Error: Null Node
         throw_err(ERR_GENERATING);
@@ -1081,12 +1087,13 @@ llvm::Value *Generator::generate_variable(llvm::IRBuilder<> &builder, llvm::Func
     }
 
     // If not a parameter, handle as local variable
-    llvm::Value *variable = lookup_variable(parent, variable_node->name);
-    if (variable == nullptr) {
+    if (scope->variable_types.find(variable_node->name) == scope->variable_types.end()) {
         // Error: Undeclared Variable
         throw_err(ERR_GENERATING);
         return nullptr;
     }
+    const unsigned int variable_decl_scope = scope->variable_types.at(variable_node->name).second;
+    llvm::AllocaInst *const variable = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
 
     // Get the type that the pointer points to
     llvm::Type *value_type = get_type_from_str(parent->getParent()->getContext(), variable_node->type);

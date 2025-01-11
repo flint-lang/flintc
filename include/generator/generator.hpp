@@ -161,7 +161,13 @@ class Generator {
         const ExpressionNode *expression_node,                                 //
         std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
     );
-    static llvm::Value *generate_variable(llvm::IRBuilder<> &builder, llvm::Function *parent, const VariableNode *variable_node);
+    static llvm::Value *generate_variable(                                    //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        Scope *scope,                                                         //
+        const VariableNode *variable_node,                                    //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+    );
     static llvm::Value *generate_unary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const UnaryOpNode *unary_op_node);
     static llvm::Value *generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node);
     static llvm::Value *generate_call(                                         //
