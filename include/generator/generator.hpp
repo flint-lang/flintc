@@ -147,11 +147,12 @@ class Generator {
         std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
         std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
     );
-    static void generate_declaration(                                          //
-        llvm::IRBuilder<> &builder,                                            //
-        llvm::Function *parent,                                                //
-        const DeclarationNode *declaration_node,                               //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+    static void generate_declaration(                                         //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        Scope *scope,                                                         //
+        const DeclarationNode *declaration_node,                              //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
 
     static llvm::Value *generate_expression(                                   //

@@ -952,72 +952,83 @@ void Generator::generate_assignment(                                            
 
 /// generate_declaration
 ///     Generates the declaration from the given DeclarationNode
-void Generator::generate_declaration(                                      //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const DeclarationNode *declaration_node,                               //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+void Generator::generate_declaration(                                     //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    Scope *scope,                                                         //
+    const DeclarationNode *declaration_node,                              //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
-    llvm::Value *expression = generate_expression(builder, parent, declaration_node->initializer.get(), allocations);
+    llvm::Value *expression = generate_expression(builder, parent, scope, declaration_node->initializer.get(), allocations);
 
     // Check if the declaration_node is a function call.
     // If it is, the "real" value of the call has to be extracted. Otherwise, it can be used directly!
     if (const auto *call_node = dynamic_cast<const CallNode *>(declaration_node->initializer.get())) {
-        // Temporary temp struct for return value
-        llvm::Value *temp_struct_alloca = generate_allocation( //
-            builder,                                           //
-            parent,                                            //
-            expression->getType(),                             //
-            declaration_node->name + "__TMP",                  //
-            allocations                                        //
-        );
-
-        builder.CreateStore(expression, temp_struct_alloca)
+        // Call the function and store its result in the return stuct
+        const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::" + declaration_node->name + "::ret";
+        llvm::AllocaInst *const alloca_ret = allocations.at(call_ret_name);
+        builder.CreateStore(expression, alloca_ret)
             ->setMetadata("comment",
                 llvm::MDNode::get(parent->getContext(),
                     llvm::MDString::get(parent->getContext(),
-                        "Store result of '" + call_node->function_name + "' call in temp ret struct")));
+                        "Store result of '" + call_node->function_name + "' call in '" + call_ret_name + "'")));
 
-        // Create the actual variable allocation with the declared type
-        llvm::Type *declared_type = get_type_from_str(parent->getContext(), declaration_node->type);
-        llvm::Value *var_alloca = generate_allocation( //
-            builder,                                   //
-            parent,                                    //
-            declared_type,                             //
-            declaration_node->name,                    //
-            allocations                                //
-        );
-
-        // Extract the second field (index 1) from the struct - this is the actual return value
-        llvm::Value *value_ptr = builder.CreateStructGEP( //
-            expression->getType(),                        //
-            temp_struct_alloca,                           //
-            1,                                            //
-            declaration_node->name + "__VAL_PTR"          //
-        );
-        llvm::LoadInst *actual_value = builder.CreateLoad(                   //
-            get_type_from_str(parent->getContext(), declaration_node->type), //
-            value_ptr,                                                       //
-            declaration_node->name + "__VAL"                                 //
-        );
-        actual_value->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(), "Load the actual val of '" + declaration_node->name + "' from its ptr")));
-
-        // Store the actual value in the declared variable
-        builder.CreateStore(actual_value, var_alloca)
-            ->setMetadata("comment",
+        // Extract the first field (index 0) from the struct - this is the error value
+        {
+            llvm::Value *err_ptr = builder.CreateStructGEP( //
+                expression->getType(),                      //
+                alloca_ret,                                 //
+                0,                                          //
+                declaration_node->name + "__ERR_PTR"        //
+            );
+            llvm::LoadInst *err_load = builder.CreateLoad(                       //
+                get_type_from_str(parent->getContext(), declaration_node->type), //
+                err_ptr,                                                         //
+                declaration_node->name + "__ERR"                                 //
+            );
+            err_load->setMetadata("comment",
                 llvm::MDNode::get(parent->getContext(),
-                    llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
+                    llvm::MDString::get(parent->getContext(), "Load the err val of '" + declaration_node->name + "' from its ptr")));
+
+            // Store the err variable in the declared variable
+            const std::string call_err_name = "s" + std::to_string(call_node->scope_id) + "::" + declaration_node->name + "::err";
+            llvm::AllocaInst *const call_err_alloca = allocations.at(call_err_name);
+            builder.CreateStore(err_load, call_err_alloca)
+                ->setMetadata("comment",
+                    llvm::MDNode::get(parent->getContext(),
+                        llvm::MDString::get(parent->getContext(), "Store the err val of '" + declaration_node->name + "'")));
+        }
+        // Extract the second field (index 1) from the struct - this is the actual return value
+        {
+            llvm::Value *value_ptr = builder.CreateStructGEP( //
+                expression->getType(),                        //
+                alloca_ret,                                   //
+                1,                                            //
+                declaration_node->name + "__VAL_PTR"          //
+            );
+            llvm::LoadInst *value_load = builder.CreateLoad(                     //
+                get_type_from_str(parent->getContext(), declaration_node->type), //
+                value_ptr,                                                       //
+                declaration_node->name + "__VAL"                                 //
+            );
+            value_load->setMetadata("comment",
+                llvm::MDNode::get(parent->getContext(),
+                    llvm::MDString::get(parent->getContext(), "Load the actual val of '" + declaration_node->name + "' from its ptr")));
+
+            // Store the actual value in the declared variable
+            const std::string call_val_1_name = "s" + std::to_string(call_node->scope_id) + "::" + declaration_node->name;
+            llvm::AllocaInst *const call_val_1_alloca = allocations.at(call_val_1_name);
+            builder.CreateStore(value_load, call_val_1_alloca)
+                ->setMetadata("comment",
+                    llvm::MDNode::get(parent->getContext(),
+                        llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
+        }
         return;
     }
 
-    // Create primitive type allocation
-    llvm::AllocaInst *alloca = builder.CreateAlloca(expression->getType(), nullptr, declaration_node->name);
-    alloca->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Create alloc of var '" + declaration_node->name + "'")));
-    // allocations.emplace_back(builder.GetInsertBlock(), alloca);
+    const unsigned int scope_id = scope->variable_types.at(declaration_node->name).second;
+    const std::string var_name = "s" + std::to_string(scope_id) + "::" + declaration_node->name;
+    llvm::AllocaInst *const alloca = allocations.at(var_name);
 
     llvm::StoreInst *store = builder.CreateStore(expression, alloca);
     store->setMetadata("comment",
