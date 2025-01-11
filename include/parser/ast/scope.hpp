@@ -37,8 +37,8 @@ class Scope {
     ///     Clones the variable types from the other scope
     ///     Returns if the cloning was successful
     bool clone_variable_types(const Scope *other) {
-        for (const auto &type : other->variable_types) {
-            if (!add_variable_type(type.first, type.second)) {
+        for (const auto &[name, type_scope] : other->variable_types) {
+            if (!add_variable_type(name, type_scope.first, type_scope.second)) {
                 // Duplicate definition / shadowing
                 throw_err(ERR_SCOPE);
                 return false;
@@ -49,13 +49,31 @@ class Scope {
 
     /// add_variable_type
     ///     Adds the given variable and its type to the list of variable types
-    bool add_variable_type(const std::string &var, const std::string &type) {
-        return variable_types.insert({var, type}).second;
+    bool add_variable_type(const std::string &var, const std::string &type, const unsigned int sid) {
+        return variable_types.insert({var, {type, sid}}).second;
     }
 
+    /// scope_id
+    ///     The unique id of this scope. Every scope has its own id
+    const unsigned int scope_id = get_next_scope_id();
+    /// body
+    ///     All the body statements of this scopes body
     std::vector<body_statement> body;
+    /// parent_scope
+    ///     The parent scope of this scope
     Scope *parent_scope{nullptr};
-    std::unordered_map<std::string, std::string> variable_types;
+    /// variable_types
+    ///     The key is the name of the variable
+    ///     The value is the type of the variable and the scope it was declared in
+    std::unordered_map<std::string, std::pair<std::string, unsigned int>> variable_types;
+
+  private:
+    /// get_next_scope_id
+    ///     Returns the next scope id. Ensures that each scope gets its own id for the lifetime of the program
+    static unsigned int get_next_scope_id() {
+        static unsigned int scope_id = 0;
+        return scope_id++;
+    }
 };
 
 #endif

@@ -54,9 +54,6 @@ class Generator {
         {BuiltinFunctions::REDUCE_ON_PAIRS, nullptr},
         {BuiltinFunctions::PARTITION_ON_ALL, nullptr},
         {BuiltinFunctions::SPLIT_ON_ALL, nullptr},
-        // TEMPORAL SOLUTION
-        {BuiltinFunctions::FREE, nullptr},
-        {BuiltinFunctions::MALLOC, nullptr},
     };
     static inline std::unordered_map<std::string, llvm::Function *> print_functions = {
         {"int", nullptr},
