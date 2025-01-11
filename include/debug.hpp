@@ -1,6 +1,7 @@
 #ifndef __DEBUG_HPP__
 #define __DEBUG_HPP__
 
+#include "test_utils.hpp"
 #include "types.hpp"
 
 #include "parser/ast/definitions/data_node.hpp"
@@ -28,8 +29,6 @@
 #include "parser/ast/statements/while_node.hpp"
 
 #include "parser/ast/file_node.hpp"
-
-#include <test_utils.hpp>
 
 #include <string>
 #include <unordered_map>

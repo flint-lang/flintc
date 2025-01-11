@@ -202,7 +202,7 @@ std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_li
                 // Variable not declared anywhere yet!
                 throw_err(ERR_PARSING);
             }
-            return VariableNode(name, scope->variable_types.at(name));
+            return VariableNode(name, scope->variable_types.at(name).first);
         }
     }
     return var;
@@ -656,7 +656,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
 
         auto expr = create_expression(scope, tokens);
         if (expr.has_value()) {
-            if (!scope->add_variable_type(name, type)) {
+            if (!scope->add_variable_type(name, type, scope->scope_id)) {
                 // Variable shadowing!
                 throw_err(ERR_PARSING);
             }
@@ -886,7 +886,7 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
-        if (!body_scope->add_variable_type(param.second, param.first)) {
+        if (!body_scope->add_variable_type(param.second, param.first, body_scope->scope_id)) {
             // Variable already exists in the func definition list
             throw_err(ERR_PARSING);
         }

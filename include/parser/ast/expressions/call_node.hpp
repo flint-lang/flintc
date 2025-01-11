@@ -12,9 +12,9 @@
 ///     Represents function or method calls
 class CallNode : public ExpressionNode {
   public:
-    CallNode(std::string &function_name, std::vector<std::unique_ptr<ExpressionNode>> &arguments)
-        : function_name(function_name),
-          arguments(std::move(arguments)) {}
+    CallNode(std::string &function_name, std::vector<std::unique_ptr<ExpressionNode>> &arguments) :
+        function_name(function_name),
+        arguments(std::move(arguments)) {}
 
     // empty constructor
     CallNode() = default;
@@ -27,8 +27,15 @@ class CallNode : public ExpressionNode {
     CallNode(CallNode &&) = default;
     CallNode &operator=(CallNode &&) = default;
 
+    /// function_name
+    ///     The name of the function being called
     std::string function_name;
+    /// arguments
+    ///     The list of arguments of the function call
     std::vector<std::unique_ptr<ExpressionNode>> arguments;
+    /// scope_id
+    ///     The id of the scope the call happens in
+    unsigned int scope_id{0};
 };
 
 #endif
