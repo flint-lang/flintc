@@ -360,14 +360,6 @@ llvm::Value *Generator::generate_pow_instruction(llvm::IRBuilder<> &builder, llv
     return nullptr;
 }
 
-/// lookup_variable
-///     Looks up if the specified variable exists within the given function and returns its Value
-llvm::Value *Generator::lookup_variable(llvm::Function *parent, const std::string &var_name) {
-    llvm::ValueSymbolTable *symbol_table = parent->getValueSymbolTable();
-    llvm::Value *variable = symbol_table->lookup(var_name);
-    return variable;
-}
-
 /// function_has_return
 ///     Checks if a given function has a return statement within its bodies instructions
 bool Generator::function_has_return(llvm::Function *function) {

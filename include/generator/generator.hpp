@@ -79,7 +79,6 @@ class Generator {
 
     static llvm::Value *generate_pow_instruction(llvm::IRBuilder<> &builder, llvm::Function *parent, llvm::Value *lhs, llvm::Value *rhs);
 
-    static llvm::Value *lookup_variable(llvm::Function *parent, const std::string &name);
     static bool function_has_return(llvm::Function *function);
     static void generate_phi_calls(                                                                            //
         llvm::IRBuilder<> &builder,                                                                            //
