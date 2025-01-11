@@ -117,11 +117,12 @@ class Generator {
         std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
         std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
     );
-    static void generate_return_statement(                                     //
-        llvm::IRBuilder<> &builder,                                            //
-        llvm::Function *parent,                                                //
-        const ReturnNode *return_node,                                         //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+    static void generate_return_statement(                                    //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        Scope *scope,                                                         //
+        const ReturnNode *return_node,                                        //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
     static void generate_if_statement(                                                                          //
         llvm::IRBuilder<> &builder,                                                                             //

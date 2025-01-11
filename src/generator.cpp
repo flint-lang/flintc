@@ -566,9 +566,7 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (function_node->name != "main" && !function->empty() && function->getEntryBlock().getTerminator() == nullptr) {
-        llvm::IRBuilder<> builder(&function->getEntryBlock());
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> allocations;
-        generate_return_statement(builder, function, {}, allocations);
+        generate_return_statement(builder, function, function_node->scope.get(), {}, allocations);
     }
 
     return function;
@@ -633,11 +631,12 @@ void Generator::generate_statement(                                             
 
 /// generate_return_statement
 ///     Generates the return statement from the given ReturnNode
-void Generator::generate_return_statement(                                 //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const ReturnNode *return_node,                                         //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+void Generator::generate_return_statement(                                //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    Scope *scope,                                                         //
+    const ReturnNode *return_node,                                        //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
     // Get the return type of the function
     auto *return_struct_type = llvm::cast<llvm::StructType>(parent->getReturnType());
@@ -657,7 +656,7 @@ void Generator::generate_return_statement(                                 //
     // If we have a return value, store it in the struct
     if (return_node != nullptr && return_node->return_value != nullptr) {
         // Generate the expression for the return value
-        llvm::Value *return_value = generate_expression(builder, parent, return_node->return_value.get(), allocations);
+        llvm::Value *return_value = generate_expression(builder, parent, scope, return_node->return_value.get(), allocations);
 
         // Ensure the return value matches the function's return type
         if (return_value == nullptr) {
