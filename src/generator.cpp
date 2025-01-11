@@ -582,7 +582,7 @@ void Generator::generate_body(                                                  
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
 ) {
     for (const auto &stmt : scope->body) {
-        generate_statement(*builder, parent, stmt, phi_lookup, allocations);
+        generate_statement(builder, parent, scope, stmt, phi_lookup, allocations);
         // Check if the statment was an if statement, if so check if the last block does contain any instructions
         // If it does not, delete the last block
         if (std::holds_alternative<std::unique_ptr<StatementNode>>(stmt)) {
@@ -600,15 +600,16 @@ void Generator::generate_body(                                                  
 void Generator::generate_statement(                                                                         //
     llvm::IRBuilder<> &builder,                                                                             //
     llvm::Function *parent,                                                                                 //
+    Scope *scope,                                                                                           //
     const body_statement &statement,                                                                        //
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
 ) {
     if (std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
         const StatementNode *statement_node = std::get<std::unique_ptr<StatementNode>>(statement).get();
 
         if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node)) {
-            generate_return_statement(builder, parent, return_node, allocations);
+            generate_return_statement(builder, parent, scope, return_node, allocations);
         } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
             generate_if_statement(builder, parent, if_node, 0, {}, phi_lookup, allocations);
@@ -617,15 +618,15 @@ void Generator::generate_statement(                                             
         } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
             generate_for_loop(builder, parent, for_node);
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
-            generate_assignment(builder, parent, assignment_node, phi_lookup, allocations);
+            generate_assignment(builder, parent, scope, assignment_node, phi_lookup, allocations);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
-            generate_declaration(builder, parent, declaration_node, allocations);
+            generate_declaration(builder, parent, scope, declaration_node, allocations);
         } else {
             throw_err(ERR_GENERATING);
         }
     } else {
         const CallNode *call_node = std::get<std::unique_ptr<CallNode>>(statement).get();
-        llvm::Value *call = generate_call(builder, parent, call_node, allocations);
+        llvm::Value *call = generate_call(builder, parent, scope, call_node, allocations);
     }
 }
 
@@ -689,7 +690,7 @@ void Generator::generate_if_statement(                                          
     unsigned int nesting_level,                                                                             //
     const std::vector<llvm::BasicBlock *> &blocks,                                                          //
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
 ) {
     if (if_node == nullptr || if_node->condition == nullptr) {
         // Invalid IfNode: missing condition
@@ -780,7 +781,7 @@ void Generator::generate_if_statement(                                          
     }
 
     // Generate the condition
-    llvm::Value *condition = generate_expression(builder, parent, if_node->condition.get(), allocations);
+    llvm::Value *condition = generate_expression(builder, parent, if_node->then_scope->parent_scope, if_node->condition.get(), allocations);
     if (condition == nullptr) {
         // Failed to generate condition expression
         throw_err(ERR_GENERATING);
@@ -807,7 +808,7 @@ void Generator::generate_if_statement(                                          
 
     // Generate then branch
     builder.SetInsertPoint(current_blocks[then_idx]);
-    generate_body(parent, if_node->then_scope.get(), phi_lookup, &builder);
+    generate_body(builder, parent, if_node->then_scope.get(), phi_lookup, allocations);
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
         // Branch to merge block
         builder.CreateBr(merge_block);
@@ -833,7 +834,7 @@ void Generator::generate_if_statement(                                          
             const auto &last_else_scope = std::get<std::unique_ptr<Scope>>(else_scope);
             if (!last_else_scope->body.empty()) {
                 builder.SetInsertPoint(current_blocks[next_idx]);
-                generate_body(parent, last_else_scope.get(), phi_lookup, &builder);
+                generate_body(builder, parent, last_else_scope.get(), phi_lookup, allocations);
                 if (builder.GetInsertBlock()->getTerminator() == nullptr) {
                     builder.CreateBr(merge_block);
                 }
@@ -850,11 +851,11 @@ void Generator::generate_if_statement(                                          
 
 /// generate_while_loop
 ///     Generates the while loop from the given WhileNode
-void Generator::generate_while_loop(                                       //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const WhileNode *while_node,                                           //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+void Generator::generate_while_loop(                                      //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    const WhileNode *while_node,                                          //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
     // Get the current block, we need to add a branch instruction to this block to point to the while condition block
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
@@ -887,7 +888,13 @@ void Generator::generate_while_loop(                                       //
 
     // Create the condition block's content
     builder.SetInsertPoint(while_blocks[0]);
-    llvm::Value *expression = generate_expression(builder, parent, while_node->condition.get(), allocations);
+    llvm::Value *expression = generate_expression( //
+        builder,                                   //
+        parent,                                    //
+        while_node->scope->get_parent(),           //
+        while_node->condition.get(),               //
+        allocations                                //
+    );
     llvm::BranchInst *branch = builder.CreateCondBr( //
         expression,                                  //
         while_blocks[1],                             //
@@ -906,7 +913,7 @@ void Generator::generate_while_loop(                                       //
 
     // Create the while block's body
     builder.SetInsertPoint(while_blocks[1]);
-    generate_body(parent, while_node->scope.get(), phi_lookup, &builder);
+    generate_body(builder, parent, while_node->scope.get(), phi_lookup, allocations);
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
         // Point back to the condition block to create the loop
         builder.CreateBr(while_blocks[0]);
@@ -1037,14 +1044,15 @@ void Generator::generate_declaration(                                     //
 
 /// generate_expression
 ///     Generates an expression from the given ExpressionNode
-llvm::Value *Generator::generate_expression(                               //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const ExpressionNode *expression_node,                                 //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+llvm::Value *Generator::generate_expression(                              //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    Scope *scope,                                                         //
+    const ExpressionNode *expression_node,                                //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
-        return generate_variable(builder, parent, variable_node);
+        return generate_variable(builder, parent, scope, variable_node, allocations);
     }
     if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode *>(expression_node)) {
         return generate_unary_op(builder, parent, unary_op_node);
@@ -1053,10 +1061,10 @@ llvm::Value *Generator::generate_expression(                               //
         return generate_literal(builder, parent, literal_node);
     }
     if (const auto *call_node = dynamic_cast<const CallNode *>(expression_node)) {
-        return generate_call(builder, parent, call_node, allocations);
+        return generate_call(builder, parent, scope, call_node, allocations);
     }
     if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
-        return generate_binary_op(builder, parent, binary_op_node, allocations);
+        return generate_binary_op(builder, parent, scope, binary_op_node, allocations);
     }
     throw_err(ERR_GENERATING);
     return nullptr;
@@ -1149,17 +1157,18 @@ llvm::Value *Generator::generate_literal(llvm::IRBuilder<> &builder, llvm::Funct
 
 /// generate_call
 ///     Generates the call from the given CallNode
-llvm::Value *Generator::generate_call(                                     //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const CallNode *call_node,                                             //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+llvm::Value *Generator::generate_call(                                    //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    Scope *scope,                                                         //
+    const CallNode *call_node,                                            //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
     // Get the arguments
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
     for (const auto &arg : call_node->arguments) {
-        args.emplace_back(generate_expression(builder, parent, arg.get(), allocations));
+        args.emplace_back(generate_expression(builder, parent, scope, arg.get(), allocations));
     }
 
     // Check if it is a builtin function and call it
@@ -1202,14 +1211,15 @@ llvm::Value *Generator::generate_call(                                     //
 
 /// generate_binary_op
 ///     Generates a binary operation from the given BinaryOpNode
-llvm::Value *Generator::generate_binary_op(                                //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const BinaryOpNode *bin_op_node,                                       //
-    std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+llvm::Value *Generator::generate_binary_op(                               //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    Scope *scope,                                                         //
+    const BinaryOpNode *bin_op_node,                                      //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
-    llvm::Value *lhs = generate_expression(builder, parent, bin_op_node->left.get(), allocations);
-    llvm::Value *rhs = generate_expression(builder, parent, bin_op_node->right.get(), allocations);
+    llvm::Value *lhs = generate_expression(builder, parent, scope, bin_op_node->left.get(), allocations);
+    llvm::Value *rhs = generate_expression(builder, parent, scope, bin_op_node->right.get(), allocations);
     switch (bin_op_node->operator_token) {
         default:
             throw_err(ERR_GENERATING);
@@ -1244,7 +1254,6 @@ llvm::Value *Generator::generate_binary_op(                                //
 llvm::Type *Generator::get_type_from_str(llvm::LLVMContext &context, const std::string &str) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
     if (keywords.find(str) != keywords.end()) {
-        //
         switch (keywords.at(str)) {
             default:
                 throw_err(ERR_GENERATING);

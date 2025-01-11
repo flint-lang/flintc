@@ -113,9 +113,10 @@ class Generator {
     static void generate_statement(                                                                             //
         llvm::IRBuilder<> &builder,                                                                             //
         llvm::Function *parent,                                                                                 //
+        Scope *scope,                                                                                           //
         const body_statement &statement,                                                                        //
         std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
     );
     static void generate_return_statement(                                    //
         llvm::IRBuilder<> &builder,                                           //
@@ -131,13 +132,13 @@ class Generator {
         unsigned int nesting_level,                                                                             //
         const std::vector<llvm::BasicBlock *> &blocks,                                                          //
         std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations                                  //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
     );
-    static void generate_while_loop(                                           //
-        llvm::IRBuilder<> &builder,                                            //
-        llvm::Function *parent,                                                //
-        const WhileNode *while_node,                                           //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+    static void generate_while_loop(                                          //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        const WhileNode *while_node,                                          //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
     static void generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node);
     static void generate_assignment(                                                                            //
@@ -156,11 +157,12 @@ class Generator {
         std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
 
-    static llvm::Value *generate_expression(                                   //
-        llvm::IRBuilder<> &builder,                                            //
-        llvm::Function *parent,                                                //
-        const ExpressionNode *expression_node,                                 //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+    static llvm::Value *generate_expression(                                  //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        Scope *scope,                                                         //
+        const ExpressionNode *expression_node,                                //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
     static llvm::Value *generate_variable(                                    //
         llvm::IRBuilder<> &builder,                                           //
@@ -171,17 +173,19 @@ class Generator {
     );
     static llvm::Value *generate_unary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const UnaryOpNode *unary_op_node);
     static llvm::Value *generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node);
-    static llvm::Value *generate_call(                                         //
-        llvm::IRBuilder<> &builder,                                            //
-        llvm::Function *parent,                                                //
-        const CallNode *call_node,                                             //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+    static llvm::Value *generate_call(                                        //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        Scope *scope,                                                         //
+        const CallNode *call_node,                                            //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
-    static llvm::Value *generate_binary_op(                                    //
-        llvm::IRBuilder<> &builder,                                            //
-        llvm::Function *parent,                                                //
-        const BinaryOpNode *bin_op_node,                                       //
-        std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> &allocations //
+    static llvm::Value *generate_binary_op(                                   //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        Scope *scope,                                                         //
+        const BinaryOpNode *bin_op_node,                                      //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
 
     static llvm::Type *get_type_from_str(llvm::LLVMContext &context, const std::string &str);
