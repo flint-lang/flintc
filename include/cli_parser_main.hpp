@@ -63,6 +63,10 @@ class CLIParserMain : public CLIParserBase {
                 return 1;
             }
         }
+        if (source_file_path.empty()) {
+            print_err("There is no file to compile!");
+            return 1;
+        }
         return 0;
     }
 
