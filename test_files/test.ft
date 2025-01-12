@@ -1,24 +1,14 @@
-// Calculate the square root of a number using Babylonians method
-def square_root(int n) -> int:
-	// Since sqrt(0) = 0 and sqrt(1) = 1
-	if n == 0:
-		return n;
-	else if n == 1:
-		return n;
-
-	int x = n;
-	int y = (x + 1) / 2;
-
-	while y < x:
-		x = y;
-		y = (x + n / x) / 2;
+def function(int x, int y) -> int:
+	if x < y:
+		return 0;
+		// throw 0;
 	
-	return x;
+	return x + y;
 
-// Calculate the sqrt of every number from 0 to 100000
 def main():
-	int num = 0;
-	while num < 1000000:
-		int sqrt = square_root(num);
-		print(num);
-		num = num + 1;
+	int n = 0;
+	while n < 10:
+		int res = function(n, 5);// catch err:
+			// print(100);
+		print(res);
+		n = n + 1;

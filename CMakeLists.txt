@@ -1,0 +1,152 @@
+cmake_minimum_required(VERSION 3.15)
+
+# Use clang explicitly
+set(CMAKE_C_COMPILER clang)
+set(CMAKE_CXX_COMPILER clang++)
+
+# Project Name
+project(FlintCompiler LANGUAGES CXX)
+
+# Specify C++ standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Set default build type if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+endif()
+
+# Set the possible values of build type for cmake-gui
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug"
+    "Release"
+    "MinSizeRel"
+    "RelWithDebInfo"
+)
+
+# Output directories
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+# Get LLVM include directories and link flags using llvm-config
+execute_process(
+    COMMAND llvm-config --includedir
+    OUTPUT_VARIABLE BASE_CXX_FLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(BASE_CXX_FLAGS ${BASE_CXX_FLAGS}
+    -g
+    -O0
+    -Wall
+    -std=c++17
+    -fno-omit-frame-pointer
+    -DEBUG
+    -funwind-tables
+    -fstandalone-debug
+    -D_GNU_SOURCE
+    -D__STDC_CONSTANT_MACROS
+    -D__STDC_FORMAT_MACROS
+    -D__STDC_LIMIT_MACROS
+)
+
+# Get the static flags for static linking
+set(STATIC_FLAGS
+    -static
+    -L$ENV{GLIBCPATH}
+    -L$ENV{ZLIBPATH}
+    -L${CMAKE_SOURCE_DIR}/xml2/xml2/lib
+)
+
+# Get the LLVM link flags
+execute_process(
+    COMMAND llvm-config --link-static --ldflags --system-libs --libs all
+    OUTPUT_VARIABLE BASE_LD_FLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Convert the flags to cmake lists (from space-separated to ;-separated)
+if(BASE_CXX_FLAGS MATCHES " ")
+    separate_arguments(BASE_CXX_FLAGS UNIX_COMMAND ${BASE_CXX_FLAGS})
+endif()
+if(BASE_LD_FLAGS MATCHES " ")
+    separate_arguments(BASE_LD_FLAGS UNIX_COMMAND ${BASE_LD_FLAGS})
+endif()
+if(STATIC_FLAGS MATCHES " ")
+    separate_arguments(STATIC_FLAGS UNIX_COMMAND ${STATIC_FLAGS})
+endif()
+
+# Source Files
+set(MAIN_FILE src/main.cpp)
+set(TEST_FILES tests/tests.cpp)
+file(GLOB_RECURSE SRC_FILES "src/*.cpp")
+list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/${MAIN_FILE})
+
+# Include both directories where the headers are located
+include_directories(
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/tests
+)
+
+# Function to set common properties for targets
+function(set_common_properties target is_static)
+    # Add the C++ flags
+    target_compile_options(${target} PRIVATE ${BASE_CXX_FLAGS})
+    
+    # First link the object files (this happens automatically)
+    # Then add the libraries
+    if(${is_static})
+        target_link_options(${target} PRIVATE ${STATIC_FLAGS})
+    endif()
+    
+    # Add libraries AFTER the object files
+    target_link_libraries(${target} PRIVATE ${BASE_LD_FLAGS})
+endfunction()
+
+# Static flintc
+add_executable(flintc ${MAIN_FILE} ${SRC_FILES})
+set_common_properties(flintc TRUE)
+
+# Dynamic flintc
+add_executable(flintc-dynamic ${MAIN_FILE} ${SRC_FILES})
+set_common_properties(flintc-dynamic FALSE)
+
+# Static tests
+add_executable(tests ${TEST_FILES} ${SRC_FILES})
+set_common_properties(tests TRUE)
+
+# Dynamic tests
+add_executable(tests-dynamic ${TEST_FILES} ${SRC_FILES})
+set_common_properties(tests-dynamic FALSE)
+
+# Create build directories
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/obj)
+
+# Clean-all target
+add_custom_target(clean-all
+    COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}
+    COMMENT "Cleaning build directories"
+)
+
+# Add an 'all' custom target that depends on all executables
+add_custom_target(build-all
+    DEPENDS
+        flintc
+        flintc-dynamic
+        tests
+        tests-dynamic
+)
+
+add_custom_target(static
+    DEPENDS
+        flintc
+        tests
+)
+
+add_custom_target(dynamic
+    DEPENDS
+        flintc-dynamic
+        tests-dynamic
+)
