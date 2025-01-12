@@ -42,7 +42,7 @@ class CLIParserMain : public CLIParserBase {
                     return 1;
                 }
                 if (!args.at(i + 1).empty()) {
-                    compile_flags = args.at(i + 1);
+                    compile_flags.append(" ").append(args.at(i + 1));
                 }
                 i++;
             } else if (arg == "--output-ll-file") {
@@ -51,6 +51,9 @@ class CLIParserMain : public CLIParserBase {
                 }
                 ll_file_path = get_absolute(cwd_path, args.at(i + 1));
                 i++;
+            } else if (arg == "--static") {
+                static const std::string static_flags = "-static -Wl,--start-group -lpthread -ldl -Wl,--end-group";
+                compile_flags.append(" ").append(static_flags);
             } else {
                 print_err("Unknown argument: " + arg);
                 return 1;
@@ -75,6 +78,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --flags \"[flags]\"           The clang flags used to build the executable\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code.\n";
         std::cout << "                              HINT: The compiler will still compile the input file as usual.\n";
+        std::cout << "  --static                    Build the executable as static\n";
     }
 };
 

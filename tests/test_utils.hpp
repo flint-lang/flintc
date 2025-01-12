@@ -160,14 +160,15 @@ static std::string get_command_output(const std::string &command) {
 /// run_performance_test
 ///     Runs a performance test to compare Flint to C code
 static void run_performance_test(const std::filesystem::path &test_path, const std::string &compile_flags, const unsigned int count) {
+    static const std::string default_flags = "-static -Wl,--start-group -lpthread -ldl -Wl,--end-group";
     // Create all the paths of all strings
     const std::string cwd = std::filesystem::current_path().string();
     const std::string this_path = cwd / test_path;
     const std::string c_bin = this_path + "/c_test";
     const std::string ft_bin = this_path + "/ft_test";
-    const std::string c_compile_command = "clang " + compile_flags + " " + this_path + "/test.c -o " + c_bin;
+    const std::string c_compile_command = "clang " + default_flags + " " + compile_flags + " " + this_path + "/test.c -o " + c_bin;
     const std::string ft_compile_command =
-        cwd + "/build/out/flintc -f " + this_path + "/test.ft -o " + ft_bin + " --flags \"" + compile_flags + "\"";
+        cwd + "/build/out/flintc -f " + this_path + "/test.ft -o " + ft_bin + " --flags \"" + default_flags + " " + compile_flags + "\"";
     // Then, compile both the .ft and the .c file to their respective executables
     // Use the 'get_command_output' to not print any of the output to the console
     get_command_output(c_compile_command + " 2>&1");

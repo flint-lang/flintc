@@ -1,9 +1,9 @@
 #include "test_utils.hpp"
 
+#include "cli_parser_tests.hpp"
 #include "parser/test_parser.hpp"
 #include "performance/test_performance.hpp"
 #include "signature/test_signature.hpp"
-#include "tests_cli_parser.hpp"
 
 #include <iostream>
 
