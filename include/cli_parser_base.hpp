@@ -33,7 +33,9 @@ class CLIParserBase {
     virtual void print_help() = 0;
 
     virtual int print_err(const std::string &err) {
-        std::cerr << "Error: " << err << "\n";
+        static const std::string RED = "\033[31m";
+        static const std::string DEFAULT = "\033[0m";
+        std::cerr << "-- " << RED << "Error: " << DEFAULT << err << "\n";
         print_help();
         return 1;
     }

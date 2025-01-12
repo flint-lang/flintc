@@ -18,6 +18,10 @@ class CLIParserMain : public CLIParserBase {
     int parse() override {
         // Iterate through all command-line arguments
         std::filesystem::path cwd_path = std::filesystem::current_path();
+        if (args.empty()) {
+            print_err("No arguments were given!");
+            return 1;
+        }
         for (size_t i = 0; i < args.size(); ++i) {
             std::string arg = args[i];
 
