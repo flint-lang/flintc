@@ -1,14 +1,12 @@
 def function(int x, int y) -> int:
 	if x < y:
-		return 0;
-		// throw 0;
-	
+		throw 1;
 	return x + y;
 
 def main():
 	int n = 0;
 	while n < 10:
-		int res = function(n, 5);// catch err:
-			// print(100);
+		int res = function(n, 5) catch err:
+			print(100);
 		print(res);
 		n = n + 1;

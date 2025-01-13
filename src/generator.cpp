@@ -14,6 +14,7 @@
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
+#include "parser/parser.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
 
@@ -475,7 +476,8 @@ void Generator::generate_allocations(                                     //
                 );
 
                 // Create the error return valua allocation
-                const std::string err_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name + "::err";
+                const std::string err_alloca_name =
+                    "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
                 generate_allocation(builder, scope, allocations, err_alloca_name, //
                     llvm::Type::getInt32Ty(parent->getContext()),                 //
                     declaration_node->name + "__ERR",                             //
@@ -694,6 +696,8 @@ void Generator::generate_statement(                                             
             generate_declaration(builder, parent, scope, declaration_node, allocations);
         } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement_node)) {
             generate_throw_statement(builder, parent, scope, throw_node, allocations);
+        } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement_node)) {
+            generate_catch_statement(builder, parent, scope, catch_node, allocations);
         } else {
             throw_err(ERR_GENERATING);
         }
@@ -1034,6 +1038,89 @@ void Generator::generate_while_loop(                                      //
 ///     Generates the for loop from the given ForLoopNode
 void Generator::generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node) {}
 
+/// generate_catch_statement
+///     Generates the catch statement from the given CatchNode
+void Generator::generate_catch_statement(                                 //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    Scope *scope,                                                         //
+    const CatchNode *catch_node,                                          //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+) {
+    // The catch statement is basically just an if check if the err value of the function return is != 0 or not
+    const std::optional<CallNode *> call_node = Parser::get_call_from_id(catch_node->call_id);
+    if (!call_node.has_value()) {
+        // Catch does not have a referenced function
+        throw_err(ERR_GENERATING);
+        return;
+    }
+    const std::string err_ret_name =
+        "s" + std::to_string(call_node.value()->scope_id) + "::c" + std::to_string(call_node.value()->call_id) + "::err";
+    llvm::AllocaInst *const err_var = allocations.at(err_ret_name);
+
+    // Load the error value
+    llvm::LoadInst *err_val = builder.CreateLoad(                                                    //
+        llvm::Type::getInt32Ty(builder.getContext()),                                                //
+        err_var,                                                                                     //
+        call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_val" //
+    );
+    err_val->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(),
+                "Load err val of call '" + call_node.value()->function_name + "::" + std::to_string(call_node.value()->call_id) + "'")));
+
+    llvm::BasicBlock *last_block = &parent->back();
+    // Create basic block for the catch block
+    llvm::BasicBlock *current_block = builder.GetInsertBlock();
+
+    // Check if the current block is the last block, if it is not, insert right after the current block
+    bool is_last = current_block == last_block;
+    llvm::BasicBlock *insert_after = is_last ? current_block : (current_block->getNextNode());
+
+    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                                           //
+        builder.getContext(),                                                                           //
+        call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_catch", //
+        parent,                                                                                         //
+        insert_after                                                                                    //
+    );
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                                           //
+        builder.getContext(),                                                                           //
+        call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_merge", //
+        parent,                                                                                         //
+        insert_after                                                                                    //
+    );
+    builder.SetInsertPoint(current_block);
+
+    // Create the if check and compare the err value to 0
+    llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(builder.getContext()), 0);
+    llvm::Value *err_condition = builder.CreateICmpNE( //
+        err_val,                                       //
+        zero,                                          //
+        "errcmp"                                       //
+    );
+
+    // Create the branching operation
+    builder.CreateCondBr(err_condition, catch_block, merge_block)
+        ->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(),
+                    "Branch to '" + catch_block->getName().str() + "' if '" + call_node.value()->function_name + "' returned error")));
+
+    // Generate the body of the catch block
+    builder.SetInsertPoint(catch_block);
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
+    generate_body(builder, parent, catch_node->scope.get(), phi_lookup, allocations);
+
+    // Add branch to the merge block from the catch block if it does not contain a terminator (return or throw)
+    if (catch_block->getTerminator() == nullptr) {
+        builder.CreateBr(merge_block);
+    }
+
+    // Generate phi calls
+    builder.SetInsertPoint(merge_block);
+    generate_phi_calls(builder, phi_lookup);
+}
+
 /// generate_assignment
 ///     Generates the assignment from the given AssignmentNode
 void Generator::generate_assignment(                                                                        //
@@ -1103,7 +1190,8 @@ void Generator::generate_declaration(                                     //
                     llvm::MDString::get(parent->getContext(), "Load the err val of '" + declaration_node->name + "' from its ptr")));
 
             // Store the err variable in the declared variable
-            const std::string call_err_name = "s" + std::to_string(call_node->scope_id) + "::" + declaration_node->name + "::err";
+            const std::string call_err_name =
+                "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
             llvm::AllocaInst *const call_err_alloca = allocations.at(call_err_name);
             builder.CreateStore(err_load, call_err_alloca)
                 ->setMetadata("comment",
@@ -1209,7 +1297,7 @@ llvm::Value *Generator::generate_variable(                                //
     llvm::AllocaInst *const variable = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
 
     // Get the type that the pointer points to
-    llvm::Type *value_type = get_type_from_str(parent->getParent()->getContext(), variable_node->type);
+    llvm::Type *value_type = get_type_from_str(parent->getContext(), variable_node->type);
 
     // Load the variable's value if it's a pointer
     llvm::LoadInst *load = builder.CreateLoad(value_type, variable, variable_node->name + "_val");

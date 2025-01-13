@@ -12,10 +12,12 @@
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
+#include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
+#include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 #include "types.hpp"
 
@@ -156,6 +158,13 @@ class Generator {
         std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
     static void generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node);
+    static void generate_catch_statement(                                     //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        Scope *scope,                                                         //
+        const CatchNode *catch_node,                                          //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+    );
     static void generate_assignment(                                                                            //
         llvm::IRBuilder<> &builder,                                                                             //
         llvm::Function *parent,                                                                                 //
