@@ -500,6 +500,37 @@ void Generator::generate_allocations(                                     //
     }
 }
 
+/// get_type_from_str
+///     Returns the type of the given string
+llvm::Type *Generator::get_type_from_str(llvm::LLVMContext &context, const std::string &str) {
+    // Check if its a primitive or not. If it is not a primitive, its just a pointer type
+    if (keywords.find(str) != keywords.end()) {
+        switch (keywords.at(str)) {
+            default:
+                throw_err(ERR_GENERATING);
+                return nullptr;
+            case TOK_INT:
+                return llvm::Type::getInt32Ty(context);
+            case TOK_FLINT:
+                return llvm::Type::getFloatTy(context);
+            case TOK_CHAR:
+                return llvm::Type::getInt8Ty(context);
+            case TOK_STR:
+                // Pointer to an array of i8 values representing the characters
+                return llvm::PointerType::get(llvm::Type::getInt8Ty(context), 0);
+            case TOK_BOOL:
+                return llvm::Type::getInt1Ty(context);
+            case TOK_BYTE:
+                return llvm::IntegerType::get(context, 8);
+            case TOK_VOID:
+                return llvm::Type::getVoidTy(context);
+        }
+    }
+    // Pointer to more complex data type
+    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    return nullptr;
+}
+
 /// generate_function_type
 ///     Generates the type information of a given FunctionNode
 llvm::FunctionType *Generator::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {
@@ -1247,35 +1278,4 @@ llvm::Value *Generator::generate_binary_op(                               //
         case TOK_NOT_EQUAL:
             return builder.CreateICmpNE(lhs, rhs, "cmptmp");
     }
-}
-
-/// get_type_from_str
-///     Returns the type of the given string
-llvm::Type *Generator::get_type_from_str(llvm::LLVMContext &context, const std::string &str) {
-    // Check if its a primitive or not. If it is not a primitive, its just a pointer type
-    if (keywords.find(str) != keywords.end()) {
-        switch (keywords.at(str)) {
-            default:
-                throw_err(ERR_GENERATING);
-                return nullptr;
-            case TOK_INT:
-                return llvm::Type::getInt32Ty(context);
-            case TOK_FLINT:
-                return llvm::Type::getFloatTy(context);
-            case TOK_CHAR:
-                return llvm::Type::getInt8Ty(context);
-            case TOK_STR:
-                // Pointer to an array of i8 values representing the characters
-                return llvm::PointerType::get(llvm::Type::getInt8Ty(context), 0);
-            case TOK_BOOL:
-                return llvm::Type::getInt1Ty(context);
-            case TOK_BYTE:
-                return llvm::IntegerType::get(context, 8);
-            case TOK_VOID:
-                return llvm::Type::getVoidTy(context);
-        }
-    }
-    // Pointer to more complex data type
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
-    return nullptr;
 }

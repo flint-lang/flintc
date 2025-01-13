@@ -99,6 +99,7 @@ class Generator {
         Scope *scope,                                                         //
         std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
+    static llvm::Type *get_type_from_str(llvm::LLVMContext &context, const std::string &str);
 
     static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
@@ -187,8 +188,6 @@ class Generator {
         const BinaryOpNode *bin_op_node,                                      //
         std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
-
-    static llvm::Type *get_type_from_str(llvm::LLVMContext &context, const std::string &str);
 };
 
 #endif
