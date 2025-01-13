@@ -1,4 +1,4 @@
-# LLVM
+# XML2
 
 To build xml2 you need `nix` installed on your system. If you have nix installed, open the tetrminal in the `xml2/` directory (this directory) and execute the command
 
