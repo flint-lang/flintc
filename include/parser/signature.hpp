@@ -2,6 +2,7 @@
 #define __SIGNATURE_HPP__
 
 #include "../types.hpp"
+#include "lexer/token.hpp"
 
 #include <optional>
 #include <string>
@@ -95,6 +96,7 @@ namespace Signature {
     const signature else_if_statement = combine({{TOK_ELSE, TOK_IF}, match_until_signature({TOK_COLON})});
     const signature else_statement = combine({{TOK_ELSE}, match_until_signature({TOK_COLON})});
     const signature return_statement = combine({{TOK_RETURN}, match_until_signature({TOK_SEMICOLON})});
+    const signature throw_statement = combine({{TOK_THROW}, match_until_signature({TOK_SEMICOLON})});
 
     // --- EXPRESSIONS ---
     const signature expression = combine({{"("}, anytoken, {")*"}});

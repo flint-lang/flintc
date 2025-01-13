@@ -2,6 +2,7 @@
 #include "error/error_type.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/scope.hpp"
+#include "parser/ast/statements/throw_node.hpp"
 #include "parser/signature.hpp"
 
 #include "error/error.hpp"
@@ -454,6 +455,21 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
     return expression;
 }
 
+/// create_throw
+///     Creates a ThrowNode from the given list of tokens
+std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) {
+    std::optional<ReturnNode> return_node = create_return(scope, tokens);
+    if (!return_node.has_value()) {
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+    if (return_node.value().return_value->type != "int") {
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+    return ThrowNode(return_node.value().return_value);
+}
+
 /// create_return
 ///     Creates a ReturnNode from the given list of tokens
 std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens) {
@@ -578,7 +594,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop(Scope *scope
     return std::nullopt;
 }
 
-/// create_for_loop
+/// create_enh_for_loop
 ///
 std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop(Scope *scope, const token_list &definition,
     const token_list &body) {
@@ -697,6 +713,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
         if (return_node.has_value()) {
             statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
+        } else {
+            throw_err(ERR_PARSING);
+        }
+    } else if (Signature::tokens_contain(tokens, Signature::throw_statement)) {
+        std::optional<ThrowNode> throw_node = create_throw(scope, tokens);
+        if (throw_node.has_value()) {
+            statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
         } else {
             throw_err(ERR_PARSING);
         }

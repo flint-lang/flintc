@@ -26,6 +26,7 @@
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
+#include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
 #include "parser/ast/file_node.hpp"
@@ -71,7 +72,8 @@ namespace Debug {
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr);
 
         // --- STATEMENTS ---
-        void print_return(unsigned int indent_lvl, uint2 empty, const ReturnNode &return_node);
+        void print_throw(unsigned int indent_lvl, uint2 empty, const ReturnNode &return_node);
+        void print_return(unsigned int indent_lvl, uint2 empty, const ThrowNode &return_node);
         void print_if(unsigned int indent_lvl, uint2 empty, const IfNode &if_node);
         void print_while(unsigned int indent_lvl, uint2 empty, const WhileNode &while_node);
         void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node);

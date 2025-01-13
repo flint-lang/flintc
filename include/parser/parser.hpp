@@ -29,6 +29,7 @@
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/unary_op_node.hpp"
 #include "ast/expressions/variable_node.hpp"
+#include "parser/ast/statements/throw_node.hpp"
 
 #include <filesystem>
 #include <map>
@@ -77,6 +78,7 @@ class Parser {
     static std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, token_list &tokens);
 
     // --- STATEMENTS ---
+    static std::optional<ThrowNode> create_throw(Scope *scope, token_list &tokens);
     static std::optional<ReturnNode> create_return(Scope *scope, token_list &tokens);
     static std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain);
     static std::optional<std::unique_ptr<WhileNode>> create_while_loop(Scope *scope, const token_list &definition, token_list &body);

@@ -305,6 +305,15 @@ namespace Debug {
 
         // --- STATEMENTS ---
 
+        void print_throw(unsigned int indent_lvl, uint2 empty, const ThrowNode &return_node) {
+            print_header(indent_lvl, empty, "Throw ");
+            std::cout << "throw";
+            std::cout << std::endl;
+
+            empty.second = indent_lvl + 2;
+            print_expression(++indent_lvl, empty, return_node.throw_value);
+        }
+
         void print_return(unsigned int indent_lvl, uint2 empty, const ReturnNode &return_node) {
             print_header(indent_lvl, empty, "Return ");
             std::cout << "return";
