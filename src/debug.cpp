@@ -3,6 +3,7 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "lexer/lexer.hpp"
+#include "parser/parser.hpp"
 #include "test_utils.hpp"
 #include "types.hpp"
 
@@ -24,11 +25,13 @@
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/assignment_node.hpp"
+#include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
+#include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
 #include "parser/ast/file_node.hpp"
@@ -369,8 +372,25 @@ namespace Debug {
             std::cout << " in ";
             print_expression(0, {0, 0}, for_node.iterable);
 
-            empty.second = ++indent_lvl;
-            print_body(indent_lvl, empty, for_node.scope->body);
+            empty.second = indent_lvl + 1;
+            print_body(indent_lvl + 1, empty, for_node.scope->body);
+        }
+
+        void print_catch(unsigned int indent_lvl, uint2 empty, const CatchNode &catch_node) {
+            std::optional<CallNode *> call_node = Parser::get_call_from_id(catch_node.call_id);
+            if (!call_node.has_value()) {
+                return;
+            }
+            print_header(indent_lvl, empty, "Catch ");
+            std::cout << "catch '";
+            std::cout << call_node.value()->function_name;
+            std::cout << "' [";
+            std::cout << call_node.value()->has_catch;
+            std::cout << "]";
+            std::cout << std::endl;
+
+            empty.second = indent_lvl + 1;
+            print_body(indent_lvl + 1, empty, catch_node.scope->body);
         }
 
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign) {
@@ -407,6 +427,10 @@ namespace Debug {
                 print_assignment(indent_lvl, empty, *assignment);
             } else if (const auto *declaration = dynamic_cast<const DeclarationNode *>(statement.get())) {
                 print_declaration(indent_lvl, empty, *declaration);
+            } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement.get())) {
+                print_throw(indent_lvl, empty, *throw_node);
+            } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
+                print_catch(indent_lvl, empty, *catch_node);
             } else {
                 throw_err(ERR_DEBUG);
             }

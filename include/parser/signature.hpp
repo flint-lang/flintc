@@ -106,6 +106,9 @@ namespace Signature {
     const signature literal_expr = combine({//
         {"(("}, literal, {"("}, binary_operator, literal, {")*)|("}, unary_operator, literal, {")|("}, literal, unary_operator, {"))"}});
     const signature variable_expr = {TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
+
+    // --- ERROR HANDLING --- (requires function_call to be defined)
+    const signature catch_statement = combine({function_call, {TOK_CATCH, "(", TOK_IDENTIFIER, ")?", TOK_COLON}});
 } // namespace Signature
 
 #endif

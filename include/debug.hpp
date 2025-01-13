@@ -21,6 +21,7 @@
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/assignment_node.hpp"
+#include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
@@ -77,6 +78,7 @@ namespace Debug {
         void print_if(unsigned int indent_lvl, uint2 empty, const IfNode &if_node);
         void print_while(unsigned int indent_lvl, uint2 empty, const WhileNode &while_node);
         void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node);
+        void print_catch(unsigned int indent_lvl, uint2 empty, const CatchNode &catch_node);
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign);
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl);
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement);

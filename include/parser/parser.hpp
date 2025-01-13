@@ -1,9 +1,8 @@
 #ifndef __PARSER_HPP__
 #define __PARSER_HPP__
 
-#include "../types.hpp"
+#include "types.hpp"
 
-#include "ast/definitions/import_node.hpp"
 #include "ast/file_node.hpp"
 
 #include "ast/definitions/data_node.hpp"
@@ -12,6 +11,7 @@
 #include "ast/definitions/error_node.hpp"
 #include "ast/definitions/func_node.hpp"
 #include "ast/definitions/function_node.hpp"
+#include "ast/definitions/import_node.hpp"
 #include "ast/definitions/link_node.hpp"
 #include "ast/definitions/variant_node.hpp"
 
@@ -29,7 +29,8 @@
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/unary_op_node.hpp"
 #include "ast/expressions/variable_node.hpp"
-#include "parser/ast/statements/throw_node.hpp"
+#include "ast/statements/catch_node.hpp"
+#include "ast/statements/throw_node.hpp"
 
 #include <filesystem>
 #include <map>
@@ -61,7 +62,34 @@ class Parser {
 
     static FileNode parse_file(const std::filesystem::path &file);
 
+    /// get_call_from_id
+    ///     Returns the call node with the given id
+    static std::optional<CallNode *> get_call_from_id(unsigned int call_id) {
+        std::optional<CallNode *> call_node = std::nullopt;
+        for (const auto [id, node] : call_nodes) {
+            if (id == call_id) {
+                call_node = node;
+                break;
+            }
+        }
+        return call_node;
+    }
+
   private:
+    static std::vector<std::pair<unsigned int, CallNode *>> call_nodes;
+
+    /// set_last_parsed_call
+    ///     Sets the last parsed call
+    static void set_last_parsed_call(unsigned int call_id, CallNode *call) {
+        call_nodes.emplace_back(call_id, call);
+    }
+
+    /// get_last_parsed_call_id
+    ///     Returns the id of the last parsed call
+    static unsigned int get_last_parsed_call_id() {
+        return call_nodes.back().first;
+    }
+
     // --- UTILITY ---
     static void add_next_main_node(FileNode &file_node, token_list &tokens);
     static token_list get_definition_tokens(token_list &tokens);
@@ -83,21 +111,36 @@ class Parser {
     static std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain);
     static std::optional<std::unique_ptr<WhileNode>> create_while_loop(Scope *scope, const token_list &definition, token_list &body);
     static std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(Scope *scope, const token_list &definition, const token_list &body);
-    static std::optional<std::unique_ptr<ForLoopNode>> create_enh_for_loop(Scope *scope, const token_list &definition,
-        const token_list &body);
+    static std::optional<std::unique_ptr<ForLoopNode>> create_enh_for_loop( //
+        Scope *scope,                                                       //
+        const token_list &definition,                                       //
+        const token_list &body                                              //
+    );
+    static std::optional<std::unique_ptr<CatchNode>> create_catch( //
+        Scope *scope,                                              //
+        const token_list &definition,                              //
+        token_list &body,                                          //
+        std::vector<body_statement> &statements                    //
+    );
     static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(Scope *scope, token_list &tokens);
     static std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool &is_infered);
     static std::optional<std::unique_ptr<StatementNode>> create_statement(Scope *scope, token_list &tokens);
-    static std::optional<std::unique_ptr<StatementNode>> create_scoped_statement(Scope *scope, const token_list &definition,
-        token_list &body);
+    static std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
+        Scope *scope,                                                             //
+        const token_list &definition,                                             //
+        token_list &body,                                                         //
+        std::vector<body_statement> &statements                                   //
+    );
     static std::vector<body_statement> create_body(Scope *scope, token_list &body);
 
     // --- DEFINITIONS ---
     static FunctionNode create_function(const token_list &definition, token_list &body);
     static DataNode create_data(const token_list &definition, const token_list &body);
     static FuncNode create_func(const token_list &definition, token_list &body);
-    static std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>> create_entity(
-        const token_list &definition, token_list &body);
+    static std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>> create_entity( //
+        const token_list &definition,                                                                                           //
+        token_list &body                                                                                                        //
+    );
     static std::vector<std::unique_ptr<LinkNode>> create_links(token_list &body);
     static LinkNode create_link(const token_list &tokens);
     static EnumNode create_enum(const token_list &definition, const token_list &body);

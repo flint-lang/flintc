@@ -1,16 +1,16 @@
 #include "parser/parser.hpp"
-#include "error/error_type.hpp"
-#include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/ast/scope.hpp"
-#include "parser/ast/statements/throw_node.hpp"
 #include "parser/signature.hpp"
 
-#include "error/error.hpp"
-#include "lexer/lexer.hpp"
-#include "lexer/token.hpp"
+#include "parser/ast/file_node.hpp"
+#include "parser/ast/scope.hpp"
+
 #include "types.hpp"
 
-#include "parser/ast/file_node.hpp"
+#include "error/error.hpp"
+#include "error/error_type.hpp"
+
+#include "lexer/lexer.hpp"
+#include "lexer/token.hpp"
 
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/entity_node.hpp"
@@ -22,17 +22,21 @@
 #include "parser/ast/definitions/link_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
 
+#include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/expressions/call_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/assignment_node.hpp"
+#include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
+#include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
 #include <algorithm>
@@ -45,6 +49,10 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+/// call_nodes
+///     Stores all the calls that have been parsed
+std::vector<std::pair<unsigned int, CallNode *>> Parser::call_nodes;
 
 /// parse_file
 ///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to
@@ -316,7 +324,9 @@ std::optional<std::unique_ptr<CallNode>> Parser::create_call(Scope *scope, token
         }
     }
 
-    return std::make_unique<CallNode>(function_name, arguments);
+    std::optional<std::unique_ptr<CallNode>> call_node = std::make_unique<CallNode>(function_name, arguments);
+    set_last_parsed_call(call_node.value()->call_id, call_node.value().get());
+    return call_node;
 }
 
 /// create_binary_op
@@ -602,6 +612,58 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop(Scope *s
     return std::nullopt;
 }
 
+/// create_catch
+///     Creates a CatchNode from the given list of tok
+std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
+    Scope *scope,                                               //
+    const token_list &definition,                               //
+    token_list &body,                                           //
+    std::vector<body_statement> &statements                     //
+) {
+    // First, extract everything left of the 'catch' statement and parse it as a normal (unscoped) statement
+    std::optional<unsigned int> catch_id = std::nullopt;
+    for (auto it = definition.begin(); it != definition.end(); ++it) {
+        if (it->type == TOK_CATCH) {
+            catch_id = std::distance(definition.begin(), it);
+            break;
+        }
+    }
+    if (!catch_id.has_value()) {
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    token_list left_of_catch = clone_from_to(0, catch_id.value(), definition);
+    std::optional<std::unique_ptr<StatementNode>> lhs = create_statement(scope, left_of_catch);
+    if (!lhs.has_value()) {
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+    statements.emplace_back(std::move(lhs.value()));
+    // Get the last parsed call and set the 'has_catch' property of the call node
+    const unsigned int last_call_id = get_last_parsed_call_id();
+    const std::optional<CallNode *> last_call = get_call_from_id(last_call_id);
+    if (!last_call.has_value()) {
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+    last_call.value()->has_catch = true;
+
+    const token_list right_of_catch = clone_from_to(catch_id.value(), definition.size() - 1, definition);
+    std::optional<std::string> err_var = std::nullopt;
+    for (auto it = right_of_catch.begin(); it != right_of_catch.end(); ++it) {
+        if (it->type == TOK_CATCH && (it + 1) != right_of_catch.end() && (it + 1)->type == TOK_IDENTIFIER) {
+            err_var = (it + 1)->lexme;
+        }
+    }
+
+    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
+    std::vector<body_statement> body_statements = create_body(body_scope.get(), body);
+    body_scope->body = std::move(body_statements);
+
+    return std::make_unique<CatchNode>(err_var, body_scope, last_call_id);
+}
+
 /// create_assignment
 ///     Creates an AssignmentNode from the given list of tokens
 std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *scope, token_list &tokens) {
@@ -732,8 +794,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
 
 /// create_scoped_statement
 ///     Creates the AST of a scoped statement like if, loops, catch, switch, etc.
-std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement(Scope *scope, const token_list &definition,
-    token_list &body) {
+std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( //
+    Scope *scope,                                                              //
+    const token_list &definition,                                              //
+    token_list &body,                                                          //
+    std::vector<body_statement> &statements                                    //
+) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
     std::optional<unsigned int> indent_lvl_maybe = Signature::get_leading_indents(       //
@@ -805,6 +871,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement(Sc
         } else {
             throw_err(ERR_PARSING);
         }
+    } else if (Signature::tokens_contain(definition, Signature::catch_statement)) {
+        std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body, statements);
+        if (catch_node.has_value()) {
+            statement_node = std::move(catch_node.value());
+        } else {
+            throw_err(ERR_PARSING);
+        }
     } else {
         throw_err(ERR_UNDEFINED_STATEMENT);
     }
@@ -835,7 +908,7 @@ std::vector<body_statement> Parser::create_body(Scope *scope, token_list &body) 
             std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
             if (Signature::tokens_contain(statement_tokens, {TOK_COLON})) {
                 // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
-                next_statement = create_scoped_statement(scope, statement_tokens, body);
+                next_statement = create_scoped_statement(scope, statement_tokens, body, body_statements);
             } else {
                 // --- NORMAL STATEMENT ---
                 next_statement = create_statement(scope, statement_tokens);
