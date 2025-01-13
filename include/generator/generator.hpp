@@ -133,6 +133,13 @@ class Generator {
         const ReturnNode *return_node,                                        //
         std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
+    static void generate_throw_statement(                                     //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        Scope *scope,                                                         //
+        const ThrowNode *throw_node,                                          //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+    );
     static void generate_if_statement(                                                                          //
         llvm::IRBuilder<> &builder,                                                                             //
         llvm::Function *parent,                                                                                 //

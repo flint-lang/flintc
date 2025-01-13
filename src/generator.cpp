@@ -692,6 +692,8 @@ void Generator::generate_statement(                                             
             generate_assignment(builder, parent, scope, assignment_node, phi_lookup, allocations);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
             generate_declaration(builder, parent, scope, declaration_node, allocations);
+        } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement_node)) {
+            generate_throw_statement(builder, parent, scope, throw_node, allocations);
         } else {
             throw_err(ERR_GENERATING);
         }
@@ -749,6 +751,40 @@ void Generator::generate_return_statement(                                //
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(), "Load allocated ret struct of type '" + return_struct_type->getName().str() + "'")));
     builder.CreateRet(return_struct_val);
+}
+
+/// generate_throw_statement
+///     Generates the throw statement from the given ThrowNode
+void Generator::generate_throw_statement(                                 //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    Scope *scope,                                                         //
+    const ThrowNode *throw_node,                                          //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+) {
+    // Get the return type of the function
+    auto *throw_struct_type = llvm::cast<llvm::StructType>(parent->getReturnType());
+
+    // Allocate the struct and set all of its values to their respective default values
+    llvm::AllocaInst *throw_struct = generate_default_struct(builder, throw_struct_type, "throw_ret", true);
+    throw_struct->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(),
+                "Create default struct of type '" + throw_struct_type->getName().str() + "' except first value")));
+
+    // Create the pointer to the error value (the 0th index of the struct)
+    llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
+    // Generate the expression right of the throw statement, it has to be of type int
+    llvm::Value *err_value = generate_expression(builder, parent, scope, throw_node->throw_value.get(), allocations);
+    // Store the error value in the struct
+    builder.CreateStore(err_value, error_ptr);
+
+    // Generate the throw (return) instruction with the evaluated value
+    llvm::LoadInst *throw_struct_val = builder.CreateLoad(throw_struct_type, throw_struct, "throw_val");
+    throw_struct_val->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Load allocated throw struct of type '" + throw_struct_type->getName().str() + "'")));
+    builder.CreateRet(throw_struct_val);
 }
 
 /// generate_if_statement
