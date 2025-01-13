@@ -1,7 +1,6 @@
 #ifndef __GENERATOR_HPP__
 #define __GENERATOR_HPP__
 
-#include "../parser/ast/file_node.hpp"
 #include "lexer/lexer.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
@@ -10,6 +9,7 @@
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
+#include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
@@ -100,6 +100,13 @@ class Generator {
         std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
     static llvm::Type *get_type_from_str(llvm::LLVMContext &context, const std::string &str);
+    static llvm::Value *get_default_value_of_type(llvm::Type *type);
+    static llvm::AllocaInst *generate_default_struct( //
+        llvm::IRBuilder<> &builder,                   //
+        llvm::StructType *type,                       //
+        const std::string &name,                      //
+        bool ignore_first = false                     //
+    );
 
     static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
     static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);

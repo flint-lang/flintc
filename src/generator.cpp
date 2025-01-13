@@ -8,7 +8,9 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/variable_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
@@ -531,6 +533,44 @@ llvm::Type *Generator::get_type_from_str(llvm::LLVMContext &context, const std::
     return nullptr;
 }
 
+/// get_default_value_of_type
+///     Returns the default value of the given llvm Type
+llvm::Value *Generator::get_default_value_of_type(llvm::Type *type) {
+    if (type->isIntegerTy()) {
+        return llvm::ConstantInt::get(type, 0);
+    }
+    if (type->isDoubleTy()) {
+        return llvm::ConstantFP::get(type, 0.0);
+    }
+    if (type->isPointerTy()) {
+        return llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(type));
+    }
+    // No conversion available
+    throw_err(ERR_GENERATING);
+    return nullptr;
+}
+
+/// get_default_struct
+///     Allocates a struct and adds default values to every element of the struct
+///     If 'ignore_first' is set, the first struct element wont be set to any value (because its the error return and will be set anyway)
+llvm::AllocaInst *Generator::generate_default_struct( //
+    llvm::IRBuilder<> &builder,                       //
+    llvm::StructType *type,                           //
+    const std::string &name,                          //
+    bool ignore_first                                 //
+) {
+    llvm::AllocaInst *alloca = builder.CreateAlloca(type, nullptr, name);
+
+    for (unsigned int i = (ignore_first ? 1 : 0); i < type->getNumElements(); ++i) {
+        llvm::Type *field_type = type->getElementType(i);
+        llvm::Value *default_value = get_default_value_of_type(field_type);
+        llvm::Value *field_ptr = builder.CreateStructGEP(type, alloca, i);
+        builder.CreateStore(default_value, field_ptr);
+    }
+
+    return alloca;
+}
+
 /// generate_function_type
 ///     Generates the type information of a given FunctionNode
 llvm::FunctionType *Generator::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {
@@ -679,7 +719,6 @@ void Generator::generate_return_statement(                                //
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(),
                 "Create ret struct '" + return_struct->getName().str() + "' of type '" + return_struct_type->getName().str() + "'")));
-    // allocations.emplace_back(builder.GetInsertBlock(), return_struct);
 
     // First, always store the error code (0 for no error)
     llvm::Value *error_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 0, "err_ptr");
