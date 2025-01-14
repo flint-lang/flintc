@@ -61,6 +61,8 @@ int main(int argc, char *argv[]) {
         return result;
     }
     generate_ll_file(clp.source_file_path, "output.ll", clp.ll_file_path);
-    build_executable("output.ll", clp.out_file_path, clp.compile_flags);
+    if (clp.build_exe) {
+        build_executable("output.ll", clp.out_file_path, clp.compile_flags);
+    }
     return 0;
 }
