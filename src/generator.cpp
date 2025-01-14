@@ -1106,10 +1106,18 @@ void Generator::generate_catch_statement(                                 //
                 llvm::MDString::get(parent->getContext(),
                     "Branch to '" + catch_block->getName().str() + "' if '" + call_node.value()->function_name + "' returned error")));
 
+    // Add the error variable to the list of allocations (temporarily)
+    // llvm::AllocaInst *const variable = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
+    const std::string err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::" + catch_node->var_name.value();
+    allocations.insert({err_alloca_name, allocations.at(err_ret_name)});
+
     // Generate the body of the catch block
     builder.SetInsertPoint(catch_block);
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
     generate_body(builder, parent, catch_node->scope.get(), phi_lookup, allocations);
+
+    // Remove the error variable from the list of allocations
+    allocations.erase(allocations.find(err_alloca_name));
 
     // Add branch to the merge block from the catch block if it does not contain a terminator (return or throw)
     if (catch_block->getTerminator() == nullptr) {
