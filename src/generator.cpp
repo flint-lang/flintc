@@ -973,21 +973,9 @@ void Generator::generate_while_loop(                                      //
     // Create the basic blocks for the condition check, the while body and the merge block
     std::array<llvm::BasicBlock *, 3> while_blocks{};
     // Create then condition block (for the else if blocks)
-    while_blocks[0] = llvm::BasicBlock::Create( //
-        builder.getContext(),                   //
-        "while_cond",                           //
-        parent                                  //
-    );
-    while_blocks[1] = llvm::BasicBlock::Create( //
-        builder.getContext(),                   //
-        "while_body",                           //
-        parent                                  //
-    );
-    while_blocks[2] = llvm::BasicBlock::Create( //
-        builder.getContext(),                   //
-        "merge",                                //
-        parent                                  //
-    );
+    while_blocks[0] = llvm::BasicBlock::Create(builder.getContext(), "while_cond", parent);
+    while_blocks[1] = llvm::BasicBlock::Create(builder.getContext(), "while_body", parent);
+    while_blocks[2] = llvm::BasicBlock::Create(builder.getContext(), "merge", parent);
 
     // Create the branch instruction in the predecessor block to point to the while_cond block
     builder.SetInsertPoint(pred_block);
@@ -1005,11 +993,7 @@ void Generator::generate_while_loop(                                      //
         while_node->condition.get(),               //
         allocations                                //
     );
-    llvm::BranchInst *branch = builder.CreateCondBr( //
-        expression,                                  //
-        while_blocks[1],                             //
-        while_blocks[2]                              //
-    );
+    llvm::BranchInst *branch = builder.CreateCondBr(expression, while_blocks[1], while_blocks[2]);
     branch->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(),
@@ -1017,8 +1001,8 @@ void Generator::generate_while_loop(                                      //
 
     // Create the phi lookup to detect all variable mutations done within the while loops body
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
-    for (const auto &scoped_variable : while_node->scope->get_parent()->variable_types) {
-        phi_lookup[scoped_variable.first] = {};
+    for (const auto &[var_name, _] : while_node->scope->get_parent()->variable_types) {
+        phi_lookup[var_name] = {};
     }
 
     // Create the while block's body
