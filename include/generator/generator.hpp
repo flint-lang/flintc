@@ -67,9 +67,11 @@ class Generator {
     };
     static std::unordered_map<std::string, llvm::StructType *> type_map;
     static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
+    static void generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module);
 
     static std::unordered_map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
     static std::unordered_map<std::string, unsigned int> function_mangle_ids;
+    static std::array<llvm::CallInst *, 1> main_call_array;
 
     static void generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module *module);
     static void generate_builtin_print_int(llvm::IRBuilder<> *builder, llvm::Module *module);

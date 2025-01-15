@@ -6,12 +6,14 @@
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "parser/ast/ast_node.hpp"
+#include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
+#include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 #include "parser/parser.hpp"
@@ -53,6 +55,7 @@
 std::unordered_map<std::string, llvm::StructType *> Generator::type_map;
 std::unordered_map<std::string, std::vector<llvm::CallInst *>> Generator::unresolved_functions;
 std::unordered_map<std::string, unsigned int> Generator::function_mangle_ids;
+std::array<llvm::CallInst *, 1> Generator::main_call_array;
 
 /// generate_program_ir
 ///     Generates the llvm IR code for a complete program
@@ -61,6 +64,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
     auto module = std::make_unique<llvm::Module>(program_name, context);
 
     // Generate built-in functions in the main module
+    generate_builtin_main(builder.get(), module.get());
     generate_builtin_print(builder.get(), module.get());
 
     llvm::Linker linker(*module);
@@ -80,6 +84,14 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
         }
     }
 
+    // Connect the call from the main module to the actual main function declared by the user
+    llvm::Function *main_function = module->getFunction("main_custom");
+    if (main_function == nullptr) {
+        // No main function defined
+        throw_err(ERR_GENERATING);
+    }
+    main_call_array[0]->getCalledOperandUse().set(main_function);
+
     // Verify and emit the module
     llvm::verifyModule(*module, &llvm::errs());
     return module;
@@ -89,7 +101,6 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
 ///     Generates the llvm IR code from a given AST FileNode for a given file
 std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext &context,
     llvm::IRBuilder<> *builder) {
-    Debug::AST::print_file(file);
 
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(file_name, context);
 
@@ -138,22 +149,13 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
             // if ((function_has_return(function_definition) ^ function_node->return_types.empty()) == 0) {
             //     throw_err(ERR_GENERATING);
             // }
-
-            // If the function is the main function and does not contain a return statement, add 'return 0' to it
-            if (function_node->name == "main" && !function_has_return(function_definition)) {
-                // Set the insertion point to the end of the last (or only) basic block of the function
-                llvm::BasicBlock &last_block = function_definition->back();
-                builder->SetInsertPoint(&last_block);
-                // Create the return instruction
-                builder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0));
-            }
         }
     }
 
     // Iterate through all unresolved function calls and resolve them to call the _actual_ mangled function, not its definition
-    for (std::pair<std::string, std::vector<llvm::CallInst *>> fns : unresolved_functions) {
-        for (llvm::CallInst *call : fns.second) {
-            llvm::Function *actual_function = module->getFunction(fns.first + "." + std::to_string(function_mangle_ids[fns.first]));
+    for (const auto &[fn_name, calls] : unresolved_functions) {
+        for (llvm::CallInst *call : calls) {
+            llvm::Function *actual_function = module->getFunction(fn_name + "." + std::to_string(function_mangle_ids[fn_name]));
             if (actual_function == nullptr) {
                 throw_err(ERR_GENERATING);
             }
@@ -164,6 +166,55 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
     function_mangle_ids.clear();
 
     return module;
+}
+
+/// generate_main
+///     Generates the builtin main function which calls the user defined main function
+void Generator::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // Create the functionNode of the main_custom function (in order to forward-declare the user defined main function inside the absolute
+    // main module)
+    std::vector<std::pair<std::string, std::string>> parameters;
+    std::vector<std::string> return_types;
+    return_types.emplace_back("int");
+    std::unique_ptr<Scope> scope;
+    FunctionNode function_node = FunctionNode(false, false, "main_custom", parameters, return_types, scope);
+
+    // Create the declaration of the custom main function
+    llvm::StructType *custom_main_ret_type = add_and_or_get_type(&builder->getContext(), &function_node);
+    llvm::FunctionType *custom_main_type = generate_function_type(module->getContext(), &function_node);
+    llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction("main_custom", custom_main_type);
+
+    llvm::FunctionType *main_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(module->getContext()),        // Return type: int
+        {},                                                  // Takes nothing
+        false                                                // no varargs
+    );
+    llvm::Function *main_function = llvm::Function::Create( //
+        main_type,                                          //
+        llvm::Function::ExternalLinkage,                    //
+        "main",                                             //
+        module                                              //
+    );
+
+    // Create the functions entry block
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
+        module->getContext(),                                 //
+        "entry",                                              //
+        main_function                                         //
+    );
+    builder->SetInsertPoint(entry_block);
+
+    // Create the return types of the call of the main function.
+    llvm::AllocaInst *main_ret = builder->CreateAlloca(custom_main_ret_type, nullptr, "custom_main_ret");
+    llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {});
+    main_call_array[0] = main_call;
+    llvm::StoreInst *main_res = builder->CreateStore(main_call, main_ret);
+
+    // First, load the first return value of the return struct
+    llvm::Value *err_ptr = builder->CreateStructGEP(custom_main_ret_type, main_ret, 0);
+    llvm::LoadInst *err_val = builder->CreateLoad(llvm::Type::getInt32Ty(module->getContext()), err_ptr, "main_err_val");
+
+    llvm::Value *ret = builder->CreateRet(err_val);
 }
 
 /// get_module_ir_string
@@ -576,12 +627,7 @@ llvm::AllocaInst *Generator::generate_default_struct( //
 /// generate_function_type
 ///     Generates the type information of a given FunctionNode
 llvm::FunctionType *Generator::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {
-    llvm::Type *return_types = nullptr;
-    if (function_node->name == "main") {
-        return_types = llvm::Type::getInt32Ty(context);
-    } else {
-        return_types = add_and_or_get_type(&context, function_node);
-    }
+    llvm::Type *return_types = add_and_or_get_type(&context, function_node);
 
     // Get the parameter types
     std::vector<llvm::Type *> param_types_vec;
@@ -606,11 +652,11 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
     llvm::FunctionType *function_type = generate_function_type(module->getContext(), function_node);
 
     // Creating the function itself
-    llvm::Function *function = llvm::Function::Create( //
-        function_type,                                 //
-        llvm::Function::ExternalLinkage,               //
-        function_node->name,                           //
-        module                                         //
+    llvm::Function *function = llvm::Function::Create(                         //
+        function_type,                                                         //
+        llvm::Function::ExternalLinkage,                                       //
+        (function_node->name == "main") ? "main_custom" : function_node->name, //
+        module                                                                 //
     );
 
     // Assign names to function arguments and add them to the function's body
@@ -638,7 +684,7 @@ llvm::Function *Generator::generate_function(llvm::Module *module, FunctionNode 
     generate_body(builder, function, function_node->scope.get(), phi_lookup, allocations);
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
-    if (function_node->name != "main" && !function->empty() && function->getEntryBlock().getTerminator() == nullptr) {
+    if (!function->empty() && function->back().getTerminator() == nullptr) {
         generate_return_statement(builder, function, function_node->scope.get(), {}, allocations);
     }
 

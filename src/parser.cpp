@@ -658,6 +658,9 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     }
 
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
+    if (err_var.has_value()) {
+        body_scope->add_variable_type(err_var.value(), "int", body_scope->scope_id);
+    }
     std::vector<body_statement> body_statements = create_body(body_scope.get(), body);
     body_scope->body = std::move(body_statements);
 
