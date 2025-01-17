@@ -384,9 +384,12 @@ namespace Debug {
             print_header(indent_lvl, empty, "Catch ");
             std::cout << "catch '";
             std::cout << call_node.value()->function_name;
-            std::cout << "' [";
-            std::cout << call_node.value()->has_catch;
-            std::cout << "]";
+            std::cout << "'";
+            if (catch_node.var_name.has_value()) {
+                std::cout << " in '";
+                std::cout << catch_node.var_name.value();
+                std::cout << "'";
+            }
             std::cout << std::endl;
 
             empty.second = indent_lvl + 1;
