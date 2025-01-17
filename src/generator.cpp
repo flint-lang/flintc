@@ -10,6 +10,7 @@
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
+#include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
@@ -1526,6 +1527,11 @@ llvm::Value *Generator::generate_call(                                    //
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(), "Call of function '" + call_node->function_name + "'")));
 
+    // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
+    if (!call_node->has_catch) {
+        generate_rethrow(builder, parent, call_node, allocations);
+    }
+
     // Add the call instruction to the list of unresolved functions
     if (unresolved_functions.find(call_node->function_name) == unresolved_functions.end()) {
         unresolved_functions[call_node->function_name] = {call};
@@ -1534,6 +1540,101 @@ llvm::Value *Generator::generate_call(                                    //
     }
 
     return call;
+}
+
+/// generate_rethrow
+///     Generates a catch block which re-throws the error of the call, if the call had an error
+void Generator::generate_rethrow(                                         //
+    llvm::IRBuilder<> &builder,                                           //
+    llvm::Function *parent,                                               //
+    const CallNode *call_node,                                            //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+) {
+    const std::string err_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
+    llvm::AllocaInst *const err_var = allocations.at(err_ret_name);
+
+    // Load error value
+    llvm::LoadInst *err_val = builder.CreateLoad(                                    //
+        llvm::Type::getInt32Ty(builder.getContext()),                                //
+        err_var,                                                                     //
+        call_node->function_name + "_" + std::to_string(call_node->call_id) + "_val" //
+    );
+    err_val->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(),
+                "Load err val of call '" + call_node->function_name + "::" + std::to_string(call_node->call_id) + "'")));
+
+    llvm::BasicBlock *last_block = &parent->back();
+    // Create basic block for the catch block
+    llvm::BasicBlock *current_block = builder.GetInsertBlock();
+
+    // Check if the current block is the last block, if it is not, insert right after the current block
+    bool is_last = current_block == last_block;
+    llvm::BasicBlock *insert_after = is_last ? current_block : (current_block->getNextNode());
+
+    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                           //
+        builder.getContext(),                                                           //
+        call_node->function_name + "_" + std::to_string(call_node->call_id) + "_catch", //
+        parent,                                                                         //
+        insert_after                                                                    //
+    );
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                           //
+        builder.getContext(),                                                           //
+        call_node->function_name + "_" + std::to_string(call_node->call_id) + "_merge", //
+        parent,                                                                         //
+        insert_after                                                                    //
+    );
+    builder.SetInsertPoint(current_block);
+
+    // Create the if check and compare the err value to 0
+    llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(builder.getContext()), 0);
+    llvm::Value *err_condition = builder.CreateICmpNE( //
+        err_val,                                       //
+        zero,                                          //
+        "errcmp"                                       //
+    );
+
+    // Create the branching operation
+    builder.CreateCondBr(err_condition, catch_block, merge_block)
+        ->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(),
+                    "Branch to '" + catch_block->getName().str() + "' if '" + call_node->function_name + "' returned error")));
+
+    // Generate the body of the catch block, it only contains re-throwing the error
+    builder.SetInsertPoint(catch_block);
+    // Copy of the generate_throw function
+    {
+        // Get the return type of the function
+        auto *throw_struct_type = llvm::cast<llvm::StructType>(parent->getReturnType());
+
+        // Allocate the struct and set all of its values to their respective default values
+        llvm::AllocaInst *throw_struct = generate_default_struct(builder, throw_struct_type, "throw_ret", true);
+        throw_struct->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(),
+                    "Create default struct of type '" + throw_struct_type->getName().str() + "' except first value")));
+
+        // Create the pointer to the error value (the 0th index of the struct)
+        llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
+        // Generate the expression right of the throw statement, it has to be of type int
+        llvm::Value *err_value = builder.CreateLoad(err_val->getType(), err_val, "temp_err_val");
+        // Store the error value in the struct
+        builder.CreateStore(err_value, error_ptr);
+
+        // Generate the throw (return) instruction with the evaluated value
+        llvm::LoadInst *throw_struct_val = builder.CreateLoad(throw_struct_type, throw_struct, "throw_val");
+        throw_struct_val->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(),
+                    "Load allocated throw struct of type '" + throw_struct_type->getName().str() + "'")));
+        builder.CreateRet(throw_struct_val);
+    }
+
+    // Add branch to the merge block from the catch block if it does not contain a terminator (return or throw)
+    if (catch_block->getTerminator() == nullptr) {
+        builder.CreateBr(merge_block);
+    }
 }
 
 /// generate_binary_op

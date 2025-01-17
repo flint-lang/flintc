@@ -207,6 +207,12 @@ class Generator {
         const CallNode *call_node,                                            //
         std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
     );
+    static void generate_rethrow(                                             //
+        llvm::IRBuilder<> &builder,                                           //
+        llvm::Function *parent,                                               //
+        const CallNode *call_node,                                            //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+    );
     static llvm::Value *generate_binary_op(                                   //
         llvm::IRBuilder<> &builder,                                           //
         llvm::Function *parent,                                               //

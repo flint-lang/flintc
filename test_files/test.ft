@@ -7,6 +7,13 @@ def main():
 	int n = 0;
 	while n < 10:
 		int res = function(n, 5) catch err:
+			print("Error: ");
 			print(err);
+			print("\t");
+			print(true);
+			print("\t");
+		print("Value: ");
 		print(res);
+		print("\n");
 		n = n + 1;
+	throw 42;
