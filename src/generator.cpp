@@ -1368,8 +1368,48 @@ llvm::Value *Generator::generate_literal(llvm::IRBuilder<> &builder, llvm::Funct
         );
     }
     if (std::holds_alternative<std::string>(literal_node->value)) {
-        throw_err(ERR_NOT_IMPLEMENTED_YET);
-        return nullptr;
+        // Get the constant string value
+        std::string str = std::get<std::string>(literal_node->value);
+        std::string processed_str;
+        for (unsigned int i = 0; i < str.length(); i++) {
+            if (str[i] == '\\' && i + 1 < str.length()) {
+                switch (str[i + 1]) {
+                    case 'n':
+                        processed_str += '\n';
+                        break;
+                    case 't':
+                        processed_str += '\t';
+                        break;
+                    case 'r':
+                        processed_str += '\r';
+                        break;
+                    case '\\':
+                        processed_str += '\\';
+                        break;
+                    case '0':
+                        processed_str += '\0';
+                        break;
+                }
+                i++; // Skip the next character
+            } else {
+                processed_str += str[i];
+            }
+        }
+        str = processed_str;
+
+        // Create array type for the string (including null terminator)
+        llvm::ArrayType *str_type = llvm::ArrayType::get( //
+            builder.getInt8Ty(),                          //
+            str.length() + 1                              // +1 for null terminator
+        );
+        // Allocate space for the string data on the stack
+        llvm::AllocaInst *str_buf = builder.CreateAlloca(str_type, nullptr, "str_buf");
+        // Create the constant string data
+        llvm::Constant *str_constant = llvm::ConstantDataArray::getString(parent->getContext(), str);
+        // Store the string data in the buffer
+        builder.CreateStore(str_constant, str_buf);
+        // Return the buffer pointer
+        return str_buf;
     }
     if (std::holds_alternative<bool>(literal_node->value)) {
         return llvm::ConstantInt::get(                                 //
