@@ -178,7 +178,6 @@ void Generator::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *
     // main module)
     std::vector<std::pair<std::string, std::string>> parameters;
     std::vector<std::string> return_types;
-    return_types.emplace_back("int");
     std::unique_ptr<Scope> scope;
     FunctionNode function_node = FunctionNode(false, false, "main_custom", parameters, return_types, scope);
 
@@ -346,8 +345,9 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
     return processed_ir;
 }
 
-/// get_type_map_key
-///     Returns the string-encoded type representation of a given functions signature
+/// add_and_or_get_type
+///     Returns the struct return type of a given function node.
+///     Returns a reference to the already existent type
 llvm::StructType *Generator::add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node) {
     std::string return_types;
     for (auto return_it = function_node->return_types.begin(); return_it < function_node->return_types.end(); ++return_it) {
@@ -355,6 +355,9 @@ llvm::StructType *Generator::add_and_or_get_type(llvm::LLVMContext *context, con
         if (std::distance(return_it, function_node->return_types.end()) > 1) {
             return_types.append(",");
         }
+    }
+    if (return_types == "") {
+        return_types = "void";
     }
     if (type_map.find(return_types) != type_map.end()) {
         return type_map[return_types];
@@ -370,11 +373,11 @@ llvm::StructType *Generator::add_and_or_get_type(llvm::LLVMContext *context, con
         return_types_vec.emplace_back(get_type_from_str(*context, ret_value));
     }
     llvm::ArrayRef<llvm::Type *> return_types_arr(return_types_vec);
-    type_map[return_types] = llvm::StructType::create(          //
-        *context,                                               //
-        return_types_arr,                                       //
-        "type_" + (return_types == "" ? "void" : return_types), //
-        true                                                    //
+    type_map[return_types] = llvm::StructType::create( //
+        *context,                                      //
+        return_types_arr,                              //
+        "type_" + return_types,                        //
+        true                                           //
     );
     return type_map[return_types];
 }
