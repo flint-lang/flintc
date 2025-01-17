@@ -396,6 +396,71 @@ void Generator::generate_builtin_print( //
 /// generate_builtin_print_bool
 ///     Generates the builtin print_bool function which prints 'true' or 'false' depending on the bool value!
 void Generator::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    if (print_functions.at("bool") != nullptr) {
+        return;
+    }
+
+    // Create print function type
+    llvm::FunctionType *print_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(module->getContext()),          // return void
+        {get_type_from_str(module->getContext(), "bool")},    // takes type
+        false                                                 // no vararg
+    );
+
+    // Create the print_int function
+    llvm::Function *print_function = llvm::Function::Create( //
+        print_type,                                          //
+        llvm::Function::ExternalLinkage,                     //
+        "print_bool",                                        //
+        module                                               //
+    );
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
+        module->getContext(),                                 //
+        "entry",                                              //
+        print_function                                        //
+    );
+    llvm::BasicBlock *true_block = llvm::BasicBlock::Create( //
+        module->getContext(),                                //
+        "bool_true",                                         //
+        print_function                                       //
+    );
+    llvm::BasicBlock *false_block = llvm::BasicBlock::Create( //
+        module->getContext(),                                 //
+        "bool_false",                                         //
+        print_function                                        //
+    );
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create( //
+        module->getContext(),                                 //
+        "merge",                                              //
+        print_function                                        //
+    );
+
+    llvm::Argument *arg = print_function->getArg(0);
+
+    // Create the constant "true" string and the "false" string
+    llvm::Value *format_str = builder->CreateGlobalStringPtr("%s");
+    llvm::Value *str_true = builder->CreateGlobalStringPtr("true");
+    llvm::Value *str_false = builder->CreateGlobalStringPtr("false");
+
+    // The entry block, create condition and branch
+    builder->SetInsertPoint(entry_block);
+    builder->CreateCondBr(arg, true_block, false_block);
+
+    // True block
+    builder->SetInsertPoint(true_block);
+    builder->CreateCall(builtins[PRINT], {format_str, str_true});
+    builder->CreateBr(merge_block);
+
+    // False block
+    builder->SetInsertPoint(false_block);
+    builder->CreateCall(builtins[PRINT], {format_str, str_false});
+    builder->CreateBr(merge_block);
+
+    // Merge block
+    builder->SetInsertPoint(merge_block);
+    builder->CreateRetVoid();
+
+    print_functions["bool"] = print_function;
 }
 
 /// generate_pow_instruction
