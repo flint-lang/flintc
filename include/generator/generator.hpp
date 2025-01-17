@@ -73,13 +73,14 @@ class Generator {
     static std::unordered_map<std::string, unsigned int> function_mangle_ids;
     static std::array<llvm::CallInst *, 1> main_call_array;
 
-    static void generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module *module);
-    static void generate_builtin_print_int(llvm::IRBuilder<> *builder, llvm::Module *module);
-    static void generate_builtin_print_flint(llvm::IRBuilder<> *builder, llvm::Module *module);
-    static void generate_builtin_print_char(llvm::IRBuilder<> *builder, llvm::Module *module);
-    static void generate_builtin_print_str(llvm::IRBuilder<> *builder, llvm::Module *module);
+    static void generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module);
+    static void generate_builtin_print( //
+        llvm::IRBuilder<> *builder,     //
+        llvm::Module *module,           //
+        const std::string &type,        //
+        const std::string &format       //
+    );
     static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
-    static void generate_builtin_print_byte(llvm::IRBuilder<> *builder, llvm::Module *module);
 
     static llvm::Value *generate_pow_instruction(llvm::IRBuilder<> &builder, llvm::Function *parent, llvm::Value *lhs, llvm::Value *rhs);
 

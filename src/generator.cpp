@@ -65,7 +65,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
 
     // Generate built-in functions in the main module
     generate_builtin_main(builder.get(), module.get());
-    generate_builtin_print(builder.get(), module.get());
+    generate_builtin_prints(builder.get(), module.get());
 
     llvm::Linker linker(*module);
 
@@ -326,7 +326,7 @@ llvm::StructType *Generator::add_and_or_get_type(llvm::LLVMContext *context, con
 
 /// generate_builtin_print
 ///     Generates the builtin 'print()' function to utilize C io calls of the IO C stdlib
-void Generator::generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module *module) {
+void Generator::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module) {
     if (builtins[PRINT] != nullptr) {
         return;
     }
@@ -342,71 +342,61 @@ void Generator::generate_builtin_print(llvm::IRBuilder<> *builder, llvm::Module 
         module                                            //
     );
     builtins[PRINT] = printf_func;
-    generate_builtin_print_int(builder, module);
-    generate_builtin_print_flint(builder, module);
-    generate_builtin_print_char(builder, module);
-    generate_builtin_print_str(builder, module);
+    generate_builtin_print(builder, module, "int", "%i");
+    generate_builtin_print(builder, module, "flint", "%d");
+    generate_builtin_print(builder, module, "char", "%c");
+    generate_builtin_print(builder, module, "str", "%s");
+    generate_builtin_print(builder, module, "byte", "%i");
     generate_builtin_print_bool(builder, module);
-    generate_builtin_print_byte(builder, module);
 }
 
-/// generate_builtin_print_int
-///     Generates the printf call with the correct format string for integer types
-void Generator::generate_builtin_print_int(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    if (print_functions["int"] != nullptr) {
+/// generate_builtin_print
+///     Generates the builtin print function for the specified type
+void Generator::generate_builtin_print( //
+    llvm::IRBuilder<> *builder,         //
+    llvm::Module *module,               //
+    const std::string &type,            //
+    const std::string &format           //
+) {
+    if (print_functions.at(type) != nullptr) {
         return;
     }
 
-    // Create print_int function type (takes one i32, returns void)
-    llvm::FunctionType *print_int_type = llvm::FunctionType::get( //
-        llvm::Type::getVoidTy(module->getContext()),              // return type
-        {llvm::Type::getInt32Ty(module->getContext())},           // parameter type
-        false                                                     // no vararg
+    // Create print function type
+    llvm::FunctionType *print_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(module->getContext()),          // return void
+        {get_type_from_str(module->getContext(), type)},      // takes type
+        false                                                 // no vararg
     );
 
     // Create the print_int function
-    llvm::Function *print_int = llvm::Function::Create( //
-        print_int_type,                                 //
-        llvm::Function::ExternalLinkage,                //
-        "print_int",                                    //
-        module                                          //
+    llvm::Function *print_function = llvm::Function::Create( //
+        print_type,                                          //
+        llvm::Function::ExternalLinkage,                     //
+        "print_" + type,                                     //
+        module                                               //
     );
     llvm::BasicBlock *block = llvm::BasicBlock::Create( //
         module->getContext(),                           //
         "entry",                                        //
-        print_int                                       //
+        print_function                                  //
     );
 
     // Call printf with format string and argument
     builder->SetInsertPoint(block);
-    llvm::Value *format_str = builder->CreateGlobalStringPtr("%i\n");
-    builder->CreateCall(builtins[PRINT],   //
-        {format_str, print_int->getArg(0)} //
+    llvm::Value *format_str = builder->CreateGlobalStringPtr(format);
+    builder->CreateCall(builtins[PRINT],        //
+        {format_str, print_function->getArg(0)} //
     );
 
     builder->CreateRetVoid();
-    print_functions["int"] = print_int;
+    print_functions[type] = print_function;
 }
 
-/// generate_builtin_print_flint
-///     Generates the printf call with the correct format string for floating point types
-void Generator::generate_builtin_print_flint(llvm::IRBuilder<> *builder, llvm::Module *module) {}
-
-/// generate_builtin_print_char
-///     Generates the printf call with the correct format string for char types
-void Generator::generate_builtin_print_char(llvm::IRBuilder<> *builder, llvm::Module *module) {}
-
-/// generate_builtin_print_str
-///     Generates the printf call with the correct format string for string types
-void Generator::generate_builtin_print_str(llvm::IRBuilder<> *builder, llvm::Module *module) {}
-
 /// generate_builtin_print_bool
-///     Generates the printf call with the correct format string for bool types
-void Generator::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module) {}
-
-/// generate_builtin_print_byte
-///     Generates the printf call with the correct format string for byte types
-void Generator::generate_builtin_print_byte(llvm::IRBuilder<> *builder, llvm::Module *module) {}
+///     Generates the builtin print_bool function which prints 'true' or 'false' depending on the bool value!
+void Generator::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module) {
+}
 
 /// generate_pow_instruction
 ///     Generates the instruction to power the lhs rhs times (lhs ** rhs)
