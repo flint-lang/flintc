@@ -65,8 +65,10 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
     auto module = std::make_unique<llvm::Module>(program_name, context);
 
     // Generate built-in functions in the main module
-    generate_builtin_main(builder.get(), module.get());
     generate_builtin_prints(builder.get(), module.get());
+
+    // Generate main function in the main module
+    generate_builtin_main(builder.get(), module.get());
 
     llvm::Linker linker(*module);
 
@@ -215,6 +217,58 @@ void Generator::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *
     llvm::Value *err_ptr = builder->CreateStructGEP(custom_main_ret_type, main_ret, 0);
     llvm::LoadInst *err_val = builder->CreateLoad(llvm::Type::getInt32Ty(module->getContext()), err_ptr, "main_err_val");
 
+    llvm::BasicBlock *current_block = builder->GetInsertBlock();
+    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create( //
+        builder->getContext(),                                //
+        "main_catch",                                         //
+        main_function                                         //
+    );
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create( //
+        builder->getContext(),                                //
+        "main_merge",                                         //
+        main_function                                         //
+    );
+    builder->SetInsertPoint(current_block);
+
+    // Create the if check and compare the err value to 0
+    llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(builder->getContext()), 0);
+    llvm::Value *err_condition = builder->CreateICmpNE( //
+        err_val,                                        //
+        zero,                                           //
+        "errcmp"                                        //
+    );
+
+    // Create the branching operation
+    builder->CreateCondBr(err_condition, catch_block, merge_block)
+        ->setMetadata("comment",
+            llvm::MDNode::get(module->getContext(),
+                llvm::MDString::get(module->getContext(),
+                    "Branch to '" + catch_block->getName().str() + "' if 'main_custom' returned error")));
+
+    // Generate the body of the catch block
+    builder->SetInsertPoint(catch_block);
+
+    // Function to create a string literal
+    std::function<llvm::Value *(llvm::IRBuilder<> *, llvm::Module *, llvm::Function *, std::string)>      //
+        create_str_lit =                                                                                  //
+        [](llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Function *parent, std::string message) //
+        -> llvm::Value * {
+        std::variant<int, double, std::string, bool, char> value = message;
+        LiteralNode message_literal = LiteralNode(value, "str");
+        return generate_literal(*builder, parent, &message_literal);
+    };
+
+    // Create the message that an error has occured
+    llvm::Value *message_begin_ptr = create_str_lit(builder, module, main_function, "ERROR: Program exited with exit code '");
+    builder->CreateCall(print_functions.at("str"), {message_begin_ptr});
+    // Print the actual error value
+    builder->CreateCall(print_functions.at("int"), {err_val});
+    // Print the rest of the string
+    llvm::Value *message_end_ptr = create_str_lit(builder, module, main_function, "'\n");
+    builder->CreateCall(print_functions.at("str"), {message_end_ptr});
+
+    builder->CreateBr(merge_block);
+    builder->SetInsertPoint(merge_block);
     llvm::Value *ret = builder->CreateRet(err_val);
 }
 
