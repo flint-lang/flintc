@@ -632,9 +632,10 @@ void Generator::generate_allocations(                                     //
                 call_node->scope_id = scope->scope_id;
 
                 // Temporary allocation for the entire return struct
-                const std::string ret_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name + "::ret";
+                const std::string ret_alloca_name =
+                    "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
                 generate_allocation(builder, scope, allocations, ret_alloca_name,                                                        //
-                    func_decl->getType(),                                                                                                //
+                    func_decl->getReturnType(),                                                                                          //
                     declaration_node->name + "__RET",                                                                                    //
                     "Create alloc of struct for called function '" + call_node->function_name + "', called by '" + ret_alloca_name + "'" //
                 );
@@ -1316,65 +1317,32 @@ void Generator::generate_declaration(                                     //
     // If it is, the "real" value of the call has to be extracted. Otherwise, it can be used directly!
     if (const auto *call_node = dynamic_cast<const CallNode *>(declaration_node->initializer.get())) {
         // Call the function and store its result in the return stuct
-        const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::" + declaration_node->name + "::ret";
+        const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
         llvm::AllocaInst *const alloca_ret = allocations.at(call_ret_name);
-        builder.CreateStore(expression, alloca_ret)
+
+        // Extract the second field (index 1) from the struct - this is the actual return value
+        llvm::Value *value_ptr = builder.CreateStructGEP( //
+            expression->getType(),                        //
+            alloca_ret,                                   //
+            1,                                            //
+            declaration_node->name + "__VAL_PTR"          //
+        );
+        llvm::LoadInst *value_load = builder.CreateLoad(                     //
+            get_type_from_str(parent->getContext(), declaration_node->type), //
+            value_ptr,                                                       //
+            declaration_node->name + "__VAL"                                 //
+        );
+        value_load->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(), "Load the actual val of '" + declaration_node->name + "' from its ptr")));
+
+        // Store the actual value in the declared variable
+        const std::string call_val_1_name = "s" + std::to_string(call_node->scope_id) + "::" + declaration_node->name;
+        llvm::AllocaInst *const call_val_1_alloca = allocations.at(call_val_1_name);
+        builder.CreateStore(value_load, call_val_1_alloca)
             ->setMetadata("comment",
                 llvm::MDNode::get(parent->getContext(),
-                    llvm::MDString::get(parent->getContext(),
-                        "Store result of '" + call_node->function_name + "' call in '" + call_ret_name + "'")));
-
-        // Extract the first field (index 0) from the struct - this is the error value
-        {
-            llvm::Value *err_ptr = builder.CreateStructGEP( //
-                expression->getType(),                      //
-                alloca_ret,                                 //
-                0,                                          //
-                declaration_node->name + "__ERR_PTR"        //
-            );
-            llvm::LoadInst *err_load = builder.CreateLoad(                       //
-                get_type_from_str(parent->getContext(), declaration_node->type), //
-                err_ptr,                                                         //
-                declaration_node->name + "__ERR"                                 //
-            );
-            err_load->setMetadata("comment",
-                llvm::MDNode::get(parent->getContext(),
-                    llvm::MDString::get(parent->getContext(), "Load the err val of '" + declaration_node->name + "' from its ptr")));
-
-            // Store the err variable in the declared variable
-            const std::string call_err_name =
-                "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
-            llvm::AllocaInst *const call_err_alloca = allocations.at(call_err_name);
-            builder.CreateStore(err_load, call_err_alloca)
-                ->setMetadata("comment",
-                    llvm::MDNode::get(parent->getContext(),
-                        llvm::MDString::get(parent->getContext(), "Store the err val of '" + declaration_node->name + "'")));
-        }
-        // Extract the second field (index 1) from the struct - this is the actual return value
-        {
-            llvm::Value *value_ptr = builder.CreateStructGEP( //
-                expression->getType(),                        //
-                alloca_ret,                                   //
-                1,                                            //
-                declaration_node->name + "__VAL_PTR"          //
-            );
-            llvm::LoadInst *value_load = builder.CreateLoad(                     //
-                get_type_from_str(parent->getContext(), declaration_node->type), //
-                value_ptr,                                                       //
-                declaration_node->name + "__VAL"                                 //
-            );
-            value_load->setMetadata("comment",
-                llvm::MDNode::get(parent->getContext(),
-                    llvm::MDString::get(parent->getContext(), "Load the actual val of '" + declaration_node->name + "' from its ptr")));
-
-            // Store the actual value in the declared variable
-            const std::string call_val_1_name = "s" + std::to_string(call_node->scope_id) + "::" + declaration_node->name;
-            llvm::AllocaInst *const call_val_1_alloca = allocations.at(call_val_1_name);
-            builder.CreateStore(value_load, call_val_1_alloca)
-                ->setMetadata("comment",
-                    llvm::MDNode::get(parent->getContext(),
-                        llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
-        }
+                    llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
         return;
     }
 
@@ -1584,6 +1552,23 @@ llvm::Value *Generator::generate_call(                                    //
     call->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(), "Call of function '" + call_node->function_name + "'")));
+
+    // Store results immideately after call
+    const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
+    const std::string call_err_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
+
+    // Store function result
+    llvm::AllocaInst *res_var = allocations.at(call_ret_name);
+    builder.CreateStore(call, res_var);
+
+    // Extract and store error value
+    llvm::Value *err_ptr = builder.CreateStructGEP(res_var->getAllocatedType(), res_var, 0);
+    llvm::Value *err_val = builder.CreateLoad(        //
+        llvm::Type::getInt32Ty(builder.getContext()), //
+        err_ptr                                       //
+    );
+    llvm::AllocaInst *err_var = allocations.at(call_err_name);
+    builder.CreateStore(err_val, err_var);
 
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
     if (!call_node->has_catch) {
