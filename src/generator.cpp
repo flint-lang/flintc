@@ -7,6 +7,7 @@
 #include "lexer/token.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
+#include "parser/ast/expressions/call_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
@@ -590,6 +591,37 @@ void Generator::generate_allocation(                                       //
     allocations.insert({alloca_name, alloca});
 }
 
+/// generate_call_allocations
+///     Generates the allocations for calls
+void Generator::generate_call_allocations(                                 //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    Scope *scope,                                                          //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    CallNode *call_node                                                    //
+) {
+    // Get the (already existent) function definition
+    llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
+    // Set the scope the call happens in
+    call_node->scope_id = scope->scope_id;
+
+    // Temporary allocation for the entire return struct
+    const std::string ret_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
+    generate_allocation(builder, scope, allocations, ret_alloca_name,                                                        //
+        func_decl->getReturnType(),                                                                                          //
+        call_node->function_name + "_" + std::to_string(call_node->call_id) + "__RET",                                       //
+        "Create alloc of struct for called function '" + call_node->function_name + "', called by '" + ret_alloca_name + "'" //
+    );
+
+    // Create the error return valua allocation
+    const std::string err_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
+    generate_allocation(builder, scope, allocations, err_alloca_name,                  //
+        llvm::Type::getInt32Ty(parent->getContext()),                                  //
+        call_node->function_name + "_" + std::to_string(call_node->call_id) + "__ERR", //
+        "Create alloc of err ret var '" + err_alloca_name + "'"                        //
+    );
+}
+
 /// generate_allocation
 ///     Generates all allocations of the given scope. Adds all AllocaInst pointer to the allocations map
 void Generator::generate_allocations(                                     //
@@ -600,6 +632,8 @@ void Generator::generate_allocations(                                     //
 ) {
     for (const auto &statement : scope->body) {
         if (!std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
+            CallNode *call_node = std::get<std::unique_ptr<CallNode>>(statement).get();
+            generate_call_allocations(builder, parent, scope, allocations, call_node);
             continue;
         }
 
@@ -624,30 +658,8 @@ void Generator::generate_allocations(                                     //
         } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
             //
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
-
             if (auto *call_node = dynamic_cast<CallNode *>(declaration_node->initializer.get())) {
-                // Get the (already existent) function definition
-                llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
-                // Set the scope the call happens in
-                call_node->scope_id = scope->scope_id;
-
-                // Temporary allocation for the entire return struct
-                const std::string ret_alloca_name =
-                    "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
-                generate_allocation(builder, scope, allocations, ret_alloca_name,                                                        //
-                    func_decl->getReturnType(),                                                                                          //
-                    declaration_node->name + "__RET",                                                                                    //
-                    "Create alloc of struct for called function '" + call_node->function_name + "', called by '" + ret_alloca_name + "'" //
-                );
-
-                // Create the error return valua allocation
-                const std::string err_alloca_name =
-                    "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
-                generate_allocation(builder, scope, allocations, err_alloca_name, //
-                    llvm::Type::getInt32Ty(parent->getContext()),                 //
-                    declaration_node->name + "__ERR",                             //
-                    "Create alloc of err ret var '" + err_alloca_name + "'"       //
-                );
+                generate_call_allocations(builder, parent, scope, allocations, call_node);
 
                 // Create the actual variable allocation with the declared type
                 const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;

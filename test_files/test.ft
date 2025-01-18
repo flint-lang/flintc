@@ -4,5 +4,4 @@ def function(int x, int y) -> int:
 	return x + y;
 
 def main():
-	int res = function(1, 5);
-	print(res);
+	function(1, 5);

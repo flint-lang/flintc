@@ -89,6 +89,13 @@ class Generator {
         llvm::IRBuilder<> &builder,                                                                            //
         std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
     );
+    static void generate_call_allocations(                                     //
+        llvm::IRBuilder<> &builder,                                            //
+        llvm::Function *parent,                                                //
+        Scope *scope,                                                          //
+        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+        CallNode *call_node                                                    //
+    );
     static void generate_allocation(                                           //
         llvm::IRBuilder<> &builder,                                            //
         Scope *scope,                                                          //
