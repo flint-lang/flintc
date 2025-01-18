@@ -1213,24 +1213,25 @@ void Generator::generate_catch_statement(                                 //
                 "Load err val of call '" + call_node.value()->function_name + "::" + std::to_string(call_node.value()->call_id) + "'")));
 
     llvm::BasicBlock *last_block = &parent->back();
+    llvm::BasicBlock *first_block = &parent->front();
     // Create basic block for the catch block
     llvm::BasicBlock *current_block = builder.GetInsertBlock();
 
     // Check if the current block is the last block, if it is not, insert right after the current block
-    bool is_last = current_block == last_block;
-    llvm::BasicBlock *insert_after = is_last ? current_block : (current_block->getNextNode());
+    bool will_insert_after = current_block == last_block || current_block != first_block;
+    llvm::BasicBlock *insert_before = will_insert_after ? (current_block->getNextNode()) : current_block;
 
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                                           //
         builder.getContext(),                                                                           //
         call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_catch", //
         parent,                                                                                         //
-        insert_after                                                                                    //
+        insert_before                                                                                   //
     );
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                                           //
         builder.getContext(),                                                                           //
         call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_merge", //
         parent,                                                                                         //
-        insert_after                                                                                    //
+        insert_before                                                                                   //
     );
     builder.SetInsertPoint(current_block);
 
@@ -1622,24 +1623,25 @@ void Generator::generate_rethrow(                                         //
                 "Load err val of call '" + call_node->function_name + "::" + std::to_string(call_node->call_id) + "'")));
 
     llvm::BasicBlock *last_block = &parent->back();
+    llvm::BasicBlock *first_block = &parent->front();
     // Create basic block for the catch block
     llvm::BasicBlock *current_block = builder.GetInsertBlock();
 
     // Check if the current block is the last block, if it is not, insert right after the current block
-    bool is_last = current_block == last_block;
-    llvm::BasicBlock *insert_after = is_last ? current_block : (current_block->getNextNode());
+    bool will_insert_after = current_block == last_block || current_block != first_block;
+    llvm::BasicBlock *insert_before = will_insert_after ? (current_block->getNextNode()) : current_block;
 
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                           //
         builder.getContext(),                                                           //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_catch", //
         parent,                                                                         //
-        insert_after                                                                    //
+        insert_before                                                                   //
     );
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                           //
         builder.getContext(),                                                           //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_merge", //
         parent,                                                                         //
-        insert_after                                                                    //
+        insert_before                                                                   //
     );
     builder.SetInsertPoint(current_block);
 
