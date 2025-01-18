@@ -11,6 +11,7 @@
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
+#include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -46,6 +47,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <regex>
@@ -57,13 +59,20 @@
 std::unordered_map<std::string, llvm::StructType *> Generator::type_map;
 std::unordered_map<std::string, std::vector<llvm::CallInst *>> Generator::unresolved_functions;
 std::unordered_map<std::string, unsigned int> Generator::function_mangle_ids;
+std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> Generator::file_function_mangle_ids;
 std::array<llvm::CallInst *, 1> Generator::main_call_array;
+std::array<llvm::Module *, 1> Generator::main_module;
 
 /// generate_program_ir
 ///     Generates the llvm IR code for a complete program
-std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &program_name, llvm::LLVMContext &context) {
+std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
+    const std::string &program_name,                          //
+    llvm::LLVMContext &context,                               //
+    std::shared_ptr<DepNode> &dep_graph                       //
+) {
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
     auto module = std::make_unique<llvm::Module>(program_name, context);
+    main_module[0] = module.get();
 
     // Generate built-in functions in the main module
     generate_builtin_prints(builder.get(), module.get());
@@ -71,21 +80,81 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
     // Generate main function in the main module
     generate_builtin_main(builder.get(), module.get());
 
+    std::cout << " -------- MAIN -------- \n"
+              << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
+              << std::endl;
+
+    for (const auto &func : main_module[0]->getFunctionList()) {
+        std::cout << "FuncName: " << func.getName().str() << std::endl;
+    }
+
     llvm::Linker linker(*module);
 
-    for (const auto &file : Resolver::get_file_map()) {
-        // Generate the IR for a single file
-        std::unique_ptr<llvm::Module> file_module = generate_file_ir(file.second, file.first, context, builder.get());
+    // Start with the tips of the dependency graph and then work towards the root node. First, get all tips of the graph:
+    std::vector<std::weak_ptr<DepNode>> tips;
+    Resolver::get_dependency_graph_tips(dep_graph, tips);
+    // If tips are empty, only a single file needs to be generated
+    if (tips.empty()) {
+        tips.emplace_back(dep_graph);
+    }
 
-        // TODO DONE:   This results in a segmentation fault when the context goes out of scope / memory, because then the module will have
-        //              dangling references to the context. All modules in the Resolver must be cleared and deleted before the context goes
-        //              oom! Its the reason to why Resolver::clear() was implemented!
-        // Store the generated module in the resolver
-        Resolver::add_ir(file.first, file_module.get());
+    while (!tips.empty()) {
+        std::vector<std::weak_ptr<DepNode>> new_tips;
+        // Go through all tips and generate their respective IR code and link them to the main module
+        for (const std::weak_ptr<DepNode> &dep : tips) {
+            const auto shared_tip = dep.lock();
+            if (!shared_tip) {
+                // DepNode somehow does not exist any more
+                throw_err(ERR_GENERATING);
+            }
+            // Add the dependencies root only if all dependants of its root have been compiled
+            if (shared_tip->root != nullptr) {
+                std::vector<std::string> tips_names;
+                tips_names.reserve(tips.size());
+                for (const auto &tip : tips) {
+                    tips_names.push_back(tip.lock()->file_name);
+                }
 
-        if (linker.linkInModule(std::move(file_module))) {
-            throw_err(ERR_LINKING);
+                bool dependants_compiled = true;
+                // Check if the dependency has been compiled yet or will be compiled in this phase
+                for (const auto &dependant : shared_tip->root->dependencies) {
+                    if (Resolver::get_module_map().find(dependant->file_name) == Resolver::get_module_map().end() //
+                        && std::find(tips_names.begin(), tips_names.end(), dependant->file_name) == tips_names.end()) {
+                        dependants_compiled = false;
+                    }
+                }
+                if (dependants_compiled) {
+                    new_tips.emplace_back(shared_tip->root);
+                }
+            }
+
+            // Check if this file has already been generated. If so, skip it
+            if (Resolver::get_module_map().find(shared_tip->file_name) != Resolver::get_module_map().end()) {
+                continue;
+            }
+
+            // Generate the IR code from the given FileNode
+            const FileNode *file = &Resolver::get_file_map().at(shared_tip->file_name);
+            std::unique_ptr<llvm::Module> file_module = generate_file_ir(*file, shared_tip->file_name, context, builder.get());
+
+            // TODO DONE:   This results in a segmentation fault when the context goes out of scope / memory,
+            //              because then the module will have dangling references to the context.
+            //              All modules in the Resolver must be cleared and deleted before the context goes oom!
+            //              Its the reason to why Resolver::clear() was implemented!
+            // Store the generated module in the resolver
+            Resolver::add_ir(shared_tip->file_name, file_module.get());
+
+            std::cout << " -------- MODULE -------- \n"
+                      << resolve_ir_comments(get_module_ir_string(file_module.get())) << "\n ---------------- \n"
+                      << std::endl;
+
+            // Link the generated module in the main module
+            if (linker.linkInModule(std::move(file_module))) {
+                throw_err(ERR_LINKING);
+            }
         }
+
+        tips.assign(new_tips.begin(), new_tips.end());
     }
 
     // Connect the call from the main module to the actual main function declared by the user
@@ -95,6 +164,10 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir(const std::string &
         throw_err(ERR_GENERATING);
     }
     main_call_array[0]->getCalledOperandUse().set(main_function);
+
+    std::cout << " -------- IR-CODE -------- \n"
+              << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
+              << std::endl;
 
     // Verify and emit the module
     llvm::verifyModule(*module, &llvm::errs());
@@ -157,6 +230,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
     }
 
     // Iterate through all unresolved function calls and resolve them to call the _actual_ mangled function, not its definition
+    // Function calls to functions in outside modules already have the correct call, they dont need to be resolved here
     for (const auto &[fn_name, calls] : unresolved_functions) {
         for (llvm::CallInst *call : calls) {
             llvm::Function *actual_function = module->getFunction(fn_name + "." + std::to_string(function_mangle_ids[fn_name]));
@@ -167,6 +241,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
         }
     }
     unresolved_functions.clear();
+    file_function_mangle_ids[file_name] = function_mangle_ids;
     function_mangle_ids.clear();
 
     return module;
@@ -381,6 +456,50 @@ llvm::StructType *Generator::add_and_or_get_type(llvm::LLVMContext *context, con
         true                                           //
     );
     return type_map[return_types];
+}
+
+/// get_function_definition
+///     Returns the function definition from the given CallNode OR
+///     Explicitely returns a nullptr on purpose, when the function is a builtin function.
+///     Returns a nullopt when the definition could not be found
+///     Returns as the second value if the call was to an extern function or not
+std::pair<std::optional<llvm::Function *>, bool> Generator::get_function_definition(llvm::Function *parent, const CallNode *call_node) {
+    llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
+    // Check if the call is to a builtin function
+    if (func_decl == nullptr && builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
+        if (builtin_functions.at(call_node->function_name) == PRINT) {
+            // Print functions dont return anything, this no allocations have to be made
+            return {nullptr, false};
+        }
+    }
+    if (func_decl != nullptr) {
+        return {func_decl, false};
+    }
+    // Get the mangle id by looking for the function's name
+    std::optional<unsigned int> call_mangle_id = std::nullopt;
+    for (const auto &file_mangle_map : file_function_mangle_ids) {
+        for (const auto &[function_name, mangle_id] : file_mangle_map.second) {
+            if (function_name == call_node->function_name) {
+                call_mangle_id = mangle_id;
+            }
+        }
+    }
+
+    if (call_mangle_id.has_value()) {
+        // Function has mangle id, for example a function call from another module
+        func_decl = main_module[0]->getFunction(call_node->function_name + "." + std::to_string(call_mangle_id.value()));
+    } else {
+        // Function has no mangle id, for example a builtin function
+        func_decl = main_module[0]->getFunction(call_node->function_name);
+    }
+
+    if (func_decl == nullptr) {
+        // Use of undeclared function
+        throw_err(ERR_GENERATING);
+        return {std::nullopt, false};
+    }
+
+    return {func_decl, true};
 }
 
 /// generate_builtin_print
@@ -600,8 +719,17 @@ void Generator::generate_call_allocations(                                 //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     CallNode *call_node                                                    //
 ) {
-    // Get the (already existent) function definition
-    llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
+    // Get the function definition from any module
+    auto [func_decl_res, is_call_extern] = get_function_definition(parent, call_node);
+    if (!func_decl_res.has_value()) {
+        throw_err(ERR_GENERATING);
+        return;
+    }
+    llvm::Function *func_decl = func_decl_res.value();
+    if (func_decl == nullptr) {
+        // Builtin function call with void return
+        return;
+    }
     // Set the scope the call happens in
     call_node->scope_id = scope->scope_id;
 
@@ -675,6 +803,18 @@ void Generator::generate_allocations(                                     //
                     get_type_from_str(parent->getContext(), declaration_node->type), //
                     declaration_node->name + "__VAR",                                //
                     "Create alloc of var '" + alloca_name + "'"                      //
+                );
+            }
+        } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
+            if (auto *call_node = dynamic_cast<CallNode *>(assignment_node->expression.get())) {
+                generate_call_allocations(builder, parent, scope, allocations, call_node);
+
+                // Create the actual variable allocation with the declared type
+                const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + assignment_node->name;
+                generate_allocation(builder, scope, allocations, var_alloca_name,   //
+                    get_type_from_str(parent->getContext(), assignment_node->type), //
+                    assignment_node->name + "__VAL_1",                              //
+                    "Create alloc of 1st ret var '" + var_alloca_name + "'"         //
                 );
             }
         }
@@ -1296,22 +1436,22 @@ void Generator::generate_assignment(                                            
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
 ) {
-    llvm::Value *expression = generate_expression(builder, parent, scope, assignment_node->value.get(), allocations);
+    llvm::Value *expression = generate_expression(builder, parent, scope, assignment_node->expression.get(), allocations);
 
-    if (scope->variable_types.find(assignment_node->var_name) == scope->variable_types.end()) {
+    if (scope->variable_types.find(assignment_node->name) == scope->variable_types.end()) {
         // Error: Undeclared Variable
         throw_err(ERR_GENERATING);
     }
-    const unsigned int variable_decl_scope = scope->variable_types.at(assignment_node->var_name).second;
-    llvm::AllocaInst *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->var_name);
+    const unsigned int variable_decl_scope = scope->variable_types.at(assignment_node->name).second;
+    llvm::AllocaInst *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
     llvm::StoreInst *store = builder.CreateStore(expression, lhs);
     store->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Store result of expr in var '" + assignment_node->var_name + "'")));
+            llvm::MDString::get(parent->getContext(), "Store result of expr in var '" + assignment_node->name + "'")));
 
     // Set the value of the variable mutation
-    phi_lookup[assignment_node->var_name].emplace_back(std::make_pair(builder.GetInsertBlock(), expression));
+    phi_lookup[assignment_node->name].emplace_back(std::make_pair(builder.GetInsertBlock(), expression));
 }
 
 /// generate_declaration
@@ -1556,8 +1696,18 @@ llvm::Value *Generator::generate_call(                                    //
         return builder.CreateCall(builtin_function, args);
     }
 
-    // Get the (already existent) function definition
-    llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
+    // Get the function definition from any module
+    auto [func_decl_res, is_call_extern] = get_function_definition(parent, call_node);
+    if (!func_decl_res.has_value()) {
+        throw_err(ERR_GENERATING);
+        return nullptr;
+    }
+    llvm::Function *func_decl = func_decl_res.value();
+    if (func_decl == nullptr) {
+        // Is a builtin function, but the code block above should have been executed in that case, because we are here, something went wrong
+        throw_err(ERR_GENERATING);
+        return nullptr;
+    }
 
     // Create the call instruction using the original declaration
     llvm::CallInst *call = builder.CreateCall(func_decl, args);
@@ -1587,11 +1737,13 @@ llvm::Value *Generator::generate_call(                                    //
         generate_rethrow(builder, parent, call_node, allocations);
     }
 
-    // Add the call instruction to the list of unresolved functions
-    if (unresolved_functions.find(call_node->function_name) == unresolved_functions.end()) {
-        unresolved_functions[call_node->function_name] = {call};
-    } else {
-        unresolved_functions[call_node->function_name].push_back(call);
+    // Add the call instruction to the list of unresolved functions only if it was a module-intern call
+    if (!is_call_extern) {
+        if (unresolved_functions.find(call_node->function_name) == unresolved_functions.end()) {
+            unresolved_functions[call_node->function_name] = {call};
+        } else {
+            unresolved_functions[call_node->function_name].push_back(call);
+        }
     }
 
     return call;

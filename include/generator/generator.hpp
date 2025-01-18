@@ -19,6 +19,7 @@
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
+#include "resolver/resolver.hpp"
 #include "types.hpp"
 
 #include <llvm/IR/IRBuilder.h>
@@ -35,7 +36,11 @@
 class Generator {
   public:
     Generator() = delete;
-    static std::unique_ptr<llvm::Module> generate_program_ir(const std::string &program_name, llvm::LLVMContext &context);
+    static std::unique_ptr<llvm::Module> generate_program_ir( //
+        const std::string &program_name,                      //
+        llvm::LLVMContext &context,                           //
+        std::shared_ptr<DepNode> &dep_graph                   //
+    );
 
     static std::unique_ptr<llvm::Module> generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext &context,
         llvm::IRBuilder<> *builder);
@@ -67,11 +72,14 @@ class Generator {
     };
     static std::unordered_map<std::string, llvm::StructType *> type_map;
     static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
+    static std::pair<std::optional<llvm::Function *>, bool> get_function_definition(llvm::Function *parent, const CallNode *call_node);
     static void generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module);
 
     static std::unordered_map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
+    static std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> file_function_mangle_ids;
     static std::unordered_map<std::string, unsigned int> function_mangle_ids;
     static std::array<llvm::CallInst *, 1> main_call_array;
+    static std::array<llvm::Module *, 1> main_module;
 
     static void generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module);
     static void generate_builtin_print( //

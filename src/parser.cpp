@@ -68,6 +68,32 @@ FileNode Parser::parse_file(const std::filesystem::path &file) {
     return file_node;
 }
 
+/// resolve_call_types
+///     Resolves all types of all calls
+void Parser::resolve_call_types(const std::unordered_map<std::string, FileNode> &file_map) {
+    for (const auto &[file_name, file] : file_map) {
+        // First, get the list of all function types inside this file
+        std::unordered_map<std::string, std::string> function_types;
+        for (const auto &node : file.definitions) {
+            if (const auto *function_node = dynamic_cast<const FunctionNode *>(node.get())) {
+                std::string return_type;
+                for (const auto &ret_type : function_node->return_types) {
+                    return_type += ret_type;
+                }
+                function_types.emplace(function_node->name, return_type);
+            }
+        }
+        for (auto it = call_nodes.begin(); it != call_nodes.end();) {
+            if (function_types.find(it->second->function_name) != function_types.end()) {
+                it->second->type = function_types.at(it->second->function_name);
+                call_nodes.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+}
+
 /// get_next_main_node
 ///     Finds the next main node inside the list of tokens and creates an ASTNode "tree" from it.
 ///     Only Definition nodes are considered as 'main' nodes
@@ -293,7 +319,9 @@ std::optional<std::unique_ptr<CallNode>> Parser::create_call(Scope *scope, token
             const auto match_ranges = Signature::get_match_ranges_in_range(tokens, {{TOK_COMMA}}, arg_range.value());
             if (match_ranges.empty()) {
                 // No arguments
-                return std::make_unique<CallNode>(function_name, arguments);
+                std::optional<std::unique_ptr<CallNode>> call_node = std::make_unique<CallNode>(function_name, arguments, "");
+                set_last_parsed_call(call_node.value()->call_id, call_node.value().get());
+                return call_node;
             }
 
             for (auto match = match_ranges.begin();; ++match) {
@@ -324,7 +352,7 @@ std::optional<std::unique_ptr<CallNode>> Parser::create_call(Scope *scope, token
         }
     }
 
-    std::optional<std::unique_ptr<CallNode>> call_node = std::make_unique<CallNode>(function_name, arguments);
+    std::optional<std::unique_ptr<CallNode>> call_node = std::make_unique<CallNode>(function_name, arguments, "");
     set_last_parsed_call(call_node.value()->call_id, call_node.value().get());
     return call_node;
 }
@@ -681,7 +709,7 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                         // Assignment on undeclared variable!
                         throw_err(ERR_PARSING);
                     }
-                    return std::make_unique<AssignmentNode>(iterator->lexme, expression.value());
+                    return std::make_unique<AssignmentNode>(expression.value()->type, iterator->lexme, expression.value());
                 }
                 throw_err(ERR_PARSING);
             } else {

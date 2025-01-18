@@ -75,6 +75,8 @@ class Parser {
         return call_node;
     }
 
+    static void resolve_call_types(const std::unordered_map<std::string, FileNode> &file_map);
+
   private:
     static std::vector<std::pair<unsigned int, CallNode *>> call_nodes;
 

@@ -1,0 +1,4 @@
+def divide(int x, int y) -> int:
+	if y == 0:
+		throw 1;
+	return x / y;

@@ -12,10 +12,10 @@
 ///     Represents variable or data declarations
 class DeclarationNode : public StatementNode {
   public:
-    DeclarationNode(std::string &type, std::string &name, std::unique_ptr<ExpressionNode> &initializer)
-        : type(type),
-          name(name),
-          initializer(std::move(initializer)) {}
+    DeclarationNode(std::string &type, std::string &name, std::unique_ptr<ExpressionNode> &initializer) :
+        type(type),
+        name(name),
+        initializer(std::move(initializer)) {}
 
     // empty constructor
     DeclarationNode() = default;
@@ -28,10 +28,10 @@ class DeclarationNode : public StatementNode {
     DeclarationNode(DeclarationNode &&) = default;
     DeclarationNode &operator=(DeclarationNode &&) = default;
 
-    /// var_type
+    /// type
     ///     The type of the variable
     std::string type;
-    /// var_name
+    /// name
     ///     The name of the variable
     std::string name;
     /// initializer

@@ -1,6 +1,6 @@
 #include "cli_parser_main.hpp"
+#include "debug.hpp"
 #include "generator/generator.hpp"
-#include "linker/linker.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/parser.hpp"
 #include "resolver/resolver.hpp"
@@ -29,11 +29,12 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
     const std::filesystem::path &ll_file_path) {
     // Parse the .ft file and resolve all inclusions
     FileNode file = Parser::parse_file(source_file_path);
-    Linker::resolve_links(file, source_file_path.parent_path());
+    Debug::AST::print_file(file);
+    std::shared_ptr<DepNode> dep_graph = Resolver::create_dependency_graph(file, source_file_path.parent_path());
 
     // Generate the whole program
     llvm::LLVMContext context;
-    std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main", context);
+    std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main", context, dep_graph);
 
     // Write the code to the normal output.ll file
     std::error_code EC;

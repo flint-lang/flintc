@@ -7,7 +7,8 @@
 #include <llvm/IR/Module.h>
 
 #include <filesystem>
-#include <map>
+#include <unordered_map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -18,36 +19,35 @@
 /// - - Right: The name of the imported file
 using dependency = std::variant<std::vector<std::string>, std::pair<std::filesystem::path, std::string>>;
 
+/// DepNode
+///     Forms an edge of the dependency graph and the dependencies are the lines to other edges
+struct DepNode {
+    /// file_name
+    ///     The name of the dependency file
+    std::string file_name;
+    /// dependencies
+    ///     The dependency nodes this node points towards
+    std::vector<std::shared_ptr<DepNode>> dependencies;
+    /// root
+    ///     The root of this node
+    std::shared_ptr<DepNode> root{nullptr};
+};
+
 class Resolver {
   public:
-    /// get_dependency_map
-    ///     Returns the map of all dependencies of each file
-    static std::map<std::string, std::vector<dependency>> &get_dependency_map() {
-        static std::map<std::string, std::vector<dependency>> dep;
-        return dep;
-    }
-    /// get_file_map
-    ///     Returns the map of all FileNodes for each file
-    static std::map<std::string, FileNode> &get_file_map() {
-        static std::map<std::string, FileNode> files;
-        return files;
-    }
-    /// get_module_map
-    ///     Returns the map of Modules, where the key is the file name
-    ///     Note that these modules should be handled
-    static std::map<std::string, const llvm::Module *> &get_module_map() {
-        static std::map<std::string, const llvm::Module *> modules;
-        return modules;
-    }
-    /// get_path_map
-    ///     Returns the map of paths, where the second value is the path the file (first) is contained in
-    static std::map<std::string, std::filesystem::path> &get_path_map() {
-        static std::map<std::string, std::filesystem::path> paths;
-        return paths;
-    }
+    Resolver() = delete;
+
+    static std::shared_ptr<DepNode> create_dependency_graph(FileNode &file_node, const std::filesystem::path &path);
+    static void get_dependency_graph_tips(const std::shared_ptr<DepNode> &dep_node, std::vector<std::weak_ptr<DepNode>> &tips);
+
+    static std::unordered_map<std::string, std::shared_ptr<DepNode>> &get_dependency_node_map();
+    static std::unordered_map<std::string, std::vector<dependency>> &get_dependency_map();
+    static std::unordered_map<std::string, FileNode> &get_file_map();
+    static std::unordered_map<std::string, const llvm::Module *> &get_module_map();
+    static std::unordered_map<std::string, std::filesystem::path> &get_path_map();
 
     static void clear();
-    static void add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path);
+    static std::optional<DepNode> add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path);
     static void add_ir(const std::string &file_name, const llvm::Module *module);
     static void add_path(const std::string &file_name, const std::filesystem::path &path);
 

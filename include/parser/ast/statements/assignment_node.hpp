@@ -12,9 +12,10 @@
 ///     Represents assignment statements
 class AssignmentNode : public StatementNode {
   public:
-    AssignmentNode(std::string &var_name, std::unique_ptr<ExpressionNode> &value)
-        : var_name(std::move(var_name)),
-          value(std::move(value)) {}
+    AssignmentNode(std::string &type, std::string &name, std::unique_ptr<ExpressionNode> &expression) :
+        type(type),
+        name(name),
+        expression(std::move(expression)) {}
 
     // constructor
     AssignmentNode() = default;
@@ -27,12 +28,15 @@ class AssignmentNode : public StatementNode {
     AssignmentNode(AssignmentNode &&) = default;
     AssignmentNode &operator=(AssignmentNode &&) = default;
 
-    /// var_name
+    /// type
+    ///     The type of the variable
+    std::string type;
+    /// name
     ///     The name of the variable being assigned to
-    std::string var_name;
-    /// value
-    ///     The value to assign
-    std::unique_ptr<ExpressionNode> value;
+    std::string name;
+    /// expression
+    ///     The expression to assign
+    std::unique_ptr<ExpressionNode> expression;
 };
 
 #endif

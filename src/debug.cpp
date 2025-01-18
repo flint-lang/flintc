@@ -398,12 +398,12 @@ namespace Debug {
 
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign) {
             print_header(indent_lvl, empty, "Assign ");
-            std::cout << "'" << assign.var_name << "' to be";
+            std::cout << "'" << assign.name << "' to be";
             std::cout << std::endl;
 
             empty.first++;
             empty.second = indent_lvl + 2;
-            print_expression(++indent_lvl, empty, assign.value);
+            print_expression(++indent_lvl, empty, assign.expression);
         }
 
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl) {

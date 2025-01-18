@@ -1,7 +1,16 @@
+use "add.ft"
+use "divide.ft"
+
 def function(int x, int y) -> int:
 	if x < y:
 		throw 42;
 	return x + y;
 
 def main():
+	int res = add(1, 2);
+	print(res);
+	print("\n");
+	int res2 = divide(7, 0);
+	print(res2);
+	print("\n");
 	function(1, 5);

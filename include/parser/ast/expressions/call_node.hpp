@@ -12,9 +12,11 @@
 ///     Represents function or method calls
 class CallNode : public ExpressionNode {
   public:
-    CallNode(std::string &function_name, std::vector<std::unique_ptr<ExpressionNode>> &arguments) :
+    explicit CallNode(std::string &function_name, std::vector<std::unique_ptr<ExpressionNode>> &arguments, const std::string &type) :
         function_name(function_name),
-        arguments(std::move(arguments)) {}
+        arguments(std::move(arguments)) {
+        this->type = type;
+    }
 
     // empty constructor
     CallNode() = default;
