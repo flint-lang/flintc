@@ -1676,10 +1676,8 @@ void Generator::generate_rethrow(                                         //
 
         // Create the pointer to the error value (the 0th index of the struct)
         llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
-        // Generate the expression right of the throw statement, it has to be of type int
-        llvm::Value *err_value = builder.CreateLoad(err_val->getType(), err_val, "temp_err_val");
         // Store the error value in the struct
-        builder.CreateStore(err_value, error_ptr);
+        builder.CreateStore(err_val, error_ptr);
 
         // Generate the throw (return) instruction with the evaluated value
         llvm::LoadInst *throw_struct_val = builder.CreateLoad(throw_struct_type, throw_struct, "throw_val");
@@ -1694,6 +1692,8 @@ void Generator::generate_rethrow(                                         //
     if (catch_block->getTerminator() == nullptr) {
         builder.CreateBr(merge_block);
     }
+
+    builder.SetInsertPoint(merge_block);
 }
 
 /// generate_binary_op
