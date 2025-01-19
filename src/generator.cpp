@@ -328,7 +328,7 @@ void Generator::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *
         create_str_lit =                                                                                  //
         [](llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Function *parent, std::string message) //
         -> llvm::Value * {
-        std::variant<int, double, std::string, bool, char> value = message;
+        std::variant<int, float, std::string, bool, char> value = message;
         LiteralNode message_literal = LiteralNode(value, "str");
         return generate_literal(*builder, parent, &message_literal);
     };
@@ -1595,10 +1595,10 @@ llvm::Value *Generator::generate_literal(llvm::IRBuilder<> &builder, llvm::Funct
             std::get<int>(literal_node->value)            //
         );
     }
-    if (std::holds_alternative<double>(literal_node->value)) {
+    if (std::holds_alternative<float>(literal_node->value)) {
         return llvm::ConstantFP::get(                     //
             llvm::Type::getFloatTy(parent->getContext()), //
-            std::get<double>(literal_node->value)         //
+            std::get<float>(literal_node->value)          //
         );
     }
     if (std::holds_alternative<std::string>(literal_node->value)) {

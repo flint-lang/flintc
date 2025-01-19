@@ -260,27 +260,27 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
                     throw_err(ERR_PARSING);
                 }
                 case TOK_INT_VALUE: {
-                    std::variant<int, double, std::string, bool, char> value = std::stoi(tok.lexme);
+                    std::variant<int, float, std::string, bool, char> value = std::stoi(tok.lexme);
                     return LiteralNode(value, "int");
                 }
                 case TOK_FLINT_VALUE: {
-                    std::variant<int, double, std::string, bool, char> value = std::stod(tok.lexme);
+                    std::variant<int, float, std::string, bool, char> value = std::stof(tok.lexme);
                     return LiteralNode(value, "flint");
                 }
                 case TOK_STR_VALUE: {
-                    std::variant<int, double, std::string, bool, char> value = tok.lexme;
+                    std::variant<int, float, std::string, bool, char> value = tok.lexme;
                     return LiteralNode(value, "str");
                 }
                 case TOK_TRUE: {
-                    std::variant<int, double, std::string, bool, char> value = true;
+                    std::variant<int, float, std::string, bool, char> value = true;
                     return LiteralNode(value, "bool");
                 }
                 case TOK_FALSE: {
-                    std::variant<int, double, std::string, bool, char> value = false;
+                    std::variant<int, float, std::string, bool, char> value = false;
                     return LiteralNode(value, "bool");
                 }
                 case TOK_CHAR_VALUE: {
-                    std::variant<int, double, std::string, bool, char> value = tok.lexme[0];
+                    std::variant<int, float, std::string, bool, char> value = tok.lexme[0];
                     return LiteralNode(value, "char");
                 }
             }

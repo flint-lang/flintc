@@ -8,6 +8,8 @@ def function(int x, int y) -> int:
 
 def main():
 	int res = add(1, 2);
+	print(4.53);
+	print("\n");
 	print(res);
 	print("\n");
 	int res2 = divide(7, 0);
