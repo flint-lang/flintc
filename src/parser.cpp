@@ -4,6 +4,7 @@
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
 
+#include "resolver/resolver.hpp"
 #include "types.hpp"
 
 #include "error/error.hpp"
@@ -70,8 +71,8 @@ FileNode Parser::parse_file(const std::filesystem::path &file) {
 
 /// resolve_call_types
 ///     Resolves all types of all calls
-void Parser::resolve_call_types(const std::unordered_map<std::string, FileNode> &file_map) {
-    for (const auto &[file_name, file] : file_map) {
+void Parser::resolve_call_types() {
+    for (const auto &[file_name, file] : Resolver::get_file_map()) {
         // First, get the list of all function types inside this file
         std::unordered_map<std::string, std::string> function_types;
         for (const auto &node : file.definitions) {
@@ -709,7 +710,8 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                         // Assignment on undeclared variable!
                         throw_err(ERR_PARSING);
                     }
-                    return std::make_unique<AssignmentNode>(expression.value()->type, iterator->lexme, expression.value());
+                    std::string type = scope->variable_types.at(iterator->lexme).first;
+                    return std::make_unique<AssignmentNode>(type, iterator->lexme, expression.value());
                 }
                 throw_err(ERR_PARSING);
             } else {

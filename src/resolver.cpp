@@ -49,8 +49,6 @@ std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, 
         }
     }
 
-    Parser::resolve_call_types(get_file_map());
-
     return base;
 }
 

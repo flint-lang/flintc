@@ -807,15 +807,8 @@ void Generator::generate_allocations(                                     //
             }
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
             if (auto *call_node = dynamic_cast<CallNode *>(assignment_node->expression.get())) {
+                // Generate only the call allocations, not the variable allocations
                 generate_call_allocations(builder, parent, scope, allocations, call_node);
-
-                // Create the actual variable allocation with the declared type
-                const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + assignment_node->name;
-                generate_allocation(builder, scope, allocations, var_alloca_name,   //
-                    get_type_from_str(parent->getContext(), assignment_node->type), //
-                    assignment_node->name + "__VAL_1",                              //
-                    "Create alloc of 1st ret var '" + var_alloca_name + "'"         //
-                );
             }
         }
     }

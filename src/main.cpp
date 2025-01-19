@@ -31,6 +31,7 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
     FileNode file = Parser::parse_file(source_file_path);
     Debug::AST::print_file(file);
     std::shared_ptr<DepNode> dep_graph = Resolver::create_dependency_graph(file, source_file_path.parent_path());
+    Parser::resolve_call_types();
 
     // Generate the whole program
     llvm::LLVMContext context;

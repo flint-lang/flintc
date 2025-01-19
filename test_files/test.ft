@@ -12,7 +12,7 @@ def main():
 	print("\n");
 	print(res);
 	print("\n");
-	int res2 = divide(7, 0);
-	print(res2);
+	res = divide(7, 0);
+	print(res);
 	print("\n");
 	function(1, 5);
