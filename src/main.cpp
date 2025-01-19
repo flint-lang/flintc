@@ -5,6 +5,7 @@
 #include "parser/parser.hpp"
 #include "resolver/resolver.hpp"
 
+#include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 
@@ -37,17 +38,21 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> program = Generator::generate_program_ir("main", context, dep_graph);
 
-    // Write the code to the normal output.ll file
+    // Write the code to the normal output.bc file
     std::error_code EC;
-    llvm::raw_fd_ostream ll_file(out_file_path.string(), EC);
+    llvm::raw_fd_ostream bc_file(out_file_path.string(), EC);
     if (!EC) {
-        ll_file << Generator::resolve_ir_comments(Generator::get_module_ir_string(program.get()));
-        ll_file.close();
+        llvm::WriteBitcodeToFile(*program, bc_file);
+        bc_file.close();
     }
 
-    // Copy the output.ll file to the ll_file_path, if the ll_file_path is declared
+    // Write the code to the declared .ll file, if it is declared
     if (!ll_file_path.empty()) {
-        std::filesystem::copy_file(out_file_path, ll_file_path, std::filesystem::copy_options::overwrite_existing);
+        llvm::raw_fd_ostream ll_file(ll_file_path.string(), EC);
+        if (!EC) {
+            ll_file << Generator::resolve_ir_comments(Generator::get_module_ir_string(program.get()));
+            ll_file.close();
+        }
     }
 
     // Clean up the module
