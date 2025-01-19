@@ -10,5 +10,5 @@ int fibonacci(int num) {
 
 int main() {
     int fac = fibonacci(40);
-    printf("%i\n", fac);
+    printf("%i", fac);
 }

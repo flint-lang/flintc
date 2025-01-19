@@ -31,5 +31,5 @@ int main() {
         ++num;
         sum = sum + sqrt;
     }
-    printf("%i\n", sum);
+    printf("%i", sum);
 }

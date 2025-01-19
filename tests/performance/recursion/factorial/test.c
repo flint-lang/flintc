@@ -10,5 +10,5 @@ int factorial(int num) {
 
 int main() {
     int fac = factorial(12);
-    printf("%i\n", fac);
+    printf("%i", fac);
 }
