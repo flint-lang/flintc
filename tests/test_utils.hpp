@@ -169,6 +169,13 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
     const std::string c_compile_command = "clang " + default_flags + " " + compile_flags + " " + this_path + "/test.c -o " + c_bin;
     const std::string ft_compile_command =
         cwd + "/build/out/flintc -f " + this_path + "/test.ft -o " + ft_bin + " --flags \"" + default_flags + " " + compile_flags + "\"";
+    // Delete both executables (c_test and ft_test) before compilation. This is to ensure compilation is successful
+    if (std::filesystem::exists(c_bin)) {
+        std::filesystem::remove(c_bin);
+    }
+    if (std::filesystem::exists(ft_bin)) {
+        std::filesystem::remove(ft_bin);
+    }
     // Then, compile both the .ft and the .c file to their respective executables
     // Use the 'get_command_output' to not print any of the output to the console
     get_command_output(c_compile_command + " 2>&1");
