@@ -7,9 +7,9 @@
 #include <llvm/IR/Module.h>
 
 #include <filesystem>
-#include <unordered_map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 /// A dependency can either be a:
@@ -27,7 +27,9 @@ struct DepNode {
     std::string file_name;
     /// dependencies
     ///     The dependency nodes this node points towards
-    std::vector<std::shared_ptr<DepNode>> dependencies;
+    ///     If the dependency is a shared pointer its a direct dependency
+    ///     If the dependency is a weak pointer its the tail of a circle
+    std::vector<std::variant<std::shared_ptr<DepNode>, std::weak_ptr<DepNode>>> dependencies;
     /// root
     ///     The root of this node
     std::shared_ptr<DepNode> root{nullptr};

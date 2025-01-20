@@ -1,4 +1,6 @@
 #include "resolver/resolver.hpp"
+#include "error/error.hpp"
+#include "error/error_type.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/parser.hpp"
@@ -18,35 +20,71 @@ std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, 
     // Also return a created DepNode, but its dependants are not created yet
     std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file_node, path);
     if (!base_maybe.has_value()) {
-        // File already exists in the dependency map, so we can return its value saved in the map
-        return get_dependency_node_map().at(file_name);
+        // The main file already exists, this should not happen
+        throw_err(ERR_RESOLVING);
+        return {};
     }
     std::shared_ptr<DepNode> base = std::make_shared<DepNode>(base_maybe.value());
+    Resolver::get_dependency_node_map().emplace(file_name, base);
 
-    // As 'base' has a value, its dependencies have been added to the dependencies map
-    for (dependency &dep : get_dependency_map().at(file_name)) {
-        if (std::holds_alternative<std::vector<std::string>>(dep)) {
-            // Library reference
-            auto lib_dep = std::get<std::vector<std::string>>(dep);
-            // TODO: Implement the fetching (and pre-fetching into local cache) of FlintHub Libraries
-            // TODO: Create FlintHub at all first, lol
-            throw_err(ERR_NOT_IMPLEMENTED_YET);
-        } else {
-            // File path
-            auto file_dep = std::get<std::pair<std::filesystem::path, std::string>>(dep);
-            if (Resolver::get_file_map().find(file_dep.second) == Resolver::get_file_map().end()) {
+    std::unordered_map<std::string, std::vector<dependency>> open_dependencies;
+    open_dependencies[file_name] = get_dependency_map().at(file_name);
+
+    // Resolve dependencies as long as there are open dependencies
+    while (!open_dependencies.empty()) {
+        std::unordered_map<std::string, std::vector<dependency>> next_dependencies;
+        // For all files in the open dependencies map
+        for (const auto &[open_dep_name, deps] : open_dependencies) {
+            // For all the dependencies of said file
+            for (const auto &open_dep_dep : deps) {
+                if (std::holds_alternative<std::vector<std::string>>(open_dep_dep)) {
+                    // Library reference
+                    auto lib_dep = std::get<std::vector<std::string>>(open_dep_dep);
+                    // TODO: Implement the fetching (and pre-fetching into local cache) of FlintHub Libraries
+                    // TODO: Create FlintHub at all first, lol
+                    throw_err(ERR_NOT_IMPLEMENTED_YET);
+                    continue;
+                }
+
+                // File path
+                auto file_dep = std::get<std::pair<std::filesystem::path, std::string>>(open_dep_dep);
+                // Check if the file has been parsed already. If it has been, add the DepNode as weak reference to the root dep node
+                if (Resolver::get_file_map().find(file_dep.second) != Resolver::get_file_map().end()) {
+                    std::weak_ptr<DepNode> weak(get_dependency_node_map().at(file_dep.second));
+                    get_dependency_node_map().at(open_dep_name)->dependencies.emplace_back(weak);
+                    continue;
+                }
                 // File is not yet part of the dependency tree, parse it
                 std::filesystem::path dep_file_path = file_dep.first / file_dep.second;
                 FileNode file = Parser::parse_file(dep_file_path);
-                // Recursive call of this function to create the next layer of dependency graphs
-                std::shared_ptr<DepNode> dep = create_dependency_graph(file, file_dep.first);
-                dep->root = base;
-                Resolver::get_dependency_node_map().emplace(file_dep.second, std::move(dep));
+                // Save the file name, as the file itself moves its ownership in the call below
+                std::string parsed_file_name = file.file_name;
+                // Add all dependencies of the file and the file itself to the file map and the dependency map
+                // Also return a created DepNode, but its dependants are not created yet
+                std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file, file_dep.first);
+                if (!base_maybe.has_value()) {
+                    // File already exists in the dependency map, so it can be added to the "root" DepNode as a weak ptr
+                    std::weak_ptr<DepNode> weak(get_dependency_node_map().at(file_dep.second));
+                    get_dependency_node_map().at(open_dep_name)->dependencies.emplace_back(weak);
+                    continue;
+                }
+                // Add parsed file to the dependency graph
+                Resolver::add_path(parsed_file_name, file_dep.first);
+                std::shared_ptr<DepNode> shared_dep = std::make_shared<DepNode>(base_maybe.value());
+                shared_dep->root = get_dependency_node_map().at(open_dep_name);
+                get_dependency_node_map().at(open_dep_name)->dependencies.emplace_back(shared_dep);
+                Resolver::get_dependency_node_map().emplace(file_dep.second, shared_dep);
+                // Add all dependencies of this parsed file to be parsed next
+                if (next_dependencies.find(parsed_file_name) != next_dependencies.end()) {
+                    std::vector<dependency> next_deps = get_dependency_map().at(parsed_file_name);
+                    next_dependencies.at(parsed_file_name)
+                        .insert(next_dependencies.at(parsed_file_name).end(), next_deps.begin(), next_deps.end());
+                } else {
+                    next_dependencies[parsed_file_name] = get_dependency_map().at(parsed_file_name);
+                }
             }
-            // The file is processed now, so we can add a reference to the existent DepNode from the map!!
-            std::shared_ptr<DepNode> dep_to_add = Resolver::get_dependency_node_map().at(file_dep.second);
-            base->dependencies.emplace_back(dep_to_add);
         }
+        open_dependencies = next_dependencies;
     }
 
     return base;
@@ -55,12 +93,22 @@ std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, 
 /// get_dependency_graph_tips
 ///     Finds all tips of the dependency graph
 void Resolver::get_dependency_graph_tips(const std::shared_ptr<DepNode> &dep_node, std::vector<std::weak_ptr<DepNode>> &tips) {
-    for (const std::shared_ptr<DepNode> &dep : dep_node->dependencies) {
-        if (dep->dependencies.empty()) {
-            tips.emplace_back(dep);
+    unsigned int weak_dep_count = 0;
+    for (const auto &dep : dep_node->dependencies) {
+        if (std::holds_alternative<std::shared_ptr<DepNode>>(dep)) {
+            const std::shared_ptr<DepNode> *shared_dep = &std::get<std::shared_ptr<DepNode>>(dep);
+            if (shared_dep->get()->dependencies.empty()) {
+                tips.emplace_back(*shared_dep);
+            } else {
+                get_dependency_graph_tips(*shared_dep, tips);
+            }
         } else {
-            get_dependency_graph_tips(dep, tips);
+            weak_dep_count++;
         }
+    }
+    if (weak_dep_count == dep_node->dependencies.size()) {
+        // Only weak deps, so this dep is the tip
+        tips.emplace_back(dep_node);
     }
 }
 

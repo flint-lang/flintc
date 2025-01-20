@@ -22,6 +22,7 @@ enum ErrorType {
     ERR_LINKING = 17,
     ERR_GENERATING = 18,
     ERR_SCOPE = 19,
+    ERR_RESOLVING = 20,
 };
 
 #endif
