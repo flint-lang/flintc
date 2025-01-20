@@ -58,8 +58,11 @@
 
 std::unordered_map<std::string, llvm::StructType *> Generator::type_map;
 std::unordered_map<std::string, std::vector<llvm::CallInst *>> Generator::unresolved_functions;
+std::unordered_map<std::string, std::unordered_map<std::string, std::vector<llvm::CallInst *>>> Generator::file_unresolved_functions;
 std::unordered_map<std::string, unsigned int> Generator::function_mangle_ids;
 std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> Generator::file_function_mangle_ids;
+std::unordered_map<std::string, std::vector<std::string>> Generator::file_functions;
+std::vector<std::string> Generator::function_names;
 std::array<llvm::CallInst *, 1> Generator::main_call_array;
 std::array<llvm::Module *, 1> Generator::main_module;
 
@@ -108,6 +111,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
                 throw_err(ERR_GENERATING);
             }
             // Add the dependencies root only if all dependants of its root have been compiled
+            // Or add it when only weak dependants have not been compiled yet (the content of the file will be forward-declared)
             if (shared_tip->root != nullptr) {
                 std::vector<std::string> tips_names;
                 tips_names.reserve(tips.size());
@@ -116,11 +120,15 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
                 }
 
                 bool dependants_compiled = true;
-                // Check if the dependency has been compiled yet or will be compiled in this phase
+                // Check if the dependencies have been compiled already or will be compiled in this phase
+                // If the dependency is weak, it does not matter if it already waas compiled or not
                 for (const auto &dependant : shared_tip->root->dependencies) {
-                    if (Resolver::get_module_map().find(dependant->file_name) == Resolver::get_module_map().end() //
-                        && std::find(tips_names.begin(), tips_names.end(), dependant->file_name) == tips_names.end()) {
-                        dependants_compiled = false;
+                    if (std::holds_alternative<std::shared_ptr<DepNode>>(dependant)) {
+                        std::shared_ptr<DepNode> shared_dep = std::get<std::shared_ptr<DepNode>>(dependant);
+                        if (Resolver::get_module_map().find(shared_dep->file_name) == Resolver::get_module_map().end() //
+                            && std::find(tips_names.begin(), tips_names.end(), shared_dep->file_name) == tips_names.end()) {
+                            dependants_compiled = false;
+                        }
                     }
                 }
                 if (dependants_compiled) {
@@ -135,7 +143,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
 
             // Generate the IR code from the given FileNode
             const FileNode *file = &Resolver::get_file_map().at(shared_tip->file_name);
-            std::unique_ptr<llvm::Module> file_module = generate_file_ir(*file, shared_tip->file_name, context, builder.get());
+            std::unique_ptr<llvm::Module> file_module = generate_file_ir(builder.get(), context, shared_tip, *file);
 
             // TODO DONE:   This results in a segmentation fault when the context goes out of scope / memory,
             //              because then the module will have dangling references to the context.
@@ -157,6 +165,20 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
         tips.assign(new_tips.begin(), new_tips.end());
     }
 
+    // Resolve all inter-module calls
+    for (const auto &[file_name, unresolved_calls] : file_unresolved_functions) {
+        for (const auto &[fn_name, calls] : unresolved_calls) {
+            for (llvm::CallInst *call : calls) {
+                std::string mangle_id_string = std::to_string(file_function_mangle_ids[file_name][fn_name]);
+                llvm::Function *actual_function = module->getFunction(fn_name + "." + mangle_id_string);
+                if (actual_function == nullptr) {
+                    throw_err(ERR_GENERATING);
+                }
+                call->getCalledOperandUse().set(actual_function);
+            }
+        }
+    }
+
     // Connect the call from the main module to the actual main function declared by the user
     llvm::Function *main_function = module->getFunction("main_custom");
     if (main_function == nullptr) {
@@ -176,10 +198,13 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
 
 /// generate_file_ir
 ///     Generates the llvm IR code from a given AST FileNode for a given file
-std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext &context,
-    llvm::IRBuilder<> *builder) {
-
-    std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(file_name, context);
+std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
+    llvm::IRBuilder<> *builder,                            //
+    llvm::LLVMContext &context,                            //
+    const std::shared_ptr<DepNode> &dep_node,              //
+    const FileNode &file                                   //
+) {
+    std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(dep_node->file_name, context);
 
     // Declare the built-in functions in the file module to reference the main module's versions
     for (auto &builtin_func : builtins) {
@@ -190,13 +215,20 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
             );
         }
     }
-    // Declare the build-in print functions in the file module to reference the main module's versions
+    // Declare the built-in print functions in the file module to reference the main module's versions
     for (auto &prints : print_functions) {
         if (prints.second != nullptr) {
             module->getOrInsertFunction(         //
                 prints.second->getName(),        //
                 prints.second->getFunctionType() //
             );
+        }
+    }
+    // Forward declare all functions from all files where this file has a wak reference to
+    for (const auto &dep : dep_node->dependencies) {
+        if (std::holds_alternative<std::weak_ptr<DepNode>>(dep)) {
+            std::weak_ptr<DepNode> weak_dep = std::get<std::weak_ptr<DepNode>>(dep);
+            generate_forward_declarations(*builder, module.get(), Resolver::get_file_map().at(weak_dep.lock()->file_name));
         }
     }
 
@@ -209,11 +241,26 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
                 llvm::FunctionType *function_type = generate_function_type(context, function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 function_mangle_ids[function_node->name] = mangle_id++;
+                if (file_functions.find(file.file_name) == file_functions.end()) {
+                    file_functions[file.file_name] = {function_node->name};
+                } else {
+                    file_functions.at(file.file_name).emplace_back(function_node->name);
+                }
             }
         }
     }
+    // If the file does not contain any functions, the line after the if statement would fail
+    // thus we need to add an empty function to the file_functions map
+    if(file_functions.find(file.file_name) == file_functions.end()) {
+        file_functions[file.file_name] = {};
+    }
+    function_names = file_functions.at(file.file_name);
+    // Store the mangle ids of this file within the file_function_mangle_ids
+    if (file_function_mangle_ids.find(file.file_name) == file_function_mangle_ids.end()) {
+        file_function_mangle_ids[file.file_name] = function_mangle_ids;
+    }
 
-    // Iterate through all AST Nodes in the file and parse them accordingly (only functions for now!)
+    // Iterate through all AST Nodes in the file and generate them accordingly (only functions for now!)
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             llvm::Function *function_definition = generate_function(module.get(), function_node);
@@ -241,8 +288,8 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir(const FileNode &file, 
         }
     }
     unresolved_functions.clear();
-    file_function_mangle_ids[file_name] = function_mangle_ids;
     function_mangle_ids.clear();
+    function_names.clear();
 
     return module;
 }
@@ -345,6 +392,25 @@ void Generator::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *
     builder->CreateBr(merge_block);
     builder->SetInsertPoint(merge_block);
     llvm::Value *ret = builder->CreateRet(err_val);
+}
+
+/// generate_forward_declarations
+///     Generates forward-declarations of all constructs of the FileNode inside the current module
+void Generator::generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::Module *module, const FileNode &file_node) {
+    unsigned int mangle_id = 1;
+    file_function_mangle_ids[file_node.file_name] = {};
+    file_functions[file_node.file_name] = {};
+    for (const std::unique_ptr<ASTNode> &node : file_node.definitions) {
+        if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
+            // Create a forward declaration for the function only if it is not the main function!
+            if (function_node->name != "main") {
+                llvm::FunctionType *function_type = generate_function_type(module->getContext(), function_node);
+                module->getOrInsertFunction(function_node->name, function_type);
+                file_function_mangle_ids.at(file_node.file_name).emplace(function_node->name, mangle_id++);
+                file_functions.at(file_node.file_name).emplace_back(function_node->name);
+            }
+        }
+    }
 }
 
 /// get_module_ir_string
@@ -473,6 +539,11 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::get_function_definit
         }
     }
     if (func_decl != nullptr) {
+        if (std::find(function_names.begin(), function_names.end(), call_node->function_name) == function_names.end()) {
+            // Function is defined in another module
+            return {func_decl, true};
+        }
+        // Function is defined in the current module
         return {func_decl, false};
     }
     // Get the mangle id by looking for the function's name
@@ -1736,6 +1807,25 @@ llvm::Value *Generator::generate_call(                                    //
             unresolved_functions[call_node->function_name] = {call};
         } else {
             unresolved_functions[call_node->function_name].push_back(call);
+        }
+    } else {
+        for (const auto &[file_name, function_list] : file_functions) {
+            if (std::find(function_list.begin(), function_list.end(), call_node->function_name) != function_list.end()) {
+                // Check if any unresolved function call from a function of that file even exists, if not create the first one
+                if (file_unresolved_functions.find(file_name) == file_unresolved_functions.end()) {
+                    file_unresolved_functions[file_name][call_node->function_name] = {call};
+                    break;
+                }
+                // Check if this function the call references has been referenced before. If not, create a new entry to the map
+                // otherwise just add the call
+                if (file_unresolved_functions.at(file_name).find(call_node->function_name) ==
+                    file_unresolved_functions.at(file_name).end()) {
+                    file_unresolved_functions.at(file_name)[call_node->function_name] = {call};
+                } else {
+                    file_unresolved_functions.at(file_name).at(call_node->function_name).push_back(call);
+                }
+                break;
+            }
         }
     }
 

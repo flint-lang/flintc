@@ -2,3 +2,7 @@ use "mult.ft"
 
 def add(int x, int y) -> int:
 	return x + y;
+
+def add_more(int x, int y) -> int:
+	int z = mult(x, 2);
+	return z + y;

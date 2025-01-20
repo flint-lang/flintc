@@ -42,8 +42,12 @@ class Generator {
         std::shared_ptr<DepNode> &dep_graph                   //
     );
 
-    static std::unique_ptr<llvm::Module> generate_file_ir(const FileNode &file, const std::string &file_name, llvm::LLVMContext &context,
-        llvm::IRBuilder<> *builder);
+    static std::unique_ptr<llvm::Module> generate_file_ir( //
+        llvm::IRBuilder<> *builder,                        //
+        llvm::LLVMContext &context,                        //
+        const std::shared_ptr<DepNode> &dep_node,          //
+        const FileNode &file                               //
+    );
 
     static std::string get_module_ir_string(const llvm::Module *module);
     static std::string resolve_ir_comments(const std::string &ir_string);
@@ -74,10 +78,14 @@ class Generator {
     static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
     static std::pair<std::optional<llvm::Function *>, bool> get_function_definition(llvm::Function *parent, const CallNode *call_node);
     static void generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module);
+    static void generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::Module *module, const FileNode &file_node);
 
     static std::unordered_map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
+    static std::unordered_map<std::string, std::unordered_map<std::string, std::vector<llvm::CallInst *>>> file_unresolved_functions;
     static std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> file_function_mangle_ids;
     static std::unordered_map<std::string, unsigned int> function_mangle_ids;
+    static std::unordered_map<std::string, std::vector<std::string>> file_functions;
+    static std::vector<std::string> function_names;
     static std::array<llvm::CallInst *, 1> main_call_array;
     static std::array<llvm::Module *, 1> main_module;
 
