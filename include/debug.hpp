@@ -1,6 +1,7 @@
 #ifndef __DEBUG_HPP__
 #define __DEBUG_HPP__
 
+#include "resolver/resolver.hpp"
 #include "test_utils.hpp"
 #include "types.hpp"
 
@@ -54,6 +55,10 @@ namespace Debug {
     void print_tree_row(const std::vector<TreeType> &types, TestResult *result);
     void print_tree_characters(const std::vector<TreeType> &types);
     std::string create_n_str(unsigned int n, const std::string &str);
+
+    namespace Dep {
+        void print_dep_tree(unsigned int indent_lvl, const std::variant<std::shared_ptr<DepNode>, std::weak_ptr<DepNode>> &dep_node);
+    } // namespace Dep
 
     namespace AST {
         namespace {

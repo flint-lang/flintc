@@ -133,6 +133,31 @@ namespace Debug {
         return ret;
     }
 
+    namespace Dep {
+        /// print_dep_tree
+        ///     Prints the dependency tree and marks if a reference is direct or indirect (weak_ptr)
+        void print_dep_tree(unsigned int indent_lvl, const std::variant<std::shared_ptr<DepNode>, std::weak_ptr<DepNode>> &dep_node) {
+            if (std::holds_alternative<std::weak_ptr<DepNode>>(dep_node)) {
+                std::cout << std::get<std::weak_ptr<DepNode>>(dep_node).lock()->file_name << " [weak]" << std::endl;
+                return;
+            }
+
+            std::shared_ptr<DepNode> dep_node_sh = std::get<std::shared_ptr<DepNode>>(dep_node);
+            std::cout << dep_node_sh->file_name << std::endl;
+            for (auto dep = dep_node_sh->dependencies.begin(); dep != dep_node_sh->dependencies.end(); ++dep) {
+                for (int i = 0; i < indent_lvl; i++) {
+                    std::cout << " " << tree_characters.at(VERT) << "  ";
+                }
+                if ((dep + 1) != dep_node_sh->dependencies.end()) {
+                    std::cout << " " << tree_characters.at(BRANCH) << tree_characters.at(HOR) << " ";
+                } else {
+                    std::cout << " " << tree_characters.at(SINGLE) << tree_characters.at(HOR) << " ";
+                }
+                print_dep_tree(indent_lvl + 1, *dep);
+            }
+        }
+    } // namespace Dep
+
     namespace AST {
         namespace {
             /// print_table_header
