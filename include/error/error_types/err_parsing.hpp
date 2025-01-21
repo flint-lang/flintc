@@ -2,13 +2,12 @@
 #define __ERR_PARSING_HPP__
 
 #include "base_error.hpp"
+#include "types.hpp"
 
-#include <vector>
-
-class ParsingError : public BaseError {
+class ErrParsing : public BaseError {
   public:
-    ParsingError(const std::vector<std::string> &tokens, const std::string &file, int line, int column) :
-        BaseError("Parsing Error", file, line, column),
+    ErrParsing(const std::string &message, const std::string &file, int line, int column, const token_list &tokens) :
+        BaseError(file, line, column, message),
         tokens(tokens) {}
 
     [[nodiscard]]
@@ -16,13 +15,13 @@ class ParsingError : public BaseError {
         std::ostringstream oss;
         oss << BaseError::to_string() << "\nOffending tokens: ";
         for (const auto &token : tokens) {
-            oss << token << " ";
+            oss << token.lexme << " ";
         }
         return oss.str();
     }
 
   private:
-    std::vector<std::string> tokens;
+    token_list tokens;
 };
 
 #endif

@@ -23,16 +23,16 @@ class BaseError {
     BaseError &operator=(BaseError &&) = default;
 
   protected:
-    BaseError(std::string message, std::string file, int line, int column) :
-        message(std::move(message)),
+    BaseError(std::string file, int line, int column, std::string message) :
         file(std::move(file)),
         line(line),
-        column(column) {}
+        column(column),
+        message(std::move(message)) {}
 
-    std::string message;
     std::string file;
     int line;
     int column;
+    std::string message;
 };
 
 #endif

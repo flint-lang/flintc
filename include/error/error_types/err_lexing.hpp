@@ -3,10 +3,10 @@
 
 #include "base_error.hpp"
 
-class LexingError : public BaseError {
+class ErrLexing : public BaseError {
   public:
-    LexingError(std::string &text, std::string &file, int line, int column) :
-        BaseError("Lexing Error", file, line, column),
+    ErrLexing(const std::string &message, std::string &file, int line, int column, std::string &text) :
+        BaseError(file, line, column, message),
         text(text) {}
 
     [[nodiscard]]
