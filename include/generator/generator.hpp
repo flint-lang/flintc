@@ -143,11 +143,6 @@ class Generator {
     /// - **Value** `llvm::StructType *` - The reference to the already existent StructType definition
     static std::unordered_map<std::string, llvm::StructType *> type_map;
 
-    static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
-    static std::pair<std::optional<llvm::Function *>, bool> get_function_definition(llvm::Function *parent, const CallNode *call_node);
-    static void generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module);
-    static void generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::Module *module, const FileNode &file_node);
-
     /// @var `unresolved_functions`
     /// @brief Stores unresolved function calls within a module.
     ///
@@ -259,160 +254,193 @@ class Generator {
     /// array than to pass it around unnecessarily.
     static std::array<llvm::Module *, 1> main_module;
 
-    static void generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module);
-    static void generate_builtin_print( //
-        llvm::IRBuilder<> *builder,     //
-        llvm::Module *module,           //
-        const std::string &type,        //
-        const std::string &format       //
-    );
-    static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
+    class IR {
+      public:
+        IR() = delete;
+        static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
+        static void generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::Module *module, const FileNode &file_node);
+        static llvm::Type *get_type_from_str(llvm::LLVMContext &context, const std::string &str);
+        static llvm::Value *get_default_value_of_type(llvm::Type *type);
+        static llvm::Value *generate_pow_instruction( //
+            llvm::IRBuilder<> &builder,               //
+            llvm::Function *parent,                   //
+            llvm::Value *lhs,                         //
+            llvm::Value *rhs                          //
+        );
+    }; // subclass IR
 
-    static llvm::Value *generate_pow_instruction(llvm::IRBuilder<> &builder, llvm::Function *parent, llvm::Value *lhs, llvm::Value *rhs);
+    class Builtin {
+      public:
+        Builtin() = delete;
+        static void generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module);
+        static void generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module);
+        static void generate_builtin_print( //
+            llvm::IRBuilder<> *builder,     //
+            llvm::Module *module,           //
+            const std::string &type,        //
+            const std::string &format       //
+        );
+        static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
+    }; // subclass Builtin
 
-    static bool function_has_return(llvm::Function *function);
-    static void generate_phi_calls(                                                                            //
-        llvm::IRBuilder<> &builder,                                                                            //
-        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
-    );
-    static void generate_call_allocations(                                     //
-        llvm::IRBuilder<> &builder,                                            //
-        llvm::Function *parent,                                                //
-        Scope *scope,                                                          //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-        CallNode *call_node                                                    //
-    );
-    static void generate_allocation(                                           //
-        llvm::IRBuilder<> &builder,                                            //
-        Scope *scope,                                                          //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-        const std::string &alloca_name,                                        //
-        llvm::Type *type,                                                      //
-        const std::string &ir_name,                                            //
-        const std::string &ir_comment                                          //
-    );
-    static void generate_allocations(                                         //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        Scope *scope,                                                         //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
-    static llvm::Type *get_type_from_str(llvm::LLVMContext &context, const std::string &str);
-    static llvm::Value *get_default_value_of_type(llvm::Type *type);
-    static llvm::AllocaInst *generate_default_struct( //
-        llvm::IRBuilder<> &builder,                   //
-        llvm::StructType *type,                       //
-        const std::string &name,                      //
-        bool ignore_first = false                     //
-    );
+    class Allocation {
+      public:
+        Allocation() = delete;
+        static void generate_allocations(                                         //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            Scope *scope,                                                         //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static void generate_call_allocations(                                     //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            Scope *scope,                                                          //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            CallNode *call_node                                                    //
+        );
+        static void generate_allocation(                                           //
+            llvm::IRBuilder<> &builder,                                            //
+            Scope *scope,                                                          //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const std::string &alloca_name,                                        //
+            llvm::Type *type,                                                      //
+            const std::string &ir_name,                                            //
+            const std::string &ir_comment                                          //
+        );
+        static llvm::AllocaInst *generate_default_struct( //
+            llvm::IRBuilder<> &builder,                   //
+            llvm::StructType *type,                       //
+            const std::string &name,                      //
+            bool ignore_first = false                     //
+        );
+    }; // subclass Allocation
 
-    static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
-    static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
-    static void generate_body(                                                                                  //
-        llvm::IRBuilder<> &builder,                                                                             //
-        llvm::Function *parent,                                                                                 //
-        Scope *scope,                                                                                           //
-        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
-    );
+    class Function {
+      public:
+        Function() = delete;
+        static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
+        static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
+        static std::pair<std::optional<llvm::Function *>, bool> get_function_definition(llvm::Function *parent, const CallNode *call_node);
+        static bool function_has_return(llvm::Function *function);
+    }; // subclass Function
 
-    static void generate_statement(                                                                             //
-        llvm::IRBuilder<> &builder,                                                                             //
-        llvm::Function *parent,                                                                                 //
-        Scope *scope,                                                                                           //
-        const body_statement &statement,                                                                        //
-        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
-    );
-    static void generate_return_statement(                                    //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        Scope *scope,                                                         //
-        const ReturnNode *return_node,                                        //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
-    static void generate_throw_statement(                                     //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        Scope *scope,                                                         //
-        const ThrowNode *throw_node,                                          //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
-    static void generate_if_statement(                                                                          //
-        llvm::IRBuilder<> &builder,                                                                             //
-        llvm::Function *parent,                                                                                 //
-        const IfNode *if_node,                                                                                  //
-        unsigned int nesting_level,                                                                             //
-        const std::vector<llvm::BasicBlock *> &blocks,                                                          //
-        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
-    );
-    static void generate_while_loop(                                          //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        const WhileNode *while_node,                                          //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
-    static void generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node);
-    static void generate_catch_statement(                                     //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        Scope *scope,                                                         //
-        const CatchNode *catch_node,                                          //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
-    static void generate_assignment(                                                                            //
-        llvm::IRBuilder<> &builder,                                                                             //
-        llvm::Function *parent,                                                                                 //
-        Scope *scope,                                                                                           //
-        const AssignmentNode *assignment_node,                                                                  //
-        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
-    );
-    static void generate_declaration(                                         //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        Scope *scope,                                                         //
-        const DeclarationNode *declaration_node,                              //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
+    class Statement {
+      public:
+        Statement() = delete;
+        static void generate_statement(                                                                             //
+            llvm::IRBuilder<> &builder,                                                                             //
+            llvm::Function *parent,                                                                                 //
+            Scope *scope,                                                                                           //
+            const body_statement &statement,                                                                        //
+            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
+        );
+        static void generate_body(                                                                                  //
+            llvm::IRBuilder<> &builder,                                                                             //
+            llvm::Function *parent,                                                                                 //
+            Scope *scope,                                                                                           //
+            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
+        );
+        static void generate_return_statement(                                    //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            Scope *scope,                                                         //
+            const ReturnNode *return_node,                                        //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static void generate_throw_statement(                                     //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            Scope *scope,                                                         //
+            const ThrowNode *throw_node,                                          //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static void generate_if_statement(                                                                          //
+            llvm::IRBuilder<> &builder,                                                                             //
+            llvm::Function *parent,                                                                                 //
+            const IfNode *if_node,                                                                                  //
+            unsigned int nesting_level,                                                                             //
+            const std::vector<llvm::BasicBlock *> &blocks,                                                          //
+            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
+        );
+        static void generate_while_loop(                                          //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            const WhileNode *while_node,                                          //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static void generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node);
+        static void generate_phi_calls(                                                                            //
+            llvm::IRBuilder<> &builder,                                                                            //
+            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+        );
+        static void generate_catch_statement(                                     //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            Scope *scope,                                                         //
+            const CatchNode *catch_node,                                          //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static void generate_declaration(                                         //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            Scope *scope,                                                         //
+            const DeclarationNode *declaration_node,                              //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static void generate_assignment(                                                                            //
+            llvm::IRBuilder<> &builder,                                                                             //
+            llvm::Function *parent,                                                                                 //
+            Scope *scope,                                                                                           //
+            const AssignmentNode *assignment_node,                                                                  //
+            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
+        );
+    }; // subclass Statement
 
-    static llvm::Value *generate_expression(                                  //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        Scope *scope,                                                         //
-        const ExpressionNode *expression_node,                                //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
-    static llvm::Value *generate_variable(                                    //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        Scope *scope,                                                         //
-        const VariableNode *variable_node,                                    //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
-    static llvm::Value *generate_unary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const UnaryOpNode *unary_op_node);
-    static llvm::Value *generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node);
-    static llvm::Value *generate_call(                                        //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        Scope *scope,                                                         //
-        const CallNode *call_node,                                            //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
-    static void generate_rethrow(                                             //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        const CallNode *call_node,                                            //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
-    static llvm::Value *generate_binary_op(                                   //
-        llvm::IRBuilder<> &builder,                                           //
-        llvm::Function *parent,                                               //
-        Scope *scope,                                                         //
-        const BinaryOpNode *bin_op_node,                                      //
-        std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
-    );
+    class Expression {
+      public:
+        Expression() = delete;
+        static llvm::Value *generate_expression(                                  //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            Scope *scope,                                                         //
+            const ExpressionNode *expression_node,                                //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static llvm::Value *generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node);
+        static llvm::Value *generate_variable(                                    //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            Scope *scope,                                                         //
+            const VariableNode *variable_node,                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static llvm::Value *generate_call(                                        //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            Scope *scope,                                                         //
+            const CallNode *call_node,                                            //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static void generate_rethrow(                                             //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            const CallNode *call_node,                                            //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+        static llvm::Value *generate_unary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const UnaryOpNode *unary_op_node);
+        static llvm::Value *generate_binary_op(                                   //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            Scope *scope,                                                         //
+            const BinaryOpNode *bin_op_node,                                      //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        );
+    }; // subclass Expression
 };
 
 #endif
