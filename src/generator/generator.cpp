@@ -1,35 +1,10 @@
 #include "generator/generator.hpp"
 
-#include "debug.hpp"
 #include "error/error.hpp"
 #include "error/error_type.hpp"
-#include "lexer/lexer.hpp"
-#include "lexer/token.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
-#include "parser/ast/expressions/call_node.hpp"
-#include "parser/ast/expressions/expression_node.hpp"
-#include "parser/ast/expressions/literal_node.hpp"
-#include "parser/ast/expressions/variable_node.hpp"
-#include "parser/ast/statements/assignment_node.hpp"
-#include "parser/ast/statements/catch_node.hpp"
-#include "parser/ast/statements/declaration_node.hpp"
-#include "parser/ast/statements/for_loop_node.hpp"
-#include "parser/ast/statements/if_node.hpp"
-#include "parser/ast/statements/return_node.hpp"
-#include "parser/ast/statements/statement_node.hpp"
-#include "parser/ast/statements/while_node.hpp"
-#include "parser/parser.hpp"
 #include "resolver/resolver.hpp"
-#include "types.hpp"
-
-// #include <llvm/IR/DerivedTypes.h>
-// #include <llvm/IRReader/IRReader.h>
-// #include <llvm/Support/SourceMgr.h>
-// #include <llvm/Support/TargetSelect.h>
-// #include <llvm/Support/raw_ostream.h>
-// #include <llvm/Target/TargetMachine.h>
-// #include <llvm/Target/TargetOptions.h>
 
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/BasicBlock.h>
@@ -276,8 +251,6 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     return module;
 }
 
-/// get_module_ir_string
-///     Returns the module string
 std::string Generator::get_module_ir_string(const llvm::Module *module) {
     std::string ir_string;
     llvm::raw_string_ostream stream(ir_string);
@@ -286,8 +259,6 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
     return ir_string;
 }
 
-/// resolve_ir_comments
-///     Resolves all IR file module comments
 std::string Generator::resolve_ir_comments(const std::string &ir_string) {
     // LLVM's automatic comments tart at the 50th character, so we will start 10 characters later
     static const unsigned int COMMENT_OFFSET = 60;
