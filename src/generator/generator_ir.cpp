@@ -1,8 +1,5 @@
 #include "generator/generator.hpp"
 
-/// add_and_or_get_type
-///     Returns the struct return type of a given function node.
-///     Returns a reference to the already existent type
 llvm::StructType *Generator::IR::add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node) {
     std::string return_types;
     for (auto return_it = function_node->return_types.begin(); return_it < function_node->return_types.end(); ++return_it) {
@@ -37,8 +34,6 @@ llvm::StructType *Generator::IR::add_and_or_get_type(llvm::LLVMContext *context,
     return type_map[return_types];
 }
 
-/// generate_forward_declarations
-///     Generates forward-declarations of all constructs of the FileNode inside the current module
 void Generator::IR::generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::Module *module, const FileNode &file_node) {
     unsigned int mangle_id = 1;
     file_function_mangle_ids[file_node.file_name] = {};
@@ -56,8 +51,6 @@ void Generator::IR::generate_forward_declarations(llvm::IRBuilder<> &builder, ll
     }
 }
 
-/// get_type_from_str
-///     Returns the type of the given string
 llvm::Type *Generator::IR::get_type_from_str(llvm::LLVMContext &context, const std::string &str) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
     if (keywords.find(str) != keywords.end()) {
@@ -87,13 +80,11 @@ llvm::Type *Generator::IR::get_type_from_str(llvm::LLVMContext &context, const s
     return nullptr;
 }
 
-/// get_default_value_of_type
-///     Returns the default value of the given llvm Type
 llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     if (type->isIntegerTy()) {
         return llvm::ConstantInt::get(type, 0);
     }
-    if (type->isDoubleTy()) {
+    if (type->isFloatTy()) {
         return llvm::ConstantFP::get(type, 0.0);
     }
     if (type->isPointerTy()) {
@@ -104,8 +95,6 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     return nullptr;
 }
 
-/// generate_pow_instruction
-///     Generates the instruction to power the lhs rhs times (lhs ** rhs)
 llvm::Value *Generator::IR::generate_pow_instruction( //
     llvm::IRBuilder<> &builder,                       //
     llvm::Function *parent,                           //

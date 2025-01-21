@@ -248,10 +248,10 @@ class Generator {
     /// @var `main_module`
     /// @brief Holds a static reference to the main module
     ///
-    /// This array of size 1 exists because of the same reasons as why 'main_call_array' exists. It holds the reference to the main module,
-    /// which means that every function can reference the main module if needed without the main module needed to explicitely be passed
-    /// around through many functions which dont use it annyways. It is actually much more efficient to have this reference inside an static
-    /// array than to pass it around unnecessarily.
+    /// This array of size 1 exists because of the same reasons as why 'main_call_array' exists. It holds the reference to the main
+    /// module, which means that every function can reference the main module if needed without the main module needed to explicitely be
+    /// passed around through many functions which dont use it annyways. It is actually much more efficient to have this reference inside an
+    /// static array than to pass it around unnecessarily.
     static std::array<llvm::Module *, 1> main_module;
 
     /// @class `IR`
@@ -259,11 +259,58 @@ class Generator {
     /// @note This class cannot be initialized and all functions within this class are static
     class IR {
       public:
+        // The constructor is deleted to make this class non-initializable
         IR() = delete;
+
+        /// @function `add_and_or_get_type`
+        /// @brief Checks if a given return type of a given FunctionNode already exists. If it exists, it returns a reference to it, if it
+        /// does not exist it creates it and then returns a reference to the created StructType
+        ///
+        /// @param `context` The LLVM context
+        /// @param `function_node` The FunctionNode whose return types will be analyzed
+        /// @return `llvm::StructType *` The reference to the StructType, representing the return type of the given function
         static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
+
+        /// @function `generate_forward_declarations`
+        /// @brief Generates the forward-declarations of all constructs in the given FileNode, except the 'use' constructs to make another
+        /// module able to use them. This function is also essential for Flint's support of circular dependency resolution
+        ///
+        /// @param `builder` The IR builder
+        /// @param `module` The module the forward declarations are declared inside
+        /// @param `file_node` The FileNode whose construct definitions will be forward-declared in the given module
         static void generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::Module *module, const FileNode &file_node);
+
+        /// @function `get_type_from_str`
+        /// @brief Returns the llvm Type from a given string value
+        ///
+        /// @param `context` The LLVM context
+        /// @param `str` The string representation of the type which is matched to get the correct type
+        /// @return `llvm::Type *` A pointer to the correct llvm Type from the given string
+        ///
+        /// @throws ErrGenerating when the type could not be parsed from the string representation to a real type
         static llvm::Type *get_type_from_str(llvm::LLVMContext &context, const std::string &str);
+
+        /// @function `get_default_value_of_type`
+        /// @brief Returns the default value associated with a given Type
+        ///
+        /// @param `type` The Type from which the default value has to be returned
+        /// @return `llvm::Value *` The default value of the given Type
+        ///
+        /// @throws ErrGenerating when the given Type has no default value available for it
+        /// @todo Add more types to the function, currently it only works with int, flint and pointer types
         static llvm::Value *get_default_value_of_type(llvm::Type *type);
+
+        /// @function `generate_pow_instruction`
+        /// @brief Generates a pow instruction from the given llvm values
+        ///
+        /// @param `builder` The IR builder
+        /// @param `parent` The function the instruction will be generated in
+        /// @param `lhs` The lhs value of the pow instruction (the pow base)
+        /// @param `rhs` The rhs value of the pow instruction (the pow exponent)
+        /// @return `llvm::Value *` A pointer to the generated result value of the pow instruction
+        ///
+        /// @attention This function currently just returns a nullptr, dont use it yet!
+        /// @todo Actually implement this function
         static llvm::Value *generate_pow_instruction( //
             llvm::IRBuilder<> &builder,               //
             llvm::Function *parent,                   //
