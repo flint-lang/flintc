@@ -233,6 +233,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     }
 
     unsigned int mangle_id = 1;
+    file_function_names[file.file_name] = {};
     // Declare all functions in the file at the top of the module
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
@@ -241,24 +242,13 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
                 llvm::FunctionType *function_type = generate_function_type(context, function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 function_mangle_ids[function_node->name] = mangle_id++;
-                if (file_function_names.find(file.file_name) == file_function_names.end()) {
-                    file_function_names[file.file_name] = {function_node->name};
-                } else {
-                    file_function_names.at(file.file_name).emplace_back(function_node->name);
-                }
+                file_function_names.at(file.file_name).emplace_back(function_node->name);
             }
         }
     }
-    // If the file does not contain any functions, the line after the if statement would fail
-    // thus we need to add an empty function to the file_functions map
-    if (file_function_names.find(file.file_name) == file_function_names.end()) {
-        file_function_names[file.file_name] = {};
-    }
     function_names = file_function_names.at(file.file_name);
     // Store the mangle ids of this file within the file_function_mangle_ids
-    if (file_function_mangle_ids.find(file.file_name) == file_function_mangle_ids.end()) {
-        file_function_mangle_ids[file.file_name] = function_mangle_ids;
-    }
+    file_function_mangle_ids[file.file_name] = function_mangle_ids;
 
     // Iterate through all AST Nodes in the file and generate them accordingly (only functions for now!)
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
