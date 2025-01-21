@@ -254,6 +254,9 @@ class Generator {
     /// array than to pass it around unnecessarily.
     static std::array<llvm::Module *, 1> main_module;
 
+    /// @class `IR`
+    /// @brief The class which is responsible for the utility functions for the IR generation
+    /// @note This class cannot be initialized and all functions within this class are static
     class IR {
       public:
         IR() = delete;
@@ -269,6 +272,9 @@ class Generator {
         );
     }; // subclass IR
 
+    /// @class `Builtin`
+    /// @brief The class which is responsible for generating all builtin functions
+    /// @note This class cannot be initialized and all functions within this class are static
     class Builtin {
       public:
         Builtin() = delete;
@@ -283,6 +289,9 @@ class Generator {
         static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
     }; // subclass Builtin
 
+    /// @class `Allocation`
+    /// @brief The class which is responsible for everything allocation-related, like varaible preallocation
+    /// @note This class cannot be initialized and all functions within this class are static
     class Allocation {
       public:
         Allocation() = delete;
@@ -316,6 +325,9 @@ class Generator {
         );
     }; // subclass Allocation
 
+    /// @class `Function`
+    /// @brief The class which is responsible for generating everything related to functions
+    /// @note This class cannot be initialized and all functions within this class are static
     class Function {
       public:
         Function() = delete;
@@ -325,6 +337,9 @@ class Generator {
         static bool function_has_return(llvm::Function *function);
     }; // subclass Function
 
+    /// @class `Statement`
+    /// @brief The class which is responsible for generating everything related to statements
+    /// @note This class cannot be initialized and all functions within this class are static
     class Statement {
       public:
         Statement() = delete;
@@ -401,6 +416,9 @@ class Generator {
         );
     }; // subclass Statement
 
+    /// @class `Expression`
+    /// @brief The class which is responsible for generating everything related to expressions
+    /// @note This class cannot be initialized and all functions within this class are static
     class Expression {
       public:
         Expression() = delete;
