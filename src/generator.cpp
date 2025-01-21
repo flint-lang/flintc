@@ -66,8 +66,6 @@ std::vector<std::string> Generator::function_names;
 std::array<llvm::CallInst *, 1> Generator::main_call_array;
 std::array<llvm::Module *, 1> Generator::main_module;
 
-/// generate_program_ir
-///     Generates the llvm IR code for a complete program
 std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     const std::string &program_name,                          //
     llvm::LLVMContext &context,                               //
@@ -145,10 +143,6 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
             const FileNode *file = &Resolver::get_file_map().at(shared_tip->file_name);
             std::unique_ptr<llvm::Module> file_module = generate_file_ir(builder.get(), context, shared_tip, *file);
 
-            // TODO DONE:   This results in a segmentation fault when the context goes out of scope / memory,
-            //              because then the module will have dangling references to the context.
-            //              All modules in the Resolver must be cleared and deleted before the context goes oom!
-            //              Its the reason to why Resolver::clear() was implemented!
             // Store the generated module in the resolver
             Resolver::add_ir(shared_tip->file_name, file_module.get());
 
@@ -196,8 +190,6 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     return module;
 }
 
-/// generate_file_ir
-///     Generates the llvm IR code from a given AST FileNode for a given file
 std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     llvm::IRBuilder<> *builder,                            //
     llvm::LLVMContext &context,                            //
