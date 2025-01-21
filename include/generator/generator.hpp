@@ -82,9 +82,9 @@ class Generator {
 
     static std::unordered_map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
     static std::unordered_map<std::string, std::unordered_map<std::string, std::vector<llvm::CallInst *>>> file_unresolved_functions;
-    static std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> file_function_mangle_ids;
     static std::unordered_map<std::string, unsigned int> function_mangle_ids;
-    static std::unordered_map<std::string, std::vector<std::string>> file_functions;
+    static std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> file_function_mangle_ids;
+    static std::unordered_map<std::string, std::vector<std::string>> file_function_names;
     static std::vector<std::string> function_names;
     static std::array<llvm::CallInst *, 1> main_call_array;
     static std::array<llvm::Module *, 1> main_module;

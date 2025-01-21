@@ -61,7 +61,7 @@ std::unordered_map<std::string, std::vector<llvm::CallInst *>> Generator::unreso
 std::unordered_map<std::string, std::unordered_map<std::string, std::vector<llvm::CallInst *>>> Generator::file_unresolved_functions;
 std::unordered_map<std::string, unsigned int> Generator::function_mangle_ids;
 std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> Generator::file_function_mangle_ids;
-std::unordered_map<std::string, std::vector<std::string>> Generator::file_functions;
+std::unordered_map<std::string, std::vector<std::string>> Generator::file_function_names;
 std::vector<std::string> Generator::function_names;
 std::array<llvm::CallInst *, 1> Generator::main_call_array;
 std::array<llvm::Module *, 1> Generator::main_module;
@@ -241,20 +241,20 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
                 llvm::FunctionType *function_type = generate_function_type(context, function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 function_mangle_ids[function_node->name] = mangle_id++;
-                if (file_functions.find(file.file_name) == file_functions.end()) {
-                    file_functions[file.file_name] = {function_node->name};
+                if (file_function_names.find(file.file_name) == file_function_names.end()) {
+                    file_function_names[file.file_name] = {function_node->name};
                 } else {
-                    file_functions.at(file.file_name).emplace_back(function_node->name);
+                    file_function_names.at(file.file_name).emplace_back(function_node->name);
                 }
             }
         }
     }
     // If the file does not contain any functions, the line after the if statement would fail
     // thus we need to add an empty function to the file_functions map
-    if(file_functions.find(file.file_name) == file_functions.end()) {
-        file_functions[file.file_name] = {};
+    if (file_function_names.find(file.file_name) == file_function_names.end()) {
+        file_function_names[file.file_name] = {};
     }
-    function_names = file_functions.at(file.file_name);
+    function_names = file_function_names.at(file.file_name);
     // Store the mangle ids of this file within the file_function_mangle_ids
     if (file_function_mangle_ids.find(file.file_name) == file_function_mangle_ids.end()) {
         file_function_mangle_ids[file.file_name] = function_mangle_ids;
@@ -399,7 +399,7 @@ void Generator::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *
 void Generator::generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::Module *module, const FileNode &file_node) {
     unsigned int mangle_id = 1;
     file_function_mangle_ids[file_node.file_name] = {};
-    file_functions[file_node.file_name] = {};
+    file_function_names[file_node.file_name] = {};
     for (const std::unique_ptr<ASTNode> &node : file_node.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             // Create a forward declaration for the function only if it is not the main function!
@@ -407,7 +407,7 @@ void Generator::generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::
                 llvm::FunctionType *function_type = generate_function_type(module->getContext(), function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 file_function_mangle_ids.at(file_node.file_name).emplace(function_node->name, mangle_id++);
-                file_functions.at(file_node.file_name).emplace_back(function_node->name);
+                file_function_names.at(file_node.file_name).emplace_back(function_node->name);
             }
         }
     }
@@ -1809,7 +1809,7 @@ llvm::Value *Generator::generate_call(                                    //
             unresolved_functions[call_node->function_name].push_back(call);
         }
     } else {
-        for (const auto &[file_name, function_list] : file_functions) {
+        for (const auto &[file_name, function_list] : file_function_names) {
             if (std::find(function_list.begin(), function_list.end(), call_node->function_name) != function_list.end()) {
                 // Check if any unresolved function call from a function of that file even exists, if not create the first one
                 if (file_unresolved_functions.find(file_name) == file_unresolved_functions.end()) {
