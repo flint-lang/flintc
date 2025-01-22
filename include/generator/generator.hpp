@@ -419,12 +419,19 @@ class Generator {
             const ThrowNode *throw_node,                                          //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
+        static void generate_if_blocks(                                                                            //
+            llvm::IRBuilder<> &builder,                                                                            //
+            llvm::Function *parent,                                                                                //
+            const IfNode *if_node,                                                                                 //
+            std::vector<llvm::BasicBlock *> &blocks,                                                               //
+            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+        );
         static void generate_if_statement(                                                                          //
             llvm::IRBuilder<> &builder,                                                                             //
             llvm::Function *parent,                                                                                 //
             const IfNode *if_node,                                                                                  //
             unsigned int nesting_level,                                                                             //
-            const std::vector<llvm::BasicBlock *> &blocks,                                                          //
+            std::vector<llvm::BasicBlock *> &blocks,                                                                //
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
         );

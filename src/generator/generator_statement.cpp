@@ -18,7 +18,8 @@ void Generator::Statement::generate_statement(                                  
             generate_return_statement(builder, parent, scope, return_node, allocations);
         } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
-            generate_if_statement(builder, parent, if_node, 0, {}, phi_lookup, allocations);
+            std::vector<llvm::BasicBlock *> blocks;
+            generate_if_statement(builder, parent, if_node, 0, blocks, phi_lookup, allocations);
         } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
             generate_while_loop(builder, parent, while_node, allocations);
         } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
@@ -147,6 +148,71 @@ void Generator::Statement::generate_throw_statement(                      //
     builder.CreateRet(throw_struct_val);
 }
 
+/// generate_if_blocks
+///     Generates all blocks of the if-chain
+void Generator::Statement::generate_if_blocks(                                                             //
+    llvm::IRBuilder<> &builder,                                                                            //
+    llvm::Function *parent,                                                                                //
+    const IfNode *if_node,                                                                                 //
+    std::vector<llvm::BasicBlock *> &blocks,                                                               //
+    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+) {
+    // Count total number of branches and create blocks
+    const IfNode *current = if_node;
+    unsigned int branch_count = 0;
+    llvm::LLVMContext &context = parent->getContext();
+
+    while (current != nullptr) {
+        if (branch_count != 0) {
+            // Create then condition block (for the else if blocks)
+            blocks.push_back(llvm::BasicBlock::Create(      //
+                context,                                    //
+                "then_cond" + std::to_string(branch_count), //
+                parent)                                     //
+            );
+        }
+
+        // Create then block
+        blocks.push_back(llvm::BasicBlock::Create( //
+            context,                               //
+            "then" + std::to_string(branch_count), //
+            parent)                                //
+        );
+
+        // Check for else-if or else
+        if (!current->else_scope.has_value()) {
+            break;
+        }
+
+        const auto &else_scope = current->else_scope.value();
+        if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope)) {
+            current = std::get<std::unique_ptr<IfNode>>(else_scope).get();
+            ++branch_count;
+        } else {
+            // If there's a final else block, create it
+            const auto &else_statements = std::get<std::unique_ptr<Scope>>(else_scope)->body;
+            if (else_statements.empty()) {
+                // No empty body allowed
+                throw_err(ERR_GENERATING);
+            }
+            blocks.push_back(llvm::BasicBlock::Create( //
+                context,                               //
+                "else" + std::to_string(branch_count), //
+                parent)                                //
+            );
+            current = nullptr;
+        }
+    }
+
+    // Create merge block (shared by all branches)
+    blocks.push_back(llvm::BasicBlock::Create(context, "merge", parent));
+
+    // Fill the phi variable mutation lookup map with empty values
+    for (const auto &scoped_variable : if_node->then_scope->get_parent()->variable_types) {
+        phi_lookup[scoped_variable.first] = {};
+    }
+}
+
 /// generate_if_statement
 ///     Generates the if statement from the given IfNode
 void Generator::Statement::generate_if_statement(                                                           //
@@ -154,7 +220,7 @@ void Generator::Statement::generate_if_statement(                               
     llvm::Function *parent,                                                                                 //
     const IfNode *if_node,                                                                                  //
     unsigned int nesting_level,                                                                             //
-    const std::vector<llvm::BasicBlock *> &blocks,                                                          //
+    std::vector<llvm::BasicBlock *> &blocks,                                                                //
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
 ) {
@@ -163,88 +229,19 @@ void Generator::Statement::generate_if_statement(                               
         throw_err(ERR_GENERATING);
     }
 
-    llvm::LLVMContext &context = parent->getContext();
-    std::vector<llvm::BasicBlock *> current_blocks = blocks;
-
     // First call (nesting_level == 0): Create all blocks for entire if-chain
     if (nesting_level == 0) {
-        // Count total number of branches and create blocks
-        const IfNode *current = if_node;
-        unsigned int branch_count = 0;
-
-        while (current != nullptr) {
-            if (branch_count != 0) {
-                // Create then condition block (for the else if blocks)
-                current_blocks.push_back(llvm::BasicBlock::Create( //
-                    context,                                       //
-                    "then_cond" + std::to_string(branch_count),    //
-                    parent)                                        //
-                );
-            }
-
-            // Create then block
-            current_blocks.push_back(llvm::BasicBlock::Create( //
-                context,                                       //
-                "then" + std::to_string(branch_count),         //
-                parent)                                        //
-            );
-
-            // Check for else-if or else
-            if (!current->else_scope.has_value()) {
-                break;
-            }
-
-            const auto &else_scope = current->else_scope.value();
-            if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope)) {
-                current = std::get<std::unique_ptr<IfNode>>(else_scope).get();
-                ++branch_count;
-            } else {
-                // If there's a final else block, create it
-                const auto &else_statements = std::get<std::unique_ptr<Scope>>(else_scope)->body;
-                if (else_statements.empty()) {
-                    // No empty body allowed
-                    throw_err(ERR_GENERATING);
-                }
-                current_blocks.push_back(llvm::BasicBlock::Create( //
-                    context,                                       //
-                    "else" + std::to_string(branch_count),         //
-                    parent)                                        //
-                );
-                current = nullptr;
-            }
-        }
-
-        // Create merge block (shared by all branches)
-        current_blocks.push_back(llvm::BasicBlock::Create(context, "merge", parent));
+        generate_if_blocks(builder, parent, if_node, blocks, phi_lookup);
     }
-
-    // Reference to the merge block
-    llvm::BasicBlock *merge_block = current_blocks.back();
 
     // Index calculation for current blocks
     unsigned int then_idx = nesting_level;
-    // Defaults to the block after the current block
-    unsigned int next_idx = nesting_level + 1;
-
-    // Determine the next block (either else-if/else block or merge block)
-    if (if_node->else_scope.has_value()) {
-        const auto &else_scope = if_node->else_scope.value();
-        if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope)) {
-            // Next block is the final else block
-            next_idx = then_idx + 1;
-        } else {
-            const auto &else_statements = std::get<std::unique_ptr<Scope>>(else_scope)->body;
-            if (!else_statements.empty()) {
-                next_idx = then_idx + 1;
-            }
-        }
-    }
-
-    // Cehck if this is the if and the next index is not the last index. This needs to be done for the elif branches
-    if (then_idx != 0 && next_idx + 1 < current_blocks.size()) {
+    // Check if this is the if and the next index is not the last index. This needs to be done for the elif branches
+    if (then_idx != 0 && then_idx + 1 < blocks.size()) {
         then_idx++;
-        next_idx++;
     }
+    // Defaults to the block after the current block
+    unsigned int next_idx = then_idx + 1;
 
     // Generate the condition
     llvm::Value *condition = Expression::generate_expression( //
@@ -261,29 +258,21 @@ void Generator::Statement::generate_if_statement(                               
     // Create conditional branch
     llvm::BranchInst *branch = builder.CreateCondBr( //
         condition,                                   //
-        current_blocks[then_idx],                    //
-        current_blocks[next_idx]                     //
+        blocks[then_idx],                            //
+        blocks[next_idx]                             //
     );
     branch->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(),
-                "Branch between '" + current_blocks[then_idx]->getName().str() + "' and '" + current_blocks[next_idx]->getName().str() +
+                "Branch between '" + blocks[then_idx]->getName().str() + "' and '" + blocks[next_idx]->getName().str() +
                     "' based on condition '" + condition->getName().str() + "'")));
 
-    // Create the phi variable mutation lookup map if the phi_lookup is empty (for initial call of the if node. In recursive calls its not
-    // empty of course)
-    if (phi_lookup.empty()) {
-        for (const auto &scoped_variable : if_node->then_scope->get_parent()->variable_types) {
-            phi_lookup[scoped_variable.first] = {};
-        }
-    }
-
     // Generate then branch
-    builder.SetInsertPoint(current_blocks[then_idx]);
+    builder.SetInsertPoint(blocks[then_idx]);
     generate_body(builder, parent, if_node->then_scope.get(), phi_lookup, allocations);
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
         // Branch to merge block
-        builder.CreateBr(merge_block);
+        builder.CreateBr(blocks.back());
     }
 
     // Handle else-if or else
@@ -291,13 +280,13 @@ void Generator::Statement::generate_if_statement(                               
         const auto &else_scope = if_node->else_scope.value();
         if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope)) {
             // Recursive call for else-if
-            builder.SetInsertPoint(current_blocks[next_idx]);
+            builder.SetInsertPoint(blocks[next_idx]);
             generate_if_statement(                                   //
                 builder,                                             //
                 parent,                                              //
                 std::get<std::unique_ptr<IfNode>>(else_scope).get(), //
                 nesting_level + 1,                                   //
-                current_blocks,                                      //
+                blocks,                                              //
                 phi_lookup,                                          //
                 allocations                                          //
             );
@@ -305,10 +294,11 @@ void Generator::Statement::generate_if_statement(                               
             // Handle final else, if it exists
             const auto &last_else_scope = std::get<std::unique_ptr<Scope>>(else_scope);
             if (!last_else_scope->body.empty()) {
-                builder.SetInsertPoint(current_blocks[next_idx]);
+                builder.SetInsertPoint(blocks[next_idx]);
                 generate_body(builder, parent, last_else_scope.get(), phi_lookup, allocations);
                 if (builder.GetInsertBlock()->getTerminator() == nullptr) {
-                    builder.CreateBr(merge_block);
+                    // Branch to the merge block
+                    builder.CreateBr(blocks.back());
                 }
             }
         }
@@ -316,7 +306,7 @@ void Generator::Statement::generate_if_statement(                               
 
     // Only create phi nodes for the variables mutated in one of the if blocks
     if (nesting_level == 0) {
-        builder.SetInsertPoint(merge_block);
+        builder.SetInsertPoint(blocks.back());
         generate_phi_calls(builder, phi_lookup);
     }
 }
