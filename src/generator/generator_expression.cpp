@@ -5,7 +5,7 @@
 llvm::Value *Generator::Expression::generate_expression(                  //
     llvm::IRBuilder<> &builder,                                           //
     llvm::Function *parent,                                               //
-    Scope *scope,                                                         //
+    const Scope *scope,                                                   //
     const ExpressionNode *expression_node,                                //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
@@ -108,7 +108,7 @@ llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder,
 llvm::Value *Generator::Expression::generate_variable(                    //
     llvm::IRBuilder<> &builder,                                           //
     llvm::Function *parent,                                               //
-    Scope *scope,                                                         //
+    const Scope *scope,                                                   //
     const VariableNode *variable_node,                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
@@ -152,7 +152,7 @@ llvm::Value *Generator::Expression::generate_variable(                    //
 llvm::Value *Generator::Expression::generate_call(                        //
     llvm::IRBuilder<> &builder,                                           //
     llvm::Function *parent,                                               //
-    Scope *scope,                                                         //
+    const Scope *scope,                                                   //
     const CallNode *call_node,                                            //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
@@ -365,7 +365,7 @@ llvm::Value *Generator::Expression::generate_unary_op( //
 llvm::Value *Generator::Expression::generate_binary_op(                   //
     llvm::IRBuilder<> &builder,                                           //
     llvm::Function *parent,                                               //
-    Scope *scope,                                                         //
+    const Scope *scope,                                                   //
     const BinaryOpNode *bin_op_node,                                      //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {

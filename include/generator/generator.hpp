@@ -517,7 +517,7 @@ class Generator {
         static void generate_statement(                                                                             //
             llvm::IRBuilder<> &builder,                                                                             //
             llvm::Function *parent,                                                                                 //
-            Scope *scope,                                                                                           //
+            const Scope *scope,                                                                                     //
             const body_statement &statement,                                                                        //
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
@@ -525,21 +525,21 @@ class Generator {
         static void generate_body(                                                                                  //
             llvm::IRBuilder<> &builder,                                                                             //
             llvm::Function *parent,                                                                                 //
-            Scope *scope,                                                                                           //
+            const Scope *scope,                                                                                     //
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
         );
         static void generate_return_statement(                                    //
             llvm::IRBuilder<> &builder,                                           //
             llvm::Function *parent,                                               //
-            Scope *scope,                                                         //
+            const Scope *scope,                                                   //
             const ReturnNode *return_node,                                        //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
         static void generate_throw_statement(                                     //
             llvm::IRBuilder<> &builder,                                           //
             llvm::Function *parent,                                               //
-            Scope *scope,                                                         //
+            const Scope *scope,                                                   //
             const ThrowNode *throw_node,                                          //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
@@ -573,21 +573,21 @@ class Generator {
         static void generate_catch_statement(                                     //
             llvm::IRBuilder<> &builder,                                           //
             llvm::Function *parent,                                               //
-            Scope *scope,                                                         //
+            const Scope *scope,                                                   //
             const CatchNode *catch_node,                                          //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
         static void generate_declaration(                                         //
             llvm::IRBuilder<> &builder,                                           //
             llvm::Function *parent,                                               //
-            Scope *scope,                                                         //
+            const Scope *scope,                                                   //
             const DeclarationNode *declaration_node,                              //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
         static void generate_assignment(                                                                            //
             llvm::IRBuilder<> &builder,                                                                             //
             llvm::Function *parent,                                                                                 //
-            Scope *scope,                                                                                           //
+            const Scope *scope,                                                                                     //
             const AssignmentNode *assignment_node,                                                                  //
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations                                   //
@@ -603,7 +603,7 @@ class Generator {
         static llvm::Value *generate_expression(                                  //
             llvm::IRBuilder<> &builder,                                           //
             llvm::Function *parent,                                               //
-            Scope *scope,                                                         //
+            const Scope *scope,                                                   //
             const ExpressionNode *expression_node,                                //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
@@ -611,14 +611,14 @@ class Generator {
         static llvm::Value *generate_variable(                                    //
             llvm::IRBuilder<> &builder,                                           //
             llvm::Function *parent,                                               //
-            Scope *scope,                                                         //
+            const Scope *scope,                                                   //
             const VariableNode *variable_node,                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
         static llvm::Value *generate_call(                                        //
             llvm::IRBuilder<> &builder,                                           //
             llvm::Function *parent,                                               //
-            Scope *scope,                                                         //
+            const Scope *scope,                                                   //
             const CallNode *call_node,                                            //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
@@ -632,7 +632,7 @@ class Generator {
         static llvm::Value *generate_binary_op(                                   //
             llvm::IRBuilder<> &builder,                                           //
             llvm::Function *parent,                                               //
-            Scope *scope,                                                         //
+            const Scope *scope,                                                   //
             const BinaryOpNode *bin_op_node,                                      //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
