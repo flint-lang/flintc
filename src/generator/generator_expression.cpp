@@ -1,16 +1,14 @@
 #include "generator/generator.hpp"
 
-/// generate_expression
-///     Generates an expression from the given ExpressionNode
-llvm::Value *Generator::Expression::generate_expression(                  //
-    llvm::IRBuilder<> &builder,                                           //
-    llvm::Function *parent,                                               //
-    const Scope *scope,                                                   //
-    const ExpressionNode *expression_node,                                //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+llvm::Value *Generator::Expression::generate_expression(                   //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const ExpressionNode *expression_node                                  //
 ) {
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
-        return generate_variable(builder, parent, scope, variable_node, allocations);
+        return generate_variable(builder, parent, scope, allocations, variable_node);
     }
     if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode *>(expression_node)) {
         return generate_unary_op(builder, parent, unary_op_node);
@@ -19,17 +17,15 @@ llvm::Value *Generator::Expression::generate_expression(                  //
         return generate_literal(builder, parent, literal_node);
     }
     if (const auto *call_node = dynamic_cast<const CallNode *>(expression_node)) {
-        return generate_call(builder, parent, scope, call_node, allocations);
+        return generate_call(builder, parent, scope, allocations, call_node);
     }
     if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
-        return generate_binary_op(builder, parent, scope, binary_op_node, allocations);
+        return generate_binary_op(builder, parent, scope, allocations, binary_op_node);
     }
     throw_err(ERR_GENERATING);
     return nullptr;
 }
 
-/// generate_literal
-///     Generates the literal value from the given LiteralNode
 llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node) {
     if (std::holds_alternative<int>(literal_node->value)) {
         return llvm::ConstantInt::get(                    //
@@ -103,14 +99,12 @@ llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder,
     return nullptr;
 }
 
-/// generate_variable
-///     Generates the variable from the given VariableNode
-llvm::Value *Generator::Expression::generate_variable(                    //
-    llvm::IRBuilder<> &builder,                                           //
-    llvm::Function *parent,                                               //
-    const Scope *scope,                                                   //
-    const VariableNode *variable_node,                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+llvm::Value *Generator::Expression::generate_variable(                     //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const VariableNode *variable_node                                      //
 ) {
     if (variable_node == nullptr) {
         // Error: Null Node
@@ -147,20 +141,18 @@ llvm::Value *Generator::Expression::generate_variable(                    //
     return load;
 }
 
-/// generate_call
-///     Generates the call from the given CallNode
-llvm::Value *Generator::Expression::generate_call(                        //
-    llvm::IRBuilder<> &builder,                                           //
-    llvm::Function *parent,                                               //
-    const Scope *scope,                                                   //
-    const CallNode *call_node,                                            //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+llvm::Value *Generator::Expression::generate_call(                         //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const CallNode *call_node                                              //
 ) {
     // Get the arguments
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
     for (const auto &arg : call_node->arguments) {
-        args.emplace_back(generate_expression(builder, parent, scope, arg.get(), allocations));
+        args.emplace_back(generate_expression(builder, parent, scope, allocations, arg.get()));
     }
 
     // Check if it is a builtin function and call it
@@ -220,7 +212,7 @@ llvm::Value *Generator::Expression::generate_call(                        //
 
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
     if (!call_node->has_catch) {
-        generate_rethrow(builder, parent, call_node, allocations);
+        generate_rethrow(builder, parent, allocations, call_node);
     }
 
     // Add the call instruction to the list of unresolved functions only if it was a module-intern call
@@ -254,13 +246,11 @@ llvm::Value *Generator::Expression::generate_call(                        //
     return call;
 }
 
-/// generate_rethrow
-///     Generates a catch block which re-throws the error of the call, if the call had an error
-void Generator::Expression::generate_rethrow(                             //
-    llvm::IRBuilder<> &builder,                                           //
-    llvm::Function *parent,                                               //
-    const CallNode *call_node,                                            //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+void Generator::Expression::generate_rethrow(                              //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const CallNode *call_node                                              //
 ) {
     const std::string err_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
     llvm::AllocaInst *const err_var = allocations.at(err_ret_name);
@@ -350,8 +340,6 @@ void Generator::Expression::generate_rethrow(                             //
     builder.SetInsertPoint(merge_block);
 }
 
-/// generate_unary_op
-///     Generates the unary operation value from the given UnaryOpNode
 llvm::Value *Generator::Expression::generate_unary_op( //
     llvm::IRBuilder<> &builder,                        //
     llvm::Function *parent,                            //
@@ -362,15 +350,15 @@ llvm::Value *Generator::Expression::generate_unary_op( //
 
 /// generate_binary_op
 ///     Generates a binary operation from the given BinaryOpNode
-llvm::Value *Generator::Expression::generate_binary_op(                   //
-    llvm::IRBuilder<> &builder,                                           //
-    llvm::Function *parent,                                               //
-    const Scope *scope,                                                   //
-    const BinaryOpNode *bin_op_node,                                      //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+llvm::Value *Generator::Expression::generate_binary_op(                    //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const BinaryOpNode *bin_op_node                                        //
 ) {
-    llvm::Value *lhs = generate_expression(builder, parent, scope, bin_op_node->left.get(), allocations);
-    llvm::Value *rhs = generate_expression(builder, parent, scope, bin_op_node->right.get(), allocations);
+    llvm::Value *lhs = generate_expression(builder, parent, scope, allocations, bin_op_node->left.get());
+    llvm::Value *rhs = generate_expression(builder, parent, scope, allocations, bin_op_node->right.get());
     switch (bin_op_node->operator_token) {
         default:
             throw_err(ERR_GENERATING);
