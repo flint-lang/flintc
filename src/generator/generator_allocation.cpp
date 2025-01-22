@@ -2,31 +2,31 @@
 
 /// generate_allocation
 ///     Generates all allocations of the given scope. Adds all AllocaInst pointer to the allocations map
-void Generator::Allocation::generate_allocations(                         //
-    llvm::IRBuilder<> &builder,                                           //
-    llvm::Function *parent,                                               //
-    Scope *scope,                                                         //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+void Generator::Allocation::generate_allocations(                          //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const Scope *scope                                                     //
 ) {
     for (const auto &statement : scope->body) {
         if (!std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
             CallNode *call_node = std::get<std::unique_ptr<CallNode>>(statement).get();
-            generate_call_allocations(builder, parent, scope, allocations, call_node);
+            generate_call_allocations(builder, parent, allocations, call_node, scope);
             continue;
         }
 
         StatementNode *statement_node = std::get<std::unique_ptr<StatementNode>>(statement).get();
         if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
-            generate_allocations(builder, parent, while_node->scope.get(), allocations);
+            generate_allocations(builder, parent, allocations, while_node->scope.get());
         } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
             while (if_node != nullptr) {
-                generate_allocations(builder, parent, if_node->then_scope.get(), allocations);
+                generate_allocations(builder, parent, allocations, if_node->then_scope.get());
                 if (if_node->else_scope.has_value()) {
                     if (std::holds_alternative<std::unique_ptr<IfNode>>(if_node->else_scope.value())) {
                         if_node = std::get<std::unique_ptr<IfNode>>(if_node->else_scope.value()).get();
                     } else {
                         Scope *else_scope = std::get<std::unique_ptr<Scope>>(if_node->else_scope.value()).get();
-                        generate_allocations(builder, parent, else_scope, allocations);
+                        generate_allocations(builder, parent, allocations, else_scope);
                         if_node = nullptr;
                     }
                 } else {
@@ -34,10 +34,10 @@ void Generator::Allocation::generate_allocations(                         //
                 }
             }
         } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
-            //
+            // TODO #1
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
             if (auto *call_node = dynamic_cast<CallNode *>(declaration_node->initializer.get())) {
-                generate_call_allocations(builder, parent, scope, allocations, call_node);
+                generate_call_allocations(builder, parent, allocations, call_node, scope);
 
                 // Create the actual variable allocation with the declared type
                 const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
@@ -58,7 +58,7 @@ void Generator::Allocation::generate_allocations(                         //
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
             if (auto *call_node = dynamic_cast<CallNode *>(assignment_node->expression.get())) {
                 // Generate only the call allocations, not the variable allocations
-                generate_call_allocations(builder, parent, scope, allocations, call_node);
+                generate_call_allocations(builder, parent, allocations, call_node, scope);
             }
         }
     }
@@ -69,9 +69,9 @@ void Generator::Allocation::generate_allocations(                         //
 void Generator::Allocation::generate_call_allocations(                     //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
-    Scope *scope,                                                          //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    CallNode *call_node                                                    //
+    CallNode *call_node,                                                   //
+    const Scope *scope                                                     //
 ) {
     // Get the function definition from any module
     auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
@@ -108,7 +108,7 @@ void Generator::Allocation::generate_call_allocations(                     //
 ///     Generates a custom allocation call
 void Generator::Allocation::generate_allocation(                           //
     llvm::IRBuilder<> &builder,                                            //
-    Scope *scope,                                                          //
+    const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const std::string &alloca_name,                                        //
     llvm::Type *type,                                                      //

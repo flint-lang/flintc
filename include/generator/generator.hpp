@@ -369,22 +369,22 @@ class Generator {
     class Allocation {
       public:
         Allocation() = delete;
-        static void generate_allocations(                                         //
-            llvm::IRBuilder<> &builder,                                           //
-            llvm::Function *parent,                                               //
-            Scope *scope,                                                         //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        static void generate_allocations(                                          //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const Scope *scope                                                     //
         );
         static void generate_call_allocations(                                     //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
-            Scope *scope,                                                          //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            CallNode *call_node                                                    //
+            CallNode *call_node,                                                   //
+            const Scope *scope                                                     //
         );
         static void generate_allocation(                                           //
             llvm::IRBuilder<> &builder,                                            //
-            Scope *scope,                                                          //
+            const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const std::string &alloca_name,                                        //
             llvm::Type *type,                                                      //
