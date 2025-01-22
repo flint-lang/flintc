@@ -1,10 +1,8 @@
 #include "generator/generator.hpp"
 
-/// generate_main
-///     Generates the builtin main function which calls the user defined main function
 void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    // Create the functionNode of the main_custom function (in order to forward-declare the user defined main function inside the absolute
-    // main module)
+    // Create the FunctionNode of the main_custom function
+    // (in order to forward-declare the user defined main function inside the absolute main module)
     std::vector<std::pair<std::string, std::string>> parameters;
     std::vector<std::string> return_types;
     std::unique_ptr<Scope> scope;
@@ -100,8 +98,6 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Value *ret = builder->CreateRet(err_val);
 }
 
-/// generate_builtin_print
-///     Generates the builtin 'print()' function to utilize C io calls of the IO C stdlib
 void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module) {
     if (builtins[PRINT] != nullptr) {
         return;
@@ -126,8 +122,6 @@ void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llv
     generate_builtin_print_bool(builder, module);
 }
 
-/// generate_builtin_print
-///     Generates the builtin print function for the specified type
 void Generator::Builtin::generate_builtin_print( //
     llvm::IRBuilder<> *builder,                  //
     llvm::Module *module,                        //
@@ -169,8 +163,6 @@ void Generator::Builtin::generate_builtin_print( //
     print_functions[type] = print_function;
 }
 
-/// generate_builtin_print_bool
-///     Generates the builtin print_bool function which prints 'true' or 'false' depending on the bool value!
 void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module) {
     if (print_functions.at("bool") != nullptr) {
         return;

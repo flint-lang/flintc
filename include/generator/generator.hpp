@@ -324,15 +324,42 @@ class Generator {
     /// @note This class cannot be initialized and all functions within this class are static
     class Builtin {
       public:
+        // The constructor is deleted to make this class non-initializable
         Builtin() = delete;
+
+        /// @function `generate_builtin_main`
+        /// @brief Generates the builtin main function which calls the user defined main function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the main function definition will be generated in
         static void generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_builtin_prints`
+        /// @brief Generates the builtin 'print()' function and its overloaded versions to utilize C IO calls of the IO C stdlib
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the print functions definitions will be generated in
         static void generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_builtin_print`
+        /// @brief Helper function to generate the builtin print function for the specified type
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the print function definition will be generated in
+        /// @param `type` The type of variable this print function expects
+        /// @param `format` The C format string for the specified type (%i or %d for example)
         static void generate_builtin_print( //
             llvm::IRBuilder<> *builder,     //
             llvm::Module *module,           //
             const std::string &type,        //
             const std::string &format       //
         );
+
+        /// @function `generate_builtin_print_bool`
+        /// @brief Generates the builtin print_bool function which prints 'true' or 'false' depending on the bool value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the print function definition will be generated in
         static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
     }; // subclass Builtin
 
