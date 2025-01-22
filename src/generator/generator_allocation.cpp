@@ -1,7 +1,8 @@
 #include "generator/generator.hpp"
 
-/// generate_allocation
-///     Generates all allocations of the given scope. Adds all AllocaInst pointer to the allocations map
+#include "error/error.hpp"
+#include "error/error_type.hpp"
+
 void Generator::Allocation::generate_allocations(                          //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
@@ -35,6 +36,7 @@ void Generator::Allocation::generate_allocations(                          //
             }
         } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
             // TODO #1
+            throw_err(ERR_NOT_IMPLEMENTED_YET);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
             if (auto *call_node = dynamic_cast<CallNode *>(declaration_node->initializer.get())) {
                 generate_call_allocations(builder, parent, allocations, call_node, scope);
@@ -64,8 +66,6 @@ void Generator::Allocation::generate_allocations(                          //
     }
 }
 
-/// generate_call_allocations
-///     Generates the allocations for calls
 void Generator::Allocation::generate_call_allocations(                     //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
@@ -104,8 +104,6 @@ void Generator::Allocation::generate_call_allocations(                     //
     );
 }
 
-/// generate_allocation
-///     Generates a custom allocation call
 void Generator::Allocation::generate_allocation(                           //
     llvm::IRBuilder<> &builder,                                            //
     const Scope *scope,                                                    //
@@ -128,9 +126,6 @@ void Generator::Allocation::generate_allocation(                           //
     allocations.insert({alloca_name, alloca});
 }
 
-/// get_default_struct
-///     Allocates a struct and adds default values to every element of the struct
-///     If 'ignore_first' is set, the first struct element wont be set to any value (because its the error return and will be set anyway)
 llvm::AllocaInst *Generator::Allocation::generate_default_struct( //
     llvm::IRBuilder<> &builder,                                   //
     llvm::StructType *type,                                       //

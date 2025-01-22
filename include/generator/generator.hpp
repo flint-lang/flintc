@@ -368,13 +368,45 @@ class Generator {
     /// @note This class cannot be initialized and all functions within this class are static
     class Allocation {
       public:
+        // The constructor is deleted to make this class non-initializable
         Allocation() = delete;
+
+        /// @function `generate_allocations`
+        /// @brief Generates all allocations of the given scope recursively. Adds all AllocaInst pointer to the allocations map
+        ///
+        /// This function is meant to be called at the start of the generate_function function. This function goes through all statements
+        /// and expressions recursively down the scope and enters every sub-scope too and generates all allocations of all function
+        /// variables at the start of the function. This is done to make StackOverflows nearly impossible. Before this pre-allocation system
+        /// for all variables was implemented, StackOverflows were common (when calling functions inside loops), caused by the creation of a
+        /// return struct for every function call.
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The Function the allocations are generated in
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `scope` The Scope from which all allocations are collected and allocated at the start of the scope
+        ///
+        /// @attention The allocations map will be modified (new entries are added), but it will not be cleared. If you want a clear
+        ///            allocations map before calling this function, you need to clear it yourself.
+        ///
+        /// @todo #1 Implement that all varaibles used by the for loop are preallocated too, for loops currently dont work
         static void generate_allocations(                                          //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const Scope *scope                                                     //
         );
+
+        /// @funnction `generate_call_allcoations`
+        /// @brief Generates the allocations for calls (The return struct, the error value and all return values)
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the allocations are generated in
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `call_node` The CallNode used to generate the allocations from
+        /// @param `scope` The scope the allocation would take place in
+        ///
+        /// @attention The allocations map will be modified
+        /// @attention The call_node variable will be modified
         static void generate_call_allocations(                                     //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -382,6 +414,17 @@ class Generator {
             CallNode *call_node,                                                   //
             const Scope *scope                                                     //
         );
+
+        /// @function `generate_allocation`
+        /// @brief Generates a custom allocation call. This is a helper function to make allocations easier
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `scope` The scope the allocation would take place in
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `alloca_name` The name of the allocation (its name in the allocations map)
+        /// @param `type` The type of the allocation
+        /// @param `ir_name` The name of the allocation, only important for the IR Code output
+        /// @param `ir_comment` The comment the allocation gets, only important for the IR Code output
         static void generate_allocation(                                           //
             llvm::IRBuilder<> &builder,                                            //
             const Scope *scope,                                                    //
@@ -391,6 +434,19 @@ class Generator {
             const std::string &ir_name,                                            //
             const std::string &ir_comment                                          //
         );
+
+        /// @function `generate_default_struct`
+        /// @brief Allocates a struct and adds default values to every element of the struct
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `type` The type of the struct
+        /// @param `name` The name of the allocation
+        /// @param `ignore_first` If to skip setting any value of the first element of the struct (the error value)
+        ///
+        /// @attention If 'ignore_first' is set, the first struct element (the error value) wont be set to its default value. This is
+        ///            important for the cases where you want a default struct but set the error value yourself. For example, when throwing
+        ///            an error you would want to generate a default struct return and then set the error value. By setting `ignore_first`,
+        ///            you save on a few instructions, as the first value (error value) wont be set to anything by default.
         static llvm::AllocaInst *generate_default_struct( //
             llvm::IRBuilder<> &builder,                   //
             llvm::StructType *type,                       //
