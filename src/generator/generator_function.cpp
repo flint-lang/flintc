@@ -1,7 +1,5 @@
 #include "generator/generator.hpp"
 
-/// generate_function_type
-///     Generates the type information of a given FunctionNode
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {
     llvm::Type *return_types = IR::add_and_or_get_type(&context, function_node);
 
@@ -22,8 +20,6 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::LLVMContex
     return function_type;
 }
 
-/// generate_function
-///     Generates a function from a given FunctionNode
 llvm::Function *Generator::Function::generate_function(llvm::Module *module, FunctionNode *function_node) {
     llvm::FunctionType *function_type = generate_function_type(module->getContext(), function_node);
 
@@ -67,11 +63,6 @@ llvm::Function *Generator::Function::generate_function(llvm::Module *module, Fun
     return function;
 }
 
-/// get_function_definition
-///     Returns the function definition from the given CallNode OR
-///     Explicitely returns a nullptr on purpose, when the function is a builtin function.
-///     Returns a nullopt when the definition could not be found
-///     Returns as the second value if the call was to an extern function or not
 std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_function_definition(llvm::Function *parent,
     const CallNode *call_node) {
     llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
@@ -117,8 +108,6 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
     return {func_decl, true};
 }
 
-/// function_has_return
-///     Checks if a given function has a return statement within its bodies instructions
 bool Generator::Function::function_has_return(llvm::Function *function) {
     for (const llvm::BasicBlock &block : *function) {
         for (const llvm::Instruction &instr : block) {

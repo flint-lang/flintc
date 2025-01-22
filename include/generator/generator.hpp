@@ -442,6 +442,7 @@ class Generator {
         /// @param `type` The type of the struct
         /// @param `name` The name of the allocation
         /// @param `ignore_first` If to skip setting any value of the first element of the struct (the error value)
+        /// @return `llvm::AllocaInst *` A pointer to the allocated struct allocation, where (all) the elements contain default values
         ///
         /// @attention If 'ignore_first' is set, the first struct element (the error value) wont be set to its default value. This is
         ///            important for the cases where you want a default struct but set the error value yourself. For example, when throwing
@@ -460,10 +461,50 @@ class Generator {
     /// @note This class cannot be initialized and all functions within this class are static
     class Function {
       public:
+        // The constructor is deleted to make this class non-initializable
         Function() = delete;
+
+        /// @function `generate_function_type`
+        /// @brief Generates the type information of a given FunctionNode
+        ///
+        /// @param `context` The LLVM context the type is generated in
+        /// @param `function_node` The FunctionNode used to generate the type
+        /// @return `llvm::FunctionType *` A pointer to the generated FuntionType
         static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
+
+        /// @function `generate_function`
+        /// @brief Generates a function from a given FunctionNode
+        ///
+        /// @param `module` The LLVM Module the function will be generated in
+        /// @param `function_node` The FunctionNode used to generate the function
+        /// @return `llvm::Function *` A pointer to the generated Function
         static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
+
+        /// @function `get_function_definition`
+        /// @brief Returns the function definition from the given CallNode or other values based on a few conditions
+        ///
+        /// In the "normal" execution case, this function returns a pointer to the definition from a given CallNode's call. But, there are
+        /// some conditions. If the call is towards a builtin function, this function explicitely returns a nullptr on purpose. If the
+        /// definition could not be found, this function returns a `std::nullopt`. The second variable determines whether the call targets a
+        /// function inside the current module (false) or if it targets a function from another module (true).
+        ///
+        /// @param `parent` The Function the call happens in
+        /// @param `call_node` The CallNode from which the actual function definition is tried to be found
+        /// @return `std::pair<nullptr, false>` If the call targets a builtin function
+        /// @return `std::pair<std::nullopt, false>` If the function definition could not be found
+        /// @return `std::pair<std::optional<Function *>, bool>` In all other cases. The second variable always determines whether the call
+        /// targets a function inside the current module (false) or if it targets a function in another module (true).
         static std::pair<std::optional<llvm::Function *>, bool> get_function_definition(llvm::Function *parent, const CallNode *call_node);
+
+        /// @function `function_has_return`
+        /// @brief Checks if a given function has a return statement within its bodies instructions
+        ///
+        /// @param `function` The function to check
+        /// @param `bool` True if the function has a return statement, false if not
+        ///
+        /// @todo Currently, this function does return true if a single block has a return statement, but does not check if the last, or all
+        ///       blocks, have return statements. This needs to be changed to check if all blocks have a return statement, and possibly
+        ///       return a list of all blocks not containing a termination instruction, like `br` or `ret`
         static bool function_has_return(llvm::Function *function);
     }; // subclass Function
 
