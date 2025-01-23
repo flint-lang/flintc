@@ -125,7 +125,7 @@ class Generator {
     ///
     /// @attention The print functions are nullpointers until the `generate_builtin_prints` function is called
     /// @attention The map is not being cleared after the program module has been generated
-    static inline std::unordered_map<std::string, llvm::Function *> print_functions = {
+    static inline std::unordered_map<std::string_view, llvm::Function *> print_functions = {
         {"int", nullptr},
         {"flint", nullptr},
         {"char", nullptr},

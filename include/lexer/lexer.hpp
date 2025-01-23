@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 
-static const std::map<std::string, Token> symbols = {
+static const std::map<std::string_view, Token> symbols = {
     {"", TOK_EOF}, // -1
     // single character tokens
     {"(", TOK_LEFT_PAREN},   // -2
@@ -55,7 +55,7 @@ static const std::map<std::string, Token> symbols = {
     {"\n", TOK_EOL}     // -93
 };
 
-static const std::map<std::string, Token> keywords = {
+static const std::map<std::string_view, Token> keywords = {
     // relational keywords
     {"and", TOK_AND}, // -34
     {"or", TOK_OR},   // -35
@@ -137,7 +137,7 @@ enum BuiltinFunctions { //
     SPLIT_ON_ALL,
 };
 
-static const std::map<std::string, BuiltinFunctions> builtin_functions = { //
+static const std::map<std::string_view, BuiltinFunctions> builtin_functions = { //
     // printing
     {"print", PRINT}, {"printerr", PRINT_ERR},
     // assertions
