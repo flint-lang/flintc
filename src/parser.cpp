@@ -1,6 +1,7 @@
 #include "parser/parser.hpp"
 #include "parser/signature.hpp"
 
+#include "parser/ast/call_node_base.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
 
@@ -24,13 +25,14 @@
 #include "parser/ast/definitions/variant_node.hpp"
 
 #include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/ast/expressions/call_node.hpp"
+#include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/assignment_node.hpp"
+#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -48,12 +50,13 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
 /// call_nodes
 ///     Stores all the calls that have been parsed
-std::vector<std::pair<unsigned int, CallNode *>> Parser::call_nodes;
+std::vector<std::pair<unsigned int, CallNodeBase *>> Parser::call_nodes;
 
 /// parse_file
 ///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to
@@ -244,6 +247,71 @@ std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_li
     return var;
 }
 
+/// create_call_base
+///
+std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> Parser::create_call_base(Scope *scope,
+    token_list &tokens) {
+    std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+    if (!arg_range.has_value()) {
+        return std::nullopt;
+    }
+    // remove the '(' and ')' tokens from the arg_range
+    ++arg_range.value().first;
+    --arg_range.value().second;
+
+    std::string function_name;
+    std::vector<std::unique_ptr<ExpressionNode>> arguments;
+
+    for (const auto &tok : tokens) {
+        // Get the function name
+        if (tok.type == TOK_IDENTIFIER) {
+            function_name = tok.lexme;
+            break;
+        }
+    }
+
+    // Arguments are separated by commas. When the arg_range.first == arg_range.second, no arguments are passed
+    if (arg_range.value().first < arg_range.value().second) {
+        // if the args contain at least one comma, it is known that multiple arguments are passed. If not, only one is
+        // passed
+        if (Signature::tokens_contain_in_range(tokens, {{TOK_COMMA}}, arg_range.value())) {
+            const auto match_ranges = Signature::get_match_ranges_in_range(tokens, {{TOK_COMMA}}, arg_range.value());
+            if (match_ranges.empty()) {
+                // No arguments
+                return std::make_tuple(function_name, std::move(arguments), "");
+            }
+
+            for (auto match = match_ranges.begin();; ++match) {
+                token_list argument_tokens;
+                if (match == match_ranges.begin()) {
+                    argument_tokens = clone_from_to(arg_range.value().first, match->first, tokens);
+                } else if (match == match_ranges.end()) {
+                    argument_tokens = clone_from_to((match - 1)->second, arg_range.value().second, tokens);
+                } else {
+                    argument_tokens = clone_from_to((match - 1)->second, match->first, tokens);
+                }
+                auto expression = create_expression(scope, argument_tokens);
+                if (!expression.has_value()) {
+                    throw_err(ERR_PARSING);
+                }
+                arguments.emplace_back(std::move(expression.value()));
+                if (match == match_ranges.end()) {
+                    break;
+                }
+            }
+        } else {
+            token_list argument_tokens = extract_from_to(arg_range.value().first, arg_range.value().second, tokens);
+            auto expression = create_expression(scope, argument_tokens);
+            if (!expression.has_value()) {
+                throw_err(ERR_PARSING);
+            }
+            arguments.emplace_back(std::move(expression.value()));
+        }
+    }
+
+    return std::make_tuple(function_name, std::move(arguments), "");
+}
+
 /// create_unary_op
 ///
 std::optional<UnaryOpNode> Parser::create_unary_op(Scope *scope, const token_list &tokens) {
@@ -290,71 +358,19 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
     return std::nullopt;
 }
 
-/// create_call
+/// create_call_expression
 ///     Creates a CallNode, being a function call, from the given tokens
-std::optional<std::unique_ptr<CallNode>> Parser::create_call(Scope *scope, token_list &tokens) {
-    std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
-    if (!arg_range.has_value()) {
-        return std::nullopt;
+std::unique_ptr<CallNodeExpression> Parser::create_call_expression(Scope *scope, token_list &tokens) {
+    auto call_node_args = create_call_base(scope, tokens);
+    if (!call_node_args.has_value()) {
+        throw_err(ERR_PARSING);
     }
-    // remove the '(' and ')' tokens from the arg_range
-    ++arg_range.value().first;
-    --arg_range.value().second;
-
-    std::string function_name;
-    std::vector<std::unique_ptr<ExpressionNode>> arguments;
-
-    for (const auto &tok : tokens) {
-        // Get the function name
-        if (tok.type == TOK_IDENTIFIER) {
-            function_name = tok.lexme;
-            break;
-        }
-    }
-
-    // Arguments are separated by commas. When the arg_range.first == arg_range.second, no arguments are passed
-    if (arg_range.value().first < arg_range.value().second) {
-        // if the args contain at least one comma, it is known that multiple arguments are passed. If not, only one is
-        // passed
-        if (Signature::tokens_contain_in_range(tokens, {{TOK_COMMA}}, arg_range.value())) {
-            const auto match_ranges = Signature::get_match_ranges_in_range(tokens, {{TOK_COMMA}}, arg_range.value());
-            if (match_ranges.empty()) {
-                // No arguments
-                std::optional<std::unique_ptr<CallNode>> call_node = std::make_unique<CallNode>(function_name, arguments, "");
-                set_last_parsed_call(call_node.value()->call_id, call_node.value().get());
-                return call_node;
-            }
-
-            for (auto match = match_ranges.begin();; ++match) {
-                token_list argument_tokens;
-                if (match == match_ranges.begin()) {
-                    argument_tokens = clone_from_to(arg_range.value().first, match->first, tokens);
-                } else if (match == match_ranges.end()) {
-                    argument_tokens = clone_from_to((match - 1)->second, arg_range.value().second, tokens);
-                } else {
-                    argument_tokens = clone_from_to((match - 1)->second, match->first, tokens);
-                }
-                auto expression = create_expression(scope, argument_tokens);
-                if (!expression.has_value()) {
-                    throw_err(ERR_PARSING);
-                }
-                arguments.emplace_back(std::move(expression.value()));
-                if (match == match_ranges.end()) {
-                    break;
-                }
-            }
-        } else {
-            token_list argument_tokens = extract_from_to(arg_range.value().first, arg_range.value().second, tokens);
-            auto expression = create_expression(scope, argument_tokens);
-            if (!expression.has_value()) {
-                throw_err(ERR_PARSING);
-            }
-            arguments.emplace_back(std::move(expression.value()));
-        }
-    }
-
-    std::optional<std::unique_ptr<CallNode>> call_node = std::make_unique<CallNode>(function_name, arguments, "");
-    set_last_parsed_call(call_node.value()->call_id, call_node.value().get());
+    std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
+        std::get<0>(call_node_args.value()),                                              // name
+        std::move(std::get<1>(call_node_args.value())),                                   // args
+        std::get<2>(call_node_args.value())                                               // type
+    );
+    set_last_parsed_call(call_node->call_id, call_node.get());
     return call_node;
 }
 
@@ -453,12 +469,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
 
     // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
     if (Signature::tokens_contain(tokens, Signature::function_call)) {
-        std::optional<std::unique_ptr<CallNode>> call = create_call(scope, tokens);
-        if (call.has_value()) {
-            expression = std::move(call.value());
-        } else {
-            throw_err(ERR_PARSING);
-        }
+        expression = create_call_expression(scope, tokens);
     } else if (Signature::tokens_contain(tokens, Signature::bin_op_expr)) {
         std::optional<BinaryOpNode> bin_op = create_binary_op(scope, tokens);
         if (bin_op.has_value()) {
@@ -492,6 +503,22 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
     }
 
     return expression;
+}
+
+/// create_call_statement
+///     Creates a CallNodeStatement from the given list of tokens
+std::unique_ptr<CallNodeStatement> Parser::create_call_statement(Scope *scope, token_list &tokens) {
+    auto call_node_args = create_call_base(scope, tokens);
+    if (!call_node_args.has_value()) {
+        throw_err(ERR_PARSING);
+    }
+    std::unique_ptr<CallNodeStatement> call_node = std::make_unique<CallNodeStatement>( //
+        std::get<0>(call_node_args.value()),                                            // name
+        std::move(std::get<1>(call_node_args.value())),                                 // args
+        std::get<2>(call_node_args.value())                                             // type
+    );
+    set_last_parsed_call(call_node->call_id, call_node.get());
+    return call_node;
 }
 
 /// create_throw
@@ -671,7 +698,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     statements.emplace_back(std::move(lhs.value()));
     // Get the last parsed call and set the 'has_catch' property of the call node
     const unsigned int last_call_id = get_last_parsed_call_id();
-    const std::optional<CallNode *> last_call = get_call_from_id(last_call_id);
+    const std::optional<CallNodeBase *> last_call = get_call_from_id(last_call_id);
     if (!last_call.has_value()) {
         throw_err(ERR_PARSING);
         return std::nullopt;
@@ -818,6 +845,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         } else {
             throw_err(ERR_PARSING);
         }
+    } else if (Signature::tokens_contain(tokens, Signature::function_call)) {
+        statement_node = create_call_statement(scope, tokens);
     } else {
         throw_err(ERR_UNDEFINED_STATEMENT);
     }
@@ -829,7 +858,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
 ///     Creates the AST of a scoped statement like if, loops, catch, switch, etc.
 std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( //
     Scope *scope,                                                              //
-    const token_list &definition,                                              //
+    token_list &definition,                                                    //
     token_list &body,                                                          //
     std::vector<body_statement> &statements                                    //
 ) {
@@ -911,6 +940,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         } else {
             throw_err(ERR_PARSING);
         }
+    } else if (Signature::tokens_contain(definition, Signature::function_call)) {
+        statement_node = create_call_statement(scope, definition);
     } else {
         throw_err(ERR_UNDEFINED_STATEMENT);
     }
@@ -926,31 +957,19 @@ std::vector<body_statement> Parser::create_body(Scope *scope, token_list &body) 
 
     while (auto next_match = Signature::get_next_match_range(body, statement_signature)) {
         token_list statement_tokens = extract_from_to(next_match.value().first, next_match.value().second, body);
-        if (Signature::tokens_contain(statement_tokens, Signature::function_call) &&
-            !Signature::tokens_contain(statement_tokens, Signature::declaration_infered) &&
-            !Signature::tokens_contain(statement_tokens, Signature::declaration_explicit) &&
-            !Signature::tokens_contain(statement_tokens, Signature::assignment)) {
-            // --- FUNCTION CALL --
-            std::optional<std::unique_ptr<CallNode>> call = create_call(scope, statement_tokens);
-            if (call.has_value()) {
-                body_statements.emplace_back(std::move(call.value()));
-            } else {
-                throw_err(ERR_UNDEFINED_STATEMENT);
-            }
+        std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
+        if (Signature::tokens_contain(statement_tokens, {TOK_COLON})) {
+            // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
+            next_statement = create_scoped_statement(scope, statement_tokens, body, body_statements);
         } else {
-            std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
-            if (Signature::tokens_contain(statement_tokens, {TOK_COLON})) {
-                // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
-                next_statement = create_scoped_statement(scope, statement_tokens, body, body_statements);
-            } else {
-                // --- NORMAL STATEMENT ---
-                next_statement = create_statement(scope, statement_tokens);
-            }
-            if (next_statement.has_value()) {
-                body_statements.emplace_back(std::move(next_statement.value()));
-            } else {
-                throw_err(ERR_UNDEFINED_STATEMENT);
-            }
+            // --- NORMAL STATEMENT ---
+            next_statement = create_statement(scope, statement_tokens);
+        }
+
+        if (next_statement.has_value()) {
+            body_statements.emplace_back(std::move(next_statement.value()));
+        } else {
+            throw_err(ERR_UNDEFINED_STATEMENT);
         }
     }
 

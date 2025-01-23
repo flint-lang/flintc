@@ -1,4 +1,6 @@
 #include "generator/generator.hpp"
+#include "parser/ast/call_node_base.hpp"
+#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/parser.hpp"
 
 void Generator::Statement::generate_statement(                                                              //
@@ -9,33 +11,28 @@ void Generator::Statement::generate_statement(                                  
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
     const body_statement &statement                                                                         //
 ) {
-    if (std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
-        const StatementNode *statement_node = std::get<std::unique_ptr<StatementNode>>(statement).get();
-
-        if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node)) {
-            generate_return_statement(builder, parent, scope, allocations, return_node);
-        } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
-            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
-            std::vector<llvm::BasicBlock *> blocks;
-            generate_if_statement(builder, parent, allocations, phi_lookup, blocks, 0, if_node);
-        } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
-            generate_while_loop(builder, parent, allocations, while_node);
-        } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
-            generate_for_loop(builder, parent, for_node);
-        } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
-            generate_assignment(builder, parent, scope, allocations, phi_lookup, assignment_node);
-        } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
-            generate_declaration(builder, parent, scope, allocations, declaration_node);
-        } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement_node)) {
-            generate_throw_statement(builder, parent, scope, allocations, throw_node);
-        } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement_node)) {
-            generate_catch_statement(builder, parent, scope, allocations, catch_node);
-        } else {
-            throw_err(ERR_GENERATING);
-        }
+    if (const auto *call_node = dynamic_cast<const CallNodeStatement *>(statement.get())) {
+        Expression::generate_call(builder, parent, scope, allocations, dynamic_cast<const CallNodeBase *>(call_node));
+    } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
+        generate_return_statement(builder, parent, scope, allocations, return_node);
+    } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement.get())) {
+        std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
+        std::vector<llvm::BasicBlock *> blocks;
+        generate_if_statement(builder, parent, allocations, phi_lookup, blocks, 0, if_node);
+    } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement.get())) {
+        generate_while_loop(builder, parent, allocations, while_node);
+    } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
+        generate_for_loop(builder, parent, for_node);
+    } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement.get())) {
+        generate_assignment(builder, parent, scope, allocations, phi_lookup, assignment_node);
+    } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement.get())) {
+        generate_declaration(builder, parent, scope, allocations, declaration_node);
+    } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement.get())) {
+        generate_throw_statement(builder, parent, scope, allocations, throw_node);
+    } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
+        generate_catch_statement(builder, parent, scope, allocations, catch_node);
     } else {
-        const CallNode *call_node = std::get<std::unique_ptr<CallNode>>(statement).get();
-        llvm::Value *call = Expression::generate_call(builder, parent, scope, allocations, call_node);
+        throw_err(ERR_GENERATING);
     }
 }
 
@@ -48,13 +45,10 @@ void Generator::Statement::generate_body(                                       
 ) {
     for (const auto &statement : scope->body) {
         generate_statement(builder, parent, scope, allocations, phi_lookup, statement);
-        // Check if the statment was an if statement, if so check if the last block does contain any instructions
-        // If it does not, delete the last block
-        if (std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
-            if (const auto *if_node = dynamic_cast<const IfNode *>(std::get<std::unique_ptr<StatementNode>>(statement).get())) {
-                if (builder.GetInsertBlock()->empty() && statement == scope->body.back()) {
-                    builder.GetInsertBlock()->eraseFromParent();
-                }
+        // Check if the last block does contain any instructions, if it does not, delete it
+        if (const auto *if_node = dynamic_cast<const IfNode *>(statement.get())) {
+            if (builder.GetInsertBlock()->empty() && statement == scope->body.back()) {
+                builder.GetInsertBlock()->eraseFromParent();
             }
         }
     }
@@ -390,7 +384,7 @@ void Generator::Statement::generate_catch_statement(                       //
     const CatchNode *catch_node                                            //
 ) {
     // The catch statement is basically just an if check if the err value of the function return is != 0 or not
-    const std::optional<CallNode *> call_node = Parser::get_call_from_id(catch_node->call_id);
+    const std::optional<CallNodeBase *> call_node = Parser::get_call_from_id(catch_node->call_id);
     if (!call_node.has_value()) {
         // Catch does not have a referenced function
         throw_err(ERR_GENERATING);
@@ -483,7 +477,7 @@ void Generator::Statement::generate_declaration(                           //
 
     // Check if the declaration_node is a function call.
     // If it is, the "real" value of the call has to be extracted. Otherwise, it can be used directly!
-    if (const auto *call_node = dynamic_cast<const CallNode *>(declaration_node->initializer.get())) {
+    if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(declaration_node->initializer.get())) {
         // Call the function and store its result in the return stuct
         const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
         llvm::AllocaInst *const alloca_ret = allocations.at(call_ret_name);

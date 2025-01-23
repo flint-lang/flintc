@@ -16,7 +16,7 @@ llvm::Value *Generator::Expression::generate_expression(                   //
     if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
         return generate_literal(builder, parent, literal_node);
     }
-    if (const auto *call_node = dynamic_cast<const CallNode *>(expression_node)) {
+    if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expression_node)) {
         return generate_call(builder, parent, scope, allocations, call_node);
     }
     if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
@@ -146,7 +146,7 @@ llvm::Value *Generator::Expression::generate_call(                         //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const CallNode *call_node                                              //
+    const CallNodeBase *call_node                                          //
 ) {
     // Get the arguments
     std::vector<llvm::Value *> args;
@@ -250,7 +250,7 @@ void Generator::Expression::generate_rethrow(                              //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const CallNode *call_node                                              //
+    const CallNodeBase *call_node                                          //
 ) {
     const std::string err_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
     llvm::AllocaInst *const err_var = allocations.at(err_ret_name);

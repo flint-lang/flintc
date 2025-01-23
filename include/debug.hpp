@@ -15,13 +15,14 @@
 #include "parser/ast/definitions/variant_node.hpp"
 
 #include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/ast/expressions/call_node.hpp"
+#include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/assignment_node.hpp"
+#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -31,6 +32,7 @@
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
+#include "parser/ast/call_node_base.hpp"
 #include "parser/ast/file_node.hpp"
 
 #include <string>
@@ -73,7 +75,7 @@ namespace Debug {
         void print_variable(unsigned int indent_lvl, uint2 empty, const VariableNode &var);
         void print_unary_op(unsigned int indent_lvl, uint2 empty, const UnaryOpNode &unary);
         void print_literal(unsigned int indent_lvl, uint2 empty, const LiteralNode &lit);
-        void print_call(unsigned int indent_lvl, uint2 empty, const CallNode &call);
+        void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call);
         void print_binary_op(unsigned int indent_lvl, uint2 empty, const BinaryOpNode &bin);
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr);
 
@@ -87,8 +89,7 @@ namespace Debug {
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign);
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl);
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement);
-        void print_body(unsigned int indent_lvl, uint2 empty,
-            const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body);
+        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<body_statement> &body);
 
         // --- DEFINITIONS ---
         void print_data(unsigned int indent_lvl, const DataNode &data);

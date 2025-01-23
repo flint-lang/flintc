@@ -3,6 +3,7 @@
 
 #include "types.hpp"
 
+#include "ast/call_node_base.hpp"
 #include "ast/file_node.hpp"
 
 #include "ast/definitions/data_node.hpp"
@@ -16,6 +17,7 @@
 #include "ast/definitions/variant_node.hpp"
 
 #include "ast/statements/assignment_node.hpp"
+#include "ast/statements/call_node_statement.hpp"
 #include "ast/statements/declaration_node.hpp"
 #include "ast/statements/for_loop_node.hpp"
 #include "ast/statements/if_node.hpp"
@@ -24,7 +26,7 @@
 #include "ast/statements/while_node.hpp"
 
 #include "ast/expressions/binary_op_node.hpp"
-#include "ast/expressions/call_node.hpp"
+#include "ast/expressions/call_node_expression.hpp"
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/unary_op_node.hpp"
@@ -64,8 +66,8 @@ class Parser {
 
     /// get_call_from_id
     ///     Returns the call node with the given id
-    static std::optional<CallNode *> get_call_from_id(unsigned int call_id) {
-        std::optional<CallNode *> call_node = std::nullopt;
+    static std::optional<CallNodeBase *> get_call_from_id(unsigned int call_id) {
+        std::optional<CallNodeBase *> call_node = std::nullopt;
         for (const auto [id, node] : call_nodes) {
             if (id == call_id) {
                 call_node = node;
@@ -78,11 +80,11 @@ class Parser {
     static void resolve_call_types();
 
   private:
-    static std::vector<std::pair<unsigned int, CallNode *>> call_nodes;
+    static std::vector<std::pair<unsigned int, CallNodeBase *>> call_nodes;
 
     /// set_last_parsed_call
     ///     Sets the last parsed call
-    static void set_last_parsed_call(unsigned int call_id, CallNode *call) {
+    static void set_last_parsed_call(unsigned int call_id, CallNodeBase *call) {
         call_nodes.emplace_back(call_id, call);
     }
 
@@ -98,16 +100,19 @@ class Parser {
     static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
     static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
     static token_list clone_from_to(unsigned int from, unsigned int to, const token_list &tokens);
+    static std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> //
+    create_call_base(Scope *scope, token_list &tokens);
 
     // --- EXPRESSIONS ---
     static std::optional<VariableNode> create_variable(Scope *scope, const token_list &tokens);
     static std::optional<UnaryOpNode> create_unary_op(Scope *scope, const token_list &tokens);
     static std::optional<LiteralNode> create_literal(const token_list &tokens);
-    static std::optional<std::unique_ptr<CallNode>> create_call(Scope *scope, token_list &tokens);
+    static std::unique_ptr<CallNodeExpression> create_call_expression(Scope *scope, token_list &tokens);
     static std::optional<BinaryOpNode> create_binary_op(Scope *scope, token_list &tokens);
     static std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, token_list &tokens);
 
     // --- STATEMENTS ---
+    static std::unique_ptr<CallNodeStatement> create_call_statement(Scope *scope, token_list &tokens);
     static std::optional<ThrowNode> create_throw(Scope *scope, token_list &tokens);
     static std::optional<ReturnNode> create_return(Scope *scope, token_list &tokens);
     static std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain);
@@ -129,7 +134,7 @@ class Parser {
     static std::optional<std::unique_ptr<StatementNode>> create_statement(Scope *scope, token_list &tokens);
     static std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
         Scope *scope,                                                             //
-        const token_list &definition,                                             //
+        token_list &definition,                                                   //
         token_list &body,                                                         //
         std::vector<body_statement> &statements                                   //
     );

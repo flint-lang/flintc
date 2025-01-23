@@ -9,17 +9,12 @@ void Generator::Allocation::generate_allocations(                         //
     const Scope *scope,                                                   //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
 ) {
-    for (const auto &statement : scope->body) {
-        if (!std::holds_alternative<std::unique_ptr<StatementNode>>(statement)) {
-            CallNode *call_node = std::get<std::unique_ptr<CallNode>>(statement).get();
-            generate_call_allocations(builder, parent, scope, allocations, call_node);
-            continue;
-        }
-
-        StatementNode *statement_node = std::get<std::unique_ptr<StatementNode>>(statement).get();
-        if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node)) {
+    for (const auto &statement_node : scope->body) {
+        if (auto *call_node = dynamic_cast<CallNodeStatement *>(statement_node.get())) {
+            generate_call_allocations(builder, parent, scope, allocations, dynamic_cast<CallNodeBase *>(call_node));
+        } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node.get())) {
             generate_allocations(builder, parent, while_node->scope.get(), allocations);
-        } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node)) {
+        } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node.get())) {
             while (if_node != nullptr) {
                 generate_allocations(builder, parent, if_node->then_scope.get(), allocations);
                 if (if_node->else_scope.has_value()) {
@@ -34,11 +29,11 @@ void Generator::Allocation::generate_allocations(                         //
                     if_node = nullptr;
                 }
             }
-        } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node)) {
+        } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node.get())) {
             // TODO #1
             throw_err(ERR_NOT_IMPLEMENTED_YET);
-        } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node)) {
-            if (auto *call_node = dynamic_cast<CallNode *>(declaration_node->initializer.get())) {
+        } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node.get())) {
+            if (auto *call_node = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.get())) {
                 generate_call_allocations(builder, parent, scope, allocations, call_node);
 
                 // Create the actual variable allocation with the declared type
@@ -57,8 +52,8 @@ void Generator::Allocation::generate_allocations(                         //
                     "Create alloc of var '" + alloca_name + "'"                          //
                 );
             }
-        } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node)) {
-            if (auto *call_node = dynamic_cast<CallNode *>(assignment_node->expression.get())) {
+        } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node.get())) {
+            if (auto *call_node = dynamic_cast<CallNodeExpression *>(assignment_node->expression.get())) {
                 // Generate only the call allocations, not the variable allocations
                 generate_call_allocations(builder, parent, scope, allocations, call_node);
             }
@@ -71,7 +66,7 @@ void Generator::Allocation::generate_call_allocations(                     //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    CallNode *call_node                                                    //
+    CallNodeBase *call_node                                                //
 ) {
     // Get the function definition from any module
     auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);

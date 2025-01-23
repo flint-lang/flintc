@@ -70,7 +70,7 @@ class Scope {
   private:
     /// get_next_scope_id
     ///     Returns the next scope id. Ensures that each scope gets its own id for the lifetime of the program
-    static unsigned int get_next_scope_id() {
+    static unsigned inline int get_next_scope_id() {
         static unsigned int scope_id = 0;
         return scope_id++;
     }

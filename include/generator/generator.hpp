@@ -2,9 +2,10 @@
 #define __GENERATOR_HPP__
 
 #include "lexer/lexer.hpp"
+#include "parser/ast/call_node_base.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/ast/expressions/call_node.hpp"
+#include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
@@ -12,6 +13,7 @@
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
+#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -412,7 +414,7 @@ class Generator {
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            CallNode *call_node                                                    //
+            CallNodeBase *call_node                                                //
         );
 
         /// @function `generate_allocation`
@@ -494,7 +496,10 @@ class Generator {
         /// @return `std::pair<std::nullopt, false>` If the function definition could not be found
         /// @return `std::pair<std::optional<Function *>, bool>` In all other cases. The second variable always determines whether the call
         /// targets a function inside the current module (false) or if it targets a function in another module (true).
-        static std::pair<std::optional<llvm::Function *>, bool> get_function_definition(llvm::Function *parent, const CallNode *call_node);
+        static std::pair<std::optional<llvm::Function *>, bool> get_function_definition( //
+            llvm::Function *parent,                                                      //
+            const CallNodeBase *call_node                                                //
+        );
 
         /// @function `function_has_return`
         /// @brief Checks if a given function has a return statement within its bodies instructions
@@ -762,7 +767,7 @@ class Generator {
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const CallNode *call_node                                              //
+            const CallNodeBase *call_node                                          //
         );
 
         /// @function `generate_rethrow`
@@ -776,7 +781,7 @@ class Generator {
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const CallNode *call_node                                              //
+            const CallNodeBase *call_node                                          //
         );
 
         /// @function `generate_unary_op`

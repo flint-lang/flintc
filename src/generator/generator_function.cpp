@@ -63,8 +63,10 @@ llvm::Function *Generator::Function::generate_function(llvm::Module *module, Fun
     return function;
 }
 
-std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_function_definition(llvm::Function *parent,
-    const CallNode *call_node) {
+std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_function_definition( //
+    llvm::Function *parent,                                                                    //
+    const CallNodeBase *call_node                                                              //
+) {
     llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
     // Check if the call is to a builtin function
     if (func_decl == nullptr && builtin_functions.find(call_node->function_name) != builtin_functions.end()) {

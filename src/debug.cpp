@@ -18,13 +18,14 @@
 #include "parser/ast/definitions/variant_node.hpp"
 
 #include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/ast/expressions/call_node.hpp"
+#include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/assignment_node.hpp"
+#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -34,6 +35,7 @@
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
+#include "parser/ast/call_node_base.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
 
@@ -287,7 +289,7 @@ namespace Debug {
             std::cout << std::endl;
         }
 
-        void print_call(unsigned int indent_lvl, uint2 empty, const CallNode &call) {
+        void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call) {
             print_header(indent_lvl, empty, "Call ");
             std::cout << "'" << call.function_name << "' with args";
             std::cout << std::endl;
@@ -322,8 +324,8 @@ namespace Debug {
                 print_unary_op(indent_lvl, empty, *unary_op_node);
             } else if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expr.get())) {
                 print_literal(indent_lvl, empty, *literal_node);
-            } else if (const auto *call_node = dynamic_cast<const CallNode *>(expr.get())) {
-                print_call(indent_lvl, empty, *call_node);
+            } else if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expr.get())) {
+                print_call(indent_lvl, empty, *dynamic_cast<const CallNodeBase *>(call_node));
             } else if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expr.get())) {
                 print_binary_op(indent_lvl, empty, *binary_op_node);
             } else {
@@ -402,7 +404,7 @@ namespace Debug {
         }
 
         void print_catch(unsigned int indent_lvl, uint2 empty, const CatchNode &catch_node) {
-            std::optional<CallNode *> call_node = Parser::get_call_from_id(catch_node.call_id);
+            std::optional<CallNodeBase *> call_node = Parser::get_call_from_id(catch_node.call_id);
             if (!call_node.has_value()) {
                 return;
             }
@@ -459,26 +461,22 @@ namespace Debug {
                 print_throw(indent_lvl, empty, *throw_node);
             } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
                 print_catch(indent_lvl, empty, *catch_node);
+            } else if (const auto *call_node = dynamic_cast<const CallNodeBase *>(statement.get())) {
+                print_call(indent_lvl, empty, *call_node);
             } else {
                 throw_err(ERR_DEBUG);
             }
         }
 
-        void print_body(unsigned int indent_lvl, uint2 empty,
-            const std::vector<std::variant<std::unique_ptr<StatementNode>, std::unique_ptr<CallNode>>> &body) {
+        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<body_statement> &body) {
             unsigned int counter = 0;
             for (const auto &body_line : body) {
                 if (++counter == body.size()) {
-                    if (!std::holds_alternative<std::unique_ptr<StatementNode>>(body_line) ||
-                        dynamic_cast<const IfNode *>(std::get<std::unique_ptr<StatementNode>>(body_line).get()) != nullptr) {
+                    if (dynamic_cast<const IfNode *>(body_line.get()) != nullptr) {
                         empty.second = indent_lvl + 1;
                     }
                 }
-                if (std::holds_alternative<std::unique_ptr<StatementNode>>(body_line)) {
-                    print_statement(indent_lvl, empty, std::get<std::unique_ptr<StatementNode>>(body_line));
-                } else if (std::holds_alternative<std::unique_ptr<CallNode>>(body_line)) {
-                    print_call(indent_lvl, empty, *std::get<std::unique_ptr<CallNode>>(body_line));
-                }
+                print_statement(indent_lvl, empty, body_line);
             }
         }
 
