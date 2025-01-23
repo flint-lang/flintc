@@ -513,7 +513,18 @@ class Generator {
     /// @note This class cannot be initialized and all functions within this class are static
     class Statement {
       public:
+        // The constructor is deleted to make this class non-initializable
         Statement() = delete;
+
+        /// @function `generate_statement`
+        /// @brief Generates a single statement
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the statement will be generated in
+        /// @param `scope` The scope the statement is being generated in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `phi_lookup` The map of all phi nodes, which tracks the mutations and values of every variable
+        /// @param `statement` The statement which will be generated
         static void generate_statement(                                                                             //
             llvm::IRBuilder<> &builder,                                                                             //
             llvm::Function *parent,                                                                                 //
@@ -522,6 +533,15 @@ class Generator {
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
             const body_statement &statement                                                                         //
         );
+
+        /// @function `generate_body`
+        /// @brief Generates a whole body
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the body will be generated in
+        /// @param `scope` The scope containing the body which will be generated
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
         static void generate_body(                                                                                 //
             llvm::IRBuilder<> &builder,                                                                            //
             llvm::Function *parent,                                                                                //
@@ -529,6 +549,15 @@ class Generator {
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,                                 //
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
         );
+
+        /// @function `generate_return_statement`
+        /// @brief Generates the return statement from the given ReturnNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the return statement will be generated in
+        /// @param `scope` The scope the return statement will be generated in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `return_node` The return node to generated
         static void generate_return_statement(                                     //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -536,6 +565,15 @@ class Generator {
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const ReturnNode *return_node                                          //
         );
+
+        /// @function `generate_throw_statement`
+        /// @brief Generates the throw statement from the given ThrowNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the return statement will be generated in
+        /// @param `scope` The scope the throw statement will be generated in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `throw_node` The throw node to generate
         static void generate_throw_statement(                                      //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -543,6 +581,15 @@ class Generator {
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const ThrowNode *throw_node                                            //
         );
+
+        /// @function `generate_if_blocks`
+        /// @brief Generates all blocks of the if-chain
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the basic blocks will be created in
+        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
+        /// @param `blocks` The list of all basic blocks which will be created
+        /// @param `if_node` The if node containin ght whole if-chain to generate the BasicBlocks from
         static void generate_if_blocks(                                                                             //
             llvm::IRBuilder<> &builder,                                                                             //
             llvm::Function *parent,                                                                                 //
@@ -550,6 +597,17 @@ class Generator {
             std::vector<llvm::BasicBlock *> &blocks,                                                                //
             const IfNode *if_node                                                                                   //
         );
+
+        /// @function `generate_if_statement`
+        /// @brief Generates the if statement from the given IfNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the if chain will be generated in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
+        /// @param `blocks` The list of all basic blocks the if bodies are contained in
+        /// @param `nesting_level` The nesting level determines how "deep" one is inside the if-chain
+        /// @param `if_node` The if node to generate
         static void generate_if_statement(                                                                          //
             llvm::IRBuilder<> &builder,                                                                             //
             llvm::Function *parent,                                                                                 //
@@ -559,17 +617,47 @@ class Generator {
             unsigned int nesting_level,                                                                             //
             const IfNode *if_node                                                                                   //
         );
+
+        /// @function `generate_while_loop`
+        /// @brief Generates the while loop from the given WhileNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the while loop will be generated in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `while_node` The while node to generate
         static void generate_while_loop(                                           //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const WhileNode *while_node                                            //
         );
+
+        /// @function `generate_for_loop`
+        /// @brief Generates the for loop from the given ForLoopNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the for loop will be generated in
+        /// @param `for_node` The for loop node to generate
         static void generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node);
+
+        /// @function `generate_phi_calls`
+        /// @brief Generates all phi calls from the given phi_lookup within the currently active block of the builder
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
         static void generate_phi_calls(                                                                            //
             llvm::IRBuilder<> &builder,                                                                            //
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
         );
+
+        /// @function `generate_catch_statement`
+        /// @brief Generates the catch statement from the given CatchNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the catch statement will be generated in
+        /// @param `scope` The scope the catch statement is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `catch_node` The catch node to generate
         static void generate_catch_statement(                                      //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -577,6 +665,15 @@ class Generator {
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const CatchNode *catch_node                                            //
         );
+
+        /// @function `generate_declaration`
+        /// @brief Generates the declaration from the given DeclarationNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the declaration will be generated in
+        /// @param `scope` The scope the declaration is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `declaration_node` The declaration node to generate
         static void generate_declaration(                                          //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -584,6 +681,16 @@ class Generator {
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const DeclarationNode *declaration_node                                //
         );
+
+        /// @function `generate_assignment`
+        /// @brief Generates the assignment from the given AssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the assignment will be generated in
+        /// @param `scope` The scope the assignment is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
+        /// @param `assignment_node` The assignment node to generate
         static void generate_assignment(                                                                            //
             llvm::IRBuilder<> &builder,                                                                             //
             llvm::Function *parent,                                                                                 //
