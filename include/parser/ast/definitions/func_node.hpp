@@ -4,6 +4,7 @@
 #include "../ast_node.hpp"
 #include "function_node.hpp"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -13,10 +14,10 @@
 class FuncNode : public ASTNode {
   public:
     explicit FuncNode(std::string &name, std::vector<std::pair<std::string, std::string>> &required_data,
-        std::vector<std::unique_ptr<FunctionNode>> functions)
-        : name(name),
-          required_data(std::move(required_data)),
-          functions(std::move(functions)) {}
+        std::vector<std::unique_ptr<FunctionNode>> functions) :
+        name(name),
+        required_data(std::move(required_data)),
+        functions(std::move(functions)) {}
 
     // empty constructor
     FuncNode() = default;

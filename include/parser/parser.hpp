@@ -127,7 +127,7 @@ class Parser {
         Scope *scope,                                              //
         const token_list &definition,                              //
         token_list &body,                                          //
-        std::vector<body_statement> &statements                    //
+        std::vector<std::unique_ptr<StatementNode>> &statements    //
     );
     static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(Scope *scope, token_list &tokens);
     static std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool &is_infered);
@@ -136,9 +136,9 @@ class Parser {
         Scope *scope,                                                             //
         token_list &definition,                                                   //
         token_list &body,                                                         //
-        std::vector<body_statement> &statements                                   //
+        std::vector<std::unique_ptr<StatementNode>> &statements                   //
     );
-    static std::vector<body_statement> create_body(Scope *scope, token_list &body);
+    static std::vector<std::unique_ptr<StatementNode>> create_body(Scope *scope, token_list &body);
 
     // --- DEFINITIONS ---
     static FunctionNode create_function(const token_list &definition, token_list &body);

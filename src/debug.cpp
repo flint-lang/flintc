@@ -468,7 +468,7 @@ namespace Debug {
             }
         }
 
-        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<body_statement> &body) {
+        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<std::unique_ptr<StatementNode>> &body) {
             unsigned int counter = 0;
             for (const auto &body_line : body) {
                 if (++counter == body.size()) {

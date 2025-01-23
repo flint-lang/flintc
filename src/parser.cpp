@@ -597,7 +597,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
         throw_err(ERR_PARSING);
     }
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
-    std::vector<body_statement> body_statements = create_body(body_scope.get(), this_if_pair.second);
+    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), this_if_pair.second);
     body_scope->body = std::move(body_statements);
     std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> else_scope = std::nullopt;
 
@@ -609,7 +609,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
         } else {
             // 'else'
             std::unique_ptr<Scope> else_scope_ptr = std::make_unique<Scope>(scope);
-            std::vector<body_statement> body_statements = create_body(else_scope_ptr.get(), if_chain.at(0).second);
+            std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(else_scope_ptr.get(), if_chain.at(0).second);
             else_scope_ptr->body = std::move(body_statements);
             else_scope = std::move(else_scope_ptr);
         }
@@ -647,7 +647,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop(Scope *scope
     }
 
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
-    std::vector<body_statement> body_statements = create_body(body_scope.get(), body);
+    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), body);
     body_scope->body = std::move(body_statements);
     std::unique_ptr<WhileNode> while_node = std::make_unique<WhileNode>(condition.value(), body_scope);
     return while_node;
@@ -674,7 +674,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     Scope *scope,                                               //
     const token_list &definition,                               //
     token_list &body,                                           //
-    std::vector<body_statement> &statements                     //
+    std::vector<std::unique_ptr<StatementNode>> &statements     //
 ) {
     // First, extract everything left of the 'catch' statement and parse it as a normal (unscoped) statement
     std::optional<unsigned int> catch_id = std::nullopt;
@@ -717,7 +717,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     if (err_var.has_value()) {
         body_scope->add_variable_type(err_var.value(), "int", body_scope->scope_id);
     }
-    std::vector<body_statement> body_statements = create_body(body_scope.get(), body);
+    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), body);
     body_scope->body = std::move(body_statements);
 
     return std::make_unique<CatchNode>(err_var, body_scope, last_call_id);
@@ -860,7 +860,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     Scope *scope,                                                              //
     token_list &definition,                                                    //
     token_list &body,                                                          //
-    std::vector<body_statement> &statements                                    //
+    std::vector<std::unique_ptr<StatementNode>> &statements                    //
 ) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
@@ -951,8 +951,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
 
 /// create_body
 ///     Creates a body containing of multiple statement nodes from a list of tokens
-std::vector<body_statement> Parser::create_body(Scope *scope, token_list &body) {
-    std::vector<body_statement> body_statements;
+std::vector<std::unique_ptr<StatementNode>> Parser::create_body(Scope *scope, token_list &body) {
+    std::vector<std::unique_ptr<StatementNode>> body_statements;
     const Signature::signature statement_signature = Signature::match_until_signature({"((", TOK_SEMICOLON, ")|(", TOK_COLON, "))"});
 
     while (auto next_match = Signature::get_next_match_range(body, statement_signature)) {
@@ -1041,7 +1041,7 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
     }
 
     // Create the body and add the body statements to the created scope
-    std::vector<body_statement> body_statements = create_body(body_scope.get(), body);
+    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), body);
     body_scope->body = std::move(body_statements);
 
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);

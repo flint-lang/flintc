@@ -4,6 +4,7 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/scope.hpp"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -12,12 +13,11 @@
 ///     Represents function definitions
 class FunctionNode : public ASTNode {
   public:
-    explicit FunctionNode(bool is_aligned, bool is_const, const std::string &name,
-        std::vector<std::pair<std::string, std::string>> &parameters, std::vector<std::string> &return_types,
-        std::unique_ptr<Scope> &scope) :
+    explicit FunctionNode(bool is_aligned, bool is_const, std::string name, std::vector<std::pair<std::string, std::string>> &parameters,
+        std::vector<std::string> &return_types, std::unique_ptr<Scope> &scope) :
         is_aligned(is_aligned),
         is_const(is_const),
-        name(name),
+        name(std::move(name)),
         parameters(std::move(parameters)),
         return_types(std::move(return_types)),
         scope(std::move(scope)) {}

@@ -89,7 +89,7 @@ namespace Debug {
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign);
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl);
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement);
-        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<body_statement> &body);
+        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<std::unique_ptr<StatementNode>> &body);
 
         // --- DEFINITIONS ---
         void print_data(unsigned int indent_lvl, const DataNode &data);

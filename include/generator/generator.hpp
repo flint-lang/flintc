@@ -536,7 +536,7 @@ class Generator {
             const Scope *scope,                                                                                     //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,                                  //
             std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-            const body_statement &statement                                                                         //
+            const std::unique_ptr<StatementNode> &statement                                                         //
         );
 
         /// @function `generate_body`

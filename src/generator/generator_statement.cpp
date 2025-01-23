@@ -1,6 +1,4 @@
 #include "generator/generator.hpp"
-#include "parser/ast/call_node_base.hpp"
-#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/parser.hpp"
 
 void Generator::Statement::generate_statement(                                                              //
@@ -9,7 +7,7 @@ void Generator::Statement::generate_statement(                                  
     const Scope *scope,                                                                                     //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,                                  //
     std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-    const body_statement &statement                                                                         //
+    const std::unique_ptr<StatementNode> &statement                                                         //
 ) {
     if (const auto *call_node = dynamic_cast<const CallNodeStatement *>(statement.get())) {
         Expression::generate_call(builder, parent, scope, allocations, dynamic_cast<const CallNodeBase *>(call_node));

@@ -2,8 +2,9 @@
 #define __ISCOPE_HPP__
 
 #include "error/error.hpp"
-#include "types.hpp"
+#include "parser/ast/statements/statement_node.hpp"
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -16,7 +17,7 @@ class Scope {
         clone_variable_types(parent);
     }
 
-    explicit Scope(std::vector<body_statement> body, Scope *parent = nullptr) :
+    explicit Scope(std::vector<std::unique_ptr<StatementNode>> body, Scope *parent = nullptr) :
         body(std::move(body)),
         parent_scope(parent) {}
 
@@ -58,7 +59,7 @@ class Scope {
     const unsigned int scope_id = get_next_scope_id();
     /// body
     ///     All the body statements of this scopes body
-    std::vector<body_statement> body;
+    std::vector<std::unique_ptr<StatementNode>> body;
     /// parent_scope
     ///     The parent scope of this scope
     Scope *parent_scope{nullptr};
