@@ -706,7 +706,17 @@ class Generator {
     /// @note This class cannot be initialized and all functions within this class are static
     class Expression {
       public:
+        // The constructor is deleted to make this class non-initializable
         Expression() = delete;
+
+        /// @function `generate_expression`
+        /// @brief Generates an expression from the given ExpressionNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the expression will be generated in
+        /// @param `scope` The scope the expression is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `expression_node` The expression node to generate
         static llvm::Value *generate_expression(                                   //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -714,7 +724,23 @@ class Generator {
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const ExpressionNode *expression_node                                  //
         );
+
+        /// @function `generate_literal`
+        /// @brief Generates the literal value from the given LiteralNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The scope the literal is contained in
+        /// @param `literal_node` The literal node to generate
         static llvm::Value *generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node);
+
+        /// @function `generate_variable`
+        /// @brief Generates the variable from the given VariableNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the variable is generated in
+        /// @param `scope` The scope the variable is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `variable_node` The variable node to generate
         static llvm::Value *generate_variable(                                     //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -722,6 +748,15 @@ class Generator {
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const VariableNode *variable_node                                      //
         );
+
+        /// @function `generate_call`
+        /// @brief Generates the call from the given CallNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the call is generated in
+        /// @param `scope` The scope the call is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `call_node` The call node to generate
         static llvm::Value *generate_call(                                         //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -729,13 +764,37 @@ class Generator {
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const CallNode *call_node                                              //
         );
+
+        /// @function `generate_rethrow`
+        /// @brief Generates a catch block which re-throws the error of the call, if the call had an error
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the rethrow is generated in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `call_node` The call node which is used to generate the rethrow from
         static void generate_rethrow(                                              //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const CallNode *call_node                                              //
         );
+
+        /// @function `generate_unary_op`
+        /// @brief Generates the unary operation value from the given UnaryOpNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the unary operation is generated in
+        /// @param `unary_op_node` The unary operation to generate
         static llvm::Value *generate_unary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const UnaryOpNode *unary_op_node);
+
+        /// @function `generate_binary_op`
+        /// @brief Generates a binary operation from the given BinaryOpNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the binary operation is generated in
+        /// @param `scope` The scope the binary operation is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `bin_op_node` The binary operation to generate
         static llvm::Value *generate_binary_op(                                    //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //

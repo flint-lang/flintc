@@ -348,8 +348,6 @@ llvm::Value *Generator::Expression::generate_unary_op( //
     return nullptr;
 }
 
-/// generate_binary_op
-///     Generates a binary operation from the given BinaryOpNode
 llvm::Value *Generator::Expression::generate_binary_op(                    //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
