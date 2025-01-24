@@ -4,6 +4,7 @@
 #include "error/error_type.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
+#include "profiler.hpp"
 #include "resolver/resolver.hpp"
 
 #include <llvm/IR/Argument.h>
@@ -46,6 +47,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     llvm::LLVMContext &context,                               //
     std::shared_ptr<DepNode> &dep_graph                       //
 ) {
+    PROFILE_SCOPE("Generate program IR");
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
     auto module = std::make_unique<llvm::Module>(program_name, context);
     main_module[0] = module.get();
@@ -171,6 +173,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     const std::shared_ptr<DepNode> &dep_node,              //
     const FileNode &file                                   //
 ) {
+    PROFILE_SCOPE("Generate IR for '" + file.file_name + "'");
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(dep_node->file_name, context);
 
     // Declare the built-in functions in the file module to reference the main module's versions

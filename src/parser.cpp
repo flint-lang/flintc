@@ -5,6 +5,8 @@
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
 
+#include "debug.hpp"
+#include "profiler.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
 
@@ -63,6 +65,7 @@ std::vector<std::pair<unsigned int, CallNodeBase *>> Parser::call_nodes;
 ///     the passed main ProgramNode
 FileNode Parser::parse_file(const std::filesystem::path &file) {
     std::string file_name = file.filename();
+    PROFILE_SCOPE("Parsing file '" + file_name + "'");
     FileNode file_node(file_name);
     token_list tokens = Lexer(file).scan();
     // Consume all tokens and convert them to nodes
@@ -156,6 +159,7 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         VariantNode variant_node = create_variant(definition_tokens, body_tokens);
         file_node.add_variant(variant_node);
     } else {
+        Debug::print_token_context_vector(definition_tokens);
         throw_err(ERR_UNEXPECTED_DEFINITION);
     }
 }

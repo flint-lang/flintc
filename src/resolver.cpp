@@ -4,6 +4,7 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/parser.hpp"
+#include "profiler.hpp"
 
 #include <filesystem>
 #include <string>
@@ -13,6 +14,7 @@
 ///     Takes a main file and resolves all file imports, causing the AST generation of all used files
 ///     Moves ownership of the file_node, so it is considered unsafe to access it after ths function call!
 std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, const std::filesystem::path &path) {
+    PROFILE_SCOPE("Create dependency graph");
     // Add the files path to the path map
     const std::string file_name = file_node.file_name;
     Resolver::add_path(file_name, path);
