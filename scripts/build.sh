@@ -8,8 +8,11 @@ err_exit() {
     exit $1
 }
 
+# Get the projects root directory (use cd + dirname + pwd to always get absolute path, even when it is called relatively)
+root="$(cd "$(dirname "$0")" && cd .. && pwd)"
+
 # First, ensure that the build/ directory exists!
-mkdir -p build
+mkdir -p "$root/build"
 
 echo "-- Checking Library requirements"
 
@@ -36,19 +39,19 @@ if [ "$(echo "$zlib_files" | grep "libz.a")" = "" ]; then
 fi
 
 # Finally, check if xml2 has been built and if libxml2.a is available
-if [ ! -d "xml2/xml2" ] || [ ! -d "xml2/xml2/lib" ]; then
+if [ ! -d "$root/xml2/xml2" ] || [ ! -d "$root/xml2/xml2/lib" ]; then
     err_exit 1 "XML2 has not been built manually in the xml2 directory! Check the README.md in the xml2 directory for further information!"
 fi
-if [ "$(ls "xml2/xml2/lib" | grep "libxml2.a")" = "" ]; then
+if [ "$(ls "$root/xml2/xml2/lib" | grep "libxml2.a")" = "" ]; then
     err_exit 1 "Required static library 'libxml2.a' not found in the xml2/xml2/lib directory!"
 fi
 
 echo "-- Starting CMake build process"
 
 # Then, start the configuring phase of CMake
-cmake -S . -B build
+cmake -S . -B "$root/build"
 
 # And finally, build the cmake targets
-cmake --build build --target static
+cmake --build "$root/build" --target static
 
 echo "-- Build finished! Look at 'build/out' to see the built binaries"
