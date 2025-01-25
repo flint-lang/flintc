@@ -57,6 +57,9 @@ set(STATIC_FLAGS
     -L$ENV{GLIBCPATH}
     -L$ENV{ZLIBPATH}
     -L${CMAKE_SOURCE_DIR}/xml2/xml2/lib
+    # Flags for the profiler
+    -lpthread
+    -ldl
 )
 
 # Get the LLVM link flags

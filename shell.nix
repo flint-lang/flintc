@@ -9,6 +9,10 @@ pkgs.mkShell {
     cmake
     zlib.static
     glibc.static
+
+    # Packages needed for profiling
+    linuxKernel.packages.linux_6_6.perf
+    flamegraph
   ];
 
   shellHook = ''

@@ -5,7 +5,7 @@
 # Print error and exit program with specified error code
 err_exit() {
     echo "Error: $2"
-    exit $1
+    exit "$1"
 }
 
 # Get the projects root directory (use cd + dirname + pwd to always get absolute path, even when it is called relatively)
