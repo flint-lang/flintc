@@ -125,13 +125,20 @@ class Parser {
     static std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> //
     create_call_base(Scope *scope, token_list &tokens);
 
-    // --- EXPRESSIONS ---
-    static std::optional<VariableNode> create_variable(Scope *scope, const token_list &tokens);
-    static std::optional<UnaryOpNode> create_unary_op(Scope *scope, const token_list &tokens);
-    static std::optional<LiteralNode> create_literal(const token_list &tokens);
-    static std::unique_ptr<CallNodeExpression> create_call_expression(Scope *scope, token_list &tokens);
-    static std::optional<BinaryOpNode> create_binary_op(Scope *scope, token_list &tokens);
-    static std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, token_list &tokens);
+    /// @class `Expression`
+    /// @brief This class is responsible for parsing everything about expressions
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Expression {
+      public:
+        Expression() = delete;
+
+        static std::optional<VariableNode> create_variable(Scope *scope, const token_list &tokens);
+        static std::optional<UnaryOpNode> create_unary_op(Scope *scope, const token_list &tokens);
+        static std::optional<LiteralNode> create_literal(const token_list &tokens);
+        static std::unique_ptr<CallNodeExpression> create_call_expression(Scope *scope, token_list &tokens);
+        static std::optional<BinaryOpNode> create_binary_op(Scope *scope, token_list &tokens);
+        static std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, token_list &tokens);
+    };
 
     /// @class `Statement`
     /// @brief This class is responsible for parsing everything about statements

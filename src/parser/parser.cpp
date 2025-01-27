@@ -245,7 +245,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
                 } else {
                     argument_tokens = clone_from_to((match - 1)->second, match->first, tokens);
                 }
-                auto expression = create_expression(scope, argument_tokens);
+                auto expression = Expression::create_expression(scope, argument_tokens);
                 if (!expression.has_value()) {
                     throw_err(ERR_PARSING);
                 }
@@ -256,7 +256,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
             }
         } else {
             token_list argument_tokens = extract_from_to(arg_range.value().first, arg_range.value().second, tokens);
-            auto expression = create_expression(scope, argument_tokens);
+            auto expression = Expression::create_expression(scope, argument_tokens);
             if (!expression.has_value()) {
                 throw_err(ERR_PARSING);
             }

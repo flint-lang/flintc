@@ -47,7 +47,7 @@ std::optional<ReturnNode> Parser::Statement::create_return(Scope *scope, token_l
         }
     }
     token_list expression_tokens = extract_from_to(return_id + 1, tokens.size(), tokens);
-    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> expr = Expression::create_expression(scope, expression_tokens);
     if (expr.has_value()) {
         return ReturnNode(expr.value());
     }
@@ -90,7 +90,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::Statement::create_if(Scope *scope
     }
 
     // Create the if statements condition and body statements
-    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, this_if_pair.first);
+    std::optional<std::unique_ptr<ExpressionNode>> condition = Expression::create_expression(scope, this_if_pair.first);
     if (!condition.has_value()) {
         // Invalid expression inside if statement
         throw_err(ERR_PARSING);
@@ -142,7 +142,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::Statement::create_while_loop( 
         condition_tokens.erase(rev_it.base());
     }
 
-    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> condition = Expression::create_expression(scope, condition_tokens);
     if (!condition.has_value()) {
         // Invalid expression inside while statement
         throw_err(ERR_PARSING);
@@ -238,7 +238,7 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::Statement::create_assignm
         if (iterator->type == TOK_IDENTIFIER) {
             if ((iterator + 1)->type == TOK_EQUAL && (iterator + 2) != tokens.end()) {
                 token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
-                std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens);
+                std::optional<std::unique_ptr<ExpressionNode>> expression = Expression::create_expression(scope, expression_tokens);
                 if (expression.has_value()) {
                     if (scope->variable_types.find(iterator->lexme) == scope->variable_types.end()) {
                         // Assignment on undeclared variable!
@@ -299,7 +299,7 @@ std::optional<DeclarationNode> Parser::Statement::create_declaration(Scope *scop
             ++iterator;
         }
 
-        auto expr = create_expression(scope, tokens);
+        auto expr = Expression::create_expression(scope, tokens);
         if (expr.has_value()) {
             if (!scope->add_variable_type(name, type, scope->scope_id)) {
                 // Variable shadowing!
