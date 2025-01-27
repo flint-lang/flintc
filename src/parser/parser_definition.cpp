@@ -168,10 +168,10 @@ FuncNode Parser::Definition::create_func(const token_list &definition, token_lis
         current_line = body_iterator->line;
 
         uint2 definition_ids = Signature::get_line_token_indices(body, current_line).value();
-        token_list function_definition = extract_from_to(definition_ids.first, definition_ids.second, body);
+        token_list function_definition = Util::extract_from_to(definition_ids.first, definition_ids.second, body);
 
         unsigned int leading_indents = Signature::get_leading_indents(function_definition, current_line).value();
-        token_list function_body = get_body_tokens(leading_indents, body);
+        token_list function_body = Util::get_body_tokens(leading_indents, body);
 
         functions.emplace_back(std::make_unique<FunctionNode>(std::move(create_function(function_definition, function_body))));
         ++body_iterator;
@@ -227,7 +227,7 @@ std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::un
                 token_list tokens_after_link;
                 tokens_after_link.reserve(body.size() - std::distance(body.begin(), body_iterator + 2));
                 std::copy(body_iterator + 2, body.end(), tokens_after_link.begin());
-                token_list link_tokens = get_body_tokens(link_indentation, tokens_after_link);
+                token_list link_tokens = Util::get_body_tokens(link_indentation, tokens_after_link);
                 link_nodes = create_links(link_tokens);
             }
 
@@ -256,13 +256,13 @@ std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::un
             if (body_iterator->type == TOK_DATA) {
                 // TODO: Add a generic constructor for the data module
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
-                token_list data_body = get_body_tokens(leading_indents, body);
+                token_list data_body = Util::get_body_tokens(leading_indents, body);
                 token_list data_definition = {TokenContext{TOK_DATA, "", 0}, TokenContext{TOK_IDENTIFIER, name + "__D", 0}};
                 data_node = create_data(data_definition, data_body);
                 data_modules.emplace_back(name + "__D");
             } else if (body_iterator->type == TOK_FUNC) {
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
-                token_list func_body = get_body_tokens(leading_indents, body);
+                token_list func_body = Util::get_body_tokens(leading_indents, body);
                 token_list func_definition = {TokenContext{TOK_FUNC}, TokenContext{TOK_IDENTIFIER, name + "__F"},
                     TokenContext{TOK_REQUIRES}, TokenContext{TOK_LEFT_PAREN}, TokenContext{TOK_IDENTIFIER, name + "__D"},
                     TokenContext{TOK_IDENTIFIER, "d"}, TokenContext{TOK_RIGHT_PAREN}, TokenContext{TOK_COLON}};

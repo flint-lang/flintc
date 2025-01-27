@@ -232,10 +232,6 @@ class Generator {
     /// the function the call references, not only its name
     static std::unordered_map<std::string, std::vector<std::string>> file_function_names;
 
-    /// main_call_array
-    ///     Holds a static reference to a single call instance, being the call of the custom main function
-    ///     Is an array of size 1 to only have the container static, not the pointer (would lead to bugs otherwise)
-
     /// @var `main_call_array`
     /// @brief Holds a reference to the call of the user-defined main function from within the builtin main function
     ///

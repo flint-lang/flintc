@@ -116,14 +116,21 @@ class Parser {
         return call_nodes.rbegin()->first;
     }
 
-    // --- UTILITY ---
-    static void add_next_main_node(FileNode &file_node, token_list &tokens);
-    static token_list get_definition_tokens(token_list &tokens);
-    static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
-    static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
-    static token_list clone_from_to(unsigned int from, unsigned int to, const token_list &tokens);
-    static std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> //
-    create_call_base(Scope *scope, token_list &tokens);
+    // @class `Util`
+    /// @brief This class is responsible for parsing everything about expressions
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Util {
+      public:
+        Util() = delete;
+
+        static void add_next_main_node(FileNode &file_node, token_list &tokens);
+        static token_list get_definition_tokens(token_list &tokens);
+        static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
+        static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
+        static token_list clone_from_to(unsigned int from, unsigned int to, const token_list &tokens);
+        static std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> //
+        create_call_base(Scope *scope, token_list &tokens);
+    }; // subclass Util
 
     /// @class `Expression`
     /// @brief This class is responsible for parsing everything about expressions
@@ -138,7 +145,7 @@ class Parser {
         static std::unique_ptr<CallNodeExpression> create_call_expression(Scope *scope, token_list &tokens);
         static std::optional<BinaryOpNode> create_binary_op(Scope *scope, token_list &tokens);
         static std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, token_list &tokens);
-    };
+    }; // subclass Expression
 
     /// @class `Statement`
     /// @brief This class is responsible for parsing everything about statements
@@ -178,7 +185,7 @@ class Parser {
             std::vector<std::unique_ptr<StatementNode>> &statements                   //
         );
         static std::vector<std::unique_ptr<StatementNode>> create_body(Scope *scope, token_list &body);
-    };
+    }; // subclass Statement
 
     /// @class `Definition`
     /// @brief This class is responsible for parsing everything about definitions
@@ -201,7 +208,7 @@ class Parser {
         static ErrorNode create_error(const token_list &definition, const token_list &body);
         static VariantNode create_variant(const token_list &definition, const token_list &body);
         static ImportNode create_import(const token_list &tokens);
-    };
+    }; // subclass Definition
 };
 
 #endif

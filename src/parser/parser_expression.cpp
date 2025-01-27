@@ -68,7 +68,7 @@ std::optional<LiteralNode> Parser::Expression::create_literal(const token_list &
 /// create_call_expression
 ///     Creates a CallNode, being a function call, from the given tokens
 std::unique_ptr<CallNodeExpression> Parser::Expression::create_call_expression(Scope *scope, token_list &tokens) {
-    auto call_node_args = create_call_base(scope, tokens);
+    auto call_node_args = Util::create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
         throw_err(ERR_PARSING);
     }
@@ -136,14 +136,14 @@ std::optional<BinaryOpNode> Parser::Expression::create_binary_op(Scope *scope, t
     token_list lhs_tokens;
     Token operator_token = TOK_EOL;
     if (second_operator_token != TOK_EOL && token_precedence.at(first_operator_token) > token_precedence.at(second_operator_token)) {
-        lhs_tokens = extract_from_to(0, second_operator_idx, tokens);
+        lhs_tokens = Util::extract_from_to(0, second_operator_idx, tokens);
         operator_token = second_operator_token;
     } else {
-        lhs_tokens = extract_from_to(0, first_operator_idx, tokens);
+        lhs_tokens = Util::extract_from_to(0, first_operator_idx, tokens);
         operator_token = first_operator_token;
     }
     // 1 to skip the operator token
-    token_list rhs_tokens = extract_from_to(1, tokens.size(), tokens);
+    token_list rhs_tokens = Util::extract_from_to(1, tokens.size(), tokens);
 
     std::optional<std::unique_ptr<ExpressionNode>> lhs = create_expression(scope, lhs_tokens);
     std::optional<std::unique_ptr<ExpressionNode>> rhs = create_expression(scope, rhs_tokens);
