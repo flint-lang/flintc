@@ -67,7 +67,7 @@ FunctionNode Parser::Definition::create_function(const token_list &definition, t
     }
 
     // Create the body and add the body statements to the created scope
-    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), body);
+    std::vector<std::unique_ptr<StatementNode>> body_statements = Statement::create_body(body_scope.get(), body);
     body_scope->body = std::move(body_statements);
 
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);

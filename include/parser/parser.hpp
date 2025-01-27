@@ -133,49 +133,68 @@ class Parser {
     static std::optional<BinaryOpNode> create_binary_op(Scope *scope, token_list &tokens);
     static std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, token_list &tokens);
 
-    // --- STATEMENTS ---
-    static std::unique_ptr<CallNodeStatement> create_call_statement(Scope *scope, token_list &tokens);
-    static std::optional<ThrowNode> create_throw(Scope *scope, token_list &tokens);
-    static std::optional<ReturnNode> create_return(Scope *scope, token_list &tokens);
-    static std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain);
-    static std::optional<std::unique_ptr<WhileNode>> create_while_loop(Scope *scope, const token_list &definition, token_list &body);
-    static std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(Scope *scope, const token_list &definition, const token_list &body);
-    static std::optional<std::unique_ptr<ForLoopNode>> create_enh_for_loop( //
-        Scope *scope,                                                       //
-        const token_list &definition,                                       //
-        const token_list &body                                              //
-    );
-    static std::optional<std::unique_ptr<CatchNode>> create_catch( //
-        Scope *scope,                                              //
-        const token_list &definition,                              //
-        token_list &body,                                          //
-        std::vector<std::unique_ptr<StatementNode>> &statements    //
-    );
-    static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(Scope *scope, token_list &tokens);
-    static std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool &is_infered);
-    static std::optional<std::unique_ptr<StatementNode>> create_statement(Scope *scope, token_list &tokens);
-    static std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
-        Scope *scope,                                                             //
-        token_list &definition,                                                   //
-        token_list &body,                                                         //
-        std::vector<std::unique_ptr<StatementNode>> &statements                   //
-    );
-    static std::vector<std::unique_ptr<StatementNode>> create_body(Scope *scope, token_list &body);
+    /// @class `Statement`
+    /// @brief This class is responsible for parsing everything about statements
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Statement {
+      public:
+        Statement() = delete;
 
-    // --- DEFINITIONS ---
-    static FunctionNode create_function(const token_list &definition, token_list &body);
-    static DataNode create_data(const token_list &definition, const token_list &body);
-    static FuncNode create_func(const token_list &definition, token_list &body);
-    static std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>> create_entity( //
-        const token_list &definition,                                                                                           //
-        token_list &body                                                                                                        //
-    );
-    static std::vector<std::unique_ptr<LinkNode>> create_links(token_list &body);
-    static LinkNode create_link(const token_list &tokens);
-    static EnumNode create_enum(const token_list &definition, const token_list &body);
-    static ErrorNode create_error(const token_list &definition, const token_list &body);
-    static VariantNode create_variant(const token_list &definition, const token_list &body);
-    static ImportNode create_import(const token_list &tokens);
+        static std::unique_ptr<CallNodeStatement> create_call_statement(Scope *scope, token_list &tokens);
+        static std::optional<ThrowNode> create_throw(Scope *scope, token_list &tokens);
+        static std::optional<ReturnNode> create_return(Scope *scope, token_list &tokens);
+        static std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain);
+        static std::optional<std::unique_ptr<WhileNode>> create_while_loop(Scope *scope, const token_list &definition, token_list &body);
+        static std::optional<std::unique_ptr<ForLoopNode>> create_for_loop( //
+            Scope *scope,                                                   //
+            const token_list &definition,                                   //
+            const token_list &body                                          //
+        );
+        static std::optional<std::unique_ptr<ForLoopNode>> create_enh_for_loop( //
+            Scope *scope,                                                       //
+            const token_list &definition,                                       //
+            const token_list &body                                              //
+        );
+        static std::optional<std::unique_ptr<CatchNode>> create_catch( //
+            Scope *scope,                                              //
+            const token_list &definition,                              //
+            token_list &body,                                          //
+            std::vector<std::unique_ptr<StatementNode>> &statements    //
+        );
+        static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(Scope *scope, token_list &tokens);
+        static std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool &is_infered);
+        static std::optional<std::unique_ptr<StatementNode>> create_statement(Scope *scope, token_list &tokens);
+        static std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
+            Scope *scope,                                                             //
+            token_list &definition,                                                   //
+            token_list &body,                                                         //
+            std::vector<std::unique_ptr<StatementNode>> &statements                   //
+        );
+        static std::vector<std::unique_ptr<StatementNode>> create_body(Scope *scope, token_list &body);
+    };
+
+    /// @class `Definition`
+    /// @brief This class is responsible for parsing everything about definitions
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Definition {
+      public:
+        using create_entity_type = std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>>;
+
+        Definition() = delete;
+        static FunctionNode create_function(const token_list &definition, token_list &body);
+        static DataNode create_data(const token_list &definition, const token_list &body);
+        static FuncNode create_func(const token_list &definition, token_list &body);
+        static create_entity_type create_entity( //
+            const token_list &definition,        //
+            token_list &body                     //
+        );
+        static std::vector<std::unique_ptr<LinkNode>> create_links(token_list &body);
+        static LinkNode create_link(const token_list &tokens);
+        static EnumNode create_enum(const token_list &definition, const token_list &body);
+        static ErrorNode create_error(const token_list &definition, const token_list &body);
+        static VariantNode create_variant(const token_list &definition, const token_list &body);
+        static ImportNode create_import(const token_list &tokens);
+    };
 };
 
 #endif

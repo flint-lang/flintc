@@ -5,7 +5,7 @@
 
 /// create_call_statement
 ///     Creates a CallNodeStatement from the given list of tokens
-std::unique_ptr<CallNodeStatement> Parser::create_call_statement(Scope *scope, token_list &tokens) {
+std::unique_ptr<CallNodeStatement> Parser::Statement::create_call_statement(Scope *scope, token_list &tokens) {
     auto call_node_args = create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
         throw_err(ERR_PARSING);
@@ -21,7 +21,7 @@ std::unique_ptr<CallNodeStatement> Parser::create_call_statement(Scope *scope, t
 
 /// create_throw
 ///     Creates a ThrowNode from the given list of tokens
-std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) {
+std::optional<ThrowNode> Parser::Statement::create_throw(Scope *scope, token_list &tokens) {
     std::optional<ReturnNode> return_node = create_return(scope, tokens);
     if (!return_node.has_value()) {
         throw_err(ERR_PARSING);
@@ -36,7 +36,7 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) 
 
 /// create_return
 ///     Creates a ReturnNode from the given list of tokens
-std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens) {
+std::optional<ReturnNode> Parser::Statement::create_return(Scope *scope, token_list &tokens) {
     unsigned int return_id = 0;
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         if (it->type == TOK_RETURN) {
@@ -56,7 +56,8 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens
 
 /// create_if
 ///     Creates an IfNode from the given if chain
-std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain) {
+std::optional<std::unique_ptr<IfNode>> Parser::Statement::create_if(Scope *scope,
+    std::vector<std::pair<token_list, token_list>> &if_chain) {
     assert(!if_chain.empty());
     std::pair<token_list, token_list> this_if_pair = if_chain.at(0);
     if_chain.erase(if_chain.begin());
@@ -118,7 +119,11 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
 
 /// create_while_loop
 ///     Creates a WhileNode from the given definition and body tokens inside the given scope
-std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop(Scope *scope, const token_list &definition, token_list &body) {
+std::optional<std::unique_ptr<WhileNode>> Parser::Statement::create_while_loop( //
+    Scope *scope,                                                               //
+    const token_list &definition,                                               //
+    token_list &body                                                            //
+) {
     token_list condition_tokens = definition;
     // Remove everything in front of the expression (\n, \t, else, if)
     for (auto it = condition_tokens.begin(); it != condition_tokens.end();) {
@@ -153,14 +158,18 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop(Scope *scope
 
 /// create_for_loop
 ///
-std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop(Scope *scope, const token_list &definition, const token_list &body) {
+std::optional<std::unique_ptr<ForLoopNode>> Parser::Statement::create_for_loop( //
+    Scope *scope,                                                               //
+    const token_list &definition,                                               //
+    const token_list &body                                                      //
+) {
     throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
 /// create_enh_for_loop
 ///
-std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop(Scope *scope, const token_list &definition,
+std::optional<std::unique_ptr<ForLoopNode>> Parser::Statement::create_enh_for_loop(Scope *scope, const token_list &definition,
     const token_list &body) {
     throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
@@ -168,11 +177,11 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop(Scope *s
 
 /// create_catch
 ///     Creates a CatchNode from the given list of tok
-std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
-    Scope *scope,                                               //
-    const token_list &definition,                               //
-    token_list &body,                                           //
-    std::vector<std::unique_ptr<StatementNode>> &statements     //
+std::optional<std::unique_ptr<CatchNode>> Parser::Statement::create_catch( //
+    Scope *scope,                                                          //
+    const token_list &definition,                                          //
+    token_list &body,                                                      //
+    std::vector<std::unique_ptr<StatementNode>> &statements                //
 ) {
     // First, extract everything left of the 'catch' statement and parse it as a normal (unscoped) statement
     std::optional<unsigned int> catch_id = std::nullopt;
@@ -223,7 +232,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
 /// create_assignment
 ///     Creates an AssignmentNode from the given list of tokens
-std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *scope, token_list &tokens) {
+std::optional<std::unique_ptr<AssignmentNode>> Parser::Statement::create_assignment(Scope *scope, token_list &tokens) {
     auto iterator = tokens.begin();
     while (iterator != tokens.end()) {
         if (iterator->type == TOK_IDENTIFIER) {
@@ -251,7 +260,7 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
 
 /// create_declaration_statement
 ///     Creates a DeclarationNode from the given list of tokens
-std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_list &tokens, const bool &is_infered) {
+std::optional<DeclarationNode> Parser::Statement::create_declaration(Scope *scope, token_list &tokens, const bool &is_infered) {
     std::optional<DeclarationNode> declaration = std::nullopt;
     std::string type;
     std::string name;
@@ -305,7 +314,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
 
 /// create_statement
 ///     Creates a statement from the given list of tokens
-std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, token_list &tokens) {
+std::optional<std::unique_ptr<StatementNode>> Parser::Statement::create_statement(Scope *scope, token_list &tokens) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
     if (Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
@@ -354,11 +363,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
 
 /// create_scoped_statement
 ///     Creates the AST of a scoped statement like if, loops, catch, switch, etc.
-std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( //
-    Scope *scope,                                                              //
-    token_list &definition,                                                    //
-    token_list &body,                                                          //
-    std::vector<std::unique_ptr<StatementNode>> &statements                    //
+std::optional<std::unique_ptr<StatementNode>> Parser::Statement::create_scoped_statement( //
+    Scope *scope,                                                                         //
+    token_list &definition,                                                               //
+    token_list &body,                                                                     //
+    std::vector<std::unique_ptr<StatementNode>> &statements                               //
 ) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
@@ -449,7 +458,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
 
 /// create_body
 ///     Creates a body containing of multiple statement nodes from a list of tokens
-std::vector<std::unique_ptr<StatementNode>> Parser::create_body(Scope *scope, token_list &body) {
+std::vector<std::unique_ptr<StatementNode>> Parser::Statement::create_body(Scope *scope, token_list &body) {
     std::vector<std::unique_ptr<StatementNode>> body_statements;
     const Signature::signature statement_signature = Signature::match_until_signature({"((", TOK_SEMICOLON, ")|(", TOK_COLON, "))"});
 
