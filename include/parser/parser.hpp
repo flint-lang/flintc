@@ -91,10 +91,10 @@ class Parser {
     /// @var `call_nodes`
     /// @brief Stores all the calls that have been parsed
     ///
-    /// This vector exists to keep track of all parsed call nodes. It also could have been a map, but to ensure that it always remains its
-    /// ordering, a vector is used. Entries in this vector do not need to be found annyway, like with maps, only the last element or all
-    /// elements are accessed, so a vector makes perfect sense in this case.
-    static std::vector<std::pair<unsigned int, CallNodeBase *>> call_nodes;
+    /// This map exists to keep track of all parsed call nodes. This map is not allowed to be changed to an unordered_map, because the
+    /// elements of the map are required to perserve their ordering. Most of times only the last element from this map is searched for, this
+    /// is the reason to why the ordering is important.
+    static std::map<unsigned int, CallNodeBase *> call_nodes;
 
     /// @function `set_last_parsed_call`
     /// @brief Sets the last parsed call
@@ -102,7 +102,7 @@ class Parser {
     /// @param `call_id` The call ID of the CallNode to add
     /// @param `call` The pointer to the base of the CallNode to add
     static inline void set_last_parsed_call(unsigned int call_id, CallNodeBase *call) {
-        call_nodes.emplace_back(call_id, call);
+        call_nodes.emplace(call_id, call);
     }
 
     /// @function `get_last_parsed_call_id`
@@ -110,10 +110,10 @@ class Parser {
     ///
     /// @return The ID of the last parsed call
     ///
-    /// @attention Asserts that the call_nodes vector contains at least one element
+    /// @attention Asserts that the call_nodes map contains at least one element
     static inline unsigned int get_last_parsed_call_id() {
         assert(!call_nodes.empty());
-        return call_nodes.back().first;
+        return call_nodes.rbegin()->first;
     }
 
     // --- UTILITY ---

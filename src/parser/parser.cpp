@@ -56,7 +56,7 @@
 #include <utility>
 #include <vector>
 
-std::vector<std::pair<unsigned int, CallNodeBase *>> Parser::call_nodes;
+std::map<unsigned int, CallNodeBase *> Parser::call_nodes;
 
 FileNode Parser::parse_file(const std::filesystem::path &file) {
     std::string file_name = file.filename();
@@ -71,14 +71,10 @@ FileNode Parser::parse_file(const std::filesystem::path &file) {
 }
 
 std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
-    std::optional<CallNodeBase *> call_node = std::nullopt;
-    for (const auto [id, node] : call_nodes) {
-        if (id == call_id) {
-            call_node = node;
-            break;
-        }
+    if (call_nodes.find(call_id) != call_nodes.end()) {
+        return call_nodes.at(call_id);
     }
-    return call_node;
+    return std::nullopt;
 }
 
 void Parser::resolve_call_types() {
@@ -97,7 +93,8 @@ void Parser::resolve_call_types() {
         for (auto it = call_nodes.begin(); it != call_nodes.end();) {
             if (function_types.find(it->second->function_name) != function_types.end()) {
                 it->second->type = function_types.at(it->second->function_name);
-                call_nodes.erase(it);
+                ++it;
+                call_nodes.erase(std::prev(it));
             } else {
                 ++it;
             }
