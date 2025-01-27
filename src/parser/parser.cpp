@@ -56,13 +56,8 @@
 #include <utility>
 #include <vector>
 
-/// call_nodes
-///     Stores all the calls that have been parsed
 std::vector<std::pair<unsigned int, CallNodeBase *>> Parser::call_nodes;
 
-/// parse_file
-///     Parses a file. It will tokenize it using the Lexer and then create the AST of the file and add all the nodes to
-///     the passed main ProgramNode
 FileNode Parser::parse_file(const std::filesystem::path &file) {
     std::string file_name = file.filename();
     PROFILE_SCOPE("Parsing file '" + file_name + "'");
@@ -75,8 +70,17 @@ FileNode Parser::parse_file(const std::filesystem::path &file) {
     return file_node;
 }
 
-/// resolve_call_types
-///     Resolves all types of all calls
+std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
+    std::optional<CallNodeBase *> call_node = std::nullopt;
+    for (const auto [id, node] : call_nodes) {
+        if (id == call_id) {
+            call_node = node;
+            break;
+        }
+    }
+    return call_node;
+}
+
 void Parser::resolve_call_types() {
     for (const auto &[file_name, file] : Resolver::get_file_map()) {
         // First, get the list of all function types inside this file

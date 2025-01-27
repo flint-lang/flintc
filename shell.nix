@@ -20,7 +20,7 @@ pkgs.mkShell {
       export ZLIBPATH="${pkgs.zlib.static}/lib"
 
       echo "Nix shell entered successfully!"
-      echo "The next step is to call './build.sh'"
+      echo "The next step is to call './scripts/build.sh'"
       echo "This script will do the rest for you!"
   '';
 }

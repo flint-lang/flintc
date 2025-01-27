@@ -22,7 +22,6 @@
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 #include "resolver/resolver.hpp"
-#include "types.hpp"
 
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>

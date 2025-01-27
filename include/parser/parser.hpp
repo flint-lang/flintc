@@ -34,6 +34,7 @@
 #include "ast/statements/catch_node.hpp"
 #include "ast/statements/throw_node.hpp"
 
+#include <cassert>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -58,39 +59,60 @@ static const std::map<Token, unsigned int> token_precedence = {
     {TOK_EQUAL, 0},
 };
 
+/// @class `Parser`
+/// @brief The class which is responsible for the AST generation (parsing)
+/// @note This class cannot be initialized and all functions within this class are static
 class Parser {
   public:
     Parser() = delete;
 
+    /// @function `parse_file`
+    /// @brief Parses a file. It will tokenize it using the Lexer and then create the AST of the file and return the parsed FileNode
+    ///
+    /// @param `file` The path to the file to tokenize and parse
+    /// @return `FileNode` The parsed file
+    ///
+    /// @note This function creates a new Lexer class to tokenize the given file, so no further tokenization has to be made, this function
+    /// takes care of the tokenization too
     static FileNode parse_file(const std::filesystem::path &file);
 
-    /// get_call_from_id
-    ///     Returns the call node with the given id
-    static std::optional<CallNodeBase *> get_call_from_id(unsigned int call_id) {
-        std::optional<CallNodeBase *> call_node = std::nullopt;
-        for (const auto [id, node] : call_nodes) {
-            if (id == call_id) {
-                call_node = node;
-                break;
-            }
-        }
-        return call_node;
-    }
+    /// @function `get_call_from_id`
+    /// @brief Returns the call node from the given id
+    ///
+    /// @param `call_id` The id from which the call node will be returned
+    /// @return `std::optional<CallNodeBase *>` An optional pointer to the CallNodeBase, nullopt if no call with the given call id exists
+    static std::optional<CallNodeBase *> get_call_from_id(unsigned int call_id);
 
+    /// @function `resolve_call_types`
+    /// @brief Resolves all types of all calls
     static void resolve_call_types();
 
   private:
+    /// @var `call_nodes`
+    /// @brief Stores all the calls that have been parsed
+    ///
+    /// This vector exists to keep track of all parsed call nodes. It also could have been a map, but to ensure that it always remains its
+    /// ordering, a vector is used. Entries in this vector do not need to be found annyway, like with maps, only the last element or all
+    /// elements are accessed, so a vector makes perfect sense in this case.
     static std::vector<std::pair<unsigned int, CallNodeBase *>> call_nodes;
 
-    /// set_last_parsed_call
-    ///     Sets the last parsed call
-    static void set_last_parsed_call(unsigned int call_id, CallNodeBase *call) {
+    /// @function `set_last_parsed_call`
+    /// @brief Sets the last parsed call
+    ///
+    /// @param `call_id` The call ID of the CallNode to add
+    /// @param `call` The pointer to the base of the CallNode to add
+    static inline void set_last_parsed_call(unsigned int call_id, CallNodeBase *call) {
         call_nodes.emplace_back(call_id, call);
     }
 
-    /// get_last_parsed_call_id
-    ///     Returns the id of the last parsed call
-    static unsigned int get_last_parsed_call_id() {
+    /// @function `get_last_parsed_call_id`
+    /// @brief Returns the ID of the last parsed call
+    ///
+    /// @return The ID of the last parsed call
+    ///
+    /// @attention Asserts that the call_nodes vector contains at least one element
+    static inline unsigned int get_last_parsed_call_id() {
+        assert(!call_nodes.empty());
         return call_nodes.back().first;
     }
 
