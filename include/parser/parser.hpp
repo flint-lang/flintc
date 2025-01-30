@@ -260,36 +260,149 @@ class Parser {
       public:
         Statement() = delete;
 
+        /// @function `create_call_statement`
+        /// @brief Creates a CallNodeStatement from the given list of tokens
+        ///
+        /// @param `scope` The scope in which the call statement is defined
+        /// @param `tokens` The list of tokens representing the call statement
+        /// @return `std::unique_ptr<CallNodeStatement>` A unique pointer to the created CallNodeStatement
         static std::unique_ptr<CallNodeStatement> create_call_statement(Scope *scope, token_list &tokens);
+
+        /// @function `create_throw`
+        /// @brief Creates a ThrowNode from the given list of tokens
+        ///
+        /// @param `scope` The scope in which the throw statement is defined
+        /// @param `tokens` The list of tokens representing the throw statement
+        /// @return `std::optional<ThrowNode>` An optional ThrowNode if creation is successful, nullopt otherwise
         static std::optional<ThrowNode> create_throw(Scope *scope, token_list &tokens);
+
+        /// @function `create_return`
+        /// @brief Creates a ReturnNode from the given list of tokens
+        ///
+        /// @param `scope` The scope in which the return statement is defined
+        /// @param `tokens` The list of tokens representing the return statement
+        /// @return `std::optional<ReturnNode>` An optional ReturnNode if creation is successful, nullopt otherwise
         static std::optional<ReturnNode> create_return(Scope *scope, token_list &tokens);
+
+        /// @function `create_if`
+        /// @brief Creates an IfNode from the given if chain
+        ///
+        /// @param `scope` The scope in which the if statement is defined
+        /// @param `if_chain` The list of token pairs representing the if statement chain
+        /// @return `std::optional<std::unique_ptr<IfNode>>` An optional unique pointer to the created IfNode
         static std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain);
+
+        /// @function `create_while_loop`
+        /// @brief Creates a WhileNode from the given definition and body tokens inside the given scope
+        ///
+        /// @param `scope` The scope in which the while loop is defined
+        /// @param `definition` The list of tokens representing the while loop definition
+        /// @param `body` The list of tokens representing the while loop body
+        /// @return `std::optional<std::unique_ptr<WhileNode>>` An optional unique pointer to the created WhileNode
         static std::optional<std::unique_ptr<WhileNode>> create_while_loop(Scope *scope, const token_list &definition, token_list &body);
+
+        /// @function `create_for_loop`
+        /// @brief Creates a ForLoopNode from the given list of tokens
+        ///
+        /// @param `scope` The scope in which the for loop is defined
+        /// @param `definition` The list of tokens representing the for loop definition
+        /// @param `body` The list of tokens representing the for loop body
+        /// @return `std::optional<std::unique_ptr<ForLoopNode>>` An optional unique pointer to the created ForLoopNode
         static std::optional<std::unique_ptr<ForLoopNode>> create_for_loop( //
             Scope *scope,                                                   //
             const token_list &definition,                                   //
             const token_list &body                                          //
         );
+
+        /// @function `create_enh_for_loop`
+        /// @brief Creates an enhanced ForLoopNode from the given list of tokens
+        ///
+        /// @param `scope` The scope in which the enhanced for loop is defined
+        /// @param `definition` The list of tokens representing the enhanced for loop definition
+        /// @param `body` The list of tokens representing the enhanced for loop body
+        /// @return `std::optional<std::unique_ptr<ForLoopNode>>` An optional unique pointer to the created enhanced ForLoopNode
+        ///
+        /// @attention This function is currently not implemented and will throw an error if called
         static std::optional<std::unique_ptr<ForLoopNode>> create_enh_for_loop( //
             Scope *scope,                                                       //
             const token_list &definition,                                       //
             const token_list &body                                              //
         );
+
+        /// @function `create_catch`
+        /// @brief Creates a CatchNode from the given list of tokens
+        ///
+        /// @param `scope` The scope in which the catch block is defined
+        /// @param `definition` The list of tokens representing the catch block definition
+        /// @param `body` The list of tokens representing the catch blocks body
+        /// @param `statements` The vector of unique pointers to the created statement nodes
+        /// @return `std::optional<std::unique_ptr<CatchNode>>` An optional unique pointer to the created CatchNode
+        ///
+        /// @note This function parses the catch block definition and creates a CatchNode with the parsed statements. It also sets the
+        /// 'has_catch' property of the last parsed call node.
+        /// @note All other statements to the left of the catch statement are added to the statements list before parsing and adding the
+        /// catch node itself. This is why the reference to the statements list has to be provided.
         static std::optional<std::unique_ptr<CatchNode>> create_catch( //
             Scope *scope,                                              //
             const token_list &definition,                              //
             token_list &body,                                          //
             std::vector<std::unique_ptr<StatementNode>> &statements    //
         );
+
+        /// @function `create_assignment`
+        /// @brief Creates an AssignmentNode from the given list of tokens
+        ///
+        /// @param `scope` The scope in which the assignment is defined
+        /// @param `tokens` The list of tokens representing the assignment
+        /// @return `std::optional<std::unique_ptr<AssignmentNode>>` An optional unique pointer to the created AssignmentNode
         static std::optional<std::unique_ptr<AssignmentNode>> create_assignment(Scope *scope, token_list &tokens);
+
+        /// @function `create_declaration`
+        /// @brief Creates a DeclarationNode from the given list of tokens
+        ///
+        /// @param `scope` The scope in which the declaration is defined
+        /// @param `tokens` The list of tokens representing the declaration
+        /// @param `is_infered` Determines whether the type of the declared variable is infered
+        /// @return `std::optional<std::unique_ptr<DeclarationNode>>` An optional unique pointer to the created DeclarationNode
         static std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool &is_infered);
+
+        /// @function `create_statement`
+        /// @brief Creates a StatementNode from the given list of tokens
+        ///
+        /// @param `scope` The scope in which the statement is defined
+        /// @param `tokens` The list of tokens representing the statement
+        /// @return `std::optional<std::unique_ptr<StatementNode>>` An optional unique pointer to the created StatementNode
+        ///
+        /// @note This function dispatches to other functions to create specific statement nodes based on the signatures. It also handles
+        /// parsing errors and returns nullopt if the statement cannot be parsed.
         static std::optional<std::unique_ptr<StatementNode>> create_statement(Scope *scope, token_list &tokens);
+
+        /// @function `create_scoped_statement`
+        /// @brief Creates the AST of a scoped statement like if, loops, catch, switch, etc.
+        ///
+        /// @param `scope` The scope in which the scoped statement is defined
+        /// @param `definition` The token list containing all the definition tokens
+        /// @param `body` The token list containing all body tokens
+        /// @param `statements` A reference to the list of all currently parserd statements
+        /// @return `std::optional<std::unique_ptr<StatementNode>>` An optional unique pointer to the created StatementNode
+        ///
+        /// @note This function creates a new scope and recursively parses the statements within the scoped block. It also handles parsing
+        /// errors and returns nullopt if the scoped statement cannot be parsed.
+        /// @note If the scoped statement is a catch statement, all other statements left of it are added to the statements list before
+        /// parsing and adding the catch node itself. This is why the reference to the statements list has to be provided.
         static std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
             Scope *scope,                                                             //
             token_list &definition,                                                   //
             token_list &body,                                                         //
             std::vector<std::unique_ptr<StatementNode>> &statements                   //
         );
+
+        /// @function `create_body`
+        /// @brief Creates a body containing of multiple statement nodes from a list of tokens
+        ///
+        /// @param `scope` The scope of the body to generate. All generated body statements will be added to this scope
+        /// @param `body` The token list containing all the body tokens
+        /// @return `std::vectro<std::unique_ptr<StatementNode>>` The list of StatementNodes parsed from the body tokens.
         static std::vector<std::unique_ptr<StatementNode>> create_body(Scope *scope, token_list &body);
     }; // subclass Statement
 

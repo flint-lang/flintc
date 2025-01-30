@@ -1,8 +1,8 @@
 #ifndef __LEXER_HPP__
 #define __LEXER_HPP__
 
-#include "../types.hpp"
 #include "token.hpp"
+#include "types.hpp"
 
 #include <filesystem>
 #include <map>
