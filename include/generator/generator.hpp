@@ -1,11 +1,10 @@
 #ifndef __GENERATOR_HPP__
 #define __GENERATOR_HPP__
 
-#include "lexer/lexer.hpp"
+#include "lexer/builtins.hpp"
 #include "parser/ast/call_node_base.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
@@ -13,7 +12,6 @@
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
-#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"

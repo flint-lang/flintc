@@ -1,4 +1,5 @@
 #include "lexer/lexer.hpp"
+#include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
 

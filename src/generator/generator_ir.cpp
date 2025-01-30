@@ -1,5 +1,7 @@
 #include "generator/generator.hpp"
 
+#include "lexer/lexer_utils.hpp"
+
 llvm::StructType *Generator::IR::add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node) {
     std::string return_types;
     for (auto return_it = function_node->return_types.begin(); return_it < function_node->return_types.end(); ++return_it) {

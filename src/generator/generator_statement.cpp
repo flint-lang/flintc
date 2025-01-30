@@ -1,6 +1,8 @@
 #include "generator/generator.hpp"
 #include "parser/parser.hpp"
 
+#include "parser/ast/statements/call_node_statement.hpp"
+
 void Generator::Statement::generate_statement(                                                              //
     llvm::IRBuilder<> &builder,                                                                             //
     llvm::Function *parent,                                                                                 //

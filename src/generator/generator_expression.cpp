@@ -1,5 +1,7 @@
 #include "generator/generator.hpp"
 
+#include "parser/ast/expressions/call_node_expression.hpp"
+
 llvm::Value *Generator::Expression::generate_expression(                   //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //

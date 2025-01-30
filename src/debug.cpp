@@ -2,7 +2,7 @@
 
 #include "error/error.hpp"
 #include "error/error_type.hpp"
-#include "lexer/lexer.hpp"
+#include "lexer/lexer_utils.hpp"
 #include "parser/parser.hpp"
 #include "test_utils.hpp"
 #include "types.hpp"
@@ -25,7 +25,6 @@
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/assignment_node.hpp"
-#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
