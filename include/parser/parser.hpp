@@ -411,21 +411,94 @@ class Parser {
     /// @note This class cannot be initialized and all functions within this class are static
     class Definition {
       public:
+        Definition() = delete;
+
+        /// The return type of the `create_entity` function
         using create_entity_type = std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>>;
 
-        Definition() = delete;
+        /// @function `create_function`
+        /// @brief Creates a FunctionNode from the given definiton tokens of the FunctionNode as well as its body. Will cause additional
+        /// creation of AST Nodes for the body
+        ///
+        /// @param `definition` The list of tokens representing the function definition
+        /// @param `body` The list of tokens representing the function body
+        /// @return `FunctionNode` The created FunctionNode
         static FunctionNode create_function(const token_list &definition, token_list &body);
+
+        /// @function `create_data`
+        /// @brief Creates a DataNode from the given definition and body tokens
+        ///
+        /// @param `definition` The list of tokens representing the data definition
+        /// @param `body` The list of tokens representing the data body
+        /// @return `DataNode` The created DataNode
         static DataNode create_data(const token_list &definition, const token_list &body);
+
+        /// @function `create_func`
+        /// @brief Creates a FuncNode from the given definition and body tokens
+        ///
+        /// @param `definition` The list of tokens representing the function definition
+        /// @param `body` The list of tokens representing the function body
+        /// @return `FuncNode` The created FuncNode
+        ///
+        /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
         static FuncNode create_func(const token_list &definition, token_list &body);
-        static create_entity_type create_entity( //
-            const token_list &definition,        //
-            token_list &body                     //
-        );
+
+        /// @function `create_entity`
+        /// @brief Creates an EntityNode from the given definition and body tokens
+        ///
+        /// @details An Entity can either be monolithic or modular. If its modular, only the EntityNode (result.first) will be returned.
+        /// However, if it is monolithic, the data and func content will be returned within the optional pair. The data and func modules
+        /// then will be added to the AST too. "Monolithic" entities are no different to modular ones internally.
+        ///
+        /// @param `definition` The list of tokens representing the entity definition
+        /// @param `body` The list of tokens representing the entity body
+        /// @return `create_entity_type` A pair containing the created EntityNode and an optional pair of DataNode and FuncNode if the
+        /// entity was monolithic
+        static create_entity_type create_entity(const token_list &definition, token_list &body);
+
+        /// @function `create_links`
+        /// @brief Creates a list of LinkNode's from a given body containing those links
+        ///
+        /// @param `body` The list of tokens forming the body containing all the link statements
+        /// @return `std::vector<std::unique_ptr<LinkNode>>` A vector of created LinkNode
         static std::vector<std::unique_ptr<LinkNode>> create_links(token_list &body);
+
+        /// @function `create_link`
+        /// @brief Creates a LinkNode from the given list of tokens
+        ///
+        /// @param `tokens` The list of tokens representing the link
+        /// @return `LinkNode` The created LinkNode
         static LinkNode create_link(const token_list &tokens);
+
+        /// @function `create_enum`
+        /// @brief Creates an EnumNode from the given definition and body tokens
+        ///
+        /// @param `definition` The list of tokens representing the enum definition
+        /// @param `body` The list of tokens representing the enum body
+        /// @return `EnumNode` The created EnumNode
         static EnumNode create_enum(const token_list &definition, const token_list &body);
+
+        /// @function `create_error`
+        /// @brief Creates an ErrorNode from the given definition and body tokens
+        ///
+        /// @param `definition` The list of tokens representing the error definition
+        /// @param `body` The list of tokens representing the error body
+        /// @return `ErrorNode` The created ErrorNode
         static ErrorNode create_error(const token_list &definition, const token_list &body);
+
+        /// @function `create_variant`
+        /// @brief Creates a VariantNode from the given definition and body tokens
+        ///
+        /// @param `definition` The list of tokens representing the variant definition
+        /// @param `body` The list of tokens representing the variant body
+        /// @return `VariantNode` The created VariantNode
         static VariantNode create_variant(const token_list &definition, const token_list &body);
+
+        /// @function `create_import`
+        /// @brief Creates an ImportNode from the given list of tokens
+        ///
+        /// @param `tokens` The list of tokens containing the import node
+        /// @return `ImportNode` The created ImportNode
         static ImportNode create_import(const token_list &tokens);
     }; // subclass Definition
 };

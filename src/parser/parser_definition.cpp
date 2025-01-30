@@ -2,9 +2,6 @@
 
 #include "parser/signature.hpp"
 
-/// create_function
-///     Creates a FunctionNode from the given definiton tokens of the FunctionNode as well as its body. Will cause
-///     additional creation of AST Nodes for the body
 FunctionNode Parser::Definition::create_function(const token_list &definition, token_list &body) {
     std::string name;
     std::vector<std::pair<std::string, std::string>> parameters;
@@ -73,8 +70,6 @@ FunctionNode Parser::Definition::create_function(const token_list &definition, t
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);
 }
 
-/// create_data
-///     Creates a DataNode from the given definition and body tokens.
 DataNode Parser::Definition::create_data(const token_list &definition, const token_list &body) {
     bool is_shared = false;
     bool is_immutable = false;
@@ -135,9 +130,6 @@ DataNode Parser::Definition::create_data(const token_list &definition, const tok
     return DataNode(is_shared, is_immutable, is_aligned, name, fields, default_values, order);
 }
 
-/// create_func
-///     Creates a FuncNode from the given definition and body tokens.
-///     The FuncNode's body is only allowed to house function definitions, and each function has a body respectively.
 FuncNode Parser::Definition::create_func(const token_list &definition, token_list &body) {
     std::string name;
     std::vector<std::pair<std::string, std::string>> required_data;
@@ -180,13 +172,7 @@ FuncNode Parser::Definition::create_func(const token_list &definition, token_lis
     return FuncNode(name, required_data, std::move(functions));
 }
 
-/// create_entity
-///     Creates an EntityNode from the given definition and body tokens.
-///     An Entity can either be monolithic or modular.
-///     If its modular, only the EntityNode (result.first) will be returned
-///     If it is monolithic, the data and func content will be returned within the optional pair
-std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>> Parser::Definition::create_entity(
-    const token_list &definition, token_list &body) {
+Parser::Definition::create_entity_type Parser::Definition::create_entity(const token_list &definition, token_list &body) {
     bool is_modular = Signature::tokens_match(body, Signature::entity_body);
     std::string name;
     std::vector<std::string> data_modules;
@@ -289,8 +275,6 @@ std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::un
     return return_value;
 }
 
-/// create_links
-///     Creates a list of LinkNode's from a given body containing those links
 std::vector<std::unique_ptr<LinkNode>> Parser::Definition::create_links(token_list &body) {
     std::vector<std::unique_ptr<LinkNode>> links;
 
@@ -303,8 +287,6 @@ std::vector<std::unique_ptr<LinkNode>> Parser::Definition::create_links(token_li
     return links;
 }
 
-/// create_link
-///     Creates a LinkNode from the given tokens.
 LinkNode Parser::Definition::create_link(const token_list &tokens) {
     std::vector<std::string> from_references;
     std::vector<std::string> to_references;
@@ -325,8 +307,6 @@ LinkNode Parser::Definition::create_link(const token_list &tokens) {
     return LinkNode(from_references, to_references);
 }
 
-/// create_enum
-///     Creates an EnumNode from the given definition and body tokens.
 EnumNode Parser::Definition::create_enum(const token_list &definition, const token_list &body) {
     std::string name;
     std::vector<std::string> values;
@@ -358,8 +338,6 @@ EnumNode Parser::Definition::create_enum(const token_list &definition, const tok
     return EnumNode(name, values);
 }
 
-/// create_error
-///     Creates an ErrorNode from the given definition and body tokens.
 ErrorNode Parser::Definition::create_error(const token_list &definition, const token_list &body) {
     std::string name;
     std::string parent_error;
@@ -398,8 +376,6 @@ ErrorNode Parser::Definition::create_error(const token_list &definition, const t
     return ErrorNode(name, parent_error, error_types);
 }
 
-/// create_variant
-///     Creates a VariantNode from the given definition and body tokens.
 VariantNode Parser::Definition::create_variant(const token_list &definition, const token_list &body) {
     std::string name;
     std::vector<std::string> possible_types;
