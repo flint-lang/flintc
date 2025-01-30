@@ -2,8 +2,6 @@
 
 #include "parser/signature.hpp"
 
-/// create_variable
-///     Creates a VariableNode from the given list of tokens
 std::optional<VariableNode> Parser::Expression::create_variable(Scope *scope, const token_list &tokens) {
     std::optional<VariableNode> var = std::nullopt;
     for (const auto &tok : tokens) {
@@ -19,15 +17,11 @@ std::optional<VariableNode> Parser::Expression::create_variable(Scope *scope, co
     return var;
 }
 
-/// create_unary_op
-///
 std::optional<UnaryOpNode> Parser::Expression::create_unary_op(Scope *scope, const token_list &tokens) {
     throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
-/// create_literal
-///     Createss a LiteralNode from a given list of tokens
 std::optional<LiteralNode> Parser::Expression::create_literal(const token_list &tokens) {
     for (const auto &tok : tokens) {
         if (Signature::tokens_match({tok}, Signature::literal)) {
@@ -65,8 +59,6 @@ std::optional<LiteralNode> Parser::Expression::create_literal(const token_list &
     return std::nullopt;
 }
 
-/// create_call_expression
-///     Creates a CallNode, being a function call, from the given tokens
 std::unique_ptr<CallNodeExpression> Parser::Expression::create_call_expression(Scope *scope, token_list &tokens) {
     auto call_node_args = Util::create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
@@ -81,8 +73,6 @@ std::unique_ptr<CallNodeExpression> Parser::Expression::create_call_expression(S
     return call_node;
 }
 
-/// create_binary_op
-///     Creates a BinaryOpNode from the given list of tokens
 std::optional<BinaryOpNode> Parser::Expression::create_binary_op(Scope *scope, token_list &tokens) {
     unsigned int first_operator_idx = 0;
     unsigned int second_operator_idx = 0;
@@ -156,8 +146,6 @@ std::optional<BinaryOpNode> Parser::Expression::create_binary_op(Scope *scope, t
     return BinaryOpNode(operator_token, lhs.value(), rhs.value(), lhs.value()->type);
 }
 
-/// create_expression
-///     Creates an ExpressionNode from the given list of tokens
 std::optional<std::unique_ptr<ExpressionNode>> Parser::Expression::create_expression(Scope *scope, token_list &tokens) {
     std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
     // remove trailing semicolons

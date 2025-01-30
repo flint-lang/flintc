@@ -205,11 +205,51 @@ class Parser {
       public:
         Expression() = delete;
 
+        /// @function `create_variable`
+        /// @brief Creates a VariableNode from the given tokens
+        ///
+        /// @param `scope` The scope in which the variable is defined
+        /// @param `tokens` The list of tokens representing the variable
+        /// @return `std::optional<VariableNode>` An optional VariableNode if creation is successful, nullopt otherwise
         static std::optional<VariableNode> create_variable(Scope *scope, const token_list &tokens);
+
+        /// @function `create_unary_op`
+        /// @brief Creates a UnaryOpNode from the given tokens
+        ///
+        /// @param `scope` The scope in which the unary operation is defined
+        /// @param `tokens` The list of tokens representing the unary operation
+        /// @return `std::optional<UnaryOpNode>` An optional UnaryOpNode if creation is successful, nullopt otherwise
         static std::optional<UnaryOpNode> create_unary_op(Scope *scope, const token_list &tokens);
+
+        /// @function `create_literal`
+        /// @brief Creates a LiteralNode from the given tokens
+        ///
+        /// @param `tokens` The list of tokens representing the literal
+        /// @return `std::optional<LiteralNode>` An optional LiteralNode if creation is successful, nullopt otherwise
         static std::optional<LiteralNode> create_literal(const token_list &tokens);
+
+        /// @function `create_call_expression`
+        /// @brief Creates a CallNodeExpression from the given tokens
+        ///
+        /// @param `scope` The scope in which the call expression is defined
+        /// @param `tokens` The list of tokens representing the call expression
+        /// @return `std::unique_ptr<CallNodeExpression>` A unique pointer to the created CallNodeExpression
         static std::unique_ptr<CallNodeExpression> create_call_expression(Scope *scope, token_list &tokens);
+
+        /// @function `create_binary_op`
+        /// @brief Creates a BinaryOpNode from the given tokens
+        ///
+        /// @param `scope` The scope in which the binary operation is defined
+        /// @param `tokens` The list of tokens representing the binary operation
+        /// @return `std::optional<BinaryOpNode>` An optional BinaryOpNode if creation is successful, nullopt otherwise
         static std::optional<BinaryOpNode> create_binary_op(Scope *scope, token_list &tokens);
+
+        /// @function `create_expression`
+        /// @brief Creates an ExpressionNode from the given tokens
+        ///
+        /// @param `scope` The scope in which the expression is defined
+        /// @param `tokens` The list of tokens representing the expression
+        /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional unique pointer to the created ExpressionNode
         static std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, token_list &tokens);
     }; // subclass Expression
 
