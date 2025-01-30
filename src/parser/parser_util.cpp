@@ -3,10 +3,6 @@
 #include "debug.hpp"
 #include "parser/signature.hpp"
 
-/// get_next_main_node
-///     Finds the next main node inside the list of tokens and creates an ASTNode "tree" from it.
-///     Only Definition nodes are considered as 'main' nodes
-///     It returns the built ASTNode tree
 void Parser::Util::add_next_main_node(FileNode &file_node, token_list &tokens) {
     token_list definition_tokens = get_definition_tokens(tokens);
 
@@ -66,9 +62,6 @@ void Parser::Util::add_next_main_node(FileNode &file_node, token_list &tokens) {
     }
 }
 
-/// get_definition_tokens
-///     Returns all the tokens which are part of the definition.
-///     Deletes all tokens which are part of the definition from the given tokens list
 token_list Parser::Util::get_definition_tokens(token_list &tokens) {
     // Scan through all the tokens and first extract all tokens from this line
     int end_index = 0;
@@ -83,8 +76,6 @@ token_list Parser::Util::get_definition_tokens(token_list &tokens) {
     return extract_from_to(0, end_index, tokens);
 }
 
-/// get_body_tokens
-///     Extracts all the body tokens based on their indentation
 token_list Parser::Util::get_body_tokens(unsigned int definition_indentation, token_list &tokens) {
     int current_line = tokens.at(0).line;
     int end_idx = 0;
@@ -105,10 +96,6 @@ token_list Parser::Util::get_body_tokens(unsigned int definition_indentation, to
     return extract_from_to(0, end_idx, tokens);
 }
 
-/// extract_from_to
-///     Extracts the tokens from a given index up to the given index from the given tokens list
-///     Extracts [from ; to) tokens
-///     Also deletes all the extracted tokens from the token list
 token_list Parser::Util::extract_from_to(unsigned int from, unsigned int to, token_list &tokens) {
     assert(to >= from);
     token_list extraction;
@@ -121,10 +108,6 @@ token_list Parser::Util::extract_from_to(unsigned int from, unsigned int to, tok
     return extraction;
 }
 
-/// clone_from_to
-///     Clones the tokens from a given index up to the given index from the given tokens list
-///     Clones [from ; to) tokens
-///     Does not change the passed in token_list
 token_list Parser::Util::clone_from_to(unsigned int from, unsigned int to, const token_list &tokens) {
     assert(to >= from);
     token_list extraction;
@@ -136,8 +119,6 @@ token_list Parser::Util::clone_from_to(unsigned int from, unsigned int to, const
     return extraction;
 }
 
-/// create_call_base
-///
 std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> Parser::Util::create_call_base(
     Scope *scope, token_list &tokens) {
     std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});

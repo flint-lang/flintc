@@ -132,13 +132,70 @@ class Parser {
       public:
         Util() = delete;
 
+        /// @function `add_next_main_node`
+        /// @brief Creates the next main node from the list of tokens and adds it to the file node
+        ///
+        /// @details A main node is every node which is able to be at the top-level of a file (functions, modules, file imports etc.)
+        ///
+        /// @param `file_node` The file node the next created main node will be added to
+        /// @param `tokens` The list of tokens from which the next main node will be created from
         static void add_next_main_node(FileNode &file_node, token_list &tokens);
+
+        /// @function `get_definition_tokens`
+        /// @brief Extracts all the tokens which are part of the definition
+        ///
+        /// @return `token_list` Returns the extracted tokens, being part of the definition
+        ///
+        /// @attention Deletes all tokens which are part of the definition from the given tokens list
         static token_list get_definition_tokens(token_list &tokens);
+
+        /// @function `get_body_tokens`
+        /// @brief Extracts all the body tokens based on their indentation
+        ///
+        /// @param `definition_indentation` The indentation level of the definition. The body of the definition will have at least one
+        /// indentation level more
+        /// @param `tokens` The tokens from which the body will be extracted from
+        /// @return `token_list` The extracted list of tokens forming the whole body
+        ///
+        /// @attention This function modifies the given `tokens` list, the retured tokens are no longer part of the given list
         static token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
+
+        /// @function `extract_from_to`
+        /// @brief Extracts the tokens from a given index up to the given index from the given tokens list
+        ///
+        /// @param `from` The start index from which the extraction starts (inclusive)
+        /// @param `to` The end index at which the extraction ends (exclusive)
+        /// @param `tokens` The tokens from which the range is extracted
+        /// @return `token_list` The extracted token range
+        ///
+        /// @assert to >= from and to <= tokens.size()
+        /// @attention Modifies the given tokens list, deletes all extracted tokens from it
         static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
+
+        /// @function `clone_from_to`
+        /// @brief Clones the tokens from a given index up to the given index from the given tokens list
+        ///
+        /// @param `from` The start index from which the cloning starts (inclusive)
+        /// @param `to` The end index at which the cloning ends (exclusive)
+        /// @param `tokens` The tokens from which the range is cloned
+        /// @return `token_list` The cloned token range
+        ///
+        /// @assert to >= from and to <= tokens.size()
         static token_list clone_from_to(unsigned int from, unsigned int to, const token_list &tokens);
-        static std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> //
-        create_call_base(Scope *scope, token_list &tokens);
+
+        /// @function `create_call_base`
+        /// @brief Creates the base node for all calls
+        ///
+        /// @details This function is part of the `Util` class, as both call statements as well as call expressions use this function
+        ///
+        /// @param `scope` The scope the call happens in
+        /// @param `tokens` The tokens which will be interpreted as call
+        /// @return A optional value containing a tuple, where the first value is the function name, the second value is a list of all
+        /// expressions (the argument expression) of the call and the third value is the call's return type, encoded as a string
+        static std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> create_call_base( //
+            Scope *scope,                                                                                                          //
+            token_list &tokens                                                                                                     //
+        );
     }; // subclass Util
 
     /// @class `Expression`
