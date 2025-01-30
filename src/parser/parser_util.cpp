@@ -97,19 +97,14 @@ token_list Parser::Util::get_body_tokens(unsigned int definition_indentation, to
 }
 
 token_list Parser::Util::extract_from_to(unsigned int from, unsigned int to, token_list &tokens) {
-    assert(to >= from);
-    token_list extraction;
-    if (to == from) {
-        return extraction;
-    }
-    extraction.reserve(to - from);
-    std::move(tokens.begin() + from, tokens.begin() + to, std::back_inserter(extraction));
+    token_list extraction = clone_from_to(from, to, tokens);
     tokens.erase(tokens.begin() + from, tokens.begin() + to);
     return extraction;
 }
 
 token_list Parser::Util::clone_from_to(unsigned int from, unsigned int to, const token_list &tokens) {
     assert(to >= from);
+    assert(to <= tokens.size());
     token_list extraction;
     if (to == from) {
         return extraction;
