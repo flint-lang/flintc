@@ -58,7 +58,7 @@ std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, 
                 }
                 // File is not yet part of the dependency tree, parse it
                 std::filesystem::path dep_file_path = file_dep.first / file_dep.second;
-                FileNode file = Parser::parse_file(dep_file_path);
+                FileNode file = Parser(dep_file_path).parse();
                 // Save the file name, as the file itself moves its ownership in the call below
                 std::string parsed_file_name = file.file_name;
                 // Add all dependencies of the file and the file itself to the file map and the dependency map

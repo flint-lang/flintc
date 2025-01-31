@@ -45,9 +45,8 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
     const std::filesystem::path &ll_file_path) {
     PROFILE_SCOPE("'generate_ll_file'");
 
-    FileNode file;
     // Parse the .ft file and resolve all inclusions
-    file = Parser::parse_file(source_file_path);
+    FileNode file = Parser(source_file_path).parse();
     Debug::AST::print_file(file);
     std::shared_ptr<DepNode> dep_graph;
     dep_graph = Resolver::create_dependency_graph(file, source_file_path.parent_path());

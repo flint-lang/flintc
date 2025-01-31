@@ -3,8 +3,8 @@
 #include "lexer/lexer.hpp"
 #include "parser/signature.hpp"
 
-std::unique_ptr<CallNodeStatement> Parser::Statement::create_call_statement(Scope *scope, token_list &tokens) {
-    auto call_node_args = Util::create_call_base(scope, tokens);
+std::unique_ptr<CallNodeStatement> Parser::create_call_statement(Scope *scope, token_list &tokens) {
+    auto call_node_args = create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
         throw_err(ERR_PARSING);
     }
@@ -17,7 +17,7 @@ std::unique_ptr<CallNodeStatement> Parser::Statement::create_call_statement(Scop
     return call_node;
 }
 
-std::optional<ThrowNode> Parser::Statement::create_throw(Scope *scope, token_list &tokens) {
+std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) {
     std::optional<ReturnNode> return_node = create_return(scope, tokens);
     if (!return_node.has_value()) {
         throw_err(ERR_PARSING);
@@ -30,7 +30,7 @@ std::optional<ThrowNode> Parser::Statement::create_throw(Scope *scope, token_lis
     return ThrowNode(return_node.value().return_value);
 }
 
-std::optional<ReturnNode> Parser::Statement::create_return(Scope *scope, token_list &tokens) {
+std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens) {
     unsigned int return_id = 0;
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         if (it->type == TOK_RETURN) {
@@ -40,16 +40,15 @@ std::optional<ReturnNode> Parser::Statement::create_return(Scope *scope, token_l
             return_id = std::distance(tokens.begin(), it);
         }
     }
-    token_list expression_tokens = Util::extract_from_to(return_id + 1, tokens.size(), tokens);
-    std::optional<std::unique_ptr<ExpressionNode>> expr = Expression::create_expression(scope, expression_tokens);
+    token_list expression_tokens = extract_from_to(return_id + 1, tokens.size(), tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
     if (expr.has_value()) {
         return ReturnNode(expr.value());
     }
     return std::nullopt;
 }
 
-std::optional<std::unique_ptr<IfNode>> Parser::Statement::create_if(Scope *scope,
-    std::vector<std::pair<token_list, token_list>> &if_chain) {
+std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain) {
     assert(!if_chain.empty());
     std::pair<token_list, token_list> this_if_pair = if_chain.at(0);
     if_chain.erase(if_chain.begin());
@@ -82,7 +81,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::Statement::create_if(Scope *scope
     }
 
     // Create the if statements condition and body statements
-    std::optional<std::unique_ptr<ExpressionNode>> condition = Expression::create_expression(scope, this_if_pair.first);
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, this_if_pair.first);
     if (!condition.has_value()) {
         // Invalid expression inside if statement
         throw_err(ERR_PARSING);
@@ -109,10 +108,10 @@ std::optional<std::unique_ptr<IfNode>> Parser::Statement::create_if(Scope *scope
     return std::make_unique<IfNode>(condition.value(), body_scope, else_scope);
 }
 
-std::optional<std::unique_ptr<WhileNode>> Parser::Statement::create_while_loop( //
-    Scope *scope,                                                               //
-    const token_list &definition,                                               //
-    token_list &body                                                            //
+std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
+    Scope *scope,                                                    //
+    const token_list &definition,                                    //
+    token_list &body                                                 //
 ) {
     token_list condition_tokens = definition;
     // Remove everything in front of the expression (\n, \t, else, if)
@@ -132,7 +131,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::Statement::create_while_loop( 
         condition_tokens.erase(rev_it.base());
     }
 
-    std::optional<std::unique_ptr<ExpressionNode>> condition = Expression::create_expression(scope, condition_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens);
     if (!condition.has_value()) {
         // Invalid expression inside while statement
         throw_err(ERR_PARSING);
@@ -146,26 +145,26 @@ std::optional<std::unique_ptr<WhileNode>> Parser::Statement::create_while_loop( 
     return while_node;
 }
 
-std::optional<std::unique_ptr<ForLoopNode>> Parser::Statement::create_for_loop( //
-    Scope *scope,                                                               //
-    const token_list &definition,                                               //
-    const token_list &body                                                      //
+std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
+    Scope *scope,                                                    //
+    const token_list &definition,                                    //
+    const token_list &body                                           //
 ) {
     throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
-std::optional<std::unique_ptr<ForLoopNode>> Parser::Statement::create_enh_for_loop(Scope *scope, const token_list &definition,
+std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop(Scope *scope, const token_list &definition,
     const token_list &body) {
     throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
-std::optional<std::unique_ptr<CatchNode>> Parser::Statement::create_catch( //
-    Scope *scope,                                                          //
-    const token_list &definition,                                          //
-    token_list &body,                                                      //
-    std::vector<std::unique_ptr<StatementNode>> &statements                //
+std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
+    Scope *scope,                                               //
+    const token_list &definition,                               //
+    token_list &body,                                           //
+    std::vector<std::unique_ptr<StatementNode>> &statements     //
 ) {
     // First, extract everything left of the 'catch' statement and parse it as a normal (unscoped) statement
     std::optional<unsigned int> catch_id = std::nullopt;
@@ -180,7 +179,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::Statement::create_catch( //
         return std::nullopt;
     }
 
-    token_list left_of_catch = Util::clone_from_to(0, catch_id.value(), definition);
+    token_list left_of_catch = clone_from_to(0, catch_id.value(), definition);
     std::optional<std::unique_ptr<StatementNode>> lhs = create_statement(scope, left_of_catch);
     if (!lhs.has_value()) {
         throw_err(ERR_PARSING);
@@ -196,7 +195,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::Statement::create_catch( //
     }
     last_call.value()->has_catch = true;
 
-    const token_list right_of_catch = Util::clone_from_to(catch_id.value(), definition.size() - 1, definition);
+    const token_list right_of_catch = clone_from_to(catch_id.value(), definition.size() - 1, definition);
     std::optional<std::string> err_var = std::nullopt;
     for (auto it = right_of_catch.begin(); it != right_of_catch.end(); ++it) {
         if (it->type == TOK_CATCH && (it + 1) != right_of_catch.end() && (it + 1)->type == TOK_IDENTIFIER) {
@@ -214,13 +213,13 @@ std::optional<std::unique_ptr<CatchNode>> Parser::Statement::create_catch( //
     return std::make_unique<CatchNode>(err_var, body_scope, last_call_id);
 }
 
-std::optional<std::unique_ptr<AssignmentNode>> Parser::Statement::create_assignment(Scope *scope, token_list &tokens) {
+std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *scope, token_list &tokens) {
     auto iterator = tokens.begin();
     while (iterator != tokens.end()) {
         if (iterator->type == TOK_IDENTIFIER) {
             if ((iterator + 1)->type == TOK_EQUAL && (iterator + 2) != tokens.end()) {
-                token_list expression_tokens = Util::extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
-                std::optional<std::unique_ptr<ExpressionNode>> expression = Expression::create_expression(scope, expression_tokens);
+                token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
+                std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens);
                 if (expression.has_value()) {
                     if (scope->variable_types.find(iterator->lexme) == scope->variable_types.end()) {
                         // Assignment on undeclared variable!
@@ -240,7 +239,7 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::Statement::create_assignm
     return std::nullopt;
 }
 
-std::optional<DeclarationNode> Parser::Statement::create_declaration(Scope *scope, token_list &tokens, const bool &is_infered) {
+std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_list &tokens, const bool &is_infered) {
     std::optional<DeclarationNode> declaration = std::nullopt;
     std::string type;
     std::string name;
@@ -250,7 +249,7 @@ std::optional<DeclarationNode> Parser::Statement::create_declaration(Scope *scop
     } else {
         const Signature::signature lhs = Signature::match_until_signature({TOK_EQUAL});
         uint2 lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
-        token_list lhs_tokens = Util::extract_from_to(lhs_range.first, lhs_range.second, tokens);
+        token_list lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
 
         // Remove all \n and \t from the lhs tokens
         for (auto it = lhs_tokens.begin(); it != lhs_tokens.end();) {
@@ -271,7 +270,7 @@ std::optional<DeclarationNode> Parser::Statement::create_declaration(Scope *scop
         unsigned int type_end = lhs_tokens.size() - 2;
         while (iterator != lhs_tokens.end()) {
             if ((iterator + 1)->type == TOK_IDENTIFIER && (iterator + 2)->type == TOK_EQUAL) {
-                const token_list type_tokens = Util::extract_from_to(type_begin, type_end, lhs_tokens);
+                const token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
                 type = Lexer::to_string(type_tokens);
                 name = iterator->lexme;
                 break;
@@ -279,7 +278,7 @@ std::optional<DeclarationNode> Parser::Statement::create_declaration(Scope *scop
             ++iterator;
         }
 
-        auto expr = Expression::create_expression(scope, tokens);
+        auto expr = create_expression(scope, tokens);
         if (expr.has_value()) {
             if (!scope->add_variable_type(name, type, scope->scope_id)) {
                 // Variable shadowing!
@@ -292,7 +291,7 @@ std::optional<DeclarationNode> Parser::Statement::create_declaration(Scope *scop
     return declaration;
 }
 
-std::optional<std::unique_ptr<StatementNode>> Parser::Statement::create_statement(Scope *scope, token_list &tokens) {
+std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, token_list &tokens) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
     if (Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
@@ -339,11 +338,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::Statement::create_statemen
     return statement_node;
 }
 
-std::optional<std::unique_ptr<StatementNode>> Parser::Statement::create_scoped_statement( //
-    Scope *scope,                                                                         //
-    token_list &definition,                                                               //
-    token_list &body,                                                                     //
-    std::vector<std::unique_ptr<StatementNode>> &statements                               //
+std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( //
+    Scope *scope,                                                              //
+    token_list &definition,                                                    //
+    token_list &body,                                                          //
+    std::vector<std::unique_ptr<StatementNode>> &statements                    //
 ) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
@@ -355,7 +354,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::Statement::create_scoped_s
         // Scoped statement has no body
         throw_err(ERR_PARSING);
     }
-    token_list scoped_body = Util::get_body_tokens(indent_lvl_maybe.value(), body);
+    token_list scoped_body = get_body_tokens(indent_lvl_maybe.value(), body);
 
     if (Signature::tokens_contain(definition, Signature::if_statement) ||
         Signature::tokens_contain(definition, Signature::else_if_statement) ||
@@ -383,8 +382,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::Statement::create_scoped_s
                 break;
             }
 
-            next_definition = Util::extract_from_to(next_line_range.value().first, next_line_range.value().second, body);
-            scoped_body = Util::get_body_tokens(indent_lvl_maybe.value(), body);
+            next_definition = extract_from_to(next_line_range.value().first, next_line_range.value().second, body);
+            scoped_body = get_body_tokens(indent_lvl_maybe.value(), body);
             if_chain.emplace_back(next_definition, scoped_body);
         }
 
@@ -432,12 +431,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::Statement::create_scoped_s
     return statement_node;
 }
 
-std::vector<std::unique_ptr<StatementNode>> Parser::Statement::create_body(Scope *scope, token_list &body) {
+std::vector<std::unique_ptr<StatementNode>> Parser::create_body(Scope *scope, token_list &body) {
     std::vector<std::unique_ptr<StatementNode>> body_statements;
     const Signature::signature statement_signature = Signature::match_until_signature({"((", TOK_SEMICOLON, ")|(", TOK_COLON, "))"});
 
     while (auto next_match = Signature::get_next_match_range(body, statement_signature)) {
-        token_list statement_tokens = Util::extract_from_to(next_match.value().first, next_match.value().second, body);
+        token_list statement_tokens = extract_from_to(next_match.value().first, next_match.value().second, body);
         std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
         if (Signature::tokens_contain(statement_tokens, {TOK_COLON})) {
             // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---

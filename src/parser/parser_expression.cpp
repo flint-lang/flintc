@@ -2,7 +2,7 @@
 
 #include "parser/signature.hpp"
 
-std::optional<VariableNode> Parser::Expression::create_variable(Scope *scope, const token_list &tokens) {
+std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_list &tokens) {
     std::optional<VariableNode> var = std::nullopt;
     for (const auto &tok : tokens) {
         if (tok.type == TOK_IDENTIFIER) {
@@ -17,12 +17,12 @@ std::optional<VariableNode> Parser::Expression::create_variable(Scope *scope, co
     return var;
 }
 
-std::optional<UnaryOpNode> Parser::Expression::create_unary_op(Scope *scope, const token_list &tokens) {
+std::optional<UnaryOpNode> Parser::create_unary_op(Scope *scope, const token_list &tokens) {
     throw_err(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
-std::optional<LiteralNode> Parser::Expression::create_literal(const token_list &tokens) {
+std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
     for (const auto &tok : tokens) {
         if (Signature::tokens_match({tok}, Signature::literal)) {
             switch (tok.type) {
@@ -59,8 +59,8 @@ std::optional<LiteralNode> Parser::Expression::create_literal(const token_list &
     return std::nullopt;
 }
 
-std::unique_ptr<CallNodeExpression> Parser::Expression::create_call_expression(Scope *scope, token_list &tokens) {
-    auto call_node_args = Util::create_call_base(scope, tokens);
+std::unique_ptr<CallNodeExpression> Parser::create_call_expression(Scope *scope, token_list &tokens) {
+    auto call_node_args = create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
         throw_err(ERR_PARSING);
     }
@@ -73,7 +73,7 @@ std::unique_ptr<CallNodeExpression> Parser::Expression::create_call_expression(S
     return call_node;
 }
 
-std::optional<BinaryOpNode> Parser::Expression::create_binary_op(Scope *scope, token_list &tokens) {
+std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &tokens) {
     unsigned int first_operator_idx = 0;
     unsigned int second_operator_idx = 0;
     Token first_operator_token = Token::TOK_EOL;
@@ -126,14 +126,14 @@ std::optional<BinaryOpNode> Parser::Expression::create_binary_op(Scope *scope, t
     token_list lhs_tokens;
     Token operator_token = TOK_EOL;
     if (second_operator_token != TOK_EOL && token_precedence.at(first_operator_token) > token_precedence.at(second_operator_token)) {
-        lhs_tokens = Util::extract_from_to(0, second_operator_idx, tokens);
+        lhs_tokens = extract_from_to(0, second_operator_idx, tokens);
         operator_token = second_operator_token;
     } else {
-        lhs_tokens = Util::extract_from_to(0, first_operator_idx, tokens);
+        lhs_tokens = extract_from_to(0, first_operator_idx, tokens);
         operator_token = first_operator_token;
     }
     // 1 to skip the operator token
-    token_list rhs_tokens = Util::extract_from_to(1, tokens.size(), tokens);
+    token_list rhs_tokens = extract_from_to(1, tokens.size(), tokens);
 
     std::optional<std::unique_ptr<ExpressionNode>> lhs = create_expression(scope, lhs_tokens);
     std::optional<std::unique_ptr<ExpressionNode>> rhs = create_expression(scope, rhs_tokens);
@@ -146,7 +146,7 @@ std::optional<BinaryOpNode> Parser::Expression::create_binary_op(Scope *scope, t
     return BinaryOpNode(operator_token, lhs.value(), rhs.value(), lhs.value()->type);
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::Expression::create_expression(Scope *scope, token_list &tokens) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *scope, token_list &tokens) {
     std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
     // remove trailing semicolons
     for (auto iterator = tokens.rbegin(); iterator != tokens.rend(); ++iterator) {

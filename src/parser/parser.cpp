@@ -16,14 +16,14 @@
 
 std::map<unsigned int, CallNodeBase *> Parser::call_nodes;
 
-FileNode Parser::parse_file(const std::filesystem::path &file) {
+FileNode Parser::parse() {
     std::string file_name = file.filename();
     PROFILE_SCOPE("Parsing file '" + file_name + "'");
     FileNode file_node(file_name);
     token_list tokens = Lexer(file).scan();
     // Consume all tokens and convert them to nodes
     while (!tokens.empty()) {
-        Util::add_next_main_node(file_node, tokens);
+        add_next_main_node(file_node, tokens);
     }
     return file_node;
 }

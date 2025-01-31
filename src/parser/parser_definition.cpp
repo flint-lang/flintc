@@ -2,7 +2,7 @@
 
 #include "parser/signature.hpp"
 
-FunctionNode Parser::Definition::create_function(const token_list &definition, token_list &body) {
+FunctionNode Parser::create_function(const token_list &definition, token_list &body) {
     std::string name;
     std::vector<std::pair<std::string, std::string>> parameters;
     std::vector<std::string> return_types;
@@ -64,13 +64,13 @@ FunctionNode Parser::Definition::create_function(const token_list &definition, t
     }
 
     // Create the body and add the body statements to the created scope
-    std::vector<std::unique_ptr<StatementNode>> body_statements = Statement::create_body(body_scope.get(), body);
+    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), body);
     body_scope->body = std::move(body_statements);
 
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);
 }
 
-DataNode Parser::Definition::create_data(const token_list &definition, const token_list &body) {
+DataNode Parser::create_data(const token_list &definition, const token_list &body) {
     bool is_shared = false;
     bool is_immutable = false;
     bool is_aligned = false;
@@ -130,7 +130,7 @@ DataNode Parser::Definition::create_data(const token_list &definition, const tok
     return DataNode(is_shared, is_immutable, is_aligned, name, fields, default_values, order);
 }
 
-FuncNode Parser::Definition::create_func(const token_list &definition, token_list &body) {
+FuncNode Parser::create_func(const token_list &definition, token_list &body) {
     std::string name;
     std::vector<std::pair<std::string, std::string>> required_data;
     std::vector<std::unique_ptr<FunctionNode>> functions;
@@ -160,10 +160,10 @@ FuncNode Parser::Definition::create_func(const token_list &definition, token_lis
         current_line = body_iterator->line;
 
         uint2 definition_ids = Signature::get_line_token_indices(body, current_line).value();
-        token_list function_definition = Util::extract_from_to(definition_ids.first, definition_ids.second, body);
+        token_list function_definition = extract_from_to(definition_ids.first, definition_ids.second, body);
 
         unsigned int leading_indents = Signature::get_leading_indents(function_definition, current_line).value();
-        token_list function_body = Util::get_body_tokens(leading_indents, body);
+        token_list function_body = get_body_tokens(leading_indents, body);
 
         functions.emplace_back(std::make_unique<FunctionNode>(std::move(create_function(function_definition, function_body))));
         ++body_iterator;
@@ -172,7 +172,7 @@ FuncNode Parser::Definition::create_func(const token_list &definition, token_lis
     return FuncNode(name, required_data, std::move(functions));
 }
 
-Parser::Definition::create_entity_type Parser::Definition::create_entity(const token_list &definition, token_list &body) {
+Parser::create_entity_type Parser::create_entity(const token_list &definition, token_list &body) {
     bool is_modular = Signature::tokens_match(body, Signature::entity_body);
     std::string name;
     std::vector<std::string> data_modules;
@@ -213,7 +213,7 @@ Parser::Definition::create_entity_type Parser::Definition::create_entity(const t
                 token_list tokens_after_link;
                 tokens_after_link.reserve(body.size() - std::distance(body.begin(), body_iterator + 2));
                 std::copy(body_iterator + 2, body.end(), tokens_after_link.begin());
-                token_list link_tokens = Util::get_body_tokens(link_indentation, tokens_after_link);
+                token_list link_tokens = get_body_tokens(link_indentation, tokens_after_link);
                 link_nodes = create_links(link_tokens);
             }
 
@@ -242,13 +242,13 @@ Parser::Definition::create_entity_type Parser::Definition::create_entity(const t
             if (body_iterator->type == TOK_DATA) {
                 // TODO: Add a generic constructor for the data module
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
-                token_list data_body = Util::get_body_tokens(leading_indents, body);
+                token_list data_body = get_body_tokens(leading_indents, body);
                 token_list data_definition = {TokenContext{TOK_DATA, "", 0}, TokenContext{TOK_IDENTIFIER, name + "__D", 0}};
                 data_node = create_data(data_definition, data_body);
                 data_modules.emplace_back(name + "__D");
             } else if (body_iterator->type == TOK_FUNC) {
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
-                token_list func_body = Util::get_body_tokens(leading_indents, body);
+                token_list func_body = get_body_tokens(leading_indents, body);
                 token_list func_definition = {TokenContext{TOK_FUNC}, TokenContext{TOK_IDENTIFIER, name + "__F"},
                     TokenContext{TOK_REQUIRES}, TokenContext{TOK_LEFT_PAREN}, TokenContext{TOK_IDENTIFIER, name + "__D"},
                     TokenContext{TOK_IDENTIFIER, "d"}, TokenContext{TOK_RIGHT_PAREN}, TokenContext{TOK_COLON}};
@@ -275,7 +275,7 @@ Parser::Definition::create_entity_type Parser::Definition::create_entity(const t
     return return_value;
 }
 
-std::vector<std::unique_ptr<LinkNode>> Parser::Definition::create_links(token_list &body) {
+std::vector<std::unique_ptr<LinkNode>> Parser::create_links(token_list &body) {
     std::vector<std::unique_ptr<LinkNode>> links;
 
     std::vector<uint2> link_matches = Signature::get_match_ranges(body, Signature::entity_body_link);
@@ -287,7 +287,7 @@ std::vector<std::unique_ptr<LinkNode>> Parser::Definition::create_links(token_li
     return links;
 }
 
-LinkNode Parser::Definition::create_link(const token_list &tokens) {
+LinkNode Parser::create_link(const token_list &tokens) {
     std::vector<std::string> from_references;
     std::vector<std::string> to_references;
 
@@ -307,7 +307,7 @@ LinkNode Parser::Definition::create_link(const token_list &tokens) {
     return LinkNode(from_references, to_references);
 }
 
-EnumNode Parser::Definition::create_enum(const token_list &definition, const token_list &body) {
+EnumNode Parser::create_enum(const token_list &definition, const token_list &body) {
     std::string name;
     std::vector<std::string> values;
 
@@ -338,7 +338,7 @@ EnumNode Parser::Definition::create_enum(const token_list &definition, const tok
     return EnumNode(name, values);
 }
 
-ErrorNode Parser::Definition::create_error(const token_list &definition, const token_list &body) {
+ErrorNode Parser::create_error(const token_list &definition, const token_list &body) {
     std::string name;
     std::string parent_error;
     std::vector<std::string> error_types;
@@ -376,7 +376,7 @@ ErrorNode Parser::Definition::create_error(const token_list &definition, const t
     return ErrorNode(name, parent_error, error_types);
 }
 
-VariantNode Parser::Definition::create_variant(const token_list &definition, const token_list &body) {
+VariantNode Parser::create_variant(const token_list &definition, const token_list &body) {
     std::string name;
     std::vector<std::string> possible_types;
 
@@ -409,7 +409,7 @@ VariantNode Parser::Definition::create_variant(const token_list &definition, con
 
 /// create_import
 ///     Creates an ImportNode from the given token list
-ImportNode Parser::Definition::create_import(const token_list &tokens) {
+ImportNode Parser::create_import(const token_list &tokens) {
     std::variant<std::string, std::vector<std::string>> import_path;
 
     if (Signature::tokens_contain(tokens, {TOK_STR_VALUE})) {
