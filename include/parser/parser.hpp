@@ -38,6 +38,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <utility>
 
@@ -106,6 +107,10 @@ class Parser {
     /// is the reason to why the ordering is important.
     static std::map<unsigned int, CallNodeBase *> call_nodes;
 
+    /// @var `call_nodes_mutex`
+    /// @brief A mutex for the `call_nodes` variable, which is used to provide thread-safe access to the map
+    static std::mutex call_nodes_mutex;
+
     /// @var `file`
     /// @brief the file to parse
     std::filesystem::path file;
@@ -116,6 +121,8 @@ class Parser {
     /// @param `call_id` The call ID of the CallNode to add
     /// @param `call` The pointer to the base of the CallNode to add
     static inline void set_last_parsed_call(unsigned int call_id, CallNodeBase *call) {
+        // The mutex will unlock by itself when it goes out of scope
+        std::lock_guard<std::mutex> lock(call_nodes_mutex);
         call_nodes.emplace(call_id, call);
     }
 
@@ -126,6 +133,8 @@ class Parser {
     ///
     /// @attention Asserts that the call_nodes map contains at least one element
     static inline unsigned int get_last_parsed_call_id() {
+        // The mutex will unlock by itself when it goes out of scope
+        std::lock_guard<std::mutex> lock(call_nodes_mutex);
         assert(!call_nodes.empty());
         return call_nodes.rbegin()->first;
     }

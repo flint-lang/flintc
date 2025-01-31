@@ -15,6 +15,7 @@
 #include <utility>
 
 std::map<unsigned int, CallNodeBase *> Parser::call_nodes;
+std::mutex Parser::call_nodes_mutex;
 
 FileNode Parser::parse() {
     std::string file_name = file.filename();
@@ -29,6 +30,8 @@ FileNode Parser::parse() {
 }
 
 std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
+    // The mutex will unlock by itself when it goes out of scope
+    std::lock_guard<std::mutex> lock(call_nodes_mutex);
     if (call_nodes.find(call_id) != call_nodes.end()) {
         return call_nodes.at(call_id);
     }
@@ -36,6 +39,8 @@ std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
 }
 
 void Parser::resolve_call_types() {
+    // The mutex will unlock by itself when it goes out of scope
+    std::lock_guard<std::mutex> lock(call_nodes_mutex);
     for (const auto &[file_name, file] : Resolver::get_file_map()) {
         // First, get the list of all function types inside this file
         std::unordered_map<std::string, std::string> function_types;
