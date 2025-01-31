@@ -17,12 +17,25 @@
 
 /// build_executable
 ///     Builds the executable file from the "output.ll" file
-void build_executable(const std::filesystem::path &ll_file_path, const std::filesystem::path &binary_path, const std::string &flags) {
-    PROFILE_SCOPE("Compiling with 'clang'");
+void build_executable(                         //
+    const std::filesystem::path &ll_file_path, //
+    const std::filesystem::path &binary_path,  //
+    const std::string &compile_command,        //
+    const std::string &flags                   //
+) {
+    PROFILE_SCOPE("Compiling with '" + compile_command + "'");
     if (std::filesystem::exists(ll_file_path)) {
-        std::cout << "Using clang to build the executable '" << binary_path.filename().string() << "' ..." << std::endl;
-        system(std::string("clang " + flags + " " + ll_file_path.string() + " -o " + binary_path.string()).c_str());
-        std::filesystem::remove(ll_file_path);
+        std::cout << "Using '" + compile_command + "' to build the executable '" << binary_path.filename().string() << "' ..." << std::endl;
+        std::string compile_command_str = compile_command + " " + flags + " " + ll_file_path.string() + " -o " + binary_path.string();
+        int res = system(compile_command_str.c_str());
+        if (res != 0) {
+            // Throw an error stating that compilation failed
+            std::cerr << "The compilation failed using the command '" << compile_command_str << "'.\nLook at the '" << ll_file_path.string()
+                      << "' file and try to compile it using a different method!" << std::endl;
+        } else {
+            // Only remove the ll file if it has compiled successfully. If it did fail compilation, keep the file for further investigations
+            std::filesystem::remove(ll_file_path);
+        }
     }
 }
 
@@ -75,9 +88,9 @@ int main(int argc, char *argv[]) {
     if (result != 0) {
         return result;
     }
-    generate_ll_file(clp.source_file_path, "output.ll", clp.ll_file_path);
+    generate_ll_file(clp.source_file_path, "output.bc", clp.ll_file_path);
     if (clp.build_exe) {
-        build_executable("output.ll", clp.out_file_path, clp.compile_flags);
+        build_executable("output.bc", clp.out_file_path, clp.compile_command, clp.compile_flags);
     }
     Profiler::print_results(Profiler::TimeUnit::MICS);
     return 0;

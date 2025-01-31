@@ -57,8 +57,15 @@ class CLIParserMain : public CLIParserBase {
                 build_exe = false;
                 i++;
             } else if (arg == "--static") {
-                static const std::string static_flags = "-static -Wl,--start-group -lpthread -ldl -Wl,--end-group";
-                compile_flags.append(" ").append(static_flags);
+                // static const std::string static_flags = "-static -Wl,--start-group -lpthread -ldl -Wl,--end-group";
+                // compile_flags.append(" ").append(static_flags);
+                if (!compile_flags.empty()) {
+                    compile_flags.append(" ");
+                }
+                compile_flags.append("-static");
+            } else if (starts_with(arg, "--compiler=")) {
+                // Erase the '--compiler=' part of the string
+                compile_command = arg.substr(11);
             } else {
                 print_err("Unknown argument: " + arg);
                 return 1;
@@ -73,22 +80,25 @@ class CLIParserMain : public CLIParserBase {
 
     std::filesystem::path source_file_path = "";
     std::filesystem::path out_file_path = "main";
-    std::string compile_flags;
+    std::string compile_command{"zig c++"};
+    std::string compile_flags{""};
     std::filesystem::path ll_file_path = "";
     bool build_exe{true};
 
   private:
     void print_help() override {
         std::cout << "Usage: flintc [OPTIONS]\n";
-        std::cout << std::endl;
+        std::cout << "\n";
         std::cout << "Available Options:\n";
         std::cout << "  --help, -h                  Show help\n";
         std::cout << "  --file, -f <file>           The file to compile\n";
         std::cout << "  --out, -o <file>            The name and path of the built output file\n";
-        std::cout << "  --flags \"[flags]\"           The clang flags used to build the executable\n";
+        std::cout << "  --flags \"[flags]\"           The compile flags used to build the executable\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code.\n";
         std::cout << "                              HINT: The compiler will not create an executable with this flag set.\n";
         std::cout << "  --static                    Build the executable as static\n";
+        std::cout << "  --compiler=\"[command]\"      The compile command to use. Defaults to 'zig c++'";
+        std::cout << std::endl;
     }
 };
 

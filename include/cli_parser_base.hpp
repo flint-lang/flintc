@@ -49,6 +49,13 @@ class CLIParserBase {
         return true;
     }
 
+    bool starts_with(const std::string &str, const std::string &prefix) {
+        if (str.length() < prefix.length()) {
+            return false;
+        }
+        return str.compare(0, prefix.length(), prefix) == 0;
+    }
+
     static std::filesystem::path get_absolute(const std::filesystem::path &cwd, const std::string &path) {
         std::filesystem::path file_path;
         if (path[0] == '/') {

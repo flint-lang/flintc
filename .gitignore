@@ -8,3 +8,4 @@ output.ll
 ft_test
 c_test
 scripts/profiling
+main.pdb
