@@ -1,7 +1,7 @@
 #ifndef __ERR_PARSING_HPP__
 #define __ERR_PARSING_HPP__
 
-#include "base_error.hpp"
+#include "error/error_types/base_error.hpp"
 #include "types.hpp"
 
 class ErrParsing : public BaseError {

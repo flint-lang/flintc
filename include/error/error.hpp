@@ -5,8 +5,8 @@
 
 // All error types are included here to make using the error header file easier
 #include "error/error_types/base_error.hpp"
-#include "error_types/err_lexing.hpp"
-#include "error_types/err_parsing.hpp"
+#include "error_types/lexing/err_lexing.hpp"
+#include "error_types/parsing/err_parsing.hpp"
 
 #include <iostream>
 #include <string>
