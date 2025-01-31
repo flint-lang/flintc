@@ -12,7 +12,7 @@ class ErrVarNotDeclared : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "\n -- Use of undeclared variable '" + var_name + "'!";
+        oss << BaseError::to_string() << "\n -- Use of undeclared variable '" + var_name + "'";
         return oss.str();
     }
 

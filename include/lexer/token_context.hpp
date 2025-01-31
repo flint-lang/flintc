@@ -11,7 +11,8 @@
 struct TokenContext {
     Token type;
     std::string lexme;
-    int line;
+    unsigned int line;
+    unsigned int column;
 };
 
 #endif

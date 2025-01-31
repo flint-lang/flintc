@@ -23,12 +23,15 @@ class Lexer {
     static std::string to_string(const token_list &tokens);
 
   private:
+    static const unsigned int TAB_SIZE = 4;
     token_list tokens;
     std::string source;
     std::string file;
     int start = 0;
     int current = 0;
-    int line = 1;
+    unsigned int line = 1;
+    unsigned int column = 1;
+    unsigned int column_diff = 0;
 
     static bool file_exists_and_is_readable(const std::string &file_path);
     static std::string load_file(const std::string &path);
@@ -47,7 +50,7 @@ class Lexer {
     static bool is_digit(char c);
     static bool is_alpha_num(char c);
     bool is_at_end();
-    char advance();
+    char advance(bool increment_column = true);
 
     // Friends allow implementations to access private fields
     void add_token(Token token);

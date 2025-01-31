@@ -41,7 +41,7 @@ std::string Lexer::load_file(const std::string &file_path) {
 ///     and throw an error, alongside the character(s) which
 ///     caused it.
 token_list Lexer::scan() {
-    tokens = token_list();
+    tokens.clear();
 
     while (!is_at_end()) {
         scan_token();
@@ -51,6 +51,7 @@ token_list Lexer::scan() {
     bool is_empty_line = true;
     unsigned int line_start_idx = 0;
     unsigned int current_line = 0;
+    unsigned int current_column = 0;
     for (auto tok = tokens.begin(); tok != tokens.end();) {
         // Check if on a new line
         if (current_line != tok->line) {
@@ -152,7 +153,7 @@ void Lexer::scan_token() {
             add_token(TOK_FLAG);
             break;
         case '\'':
-            advance();
+            advance(false);
             if (isascii(peek()) == 0) {
                 throw_err(ERR_NON_CHAR_VALUE_INSIDE_CHAR);
             }
@@ -215,12 +216,15 @@ void Lexer::scan_token() {
             break;
         case '\t':
             add_token(TOK_INDENT);
+            column += TAB_SIZE - 1;
             break;
         case ' ':
         case '\r':
             break;
         case '\n':
             add_token(TOK_EOL);
+            column = 0;
+            column_diff = 0;
             line++;
             break;
         default:
@@ -242,7 +246,7 @@ void Lexer::identifier() {
     // Includes all characters in the identifier which are
     // alphanumerical
     while (is_alpha_num(peek_next())) {
-        advance();
+        advance(false);
     }
 
     std::string identifier = source.substr(start, current - start + 1);
@@ -255,18 +259,18 @@ void Lexer::identifier() {
 ///     Lexes a number
 void Lexer::number() {
     while (is_digit(peek_next())) {
-        advance();
+        advance(false);
     }
 
     if (peek_next() == '.') {
         // Get to '.'
-        advance();
+        advance(false);
         if (!is_digit(peek_next())) {
             throw_err(ERR_UNEXPECTED_TOKEN);
         }
 
         while (is_digit(peek_next())) {
-            advance();
+            advance(false);
         }
         add_token(TOK_FLINT_VALUE);
     } else {
@@ -283,8 +287,10 @@ void Lexer::str() {
     while (peek_next() != '"' && !is_at_end()) {
         if (peek() == '\n') {
             line++;
+            column = 0;
+            column_diff = 0;
         }
-        advance();
+        advance(false);
     }
 
     if (is_at_end()) {
@@ -356,8 +362,23 @@ bool Lexer::is_at_end() {
 /// advance
 ///     Returns the next character while also incrementing
 ///     the index counter for the current character.
-char Lexer::advance() {
+char Lexer::advance(bool increment_column) {
+    if (increment_column) {
+        if (column_diff > 0) {
+            column += column_diff;
+            column_diff = 0;
+        }
+        column++;
+    } else {
+        column_diff++;
+    }
     return source.at(current++);
+}
+
+/// add_token
+///     adds a token combined with a given string
+void Lexer::add_token(Token token, std::string lexme) {
+    tokens.emplace_back(TokenContext{token, std::move(lexme), line, column});
 }
 
 /// add_token
@@ -366,12 +387,6 @@ char Lexer::advance() {
 void Lexer::add_token(Token token) {
     std::string lexme = source.substr(start, current - start + 1);
     add_token(token, lexme);
-}
-
-/// add_token
-///     adds a token combined with a given string
-void Lexer::add_token(Token token, std::string lexme) {
-    tokens.emplace_back(TokenContext{token, std::move(lexme), line});
 }
 
 /// add_token_option

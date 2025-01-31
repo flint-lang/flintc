@@ -84,7 +84,7 @@ namespace Debug {
             std::string type = " | Type: '" + name + "' => " + std::to_string(static_cast<int>(tc.type));
             std::string type_container = get_string_container(30, type);
 
-            std::cout << "Line: " << tc.line << type_container << " | Lexme: " << tc.lexme << "\n";
+            std::cout << "Line: " << tc.line << " | Column: " << tc.column << type_container << " | Lexme: " << tc.lexme << "\n";
         }
     }
 
