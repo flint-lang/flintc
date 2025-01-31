@@ -42,6 +42,11 @@ class Resolver {
     Resolver() = delete;
 
     static std::shared_ptr<DepNode> create_dependency_graph(FileNode &file_node, const std::filesystem::path &path);
+    static void process_dependency_file(                                  //
+        const std::string &dep_name,                                      //
+        const std::vector<dependency> &dependencies,                      //
+        std::map<std::string, std::vector<dependency>> &next_dependencies //
+    );
     static void get_dependency_graph_tips(const std::shared_ptr<DepNode> &dep_node, std::vector<std::weak_ptr<DepNode>> &tips);
     static std::map<std::string, std::vector<dependency>> extract_duplicates( //
         std::map<std::string, std::vector<dependency>> &dependency_map        //
