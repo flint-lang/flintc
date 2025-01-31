@@ -48,7 +48,8 @@
 class Parser {
   public:
     explicit Parser(const std::filesystem::path &file) :
-        file(file) {};
+        file(file),
+        file_name(file.filename().string()) {};
 
     /// @function `parse`
     /// @brief Parses the file. It will tokenize it using the Lexer and then create the AST of the file and return the parsed FileNode
@@ -112,8 +113,12 @@ class Parser {
     static std::mutex call_nodes_mutex;
 
     /// @var `file`
-    /// @brief the file to parse
-    std::filesystem::path file;
+    /// @brief The path to the file to parse
+    const std::filesystem::path file;
+
+    /// @var `file_name`
+    /// @brief The name of the file to be parsed
+    const std::string file_name;
 
     /// @function `set_last_parsed_call`
     /// @brief Sets the last parsed call

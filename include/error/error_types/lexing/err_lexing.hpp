@@ -5,7 +5,7 @@
 
 class ErrLexing : public BaseError {
   public:
-    ErrLexing(const std::string &message, std::string &file, int line, int column, std::string &text) :
+    ErrLexing(const std::string &message, const std::string &file, int line, int column, const std::string &text) :
         BaseError(file, line, column, message),
         text(text) {}
 

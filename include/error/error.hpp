@@ -4,9 +4,11 @@
 #include "error_type.hpp"
 
 // All error types are included here to make using the error header file easier
-#include "error/error_types/base_error.hpp"
+#include "error_types/base_error.hpp"
 #include "error_types/lexing/err_lexing.hpp"
 #include "error_types/parsing/err_parsing.hpp"
+
+#include "error_types/parsing/variables/err_var_not_declared.hpp"
 
 #include <iostream>
 #include <string>

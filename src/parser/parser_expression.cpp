@@ -8,8 +8,7 @@ std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_li
         if (tok.type == TOK_IDENTIFIER) {
             std::string name = tok.lexme;
             if (scope->variable_types.find(name) == scope->variable_types.end()) {
-                // Variable not declared anywhere yet!
-                throw_err(ERR_PARSING);
+                throw_err<ErrVarNotDeclared>("Parse Error", file_name, tok.line, 0, name);
             }
             return VariableNode(name, scope->variable_types.at(name).first);
         }
