@@ -7,8 +7,25 @@
 #include "profiler.hpp"
 
 #include <filesystem>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <variant>
+
+std::unordered_map<std::string, std::shared_ptr<DepNode>> Resolver::dependency_node_map;
+std::mutex Resolver::dependency_node_map_mutex;
+
+std::unordered_map<std::string, std::vector<dependency>> Resolver::dependency_map;
+std::mutex Resolver::dependency_map_mutex;
+
+std::unordered_map<std::string, FileNode> Resolver::file_map;
+std::mutex Resolver::file_map_mutex;
+
+std::unordered_map<std::string, const llvm::Module *> Resolver::module_map;
+std::mutex Resolver::module_map_mutex;
+
+std::unordered_map<std::string, std::filesystem::path> Resolver::path_map;
+std::mutex Resolver::path_map_mutex;
 
 /// create_dependency_graph
 ///     Takes a main file and resolves all file imports, causing the AST generation of all used files
@@ -27,64 +44,95 @@ std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, 
         return {};
     }
     std::shared_ptr<DepNode> base = std::make_shared<DepNode>(base_maybe.value());
-    Resolver::get_dependency_node_map().emplace(file_name, base);
+    dependency_node_map.emplace(file_name, base);
 
-    std::unordered_map<std::string, std::vector<dependency>> open_dependencies;
-    open_dependencies[file_name] = get_dependency_map().at(file_name);
+    std::map<std::string, std::vector<dependency>> open_dependencies;
+    open_dependencies[file_name] = dependency_map.at(file_name);
 
     // Resolve dependencies as long as there are open dependencies
     while (!open_dependencies.empty()) {
-        std::unordered_map<std::string, std::vector<dependency>> next_dependencies;
+        std::map<std::string, std::vector<dependency>> next_dependencies;
+
+        // Extract all duplicates from the open_dependencies map and remove those duplicates from the open_dependencies map
+        // The open_dependencies map now only contains the unique open dependencies
+        // Only duplicates from which the file has not been parsed yet will be extracted
+        auto open_duplicates = extract_duplicates(open_dependencies);
+
+        // Parse current level's files in parallel
+        std::vector<std::thread> parsing_threads;
+
         // For all files in the open dependencies map
         for (const auto &[open_dep_name, deps] : open_dependencies) {
             // For all the dependencies of said file
-            for (const auto &open_dep_dep : deps) {
-                if (std::holds_alternative<std::vector<std::string>>(open_dep_dep)) {
-                    // Library reference
-                    auto lib_dep = std::get<std::vector<std::string>>(open_dep_dep);
-                    // TODO: Implement the fetching (and pre-fetching into local cache) of FlintHub Libraries
-                    // TODO: Create FlintHub at all first, lol
-                    throw_err(ERR_NOT_IMPLEMENTED_YET);
-                    continue;
-                }
+            parsing_threads.emplace_back(
+                [&](const std::string &dep_name, const std::vector<dependency> &dependencies) {
+                    // Your parsing code here
+                    for (const auto &open_dep_dep : dependencies) {
+                        if (std::holds_alternative<std::vector<std::string>>(open_dep_dep)) {
+                            // Library reference
+                            auto lib_dep = std::get<std::vector<std::string>>(open_dep_dep);
+                            // TODO: Implement the fetching (and pre-fetching into local cache) of FlintHub Libraries
+                            // TODO: Create FlintHub at all first, lol
+                            throw_err(ERR_NOT_IMPLEMENTED_YET);
+                            continue;
+                        }
 
-                // File path
-                auto file_dep = std::get<std::pair<std::filesystem::path, std::string>>(open_dep_dep);
-                // Check if the file has been parsed already. If it has been, add the DepNode as weak reference to the root dep node
-                if (Resolver::get_file_map().find(file_dep.second) != Resolver::get_file_map().end()) {
-                    std::weak_ptr<DepNode> weak(get_dependency_node_map().at(file_dep.second));
-                    get_dependency_node_map().at(open_dep_name)->dependencies.emplace_back(weak);
-                    continue;
-                }
-                // File is not yet part of the dependency tree, parse it
-                std::filesystem::path dep_file_path = file_dep.first / file_dep.second;
-                FileNode file = Parser(dep_file_path).parse();
-                // Save the file name, as the file itself moves its ownership in the call below
-                std::string parsed_file_name = file.file_name;
-                // Add all dependencies of the file and the file itself to the file map and the dependency map
-                // Also return a created DepNode, but its dependants are not created yet
-                std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file, file_dep.first);
-                if (!base_maybe.has_value()) {
-                    // File already exists in the dependency map, so it can be added to the "root" DepNode as a weak ptr
-                    std::weak_ptr<DepNode> weak(get_dependency_node_map().at(file_dep.second));
-                    get_dependency_node_map().at(open_dep_name)->dependencies.emplace_back(weak);
-                    continue;
-                }
-                // Add parsed file to the dependency graph
-                Resolver::add_path(parsed_file_name, file_dep.first);
-                std::shared_ptr<DepNode> shared_dep = std::make_shared<DepNode>(base_maybe.value());
-                shared_dep->root = get_dependency_node_map().at(open_dep_name);
-                get_dependency_node_map().at(open_dep_name)->dependencies.emplace_back(shared_dep);
-                Resolver::get_dependency_node_map().emplace(file_dep.second, shared_dep);
-                // Add all dependencies of this parsed file to be parsed next
-                if (next_dependencies.find(parsed_file_name) != next_dependencies.end()) {
-                    std::vector<dependency> next_deps = get_dependency_map().at(parsed_file_name);
-                    next_dependencies.at(parsed_file_name)
-                        .insert(next_dependencies.at(parsed_file_name).end(), next_deps.begin(), next_deps.end());
-                } else {
-                    next_dependencies[parsed_file_name] = get_dependency_map().at(parsed_file_name);
-                }
-            }
+                        // File path
+                        auto file_dep = std::get<std::pair<std::filesystem::path, std::string>>(open_dep_dep);
+                        // Check if the file has been parsed already. If it has been, add the DepNode as weak reference to the root dep node
+                        if (file_map.find(file_dep.second) != file_map.end()) {
+                            std::lock_guard<std::mutex> lock(dependency_node_map_mutex);
+                            std::weak_ptr<DepNode> weak(dependency_node_map.at(file_dep.second));
+                            dependency_node_map.at(dep_name)->dependencies.emplace_back(weak);
+                            continue;
+                        }
+                        // File is not yet part of the dependency tree, parse it
+                        std::filesystem::path dep_file_path = file_dep.first / file_dep.second;
+                        FileNode file = Parser(dep_file_path).parse();
+                        // Save the file name, as the file itself moves its ownership in the call below
+                        std::string parsed_file_name = file.file_name;
+                        // Add all dependencies of the file and the file itself to the file map and the dependency map
+                        // Also return a created DepNode, but its dependants are not created yet
+                        std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file, file_dep.first);
+                        if (!base_maybe.has_value()) {
+                            // File already exists in the dependency map, so it can be added to the "root" DepNode as a weak ptr
+                            std::lock_guard<std::mutex> lock(dependency_node_map_mutex);
+                            std::weak_ptr<DepNode> weak(dependency_node_map.at(file_dep.second));
+                            dependency_node_map.at(dep_name)->dependencies.emplace_back(weak);
+                            continue;
+                        }
+                        // Add parsed file to the dependency graph
+                        add_path(parsed_file_name, file_dep.first);
+                        std::shared_ptr<DepNode> shared_dep = std::make_shared<DepNode>(base_maybe.value());
+                        {
+                            std::lock_guard<std::mutex> lock(dependency_node_map_mutex);
+                            shared_dep->root = dependency_node_map.at(dep_name);
+                            dependency_node_map.at(dep_name)->dependencies.emplace_back(shared_dep);
+                            dependency_node_map.emplace(file_dep.second, shared_dep);
+                        } // The mutex will be unlocked automatically when it goes out of scope
+
+                        // Add all dependencies of this parsed file to be parsed next
+                        {
+                            std::lock_guard<std::mutex> lock(dependency_map_mutex);
+                            if (next_dependencies.find(parsed_file_name) != next_dependencies.end()) {
+                                std::vector<dependency> next_deps = dependency_map.at(parsed_file_name);
+                                next_dependencies.at(parsed_file_name)
+                                    .insert(next_dependencies.at(parsed_file_name).end(), next_deps.begin(), next_deps.end());
+                            } else {
+                                next_dependencies[parsed_file_name] = dependency_map.at(parsed_file_name);
+                            }
+                        } // The mutex will be unlocked automatically when it goes out of scope
+                    }
+                },
+                open_dep_name, deps);
+        }
+        // Wait for all threads to finish
+        for (auto &thread : parsing_threads) {
+            thread.join();
+        }
+        // Append the duplicate dependencies to the next_dependencies, so that they will run the next iteration
+        for (const auto &[name, deps] : open_duplicates) {
+            next_dependencies[name].insert(next_dependencies[name].end(), deps.begin(), deps.end());
         }
         open_dependencies = next_dependencies;
     }
@@ -114,47 +162,41 @@ void Resolver::get_dependency_graph_tips(const std::shared_ptr<DepNode> &dep_nod
     }
 }
 
-/// get_dependency_node_map
-///     Returns the map of all dependency nodes of each file
-std::unordered_map<std::string, std::shared_ptr<DepNode>> &Resolver::get_dependency_node_map() {
-    static std::unordered_map<std::string, std::shared_ptr<DepNode>> dep_node_map;
-    return dep_node_map;
-}
-
-/// get_dependency_map
-///     Returns the map of all dependencies of each file
-std::unordered_map<std::string, std::vector<dependency>> &Resolver::get_dependency_map() {
-    static std::unordered_map<std::string, std::vector<dependency>> dep_map;
-    return dep_map;
-}
-/// get_file_map
-///     Returns the map of all FileNodes for each file
-std::unordered_map<std::string, FileNode> &Resolver::get_file_map() {
-    static std::unordered_map<std::string, FileNode> files_map;
-    return files_map;
-}
-/// get_module_map
-///     Returns the map of Modules, where the key is the file name
-///     Note that these modules should be handled
-std::unordered_map<std::string, const llvm::Module *> &Resolver::get_module_map() {
-    static std::unordered_map<std::string, const llvm::Module *> module_map;
-    return module_map;
-}
-/// get_path_map
-///     Returns the map of paths, where the second value is the path the file (first) is contained in
-std::unordered_map<std::string, std::filesystem::path> &Resolver::get_path_map() {
-    static std::unordered_map<std::string, std::filesystem::path> path_map;
-    return path_map;
+/// extract_duplicates
+///     Extracts all duplicate dependencies (files to parse) from the given dependency map
+///     Removes those dependencies from the given map too
+///     Works by
+std::map<std::string, std::vector<dependency>> Resolver::extract_duplicates( //
+    std::map<std::string, std::vector<dependency>> &dependency_map           //
+) {
+    std::map<std::string, std::vector<dependency>> unique_dependencies;
+    for (auto it = dependency_map.begin(); it != dependency_map.end();) {
+        if (unique_dependencies.find(it->first) == unique_dependencies.end() && file_map.find(it->first) != file_map.end()) {
+            unique_dependencies.insert(*it);
+            ++it;
+            dependency_map.erase(std::prev(it));
+        } else {
+            ++it;
+        }
+    }
+    auto duplicates = dependency_map;
+    dependency_map = unique_dependencies;
+    return duplicates;
 }
 
 /// clear
 ///     Clears all maps of the resolver. IMPORTANT: This method NEEDS to be called before the LLVMContext responsible for all Modules get
 ///     freed!
 void Resolver::clear() {
-    get_dependency_map().clear();
-    get_file_map().clear();
-    get_module_map().clear();
-    get_path_map().clear();
+    std::lock_guard<std::mutex> lock_dep_map(dependency_map_mutex);
+    std::lock_guard<std::mutex> lock_file_map(file_map_mutex);
+    std::lock_guard<std::mutex> lock_mod_map(module_map_mutex);
+    std::lock_guard<std::mutex> lock_path_map(path_map_mutex);
+
+    dependency_map.clear();
+    file_map.clear();
+    module_map.clear();
+    path_map.clear();
 }
 
 /// add_dependencies_and_file
@@ -162,8 +204,11 @@ void Resolver::clear() {
 ///     Adds the FileNode to the file_map
 ///     Moves ownership of the file_node, so it is considered unsafe to access it after this function call!
 std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path) {
+    std::lock_guard<std::mutex> lock_dep_map(dependency_map_mutex);
+    std::lock_guard<std::mutex> lock_file_map(file_map_mutex);
+
     std::string file_name = file_node.file_name;
-    if (get_dependency_map().find(file_name) != get_dependency_map().end() || get_file_map().find(file_name) != get_file_map().end()) {
+    if (dependency_map.find(file_name) != dependency_map.end() || file_map.find(file_name) != file_map.end()) {
         return std::nullopt;
     }
     std::vector<dependency> dependencies;
@@ -174,23 +219,25 @@ std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode &file_node, 
         }
     }
 
-    get_dependency_map().emplace(file_name, dependencies);
-    get_file_map().emplace(file_name, std::move(file_node));
+    dependency_map.emplace(file_name, dependencies);
+    file_map.emplace(file_name, std::move(file_node));
     return DepNode{file_name, {}, {}};
 }
 
 /// add_ir
 ///     Adds the llvm module to the module_map of the Resolver
 void Resolver::add_ir(const std::string &file_name, const llvm::Module *module) {
-    get_module_map().emplace(std::string(file_name), module);
+    std::lock_guard<std::mutex> lock(module_map_mutex);
+    module_map.emplace(std::string(file_name), module);
 }
 
 /// add_path
 ///     Adds the path to the path_map of the Resolver
 void Resolver::add_path(const std::string &file_name, const std::filesystem::path &path) {
+    std::lock_guard<std::mutex> lock(path_map_mutex);
     std::string file_name_copy = file_name;
     std::string path_copy = path;
-    get_path_map().emplace(file_name_copy, path_copy);
+    path_map.emplace(file_name_copy, path_copy);
 }
 
 /// create_dependency

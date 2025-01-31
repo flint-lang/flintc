@@ -100,7 +100,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
                 for (const auto &dependant : shared_tip->root->dependencies) {
                     if (std::holds_alternative<std::shared_ptr<DepNode>>(dependant)) {
                         std::shared_ptr<DepNode> shared_dep = std::get<std::shared_ptr<DepNode>>(dependant);
-                        if (Resolver::get_module_map().find(shared_dep->file_name) == Resolver::get_module_map().end() //
+                        if (Resolver::module_map.find(shared_dep->file_name) == Resolver::module_map.end() //
                             && std::find(tips_names.begin(), tips_names.end(), shared_dep->file_name) == tips_names.end()) {
                             dependants_compiled = false;
                         }
@@ -112,12 +112,12 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
             }
 
             // Check if this file has already been generated. If so, skip it
-            if (Resolver::get_module_map().find(shared_tip->file_name) != Resolver::get_module_map().end()) {
+            if (Resolver::module_map.find(shared_tip->file_name) != Resolver::module_map.end()) {
                 continue;
             }
 
             // Generate the IR code from the given FileNode
-            const FileNode *file = &Resolver::get_file_map().at(shared_tip->file_name);
+            const FileNode *file = &Resolver::file_map.at(shared_tip->file_name);
             std::unique_ptr<llvm::Module> file_module = generate_file_ir(builder.get(), context, shared_tip, *file);
 
             // Store the generated module in the resolver
@@ -198,7 +198,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     for (const auto &dep : dep_node->dependencies) {
         if (std::holds_alternative<std::weak_ptr<DepNode>>(dep)) {
             std::weak_ptr<DepNode> weak_dep = std::get<std::weak_ptr<DepNode>>(dep);
-            IR::generate_forward_declarations(*builder, module.get(), Resolver::get_file_map().at(weak_dep.lock()->file_name));
+            IR::generate_forward_declarations(*builder, module.get(), Resolver::file_map.at(weak_dep.lock()->file_name));
         }
     }
 

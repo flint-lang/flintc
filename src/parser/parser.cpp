@@ -41,7 +41,7 @@ std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
 void Parser::resolve_call_types() {
     // The mutex will unlock by itself when it goes out of scope
     std::lock_guard<std::mutex> lock(call_nodes_mutex);
-    for (const auto &[file_name, file] : Resolver::get_file_map()) {
+    for (const auto &[file_name, file] : Resolver::file_map) {
         // First, get the list of all function types inside this file
         std::unordered_map<std::string, std::string> function_types;
         for (const auto &node : file.definitions) {

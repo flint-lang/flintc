@@ -7,7 +7,9 @@
 #include <llvm/IR/Module.h>
 
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -41,12 +43,24 @@ class Resolver {
 
     static std::shared_ptr<DepNode> create_dependency_graph(FileNode &file_node, const std::filesystem::path &path);
     static void get_dependency_graph_tips(const std::shared_ptr<DepNode> &dep_node, std::vector<std::weak_ptr<DepNode>> &tips);
+    static std::map<std::string, std::vector<dependency>> extract_duplicates( //
+        std::map<std::string, std::vector<dependency>> &dependency_map        //
+    );
 
-    static std::unordered_map<std::string, std::shared_ptr<DepNode>> &get_dependency_node_map();
-    static std::unordered_map<std::string, std::vector<dependency>> &get_dependency_map();
-    static std::unordered_map<std::string, FileNode> &get_file_map();
-    static std::unordered_map<std::string, const llvm::Module *> &get_module_map();
-    static std::unordered_map<std::string, std::filesystem::path> &get_path_map();
+    static std::unordered_map<std::string, std::shared_ptr<DepNode>> dependency_node_map;
+    static std::mutex dependency_node_map_mutex;
+
+    static std::unordered_map<std::string, std::vector<dependency>> dependency_map;
+    static std::mutex dependency_map_mutex;
+
+    static std::unordered_map<std::string, FileNode> file_map;
+    static std::mutex file_map_mutex;
+
+    static std::unordered_map<std::string, const llvm::Module *> module_map;
+    static std::mutex module_map_mutex;
+
+    static std::unordered_map<std::string, std::filesystem::path> path_map;
+    static std::mutex path_map_mutex;
 
     static void clear();
     static std::optional<DepNode> add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path);
