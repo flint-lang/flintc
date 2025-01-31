@@ -1,8 +1,8 @@
 #ifndef __SIGNATURE_HPP__
 #define __SIGNATURE_HPP__
 
-#include "../types.hpp"
 #include "lexer/token.hpp"
+#include "types.hpp"
 
 #include <optional>
 #include <string>

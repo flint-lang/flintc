@@ -4,7 +4,7 @@
 #include "error/error_type.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "parser/parser.hpp"
-#include "test_utils.hpp"
+#include "result.hpp"
 #include "types.hpp"
 
 #include "parser/ast/definitions/data_node.hpp"

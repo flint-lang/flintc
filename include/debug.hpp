@@ -2,7 +2,7 @@
 #define __DEBUG_HPP__
 
 #include "resolver/resolver.hpp"
-#include "test_utils.hpp"
+#include "result.hpp"
 #include "types.hpp"
 
 #include "parser/ast/definitions/data_node.hpp"
@@ -15,14 +15,12 @@
 #include "parser/ast/definitions/variant_node.hpp"
 
 #include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/assignment_node.hpp"
-#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
