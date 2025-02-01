@@ -2,6 +2,7 @@
 #define __BASE_ERROR_HPP__
 
 #include "colors.hpp"
+#include "error/error_type.hpp"
 
 #include <sstream>
 #include <string>
@@ -11,7 +12,8 @@ class BaseError {
     [[nodiscard]]
     virtual std::string to_string() const {
         std::ostringstream oss;
-        oss << RED << "Error" << DEFAULT << ": " << message << " at " << file << ":" << line << ":" << column;
+        oss << RED << "Error" << DEFAULT << ": " << error_type_names.at(error_type) << " at " << file << ":" << line << ":" << column
+            << "\n -- ";
         return oss.str();
     }
 
@@ -25,16 +27,16 @@ class BaseError {
     BaseError &operator=(BaseError &&) = default;
 
   protected:
-    BaseError(std::string file, int line, int column, std::string message) :
+    BaseError(const ErrorType error_type, std::string file, int line, int column) :
+        error_type(error_type),
         file(std::move(file)),
         line(line),
-        column(column),
-        message(std::move(message)) {}
+        column(column) {}
 
+    ErrorType error_type;
     std::string file;
     int line;
     int column;
-    std::string message;
 };
 
 #endif

@@ -59,7 +59,7 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
     for (const auto &param : parameters) {
         if (!body_scope->add_variable_type(param.second, param.first, body_scope->scope_id)) {
             // Variable already exists in the func definition list
-            throw_err(ERR_PARSING);
+            throw_err<ErrVarFromRequiresList>(ERR_PARSING, file_name, 0, 0, param.second);
         }
     }
 
@@ -407,8 +407,6 @@ VariantNode Parser::create_variant(const token_list &definition, const token_lis
     return VariantNode(name, possible_types);
 }
 
-/// create_import
-///     Creates an ImportNode from the given token list
 ImportNode Parser::create_import(const token_list &tokens) {
     std::variant<std::string, std::vector<std::string>> import_path;
 

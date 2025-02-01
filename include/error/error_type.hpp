@@ -1,6 +1,9 @@
 #ifndef __ERROR_TYPE_HPP__
 #define __ERROR_TYPE_HPP__
 
+#include <string_view>
+#include <unordered_map>
+
 enum ErrorType {
     ERR_UNTERMINATED_STRING = 0,
     ERR_UNEXPECTED_TOKEN = 1,
@@ -23,6 +26,11 @@ enum ErrorType {
     ERR_GENERATING = 18,
     ERR_SCOPE = 19,
     ERR_RESOLVING = 20,
+};
+
+static const std::unordered_map<ErrorType, std::string_view> error_type_names = {
+    {ERR_PARSING, "Parse Error"},
+    {ERR_GENERATING, "Generate Error"},
 };
 
 #endif

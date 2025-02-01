@@ -5,10 +5,14 @@
 
 // All error types are included here to make using the error header file easier
 #include "error_types/base_error.hpp"
+
 #include "error_types/lexing/err_lexing.hpp"
 #include "error_types/parsing/err_parsing.hpp"
 
+#include "error_types/parsing/values/err_val_unknown_literal.hpp"
+#include "error_types/parsing/variables/err_var_from_requires_list.hpp"
 #include "error_types/parsing/variables/err_var_not_declared.hpp"
+#include "error_types/parsing/variables/err_var_redefinition.hpp"
 
 #include <iostream>
 #include <string>
