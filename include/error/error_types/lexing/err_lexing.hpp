@@ -5,8 +5,8 @@
 
 class ErrLexing : public BaseError {
   public:
-    ErrLexing(const std::string &message, const std::string &file, int line, int column, const std::string &text) :
-        BaseError(file, line, column, message),
+    ErrLexing(const ErrorType error_type, const std::string &file, int line, int column, const std::string &text) :
+        BaseError(error_type, file, line, column),
         text(text) {}
 
     [[nodiscard]]
