@@ -12,7 +12,7 @@ class BaseError {
     [[nodiscard]]
     virtual std::string to_string() const {
         std::ostringstream oss;
-        oss << RED << "Error" << DEFAULT << ": " << error_type_names.at(error_type) << " at " << file << ":" << line << ":" << column
+        oss << RED << error_type_names.at(error_type) << DEFAULT << ": at " << GREEN << file << ":" << line << ":" << column << DEFAULT
             << "\n -- ";
         return oss.str();
     }
