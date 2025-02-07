@@ -26,7 +26,7 @@ enum ErrorType {
     ERR_GENERATING = 18,
     ERR_SCOPE = 19,
     ERR_RESOLVING = 20,
-ERR_LEXING = 21,
+    ERR_LEXING = 21,
 };
 
 static const std::unordered_map<ErrorType, std::string_view> error_type_names = {

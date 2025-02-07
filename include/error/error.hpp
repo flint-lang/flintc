@@ -6,6 +6,7 @@
 // All error types are included here to make using the error header file easier
 #include "error_types/base_error.hpp"
 
+#include "error_types/lexing/comments/err_comment_unterm_multiline.hpp"
 #include "error_types/lexing/err_lexing.hpp"
 #include "error_types/lexing/literals/err_lit_char_longer_than_single_character.hpp"
 #include "error_types/lexing/literals/err_lit_expected_char_value.hpp"

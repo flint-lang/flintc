@@ -184,12 +184,20 @@ void Lexer::scan_token() {
             } else if (peek_next() == '*') {
                 // eat the '*'
                 advance();
+                unsigned int line_count = 0;
+                unsigned int comment_start_column = column;
                 while (peek() != '*' && peek_next() != '/') {
+                    if (peek() == '\n') {
+                        line_count++;
+                        column = 0;
+                        column_diff = 0;
+                    }
                     if (is_at_end()) {
-                        throw_err(ERR_UNTERMINATED_MULTILINE_STRING);
+                        throw_err<ErrCommentUnterminatedMultiline>(ERR_LEXING, file, line, comment_start_column);
                     }
                     advance();
                 }
+                line += line_count;
                 // eat the '/'
                 advance();
             } else {
