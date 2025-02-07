@@ -37,6 +37,14 @@ class BaseError {
     std::string file;
     int line;
     int column;
+
+    std::string trim_right(const std::string &str) const {
+        size_t size = str.length();
+        for (auto it = str.rbegin(); it != str.rend() && std::isspace(*it); ++it) {
+            --size;
+        }
+        return str.substr(0, size);
+    }
 };
 
 #endif
