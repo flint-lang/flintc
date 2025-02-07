@@ -1,6 +1,7 @@
 #ifndef __ERR_USE_STATEMENT_NOT_AT_TOP_LEVEL_HPP__
 #define __ERR_USE_STATEMENT_NOT_AT_TOP_LEVEL_HPP__
 
+#include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 #include "lexer/token.hpp"
 #include "types.hpp"
@@ -15,27 +16,8 @@ class ErrUseStatementNotAtTopLevel : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "The use statement was not at the top level."
-            << "\n -- Expected: '";
-        std::string token_str;
-        auto it = tokens.begin();
-        for (; it != tokens.end(); it++) {
-            if (it->type == TOK_EOL) {
-                break;
-            }
-            if (it->type == TOK_INDENT) {
-                continue;
-            }
-            token_str += it->lexme + " ";
-        }
-        oss << trim_right(token_str) << "' but got '";
-        token_str = "";
-        for (it = tokens.begin(); it != tokens.end(); it++) {
-            if (it->type == TOK_EOL) {
-                break;
-            }
-            token_str += it->lexme + " ";
-        }
-        oss << trim_right(token_str) << "'";
+            << "\n -- Expected " << YELLOW << get_token_string(tokens, {TOK_INDENT}) << DEFAULT << " but got " << YELLOW
+            << get_token_string(tokens, {}) << DEFAULT;
         return oss.str();
     }
 
