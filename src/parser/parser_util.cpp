@@ -18,7 +18,8 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
 
     if (Signature::tokens_contain(definition_tokens, Signature::use_statement)) {
         if (definition_indentation > 0) {
-            throw_err(ERR_USE_STATEMENT_MUST_BE_AT_TOP_LEVEL);
+            throw_err<ErrUseStatementNotAtTopLevel>(ERR_PARSING, file_name, definition_tokens.at(0).line, definition_tokens.at(0).column,
+                definition_tokens);
         }
         ImportNode import_node = create_import(definition_tokens);
         file_node.add_import(import_node);

@@ -15,6 +15,7 @@
 #include "error_types/lexing/unexpected/err_unexpected_token_number.hpp"
 #include "error_types/lexing/unexpected/err_unexpected_token_pipe.hpp"
 
+#include "error_types/parsing/definitions/err_use_statement_not_at_top_level.hpp"
 #include "error_types/parsing/err_parsing.hpp"
 #include "error_types/parsing/values/err_val_unknown_literal.hpp"
 #include "error_types/parsing/variables/err_var_from_requires_list.hpp"
