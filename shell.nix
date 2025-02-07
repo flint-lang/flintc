@@ -4,6 +4,7 @@ pkgs.mkShell {
   buildInputs = with pkgs; [
     libxml2
     clang_19
+    lldb_19
     llvmPackages_19.libllvm
     gnumake
     cmake
