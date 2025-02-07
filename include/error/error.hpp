@@ -7,8 +7,14 @@
 #include "error_types/base_error.hpp"
 
 #include "error_types/lexing/err_lexing.hpp"
-#include "error_types/parsing/err_parsing.hpp"
+#include "error_types/lexing/literals/err_lit_char_longer_than_single_character.hpp"
+#include "error_types/lexing/literals/err_lit_expected_char_value.hpp"
+#include "error_types/lexing/literals/err_lit_unterminated_string.hpp"
+#include "error_types/lexing/unexpected/err_unexpected_token.hpp"
+#include "error_types/lexing/unexpected/err_unexpected_token_number.hpp"
+#include "error_types/lexing/unexpected/err_unexpected_token_pipe.hpp"
 
+#include "error_types/parsing/err_parsing.hpp"
 #include "error_types/parsing/values/err_val_unknown_literal.hpp"
 #include "error_types/parsing/variables/err_var_from_requires_list.hpp"
 #include "error_types/parsing/variables/err_var_not_declared.hpp"
