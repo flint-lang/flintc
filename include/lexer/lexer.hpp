@@ -22,8 +22,10 @@ class Lexer {
     token_list scan();
     static std::string to_string(const token_list &tokens);
 
-  private:
+  public:
     static const unsigned int TAB_SIZE = 4;
+
+  private:
     token_list tokens;
     std::string source;
     std::string file;

@@ -59,7 +59,7 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         file_node.add_variant(variant_node);
     } else {
         Debug::print_token_context_vector(definition_tokens);
-        throw_err(ERR_UNEXPECTED_DEFINITION);
+        throw_err<ErrUnexpectedDefinition>(ERR_PARSING, file_name, definition_tokens);
     }
 }
 
@@ -80,9 +80,9 @@ token_list Parser::get_definition_tokens(token_list &tokens) {
 token_list Parser::get_body_tokens(unsigned int definition_indentation, token_list &tokens) {
     int current_line = tokens.at(0).line;
     int end_idx = 0;
-    for (const TokenContext &tok : tokens) {
-        if (tok.line != current_line) {
-            current_line = tok.line;
+    for (auto it = tokens.begin(); it != tokens.end(); ++it) {
+        if (it->line != current_line || it == tokens.begin()) {
+            current_line = it->line;
             std::optional<unsigned int> indents_maybe = Signature::get_leading_indents(tokens, current_line);
             if (indents_maybe.has_value() && indents_maybe.value() <= definition_indentation) {
                 break;
@@ -91,7 +91,7 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
         end_idx++;
     }
     if (end_idx == 0) {
-        throw_err(ERR_NO_BODY_DECLARED);
+        throw_err<ErrMissingBody>(ERR_PARSING, file_name, tokens);
     }
 
     return extract_from_to(0, end_idx, tokens);
