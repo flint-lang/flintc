@@ -8,8 +8,8 @@
 
 class ErrUseStatementNotAtTopLevel : public BaseError {
   public:
-    ErrUseStatementNotAtTopLevel(const ErrorType error_type, const std::string &file, int line, int column, const token_list &tokens) :
-        BaseError(error_type, file, line, column),
+    ErrUseStatementNotAtTopLevel(const ErrorType error_type, const std::string &file, const token_list &tokens) :
+        BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
         tokens(tokens) {}
 
     [[nodiscard]]
