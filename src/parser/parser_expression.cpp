@@ -26,9 +26,9 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
     for (const auto &tok : tokens) {
         if (Signature::tokens_match({tok}, Signature::literal)) {
             switch (tok.type) {
-                default: {
+                default:
                     throw_err<ErrValUnknownLiteral>(ERR_PARSING, file_name, tok.line, tok.column, tok.lexme);
-                }
+                    break;
                 case TOK_INT_VALUE: {
                     std::variant<int, float, std::string, bool, char> value = std::stoi(tok.lexme);
                     return LiteralNode(value, "int");
@@ -151,45 +151,52 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *scope, const token_list &tokens) {
-    token_list condition_tokens = clone_from_to(0, tokens.size(), tokens);
     std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
+    token_list cond_tokens = clone_from_to(0, tokens.size(), tokens);
     // remove trailing semicolons
-    for (auto iterator = tokens.rbegin(); iterator != tokens.rend(); ++iterator) {
+    for (auto iterator = cond_tokens.rbegin(); iterator != cond_tokens.rend(); ++iterator) {
         if (iterator->type == TOK_SEMICOLON) {
-            condition_tokens.erase(std::next(iterator).base());
+            cond_tokens.erase(std::next(iterator).base());
         } else {
             break;
         }
     }
     // remove surrounding parenthesis when the first and last token are '(' and ')'
-    if (tokens.begin()->type == TOK_LEFT_PAREN && tokens.at(tokens.size() - 1).type == TOK_RIGHT_PAREN) {
-        condition_tokens.erase(tokens.begin());
-        condition_tokens.pop_back();
+    if (cond_tokens.begin()->type == TOK_LEFT_PAREN && cond_tokens.at(cond_tokens.size() - 1).type == TOK_RIGHT_PAREN) {
+        cond_tokens.erase(cond_tokens.begin());
+        cond_tokens.pop_back();
     }
 
     // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
+    if (Signature::tokens_contain(cond_tokens, Signature::function_call)) {
+        expression = create_call_expression(scope, cond_tokens);
+    } else if (Signature::tokens_contain(cond_tokens, Signature::bin_op_expr)) {
         std::optional<BinaryOpNode> bin_op = create_binary_op(scope, cond_tokens);
         if (!bin_op.has_value()) {
             throw_err<ErrExprBinopCreationFailed>(ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
+    } else if (Signature::tokens_contain(cond_tokens, Signature::literal_expr)) {
         std::optional<LiteralNode> lit = create_literal(cond_tokens);
         if (!lit.has_value()) {
             throw_err<ErrExprLitCreationFailed>(ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<LiteralNode>(std::move(lit.value()));
+    } else if (Signature::tokens_match(cond_tokens, Signature::unary_op_expr)) {
         std::optional<UnaryOpNode> unary_op = create_unary_op(scope, cond_tokens);
         if (!unary_op.has_value()) {
             throw_err<ErrExprUnaryOpCreationFailed>(ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<UnaryOpNode>(std::move(unary_op.value()));
+    } else if (Signature::tokens_match(cond_tokens, Signature::variable_expr)) {
         std::optional<VariableNode> variable = create_variable(scope, cond_tokens);
         if (!variable.has_value()) {
             throw_err<ErrExprVariableCreationFailed>(ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<VariableNode>(std::move(variable.value()));
     } else {
-        throw_err(ERR_UNDEFINED_EXPRESSION);
+        // Undefined expression
+        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, cond_tokens);
     }
 
     return expression;

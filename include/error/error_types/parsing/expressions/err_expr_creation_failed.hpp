@@ -14,7 +14,7 @@ class ErrExprCreationFailed : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Failed to generate expression: " << YELLOW << get_token_string(tokens, {}) << DEFAULT;
+        oss << BaseError::to_string() << "Failed to parse expression: " << YELLOW << get_token_string(tokens, {}) << DEFAULT;
         return oss.str();
     }
 
