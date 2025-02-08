@@ -178,6 +178,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
             throw_err<ErrExprLitCreationFailed>(ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<LiteralNode>(std::move(lit.value()));
+        std::optional<UnaryOpNode> unary_op = create_unary_op(scope, cond_tokens);
+        if (!unary_op.has_value()) {
+            throw_err<ErrExprUnaryOpCreationFailed>(ERR_PARSING, file_name, cond_tokens);
+        }
+        expression = std::make_unique<UnaryOpNode>(std::move(unary_op.value()));
     } else {
         throw_err(ERR_UNDEFINED_EXPRESSION);
     }
