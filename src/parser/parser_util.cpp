@@ -160,7 +160,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
                 }
                 auto expression = create_expression(scope, argument_tokens);
                 if (!expression.has_value()) {
-                    throw_err(ERR_PARSING);
+                    throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, argument_tokens);
                 }
                 arguments.emplace_back(std::move(expression.value()));
                 if (match == match_ranges.end()) {
@@ -171,7 +171,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
             token_list argument_tokens = extract_from_to(arg_range.value().first, arg_range.value().second, tokens);
             auto expression = create_expression(scope, argument_tokens);
             if (!expression.has_value()) {
-                throw_err(ERR_PARSING);
+                throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, argument_tokens);
             }
             arguments.emplace_back(std::move(expression.value()));
         }

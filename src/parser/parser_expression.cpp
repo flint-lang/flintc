@@ -137,8 +137,11 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
 
     std::optional<std::unique_ptr<ExpressionNode>> lhs = create_expression(scope, lhs_tokens);
     std::optional<std::unique_ptr<ExpressionNode>> rhs = create_expression(scope, rhs_tokens);
-    if (!lhs.has_value() || !rhs.has_value()) {
-        throw_err(ERR_PARSING);
+    if (!lhs.has_value()) {
+        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, lhs_tokens);
+    }
+    if (!rhs.has_value()) {
+        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, rhs_tokens);
     }
     if (lhs.value()->type != rhs.value()->type) {
         throw_err(ERR_PARSING);
@@ -146,27 +149,28 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
     return BinaryOpNode(operator_token, lhs.value(), rhs.value(), lhs.value()->type);
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *scope, token_list &tokens) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *scope, const token_list &tokens) {
+    token_list condition_tokens = clone_from_to(0, tokens.size(), tokens);
     std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
     // remove trailing semicolons
     for (auto iterator = tokens.rbegin(); iterator != tokens.rend(); ++iterator) {
         if (iterator->type == TOK_SEMICOLON) {
-            tokens.erase(std::next(iterator).base());
+            condition_tokens.erase(std::next(iterator).base());
         } else {
             break;
         }
     }
     // remove surrounding parenthesis when the first and last token are '(' and ')'
     if (tokens.begin()->type == TOK_LEFT_PAREN && tokens.at(tokens.size() - 1).type == TOK_RIGHT_PAREN) {
-        tokens.erase(tokens.begin());
-        tokens.pop_back();
+        condition_tokens.erase(tokens.begin());
+        condition_tokens.pop_back();
     }
 
     // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
     if (Signature::tokens_contain(tokens, Signature::function_call)) {
-        expression = create_call_expression(scope, tokens);
+        expression = create_call_expression(scope, condition_tokens);
     } else if (Signature::tokens_contain(tokens, Signature::bin_op_expr)) {
-        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, tokens);
+        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, condition_tokens);
         if (bin_op.has_value()) {
             expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
         } else {

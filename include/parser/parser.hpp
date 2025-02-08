@@ -268,7 +268,7 @@ class Parser {
     /// @param `scope` The scope in which the expression is defined
     /// @param `tokens` The list of tokens representing the expression
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional unique pointer to the created ExpressionNode
-    std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, token_list &tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> create_expression(Scope *scope, const token_list &tokens);
 
     /**************************************************************************************************************************************
      * @region `Expression` END
