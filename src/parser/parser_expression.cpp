@@ -168,36 +168,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
     }
 
     // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
-    if (Signature::tokens_contain(tokens, Signature::function_call)) {
-        expression = create_call_expression(scope, condition_tokens);
-    } else if (Signature::tokens_contain(tokens, Signature::bin_op_expr)) {
-        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, condition_tokens);
-        if (bin_op.has_value()) {
-            expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
-        } else {
-            throw_err<ErrExprBinopCreationFailed>(ERR_PARSING, file_name, tokens);
+        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, cond_tokens);
+        if (!bin_op.has_value()) {
+            throw_err<ErrExprBinopCreationFailed>(ERR_PARSING, file_name, cond_tokens);
         }
-    } else if (Signature::tokens_contain(tokens, Signature::literal_expr)) {
-        std::optional<LiteralNode> lit = create_literal(tokens);
-        if (lit.has_value()) {
-            expression = std::make_unique<LiteralNode>(std::move(lit.value()));
-        } else {
-            throw_err(ERR_PARSING);
+        expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
+        std::optional<LiteralNode> lit = create_literal(cond_tokens);
+        if (!lit.has_value()) {
+            throw_err<ErrExprLitCreationFailed>(ERR_PARSING, file_name, cond_tokens);
         }
-    } else if (Signature::tokens_match(tokens, Signature::unary_op_expr)) {
-        std::optional<UnaryOpNode> unary_op = create_unary_op(scope, tokens);
-        if (unary_op.has_value()) {
-            expression = std::make_unique<UnaryOpNode>(std::move(unary_op.value()));
-        } else {
-            throw_err(ERR_PARSING);
-        }
-    } else if (Signature::tokens_match(tokens, Signature::variable_expr)) {
-        std::optional<VariableNode> variable = create_variable(scope, tokens);
-        if (variable.has_value()) {
-            expression = std::make_unique<VariableNode>(std::move(variable.value()));
-        } else {
-            throw_err(ERR_PARSING);
-        }
+        expression = std::make_unique<LiteralNode>(std::move(lit.value()));
     } else {
         throw_err(ERR_UNDEFINED_EXPRESSION);
     }

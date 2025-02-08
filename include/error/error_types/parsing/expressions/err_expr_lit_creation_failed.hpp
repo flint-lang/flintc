@@ -1,0 +1,25 @@
+#ifndef __ERR_EXPR_LIT_CREATION_FAILED_HPP__
+#define __ERR_EXPR_LIT_CREATION_FAILED_HPP__
+
+#include "colors.hpp"
+#include "error/error_types/base_error.hpp"
+#include "types.hpp"
+
+class ErrExprLitCreationFailed : public BaseError {
+  public:
+    ErrExprLitCreationFailed(const ErrorType error_type, const std::string &file, const token_list &tokens) :
+        BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
+        tokens(tokens) {}
+
+    [[nodiscard]]
+    std::string to_string() const override {
+        std::ostringstream oss;
+        oss << BaseError::to_string() << "Failed to parse literal: " << YELLOW << get_token_string(tokens, {}) << DEFAULT;
+        return oss.str();
+    }
+
+  private:
+    token_list tokens;
+};
+
+#endif
