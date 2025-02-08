@@ -144,7 +144,8 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
         throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, rhs_tokens);
     }
     if (lhs.value()->type != rhs.value()->type) {
-        throw_err(ERR_PARSING);
+        throw_err<ErrExprBinopTypeMismatch>(ERR_PARSING, file_name, lhs_tokens, rhs_tokens, operator_token, lhs.value()->type,
+            rhs.value()->type);
     }
     return BinaryOpNode(operator_token, lhs.value(), rhs.value(), lhs.value()->type);
 }
