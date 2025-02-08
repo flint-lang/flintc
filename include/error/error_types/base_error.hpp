@@ -3,6 +3,7 @@
 
 #include "colors.hpp"
 #include "error/error_type.hpp"
+#include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "types.hpp"
 
@@ -59,16 +60,40 @@ class BaseError {
             }
             switch (it->type) {
                 case TOK_STR_VALUE:
-                    token_str += "\"" + it->lexme + "\" ";
+                    token_str += "\"" + it->lexme + "\"";
+                    token_str += get_possible_space(tokens, it, {TOK_RIGHT_PAREN, TOK_COMMA, TOK_SEMICOLON, TOK_COLON});
                     break;
                 case TOK_CHAR_VALUE:
                     token_str += "'" + it->lexme + "' ";
+                    break;
+                case TOK_IDENTIFIER:
+                    token_str += it->lexme;
+                    token_str += get_possible_space(tokens, it, {TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COMMA, TOK_SEMICOLON, TOK_COLON});
+                    break;
+                case TOK_LEFT_PAREN:
+                    token_str += it->lexme;
+                    break;
+                case TOK_INDENT:
+                    token_str += std::string(Lexer::TAB_SIZE, ' ');
+                    break;
                 default:
-                    token_str += it->lexme + " ";
+                    token_str += it->lexme + get_possible_space(tokens, it, {TOK_RIGHT_PAREN, TOK_COMMA, TOK_SEMICOLON, TOK_COLON});
                     break;
             }
         }
         return trim_right(token_str);
+    }
+
+    [[nodiscard]]
+    std::string get_possible_space(                //
+        const token_list &tokens,                  //
+        const token_list::const_iterator iterator, //
+        const std::vector<Token> &ignores          //
+    ) const {
+        if (iterator != std::prev(tokens.end()) && std::find(ignores.begin(), ignores.end(), std::next(iterator)->type) == ignores.end()) {
+            return " ";
+        }
+        return "";
     }
 };
 
