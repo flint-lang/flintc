@@ -183,6 +183,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
             throw_err<ErrExprUnaryOpCreationFailed>(ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<UnaryOpNode>(std::move(unary_op.value()));
+        std::optional<VariableNode> variable = create_variable(scope, cond_tokens);
+        if (!variable.has_value()) {
+            throw_err<ErrExprVariableCreationFailed>(ERR_PARSING, file_name, cond_tokens);
+        }
+        expression = std::make_unique<VariableNode>(std::move(variable.value()));
     } else {
         throw_err(ERR_UNDEFINED_EXPRESSION);
     }
