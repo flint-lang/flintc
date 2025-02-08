@@ -174,7 +174,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
         if (bin_op.has_value()) {
             expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
         } else {
-            throw_err(ERR_PARSING);
+            throw_err<ErrExprBinopCreationFailed>(ERR_PARSING, file_name, tokens);
         }
     } else if (Signature::tokens_contain(tokens, Signature::literal_expr)) {
         std::optional<LiteralNode> lit = create_literal(tokens);
