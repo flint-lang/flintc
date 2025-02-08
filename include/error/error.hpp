@@ -21,6 +21,7 @@
 #include "error_types/parsing/expressions/err_expr_binop_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_creation_failed.hpp"
+#include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"
 #include "error_types/parsing/scopes/err_missing_body.hpp"
 #include "error_types/parsing/values/err_val_unknown_literal.hpp"
 #include "error_types/parsing/variables/err_var_from_requires_list.hpp"

@@ -86,6 +86,9 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
         // Invalid expression inside if statement
         throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, this_if_pair.first);
     }
+    if (condition.value()->type != "bool") {
+        throw_err<ErrExprTypeMismatch>(ERR_PARSING, file_name, this_if_pair.first, "bool", condition.value()->type);
+    }
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), this_if_pair.second);
     body_scope->body = std::move(body_statements);
