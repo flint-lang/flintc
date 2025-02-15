@@ -242,12 +242,14 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                 }
                 if (scope->variable_types.find(iterator->lexme) == scope->variable_types.end()) {
                     // Assignment on undeclared variable!
-                    throw_err(ERR_PARSING);
+                    throw_err<ErrVarNotDeclared>(ERR_PARSING, file_name, tokens);
+                    return std::nullopt;
                 }
                 std::string type = scope->variable_types.at(iterator->lexme).first;
                 return std::make_unique<AssignmentNode>(type, iterator->lexme, expression.value());
             } else {
-                throw_err(ERR_PARSING);
+                throw_err<ErrStmtAssignmentCreationFailed>(ERR_PARSING, file_name, tokens);
+                return std::nullopt;
             }
         }
         ++iterator;
