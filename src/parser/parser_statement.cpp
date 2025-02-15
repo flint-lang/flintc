@@ -192,7 +192,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         }
     }
     if (!catch_id.has_value()) {
-        throw_err(ERR_PARSING);
+        throw_err<ErrStmtDanglingCatch>(ERR_PARSING, file_name, definition);
         return std::nullopt;
     }
 
@@ -207,7 +207,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     const unsigned int last_call_id = get_last_parsed_call_id();
     const std::optional<CallNodeBase *> last_call = get_call_from_id(last_call_id);
     if (!last_call.has_value()) {
-        throw_err(ERR_PARSING);
+        throw_err<ErrStmtDanglingCatch>(ERR_PARSING, file_name, definition);
         return std::nullopt;
     }
     last_call.value()->has_catch = true;
