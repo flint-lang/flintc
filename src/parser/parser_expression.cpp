@@ -89,7 +89,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
             // skip the function call
             std::vector<uint2> next_groups = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
             if (next_groups.empty()) {
-                throw_err(ERR_PARSING);
+                throw_err<ErrUnclosedParen>(ERR_PARSING, file_name, tokens);
             }
             for (const uint2 &group : next_groups) {
                 if (group.first == std::distance(tokens.begin(), iterator)) {
@@ -101,7 +101,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
         if (iterator->type == TOK_LEFT_PAREN) {
             std::vector<uint2> next_groups = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
             if (next_groups.empty()) {
-                throw_err(ERR_PARSING);
+                throw_err<ErrUnclosedParen>(ERR_PARSING, file_name, tokens);
             }
             for (const uint2 &group : next_groups) {
                 if (group.first == std::distance(tokens.begin(), iterator)) {
