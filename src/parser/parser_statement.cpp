@@ -90,7 +90,8 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
 
     // Dangling else statement without if statement
     if (has_else && !has_if) {
-        throw_err(ERR_PARSING);
+        throw_err<ErrStmtDanglingElse>(ERR_PARSING, file_name, this_if_pair.first);
+        return std::nullopt;
     }
 
     // Create the if statements condition and body statements
