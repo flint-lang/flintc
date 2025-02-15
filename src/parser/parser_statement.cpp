@@ -199,7 +199,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     token_list left_of_catch = clone_from_to(0, catch_id.value(), definition);
     std::optional<std::unique_ptr<StatementNode>> lhs = create_statement(scope, left_of_catch);
     if (!lhs.has_value()) {
-        throw_err(ERR_PARSING);
+        throw_err<ErrStmtCreationFailed>(ERR_PARSING, file_name, left_of_catch);
         return std::nullopt;
     }
     statements.emplace_back(std::move(lhs.value()));

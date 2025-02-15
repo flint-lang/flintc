@@ -28,6 +28,7 @@
 #include "error_types/parsing/expressions/err_expr_variable_creation_failed.hpp"
 #include "error_types/parsing/scopes/err_missing_body.hpp"
 #include "error_types/parsing/scopes/err_unclosed_paren.hpp"
+#include "error_types/parsing/statements/err_stmt_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_catch.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_else.hpp"
 #include "error_types/parsing/statements/err_stmt_return_creation_failed.hpp"
