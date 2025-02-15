@@ -1,12 +1,13 @@
 #include "parser/parser.hpp"
 
 #include "lexer/lexer.hpp"
+#include "lexer/token.hpp"
 #include "parser/signature.hpp"
 
 std::unique_ptr<CallNodeStatement> Parser::create_call_statement(Scope *scope, token_list &tokens) {
     auto call_node_args = create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
-        throw_err(ERR_PARSING);
+        throw_err<ErrExprCallCreationFailed>(ERR_PARSING, file_name, tokens);
     }
     std::unique_ptr<CallNodeStatement> call_node = std::make_unique<CallNodeStatement>( //
         std::get<0>(call_node_args.value()),                                            // name
@@ -18,16 +19,26 @@ std::unique_ptr<CallNodeStatement> Parser::create_call_statement(Scope *scope, t
 }
 
 std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) {
-    std::optional<ReturnNode> return_node = create_return(scope, tokens);
-    if (!return_node.has_value()) {
-        throw_err(ERR_PARSING);
+    unsigned int throw_id = 0;
+    for (auto it = tokens.begin(); it != tokens.end(); ++it) {
+        if (it->type == TOK_THROW) {
+            if ((it + 1) == tokens.end()) {
+                throw_err<ErrStmtThrowCreationFailed>(ERR_PARSING, file_name, tokens);
+            }
+            throw_id = std::distance(tokens.begin(), it);
+        }
+    }
+    token_list expression_tokens = extract_from_to(throw_id + 1, tokens.size(), tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
+    if (!expr.has_value()) {
+        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
-    if (return_node.value().return_value->type != "int") {
-        throw_err(ERR_PARSING);
+    if (expr.value()->type != "int") {
+        throw_err<ErrExprTypeMismatch>(ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
-    return ThrowNode(return_node.value().return_value);
+    return ThrowNode(expr.value());
 }
 
 std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens) {
@@ -35,17 +46,19 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         if (it->type == TOK_RETURN) {
             if ((it + 1) == tokens.end()) {
-                throw_err(ERR_PARSING);
+                throw_err<ErrStmtReturnCreationFailed>(ERR_PARSING, file_name, tokens);
+                return std::nullopt;
             }
             return_id = std::distance(tokens.begin(), it);
         }
     }
     token_list expression_tokens = extract_from_to(return_id + 1, tokens.size(), tokens);
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
-    if (expr.has_value()) {
-        return ReturnNode(expr.value());
+    if (!expr.has_value()) {
+        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, expression_tokens);
+        return std::nullopt;
     }
-    return std::nullopt;
+    return ReturnNode(expr.value());
 }
 
 std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vector<std::pair<token_list, token_list>> &if_chain) {

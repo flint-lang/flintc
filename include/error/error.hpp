@@ -28,6 +28,8 @@
 #include "error_types/parsing/expressions/err_expr_variable_creation_failed.hpp"
 #include "error_types/parsing/scopes/err_missing_body.hpp"
 #include "error_types/parsing/scopes/err_unclosed_paren.hpp"
+#include "error_types/parsing/statements/err_stmt_return_creation_failed.hpp"
+#include "error_types/parsing/statements/err_stmt_throw_creation_failed.hpp"
 #include "error_types/parsing/values/err_val_unknown_literal.hpp"
 #include "error_types/parsing/variables/err_var_from_requires_list.hpp"
 #include "error_types/parsing/variables/err_var_not_declared.hpp"
