@@ -263,47 +263,54 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
     std::string type;
     std::string name;
 
+    const Signature::signature lhs = Signature::match_until_signature({TOK_EQUAL});
+    uint2 lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
+    token_list lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
+
+    // Remove all \n and \t from the lhs tokens
+    for (auto it = lhs_tokens.begin(); it != lhs_tokens.end();) {
+        if (it->type == TOK_INDENT || it->type == TOK_EOL || it->type == TOK_COLON_EQUAL || it->type == TOK_EQUAL) {
+            it = lhs_tokens.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    if (lhs_tokens.size() == 0) {
+        // Nothing present to the left of the equal sign
+        throw_err(ERR_PARSING);
+    }
+
+    auto expr = create_expression(scope, tokens);
+    if (!expr.has_value()) {
+        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+    if (!scope->add_variable_type(name, type, scope->scope_id)) {
+        // Variable shadowing!
+        throw_err<ErrVarRedefinition>(ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+
     if (is_infered) {
-        throw_err(ERR_NOT_IMPLEMENTED_YET);
-    } else {
-        const Signature::signature lhs = Signature::match_until_signature({TOK_EQUAL});
-        uint2 lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
-        token_list lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
-
-        // Remove all \n and \t from the lhs tokens
-        for (auto it = lhs_tokens.begin(); it != lhs_tokens.end();) {
-            if (it->type == TOK_INDENT || it->type == TOK_EOL) {
-                it = lhs_tokens.erase(it);
-            } else {
-                ++it;
-            }
-        }
-
-        if (lhs_tokens.size() == 0) {
-            // Nothing present to the left of the equal sign
-            throw_err(ERR_PARSING);
-        }
-
-        auto iterator = lhs_tokens.begin();
-        unsigned int type_begin = 0;
-        unsigned int type_end = lhs_tokens.size() - 2;
-        while (iterator != lhs_tokens.end()) {
-            if ((iterator + 1)->type == TOK_IDENTIFIER && (iterator + 2)->type == TOK_EQUAL) {
-                const token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
-                type = Lexer::to_string(type_tokens);
-                name = iterator->lexme;
+        for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
+            if (it->type == TOK_IDENTIFIER && (it + 1)->type == TOK_COLON_EQUAL) {
+                name = it->lexme;
                 break;
             }
-            ++iterator;
         }
-
-        auto expr = create_expression(scope, tokens);
-        if (!expr.has_value()) {
-            throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, tokens);
-        }
-        if (!scope->add_variable_type(name, type, scope->scope_id)) {
-            // Variable shadowing!
-            throw_err(ERR_PARSING);
+        declaration = DeclarationNode(expr.value()->type, name, expr.value());
+    } else {
+        unsigned int type_begin = 0;
+        unsigned int type_end = lhs_tokens.size() - 2;
+        for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
+            if ((it + 1)->type == TOK_IDENTIFIER && (it + 2)->type == TOK_EQUAL) {
+                const token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
+                type = Lexer::to_string(type_tokens);
+                name = it->lexme;
+                break;
+            }
+            ++it;
         }
         declaration = DeclarationNode(type, name, expr.value());
     }
