@@ -62,7 +62,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
 std::unique_ptr<CallNodeExpression> Parser::create_call_expression(Scope *scope, token_list &tokens) {
     auto call_node_args = create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
-        throw_err(ERR_PARSING);
+        throw_err<ErrExprCallCreationFailed>(ERR_PARSING, file_name, tokens);
     }
     std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
         std::get<0>(call_node_args.value()),                                              // name
