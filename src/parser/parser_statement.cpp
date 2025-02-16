@@ -327,39 +327,34 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
 
     if (Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false);
-        if (decl.has_value()) {
-            statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
-        } else {
+        if (!decl.has_value()) {
             throw_err(ERR_PARSING);
         }
+        statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Signature::tokens_contain(tokens, Signature::declaration_infered)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, true);
-        if (decl.has_value()) {
-            statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
-        } else {
+        if (!decl.has_value()) {
             throw_err(ERR_PARSING);
         }
+        statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Signature::tokens_contain(tokens, Signature::assignment)) {
         std::optional<std::unique_ptr<AssignmentNode>> assign = create_assignment(scope, tokens);
-        if (assign.has_value()) {
-            statement_node = std::move(assign.value());
-        } else {
+        if (!assign.has_value()) {
             throw_err(ERR_PARSING);
         }
+        statement_node = std::move(assign.value());
     } else if (Signature::tokens_contain(tokens, Signature::return_statement)) {
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
         if (return_node.has_value()) {
-            statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
-        } else {
             throw_err(ERR_PARSING);
         }
+        statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
     } else if (Signature::tokens_contain(tokens, Signature::throw_statement)) {
         std::optional<ThrowNode> throw_node = create_throw(scope, tokens);
         if (throw_node.has_value()) {
-            statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
-        } else {
             throw_err(ERR_PARSING);
         }
+        statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
     } else if (Signature::tokens_contain(tokens, Signature::function_call)) {
         statement_node = create_call_statement(scope, tokens);
     } else {
