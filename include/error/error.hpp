@@ -60,7 +60,8 @@
 ///
 /// @param error_type The error enum type, whose Enum ID will be printed to the console
 inline void throw_err(ErrorType error_type) {
-    throw std::runtime_error("Custom Error: " + std::to_string(static_cast<int>(error_type)));
+    std::cerr << "Custom Error: " << std::to_string(static_cast<int>(error_type)) << std::endl;
+    // throw std::runtime_error("Custom Error: " + std::to_string(static_cast<int>(error_type)));
 }
 
 /// @brief Throws a custom error and exits the program
@@ -87,7 +88,7 @@ throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
     std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
 #endif
     std::cerr << std::endl;
-    std::exit(EXIT_FAILURE);
+    // std::exit(EXIT_FAILURE);
 }
 
 // Define a macro to autimatically pass file and line information

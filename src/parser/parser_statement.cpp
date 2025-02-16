@@ -1,8 +1,11 @@
 #include "parser/parser.hpp"
 
+#include "error/error.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "parser/signature.hpp"
+
+#include <optional>
 
 std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(Scope *scope, token_list &tokens) {
     auto call_node_args = create_call_base(scope, tokens);
@@ -25,6 +28,7 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) 
         if (it->type == TOK_THROW) {
             if ((it + 1) == tokens.end()) {
                 THROW_ERR(ErrStmtThrowCreationFailed, ERR_PARSING, file_name, tokens);
+                return std::nullopt;
             }
             throw_id = std::distance(tokens.begin(), it);
         }
@@ -100,13 +104,19 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
     if (!condition.has_value()) {
         // Invalid expression inside if statement
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, this_if_pair.first);
+        return std::nullopt;
     }
     if (condition.value()->type != "bool") {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, this_if_pair.first, "bool", condition.value()->type);
+        return std::nullopt;
     }
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
-    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), this_if_pair.second);
-    body_scope->body = std::move(body_statements);
+    auto body_statements = create_body(body_scope.get(), this_if_pair.second);
+    if (!body_statements.has_value()) {
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+    body_scope->body = std::move(body_statements.value());
     std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> else_scope = std::nullopt;
 
     // Check if the chain contains any values (more if blocks in the chain) and parse them accordingly
@@ -117,8 +127,12 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
         } else {
             // 'else'
             std::unique_ptr<Scope> else_scope_ptr = std::make_unique<Scope>(scope);
-            std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(else_scope_ptr.get(), if_chain.at(0).second);
-            else_scope_ptr->body = std::move(body_statements);
+            auto body_statements = create_body(else_scope_ptr.get(), if_chain.at(0).second);
+            if (!body_statements.has_value()) {
+                throw_err(ERR_PARSING);
+                return std::nullopt;
+            }
+            else_scope_ptr->body = std::move(body_statements.value());
             else_scope = std::move(else_scope_ptr);
         }
     }
@@ -157,8 +171,12 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     }
 
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
-    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), body);
-    body_scope->body = std::move(body_statements);
+    auto body_statements = create_body(body_scope.get(), body);
+    if (!body_statements.has_value()) {
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+    body_scope->body = std::move(body_statements.value());
     std::unique_ptr<WhileNode> while_node = std::make_unique<WhileNode>(condition.value(), body_scope);
     return while_node;
 }
@@ -225,8 +243,12 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     if (err_var.has_value()) {
         body_scope->add_variable_type(err_var.value(), "int", body_scope->scope_id);
     }
-    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), body);
-    body_scope->body = std::move(body_statements);
+    auto body_statements = create_body(body_scope.get(), body);
+    if (!body_statements.has_value()) {
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+    body_scope->body = std::move(body_statements.value());
 
     return std::make_unique<CatchNode>(err_var, body_scope, last_call_id);
 }
@@ -240,6 +262,7 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens);
                 if (!expression.has_value()) {
                     THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
+                    return std::nullopt;
                 }
                 if (scope->variable_types.find(iterator->lexme) == scope->variable_types.end()) {
                     // Assignment on undeclared variable!
@@ -279,6 +302,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
 
     if (lhs_tokens.size() == 0) {
         THROW_ERR(ErrStmtDanglingEqualSign, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
     }
 
     auto expr = create_expression(scope, tokens);
@@ -330,36 +354,42 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false);
         if (!decl.has_value()) {
             THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
+            return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Signature::tokens_contain(tokens, Signature::declaration_infered)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, true);
         if (!decl.has_value()) {
             THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
+            return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Signature::tokens_contain(tokens, Signature::assignment)) {
         std::optional<std::unique_ptr<AssignmentNode>> assign = create_assignment(scope, tokens);
         if (!assign.has_value()) {
             THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
+            return std::nullopt;
         }
         statement_node = std::move(assign.value());
     } else if (Signature::tokens_contain(tokens, Signature::return_statement)) {
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
         if (!return_node.has_value()) {
             THROW_ERR(ErrStmtReturnCreationFailed, ERR_PARSING, file_name, tokens);
+            return std::nullopt;
         }
         statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
     } else if (Signature::tokens_contain(tokens, Signature::throw_statement)) {
         std::optional<ThrowNode> throw_node = create_throw(scope, tokens);
         if (!throw_node.has_value()) {
             THROW_ERR(ErrStmtThrowCreationFailed, ERR_PARSING, file_name, tokens);
+            return std::nullopt;
         }
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
     } else if (Signature::tokens_contain(tokens, Signature::function_call)) {
         statement_node = create_call_statement(scope, tokens);
     } else {
         THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
     }
 
     return statement_node;
@@ -379,6 +409,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     );
     if (!indent_lvl_maybe.has_value()) {
         THROW_ERR(ErrMissingBody, ERR_PARSING, file_name, definition);
+        return std::nullopt;
     }
     token_list scoped_body = get_body_tokens(indent_lvl_maybe.value(), body);
 
@@ -390,6 +421,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         if (Signature::tokens_contain(definition, {TOK_ELSE})) {
             // else or else if at top of if chain
             THROW_ERR(ErrStmtIfChainMissingIf, ERR_PARSING, file_name, definition);
+            return std::nullopt;
         }
 
         token_list next_definition = definition;
@@ -420,6 +452,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         std::optional<std::unique_ptr<IfNode>> if_node = create_if(scope, if_chain);
         if (!if_node.has_value()) {
             THROW_ERR(ErrStmtIfCreationFailed, ERR_PARSING, file_name, if_chain);
+            return std::nullopt;
         }
         statement_node = std::move(if_node.value());
     } else if (Signature::tokens_contain(definition, Signature::for_loop)) {
@@ -428,6 +461,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             statement_node = std::move(for_loop.value());
         } else {
             throw_err(ERR_PARSING);
+            return std::nullopt;
         }
     } else if (Signature::tokens_contain(definition, Signature::par_for_loop) ||
         Signature::tokens_contain(definition, Signature::enhanced_for_loop)) {
@@ -436,6 +470,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             statement_node = std::move(enh_for_loop.value());
         } else {
             throw_err(ERR_PARSING);
+            return std::nullopt;
         }
     } else if (Signature::tokens_contain(definition, Signature::while_loop)) {
         std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, definition, scoped_body);
@@ -443,6 +478,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             statement_node = std::move(while_loop.value());
         } else {
             throw_err(ERR_PARSING);
+            return std::nullopt;
         }
     } else if (Signature::tokens_contain(definition, Signature::catch_statement)) {
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body, statements);
@@ -450,17 +486,19 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             statement_node = std::move(catch_node.value());
         } else {
             throw_err(ERR_PARSING);
+            return std::nullopt;
         }
     } else if (Signature::tokens_contain(definition, Signature::function_call)) {
         statement_node = create_call_statement(scope, definition);
     } else {
         throw_err(ERR_UNDEFINED_STATEMENT);
+        return std::nullopt;
     }
 
     return statement_node;
 }
 
-std::vector<std::unique_ptr<StatementNode>> Parser::create_body(Scope *scope, token_list &body) {
+std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(Scope *scope, token_list &body) {
     std::vector<std::unique_ptr<StatementNode>> body_statements;
     const Signature::signature statement_signature = Signature::match_until_signature({"((", TOK_SEMICOLON, ")|(", TOK_COLON, "))"});
 
@@ -479,6 +517,7 @@ std::vector<std::unique_ptr<StatementNode>> Parser::create_body(Scope *scope, to
             body_statements.emplace_back(std::move(next_statement.value()));
         } else {
             throw_err(ERR_UNDEFINED_STATEMENT);
+            return std::nullopt;
         }
     }
 

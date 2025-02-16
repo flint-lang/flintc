@@ -156,10 +156,12 @@ void Lexer::scan_token() {
             advance(false);
             if (isascii(peek()) == 0) {
                 THROW_ERR(ErrLitExpectedCharValue, ERR_LEXING, file, line, column, std::to_string(peek()));
+                return;
             }
             if (peek_next() != '\'') {
                 THROW_ERR(ErrLitCharLongerThanSingleCharacter, ERR_LEXING, file, line, column,
                     std::to_string(peek()) + std::to_string(peek_next()));
+                return;
             }
             start = current;
             add_token(TOK_CHAR_VALUE);
@@ -194,6 +196,7 @@ void Lexer::scan_token() {
                     }
                     if (is_at_end()) {
                         THROW_ERR(ErrCommentUnterminatedMultiline, ERR_LEXING, file, line, comment_start_column);
+                        return;
                     }
                     advance();
                 }
@@ -219,6 +222,7 @@ void Lexer::scan_token() {
                 add_token(TOK_PIPE);
             } else {
                 THROW_ERR(ErrUnexpectedTokenPipe, ERR_LEXING, file, line, column, peek_next());
+                return;
             }
         case '"':
             str();
@@ -243,6 +247,7 @@ void Lexer::scan_token() {
                 identifier();
             } else {
                 THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, character);
+                return;
             }
             break;
     }
@@ -276,6 +281,7 @@ void Lexer::number() {
         advance(false);
         if (!is_digit(peek_next())) {
             THROW_ERR(ErrUnexpectedTokenNumber, ERR_LEXING, file, line, column, peek_next());
+            return;
         }
 
         while (is_digit(peek_next())) {
@@ -304,6 +310,7 @@ void Lexer::str() {
 
     if (is_at_end()) {
         THROW_ERR(ErrLitUnterminatedString, ERR_LEXING, file, line, column);
+        return;
     }
 
     if (start == current + 1) {

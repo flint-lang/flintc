@@ -20,6 +20,7 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     if (Signature::tokens_contain(definition_tokens, Signature::use_statement)) {
         if (definition_indentation > 0) {
             THROW_ERR(ErrUseStatementNotAtTopLevel, ERR_PARSING, file_name, definition_tokens);
+            std::exit(EXIT_FAILURE);
         }
         ImportNode import_node = create_import(definition_tokens);
         file_node.add_import(import_node);
@@ -64,6 +65,7 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     } else {
         Debug::print_token_context_vector(definition_tokens);
         THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_name, definition_tokens);
+        std::exit(EXIT_FAILURE);
     }
 }
 
@@ -96,6 +98,7 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
     }
     if (end_idx == 0) {
         THROW_ERR(ErrMissingBody, ERR_PARSING, file_name, tokens);
+        std::exit(EXIT_FAILURE);
     }
 
     return extract_from_to(0, end_idx, tokens);
@@ -165,6 +168,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
                 auto expression = create_expression(scope, argument_tokens);
                 if (!expression.has_value()) {
                     THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
+                    return std::nullopt;
                 }
                 arguments.emplace_back(std::move(expression.value()));
                 if (match == match_ranges.end()) {
@@ -176,6 +180,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
             auto expression = create_expression(scope, argument_tokens);
             if (!expression.has_value()) {
                 THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
+                return std::nullopt;
             }
             arguments.emplace_back(std::move(expression.value()));
         }

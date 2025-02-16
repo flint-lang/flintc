@@ -251,6 +251,7 @@ namespace Debug {
                     print_variant(0, *variant_node);
                 } else {
                     throw_err(ERR_DEBUG);
+                    return;
                 }
             }
             std::cout << std::endl;
@@ -329,6 +330,7 @@ namespace Debug {
                 print_binary_op(indent_lvl, empty, *binary_op_node);
             } else {
                 throw_err(ERR_DEBUG);
+                return;
             }
         }
 
@@ -464,6 +466,7 @@ namespace Debug {
                 print_call(indent_lvl, empty, *call_node);
             } else {
                 throw_err(ERR_DEBUG);
+                return;
             }
         }
 

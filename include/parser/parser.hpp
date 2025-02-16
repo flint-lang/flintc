@@ -417,8 +417,8 @@ class Parser {
     ///
     /// @param `scope` The scope of the body to generate. All generated body statements will be added to this scope
     /// @param `body` The token list containing all the body tokens
-    /// @return `std::vectro<std::unique_ptr<StatementNode>>` The list of StatementNodes parsed from the body tokens.
-    std::vector<std::unique_ptr<StatementNode>> create_body(Scope *scope, token_list &body);
+    /// @return `std::optional<std::vectro<std::unique_ptr<StatementNode>>>` The list of StatementNodes parsed from the body tokens.
+    std::optional<std::vector<std::unique_ptr<StatementNode>>> create_body(Scope *scope, token_list &body);
 
     /**************************************************************************************************************************************
      * @region `Statement` END

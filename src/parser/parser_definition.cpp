@@ -1,6 +1,9 @@
 #include "parser/parser.hpp"
 
+#include "error/error.hpp"
 #include "parser/signature.hpp"
+
+#include <optional>
 
 std::optional<FunctionNode> Parser::create_function(const token_list &definition, token_list &body) {
     std::string name;
@@ -65,8 +68,12 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
     }
 
     // Create the body and add the body statements to the created scope
-    std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), body);
-    body_scope->body = std::move(body_statements);
+    auto body_statements = create_body(body_scope.get(), body);
+    if (!body_statements.has_value()) {
+        throw_err(ERR_PARSING);
+        return std::nullopt;
+    }
+    body_scope->body = std::move(body_statements.value());
 
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);
 }
