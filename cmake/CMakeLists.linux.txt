@@ -20,6 +20,8 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
     "RelWithDebInfo"
 )
 
+option(DEBUG_MODE "Enable debug build with DEBUG_BUILD definition" OFF)
+
 # Output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -44,6 +46,7 @@ set(BASE_CXX_FLAGS ${BASE_CXX_FLAGS}
     -D__STDC_CONSTANT_MACROS
     -D__STDC_FORMAT_MACROS
     -D__STDC_LIMIT_MACROS
+    $<$<BOOL:${DEBUG_MODE}>:-DDEBUG_BUILD> # Set the debug build definition (generator expression to only add -DDEBUG_BUILD flag when DEBUG_BUILD is ON)
 )
 
 # Get the static flags for static linking

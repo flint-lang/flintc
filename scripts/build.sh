@@ -46,10 +46,22 @@ if [ "$(ls "$root/xml2/xml2/lib" | grep "libxml2.a")" = "" ]; then
     err_exit 1 "Required static library 'libxml2.a' not found in the xml2/xml2/lib directory!"
 fi
 
+if [ "$#" -gt 0 ]; then
+    # Only the 'debug' flag is allowed for now
+    flag="$1"
+    if [ "$flag" != "debug" ]; then
+        err_exit 1 "Flag '$flag' not supported! Supported values are: [\"debug\"]"
+    fi
+fi
+
 echo "-- Starting CMake build process"
 
 # Then, start the configuring phase of CMake
-cmake -S . -B "$root/build"
+if [ "$flag" = "debug" ]; then
+    cmake -S . -B "$root/build" -DDEBUG_MODE=ON
+else
+    cmake -S . -B "$root/build" -DDEBUG_MODE=OFF
+fi
 
 # And finally, build the cmake targets
 cmake --build "$root/build" --target static

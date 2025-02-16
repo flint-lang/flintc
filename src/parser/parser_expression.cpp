@@ -9,7 +9,7 @@ std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_li
         if (tok.type == TOK_IDENTIFIER) {
             std::string name = tok.lexme;
             if (scope->variable_types.find(name) == scope->variable_types.end()) {
-                throw_err<ErrVarNotDeclared>(ERR_PARSING, file_name, tok.line, tok.column, name);
+                THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tok.line, tok.column, name);
             }
             return VariableNode(name, scope->variable_types.at(name).first);
         }
@@ -27,7 +27,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
         if (Signature::tokens_match({tok}, Signature::literal)) {
             switch (tok.type) {
                 default:
-                    throw_err<ErrValUnknownLiteral>(ERR_PARSING, file_name, tok.line, tok.column, tok.lexme);
+                    THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok.line, tok.column, tok.lexme);
                     break;
                 case TOK_INT_VALUE: {
                     std::variant<int, float, std::string, bool, char> value = std::stoi(tok.lexme);
@@ -62,7 +62,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
 std::unique_ptr<CallNodeExpression> Parser::create_call_expression(Scope *scope, token_list &tokens) {
     auto call_node_args = create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
-        throw_err<ErrExprCallCreationFailed>(ERR_PARSING, file_name, tokens);
+        THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens);
     }
     std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
         std::get<0>(call_node_args.value()),                                              // name
@@ -89,7 +89,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
             // skip the function call
             std::vector<uint2> next_groups = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
             if (next_groups.empty()) {
-                throw_err<ErrUnclosedParen>(ERR_PARSING, file_name, tokens);
+                THROW_ERR(ErrUnclosedParen, ERR_PARSING, file_name, tokens);
             }
             for (const uint2 &group : next_groups) {
                 if (group.first == std::distance(tokens.begin(), iterator)) {
@@ -101,7 +101,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
         if (iterator->type == TOK_LEFT_PAREN) {
             std::vector<uint2> next_groups = Signature::balanced_range_extraction_vec(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
             if (next_groups.empty()) {
-                throw_err<ErrUnclosedParen>(ERR_PARSING, file_name, tokens);
+                THROW_ERR(ErrUnclosedParen, ERR_PARSING, file_name, tokens);
             }
             for (const uint2 &group : next_groups) {
                 if (group.first == std::distance(tokens.begin(), iterator)) {
@@ -138,13 +138,13 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
     std::optional<std::unique_ptr<ExpressionNode>> lhs = create_expression(scope, lhs_tokens);
     std::optional<std::unique_ptr<ExpressionNode>> rhs = create_expression(scope, rhs_tokens);
     if (!lhs.has_value()) {
-        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, lhs_tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, lhs_tokens);
     }
     if (!rhs.has_value()) {
-        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, rhs_tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_tokens);
     }
     if (lhs.value()->type != rhs.value()->type) {
-        throw_err<ErrExprBinopTypeMismatch>(ERR_PARSING, file_name, lhs_tokens, rhs_tokens, operator_token, lhs.value()->type,
+        THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_name, lhs_tokens, rhs_tokens, operator_token, lhs.value()->type,
             rhs.value()->type);
     }
     return BinaryOpNode(operator_token, lhs.value(), rhs.value(), lhs.value()->type);
@@ -173,30 +173,30 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
     } else if (Signature::tokens_contain(cond_tokens, Signature::bin_op_expr)) {
         std::optional<BinaryOpNode> bin_op = create_binary_op(scope, cond_tokens);
         if (!bin_op.has_value()) {
-            throw_err<ErrExprBinopCreationFailed>(ERR_PARSING, file_name, cond_tokens);
+            THROW_ERR(ErrExprBinopCreationFailed, ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
     } else if (Signature::tokens_contain(cond_tokens, Signature::literal_expr)) {
         std::optional<LiteralNode> lit = create_literal(cond_tokens);
         if (!lit.has_value()) {
-            throw_err<ErrExprLitCreationFailed>(ERR_PARSING, file_name, cond_tokens);
+            THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<LiteralNode>(std::move(lit.value()));
     } else if (Signature::tokens_match(cond_tokens, Signature::unary_op_expr)) {
         std::optional<UnaryOpNode> unary_op = create_unary_op(scope, cond_tokens);
         if (!unary_op.has_value()) {
-            throw_err<ErrExprUnaryOpCreationFailed>(ERR_PARSING, file_name, cond_tokens);
+            THROW_ERR(ErrExprUnaryOpCreationFailed, ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<UnaryOpNode>(std::move(unary_op.value()));
     } else if (Signature::tokens_match(cond_tokens, Signature::variable_expr)) {
         std::optional<VariableNode> variable = create_variable(scope, cond_tokens);
         if (!variable.has_value()) {
-            throw_err<ErrExprVariableCreationFailed>(ERR_PARSING, file_name, cond_tokens);
+            THROW_ERR(ErrExprVariableCreationFailed, ERR_PARSING, file_name, cond_tokens);
         }
         expression = std::make_unique<VariableNode>(std::move(variable.value()));
     } else {
         // Undefined expression
-        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, cond_tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, cond_tokens);
     }
 
     return expression;

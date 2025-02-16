@@ -7,7 +7,7 @@
 std::unique_ptr<CallNodeStatement> Parser::create_call_statement(Scope *scope, token_list &tokens) {
     auto call_node_args = create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
-        throw_err<ErrExprCallCreationFailed>(ERR_PARSING, file_name, tokens);
+        THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens);
     }
     std::unique_ptr<CallNodeStatement> call_node = std::make_unique<CallNodeStatement>( //
         std::get<0>(call_node_args.value()),                                            // name
@@ -23,7 +23,7 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) 
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         if (it->type == TOK_THROW) {
             if ((it + 1) == tokens.end()) {
-                throw_err<ErrStmtThrowCreationFailed>(ERR_PARSING, file_name, tokens);
+                THROW_ERR(ErrStmtThrowCreationFailed, ERR_PARSING, file_name, tokens);
             }
             throw_id = std::distance(tokens.begin(), it);
         }
@@ -31,11 +31,11 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) 
     token_list expression_tokens = extract_from_to(throw_id + 1, tokens.size(), tokens);
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
     if (!expr.has_value()) {
-        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, expression_tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
     if (expr.value()->type != "int") {
-        throw_err<ErrExprTypeMismatch>(ERR_PARSING, file_name, expression_tokens, "int", expr.value()->type);
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, "int", expr.value()->type);
         return std::nullopt;
     }
     return ThrowNode(expr.value());
@@ -46,7 +46,7 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         if (it->type == TOK_RETURN) {
             if ((it + 1) == tokens.end()) {
-                throw_err<ErrStmtReturnCreationFailed>(ERR_PARSING, file_name, tokens);
+                THROW_ERR(ErrStmtReturnCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return_id = std::distance(tokens.begin(), it);
@@ -55,7 +55,7 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, token_list &tokens
     token_list expression_tokens = extract_from_to(return_id + 1, tokens.size(), tokens);
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
     if (!expr.has_value()) {
-        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, expression_tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
     return ReturnNode(expr.value());
@@ -90,7 +90,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
 
     // Dangling else statement without if statement
     if (has_else && !has_if) {
-        throw_err<ErrStmtDanglingElse>(ERR_PARSING, file_name, this_if_pair.first);
+        THROW_ERR(ErrStmtDanglingElse, ERR_PARSING, file_name, this_if_pair.first);
         return std::nullopt;
     }
 
@@ -98,10 +98,10 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
     std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, this_if_pair.first);
     if (!condition.has_value()) {
         // Invalid expression inside if statement
-        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, this_if_pair.first);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, this_if_pair.first);
     }
     if (condition.value()->type != "bool") {
-        throw_err<ErrExprTypeMismatch>(ERR_PARSING, file_name, this_if_pair.first, "bool", condition.value()->type);
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, this_if_pair.first, "bool", condition.value()->type);
     }
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     std::vector<std::unique_ptr<StatementNode>> body_statements = create_body(body_scope.get(), this_if_pair.second);
@@ -151,7 +151,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens);
     if (!condition.has_value()) {
         // Invalid expression inside while statement
-        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, condition_tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, condition_tokens);
         return std::nullopt;
     }
 
@@ -192,14 +192,14 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         }
     }
     if (!catch_id.has_value()) {
-        throw_err<ErrStmtDanglingCatch>(ERR_PARSING, file_name, definition);
+        THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_name, definition);
         return std::nullopt;
     }
 
     token_list left_of_catch = clone_from_to(0, catch_id.value(), definition);
     std::optional<std::unique_ptr<StatementNode>> lhs = create_statement(scope, left_of_catch);
     if (!lhs.has_value()) {
-        throw_err<ErrStmtCreationFailed>(ERR_PARSING, file_name, left_of_catch);
+        THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, left_of_catch);
         return std::nullopt;
     }
     statements.emplace_back(std::move(lhs.value()));
@@ -207,7 +207,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     const unsigned int last_call_id = get_last_parsed_call_id();
     const std::optional<CallNodeBase *> last_call = get_call_from_id(last_call_id);
     if (!last_call.has_value()) {
-        throw_err<ErrStmtDanglingCatch>(ERR_PARSING, file_name, definition);
+        THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_name, definition);
         return std::nullopt;
     }
     last_call.value()->has_catch = true;
@@ -238,17 +238,17 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                 token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens);
                 if (!expression.has_value()) {
-                    throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, expression_tokens);
+                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
                 }
                 if (scope->variable_types.find(iterator->lexme) == scope->variable_types.end()) {
                     // Assignment on undeclared variable!
-                    throw_err<ErrVarNotDeclared>(ERR_PARSING, file_name, iterator->line, iterator->column, iterator->lexme);
+                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, iterator->line, iterator->column, iterator->lexme);
                     return std::nullopt;
                 }
                 std::string type = scope->variable_types.at(iterator->lexme).first;
                 return std::make_unique<AssignmentNode>(type, iterator->lexme, expression.value());
             } else {
-                throw_err<ErrStmtAssignmentCreationFailed>(ERR_PARSING, file_name, tokens);
+                THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
         }
@@ -283,7 +283,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
 
     auto expr = create_expression(scope, tokens);
     if (!expr.has_value()) {
-        throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
 
@@ -296,7 +296,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
         }
         if (!scope->add_variable_type(name, expr.value()->type, scope->scope_id)) {
             // Variable shadowing
-            throw_err<ErrVarRedefinition>(ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;
         }
         declaration = DeclarationNode(expr.value()->type, name, expr.value());
@@ -314,7 +314,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
         }
         if (!scope->add_variable_type(name, type, scope->scope_id)) {
             // Variable shadowing
-            throw_err<ErrVarRedefinition>(ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;
         }
         declaration = DeclarationNode(type, name, expr.value());

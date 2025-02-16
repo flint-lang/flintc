@@ -59,7 +59,7 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
     for (const auto &param : parameters) {
         if (!body_scope->add_variable_type(param.second, param.first, body_scope->scope_id)) {
             // Variable already exists in the func definition list
-            throw_err<ErrVarFromRequiresList>(ERR_PARSING, file_name, 0, 0, param.second);
+            THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_name, 0, 0, param.second);
         }
     }
 

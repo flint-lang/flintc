@@ -67,10 +67,17 @@ inline void throw_err(ErrorType error_type) {
 /// @example `throw_err<ErrParsing>("Syntax error", "file.txt", 10, 5, tokens);`
 template <typename ErrorType, typename... Args>                                                    //
 std::enable_if_t<std::is_base_of_v<BaseError, ErrorType> && !std::is_same_v<BaseError, ErrorType>> //
-throw_err(Args &&...args) {
+throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
     ErrorType error(std::forward<Args>(args)...);
-    std::cerr << error.to_string() << std::endl;
+    std::cerr << error.to_string();
+#ifdef DEBUG_BUILD
+    std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
+#endif
+    std::cerr << std::endl;
     std::exit(EXIT_FAILURE);
 }
+
+// Define a macro to autimatically pass file and line information
+#define THROW_ERR(ErrorType, ...) throw_err<ErrorType>(__FILE__, __LINE__, ##__VA_ARGS__)
 
 #endif

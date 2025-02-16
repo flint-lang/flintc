@@ -19,7 +19,7 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
 
     if (Signature::tokens_contain(definition_tokens, Signature::use_statement)) {
         if (definition_indentation > 0) {
-            throw_err<ErrUseStatementNotAtTopLevel>(ERR_PARSING, file_name, definition_tokens);
+            THROW_ERR(ErrUseStatementNotAtTopLevel, ERR_PARSING, file_name, definition_tokens);
         }
         ImportNode import_node = create_import(definition_tokens);
         file_node.add_import(import_node);
@@ -59,7 +59,7 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         file_node.add_variant(variant_node);
     } else {
         Debug::print_token_context_vector(definition_tokens);
-        throw_err<ErrUnexpectedDefinition>(ERR_PARSING, file_name, definition_tokens);
+        THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_name, definition_tokens);
     }
 }
 
@@ -91,7 +91,7 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
         end_idx++;
     }
     if (end_idx == 0) {
-        throw_err<ErrMissingBody>(ERR_PARSING, file_name, tokens);
+        THROW_ERR(ErrMissingBody, ERR_PARSING, file_name, tokens);
     }
 
     return extract_from_to(0, end_idx, tokens);
@@ -160,7 +160,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
                 }
                 auto expression = create_expression(scope, argument_tokens);
                 if (!expression.has_value()) {
-                    throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, argument_tokens);
+                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
                 }
                 arguments.emplace_back(std::move(expression.value()));
                 if (match == match_ranges.end()) {
@@ -171,7 +171,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
             token_list argument_tokens = extract_from_to(arg_range.value().first, arg_range.value().second, tokens);
             auto expression = create_expression(scope, argument_tokens);
             if (!expression.has_value()) {
-                throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, argument_tokens);
+                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
             }
             arguments.emplace_back(std::move(expression.value()));
         }
