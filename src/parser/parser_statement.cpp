@@ -328,7 +328,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
     if (Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false);
         if (!decl.has_value()) {
-            throw_err(ERR_PARSING);
+            THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Signature::tokens_contain(tokens, Signature::declaration_infered)) {

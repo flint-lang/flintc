@@ -6,18 +6,23 @@
 // All error types are included here to make using the error header file easier
 #include "error_types/base_error.hpp"
 
-#include "error_types/lexing/comments/err_comment_unterm_multiline.hpp"
 #include "error_types/lexing/err_lexing.hpp"
+
+#include "error_types/lexing/comments/err_comment_unterm_multiline.hpp"
+
 #include "error_types/lexing/literals/err_lit_char_longer_than_single_character.hpp"
 #include "error_types/lexing/literals/err_lit_expected_char_value.hpp"
 #include "error_types/lexing/literals/err_lit_unterminated_string.hpp"
+
 #include "error_types/lexing/unexpected/err_unexpected_token.hpp"
 #include "error_types/lexing/unexpected/err_unexpected_token_number.hpp"
 #include "error_types/lexing/unexpected/err_unexpected_token_pipe.hpp"
 
+#include "error_types/parsing/err_parsing.hpp"
+
 #include "error_types/parsing/definitions/err_unexpected_definition.hpp"
 #include "error_types/parsing/definitions/err_use_statement_not_at_top_level.hpp"
-#include "error_types/parsing/err_parsing.hpp"
+
 #include "error_types/parsing/expressions/err_expr_binop_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_call_creation_failed.hpp"
@@ -26,16 +31,21 @@
 #include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_unop_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_variable_creation_failed.hpp"
+
 #include "error_types/parsing/scopes/err_missing_body.hpp"
 #include "error_types/parsing/scopes/err_unclosed_paren.hpp"
+
 #include "error_types/parsing/statements/err_stmt_assignment_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_catch.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_else.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_equal_sign.hpp"
+#include "error_types/parsing/statements/err_stmt_declaration_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_return_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_throw_creation_failed.hpp"
+
 #include "error_types/parsing/values/err_val_unknown_literal.hpp"
+
 #include "error_types/parsing/variables/err_var_from_requires_list.hpp"
 #include "error_types/parsing/variables/err_var_not_declared.hpp"
 #include "error_types/parsing/variables/err_var_redefinition.hpp"
