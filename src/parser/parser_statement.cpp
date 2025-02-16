@@ -277,8 +277,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
     }
 
     if (lhs_tokens.size() == 0) {
-        // Nothing present to the left of the equal sign
-        throw_err(ERR_PARSING);
+        THROW_ERR(ErrStmtDanglingEqualSign, ERR_PARSING, file_name, tokens);
     }
 
     auto expr = create_expression(scope, tokens);
