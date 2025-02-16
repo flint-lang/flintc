@@ -334,31 +334,31 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
     } else if (Signature::tokens_contain(tokens, Signature::declaration_infered)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, true);
         if (!decl.has_value()) {
-            throw_err(ERR_PARSING);
+            THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Signature::tokens_contain(tokens, Signature::assignment)) {
         std::optional<std::unique_ptr<AssignmentNode>> assign = create_assignment(scope, tokens);
         if (!assign.has_value()) {
-            throw_err(ERR_PARSING);
+            THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
         }
         statement_node = std::move(assign.value());
     } else if (Signature::tokens_contain(tokens, Signature::return_statement)) {
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
-        if (return_node.has_value()) {
-            throw_err(ERR_PARSING);
+        if (!return_node.has_value()) {
+            THROW_ERR(ErrStmtReturnCreationFailed, ERR_PARSING, file_name, tokens);
         }
         statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
     } else if (Signature::tokens_contain(tokens, Signature::throw_statement)) {
         std::optional<ThrowNode> throw_node = create_throw(scope, tokens);
-        if (throw_node.has_value()) {
-            throw_err(ERR_PARSING);
+        if (!throw_node.has_value()) {
+            THROW_ERR(ErrStmtThrowCreationFailed, ERR_PARSING, file_name, tokens);
         }
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
     } else if (Signature::tokens_contain(tokens, Signature::function_call)) {
         statement_node = create_call_statement(scope, tokens);
     } else {
-        throw_err(ERR_UNDEFINED_STATEMENT);
+        THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, tokens);
     }
 
     return statement_node;
@@ -377,8 +377,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         definition.at(0).type == TOK_EOL ? definition.at(1).line : definition.at(0).line //
     );
     if (!indent_lvl_maybe.has_value()) {
-        // Scoped statement has no body
-        throw_err(ERR_PARSING);
+        THROW_ERR(ErrMissingBody, ERR_PARSING, file_name, definition);
     }
     token_list scoped_body = get_body_tokens(indent_lvl_maybe.value(), body);
 
