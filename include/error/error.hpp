@@ -41,6 +41,7 @@
 #include "error_types/parsing/statements/err_stmt_dangling_else.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_equal_sign.hpp"
 #include "error_types/parsing/statements/err_stmt_declaration_creation_failed.hpp"
+#include "error_types/parsing/statements/err_stmt_if_chain_missing_if.hpp"
 #include "error_types/parsing/statements/err_stmt_return_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_throw_creation_failed.hpp"
 

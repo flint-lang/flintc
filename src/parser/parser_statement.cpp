@@ -386,6 +386,10 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         Signature::tokens_contain(definition, Signature::else_statement)) {
         std::vector<std::pair<token_list, token_list>> if_chain;
         if_chain.emplace_back(definition, scoped_body);
+        if (Signature::tokens_contain(definition, {TOK_ELSE})) {
+            // else or else if at top of if chain
+            THROW_ERR(ErrStmtIfChainMissingIf, ERR_PARSING, file_name, definition);
+        }
 
         token_list next_definition = definition;
         while (true) {
