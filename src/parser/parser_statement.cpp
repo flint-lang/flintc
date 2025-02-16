@@ -35,7 +35,7 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) 
         return std::nullopt;
     }
     if (expr.value()->type != "int") {
-        throw_err<ErrExprTypeMismatch>(ERR_PARSING, file_name, expression_tokens);
+        throw_err<ErrExprTypeMismatch>(ERR_PARSING, file_name, expression_tokens, "int", expr.value()->type);
         return std::nullopt;
     }
     return ThrowNode(expr.value());
@@ -242,7 +242,7 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                 }
                 if (scope->variable_types.find(iterator->lexme) == scope->variable_types.end()) {
                     // Assignment on undeclared variable!
-                    throw_err<ErrVarNotDeclared>(ERR_PARSING, file_name, tokens);
+                    throw_err<ErrVarNotDeclared>(ERR_PARSING, file_name, iterator->line, iterator->column, iterator->lexme);
                     return std::nullopt;
                 }
                 std::string type = scope->variable_types.at(iterator->lexme).first;
