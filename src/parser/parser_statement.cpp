@@ -263,13 +263,13 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
     std::string type;
     std::string name;
 
-    const Signature::signature lhs = Signature::match_until_signature({TOK_EQUAL});
+    const Signature::signature lhs = Signature::match_until_signature({"(", TOK_EQUAL, "|", TOK_COLON_EQUAL, ")"});
     uint2 lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
     token_list lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
 
     // Remove all \n and \t from the lhs tokens
     for (auto it = lhs_tokens.begin(); it != lhs_tokens.end();) {
-        if (it->type == TOK_INDENT || it->type == TOK_EOL || it->type == TOK_COLON_EQUAL || it->type == TOK_EQUAL) {
+        if (it->type == TOK_INDENT || it->type == TOK_EOL) {
             it = lhs_tokens.erase(it);
         } else {
             ++it;
@@ -286,11 +286,6 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
         throw_err<ErrExprCreationFailed>(ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
-    if (!scope->add_variable_type(name, type, scope->scope_id)) {
-        // Variable shadowing!
-        throw_err<ErrVarRedefinition>(ERR_PARSING, file_name, tokens);
-        return std::nullopt;
-    }
 
     if (is_infered) {
         for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
@@ -298,6 +293,11 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                 name = it->lexme;
                 break;
             }
+        }
+        if (!scope->add_variable_type(name, expr.value()->type, scope->scope_id)) {
+            // Variable shadowing
+            throw_err<ErrVarRedefinition>(ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
+            return std::nullopt;
         }
         declaration = DeclarationNode(expr.value()->type, name, expr.value());
     } else {
@@ -311,6 +311,11 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                 break;
             }
             ++it;
+        }
+        if (!scope->add_variable_type(name, type, scope->scope_id)) {
+            // Variable shadowing
+            throw_err<ErrVarRedefinition>(ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
+            return std::nullopt;
         }
         declaration = DeclarationNode(type, name, expr.value());
     }
