@@ -417,11 +417,10 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         }
 
         std::optional<std::unique_ptr<IfNode>> if_node = create_if(scope, if_chain);
-        if (if_node.has_value()) {
-            statement_node = std::move(if_node.value());
-        } else {
-            throw_err(ERR_PARSING);
+        if (!if_node.has_value()) {
+            THROW_ERR(ErrStmtIfCreationFailed, ERR_PARSING, file_name, if_chain);
         }
+        statement_node = std::move(if_node.value());
     } else if (Signature::tokens_contain(definition, Signature::for_loop)) {
         std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, definition, scoped_body);
         if (for_loop.has_value()) {
