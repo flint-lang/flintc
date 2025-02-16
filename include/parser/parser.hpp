@@ -251,8 +251,8 @@ class Parser {
     ///
     /// @param `scope` The scope in which the call expression is defined
     /// @param `tokens` The list of tokens representing the call expression
-    /// @return `std::unique_ptr<CallNodeExpression>` A unique pointer to the created CallNodeExpression
-    std::unique_ptr<CallNodeExpression> create_call_expression(Scope *scope, token_list &tokens);
+    /// @return `std::optional<std::unique_ptr<CallNodeExpression>>` A unique pointer to the created CallNodeExpression
+    std::optional<std::unique_ptr<CallNodeExpression>> create_call_expression(Scope *scope, token_list &tokens);
 
     /// @function `create_binary_op`
     /// @brief Creates a BinaryOpNode from the given tokens
@@ -284,8 +284,8 @@ class Parser {
     ///
     /// @param `scope` The scope in which the call statement is defined
     /// @param `tokens` The list of tokens representing the call statement
-    /// @return `std::unique_ptr<CallNodeStatement>` A unique pointer to the created CallNodeStatement
-    std::unique_ptr<CallNodeStatement> create_call_statement(Scope *scope, token_list &tokens);
+    /// @return `std::optional<std::unique_ptr<CallNodeStatement>>` A unique pointer to the created CallNodeStatement
+    std::optional<std::unique_ptr<CallNodeStatement>> create_call_statement(Scope *scope, token_list &tokens);
 
     /// @function `create_throw`
     /// @brief Creates a ThrowNode from the given list of tokens
@@ -438,8 +438,8 @@ class Parser {
     ///
     /// @param `definition` The list of tokens representing the function definition
     /// @param `body` The list of tokens representing the function body
-    /// @return `FunctionNode` The created FunctionNode
-    FunctionNode create_function(const token_list &definition, token_list &body);
+    /// @return `std::optional<FunctionNode>` The created FunctionNode
+    std::optional<FunctionNode> create_function(const token_list &definition, token_list &body);
 
     /// @function `create_data`
     /// @brief Creates a DataNode from the given definition and body tokens

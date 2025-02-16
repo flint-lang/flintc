@@ -2,7 +2,7 @@
 
 #include "parser/signature.hpp"
 
-FunctionNode Parser::create_function(const token_list &definition, token_list &body) {
+std::optional<FunctionNode> Parser::create_function(const token_list &definition, token_list &body) {
     std::string name;
     std::vector<std::pair<std::string, std::string>> parameters;
     std::vector<std::string> return_types;
@@ -60,6 +60,7 @@ FunctionNode Parser::create_function(const token_list &definition, token_list &b
         if (!body_scope->add_variable_type(param.second, param.first, body_scope->scope_id)) {
             // Variable already exists in the func definition list
             THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_name, 0, 0, param.second);
+            return std::nullopt;
         }
     }
 
@@ -165,7 +166,11 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
         unsigned int leading_indents = Signature::get_leading_indents(function_definition, current_line).value();
         token_list function_body = get_body_tokens(leading_indents, body);
 
-        functions.emplace_back(std::make_unique<FunctionNode>(std::move(create_function(function_definition, function_body))));
+        std::optional<FunctionNode> function = create_function(function_definition, function_body);
+        if (!function.has_value()) {
+            throw_err(ERR_PARSING);
+        }
+        functions.emplace_back(std::make_unique<FunctionNode>(std::move(function.value())));
         ++body_iterator;
     }
 

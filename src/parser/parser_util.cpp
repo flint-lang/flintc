@@ -25,8 +25,12 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         file_node.add_import(import_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::function_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
-        FunctionNode function_node = create_function(definition_tokens, body_tokens);
-        file_node.add_function(function_node);
+        std::optional<FunctionNode> function_node = create_function(definition_tokens, body_tokens);
+        if (!function_node.has_value()) {
+            throw_err(ERR_PARSING);
+            std::exit(EXIT_FAILURE);
+        }
+        file_node.add_function(function_node.value());
     } else if (Signature::tokens_contain(definition_tokens, Signature::data_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         DataNode data_node = create_data(definition_tokens, body_tokens);
