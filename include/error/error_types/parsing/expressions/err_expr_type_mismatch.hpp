@@ -18,7 +18,7 @@ class ErrExprTypeMismatch : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "Type mismatch of expression " << YELLOW << get_token_string(tokens, {}) << DEFAULT
-            << "\n -- Expected " << YELLOW << expected << DEFAULT << " but got " << YELLOW << type;
+            << "\n -- Expected " << YELLOW << expected << DEFAULT << " but got " << YELLOW << type << DEFAULT;
         return oss.str();
     }
 
