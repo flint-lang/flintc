@@ -250,7 +250,7 @@ namespace Debug {
                 } else if (const auto *variant_node = dynamic_cast<const VariantNode *>(node.get())) {
                     print_variant(0, *variant_node);
                 } else {
-                    throw_err(ERR_DEBUG);
+                    THROW_BASIC_ERR(ERR_DEBUG);
                     return;
                 }
             }
@@ -329,7 +329,7 @@ namespace Debug {
             } else if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expr.get())) {
                 print_binary_op(indent_lvl, empty, *binary_op_node);
             } else {
-                throw_err(ERR_DEBUG);
+                THROW_BASIC_ERR(ERR_DEBUG);
                 return;
             }
         }
@@ -465,7 +465,7 @@ namespace Debug {
             } else if (const auto *call_node = dynamic_cast<const CallNodeBase *>(statement.get())) {
                 print_call(indent_lvl, empty, *call_node);
             } else {
-                throw_err(ERR_DEBUG);
+                THROW_BASIC_ERR(ERR_DEBUG);
                 return;
             }
         }

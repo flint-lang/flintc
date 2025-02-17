@@ -32,7 +32,7 @@ void Generator::Statement::generate_statement(                                  
     } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
         generate_catch_statement(builder, parent, scope, allocations, catch_node);
     } else {
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
     }
 }
 
@@ -82,7 +82,7 @@ void Generator::Statement::generate_return_statement(                      //
 
         // Ensure the return value matches the function's return type
         if (return_value == nullptr) {
-            throw_err(ERR_GENERATING);
+            THROW_BASIC_ERR(ERR_GENERATING);
         }
 
         // Store the return value in the struct (at index 1)
@@ -177,7 +177,7 @@ void Generator::Statement::generate_if_blocks(                                  
             const auto &else_statements = std::get<std::unique_ptr<Scope>>(else_scope)->body;
             if (else_statements.empty()) {
                 // No empty body allowed
-                throw_err(ERR_GENERATING);
+                THROW_BASIC_ERR(ERR_GENERATING);
             }
             blocks.push_back(llvm::BasicBlock::Create( //
                 context,                               //
@@ -208,7 +208,7 @@ void Generator::Statement::generate_if_statement(                               
 ) {
     if (if_node == nullptr || if_node->condition == nullptr) {
         // Invalid IfNode: missing condition
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
     }
 
     // First call (nesting_level == 0): Create all blocks for entire if-chain
@@ -235,7 +235,7 @@ void Generator::Statement::generate_if_statement(                               
     );
     if (condition == nullptr) {
         // Failed to generate condition expression
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
     }
     // Create conditional branch
     llvm::BranchInst *branch = builder.CreateCondBr( //
@@ -387,7 +387,7 @@ void Generator::Statement::generate_catch_statement(                       //
     const std::optional<CallNodeBase *> call_node = Parser::get_call_from_id(catch_node->call_id);
     if (!call_node.has_value()) {
         // Catch does not have a referenced function
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
         return;
     }
     const std::string err_ret_name =
@@ -530,7 +530,7 @@ void Generator::Statement::generate_assignment(                                 
 
     if (scope->variable_types.find(assignment_node->name) == scope->variable_types.end()) {
         // Error: Undeclared Variable
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
     }
     const unsigned int variable_decl_scope = scope->variable_types.at(assignment_node->name).second;
     llvm::AllocaInst *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);

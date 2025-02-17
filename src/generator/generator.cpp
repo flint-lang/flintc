@@ -83,7 +83,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
             const auto shared_tip = dep.lock();
             if (!shared_tip) {
                 // DepNode somehow does not exist any more
-                throw_err(ERR_GENERATING);
+                THROW_BASIC_ERR(ERR_GENERATING);
             }
             // Add the dependencies root only if all dependants of its root have been compiled
             // Or add it when only weak dependants have not been compiled yet (the content of the file will be forward-declared)
@@ -129,7 +129,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
 
             // Link the generated module in the main module
             if (linker.linkInModule(std::move(file_module))) {
-                throw_err(ERR_LINKING);
+                THROW_BASIC_ERR(ERR_LINKING);
             }
         }
 
@@ -143,7 +143,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
                 std::string mangle_id_string = std::to_string(file_function_mangle_ids[file_name][fn_name]);
                 llvm::Function *actual_function = module->getFunction(fn_name + "." + mangle_id_string);
                 if (actual_function == nullptr) {
-                    throw_err(ERR_GENERATING);
+                    THROW_BASIC_ERR(ERR_GENERATING);
                 }
                 call->getCalledOperandUse().set(actual_function);
             }
@@ -154,7 +154,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     llvm::Function *main_function = module->getFunction("main_custom");
     if (main_function == nullptr) {
         // No main function defined
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
     }
     main_call_array[0]->getCalledOperandUse().set(main_function);
 
@@ -242,7 +242,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
         for (llvm::CallInst *call : calls) {
             llvm::Function *actual_function = module->getFunction(fn_name + "." + std::to_string(function_mangle_ids[fn_name]));
             if (actual_function == nullptr) {
-                throw_err(ERR_GENERATING);
+                THROW_BASIC_ERR(ERR_GENERATING);
             }
             call->getCalledOperandUse().set(actual_function);
         }

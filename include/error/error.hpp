@@ -59,10 +59,16 @@
 /// @brief Throws the given ErrorType as an runtime error to the console. Very basic error handling
 ///
 /// @param error_type The error enum type, whose Enum ID will be printed to the console
-inline void throw_err(ErrorType error_type) {
-    std::cerr << "Custom Error: " << std::to_string(static_cast<int>(error_type)) << std::endl;
+inline void throw_err(ErrorType error_type, const char *file = __FILE__, const int line = __LINE__) {
     // throw std::runtime_error("Custom Error: " + std::to_string(static_cast<int>(error_type)));
+    std::cerr << "Custom Error: " << std::to_string(static_cast<int>(error_type));
+#ifdef DEBUG_BUILD
+    std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
+#endif
+    std::cerr << std::endl;
 }
+
+#define THROW_BASIC_ERR(ErrorType) throw_err(ErrorType, __FILE__, __LINE__)
 
 /// @brief Throws a custom error and exits the program
 /// @details Creates an error object of the specified type and prints its message to stderr before

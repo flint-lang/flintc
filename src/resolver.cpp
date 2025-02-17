@@ -40,7 +40,7 @@ std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, 
     std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file_node, path);
     if (!base_maybe.has_value()) {
         // The main file already exists, this should not happen
-        throw_err(ERR_RESOLVING);
+        THROW_BASIC_ERR(ERR_RESOLVING);
         return {};
     }
     std::shared_ptr<DepNode> base = std::make_shared<DepNode>(base_maybe.value());
@@ -93,7 +93,7 @@ void Resolver::process_dependency_file(                               //
             auto lib_dep = std::get<std::vector<std::string>>(open_dep_dep);
             // TODO: Implement the fetching (and pre-fetching into local cache) of FlintHub Libraries
             // TODO: Create FlintHub at all first, lol
-            throw_err(ERR_NOT_IMPLEMENTED_YET);
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             continue;
         }
 

@@ -103,7 +103,7 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
 
     if (func_decl == nullptr) {
         // Use of undeclared function
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
         return {std::nullopt, false};
     }
 

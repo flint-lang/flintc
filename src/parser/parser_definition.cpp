@@ -70,7 +70,7 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
     // Create the body and add the body statements to the created scope
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {
-        throw_err(ERR_PARSING);
+        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
@@ -120,7 +120,7 @@ DataNode Parser::create_data(const token_list &definition, const token_list &bod
 
         if (body_iterator->type == TOK_IDENTIFIER && (body_iterator + 1)->type == TOK_LEFT_PAREN) {
             if (body_iterator->lexme != name) {
-                throw_err(ERR_CONSTRUCTOR_NAME_DOES_NOT_MATCH_DATA_NAME);
+                THROW_BASIC_ERR(ERR_CONSTRUCTOR_NAME_DOES_NOT_MATCH_DATA_NAME);
             }
             parsing_constructor = true;
             ++body_iterator;
@@ -175,7 +175,7 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
 
         std::optional<FunctionNode> function = create_function(function_definition, function_body);
         if (!function.has_value()) {
-            throw_err(ERR_PARSING);
+            THROW_BASIC_ERR(ERR_PARSING);
         }
         functions.emplace_back(std::make_unique<FunctionNode>(std::move(function.value())));
         ++body_iterator;
@@ -276,7 +276,7 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
     for (unsigned int i = constructor_token_ids.first; i < constructor_token_ids.second; i++) {
         if (body.at(i).type == TOK_IDENTIFIER) {
             if (body.at(i + 1).type == TOK_LEFT_PAREN && body.at(i).lexme != name) {
-                throw_err(ERR_ENTITY_CONSTRUCTOR_NAME_DOES_NOT_MATCH_ENTITY_NAME);
+                THROW_BASIC_ERR(ERR_ENTITY_CONSTRUCTOR_NAME_DOES_NOT_MATCH_ENTITY_NAME);
             }
             constructor_order.emplace_back(body.at(i).lexme);
         }
@@ -341,7 +341,7 @@ EnumNode Parser::create_enum(const token_list &definition, const token_list &bod
                 values.emplace_back(body_iterator->lexme);
                 break;
             } else {
-                throw_err(ERR_UNEXPECTED_TOKEN);
+                THROW_BASIC_ERR(ERR_UNEXPECTED_TOKEN);
             }
         }
         ++body_iterator;
@@ -365,7 +365,7 @@ ErrorNode Parser::create_error(const token_list &definition, const token_list &b
                 parent_error = (definition_iterator + 1)->lexme;
                 break;
             }
-            throw_err(ERR_CAN_ONLY_EXTEND_FROM_SINGLE_ERROR_SET);
+            THROW_BASIC_ERR(ERR_CAN_ONLY_EXTEND_FROM_SINGLE_ERROR_SET);
         }
         ++definition_iterator;
     }
@@ -379,7 +379,7 @@ ErrorNode Parser::create_error(const token_list &definition, const token_list &b
                 error_types.emplace_back(body_iterator->lexme);
                 break;
             } else {
-                throw_err(ERR_UNEXPECTED_TOKEN);
+                THROW_BASIC_ERR(ERR_UNEXPECTED_TOKEN);
             }
         }
         ++body_iterator;
@@ -410,7 +410,7 @@ VariantNode Parser::create_variant(const token_list &definition, const token_lis
                 possible_types.emplace_back(body_iterator->lexme);
                 break;
             } else {
-                throw_err(ERR_UNEXPECTED_TOKEN);
+                THROW_BASIC_ERR(ERR_UNEXPECTED_TOKEN);
             }
         }
         ++body_iterator;

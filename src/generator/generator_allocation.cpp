@@ -33,7 +33,7 @@ void Generator::Allocation::generate_allocations(                         //
             }
         } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node.get())) {
             // TODO #1
-            throw_err(ERR_NOT_IMPLEMENTED_YET);
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node.get())) {
             if (auto *call_node = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.get())) {
                 generate_call_allocations(builder, parent, scope, allocations, call_node);
@@ -73,7 +73,7 @@ void Generator::Allocation::generate_call_allocations(                     //
     // Get the function definition from any module
     auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
     if (!func_decl_res.has_value()) {
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
         return;
     }
     llvm::Function *func_decl = func_decl_res.value();
@@ -118,7 +118,7 @@ void Generator::Allocation::generate_allocation(                           //
     alloca->setMetadata("comment", llvm::MDNode::get(builder.getContext(), llvm::MDString::get(builder.getContext(), ir_comment)));
     if (allocations.find(alloca_name) != allocations.end()) {
         // Variable allocation was already made somewhere else
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
     }
     allocations.insert({alloca_name, alloca});
 }

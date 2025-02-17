@@ -58,7 +58,7 @@ llvm::Type *Generator::IR::get_type_from_str(llvm::LLVMContext &context, const s
     if (keywords.find(str) != keywords.end()) {
         switch (keywords.at(str)) {
             default:
-                throw_err(ERR_GENERATING);
+                THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             case TOK_INT:
                 return llvm::Type::getInt32Ty(context);
@@ -78,7 +78,7 @@ llvm::Type *Generator::IR::get_type_from_str(llvm::LLVMContext &context, const s
         }
     }
     // Pointer to more complex data type
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return nullptr;
 }
 
@@ -93,7 +93,7 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
         return llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(type));
     }
     // No conversion available
-    throw_err(ERR_GENERATING);
+    THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;
 }
 

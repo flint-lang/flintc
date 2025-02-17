@@ -41,7 +41,7 @@ class Scope {
         for (const auto &[name, type_scope] : other->variable_types) {
             if (!add_variable_type(name, type_scope.first, type_scope.second)) {
                 // Duplicate definition / shadowing
-                throw_err(ERR_SCOPE);
+                THROW_BASIC_ERR(ERR_SCOPE);
                 return false;
             }
         }

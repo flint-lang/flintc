@@ -24,7 +24,7 @@ llvm::Value *Generator::Expression::generate_expression(                   //
     if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
         return generate_binary_op(builder, parent, scope, allocations, binary_op_node);
     }
-    throw_err(ERR_GENERATING);
+    THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;
 }
 
@@ -97,7 +97,7 @@ llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder,
             std::get<char>(literal_node->value)          //
         );
     }
-    throw_err(ERR_PARSING);
+    THROW_BASIC_ERR(ERR_PARSING);
     return nullptr;
 }
 
@@ -110,7 +110,7 @@ llvm::Value *Generator::Expression::generate_variable(                     //
 ) {
     if (variable_node == nullptr) {
         // Error: Null Node
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }
 
@@ -125,7 +125,7 @@ llvm::Value *Generator::Expression::generate_variable(                     //
     // If not a parameter, handle as local variable
     if (scope->variable_types.find(variable_node->name) == scope->variable_types.end()) {
         // Error: Undeclared Variable
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }
     const unsigned int variable_decl_scope = scope->variable_types.at(variable_node->name).second;
@@ -162,7 +162,7 @@ llvm::Value *Generator::Expression::generate_call(                         //
         llvm::Function *builtin_function = builtins.at(builtin_functions.at(call_node->function_name));
         if (builtin_function == nullptr) {
             // Function has not been generated yet, but it should have been
-            throw_err(ERR_NOT_IMPLEMENTED_YET);
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return nullptr;
         }
         // Call the builtin function 'print'
@@ -179,13 +179,13 @@ llvm::Value *Generator::Expression::generate_call(                         //
     // Get the function definition from any module
     auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
     if (!func_decl_res.has_value()) {
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }
     llvm::Function *func_decl = func_decl_res.value();
     if (func_decl == nullptr) {
         // Is a builtin function, but the code block above should have been executed in that case, because we are here, something went wrong
-        throw_err(ERR_GENERATING);
+        THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }
 
@@ -361,7 +361,7 @@ llvm::Value *Generator::Expression::generate_binary_op(                    //
     llvm::Value *rhs = generate_expression(builder, parent, scope, allocations, bin_op_node->right.get());
     switch (bin_op_node->operator_token) {
         default:
-            throw_err(ERR_GENERATING);
+            THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         case TOK_PLUS:
             return builder.CreateAdd(lhs, rhs, "addtmp");

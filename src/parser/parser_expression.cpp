@@ -19,7 +19,7 @@ std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_li
 }
 
 std::optional<UnaryOpNode> Parser::create_unary_op(Scope *scope, const token_list &tokens) {
-    throw_err(ERR_NOT_IMPLEMENTED_YET);
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 

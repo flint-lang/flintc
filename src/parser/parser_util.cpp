@@ -28,7 +28,7 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         std::optional<FunctionNode> function_node = create_function(definition_tokens, body_tokens);
         if (!function_node.has_value()) {
-            throw_err(ERR_PARSING);
+            THROW_BASIC_ERR(ERR_PARSING);
             std::exit(EXIT_FAILURE);
         }
         file_node.add_function(function_node.value());
