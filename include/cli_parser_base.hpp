@@ -17,8 +17,8 @@ class CLIParserBase {
     virtual int parse() = 0;
 
     /// get_command_output
-    ///     Executes an command and returns the output of the command
-    static std::string get_command_output(const std::string &command) {
+    ///     Executes an command and returns the exit code as well as the output of the command
+    static std::tuple<int, std::string> get_command_output(const std::string &command) {
         constexpr std::size_t BUFFER_SIZE = 128;
         std::string output;
         FILE *pipe = popen(command.c_str(), "r");
@@ -33,15 +33,20 @@ class CLIParserBase {
                 output.append(buffer.data());
             }
 
-            if (pclose(pipe) == -1) {
+            int status = pclose(pipe);
+
+            if (status == -1) {
                 throw std::runtime_error("pclose() failed!");
             }
+
+            // On both Windows and Unix-like systems, the exit code will be in the lowest 8 bits of the status
+            int exit_code = status & 0xFF;
+
+            return {exit_code, output};
         } catch (...) {
             pclose(pipe);
             throw;
         }
-
-        return output;
     }
 
   protected:

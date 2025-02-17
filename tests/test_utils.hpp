@@ -81,19 +81,23 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
     long ft_duration = 0;
     std::string c_output{};
     std::string ft_output{};
+    int c_exit_code_sum = 0;
+    int ft_exit_code_sum = 0;
 
     // Finally, run both programs and save their outputs
     for (unsigned int i = 0; i < count; ++i) {
         const auto start = std::chrono::high_resolution_clock::now();
-        const std::string c_test = CLIParserBase::get_command_output(c_bin);
+        const auto [c_exit_code, c_test] = CLIParserBase::get_command_output(c_bin);
         const auto middle = std::chrono::high_resolution_clock::now();
-        const std::string ft_test = CLIParserBase::get_command_output(ft_bin);
+        const auto [ft_exit_code, ft_test] = CLIParserBase::get_command_output(ft_bin);
         const auto end = std::chrono::high_resolution_clock::now();
 
         c_duration += std::chrono::duration_cast<std::chrono::microseconds>(middle - start).count();
         ft_duration += std::chrono::duration_cast<std::chrono::microseconds>(end - middle).count();
         c_output += c_test;
         ft_output += ft_test;
+        c_exit_code_sum += c_exit_code;
+        ft_exit_code_sum += ft_exit_code;
     }
 
     const double c_duration_ms = ((double)c_duration) / (1000 * count);
@@ -120,7 +124,7 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
         color = GREEN;
     }
 
-    bool outputs_differ = c_output != ft_output;
+    bool outputs_differ = c_output != ft_output || c_exit_code_sum != ft_exit_code_sum;
     // outputs_differ = false;
 
     // Output the results
