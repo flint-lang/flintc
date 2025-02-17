@@ -27,15 +27,18 @@ void build_executable(                         //
     if (std::filesystem::exists(ll_file_path)) {
         std::cout << "Using '" + compile_command + "' to build the executable '" << binary_path.filename().string() << "' ..." << std::endl;
         std::string compile_command_str = compile_command + " " + flags + " " + ll_file_path.string() + " -o " + binary_path.string();
-        int res = system(compile_command_str.c_str());
+        const auto [res, output] = CLIParserBase::get_command_output(compile_command_str.c_str());
         if (res != 0) {
             // Throw an error stating that compilation failed
             std::cerr << "The compilation failed using the command '" << compile_command_str << "'.\nLook at the '" << ll_file_path.string()
-                      << "' file and try to compile it using a different method!" << std::endl;
+                      << "' file and try to compile it using a different method!\n\nThe output of the compilation was the following:\n"
+                      << output << std::endl;
+            return;
         } else {
             // Only remove the ll file if it has compiled successfully. If it did fail compilation, keep the file for further investigations
             std::filesystem::remove(ll_file_path);
         }
+        std::cout << "Build successful" << std::endl;
     }
 }
 
