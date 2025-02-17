@@ -63,7 +63,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         VariantNode variant_node = create_variant(definition_tokens, body_tokens);
         file_node.add_variant(variant_node);
     } else {
-        Debug::print_token_context_vector(definition_tokens);
+        Debug::print_token_context_vector(definition_tokens, file_name);
         THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_name, definition_tokens);
         return false;
     }

@@ -77,7 +77,7 @@ namespace Debug {
 
     /// print_token_context_vector
     ///     Prints all the TokenContext elements of the vector to the console
-    void print_token_context_vector(const token_list &tokens) {
+    void print_token_context_vector(const token_list &tokens, const std::string &file_name) {
         for (const TokenContext &tc : tokens) {
             std::string name = get_token_name(tc.type);
 
