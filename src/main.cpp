@@ -48,19 +48,22 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
     // Parse the .ft file and resolve all inclusions
     std::optional<FileNode> file = Parser(source_file_path).parse();
     if (!file.has_value()) {
-        std::cerr << "ERROR: Failed to parse file '" << source_file_path.filename() << "'" << std::endl;
+        std::cerr << "Error: Failed to parse file '" << source_file_path.filename() << "'" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     Debug::AST::print_file(file.value());
-    std::shared_ptr<DepNode> dep_graph;
-    dep_graph = Resolver::create_dependency_graph(file.value(), source_file_path.parent_path());
-    Debug::Dep::print_dep_tree(0, dep_graph);
+    auto dep_graph = Resolver::create_dependency_graph(file.value(), source_file_path.parent_path());
+    if (!dep_graph.has_value()) {
+        std::cerr << "Error: Failed to create dependency graph" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    Debug::Dep::print_dep_tree(0, dep_graph.value());
     Parser::resolve_call_types();
 
     // Generate the whole program
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> program;
-    program = Generator::generate_program_ir("main", context, dep_graph);
+    program = Generator::generate_program_ir("main", context, dep_graph.value());
 
     // Write the code to the normal output.bc file
     std::error_code EC;

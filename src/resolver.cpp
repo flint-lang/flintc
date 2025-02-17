@@ -7,9 +7,9 @@
 #include "profiler.hpp"
 
 #include <filesystem>
+#include <future>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <variant>
 
 std::unordered_map<std::string, std::shared_ptr<DepNode>> Resolver::dependency_node_map;
@@ -30,7 +30,7 @@ std::mutex Resolver::path_map_mutex;
 /// create_dependency_graph
 ///     Takes a main file and resolves all file imports, causing the AST generation of all used files
 ///     Moves ownership of the file_node, so it is considered unsafe to access it after ths function call!
-std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, const std::filesystem::path &path) {
+std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph(FileNode &file_node, const std::filesystem::path &path) {
     PROFILE_SCOPE("Create dependency graph");
     // Add the files path to the path map
     const std::string file_name = file_node.file_name;
@@ -59,16 +59,32 @@ std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, 
         auto open_duplicates = extract_duplicates(open_dependencies);
 
         // Parse current level's files in parallel
-        std::vector<std::thread> parsing_threads;
+        std::vector<std::future<bool>> futures;
+        futures.reserve(open_dependencies.size());
 
         // For all files in the open dependencies map
         for (const auto &[open_dep_name, deps] : open_dependencies) {
             // For all the dependencies of said file
-            parsing_threads.emplace_back(process_dependency_file, open_dep_name, deps, std::ref(next_dependencies));
+            futures.push_back(                  //
+                std::async(std::launch::async,  //
+                    process_dependency_file,    //
+                    open_dep_name,              //
+                    deps,                       //
+                    std::ref(next_dependencies) //
+                    )                           //
+            );
         }
-        // Wait for all threads to finish
-        for (auto &thread : parsing_threads) {
-            thread.join();
+        // Check results from all threads
+        bool any_failed = false;
+        for (auto &future : futures) {
+            bool result = future.get();
+            if (!result) {
+                any_failed = true;
+            }
+        }
+        if (any_failed) {
+            std::cerr << "Error: Failed to process one or more dependencies" << std::endl;
+            return std::nullopt;
         }
         // Append the duplicate dependencies to the next_dependencies, so that they will run the next iteration
         for (const auto &[name, deps] : open_duplicates) {
