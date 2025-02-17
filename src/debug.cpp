@@ -78,6 +78,10 @@ namespace Debug {
     /// print_token_context_vector
     ///     Prints all the TokenContext elements of the vector to the console
     void print_token_context_vector(const token_list &tokens, const std::string &file_name) {
+        if (!DEBUG_MODE) {
+            return;
+        }
+        std::cout << YELLOW << "[Debug Info] Printing token vector of file '" << file_name << "'" << DEFAULT << std::endl;
         for (const TokenContext &tc : tokens) {
             std::string name = get_token_name(tc.type);
 
@@ -138,6 +142,12 @@ namespace Debug {
         /// print_dep_tree
         ///     Prints the dependency tree and marks if a reference is direct or indirect (weak_ptr)
         void print_dep_tree(unsigned int indent_lvl, const std::variant<std::shared_ptr<DepNode>, std::weak_ptr<DepNode>> &dep_node) {
+            if (!DEBUG_MODE) {
+                return;
+            }
+            if (indent_lvl == 0) {
+                std::cout << YELLOW << "[Debug Info] Printing depenceny tree" << DEFAULT << std::endl;
+            }
             if (std::holds_alternative<std::weak_ptr<DepNode>>(dep_node)) {
                 std::cout << std::get<std::weak_ptr<DepNode>>(dep_node).lock()->file_name << " [weak]" << std::endl;
                 return;
@@ -155,6 +165,9 @@ namespace Debug {
                     std::cout << " " << tree_characters.at(SINGLE) << tree_characters.at(HOR) << " ";
                 }
                 print_dep_tree(indent_lvl + 1, *dep);
+            }
+            if (indent_lvl == 0) {
+                std::cout << std::endl;
             }
         }
     } // namespace Dep
@@ -225,7 +238,11 @@ namespace Debug {
         /// print_ast_tree
         ///     Prints the whole AST Tree recursively
         void print_file(const FileNode &file) {
-            std::cout << std::endl << "File \"" << file.file_name << "\"" << std::endl;
+            if (!DEBUG_MODE) {
+                return;
+            }
+            std::cout << YELLOW << "[Debug Info] Printing AST of file '" << file.file_name << "'" << DEFAULT << std::endl;
+            std::cout << "File \"" << file.file_name << "\"" << std::endl;
             unsigned int counter = 0;
             uint2 empty = {0, 0};
             for (const std::unique_ptr<ASTNode> &node : file.definitions) {

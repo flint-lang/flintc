@@ -1,4 +1,5 @@
 #include "profiler.hpp"
+#include "debug.hpp"
 
 std::map<std::string, ProfileData> Profiler::profiles;
 
@@ -28,6 +29,10 @@ void Profiler::end_task(const std::string &task) {
 }
 
 void Profiler::print_results(TimeUnit unit) {
+    if (!DEBUG_MODE) {
+        return;
+    }
+    std::cout << YELLOW << "[Debug Info] Printing results of the profiler" << std::endl;
     switch (unit) {
         case TimeUnit::NS:
             print_results<std::chrono::nanoseconds>("ns");

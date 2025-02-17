@@ -1,5 +1,6 @@
 #include "generator/generator.hpp"
 
+#include "debug.hpp"
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "parser/ast/ast_node.hpp"
@@ -158,9 +159,10 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     }
     main_call_array[0]->getCalledOperandUse().set(main_function);
 
-    std::cout << " -------- IR-CODE -------- \n"
-              << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
-              << std::endl;
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program\n"
+                  << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+    }
 
     // Verify and emit the module
     llvm::verifyModule(*module, &llvm::errs());
