@@ -1,6 +1,7 @@
 #ifndef __CLI_PARSER_BASE_HPP__
 #define __CLI_PARSER_BASE_HPP__
 
+#include <array>
 #include <filesystem>
 #include <iostream>
 #include <sys/types.h>
@@ -14,6 +15,34 @@ class CLIParserBase {
 
     // Pure virtual function
     virtual int parse() = 0;
+
+    /// get_command_output
+    ///     Executes an command and returns the output of the command
+    static std::string get_command_output(const std::string &command) {
+        constexpr std::size_t BUFFER_SIZE = 128;
+        std::string output;
+        FILE *pipe = popen(command.c_str(), "r");
+
+        if (pipe == nullptr) {
+            throw std::runtime_error("popen() failed!");
+        }
+
+        try {
+            std::array<char, BUFFER_SIZE> buffer{};
+            while (fgets(buffer.data(), BUFFER_SIZE, pipe) != nullptr) {
+                output.append(buffer.data());
+            }
+
+            if (pclose(pipe) == -1) {
+                throw std::runtime_error("pclose() failed!");
+            }
+        } catch (...) {
+            pclose(pipe);
+            throw;
+        }
+
+        return output;
+    }
 
   protected:
     // Protected constructor - only derived classes can use it

@@ -1,6 +1,7 @@
 #ifndef __TEST_UTILS_HPP__
 #define __TEST_UTILS_HPP__
 
+#include "cli_parser_base.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
 #include "result.hpp"
@@ -51,34 +52,6 @@ static void run_all_tests(TestResult &result, const std::vector<function_list> &
     }
 }
 
-/// get_command_output
-///     Executes an command and returns the output of the command
-static std::string get_command_output(const std::string &command) {
-    constexpr std::size_t BUFFER_SIZE = 128;
-    std::string output;
-    FILE *pipe = popen(command.c_str(), "r");
-
-    if (pipe == nullptr) {
-        throw std::runtime_error("popen() failed!");
-    }
-
-    try {
-        std::array<char, BUFFER_SIZE> buffer{};
-        while (fgets(buffer.data(), BUFFER_SIZE, pipe) != nullptr) {
-            output.append(buffer.data());
-        }
-
-        if (pclose(pipe) == -1) {
-            throw std::runtime_error("pclose() failed!");
-        }
-    } catch (...) {
-        pclose(pipe);
-        throw;
-    }
-
-    return output;
-}
-
 /// run_performance_test
 ///     Runs a performance test to compare Flint to C code
 static void run_performance_test(const std::filesystem::path &test_path, const std::string &compile_flags, const unsigned int count) {
@@ -100,8 +73,8 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
     }
     // Then, compile both the .ft and the .c file to their respective executables
     // Use the 'get_command_output' to not print any of the output to the console
-    get_command_output(c_compile_command + " 2>&1");
-    get_command_output(ft_compile_command + " 2>&1");
+    CLIParserBase::get_command_output(c_compile_command + " 2>&1");
+    CLIParserBase::get_command_output(ft_compile_command + " 2>&1");
 
     // Set both timers to 0
     long c_duration = 0;
@@ -112,9 +85,9 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
     // Finally, run both programs and save their outputs
     for (unsigned int i = 0; i < count; ++i) {
         const auto start = std::chrono::high_resolution_clock::now();
-        const std::string c_test = get_command_output(c_bin);
+        const std::string c_test = CLIParserBase::get_command_output(c_bin);
         const auto middle = std::chrono::high_resolution_clock::now();
-        const std::string ft_test = get_command_output(ft_bin);
+        const std::string ft_test = CLIParserBase::get_command_output(ft_bin);
         const auto end = std::chrono::high_resolution_clock::now();
 
         c_duration += std::chrono::duration_cast<std::chrono::microseconds>(middle - start).count();
