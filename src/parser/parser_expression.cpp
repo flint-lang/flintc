@@ -155,6 +155,10 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
             rhs.value()->type);
         return std::nullopt;
     }
+    // The binop expression is of type bool when its a relational operator
+    if (Signature::tokens_contain({{operator_token}}, Signature::relational_binop)) {
+        return BinaryOpNode(operator_token, lhs.value(), rhs.value(), "bool");
+    }
     return BinaryOpNode(operator_token, lhs.value(), rhs.value(), lhs.value()->type);
 }
 
