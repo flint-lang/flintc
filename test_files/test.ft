@@ -1,6 +1,10 @@
 use "add.ft"
+use "divide.ft"
 
 def main():
 	int res = add_more(10, 2);
+	print(res);
+	print("\n");
+	res = divide(res, 2);
 	print(res);
 	print("\n");
