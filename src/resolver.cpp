@@ -82,7 +82,7 @@ std::shared_ptr<DepNode> Resolver::create_dependency_graph(FileNode &file_node, 
 
 /// process_dependency_file
 ///     Processes a dependency file
-void Resolver::process_dependency_file(                               //
+bool Resolver::process_dependency_file(                               //
     const std::string &dep_name,                                      //
     const std::vector<dependency> &dependencies,                      //
     std::map<std::string, std::vector<dependency>> &next_dependencies //
@@ -108,12 +108,16 @@ void Resolver::process_dependency_file(                               //
         }
         // File is not yet part of the dependency tree, parse it
         std::filesystem::path dep_file_path = file_dep.first / file_dep.second;
-        FileNode file = Parser(dep_file_path).parse();
+        std::optional<FileNode> file = Parser(dep_file_path).parse();
+        if (!file.has_value()) {
+            std::cerr << "Error: File '" << dep_file_path.filename() << "' could not be parsed!";
+            return false;
+        }
         // Save the file name, as the file itself moves its ownership in the call below
-        std::string parsed_file_name = file.file_name;
+        std::string parsed_file_name = file.value().file_name;
         // Add all dependencies of the file and the file itself to the file map and the dependency map
         // Also return a created DepNode, but its dependants are not created yet
-        std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file, file_dep.first);
+        std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file.value(), file_dep.first);
         if (!base_maybe.has_value()) {
             // File already exists in the dependency map, so it can be added to the "root" DepNode as a weak ptr
             std::lock_guard<std::mutex> lock(dependency_node_map_mutex);
@@ -143,6 +147,7 @@ void Resolver::process_dependency_file(                               //
             }
         } // The mutex will be unlocked automatically when it goes out of scope
     }
+    return true;
 }
 
 /// get_dependency_graph_tips
