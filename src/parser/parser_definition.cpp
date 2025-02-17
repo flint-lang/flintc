@@ -70,7 +70,7 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
     // Create the body and add the body statements to the created scope
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());

@@ -32,6 +32,7 @@
 #include "error_types/parsing/expressions/err_expr_unop_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_variable_creation_failed.hpp"
 
+#include "error_types/parsing/scopes/err_body_creation_failed.hpp"
 #include "error_types/parsing/scopes/err_missing_body.hpp"
 #include "error_types/parsing/scopes/err_unclosed_paren.hpp"
 

@@ -113,7 +113,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     auto body_statements = create_body(body_scope.get(), this_if_pair.second);
     if (!body_statements.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, this_if_pair.second);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
@@ -129,7 +129,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
             std::unique_ptr<Scope> else_scope_ptr = std::make_unique<Scope>(scope);
             auto body_statements = create_body(else_scope_ptr.get(), if_chain.at(0).second);
             if (!body_statements.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, if_chain.at(0).second);
                 return std::nullopt;
             }
             else_scope_ptr->body = std::move(body_statements.value());
@@ -173,7 +173,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
@@ -245,7 +245,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     }
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
