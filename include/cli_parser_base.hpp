@@ -21,7 +21,7 @@ class CLIParserBase {
     static std::tuple<int, std::string> get_command_output(const std::string &command) {
         constexpr std::size_t BUFFER_SIZE = 128;
         std::string output;
-        FILE *pipe = popen(command.c_str(), "r");
+        FILE *pipe = popen((command + " 2>&1").c_str(), "r");
 
         if (pipe == nullptr) {
             throw std::runtime_error("popen() failed!");
