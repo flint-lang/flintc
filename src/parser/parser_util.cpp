@@ -4,7 +4,7 @@
 #include "error/error.hpp"
 #include "parser/signature.hpp"
 
-void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
+bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     token_list definition_tokens = get_definition_tokens(tokens);
 
     // Find the indentation of the definition
@@ -20,7 +20,7 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     if (Signature::tokens_contain(definition_tokens, Signature::use_statement)) {
         if (definition_indentation > 0) {
             THROW_ERR(ErrUseStatementNotAtTopLevel, ERR_PARSING, file_name, definition_tokens);
-            std::exit(EXIT_FAILURE);
+            return false;
         }
         ImportNode import_node = create_import(definition_tokens);
         file_node.add_import(import_node);
@@ -65,8 +65,9 @@ void Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     } else {
         Debug::print_token_context_vector(definition_tokens);
         THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_name, definition_tokens);
-        std::exit(EXIT_FAILURE);
+        return false;
     }
+    return true;
 }
 
 token_list Parser::get_definition_tokens(token_list &tokens) {

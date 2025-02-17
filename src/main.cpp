@@ -46,10 +46,14 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
     PROFILE_SCOPE("'generate_ll_file'");
 
     // Parse the .ft file and resolve all inclusions
-    FileNode file = Parser(source_file_path).parse();
-    Debug::AST::print_file(file);
+    std::optional<FileNode> file = Parser(source_file_path).parse();
+    if (!file.has_value()) {
+        std::cerr << "ERROR: Failed to parse file '" << source_file_path.filename() << "'" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    Debug::AST::print_file(file.value());
     std::shared_ptr<DepNode> dep_graph;
-    dep_graph = Resolver::create_dependency_graph(file, source_file_path.parent_path());
+    dep_graph = Resolver::create_dependency_graph(file.value(), source_file_path.parent_path());
     Debug::Dep::print_dep_tree(0, dep_graph);
     Parser::resolve_call_types();
 

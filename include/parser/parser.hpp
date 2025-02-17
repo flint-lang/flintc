@@ -55,11 +55,11 @@ class Parser {
     /// @brief Parses the file. It will tokenize it using the Lexer and then create the AST of the file and return the parsed FileNode
     ///
     /// @param `file` The path to the file to tokenize and parse
-    /// @return `FileNode` The parsed file
+    /// @return `std::optional<FileNode>` The parsed file, if it succeeded parsing
     ///
     /// @note This function creates a new Lexer class to tokenize the given file, so no further tokenization has to be made, this function
     /// takes care of the tokenization too
-    FileNode parse();
+    std::optional<FileNode> parse();
 
     /// @function `get_call_from_id`
     /// @brief Returns the call node from the given id
@@ -156,7 +156,8 @@ class Parser {
     ///
     /// @param `file_node` The file node the next created main node will be added to
     /// @param `tokens` The list of tokens from which the next main node will be created from
-    void add_next_main_node(FileNode &file_node, token_list &tokens);
+    /// @return `bool` Whether the next main node was added correctly. Returns false if there was an error
+    bool add_next_main_node(FileNode &file_node, token_list &tokens);
 
     /// @function `get_definition_tokens`
     /// @brief Extracts all the tokens which are part of the definition

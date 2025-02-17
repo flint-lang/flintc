@@ -18,15 +18,21 @@
 std::map<unsigned int, CallNodeBase *> Parser::call_nodes;
 std::mutex Parser::call_nodes_mutex;
 
-FileNode Parser::parse() {
+std::optional<FileNode> Parser::parse() {
     std::string file_name = file.filename();
     PROFILE_SCOPE("Parsing file '" + file_name + "'");
     FileNode file_node(file_name);
     token_list tokens = Lexer(file).scan();
     Debug::print_token_context_vector(tokens);
     // Consume all tokens and convert them to nodes
+    bool had_failure = false;
     while (!tokens.empty()) {
-        add_next_main_node(file_node, tokens);
+        if (!add_next_main_node(file_node, tokens)) {
+            had_failure = true;
+        }
+    }
+    if (had_failure) {
+        return std::nullopt;
     }
     return file_node;
 }
