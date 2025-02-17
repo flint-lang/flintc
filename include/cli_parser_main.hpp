@@ -80,7 +80,7 @@ class CLIParserMain : public CLIParserBase {
 
     std::filesystem::path source_file_path = "";
     std::filesystem::path out_file_path = "main";
-    std::string compile_command{"zig c++"};
+    std::string compile_command{"clang"};
     std::string compile_flags{""};
     std::filesystem::path ll_file_path = "";
     bool build_exe{true};
