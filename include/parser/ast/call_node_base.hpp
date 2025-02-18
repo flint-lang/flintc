@@ -14,7 +14,7 @@ class CallNodeBase {
     CallNodeBase(std::string function_name, std::vector<std::unique_ptr<ExpressionNode>> arguments, std::string type) :
         function_name(std::move(function_name)),
         arguments(std::move(arguments)),
-        type(std::move(type)) {}
+        type(type) {}
 
     // deconstructor
     ~CallNodeBase() = default;

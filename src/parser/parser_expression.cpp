@@ -69,7 +69,7 @@ std::optional<std::unique_ptr<CallNodeExpression>> Parser::create_call_expressio
     }
     std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
         std::get<0>(call_node_args.value()),                                              // name
-        std::move(std::get<1>(call_node_args.value())),                                   // args
+        std::get<1>(call_node_args.value()),                                              // args
         std::get<2>(call_node_args.value())                                               // type
     );
     set_last_parsed_call(call_node->call_id, call_node.get());
