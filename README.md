@@ -47,6 +47,17 @@ Currently, only the most basic features are working:
 
 ## Building
 
-The build process is easy...just clone the `flintc` repository and execute `nix-shell` in the base directory (if you have nix installed, this will result in the correct packages and dependencies being fetched and make will be executed automatically) or just execute `make` directly if you have the llvm dependencies installed on your system, thats it!
+You need `nkx` installed on your machine ([https://nix.dev/install-nix.html](https://nix.dev/install-nix.html)).
+The build process then is easy. Just clone the `flintc` repository and execute
+```sh
+nix-shell
+```
+in the base directory (if you have nix installed). This will result in the correct packages and dependencies being fetched.
+When inside the nix-shell, execute
+```sh
+./scripts/build.sh
+```
+to build the project. You can optionally add the `debug` option when calling the build script, it then will create a debug build.
+You could also, alternatively, ensure manually that all dependencies are installed and just call the build script without `nix`.
 
 To get correct highlighting and code completion of llvm-stuff, look at [this](llvm/Readme.md) Readme!
