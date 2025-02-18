@@ -270,6 +270,11 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                     return std::nullopt;
                 }
                 std::string type = scope->variable_types.at(iterator->lexme).first;
+                // Check if expression has the same type as the variable
+                if (expression.value()->type != type) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, type, expression.value()->type);
+                    return std::nullopt;
+                }
                 return std::make_unique<AssignmentNode>(type, iterator->lexme, expression.value());
             } else {
                 THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
@@ -339,6 +344,11 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
         if (!scope->add_variable_type(name, type, scope->scope_id)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
+            return std::nullopt;
+        }
+        // Check if expression has the same type as the variable
+        if (expr.value()->type != type) {
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, type, expr.value()->type);
             return std::nullopt;
         }
         declaration = DeclarationNode(type, name, expr.value());
