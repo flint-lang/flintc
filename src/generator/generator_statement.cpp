@@ -528,12 +528,35 @@ void Generator::Statement::generate_assignment(                                 
 ) {
     llvm::Value *expression = Expression::generate_expression(builder, parent, scope, allocations, assignment_node->expression.get());
 
+    // Check if the variable is declared
     if (scope->variable_types.find(assignment_node->name) == scope->variable_types.end()) {
         // Error: Undeclared Variable
         THROW_BASIC_ERR(ERR_GENERATING);
     }
+    // Get the allocation of the lhs
     const unsigned int variable_decl_scope = scope->variable_types.at(assignment_node->name).second;
     llvm::AllocaInst *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
+
+    // Check if the rhs is a function call
+    if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(assignment_node->expression.get())) {
+        const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
+        llvm::AllocaInst *const alloca_ret = allocations.at(call_ret_name);
+
+        // Extract the actual return value (index 1)
+        llvm::Value *value_ptr = builder.CreateStructGEP( //
+            expression->getType(),                        //
+            alloca_ret,                                   //
+            1,                                            //
+            assignment_node->name + "__VAL_PTR"           //
+        );
+        llvm::LoadInst *value_load = builder.CreateLoad( //
+            lhs->getAllocatedType(),                     //
+            value_ptr,                                   //
+            assignment_node->name + "__VAL"              //
+        );
+        // Use the extracted value instead of the struct
+        expression = value_load;
+    }
 
     llvm::StoreInst *store = builder.CreateStore(expression, lhs);
     store->setMetadata("comment",
