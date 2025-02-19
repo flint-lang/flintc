@@ -67,8 +67,6 @@ bool Parser::parse_all_open_functions() {
                 return false;
             }
             function->scope.get()->body = std::move(body_statements.value());
-            std::cout << "NEXT: " << function->name << ": " << std::endl;
-
             next = parser.get_next_open_function();
         }
         return true;
