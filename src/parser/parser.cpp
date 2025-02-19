@@ -2,6 +2,7 @@
 
 #include "debug.hpp"
 #include "lexer/lexer.hpp"
+#include "parallel.hpp"
 #include "profiler.hpp"
 
 #include <cassert>
@@ -54,6 +55,8 @@ std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
 
 bool Parser::parse_all_open_functions() {
     PROFILE_SCOPE("Parse Open Functions");
+    // Create a function object type that matches what reduce_on_all expects
+    auto process_parser = [](Parser &parser) -> bool {
         auto next = parser.get_next_open_function();
         while (next.has_value()) {
             auto &[function, tokens] = next.value();
@@ -68,7 +71,16 @@ bool Parser::parse_all_open_functions() {
 
             next = parser.get_next_open_function();
         }
-    }
+        return true;
+    };
+
+    // Create explicit reducer and initializer functions
+    auto reducer = [](bool a, bool b) -> bool { return a && b; };
+    auto initializer = []() -> bool { return true; };
+
+    // Call reduce_on_all with explicit template parameters if needed
+    bool result = Parallel::reduce_on_all(process_parser, instances.begin(), instances.end(), reducer, initializer);
+
     instances.clear();
-    return true;
+    return result;
 }
