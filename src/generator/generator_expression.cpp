@@ -159,7 +159,7 @@ llvm::Value *Generator::Expression::generate_call(                         //
 
     // Check if it is a builtin function and call it
     if (builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
-        llvm::Function *builtin_function = builtins.at(builtin_functions.at(call_node->function_name));
+        llvm::Function *builtin_function = builtins.at(builtin_functions.at(call_node->function_name).first);
         if (builtin_function == nullptr) {
             // Function has not been generated yet, but it should have been
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
