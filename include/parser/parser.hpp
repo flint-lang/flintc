@@ -36,10 +36,10 @@
 
 #include <cassert>
 #include <filesystem>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <tuple>
 #include <utility>
 
 /// @class `Parser`
@@ -47,9 +47,9 @@
 /// @note This class cannot be initialized and all functions within this class are static
 class Parser {
   public:
-    explicit Parser(const std::filesystem::path &file) :
-        file(file),
-        file_name(file.filename().string()) {};
+    /// @function `create`
+    /// @brief Creates a new instance of the Parser. The parser itself owns all instances of the parser
+    static Parser *create(const std::filesystem::path &file);
 
     /// @function `parse`
     /// @brief Parses the file. It will tokenize it using the Lexer and then create the AST of the file and return the parsed FileNode
@@ -68,16 +68,27 @@ class Parser {
     /// @return `std::optional<CallNodeBase *>` An optional pointer to the CallNodeBase, nullopt if no call with the given call id exists
     static std::optional<CallNodeBase *> get_call_from_id(unsigned int call_id);
 
-    /// @function `resolve_call_types`
-    /// @brief Resolves all types of all calls
-    static void resolve_call_types();
+    /// @function `parse_all_open_functions`
+    /// @brief Parses all still open function bodies
+    ///
+    /// @return `bool` Wheter all functions were able to be parsed
+    static bool parse_all_open_functions();
 
   private:
+    // The constructor is private because only the Parser (the instances list) contains the actual Parser
+    explicit Parser(const std::filesystem::path &file) :
+        file(file),
+        file_name(file.filename().string()) {};
+
+    /// @var `instances`
+    /// @brief All Parser instances which are present. Used by the two-pass parsing system
+    static std::vector<Parser> instances;
+
     /// @var `token_precedence`
     /// @brief
     ///
-    /// This map exists to map the token types to their respective precedence values. The higher the precedence the sooner this token will
-    /// be evaluated in, for example, a binary operation.
+    /// @details This map exists to map the token types to their respective precedence values. The higher the precedence the sooner this
+    /// token will be evaluated in, for example, a binary operation.
     ///
     /// @details
     /// - **Key** `Token` - The enum value of token type whose precedence is set
@@ -100,17 +111,31 @@ class Parser {
         {TOK_EQUAL, 0},
     };
 
-    /// @var `call_nodes`
+    /// @var `parsed_calls`
     /// @brief Stores all the calls that have been parsed
     ///
-    /// This map exists to keep track of all parsed call nodes. This map is not allowed to be changed to an unordered_map, because the
-    /// elements of the map are required to perserve their ordering. Most of times only the last element from this map is searched for, this
-    /// is the reason to why the ordering is important.
-    static std::map<unsigned int, CallNodeBase *> call_nodes;
+    /// @details This map exists to keep track of all parsed call nodes. This map is not allowed to be changed to an unordered_map, because
+    /// the elements of the map are required to perserve their ordering. Most of times only the last element from this map is searched for,
+    /// this is the reason to why the ordering is important.
+    static std::map<unsigned int, CallNodeBase *> parsed_calls;
 
-    /// @var `call_nodes_mutex`
-    /// @brief A mutex for the `call_nodes` variable, which is used to provide thread-safe access to the map
-    static std::mutex call_nodes_mutex;
+    /// @var `parsed_calls_nodes_mutex`
+    /// @brief A mutex for the `parsed_calls` variable, which is used to provide thread-safe access to the map
+    static std::mutex parsed_calls_mutex;
+
+    /// @var `parsed_functions`
+    /// @brief Stores all the functions that have been parsed
+    ///
+    /// @details This list exists to keep track of all parsed function nodes.
+    static std::vector<std::pair<FunctionNode *, std::string>> parsed_functions;
+
+    /// @var `parsed_functions_mutex`
+    /// @brief A mutex for the `parsed_functions` variable, which is used to provide thread-safe access to the list
+    static std::mutex parsed_functions_mutex;
+
+    /// @var `open_functions_list`
+    /// @brief The list of all open functions, which will be parsed in the second phase of the parser
+    std::vector<std::pair<FunctionNode *, token_list>> open_functions_list{};
 
     /// @var `file`
     /// @brief The path to the file to parse
@@ -127,8 +152,8 @@ class Parser {
     /// @param `call` The pointer to the base of the CallNode to add
     static inline void set_last_parsed_call(unsigned int call_id, CallNodeBase *call) {
         // The mutex will unlock by itself when it goes out of scope
-        std::lock_guard<std::mutex> lock(call_nodes_mutex);
-        call_nodes.emplace(call_id, call);
+        std::lock_guard<std::mutex> lock(parsed_calls_mutex);
+        parsed_calls.emplace(call_id, call);
     }
 
     /// @function `get_last_parsed_call_id`
@@ -139,9 +164,74 @@ class Parser {
     /// @attention Asserts that the call_nodes map contains at least one element
     static inline unsigned int get_last_parsed_call_id() {
         // The mutex will unlock by itself when it goes out of scope
-        std::lock_guard<std::mutex> lock(call_nodes_mutex);
-        assert(!call_nodes.empty());
-        return call_nodes.rbegin()->first;
+        std::lock_guard<std::mutex> lock(parsed_calls_mutex);
+        assert(!parsed_calls.empty());
+        return parsed_calls.rbegin()->first;
+    }
+
+    /// @function `add_parsed_function`
+    /// @brief Adds a given function combined with the file it is contained in
+    ///
+    /// @param `function_node` The function which was parsed
+    /// @param `file_name` The name of the file the function was parsed in
+    static inline void add_parsed_function(FunctionNode *function_node, std::string file_name) {
+        std::lock_guard<std::mutex> lock(parsed_functions_mutex);
+        parsed_functions.emplace_back(function_node, file_name);
+    }
+
+    /// @function `get_function_from_call`
+    /// @brief Looks through all parsed functions for a match for the given function call
+    ///
+    /// @param `call_node` The call node the search for the corresponding FunctionNode is done for
+    /// @return `std::optional<std::pair<FunctionNode *, std::string>>` A pair of the function node and its file, or nullopt if no match
+    /// could be found
+    ///
+    /// @attention Asserts that the parameter `call_node` is not a nullptr
+    static inline std::optional<std::pair<FunctionNode *, std::string>> //
+    get_function_from_call(const std::string &call_name, const std::vector<std::string> &arg_types) {
+        std::lock_guard<std::mutex> lock(parsed_functions_mutex);
+        std::vector<std::string> fn_arg_types;
+        for (const auto &[fn, file_name] : parsed_functions) {
+            if (fn->name != call_name) {
+                continue;
+            }
+            if (fn->parameters.size() != arg_types.size()) {
+                continue;
+            }
+            fn_arg_types.reserve(fn->parameters.size());
+            for (const auto &[type, name] : fn->parameters) {
+                fn_arg_types.emplace_back(type);
+            }
+            if (fn_arg_types != arg_types) {
+                fn_arg_types.clear();
+                continue;
+            }
+            return std::make_pair(fn, file_name);
+        }
+        return std::nullopt;
+    }
+
+    /// @function `add_open_function`
+    /// @brief Adds a open function to the list of all open functions
+    ///
+    /// @param `open_function` A rvalue reference to the OpenFunction to add to the list
+    ///
+    /// @attention This function takes ownership of the `open_functions` parameter
+    void add_open_function(std::pair<FunctionNode *, token_list> &&open_function) {
+        open_functions_list.push_back(std::move(open_function));
+    }
+
+    /// @function `get_next_open_function`
+    /// @brief Returns the next open function to parse
+    ///
+    /// @return `std::optional<OpenFunction>` The next Open Function to parse. Returns a nullopt if there are no open functions left
+    std::optional<std::pair<FunctionNode *, token_list>> get_next_open_function() {
+        if (open_functions_list.empty()) {
+            return std::nullopt;
+        }
+        std::pair<FunctionNode *, token_list> of = std::move(open_functions_list.back());
+        open_functions_list.pop_back();
+        return of;
     }
 
     /**************************************************************************************************************************************

@@ -124,7 +124,7 @@ bool Resolver::process_dependency_file(                               //
         }
         // File is not yet part of the dependency tree, parse it
         std::filesystem::path dep_file_path = file_dep.first / file_dep.second;
-        std::optional<FileNode> file = Parser(dep_file_path).parse();
+        std::optional<FileNode> file = Parser::create(dep_file_path)->parse();
         if (!file.has_value()) {
             std::cerr << "Error: File '" << dep_file_path.filename() << "' could not be parsed!";
             return false;

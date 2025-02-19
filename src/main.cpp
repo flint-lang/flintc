@@ -49,19 +49,19 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
     PROFILE_SCOPE("'generate_ll_file'");
 
     // Parse the .ft file and resolve all inclusions
-    std::optional<FileNode> file = Parser(source_file_path).parse();
+    std::optional<FileNode> file = Parser::create(source_file_path)->parse();
     if (!file.has_value()) {
         std::cerr << "Error: Failed to parse file '" << source_file_path.filename() << "'" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    Debug::AST::print_file(file.value());
     auto dep_graph = Resolver::create_dependency_graph(file.value(), source_file_path.parent_path());
     if (!dep_graph.has_value()) {
         std::cerr << "Error: Failed to create dependency graph" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     Debug::Dep::print_dep_tree(0, dep_graph.value());
-    Parser::resolve_call_types();
+    Parser::parse_all_open_functions();
+    Debug::AST::print_file(file.value());
 
     // Generate the whole program
     llvm::LLVMContext context;

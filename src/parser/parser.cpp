@@ -3,20 +3,26 @@
 #include "debug.hpp"
 #include "lexer/lexer.hpp"
 #include "profiler.hpp"
-#include "resolver/resolver.hpp"
 
 #include <cassert>
 #include <cmath>
 #include <filesystem>
-#include <iterator>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
-#include <tuple>
 #include <utility>
 
-std::map<unsigned int, CallNodeBase *> Parser::call_nodes;
-std::mutex Parser::call_nodes_mutex;
+std::vector<Parser> Parser::instances;
+std::map<unsigned int, CallNodeBase *> Parser::parsed_calls;
+std::mutex Parser::parsed_calls_mutex;
+std::vector<std::pair<FunctionNode *, std::string>> Parser::parsed_functions;
+std::mutex Parser::parsed_functions_mutex;
+
+Parser *Parser::create(const std::filesystem::path &file) {
+    instances.emplace_back(Parser(file));
+    return &instances.back();
+}
 
 std::optional<FileNode> Parser::parse() {
     std::string file_name = file.filename();
@@ -39,36 +45,30 @@ std::optional<FileNode> Parser::parse() {
 
 std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
     // The mutex will unlock by itself when it goes out of scope
-    std::lock_guard<std::mutex> lock(call_nodes_mutex);
-    if (call_nodes.find(call_id) != call_nodes.end()) {
-        return call_nodes.at(call_id);
+    std::lock_guard<std::mutex> lock(parsed_calls_mutex);
+    if (parsed_calls.find(call_id) != parsed_calls.end()) {
+        return parsed_calls.at(call_id);
     }
     return std::nullopt;
 }
 
-void Parser::resolve_call_types() {
-    // The mutex will unlock by itself when it goes out of scope
-    std::lock_guard<std::mutex> lock(call_nodes_mutex);
-    for (const auto &[file_name, file] : Resolver::file_map) {
-        // First, get the list of all function types inside this file
-        std::unordered_map<std::string, std::string> function_types;
-        for (const auto &node : file.definitions) {
-            if (const auto *function_node = dynamic_cast<const FunctionNode *>(node.get())) {
-                std::string return_type;
-                for (const auto &ret_type : function_node->return_types) {
-                    return_type += ret_type;
-                }
-                function_types.emplace(function_node->name, return_type);
+bool Parser::parse_all_open_functions() {
+    for (Parser &parser : instances) {
+        auto next = parser.get_next_open_function();
+        while (next.has_value()) {
+            auto &[function, tokens] = next.value();
+            // Create the body and add the body statements to the created scope
+            auto body_statements = parser.create_body(function->scope.get(), tokens);
+            if (!body_statements.has_value()) {
+                THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, tokens);
+                return false;
             }
-        }
-        for (auto it = call_nodes.begin(); it != call_nodes.end();) {
-            if (function_types.find(it->second->function_name) != function_types.end()) {
-                it->second->type = function_types.at(it->second->function_name);
-                ++it;
-                call_nodes.erase(std::prev(it));
-            } else {
-                ++it;
-            }
+            function->scope.get()->body = std::move(body_statements.value());
+            std::cout << "NEXT: " << function->name << ": " << std::endl;
+
+            next = parser.get_next_open_function();
         }
     }
+    instances.clear();
+    return true;
 }

@@ -47,8 +47,9 @@ class FileNode : public ASTNode {
         definitions.emplace_back(std::make_unique<EntityNode>(std::move(entity)));
     }
 
-    void add_function(FunctionNode &function) {
+    FunctionNode *add_function(FunctionNode &function) {
         definitions.emplace_back(std::make_unique<FunctionNode>(std::move(function)));
+        return static_cast<FunctionNode *>(definitions.back().get());
     }
 
     void add_enum(EnumNode &enum_node) {

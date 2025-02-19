@@ -2,9 +2,11 @@ use "add.ft"
 use "divide.ft"
 
 def main():
-	int res = add_more(10, 2);
+	res := add_more(10, 2);
 	print(res);
 	print("\n");
-	res = divide(res, 2);
+	res = divide(res, 26) catch err:
+		print(err);
+		print("Couldnt divide cause reasons!\n");
 	print(res);
 	print("\n");

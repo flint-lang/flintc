@@ -67,15 +67,16 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
         }
     }
 
-    // Create the body and add the body statements to the created scope
-    auto body_statements = create_body(body_scope.get(), body);
-    if (!body_statements.has_value()) {
-        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
-        return std::nullopt;
-    }
-    body_scope->body = std::move(body_statements.value());
-
+    // Dont parse the body yet, it will be parsed in the second pass of the parser
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);
+
+    // Create the body and add the body statements to the created scope
+    // auto body_statements = create_body(body_scope.get(), body);
+    // if (!body_statements.has_value()) {
+    //     THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
+    //     return std::nullopt;
+    // }
+    // body_scope->body = std::move(body_statements.value());
 }
 
 DataNode Parser::create_data(const token_list &definition, const token_list &body) {
@@ -160,6 +161,7 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
 
     auto body_iterator = body.begin();
     int current_line = -1;
+    FuncNode func_node = FuncNode(name, required_data, {});
     while (body_iterator != body.end()) {
         if (current_line == body_iterator->line) {
             ++body_iterator;
@@ -178,10 +180,11 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
             THROW_BASIC_ERR(ERR_PARSING);
         }
         functions.emplace_back(std::make_unique<FunctionNode>(std::move(function.value())));
+        add_open_function({functions.back().get(), function_body});
         ++body_iterator;
     }
-
-    return FuncNode(name, required_data, std::move(functions));
+    func_node.functions = std::move(functions);
+    return func_node;
 }
 
 Parser::create_entity_type Parser::create_entity(const token_list &definition, token_list &body) {

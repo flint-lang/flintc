@@ -1,3 +1,4 @@
+#include "lexer/builtins.hpp"
 #include "parser/parser.hpp"
 
 #include "debug.hpp"
@@ -26,12 +27,15 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         file_node.add_import(import_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::function_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+        // Dont actually parse the function body, only its definition
         std::optional<FunctionNode> function_node = create_function(definition_tokens, body_tokens);
         if (!function_node.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             std::exit(EXIT_FAILURE);
         }
-        file_node.add_function(function_node.value());
+        FunctionNode *added_function = file_node.add_function(function_node.value());
+        add_open_function({added_function, body_tokens});
+        add_parsed_function(added_function, file_name);
     } else if (Signature::tokens_contain(definition_tokens, Signature::data_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         DataNode data_node = create_data(definition_tokens, body_tokens);
@@ -187,5 +191,34 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
         }
     }
 
-    return std::make_tuple(function_name, std::move(arguments), "");
+    // Get all the argument types
+    std::vector<std::string> argument_types;
+    argument_types.reserve(arguments.size());
+    for (auto &arg : arguments) {
+        argument_types.emplace_back(arg->type);
+    }
+
+    // Check if its a call to a builtin function, if it is, get the return type of said function
+    if (builtin_functions.find(function_name) != builtin_functions.end()) {
+        const std::string return_type = std::string(builtin_functions.at(function_name).second);
+        return std::make_tuple(function_name, std::move(arguments), return_type);
+    }
+
+    auto function = get_function_from_call(function_name, argument_types);
+    if (!function.has_value()) {
+        // Call of undefined function
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // TODO: Change this eventually to support returning multiple types. Currently all return types are packed into one return type
+    std::string return_type;
+    auto &ret_types = function.value().first->return_types;
+    for (auto it = ret_types.begin(); it != ret_types.end(); ++it) {
+        if (it != ret_types.begin()) {
+            return_type += "," + *it;
+        } else {
+            return_type += *it;
+        }
+    }
+    return std::make_tuple(function_name, std::move(arguments), return_type);
 }

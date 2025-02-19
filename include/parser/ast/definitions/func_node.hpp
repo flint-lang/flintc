@@ -30,7 +30,6 @@ class FuncNode : public ASTNode {
     FuncNode(FuncNode &&) = default;
     FuncNode &operator=(FuncNode &&) = default;
 
-  private:
     /// name
     ///     The name of the func module
     std::string name;
