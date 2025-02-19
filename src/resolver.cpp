@@ -31,7 +31,7 @@ std::mutex Resolver::path_map_mutex;
 ///     Takes a main file and resolves all file imports, causing the AST generation of all used files
 ///     Moves ownership of the file_node, so it is considered unsafe to access it after ths function call!
 std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph(FileNode &file_node, const std::filesystem::path &path) {
-    PROFILE_SCOPE("Create dependency graph");
+    PROFILE_SCOPE("Parse dependency graph");
     // Add the files path to the path map
     const std::string file_name = file_node.file_name;
     Resolver::add_path(file_name, path);

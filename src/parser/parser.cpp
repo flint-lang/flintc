@@ -53,7 +53,7 @@ std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
 }
 
 bool Parser::parse_all_open_functions() {
-    for (Parser &parser : instances) {
+    PROFILE_SCOPE("Parse Open Functions");
         auto next = parser.get_next_open_function();
         while (next.has_value()) {
             auto &[function, tokens] = next.value();
