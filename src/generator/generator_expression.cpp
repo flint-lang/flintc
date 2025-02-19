@@ -190,7 +190,11 @@ llvm::Value *Generator::Expression::generate_call(                         //
     }
 
     // Create the call instruction using the original declaration
-    llvm::CallInst *call = builder.CreateCall(func_decl, args);
+    llvm::CallInst *call = builder.CreateCall(                                  //
+        func_decl,                                                              //
+        args,                                                                   //
+        call_node->function_name + std::to_string(call_node->call_id) + "_call" //
+    );
     call->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(), "Call of function '" + call_node->function_name + "'")));
@@ -204,10 +208,16 @@ llvm::Value *Generator::Expression::generate_call(                         //
     builder.CreateStore(call, res_var);
 
     // Extract and store error value
-    llvm::Value *err_ptr = builder.CreateStructGEP(res_var->getAllocatedType(), res_var, 0);
-    llvm::Value *err_val = builder.CreateLoad(        //
-        llvm::Type::getInt32Ty(builder.getContext()), //
-        err_ptr                                       //
+    llvm::Value *err_ptr = builder.CreateStructGEP(                                //
+        res_var->getAllocatedType(),                                               //
+        res_var,                                                                   //
+        0,                                                                         //
+        call_node->function_name + std::to_string(call_node->call_id) + "_err_ptr" //
+    );
+    llvm::Value *err_val = builder.CreateLoad(                                     //
+        llvm::Type::getInt32Ty(builder.getContext()),                              //
+        err_ptr,                                                                   //
+        call_node->function_name + std::to_string(call_node->call_id) + "_err_val" //
     );
     llvm::AllocaInst *err_var = allocations.at(call_err_name);
     builder.CreateStore(err_val, err_var);

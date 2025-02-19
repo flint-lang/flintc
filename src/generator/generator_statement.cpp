@@ -398,7 +398,7 @@ void Generator::Statement::generate_catch_statement(                       //
     llvm::LoadInst *err_val = builder.CreateLoad(                                                    //
         llvm::Type::getInt32Ty(builder.getContext()),                                                //
         err_var,                                                                                     //
-        call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_val" //
+        call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_err" //
     );
     err_val->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
