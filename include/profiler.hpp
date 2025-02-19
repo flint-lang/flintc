@@ -139,7 +139,11 @@ class ScopeProfiler {
 /// @brief Macro for creating a `ScopeProfiler` instance with a unique name.
 /// @param name Name of the task to profile.
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#ifdef DEBUG_BUILD
 #define PROFILE_SCOPE(name) ScopeProfiler CONCAT(sp_, __LINE__)(name)
+#else
+#define PROFILE_SCOPE(name) ((void)0)
+#endif
 
 /// @def CONCAT(a, b)
 /// @brief Macro for concatenating two tokens.
