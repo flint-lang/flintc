@@ -37,6 +37,10 @@ void build_executable(                         //
         } else {
             // Only remove the ll file if it has compiled successfully. If it did fail compilation, keep the file for further investigations
             std::filesystem::remove(ll_file_path);
+            // Print the compile output if in debug mode
+            if (DEBUG_MODE) {
+                std::cout << YELLOW << "[Debug Info] Compiler output: \n" << DEFAULT << output << std::endl;
+            }
         }
         std::cout << "Build successful" << std::endl;
     }
