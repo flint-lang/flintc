@@ -177,7 +177,7 @@ std::optional<FuncNode> Parser::create_func(const token_list &definition, token_
 
         std::optional<FunctionNode> function = create_function(function_definition, function_body);
         if (!function.has_value()) {
-            THROW_ERR(ErrFunctionDefinition, ERR_PARSING, file_name, function_definition);
+            THROW_ERR(ErrDefFunctionCreation, ERR_PARSING, file_name, function_definition);
             return std::nullopt;
         }
         functions.emplace_back(std::make_unique<FunctionNode>(std::move(function.value())));

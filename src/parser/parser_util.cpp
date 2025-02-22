@@ -30,7 +30,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         // Dont actually parse the function body, only its definition
         std::optional<FunctionNode> function_node = create_function(definition_tokens, body_tokens);
         if (!function_node.has_value()) {
-            THROW_ERR(ErrFunctionDefinition, ERR_PARSING, file_name, definition_tokens);
+            THROW_ERR(ErrDefFunctionCreation, ERR_PARSING, file_name, definition_tokens);
             return false;
         }
         FunctionNode *added_function = file_node.add_function(function_node.value());

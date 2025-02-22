@@ -20,7 +20,7 @@
 
 #include "error_types/parsing/err_parsing.hpp"
 
-#include "error_types/parsing/definitions/err_function_definition.hpp"
+#include "error_types/parsing/definitions/err_def_function_creation.hpp"
 #include "error_types/parsing/definitions/err_unexpected_definition.hpp"
 #include "error_types/parsing/definitions/err_use_statement_not_at_top_level.hpp"
 
