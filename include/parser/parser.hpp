@@ -545,10 +545,10 @@ class Parser {
     ///
     /// @param `definition` The list of tokens representing the function definition
     /// @param `body` The list of tokens representing the function body
-    /// @return `FuncNode` The created FuncNode
+    /// @return `std::optional<FuncNode>` The created FuncNode or nullopt if creation failed
     ///
     /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
-    FuncNode create_func(const token_list &definition, token_list &body);
+    std::optional<FuncNode> create_func(const token_list &definition, token_list &body);
 
     /// @function `create_entity`
     /// @brief Creates an EntityNode from the given definition and body tokens

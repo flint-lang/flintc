@@ -31,7 +31,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         std::optional<FunctionNode> function_node = create_function(definition_tokens, body_tokens);
         if (!function_node.has_value()) {
             THROW_ERR(ErrFunctionDefinition, ERR_PARSING, file_name, definition_tokens);
-            std::exit(EXIT_FAILURE);
+            return false;
         }
         FunctionNode *added_function = file_node.add_function(function_node.value());
         add_open_function({added_function, body_tokens});
@@ -42,8 +42,12 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         file_node.add_data(data_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::func_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
-        FuncNode func_node = create_func(definition_tokens, body_tokens);
-        file_node.add_func(func_node);
+        std::optional<FuncNode> func_node = create_func(definition_tokens, body_tokens);
+        if (!func_node.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        file_node.add_func(func_node.value());
     } else if (Signature::tokens_contain(definition_tokens, Signature::entity_definition)) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         create_entity_type entity_creation = create_entity(definition_tokens, body_tokens);
