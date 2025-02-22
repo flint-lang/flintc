@@ -177,7 +177,7 @@ FuncNode Parser::create_func(const token_list &definition, token_list &body) {
 
         std::optional<FunctionNode> function = create_function(function_definition, function_body);
         if (!function.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrFunctionDefinition, ERR_PARSING, file_name, function_definition);
         }
         functions.emplace_back(std::make_unique<FunctionNode>(std::move(function.value())));
         add_open_function({functions.back().get(), function_body});
