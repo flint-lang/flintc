@@ -44,7 +44,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_tokens);
         if (!func_node.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrDefFuncCreation, ERR_PARSING, file_name, definition_tokens);
             return false;
         }
         file_node.add_func(func_node.value());

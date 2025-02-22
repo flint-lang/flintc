@@ -269,7 +269,12 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
                     TokenContext{TOK_REQUIRES}, TokenContext{TOK_LEFT_PAREN}, TokenContext{TOK_IDENTIFIER, name + "__D"},
                     TokenContext{TOK_IDENTIFIER, "d"}, TokenContext{TOK_RIGHT_PAREN}, TokenContext{TOK_COLON}};
                 // TODO: change the functions accesses to the data by placing "d." in front of every variable access.
-                func_node = create_func(func_definition, func_body);
+                std::optional<FuncNode> created_func = create_func(func_definition, func_body);
+                if (!created_func.has_value()) {
+                    THROW_ERR(ErrDefFuncCreation, ERR_PARSING, file_name, func_definition);
+                    return {};
+                }
+                func_node = std::move(created_func.value());
                 func_modules.emplace_back(name + "__F");
             }
             ++body_iterator;
