@@ -467,37 +467,33 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         statement_node = std::move(if_node.value());
     } else if (Signature::tokens_contain(definition, Signature::for_loop)) {
         std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, definition, scoped_body);
-        if (for_loop.has_value()) {
-            statement_node = std::move(for_loop.value());
-        } else {
+        if (!for_loop.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        statement_node = std::move(for_loop.value());
     } else if (Signature::tokens_contain(definition, Signature::par_for_loop) ||
         Signature::tokens_contain(definition, Signature::enhanced_for_loop)) {
         std::optional<std::unique_ptr<ForLoopNode>> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body);
-        if (enh_for_loop.has_value()) {
-            statement_node = std::move(enh_for_loop.value());
-        } else {
+        if (!enh_for_loop.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        statement_node = std::move(enh_for_loop.value());
     } else if (Signature::tokens_contain(definition, Signature::while_loop)) {
         std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, definition, scoped_body);
-        if (while_loop.has_value()) {
-            statement_node = std::move(while_loop.value());
-        } else {
+        if (!while_loop.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        statement_node = std::move(while_loop.value());
     } else if (Signature::tokens_contain(definition, Signature::catch_statement)) {
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body, statements);
-        if (catch_node.has_value()) {
-            statement_node = std::move(catch_node.value());
-        } else {
+        if (!catch_node.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        statement_node = std::move(catch_node.value());
     } else if (Signature::tokens_contain(definition, Signature::function_call)) {
         statement_node = create_call_statement(scope, definition);
     } else {
