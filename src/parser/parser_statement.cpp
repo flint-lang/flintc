@@ -468,7 +468,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     } else if (Signature::tokens_contain(definition, Signature::for_loop)) {
         std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, definition, scoped_body);
         if (!for_loop.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrStmtForCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(for_loop.value());
@@ -476,7 +476,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         Signature::tokens_contain(definition, Signature::enhanced_for_loop)) {
         std::optional<std::unique_ptr<ForLoopNode>> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body);
         if (!enh_for_loop.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrStmtForCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(enh_for_loop.value());
