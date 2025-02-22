@@ -483,7 +483,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     } else if (Signature::tokens_contain(definition, Signature::while_loop)) {
         std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, definition, scoped_body);
         if (!while_loop.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrStmtWhileCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(while_loop.value());

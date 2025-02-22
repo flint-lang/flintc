@@ -47,6 +47,7 @@
 #include "error_types/parsing/statements/err_stmt_if_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_return_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_throw_creation_failed.hpp"
+#include "error_types/parsing/statements/err_stmt_while_creation_failed.hpp"
 
 #include "error_types/parsing/values/err_val_unknown_literal.hpp"
 
