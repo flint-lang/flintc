@@ -67,6 +67,8 @@ class Resolver {
     static std::unordered_map<std::string, std::filesystem::path> path_map;
     static std::mutex path_map_mutex;
 
+    static std::string main_file_name;
+
     static void clear();
     static std::optional<DepNode> add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path);
     static void add_ir(const std::string &file_name, const llvm::Module *module);

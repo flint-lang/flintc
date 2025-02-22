@@ -27,6 +27,8 @@ std::mutex Resolver::module_map_mutex;
 std::unordered_map<std::string, std::filesystem::path> Resolver::path_map;
 std::mutex Resolver::path_map_mutex;
 
+std::string Resolver::main_file_name;
+
 /// create_dependency_graph
 ///     Takes a main file and resolves all file imports, causing the AST generation of all used files
 ///     Moves ownership of the file_node, so it is considered unsafe to access it after ths function call!
@@ -37,6 +39,7 @@ std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph(FileNo
     Resolver::add_path(file_name, path);
     // Add all dependencies of the file and the file itself to the file map and the dependency map
     // Also return a created DepNode, but its dependants are not created yet
+    main_file_name = file_name;
     std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file_node, path);
     if (!base_maybe.has_value()) {
         // The main file already exists, this should not happen

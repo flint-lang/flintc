@@ -65,7 +65,7 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
     }
     Debug::Dep::print_dep_tree(0, dep_graph.value());
     Parser::parse_all_open_functions();
-    Debug::AST::print_file(file.value());
+    Debug::AST::print_file(Resolver::file_map.at(Resolver::main_file_name));
 
     // Generate the whole program
     llvm::LLVMContext context;
