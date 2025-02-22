@@ -490,7 +490,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     } else if (Signature::tokens_contain(definition, Signature::catch_statement)) {
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body, statements);
         if (!catch_node.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrStmtCatchCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(catch_node.value());

@@ -37,6 +37,7 @@
 #include "error_types/parsing/scopes/err_unclosed_paren.hpp"
 
 #include "error_types/parsing/statements/err_stmt_assignment_creation_failed.hpp"
+#include "error_types/parsing/statements/err_stmt_catch_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_catch.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_else.hpp"
