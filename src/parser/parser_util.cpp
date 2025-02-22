@@ -210,8 +210,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
 
     auto function = get_function_from_call(function_name, argument_types);
     if (!function.has_value()) {
-        // Call of undefined function
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name);
         return std::nullopt;
     }
     // TODO: Change this eventually to support returning multiple types. Currently all return types are packed into one return type
