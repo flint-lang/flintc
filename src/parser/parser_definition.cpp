@@ -395,7 +395,9 @@ ErrorNode Parser::create_error(const token_list &definition, const token_list &b
                 error_types.emplace_back(body_iterator->lexme);
                 break;
             } else {
-                THROW_BASIC_ERR(ERR_UNEXPECTED_TOKEN);
+                const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
+                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name, body_iterator->line, body_iterator->column, //
+                    expected, body_iterator->type);
             }
         }
         ++body_iterator;
@@ -426,7 +428,9 @@ VariantNode Parser::create_variant(const token_list &definition, const token_lis
                 possible_types.emplace_back(body_iterator->lexme);
                 break;
             } else {
-                THROW_BASIC_ERR(ERR_UNEXPECTED_TOKEN);
+                const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
+                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name, body_iterator->line, body_iterator->column, //
+                    expected, body_iterator->type);
             }
         }
         ++body_iterator;
