@@ -121,7 +121,10 @@ DataNode Parser::create_data(const token_list &definition, const token_list &bod
 
         if (body_iterator->type == TOK_IDENTIFIER && (body_iterator + 1)->type == TOK_LEFT_PAREN) {
             if (body_iterator->lexme != name) {
-                THROW_BASIC_ERR(ERR_CONSTRUCTOR_NAME_DOES_NOT_MATCH_DATA_NAME);
+                THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,     //
+                    file_name, body_iterator->line, body_iterator->column, //
+                    name, body_iterator->lexme                             //
+                );
             }
             parsing_constructor = true;
             ++body_iterator;
