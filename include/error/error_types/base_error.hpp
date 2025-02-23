@@ -4,6 +4,7 @@
 #include "colors.hpp"
 #include "error/error_type.hpp"
 #include "lexer/lexer.hpp"
+#include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "types.hpp"
 
@@ -49,6 +50,18 @@ class BaseError {
             --size;
         }
         return str.substr(0, size);
+    }
+
+    [[nodiscard]]
+    std::string get_token_string(const std::vector<Token> &tokens) const {
+        std::ostringstream oss;
+        for (auto it = tokens.begin(); it != tokens.end(); ++it) {
+            if (it != tokens.begin()) {
+                oss << " ";
+            }
+            oss << "'" << get_token_name(*it) << "'";
+        }
+        return oss.str();
     }
 
     [[nodiscard]]

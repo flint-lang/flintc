@@ -56,6 +56,8 @@
 #include "error_types/parsing/statements/err_stmt_throw_creation_failed.hpp"
 #include "error_types/parsing/statements/err_stmt_while_creation_failed.hpp"
 
+#include "error_types/parsing/unexpected/err_pars_unexpected_token.hpp"
+
 #include "error_types/parsing/values/err_val_unknown_literal.hpp"
 
 #include "error_types/parsing/variables/err_var_from_requires_list.hpp"
