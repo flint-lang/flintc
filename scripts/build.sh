@@ -67,3 +67,6 @@ fi
 cmake --build "$root/build" --target static
 
 echo "-- Build finished! Look at 'build/out' to see the built binaries"
+
+# Execute all tests to ensure the compiler is in a working state
+./build/out/tests
