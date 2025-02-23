@@ -48,7 +48,7 @@ void build_executable(                         //
 
 /// generate_ll_file
 ///     Generates the "output.ll" file from a given source file
-void generate_ll_file(const std::filesystem::path &source_file_path, const std::filesystem::path &out_file_path,
+bool generate_ll_file(const std::filesystem::path &source_file_path, const std::filesystem::path &out_file_path,
     const std::filesystem::path &ll_file_path) {
     PROFILE_SCOPE("'generate_ll_file'");
 
@@ -64,7 +64,10 @@ void generate_ll_file(const std::filesystem::path &source_file_path, const std::
         std::exit(EXIT_FAILURE);
     }
     Debug::Dep::print_dep_tree(0, dep_graph.value());
-    Parser::parse_all_open_functions();
+    bool parsed_successful = Parser::parse_all_open_functions();
+    if (!parsed_successful) {
+        return false;
+    }
     Debug::AST::print_file(Resolver::file_map.at(Resolver::main_file_name));
 
     // Generate the whole program
@@ -101,7 +104,7 @@ int main(int argc, char *argv[]) {
     if (result != 0) {
         return result;
     }
-    generate_ll_file(clp.source_file_path, "output.bc", clp.ll_file_path);
+    if (!generate_ll_file(clp.source_file_path, "output.bc", clp.ll_file_path)) {}
     if (clp.build_exe) {
         build_executable("output.bc", clp.out_file_path, clp.compile_command, clp.compile_flags);
     }
