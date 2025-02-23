@@ -21,6 +21,7 @@
 #include "error_types/parsing/err_parsing.hpp"
 
 #include "error_types/parsing/definitions/err_def_data_wrong_constructor_name.hpp"
+#include "error_types/parsing/definitions/err_def_entity_wrong_constructor_name.hpp"
 #include "error_types/parsing/definitions/err_def_err_only_one_parent.hpp"
 #include "error_types/parsing/definitions/err_def_func_creation.hpp"
 #include "error_types/parsing/definitions/err_def_function_creation.hpp"

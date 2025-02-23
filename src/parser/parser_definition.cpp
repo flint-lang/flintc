@@ -285,12 +285,14 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
     }
 
     uint2 constructor_token_ids = Signature::get_match_ranges(body, Signature::entity_body_constructor).at(0);
-    for (unsigned int i = constructor_token_ids.first; i < constructor_token_ids.second; i++) {
-        if (body.at(i).type == TOK_IDENTIFIER) {
-            if (body.at(i + 1).type == TOK_LEFT_PAREN && body.at(i).lexme != name) {
-                THROW_BASIC_ERR(ERR_ENTITY_CONSTRUCTOR_NAME_DOES_NOT_MATCH_ENTITY_NAME);
+    for (auto it = body.begin() + constructor_token_ids.first; it != body.begin() + constructor_token_ids.second; it++) {
+        if (it->type == TOK_IDENTIFIER) {
+            if (std::next(it)->type == TOK_LEFT_PAREN && it->lexme != name) {
+                THROW_ERR(ErrDefEntityWrongConstructorName, ERR_PARSING, file_name, //
+                    it->line, it->column, name, it->lexme                           //
+                );
             }
-            constructor_order.emplace_back(body.at(i).lexme);
+            constructor_order.emplace_back(it->lexme);
         }
     }
     EntityNode entity(name, data_modules, func_modules, std::move(link_nodes), parent_entities, constructor_order);
