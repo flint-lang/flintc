@@ -374,7 +374,7 @@ ErrorNode Parser::create_error(const token_list &definition, const token_list &b
                 parent_error = (definition_iterator + 1)->lexme;
                 break;
             }
-            THROW_BASIC_ERR(ERR_CAN_ONLY_EXTEND_FROM_SINGLE_ERROR_SET);
+            THROW_ERR(ErrDefErrOnlyOneParent, ERR_PARSING, file_name, definition);
         }
         ++definition_iterator;
     }
