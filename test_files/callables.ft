@@ -1,0 +1,109 @@
+def add(int x = 5, int y = 6) -> int:
+	return x + y;
+
+def counter() -> int:
+	persistent int c = 0;
+	return c++;
+
+def attack(int x) -> int:
+	persistent int timestamp = 0;
+
+	if now() - timestamp < 2:
+		// dont attack
+		return 0;
+	
+	// attack
+	timestamp = now();
+	return x * 2;
+
+def has_fired() -> bool:
+	persistent bool fired = false;
+
+	if fired:
+		return false;
+	
+	fired = true;
+	return true;
+
+def main():
+	fn<int, int -> int> a = ::add;
+	print(a(_)); // prints '11'
+	a = ::add(1, 2);
+	print(a(_)); // prints '3'
+	print(a.get_result()); // prints '3'
+	a.set_args(3, 4);
+	print(a.get_args()); // prints '(3, 4)'
+	print(a.get_result()); // prints '3'
+	print(a(_)); // prints '7'
+	print(a.get_result()); // prints '7'
+
+	print(counter()); // 0
+	print(counter()); // 0
+	print(counter()); // 0
+	c1 := ::counter;
+	c2 := ::counter;
+	print(c1()); // 0
+	print(c1()); // 1
+	print(c1()); // 2
+	print(c2()); // 0
+	print(c2()); // 1
+
+	print(attack(6)); // prints '6'
+	print(attack(6)); // prints '6'
+	att := ::attack;
+	print(att(6)); // prints '6'
+	print(att(6)); // prints '0'
+
+	print(has_fired()); // prints 'false'
+	print(has_fired()); // prints 'false'
+	fired := ::has_fired;
+	print(fired()); // prints 'false'
+	print(fired()); // prints 'true'
+	print(fired()); // prints 'true'
+
+
+
+data Attacks:
+	fn<int, int -> int> base = (int a, d) -> a - d;
+	fn<int, int -> int> strong = (int a, d) -> 2 * a - d;
+	fn<int, int -> int> special = (int a, d) -> 3 * a - d;
+	Attacks(base, strong, special);
+
+func Attacking requires(Attacks a):
+	def base_attack(int att, int defense) -> int:
+		return a.base(att, defense);
+	
+	def strong_attack(int att, int defense) -> int:
+		return a.strong(att, defense);
+	
+	def special_attack(int att, int defense) -> int:
+		return a.special(att, defense);
+	
+	def set_base_attack(fn<int, int -> int> att):
+		a.base = att;
+	
+	def set_strong_attack(fn<int, int -> int> att):
+		a.strong = att;
+	
+	def set_special_attack(fn<int, int -> int> att):
+		a.special = att;
+	
+entity Player:
+	data: Attacks;
+	func: Attacking;
+	Player(Attacks);
+
+
+def main():
+	p1 := Player(_);
+	print(p1.base_attack(50, 40)); // prints '10'
+	print(p1.strong_attack(50, 40)); // prints '60'
+	print(p1.special_attack(50, 40)); // prints '110'
+
+	print(p1.base_attack(40, 50)); // prints '-10'
+	new_base := (int a, d) -> 0 if d >= a else a - d;
+	p1.set_base_attack(new_base);
+	print(p1.base_attack(40, 50)); // prints '0'
+
+	// reference to the base_attack function of the func module
+	fn<mut Attacks, int, int -> int> ba = Attacking::base_attack;

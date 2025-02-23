@@ -1,0 +1,44 @@
+variant Operation:
+	fn<int -> int>,
+	fn<int, int -> int>;
+
+def compose(Operation op1, Operation op2) -> fn<() -> int>:
+	return switch(op1):
+		// Single op1
+		fn<int -> int>(sop1) -> switch(op2):
+			fn<int -> int>(sop2) -> (() -> sop1(_) |> sop2(^));
+			fn<int, int -> int>(dop2) -> (() -> sop1(_) |> dop2(^, _));
+		// Double op1
+		fn<int, int -> int>(dop1) -> switch(op2):
+			fn<int -> int>(sop2) -> (() -> dop1(_, _) |> sop2(^));
+			fn<int, int -> int>(dop2) -> (() -> dop1(_, _) |> dop2(^, _));
+	// Without switch expression but switch statement instead
+	// switch(op1):
+	// 	fn<int -> int>(sop1): // Single op1
+	// 		switch(op2):
+	// 			fn<int -> int>(sop2):
+	// 				return () -> sop1(_) |> sop2(^);
+	// 			fn<int, int -> int>(dop2):
+	// 				return () -> sop1(_) |> dop2(^, _);
+	// 	fn<int, int -> int>(dop1): // Double op1
+	// 		switch(op2):
+	// 			fn<int -> int>(sop2):
+	// 				return () -> dop1(_, _) |> sop2(^);
+	// 			fn<int, int -> int>(dop2):
+	// 				return () -> dop1(_, _) |> dop2(^, _);
+
+def add(int x, int y) -> int:
+	return x + y;
+
+def mult(int x, int y) -> int:
+	return x * y;
+
+def square(int x) -> int:
+	return x * x;
+
+def main():
+	fn<() -> int> add_then_square = compose(::add(3, 5), ::square);
+	fn<() -> int> square_then_mult = compose(::square(4), ::mult(_, 2));
+
+	print($"add(3, 5) |> square = {add_then_square()}");
+	print($"square(4) |> mult(2) = {square_then_mult()}");
