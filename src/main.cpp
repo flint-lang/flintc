@@ -96,6 +96,7 @@ bool generate_ll_file(const std::filesystem::path &source_file_path, const std::
     Resolver::clear();
     program->dropAllReferences();
     program.reset();
+    return true;
 }
 
 int main(int argc, char *argv[]) {
@@ -104,7 +105,9 @@ int main(int argc, char *argv[]) {
     if (result != 0) {
         return result;
     }
-    if (!generate_ll_file(clp.source_file_path, "output.bc", clp.ll_file_path)) {}
+    if (!generate_ll_file(clp.source_file_path, "output.bc", clp.ll_file_path)) {
+        return 1;
+    }
     if (clp.build_exe) {
         build_executable("output.bc", clp.out_file_path, clp.compile_command, clp.compile_flags);
     }
