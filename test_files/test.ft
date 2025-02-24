@@ -3,7 +3,7 @@ use "divide.ft"
 
 def main():
 	flint i = 7.5;
-	i = i + 2.0;
+	i = i * 2.6;
 	print("flint i = ");
 	print(i);
 	print("\n");

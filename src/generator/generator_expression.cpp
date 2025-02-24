@@ -369,31 +369,102 @@ llvm::Value *Generator::Expression::generate_binary_op(                    //
 ) {
     llvm::Value *lhs = generate_expression(builder, parent, scope, allocations, bin_op_node->left.get());
     llvm::Value *rhs = generate_expression(builder, parent, scope, allocations, bin_op_node->right.get());
+    const std::string_view type = bin_op_node->left->type;
     switch (bin_op_node->operator_token) {
         default:
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         case TOK_PLUS:
-            return builder.CreateAdd(lhs, rhs, "addtmp");
+            if (type == "int") {
+                return builder.CreateAdd(lhs, rhs, "iaddtmp");
+            } else if (type == "flint") {
+                return builder.CreateFAdd(lhs, rhs, "faddtmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
         case TOK_MINUS:
-            return builder.CreateSub(lhs, rhs, "subtmp");
+            if (type == "int") {
+                return builder.CreateSub(lhs, rhs, "isubtmp");
+            } else if (type == "flint") {
+                return builder.CreateFSub(lhs, rhs, "fsubtmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
         case TOK_MULT:
-            return builder.CreateMul(lhs, rhs, "multmp");
+            if (type == "int") {
+                return builder.CreateMul(lhs, rhs, "imultmp");
+            } else if (type == "flint") {
+                return builder.CreateFMul(lhs, rhs, "fmultmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
         case TOK_DIV:
-            return builder.CreateSDiv(lhs, rhs, "sdivtmp");
+            if (type == "int") {
+                return builder.CreateSDiv(lhs, rhs, "idivtmp");
+            } else if (type == "flint") {
+                return builder.CreateFDiv(lhs, rhs, "fdivtmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
         case TOK_SQUARE:
             return IR::generate_pow_instruction(builder, parent, lhs, rhs);
         case TOK_LESS:
-            return builder.CreateICmpSLT(lhs, rhs, "cmptmp");
+            if (type == "int") {
+                return builder.CreateICmpSLT(lhs, rhs, "icmptmp");
+            } else if (type == "flint") {
+                return builder.CreateFCmpOLT(lhs, rhs, "fcmptmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
         case TOK_GREATER:
-            return builder.CreateICmpSGT(lhs, rhs, "cmptmp");
+            if (type == "int") {
+                return builder.CreateICmpSGT(lhs, rhs, "icmptmp");
+            } else if (type == "flint") {
+                return builder.CreateFCmpOGT(lhs, rhs, "fcmptmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
         case TOK_LESS_EQUAL:
-            return builder.CreateICmpSLE(lhs, rhs, "cmptmp");
+            if (type == "int") {
+                return builder.CreateICmpSLE(lhs, rhs, "icmptmp");
+            } else if (type == "flint") {
+                return builder.CreateFCmpOLE(lhs, rhs, "fcmptmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
         case TOK_GREATER_EQUAL:
-            return builder.CreateICmpSGE(lhs, rhs, "cmptmp");
+            if (type == "int") {
+                return builder.CreateICmpSGE(lhs, rhs, "icmptmp");
+            } else if (type == "flint") {
+                return builder.CreateFCmpOGE(lhs, rhs, "fcmptmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
         case TOK_EQUAL_EQUAL:
-            return builder.CreateICmpEQ(lhs, rhs, "cmptmp");
+            if (type == "int") {
+                return builder.CreateICmpEQ(lhs, rhs, "icmptmp");
+            } else if (type == "flint") {
+                return builder.CreateFCmpOEQ(lhs, rhs, "fcmptmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
         case TOK_NOT_EQUAL:
-            return builder.CreateICmpNE(lhs, rhs, "cmptmp");
+            if (type == "int") {
+                return builder.CreateICmpNE(lhs, rhs, "icmptmp");
+            } else if (type == "flint") {
+                return builder.CreateFCmpONE(lhs, rhs, "fcmptmp");
+            } else {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
     }
 }
