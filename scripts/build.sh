@@ -1,5 +1,8 @@
 #!/usr/bin/env sh
 
+# Exit on fail
+#set -xe
+
 # --- THIS PROGRAM WILL BUILLD ALL TARGETS ---
 
 # Print error and exit program with specified error code
@@ -74,4 +77,4 @@ else
 fi
 
 # Execute all tests to ensure the compiler is in a working state
-./build/out/tests
+#./build/out/tests

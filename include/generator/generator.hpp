@@ -734,6 +734,7 @@ class Generator {
         /// @param `scope` The scope the expression is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `expression_node` The expression node to generate
+        /// @return `llvm::Value *` The value containing the result of the expression
         static llvm::Value *generate_expression(                                   //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -748,6 +749,7 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The scope the literal is contained in
         /// @param `literal_node` The literal node to generate
+        /// @return `llvm::Value *` The value containing the result of the literal
         static llvm::Value *generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node);
 
         /// @function `generate_variable`
@@ -758,6 +760,7 @@ class Generator {
         /// @param `scope` The scope the variable is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `variable_node` The variable node to generate
+        /// @return `llvm::Value *` The value containing the result of the variable
         static llvm::Value *generate_variable(                                     //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -774,6 +777,7 @@ class Generator {
         /// @param `scope` The scope the call is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `call_node` The call node to generate
+        /// @return `llvm::Value *` The value containing the result of the call (this will be a struct)
         static llvm::Value *generate_call(                                         //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
@@ -802,6 +806,7 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the unary operation is generated in
         /// @param `unary_op_node` The unary operation to generate
+        /// @return `llvm::Value *` The value containing the result of the unary operation
         static llvm::Value *generate_unary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const UnaryOpNode *unary_op_node);
 
         /// @function `generate_binary_op`
@@ -812,6 +817,7 @@ class Generator {
         /// @param `scope` The scope the binary operation is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `bin_op_node` The binary operation to generate
+        /// @return `llvm::Value *` The value containing the result of the binop
         static llvm::Value *generate_binary_op(                                    //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
