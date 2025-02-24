@@ -115,10 +115,10 @@ void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llv
     );
     builtins[PRINT] = printf_func;
     generate_builtin_print(builder, module, "int", "%i");
-    generate_builtin_print(builder, module, "flint", "%d");
     generate_builtin_print(builder, module, "char", "%c");
     generate_builtin_print(builder, module, "str", "%s");
     generate_builtin_print(builder, module, "byte", "%i");
+    generate_builtin_print_flint(builder, module);
     generate_builtin_print_bool(builder, module);
 }
 
@@ -161,6 +161,42 @@ void Generator::Builtin::generate_builtin_print( //
 
     builder->CreateRetVoid();
     print_functions[type] = print_function;
+}
+
+void Generator::Builtin::generate_builtin_print_flint(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    if (print_functions.at("flint") != nullptr) {
+        return;
+    }
+
+    // Create print function type
+    llvm::FunctionType *print_type = llvm::FunctionType::get(   //
+        llvm::Type::getVoidTy(module->getContext()),            // return void
+        {IR::get_type_from_str(module->getContext(), "flint")}, // takes type
+        false                                                   // no vararg
+    );
+
+    // Create the print_int function
+    llvm::Function *print_function = llvm::Function::Create( //
+        print_type,                                          //
+        llvm::Function::ExternalLinkage,                     //
+        "print_flint",                                       //
+        module                                               //
+    );
+    llvm::BasicBlock *block = llvm::BasicBlock::Create( //
+        module->getContext(),                           //
+        "entry",                                        //
+        print_function                                  //
+    );
+
+    // Call printf with format string and argument
+    builder->SetInsertPoint(block);
+    llvm::Value *format_str = builder->CreateGlobalStringPtr("%f");
+    builder->CreateCall(builtins[PRINT],                                  //
+        {format_str, float_to_double(builder, print_function->getArg(0))} //
+    );
+
+    builder->CreateRetVoid();
+    print_functions["flint"] = print_function;
 }
 
 void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module) {
