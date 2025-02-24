@@ -356,6 +356,38 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the print function definition will be generated in
         static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `float_to_double`
+        /// @brief Converts a float value to a double value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `float_value` The float value to convert
+        /// @return `llvm::Value *` The converted double value
+        static llvm::Value *float_to_double(llvm::IRBuilder<> *builder, llvm::Value *float_value);
+
+        /// @function `double_to_float`
+        /// @brief Convertes a double value to a float value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `double_value` The double value to convert
+        /// @return `llvm::Value *` The converted float value
+        static llvm::Value *double_to_float(llvm::IRBuilder<> *builder, llvm::Value *double_value);
+
+        /// @function `int_to_float`
+        /// @brief Converts a int value to a float value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The int value to convert
+        /// @return `llvm::Value *` The converted float value
+        static llvm::Value *int_to_float(llvm::IRBuilder<> *builder, llvm::Value *int_value);
+
+        /// @function `float_to_int`
+        /// @brief Converts a float value to an int value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `float_value` The float value to convert
+        /// @return `llvm::Value *` The converted int value
+        static llvm::Value *float_to_int(llvm::IRBuilder<> *builder, llvm::Value *float_value);
     }; // subclass Builtin
 
     /// @class `Allocation`

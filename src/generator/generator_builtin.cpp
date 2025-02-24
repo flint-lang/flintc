@@ -230,3 +230,19 @@ void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder,
 
     print_functions["bool"] = print_function;
 }
+
+llvm::Value *Generator::Builtin::float_to_double(llvm::IRBuilder<> *builder, llvm::Value *float_value) {
+    return builder->CreateFPExt(float_value, llvm::Type::getDoubleTy(builder->getContext()), "fpext");
+}
+
+llvm::Value *Generator::Builtin::double_to_float(llvm::IRBuilder<> *builder, llvm::Value *double_value) {
+    return builder->CreateFPTrunc(double_value, llvm::Type::getFloatTy(builder->getContext()), "fptrunc");
+}
+
+llvm::Value *Generator::Builtin::int_to_float(llvm::IRBuilder<> *builder, llvm::Value *int_value) {
+    return builder->CreateSIToFP(int_value, llvm::Type::getFloatTy(builder->getContext()), "sitofp");
+}
+
+llvm::Value *Generator::Builtin::float_to_int(llvm::IRBuilder<> *builder, llvm::Value *float_value) {
+    return builder->CreateFPToSI(float_value, llvm::Type::getInt32Ty(builder->getContext()), "fptosi");
+}
