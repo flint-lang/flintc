@@ -521,15 +521,13 @@ class Generator {
         /// @param `parent` The function the statement will be generated in
         /// @param `scope` The scope the statement is being generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `phi_lookup` The map of all phi nodes, which tracks the mutations and values of every variable
         /// @param `statement` The statement which will be generated
-        static void generate_statement(                                                                             //
-            llvm::IRBuilder<> &builder,                                                                             //
-            llvm::Function *parent,                                                                                 //
-            const Scope *scope,                                                                                     //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,                                  //
-            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-            const std::unique_ptr<StatementNode> &statement                                                         //
+        static void generate_statement(                                            //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const std::unique_ptr<StatementNode> &statement                        //
         );
 
         /// @function `generate_body`
@@ -539,13 +537,11 @@ class Generator {
         /// @param `parent` The function the body will be generated in
         /// @param `scope` The scope containing the body which will be generated
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
-        static void generate_body(                                                                                 //
-            llvm::IRBuilder<> &builder,                                                                            //
-            llvm::Function *parent,                                                                                //
-            const Scope *scope,                                                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,                                 //
-            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
+        static void generate_body(                                                //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            const Scope *scope,                                                   //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
         );
 
         /// @function `generate_return_statement`
@@ -585,15 +581,13 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the basic blocks will be created in
-        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
         /// @param `blocks` The list of all basic blocks which will be created
         /// @param `if_node` The if node containin ght whole if-chain to generate the BasicBlocks from
-        static void generate_if_blocks(                                                                             //
-            llvm::IRBuilder<> &builder,                                                                             //
-            llvm::Function *parent,                                                                                 //
-            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-            std::vector<llvm::BasicBlock *> &blocks,                                                                //
-            const IfNode *if_node                                                                                   //
+        static void generate_if_blocks(              //
+            llvm::IRBuilder<> &builder,              //
+            llvm::Function *parent,                  //
+            std::vector<llvm::BasicBlock *> &blocks, //
+            const IfNode *if_node                    //
         );
 
         /// @function `generate_if_statement`
@@ -602,18 +596,16 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the if chain will be generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
         /// @param `blocks` The list of all basic blocks the if bodies are contained in
         /// @param `nesting_level` The nesting level determines how "deep" one is inside the if-chain
         /// @param `if_node` The if node to generate
-        static void generate_if_statement(                                                                          //
-            llvm::IRBuilder<> &builder,                                                                             //
-            llvm::Function *parent,                                                                                 //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,                                  //
-            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-            std::vector<llvm::BasicBlock *> &blocks,                                                                //
-            unsigned int nesting_level,                                                                             //
-            const IfNode *if_node                                                                                   //
+        static void generate_if_statement(                                         //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            std::vector<llvm::BasicBlock *> &blocks,                               //
+            unsigned int nesting_level,                                            //
+            const IfNode *if_node                                                  //
         );
 
         /// @function `generate_while_loop`
@@ -637,16 +629,6 @@ class Generator {
         /// @param `parent` The function the for loop will be generated in
         /// @param `for_node` The for loop node to generate
         static void generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node);
-
-        /// @function `generate_phi_calls`
-        /// @brief Generates all phi calls from the given phi_lookup within the currently active block of the builder
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
-        static void generate_phi_calls(                                                                            //
-            llvm::IRBuilder<> &builder,                                                                            //
-            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup //
-        );
 
         /// @function `generate_catch_statement`
         /// @brief Generates the catch statement from the given CatchNode
@@ -687,15 +669,13 @@ class Generator {
         /// @param `parent` The function the assignment will be generated in
         /// @param `scope` The scope the assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `phi_lookup` The map of all phi nodes, which tarcks the muutations and values of every varaible
         /// @param `assignment_node` The assignment node to generate
-        static void generate_assignment(                                                                            //
-            llvm::IRBuilder<> &builder,                                                                             //
-            llvm::Function *parent,                                                                                 //
-            const Scope *scope,                                                                                     //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,                                  //
-            std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> &phi_lookup, //
-            const AssignmentNode *assignment_node                                                                   //
+        static void generate_assignment(                                           //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const AssignmentNode *assignment_node                                  //
         );
     }; // subclass Statement
 

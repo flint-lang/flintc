@@ -2,6 +2,11 @@ use "add.ft"
 use "divide.ft"
 
 def main():
+	flint i = 7.5;
+	i = i + 2.0;
+	print("flint i = ");
+	print(i);
+	print("\n");
 	res := add_more(10, 2);
 	print(res);
 	print("\n");

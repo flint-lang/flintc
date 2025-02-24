@@ -52,8 +52,7 @@ llvm::Function *Generator::Function::generate_function(llvm::Module *module, Fun
     Allocation::generate_allocations(builder, function, function_node->scope.get(), allocations);
 
     // Generate all instructions of the functions body
-    std::unordered_map<std::string, std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>>> phi_lookup;
-    Statement::generate_body(builder, function, function_node->scope.get(), allocations, phi_lookup);
+    Statement::generate_body(builder, function, function_node->scope.get(), allocations);
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (!function->empty() && function->back().getTerminator() == nullptr) {

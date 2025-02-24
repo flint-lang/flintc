@@ -66,7 +66,12 @@ fi
 # And finally, build the cmake targets
 cmake --build "$root/build" --target static
 
-echo "-- Build finished! Look at 'build/out' to see the built binaries"
+if [ $? -eq 0 ]; then
+    echo "-- Build finished! Look at 'build/out' to see the built binaries"
+else
+    echo "-- Build failed!"
+    exit 1
+fi
 
 # Execute all tests to ensure the compiler is in a working state
 ./build/out/tests
