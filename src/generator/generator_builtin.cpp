@@ -154,6 +154,8 @@ void Generator::Builtin::generate_builtin_print( //
         "entry",                                        //
         print_function                                  //
     );
+    // Set insert point to the current block
+    builder->SetInsertPoint(block);
 
     // Convert it to fit the correct format printf expects
     llvm::Value *arg = print_function->getArg(0);
@@ -166,7 +168,6 @@ void Generator::Builtin::generate_builtin_print( //
     }
 
     // Call printf with format string and argument
-    builder->SetInsertPoint(block);
     llvm::Value *format_str = builder->CreateGlobalStringPtr(format);
     builder->CreateCall(builtins[PRINT], //
         {format_str, arg}                //
