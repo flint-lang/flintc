@@ -1,32 +1,3 @@
-variant Operation:
-	fn<i32 -> i32>,
-	fn<i32, i32 -> i32>;
-
-def compose(Operation op1, Operation op2) -> fn<() -> i32>:
-	return switch(op1):
-		// Single op1
-		fn<i32 -> i32>(sop1) -> switch(op2):
-			fn<i32 -> i32>(sop2) -> (() -> sop1(_) |> sop2(^));
-			fn<i32, i32 -> i32>(dop2) -> (() -> sop1(_) |> dop2(^, _));
-		// Double op1
-		fn<i32, i32 -> i32>(dop1) -> switch(op2):
-			fn<i32 -> i32>(sop2) -> (() -> dop1(_, _) |> sop2(^));
-			fn<i32, i32 -> i32>(dop2) -> (() -> dop1(_, _) |> dop2(^, _));
-	// Without switch expression but switch statement instead
-	// switch(op1):
-	// 	fn<i32 -> i32>(sop1): // Single op1
-	// 		switch(op2):
-	// 			fn<i32 -> i32>(sop2):
-	// 				return () -> sop1(_) |> sop2(^);
-	// 			fn<i32, i32 -> i32>(dop2):
-	// 				return () -> sop1(_) |> dop2(^, _);
-	// 	fn<i32, i32 -> i32>(dop1): // Double op1
-	// 		switch(op2):
-	// 			fn<i32 -> i32>(sop2):
-	// 				return () -> dop1(_, _) |> sop2(^);
-	// 			fn<i32, i32 -> i32>(dop2):
-	// 				return () -> dop1(_, _) |> dop2(^, _);
-
 def add(i32 x, i32 y) -> i32:
 	return x + y;
 
@@ -36,9 +7,35 @@ def mult(i32 x, i32 y) -> i32:
 def square(i32 x) -> i32:
 	return x * x;
 
-def main():
-	fn<() -> i32> add_then_square = compose(::add(3, 5), ::square);
-	fn<() -> i32> square_then_mult = compose(::square(4), ::mult(_, 2));
+def divide(i32 x, i32 y) -> i32:
+	return x / y;
 
-	print($"add(3, 5) |> square = {add_then_square()}");
-	print($"square(4) |> mult(2) = {square_then_mult()}");
+def main():
+	// The pipe operator |> can be used in two ways:
+	//	1. It can be used for piping results of _calls_ into one another:
+	i32 res = add(3, 5) |> square($);
+	// The '$' operator is used to determine at which argument the returned value is put:
+	res = add(3, 5) |> divide($, 4); // Expands to:
+	// res = divide(add(3, 5), 4);
+	res = add(3, 5) |> divide(4, $); // Expands to:
+	// res = divide(4, add(3, 5));
+
+	// 	2. It can be used for composing functions. When both the lhs and the rhs of the pipe operator is _some_ 'fn' type, its result will be a lambda of said functions
+	fn<() -> i32> add35_then_square = ::add(3, 5) |> ::square($);
+	// The above code expands to:
+	// .. = () -> add(3, 5) | square($);
+	fn<() -> i32> square4_then_mult2 = ::square(4) |> ::mult($, 2);
+	// The above code expands to:
+	// .. = () -> square(4) |> mult($, 2);
+	fn<i32, i32 -> i32> add_then_square = ::add(_, _) |> ::square($);
+	// The above code expands to:
+	// .. = (i32 a, b) -> add(a, b) |> square($);
+
+	print($"add(3, 5) |> square = {add35_then_square()}");
+	print($"square(4) |> mult(2) = {square4_then_mult2()}");
+	print($"add(4, 6) |> square = {add_then_square(4, 6)}");
+
+	// A fn variable also can be used within the composition of a new function!
+	fn<i32, i32, i32 -> i32> add_square_div = ::add_then_square(_, _) |> ::divide($, _);
+
+	print($"asd 3 7 5 = {add_square_div(3, 7, 5)}"); // Result of add_square_div will be '20'
