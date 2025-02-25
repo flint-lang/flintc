@@ -1,5 +1,5 @@
 use "add.ft"
 
-def mult(int x, int y) -> int:
-	int res = add(x, y);
+def mult(i32 x, i32 y) -> i32:
+	i32 res = add(x, y);
 	return res * y;

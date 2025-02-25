@@ -25,7 +25,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_match_prim_int", false);
         token_list tokens = create_token_vector({//
-            TOK_INT});
+            TOK_I32});
         bool result = Signature::tokens_match(tokens, Signature::type_prim);
         test_result.ok_or_not(result);
         if (!result) {
@@ -104,7 +104,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_contain_prim_int", false);
         token_list tokens = create_token_vector({//
-            TOK_IDENTIFIER, TOK_EOL, TOK_INT, TOK_DATA});
+            TOK_IDENTIFIER, TOK_EOL, TOK_I32, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type_prim);
         test_result.ok_or_not(result);
         if (!result) {
@@ -183,7 +183,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_extract_prim_int", false);
         token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
+            TOK_INDENT, TOK_IDENTIFIER, TOK_I32, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type_prim);
         bool result = !result_vec.empty() && result_vec.at(0).first == 2 && result_vec.at(0).second == 3;
         test_result.ok_or_not(result);

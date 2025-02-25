@@ -33,11 +33,11 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
                     break;
                 case TOK_INT_VALUE: {
                     std::variant<int, float, std::string, bool, char> value = std::stoi(tok.lexme);
-                    return LiteralNode(value, "int");
+                    return LiteralNode(value, "i32");
                 }
                 case TOK_FLINT_VALUE: {
                     std::variant<int, float, std::string, bool, char> value = std::stof(tok.lexme);
-                    return LiteralNode(value, "flint");
+                    return LiteralNode(value, "f32");
                 }
                 case TOK_STR_VALUE: {
                     std::variant<int, float, std::string, bool, char> value = tok.lexme;

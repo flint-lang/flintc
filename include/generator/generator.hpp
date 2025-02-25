@@ -123,12 +123,16 @@ class Generator {
     /// @attention The print functions are nullpointers until the `generate_builtin_prints` function is called
     /// @attention The map is not being cleared after the program module has been generated
     static inline std::unordered_map<std::string_view, llvm::Function *> print_functions = {
-        {"int", nullptr},
+        {"i32", nullptr},
+        {"i64", nullptr},
+        {"u32", nullptr},
+        {"u64", nullptr},
+        {"f32", nullptr},
+        {"f64", nullptr},
         {"flint", nullptr},
         {"char", nullptr},
         {"str", nullptr},
         {"bool", nullptr},
-        {"byte", nullptr},
     };
 
     /// @var `type_map`
@@ -349,13 +353,6 @@ class Generator {
             const std::string &type,        //
             const std::string &format       //
         );
-
-        /// @function `generate_builtin_print_flint`
-        /// @brief Generates the builtin print_flint function which prints the value of the flint
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `module` The LLVM Module the print function definition will be generated in
-        static void generate_builtin_print_flint(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /// @function `generate_builtin_print_bool`
         /// @brief Generates the builtin print_bool function which prints 'true' or 'false' depending on the bool value

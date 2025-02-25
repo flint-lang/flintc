@@ -24,7 +24,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_match_type_int", false);
         token_list tokens = create_token_vector({//
-            TOK_INT});
+            TOK_I32});
         bool result = Signature::tokens_match(tokens, Signature::type);
         test_result.ok_or_not(result);
         if (!result) {
@@ -117,7 +117,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_contain_type_int", false);
         token_list tokens = create_token_vector({//
-            TOK_COLON, TOK_INT, TOK_DATA});
+            TOK_COLON, TOK_I32, TOK_DATA});
         bool result = Signature::tokens_contain(tokens, Signature::type);
         test_result.ok_or_not(result);
         if (!result) {
@@ -210,7 +210,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_extract_type_int", false);
         token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
+            TOK_INDENT, TOK_IDENTIFIER, TOK_I32, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
         bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         test_result.ok_or_not(result);

@@ -1,3 +1,5 @@
+#include "error/error.hpp"
+#include "error/error_type.hpp"
 #include "generator/generator.hpp"
 
 #include "lexer/lexer_utils.hpp"
@@ -60,10 +62,18 @@ llvm::Type *Generator::IR::get_type_from_str(llvm::LLVMContext &context, const s
             default:
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
-            case TOK_INT:
+            case TOK_I32:
+            case TOK_U32:
                 return llvm::Type::getInt32Ty(context);
-            case TOK_FLINT:
+            case TOK_I64:
+            case TOK_U64:
+                return llvm::Type::getInt64Ty(context);
+            case TOK_F32:
+            case TOK_F64:
                 return llvm::Type::getFloatTy(context);
+            case TOK_FLINT:
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             case TOK_CHAR:
                 return llvm::Type::getInt8Ty(context);
             case TOK_STR:
@@ -71,8 +81,6 @@ llvm::Type *Generator::IR::get_type_from_str(llvm::LLVMContext &context, const s
                 return llvm::PointerType::get(llvm::Type::getInt8Ty(context), 0);
             case TOK_BOOL:
                 return llvm::Type::getInt1Ty(context);
-            case TOK_BYTE:
-                return llvm::IntegerType::get(context, 8);
             case TOK_VOID:
                 return llvm::Type::getVoidTy(context);
         }

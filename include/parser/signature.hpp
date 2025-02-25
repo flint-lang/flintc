@@ -34,7 +34,8 @@ namespace Signature {
 
     // --- BASIC SIGNATURES ---
     const signature anytoken = {"#-?..#"};
-    const signature type_prim = {"((", TOK_INT, ")|(", TOK_FLINT, ")|(", TOK_STR, ")|(", TOK_CHAR, ")|(", TOK_BOOL, "))"};
+    const signature type_prim = {"((", TOK_I32, ")|(", TOK_I64, ")|(", TOK_U32, ")|(", TOK_U64, ")|(", TOK_F32, ")|(", TOK_F64, ")|(",
+        TOK_FLINT, ")|(", TOK_STR, ")|(", TOK_CHAR, ")|(", TOK_BOOL, "))"};
     const signature literal = {"((", TOK_STR_VALUE, ")|(", TOK_INT_VALUE, ")|(", TOK_FLINT_VALUE, ")|(", TOK_CHAR_VALUE, ")|(", TOK_TRUE,
         ")|(", TOK_FALSE, "))"};
     const signature type = combine({//
@@ -92,10 +93,7 @@ namespace Signature {
     const signature enhanced_for_loop = combine({//
         {TOK_FOR, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))", TOK_COMMA, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))", TOK_IN},
         match_until_signature({TOK_COLON})});
-    const signature par_for_loop = combine({//
-        {TOK_PAR_FOR, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))", TOK_COMMA, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))",
-            TOK_IN},
-        match_until_signature({TOK_COLON})});
+    const signature par_for_loop = combine({{TOK_PARALLEL}, enhanced_for_loop});
     const signature while_loop = combine({{TOK_WHILE}, match_until_signature({TOK_COLON})});
     const signature if_statement = combine({{TOK_IF}, match_until_signature({TOK_COLON})});
     const signature else_if_statement = combine({{TOK_ELSE, TOK_IF}, match_until_signature({TOK_COLON})});

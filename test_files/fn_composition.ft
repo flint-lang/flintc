@@ -1,44 +1,44 @@
 variant Operation:
-	fn<int -> int>,
-	fn<int, int -> int>;
+	fn<i32 -> i32>,
+	fn<i32, i32 -> i32>;
 
-def compose(Operation op1, Operation op2) -> fn<() -> int>:
+def compose(Operation op1, Operation op2) -> fn<() -> i32>:
 	return switch(op1):
 		// Single op1
-		fn<int -> int>(sop1) -> switch(op2):
-			fn<int -> int>(sop2) -> (() -> sop1(_) |> sop2(^));
-			fn<int, int -> int>(dop2) -> (() -> sop1(_) |> dop2(^, _));
+		fn<i32 -> i32>(sop1) -> switch(op2):
+			fn<i32 -> i32>(sop2) -> (() -> sop1(_) |> sop2(^));
+			fn<i32, i32 -> i32>(dop2) -> (() -> sop1(_) |> dop2(^, _));
 		// Double op1
-		fn<int, int -> int>(dop1) -> switch(op2):
-			fn<int -> int>(sop2) -> (() -> dop1(_, _) |> sop2(^));
-			fn<int, int -> int>(dop2) -> (() -> dop1(_, _) |> dop2(^, _));
+		fn<i32, i32 -> i32>(dop1) -> switch(op2):
+			fn<i32 -> i32>(sop2) -> (() -> dop1(_, _) |> sop2(^));
+			fn<i32, i32 -> i32>(dop2) -> (() -> dop1(_, _) |> dop2(^, _));
 	// Without switch expression but switch statement instead
 	// switch(op1):
-	// 	fn<int -> int>(sop1): // Single op1
+	// 	fn<i32 -> i32>(sop1): // Single op1
 	// 		switch(op2):
-	// 			fn<int -> int>(sop2):
+	// 			fn<i32 -> i32>(sop2):
 	// 				return () -> sop1(_) |> sop2(^);
-	// 			fn<int, int -> int>(dop2):
+	// 			fn<i32, i32 -> i32>(dop2):
 	// 				return () -> sop1(_) |> dop2(^, _);
-	// 	fn<int, int -> int>(dop1): // Double op1
+	// 	fn<i32, i32 -> i32>(dop1): // Double op1
 	// 		switch(op2):
-	// 			fn<int -> int>(sop2):
+	// 			fn<i32 -> i32>(sop2):
 	// 				return () -> dop1(_, _) |> sop2(^);
-	// 			fn<int, int -> int>(dop2):
+	// 			fn<i32, i32 -> i32>(dop2):
 	// 				return () -> dop1(_, _) |> dop2(^, _);
 
-def add(int x, int y) -> int:
+def add(i32 x, i32 y) -> i32:
 	return x + y;
 
-def mult(int x, int y) -> int:
+def mult(i32 x, i32 y) -> i32:
 	return x * y;
 
-def square(int x) -> int:
+def square(i32 x) -> i32:
 	return x * x;
 
 def main():
-	fn<() -> int> add_then_square = compose(::add(3, 5), ::square);
-	fn<() -> int> square_then_mult = compose(::square(4), ::mult(_, 2));
+	fn<() -> i32> add_then_square = compose(::add(3, 5), ::square);
+	fn<() -> i32> square_then_mult = compose(::square(4), ::mult(_, 2));
 
 	print($"add(3, 5) |> square = {add_then_square()}");
 	print($"square(4) |> mult(2) = {square_then_mult()}");

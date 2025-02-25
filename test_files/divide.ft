@@ -1,4 +1,4 @@
-def divide(int x, int y) -> int:
+def divide(i32 x, i32 y) -> i32:
 	if y == 0:
 		throw 10;
 	return x / y;

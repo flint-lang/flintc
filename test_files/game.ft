@@ -1,11 +1,11 @@
 data Vector3:
-	flint x, y, z;
+	f32 x, y, z;
 	Vector3(x, y, z);
 
 data Transform:
 	Vector3 pos;
 	Vector3 dir;
-	flint speed;
+	f32 speed;
 	Transform(pos, dir, speed);
 
 func Movement requires(Transform t):
@@ -15,22 +15,22 @@ func Movement requires(Transform t):
 	def move_fn(fn<() -> Vector3> op):
 		t.pos.(x, y, z) += op().(x, y, z);
 
-	def get_dist_sqr(Vector3 p2) -> flint:
+	def get_dist_sqr(Vector3 p2) -> f32:
 		diff := Vector3(p2.x - t.pos.x, p2.y - t.pos.y, p2.z - t.pos.z);
 		diff.(x, y, z) *= diff.(x, y, z);
 		return diff.x + diff.y + diff.z;
 
 
 data Health:
-	int current;
-	int max;
+	i32 current;
+	i32 max;
 	Health(current, max);
 
 func HealthUtils requires(Health h):
-	def heal(int amount):
+	def heal(i32 amount):
 		h.current += amount if amount < h.max else h.max - h.current;
 
-	def damage(int amount):
+	def damage(i32 amount):
 		h.current -= h.current if amount > h.current else amount;
 
 	def is_alive() -> bool:
@@ -58,7 +58,7 @@ def update_positions():
 		// Only let the entities move which are within a given radius of the center
 		// This center could also be the player, and entities outside the cameras view wont move, for example
 		map_on_all(Movement, Movement::get_dist_sqr(center))
-			|> filter_on_all(Movement, (flint x) -> x < 20, _)
+			|> filter_on_all(Movement, (f32 x) -> x < 20, _)
 			|> run_on_all(Movement, Movement::move, _);
 		sync SyncGroup::MAIN;
 
@@ -67,7 +67,7 @@ def update_positions():
  * It runs on it's own thread and syncs with other threads too!
  */
 def update_health(List<Entity> entities):
-	int dps = 1;
+	i32 dps = 1;
 	sync SyncGroup::MAIN;
 	while(true):
 		// Decrease the health of each entity per iteration
@@ -77,7 +77,7 @@ def update_health(List<Entity> entities):
 			|> entites.remove_all(_);
 		sync SyncGroup::MAIN;
 
-def create_entities(int n) -> List<Entities>:
+def create_entities(i32 n) -> List<Entities>:
 	// Create n entites with default values
 	entities := Entity[n](_);
 

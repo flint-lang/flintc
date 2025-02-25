@@ -2,7 +2,7 @@ use "add.ft"
 use "divide.ft"
 
 def main():
-	flint i = 7.5;
+	f32 i = 7.5;
 	i = i * 2.6;
 	print("flint i = ");
 	print(i);

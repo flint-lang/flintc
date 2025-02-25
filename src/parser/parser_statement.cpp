@@ -39,8 +39,8 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) 
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
-    if (expr.value()->type != "int") {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, "int", expr.value()->type);
+    if (expr.value()->type != "i32") {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, "i32", expr.value()->type);
         return std::nullopt;
     }
     return ThrowNode(expr.value());
@@ -241,7 +241,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     if (err_var.has_value()) {
-        body_scope->add_variable_type(err_var.value(), "int", body_scope->scope_id);
+        body_scope->add_variable_type(err_var.value(), "i32", body_scope->scope_id);
     }
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {

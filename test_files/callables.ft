@@ -1,12 +1,12 @@
-def add(int x = 5, int y = 6) -> int:
+def add(i32 x = 5, i32 y = 6) -> i32:
 	return x + y;
 
-def counter() -> int:
-	persistent int c = 0;
+def counter() -> i32:
+	persistent i32 c = 0;
 	return c++;
 
-def attack(int x) -> int:
-	persistent int timestamp = 0;
+def attack(i32 x) -> i32:
+	persistent i32 timestamp = 0;
 
 	if now() - timestamp < 2:
 		// dont attack
@@ -26,7 +26,7 @@ def has_fired() -> bool:
 	return true;
 
 def main():
-	fn<int, int -> int> a = ::add;
+	fn<i32, i32 -> i32> a = ::add;
 	print(a(_)); // prints '11'
 	a = ::add(1, 2);
 	print(a(_)); // prints '3'
@@ -64,28 +64,28 @@ def main():
 
 
 data Attacks:
-	fn<int, int -> int> base = (int a, d) -> a - d;
-	fn<int, int -> int> strong = (int a, d) -> 2 * a - d;
-	fn<int, int -> int> special = (int a, d) -> 3 * a - d;
+	fn<i32, i32 -> i32> base = (i32 a, d) -> a - d;
+	fn<i32, i32 -> i32> strong = (i32 a, d) -> 2 * a - d;
+	fn<i32, i32 -> i32> special = (i32 a, d) -> 3 * a - d;
 	Attacks(base, strong, special);
 
 func Attacking requires(Attacks a):
-	def base_attack(int att, int defense) -> int:
+	def base_attack(i32 att, i32 defense) -> i32:
 		return a.base(att, defense);
 	
-	def strong_attack(int att, int defense) -> int:
+	def strong_attack(i32 att, i32 defense) -> i32:
 		return a.strong(att, defense);
 	
-	def special_attack(int att, int defense) -> int:
+	def special_attack(i32 att, i32 defense) -> i32:
 		return a.special(att, defense);
 	
-	def set_base_attack(fn<int, int -> int> att):
+	def set_base_attack(fn<i32, i32 -> i32> att):
 		a.base = att;
 	
-	def set_strong_attack(fn<int, int -> int> att):
+	def set_strong_attack(fn<i32, i32 -> i32> att):
 		a.strong = att;
 	
-	def set_special_attack(fn<int, int -> int> att):
+	def set_special_attack(fn<i32, i32 -> i32> att):
 		a.special = att;
 	
 entity Player:
@@ -101,9 +101,9 @@ def main():
 	print(p1.special_attack(50, 40)); // prints '110'
 
 	print(p1.base_attack(40, 50)); // prints '-10'
-	new_base := (int a, d) -> 0 if d >= a else a - d;
+	new_base := (i32 a, d) -> 0 if d >= a else a - d;
 	p1.set_base_attack(new_base);
 	print(p1.base_attack(40, 50)); // prints '0'
 
 	// reference to the base_attack function of the func module
-	fn<mut Attacks, int, int -> int> ba = Attacking::base_attack;
+	fn<mut Attacks, i32, i32 -> i32> ba = Attacking::base_attack;

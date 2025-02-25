@@ -137,10 +137,19 @@ void Lexer::scan_token() {
             add_token(TOK_SEMICOLON);
             break;
         case ':':
-            add_token_option(TOK_COLON, '=', TOK_COLON_EQUAL);
+            add_token_options(TOK_COLON, {{'=', TOK_COLON_EQUAL}, {':', TOK_REFERENCE}});
             break;
         case '?':
             add_token(TOK_QUESTION);
+            break;
+        case '$':
+            add_token(TOK_DOLLAR);
+            break;
+        case '^':
+            add_token(TOK_BIT_XOR);
+            break;
+        case '&':
+            add_token(TOK_BIT_OR);
             break;
         case '_':
             if (is_alpha_num(peek_next())) {
@@ -212,18 +221,14 @@ void Lexer::scan_token() {
             add_token_option(TOK_EQUAL, '=', TOK_EQUAL_EQUAL);
             break;
         case '<':
-            add_token_option(TOK_LESS, '=', TOK_LESS_EQUAL);
+            add_token_options(TOK_LESS, {{'=', TOK_LESS_EQUAL}, {'<', TOK_SHIFT_LEFT}});
             break;
         case '>':
-            add_token_option(TOK_GREATER, '=', TOK_GREATER_EQUAL);
+            add_token_options(TOK_GREATER, {{'=', TOK_GREATER_EQUAL}, {'>', TOK_SHIFT_RIGHT}});
             break;
         case '|':
-            if (peek_next() == '>') {
-                add_token(TOK_PIPE);
-            } else {
-                THROW_ERR(ErrUnexpectedTokenPipe, ERR_LEXING, file, line, column, peek_next());
-                return;
-            }
+            add_token_option(TOK_BIT_OR, '>', TOK_PIPE);
+            break;
         case '"':
             str();
             break;
@@ -291,8 +296,6 @@ void Lexer::number() {
     } else {
         add_token(TOK_INT_VALUE);
     }
-
-    // addToken(NUMBER, Double.parseDouble(source.substring(start, current)));
 }
 
 /// str

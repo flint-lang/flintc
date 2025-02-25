@@ -1,3 +1,5 @@
+#include "error/error.hpp"
+#include "error/error_type.hpp"
 #include "generator/generator.hpp"
 
 #include "parser/ast/expressions/call_node_expression.hpp"
@@ -375,37 +377,57 @@ llvm::Value *Generator::Expression::generate_binary_op(                    //
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         case TOK_PLUS:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateAdd(lhs, rhs, "iaddtmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateAdd(lhs, rhs, "uaddtmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFAdd(lhs, rhs, "faddtmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
         case TOK_MINUS:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateSub(lhs, rhs, "isubtmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateSub(lhs, rhs, "usubtmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFSub(lhs, rhs, "fsubtmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
         case TOK_MULT:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateMul(lhs, rhs, "imultmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateMul(lhs, rhs, "umultmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFMul(lhs, rhs, "fmultmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
         case TOK_DIV:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateSDiv(lhs, rhs, "idivtmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateUDiv(lhs, rhs, "udivtmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFDiv(lhs, rhs, "fdivtmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
@@ -413,55 +435,85 @@ llvm::Value *Generator::Expression::generate_binary_op(                    //
         case TOK_SQUARE:
             return IR::generate_pow_instruction(builder, parent, lhs, rhs);
         case TOK_LESS:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateICmpSLT(lhs, rhs, "icmptmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateICmpULT(lhs, rhs, "ucmptmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFCmpOLT(lhs, rhs, "fcmptmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
         case TOK_GREATER:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateICmpSGT(lhs, rhs, "icmptmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateICmpUGT(lhs, rhs, "ucmptmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFCmpOGT(lhs, rhs, "fcmptmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
         case TOK_LESS_EQUAL:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateICmpSLE(lhs, rhs, "icmptmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateICmpULE(lhs, rhs, "ucmptmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFCmpOLE(lhs, rhs, "fcmptmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
         case TOK_GREATER_EQUAL:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateICmpSGE(lhs, rhs, "icmptmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateICmpUGE(lhs, rhs, "ucmptmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFCmpOGE(lhs, rhs, "fcmptmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
         case TOK_EQUAL_EQUAL:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateICmpEQ(lhs, rhs, "icmptmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateICmpEQ(lhs, rhs, "ucmptmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFCmpOEQ(lhs, rhs, "fcmptmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
         case TOK_NOT_EQUAL:
-            if (type == "int") {
+            if (type == "i32" || type == "i64") {
                 return builder.CreateICmpNE(lhs, rhs, "icmptmp");
-            } else if (type == "flint") {
+            } else if (type == "u32" || type == "u64") {
+                return builder.CreateICmpNE(lhs, rhs, "ucmptmp");
+            } else if (type == "f32" || type == "f64") {
                 return builder.CreateFCmpONE(lhs, rhs, "fcmptmp");
+            } else if (type == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return nullptr;
             } else {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;

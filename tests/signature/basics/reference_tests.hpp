@@ -98,7 +98,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_extract_reference_single", false);
         token_list tokens = create_token_vector(
-            {TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON});
+            {TOK_INDENT, TOK_IDENTIFIER, TOK_I32, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::reference);
         bool result = !result_vec.empty() && result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
         test_result.ok_or_not(result);
@@ -113,7 +113,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, &test_result);
         test_result.append_test_name("test_extract_reference_multiple", false);
         token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_IDENTIFIER, TOK_INT, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON,
+            TOK_INDENT, TOK_IDENTIFIER, TOK_I32, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON,
             TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::reference);
         bool result = !result_vec.empty() && result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
