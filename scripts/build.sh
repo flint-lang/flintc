@@ -77,4 +77,4 @@ else
 fi
 
 # Execute all tests to ensure the compiler is in a working state
-#./build/out/tests
+./build/out/tests

@@ -23,13 +23,15 @@ int main(int argc, char *argv[]) {
         return cli_result;
     }
 
-    TestResult result;
+    if (clp.unit_tests) {
+        TestResult result;
+        run_test(result, test_parser);
+        run_test(result, test_signature);
+        print_result(result);
+        std::cout << DEFAULT;
+    }
 
-    run_test(result, test_parser);
-    run_test(result, test_signature);
-
-    test_performance(clp.compile_flags, clp.count);
-
-    print_result(result);
-    std::cout << DEFAULT;
+    if (clp.test_performance) {
+        test_performance(clp.compile_flags, clp.count);
+    }
 }

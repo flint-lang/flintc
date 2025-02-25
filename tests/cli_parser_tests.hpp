@@ -50,6 +50,10 @@ class CLIParserTests : public CLIParserBase {
                     compile_flags = args.at(i + 1);
                 }
                 i++;
+            } else if (arg == "--test-performance" || arg == "-p") {
+                test_performance = true;
+            } else if (arg == "--no-unit-tests" || arg == "-n") {
+                unit_tests = false;
             } else {
                 print_err("Unknown argument: " + arg);
                 return 1;
@@ -60,6 +64,8 @@ class CLIParserTests : public CLIParserBase {
 
     std::string compile_flags;
     unsigned int count{1};
+    bool unit_tests{true};
+    bool test_performance{false};
 
   private:
     void print_help() override {
@@ -67,6 +73,10 @@ class CLIParserTests : public CLIParserBase {
         std::cout << std::endl;
         std::cout << "Available Options:\n";
         std::cout << "  --help, -h                  Show help\n";
+        std::cout << "  --no-unit-tests, -n         Disables unit testing (not recommended)\n";
+        std::cout << "  --test-performance, -p      Run all performance tests\n";
+        std::cout << "\n";
+        std::cout << "Performance Test Options:\n";
         std::cout << "  --count, -c <num>           The count how often each test will run. (default = 1)\n";
         std::cout << "                              The end result will be the mean of all results.\n";
         std::cout << "  --flags \"[flags]\"           The clang flags used to build the executables (Both C and Flint)\n";
