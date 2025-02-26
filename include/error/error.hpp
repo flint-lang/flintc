@@ -32,6 +32,7 @@
 #include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_call_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"
+#include "error_types/parsing/expressions/err_expr_call_wrong_arg_count.hpp"
 #include "error_types/parsing/expressions/err_expr_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_lit_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"

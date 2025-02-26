@@ -10,6 +10,9 @@ def square(i32 x) -> i32:
 def divide(i32 x, i32 y) -> i32:
 	return x / y;
 
+def divide_double(i32x2 x, i32x2 y) -> i32x2:
+	return x / y;
+
 def main():
 	// The pipe operator |> can be used in two ways:
 	//	1. It can be used for piping results of _calls_ into one another:
@@ -23,13 +26,19 @@ def main():
 	// 	2. It can be used for composing functions. When both the lhs and the rhs of the pipe operator is _some_ 'fn' type, its result will be a lambda of said functions
 	fn<() -> i32> add35_then_square = ::add(3, 5) |> ::square($);
 	// The above code expands to:
-	// .. = () -> add(3, 5) | square($);
+	// .. = () -> add(3, 5) |> square($);
 	fn<() -> i32> square4_then_mult2 = ::square(4) |> ::mult($, 2);
 	// The above code expands to:
 	// .. = () -> square(4) |> mult($, 2);
 	fn<i32, i32 -> i32> add_then_square = ::add(_, _) |> ::square($);
 	// The above code expands to:
 	// .. = (i32 a, b) -> add(a, b) |> square($);
+
+	/** NOTE: The pipe operator is not allowed to be used in mixed-cases.
+	 * It can _either_ compose functions _or_ be used for execution piping.
+	 * As it can be seen, the lambda which will be created within the composed function is
+	 * exactly the same as if the |> operator would have been written out directly
+	 */
 
 	print($"add(3, 5) |> square = {add35_then_square()}");
 	print($"square(4) |> mult(2) = {square4_then_mult2()}");
@@ -39,3 +48,10 @@ def main():
 	fn<i32, i32, i32 -> i32> add_square_div = ::add_then_square(_, _) |> ::divide($, _);
 
 	print($"asd 3 7 5 = {add_square_div(3, 7, 5)}"); // Result of add_square_div will be '20'
+	str some_val = $"{$"{((i32 x, i32 y) -> x + y)(1, 2)}" + supi}";
+
+	// Because the result of 'divide_double' is a multi-type, splitting it into two i32 is allowed, because a multi-type is just a native group!
+	fn<i32x2, i32x2 -> i32> div_double_add = ::divide_double(_, _) |> ::add($1, $2);
+	// The above is the same as the one below
+	div_double_add = (i32x2 x, y) -> divide_double(x, y) |> add($1, $1);
+	res = div_double_add((4, 6), (2, 3)); // res = '4'

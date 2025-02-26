@@ -145,6 +145,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
 
     std::string function_name;
     std::vector<std::unique_ptr<ExpressionNode>> arguments;
+    std::vector<std::pair<unsigned int, unsigned int>> arg_ids;
 
     for (const auto &tok : tokens) {
         // Get the function name
@@ -207,12 +208,37 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
         const std::string return_type = std::string(builtin_functions.at(function_name).second);
         return std::make_tuple(function_name, std::move(arguments), return_type);
     }
-
+    // Get the acutal function this call targets, and check if it even exists
     auto function = get_function_from_call(function_name, argument_types);
     if (!function.has_value()) {
         THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name);
         return std::nullopt;
     }
+    // Check if the argument count does match the parameter count
+    const unsigned int param_count = function.value().first->parameters.size();
+    const unsigned int arg_count = arguments.size();
+    if (param_count != arg_count) {
+        THROW_ERR(ErrExprCallWrongArgCount, ERR_PARSING, file_name, tokens, function_name, param_count, arg_count);
+        return std::nullopt;
+    }
+    // Check if all parameter types actually match the argument types
+    // If we came until here, the arg count definitely matches the parameter count
+    auto param_it = function.value().first->parameters.begin();
+    auto arg_id_it = arg_ids.begin();
+    auto arg_it = argument_types.begin();
+    while (arg_it != argument_types.end()) {
+        if (param_it->first != *arg_it) {
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name,          //
+                clone_from_to(arg_id_it->first, arg_id_it->second, tokens), // tokens
+                param_it->first,                                            // expected type
+                *arg_it                                                     // actual type
+            );
+        }
+        ++param_it;
+        ++arg_id_it;
+        ++arg_it;
+    }
+
     // TODO: Change this eventually to support returning multiple types. Currently all return types are packed into one return type
     std::string return_type;
     auto &ret_types = function.value().first->return_types;

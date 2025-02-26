@@ -4,7 +4,7 @@ use "divide.ft"
 def main():
 	f32 i = 7.5;
 	i = i * 2.6;
-	print("flint i = ");
+	print("\nflint i = ");
 	print(i);
 	print("\n");
 	res := add_more(10, 2);
