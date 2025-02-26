@@ -137,6 +137,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
 ) {
     std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
     if (!arg_range.has_value()) {
+        // Function call does not have opening and closing brackets ()
         return std::nullopt;
     }
     // remove the '(' and ')' tokens from the arg_range
@@ -161,28 +162,26 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
         // passed
         if (Signature::tokens_contain_in_range(tokens, {{TOK_COMMA}}, arg_range.value())) {
             const auto match_ranges = Signature::get_match_ranges_in_range(tokens, {{TOK_COMMA}}, arg_range.value());
-            if (match_ranges.empty()) {
-                // No arguments
-                return std::make_tuple(function_name, std::move(arguments), "");
-            }
-
-            for (auto match = match_ranges.begin();; ++match) {
-                token_list argument_tokens;
-                if (match == match_ranges.begin()) {
-                    argument_tokens = clone_from_to(arg_range.value().first, match->first, tokens);
-                } else if (match == match_ranges.end()) {
-                    argument_tokens = clone_from_to((match - 1)->second, arg_range.value().second, tokens);
-                } else {
-                    argument_tokens = clone_from_to((match - 1)->second, match->first, tokens);
-                }
-                auto expression = create_expression(scope, argument_tokens);
-                if (!expression.has_value()) {
-                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
-                    return std::nullopt;
-                }
-                arguments.emplace_back(std::move(expression.value()));
-                if (match == match_ranges.end()) {
-                    break;
+            if (!match_ranges.empty()) {
+                for (auto match = match_ranges.begin();; ++match) {
+                    token_list argument_tokens;
+                    if (match == match_ranges.begin()) {
+                        argument_tokens = clone_from_to(arg_range.value().first, match->first, tokens);
+                    } else if (match == match_ranges.end()) {
+                        argument_tokens = clone_from_to((match - 1)->second, arg_range.value().second, tokens);
+                    } else {
+                        argument_tokens = clone_from_to((match - 1)->second, match->first, tokens);
+                    }
+                    auto expression = create_expression(scope, argument_tokens);
+                    if (!expression.has_value()) {
+                        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
+                        return std::nullopt;
+                    }
+                    arguments.emplace_back(std::move(expression.value()));
+                    arg_ids.emplace_back(*match);
+                    if (match == match_ranges.end()) {
+                        break;
+                    }
                 }
             }
         } else {
@@ -204,9 +203,41 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
     }
 
     // Check if its a call to a builtin function, if it is, get the return type of said function
-    if (builtin_functions.find(function_name) != builtin_functions.end()) {
-        const std::string return_type = std::string(builtin_functions.at(function_name).second);
-        return std::make_tuple(function_name, std::move(arguments), return_type);
+    const auto builtin_function = builtin_functions.find(function_name);
+    if (builtin_function != builtin_functions.end()) {
+        // Check if the function has the same arguments as the function expects
+        const auto &function_overloads = builtin_function_types.at(builtin_function->second);
+        // Check if any overloaded function exists
+        std::optional<std::pair<std::vector<std::string_view>, std::vector<std::string_view>>> found_function = std::nullopt;
+
+        for (const auto &[param_types, return_types] : function_overloads) {
+            const std::vector<std::string> parameter_types(param_types.begin(), param_types.end());
+            if (arguments.size() != param_types.size() || argument_types != parameter_types) {
+                continue;
+            }
+            auto param_it = parameter_types.begin();
+            auto arg_id_it = arg_ids.begin();
+            auto arg_it = argument_types.begin();
+            bool is_same = true;
+            while (arg_it != argument_types.end()) {
+                if (*param_it != *arg_it) {
+                    is_same = false;
+                }
+                ++param_it;
+                ++arg_id_it;
+                ++arg_it;
+            }
+            if (is_same) {
+                found_function = {param_types, return_types};
+            }
+        }
+        if (!found_function.has_value()) {
+            THROW_ERR(ErrExprCallWrongArgsBuiltin, ERR_PARSING, file_name,                        //
+                clone_from_to(arg_range.value().first - 2, arg_range.value().second + 1, tokens), //
+                function_name, argument_types);
+            return std::nullopt;
+        }
+        return std::make_tuple(function_name, std::move(arguments), "");
     }
     // Get the acutal function this call targets, and check if it even exists
     auto function = get_function_from_call(function_name, argument_types);

@@ -1,13 +1,17 @@
 use "add.ft"
 use "divide.ft"
 
+def get_int() -> i32:
+	return 5;
+
 def main():
 	f32 i = 7.5;
 	i = i * 2.6;
 	print("\nflint i = ");
 	print(i);
 	print("\n");
-	res := add_more(10, 2);
+	res := get_int();
+	res = add_more(10, 2);
 	print(res);
 	print("\n");
 	res = divide(res, 2) catch err:
