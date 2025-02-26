@@ -69,7 +69,7 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
     llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
     // Check if the call is to a builtin function
     if (func_decl == nullptr && builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
-        if (builtin_functions.at(call_node->function_name).first == PRINT) {
+        if (builtin_functions.at(call_node->function_name) == PRINT) {
             // Print functions dont return anything, this no allocations have to be made
             return {nullptr, false};
         }
