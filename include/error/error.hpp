@@ -33,6 +33,7 @@
 #include "error_types/parsing/expressions/err_expr_call_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"
 #include "error_types/parsing/expressions/err_expr_call_wrong_arg_count.hpp"
+#include "error_types/parsing/expressions/err_expr_call_wrong_args_builtin.hpp"
 #include "error_types/parsing/expressions/err_expr_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_lit_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"
@@ -73,7 +74,6 @@
 ///
 /// @param error_type The error enum type, whose Enum ID will be printed to the console
 inline void throw_err(ErrorType error_type, const char *file = __FILE__, const int line = __LINE__) {
-    // throw std::runtime_error("Custom Error: " + std::to_string(static_cast<int>(error_type)));
     std::cerr << "Custom Error: " << std::to_string(static_cast<int>(error_type));
 #ifdef DEBUG_BUILD
     std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
@@ -106,8 +106,7 @@ throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
 #ifdef DEBUG_BUILD
     std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
 #endif
-    std::cerr << std::endl;
-    // std::exit(EXIT_FAILURE);
+    std::cerr << "\n" << std::endl;
 }
 
 // Define a macro to autimatically pass file and line information

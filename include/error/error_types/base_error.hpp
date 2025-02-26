@@ -98,6 +98,17 @@ class BaseError {
     }
 
     [[nodiscard]]
+    std::string get_function_signature_string(const std::string &function_name, const std::vector<std::string> &arg_types) const {
+        std::stringstream oss;
+        oss << function_name << "(";
+        for (auto arg = arg_types.begin(); arg != arg_types.end(); ++arg) {
+            oss << *arg << (arg != arg_types.begin() ? ", " : "");
+        }
+        oss << ")";
+        return oss.str();
+    }
+
+    [[nodiscard]]
     std::string get_possible_space(                //
         const token_list &tokens,                  //
         const token_list::const_iterator iterator, //
