@@ -10,7 +10,7 @@
 ///     Represents variables or identifiers
 class TypeCastNode : public ExpressionNode {
   public:
-    TypeCastNode(const std::string &type, std::unique_ptr<ExpressionNode> expr) :
+    TypeCastNode(const std::string &type, std::unique_ptr<ExpressionNode> &expr) :
         expr(std::move(expr)) {
         this->type = type;
     }

@@ -211,7 +211,7 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
         return std::nullopt;
     }
 
-    return TypeCastNode(type_token.lexme, std::move(expression.value()));
+    return TypeCastNode(type_token.lexme, expression.value());
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *scope, const token_list &tokens) {

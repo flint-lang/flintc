@@ -270,6 +270,7 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                     return std::nullopt;
                 }
                 std::string type = scope->variable_types.at(iterator->lexme).first;
+
                 // Check if expression has the same type as the variable
                 if (expression.value()->type != type) {
                     THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, type, expression.value()->type);
@@ -283,7 +284,6 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
         }
         ++iterator;
     }
-
     return std::nullopt;
 }
 
