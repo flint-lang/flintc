@@ -378,9 +378,9 @@ llvm::Value *Generator::Expression::generate_binary_op(                    //
             return nullptr;
         case TOK_PLUS:
             if (type == "i32" || type == "i64") {
-                return builder.CreateAdd(lhs, rhs, "iaddtmp");
+                return Arithmetic::int_safe_add(builder, lhs, rhs);
             } else if (type == "u32" || type == "u64") {
-                return builder.CreateAdd(lhs, rhs, "uaddtmp");
+                return Arithmetic::uint_safe_add(builder, lhs, rhs);
             } else if (type == "f32" || type == "f64") {
                 return builder.CreateFAdd(lhs, rhs, "faddtmp");
             } else if (type == "flint") {
@@ -392,9 +392,9 @@ llvm::Value *Generator::Expression::generate_binary_op(                    //
             }
         case TOK_MINUS:
             if (type == "i32" || type == "i64") {
-                return builder.CreateSub(lhs, rhs, "isubtmp");
+                return Arithmetic::int_safe_sub(builder, lhs, rhs);
             } else if (type == "u32" || type == "u64") {
-                return builder.CreateSub(lhs, rhs, "usubtmp");
+                return Arithmetic::uint_safe_sub(builder, lhs, rhs);
             } else if (type == "f32" || type == "f64") {
                 return builder.CreateFSub(lhs, rhs, "fsubtmp");
             } else if (type == "flint") {
@@ -406,9 +406,9 @@ llvm::Value *Generator::Expression::generate_binary_op(                    //
             }
         case TOK_MULT:
             if (type == "i32" || type == "i64") {
-                return builder.CreateMul(lhs, rhs, "imultmp");
+                return Arithmetic::int_safe_mul(builder, lhs, rhs);
             } else if (type == "u32" || type == "u64") {
-                return builder.CreateMul(lhs, rhs, "umultmp");
+                return Arithmetic::uint_safe_mul(builder, lhs, rhs);
             } else if (type == "f32" || type == "f64") {
                 return builder.CreateFMul(lhs, rhs, "fmultmp");
             } else if (type == "flint") {
@@ -420,9 +420,9 @@ llvm::Value *Generator::Expression::generate_binary_op(                    //
             }
         case TOK_DIV:
             if (type == "i32" || type == "i64") {
-                return builder.CreateSDiv(lhs, rhs, "idivtmp");
+                return Arithmetic::int_safe_div(builder, lhs, rhs);
             } else if (type == "u32" || type == "u64") {
-                return builder.CreateUDiv(lhs, rhs, "udivtmp");
+                return Arithmetic::uint_safe_div(builder, lhs, rhs);
             } else if (type == "f32" || type == "f64") {
                 return builder.CreateFDiv(lhs, rhs, "fdivtmp");
             } else if (type == "flint") {

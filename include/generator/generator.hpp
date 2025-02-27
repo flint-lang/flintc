@@ -360,9 +360,38 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the print function definition will be generated in
         static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
+    /// @class `Arithmetic`
+    /// @brief The class which is responsible for everything arithmetic-related
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Arithmetic {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        Arithmetic() = delete;
 
-        /// @function `float_to_double`
-        /// @brief Converts a float value to a double value
+        /**************************************************************************************************************************************
+         * @region `I32` / `I64`
+         *************************************************************************************************************************************/
+
+        static llvm::Value *int_safe_add(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+
+        static llvm::Value *int_safe_sub(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+
+        static llvm::Value *int_safe_mul(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+
+        static llvm::Value *int_safe_div(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+
+        /**************************************************************************************************************************************
+         * @region `U32` / `U64`
+         *************************************************************************************************************************************/
+
+        static llvm::Value *uint_safe_add(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+
+        static llvm::Value *uint_safe_sub(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+
+        static llvm::Value *uint_safe_mul(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+
+        static llvm::Value *uint_safe_div(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+    };
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `float_value` The float value to convert
