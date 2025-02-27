@@ -34,7 +34,7 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) 
         }
     }
     token_list expression_tokens = extract_from_to(throw_id + 1, tokens.size(), tokens);
-    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens, "i32");
     if (!expr.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
@@ -100,7 +100,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
     }
 
     // Create the if statements condition and body statements
-    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, this_if_pair.first);
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, this_if_pair.first, "bool");
     if (!condition.has_value()) {
         // Invalid expression inside if statement
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, this_if_pair.first);
@@ -163,7 +163,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
         condition_tokens.erase(rev_it.base());
     }
 
-    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens, "bool");
     if (!condition.has_value()) {
         // Invalid expression inside while statement
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, condition_tokens);
@@ -258,25 +258,19 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
     while (iterator != tokens.end()) {
         if (iterator->type == TOK_IDENTIFIER) {
             if ((iterator + 1)->type == TOK_EQUAL && (iterator + 2) != tokens.end()) {
+                if (scope->variable_types.find(iterator->lexme) == scope->variable_types.end()) {
+                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, iterator->line, iterator->column, iterator->lexme);
+                    return std::nullopt;
+                }
+                std::string expected_type = scope->variable_types.at(iterator->lexme).first;
+                // Parse the expression with the expected type passed into it
                 token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
-                std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens);
+                std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens, expected_type);
                 if (!expression.has_value()) {
                     THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
                     return std::nullopt;
                 }
-                if (scope->variable_types.find(iterator->lexme) == scope->variable_types.end()) {
-                    // Assignment on undeclared variable!
-                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, iterator->line, iterator->column, iterator->lexme);
-                    return std::nullopt;
-                }
-                std::string type = scope->variable_types.at(iterator->lexme).first;
-
-                // Check if expression has the same type as the variable
-                if (expression.value()->type != type) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, type, expression.value()->type);
-                    return std::nullopt;
-                }
-                return std::make_unique<AssignmentNode>(type, iterator->lexme, expression.value());
+                return std::make_unique<AssignmentNode>(expected_type, iterator->lexme, expression.value());
             } else {
                 THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
@@ -310,13 +304,12 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
         return std::nullopt;
     }
 
-    auto expr = create_expression(scope, tokens);
-    if (!expr.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
-        return std::nullopt;
-    }
-
     if (is_infered) {
+        auto expr = create_expression(scope, tokens);
+        if (!expr.has_value()) {
+            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+            return std::nullopt;
+        }
         for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
             if (it->type == TOK_IDENTIFIER && (it + 1)->type == TOK_COLON_EQUAL) {
                 name = it->lexme;
@@ -346,9 +339,9 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;
         }
-        // Check if expression has the same type as the variable
-        if (expr.value()->type != type) {
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, type, expr.value()->type);
+        auto expr = create_expression(scope, tokens, type);
+        if (!expr.has_value()) {
+            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         declaration = DeclarationNode(type, name, expr.value());

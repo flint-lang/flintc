@@ -145,20 +145,21 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
     token_list rhs_tokens = extract_from_to(1, tokens.size(), tokens);
 
     std::optional<std::unique_ptr<ExpressionNode>> lhs = create_expression(scope, lhs_tokens);
-    std::optional<std::unique_ptr<ExpressionNode>> rhs = create_expression(scope, rhs_tokens);
     if (!lhs.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, lhs_tokens);
         return std::nullopt;
     }
+    std::optional<std::unique_ptr<ExpressionNode>> rhs = create_expression(scope, rhs_tokens, lhs.value()->type);
     if (!rhs.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_tokens);
         return std::nullopt;
     }
-    if (lhs.value()->type != rhs.value()->type) {
-        THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_name, lhs_tokens, rhs_tokens, operator_token, lhs.value()->type,
-            rhs.value()->type);
-        return std::nullopt;
-    }
+    // This check is done in the generator now, because of the implicit casting system
+    // if (lhs.value()->type != rhs.value()->type) {
+    //     THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_name, lhs_tokens, rhs_tokens, operator_token, lhs.value()->type,
+    //         rhs.value()->type);
+    //     return std::nullopt;
+    // }
     // The binop expression is of type bool when its a relational operator
     if (Signature::tokens_contain({{operator_token}}, Signature::relational_binop)) {
         return BinaryOpNode(operator_token, lhs.value(), rhs.value(), "bool");
@@ -214,7 +215,11 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
     return TypeCastNode(type_token.lexme, expression.value());
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *scope, const token_list &tokens) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
+    Scope *scope,                                                         //
+    const token_list &tokens,                                             //
+    const std::optional<std::string> expected_type                        //
+) {
     std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
     token_list expr_tokens = clone_from_to(0, tokens.size(), tokens);
     // remove trailing semicolons
@@ -272,6 +277,19 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
         // Undefined expression
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
         return std::nullopt;
+    }
+
+    // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
+    if (expected_type.has_value() && expected_type.value() != expression.value()->type) {
+        if (primitive_implicit_casting_table.find(expression.value()->type) != primitive_implicit_casting_table.end()) {
+            const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(expression.value()->type);
+            if (std::find(to_types.begin(), to_types.end(), expected_type.value()) != to_types.end()) {
+                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+            }
+        } else {
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+            return std::nullopt;
+        }
     }
 
     return expression;

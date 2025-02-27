@@ -477,6 +477,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return TypeCast::f64_to_f32(builder, expr);
         }
     }
+    std::cout << "FROM_TYPE: " << from_type << ", TO_TYPE: " << to_type << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;
 }
@@ -499,6 +500,22 @@ llvm::Value *Generator::Expression::generate_binary_op(                    //
 ) {
     llvm::Value *lhs = generate_expression(builder, parent, scope, allocations, bin_op_node->left.get());
     llvm::Value *rhs = generate_expression(builder, parent, scope, allocations, bin_op_node->right.get());
+    switch (bin_op_node->operator_token) {
+        default:
+            break;
+        case TOK_MINUS:
+        case TOK_PLUS:
+        case TOK_MULT:
+        case TOK_DIV:
+        case TOK_SQUARE:
+            if (bin_op_node->left->type != bin_op_node->type) {
+                lhs = generate_type_cast(builder, lhs, bin_op_node->left->type, bin_op_node->type);
+            }
+            if (bin_op_node->right->type != bin_op_node->type) {
+                rhs = generate_type_cast(builder, rhs, bin_op_node->right->type, bin_op_node->type);
+            }
+            break;
+    }
     const std::string_view type = bin_op_node->left->type;
     switch (bin_op_node->operator_token) {
         default:
