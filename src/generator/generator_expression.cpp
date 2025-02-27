@@ -369,6 +369,15 @@ llvm::Value *Generator::Expression::generate_type_cast(                    //
     // Then, check if the expression is castable
     const std::string &from_type = type_cast_node->expr->type;
     const std::string &to_type = type_cast_node->type;
+    return generate_type_cast(builder, expr, from_type, to_type);
+}
+
+llvm::Value *Generator::Expression::generate_type_cast( //
+    llvm::IRBuilder<> &builder,                         //
+    llvm::Value *expr,                                  //
+    const std::string &from_type,                       //
+    const std::string &to_type                          //
+) {
     if (from_type == to_type) {
         return expr;
     } else if (from_type == "i32") {

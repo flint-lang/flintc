@@ -1089,6 +1089,21 @@ class Generator {
             const TypeCastNode *type_cast_node                                     //
         );
 
+        /// @function `generate_type_cast`
+        /// @brief Generates a type cast from the given expression depending on the from and to types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `expr` The llvm value which will be cast
+        /// @param `from_type` The string representation of the type to cast from
+        /// @param `to_type` The string representation of the type to cast to
+        /// @return `llvm::Value *` The value containing the result of the type cast
+        static llvm::Value *generate_type_cast( //
+            llvm::IRBuilder<> &builder,         //
+            llvm::Value *expr,                  //
+            const std::string &from_type,       //
+            const std::string &to_type          //
+        );
+
         /// @function `generate_unary_op`
         /// @brief Generates the unary operation value from the given UnaryOpNode
         ///
