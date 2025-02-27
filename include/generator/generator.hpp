@@ -360,6 +360,8 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the print function definition will be generated in
         static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
+    }; // subclass Builtin
+
     /// @class `Arithmetic`
     /// @brief The class which is responsible for everything arithmetic-related
     /// @note This class cannot be initialized and all functions within this class are static
@@ -391,37 +393,280 @@ class Generator {
         static llvm::Value *uint_safe_mul(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
 
         static llvm::Value *uint_safe_div(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
-    };
+    }; // subclass Arithmetic
+
+    /// @class `TypeCast`
+    /// @brief The class which is responsilbe for everything type-casting related
+    /// @note This class cannot be initialized and all functions within this class are static
+    class TypeCast {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        TypeCast() = delete;
+
+        /**************************************************************************************************************************************
+         * @region `I32`
+         *************************************************************************************************************************************/
+
+        /// @function `i32_to_u32`
+        /// @brief Converts an i32 value to a u32 value
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `float_value` The float value to convert
-        /// @return `llvm::Value *` The converted double value
-        static llvm::Value *float_to_double(llvm::IRBuilder<> *builder, llvm::Value *float_value);
+        /// @param `int_value` The i32 value to convert
+        /// @return `llvm::Value *` The converted u32 value
+        static llvm::Value *i32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
 
-        /// @function `double_to_float`
-        /// @brief Convertes a double value to a float value
+        /// @function `i32_to_i64`
+        /// @brief Converts an i32 value to an i64 value
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `double_value` The double value to convert
-        /// @return `llvm::Value *` The converted float value
-        static llvm::Value *double_to_float(llvm::IRBuilder<> *builder, llvm::Value *double_value);
+        /// @param `int_value` The i32 value to convert
+        /// @return `llvm::Value *` The converted i64 value
+        static llvm::Value *i32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
 
-        /// @function `int_to_float`
-        /// @brief Converts a int value to a float value
+        /// @function `i32_to_u64`
+        /// @brief Converts an i32 value to a u64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The i32 value to convert
+        /// @return `llvm::Value *` The converted u64 value
+        static llvm::Value *i32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `i32_to_f32`
+        /// @brief Converts a i32 value to a f32 value
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `int_value` The int value to convert
-        /// @return `llvm::Value *` The converted float value
-        static llvm::Value *int_to_float(llvm::IRBuilder<> *builder, llvm::Value *int_value);
+        /// @return `llvm::Value *` The converted f32 value
+        static llvm::Value *i32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
 
-        /// @function `float_to_int`
-        /// @brief Converts a float value to an int value
+        /// @function `i32_to_f64`
+        /// @brief Converts an i32 value to a f64 value
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `float_value` The float value to convert
-        /// @return `llvm::Value *` The converted int value
-        static llvm::Value *float_to_int(llvm::IRBuilder<> *builder, llvm::Value *float_value);
-    }; // subclass Builtin
+        /// @param `int_value` The i32 value to convert
+        /// @return `llvm::Value *` The converted f64 value
+        static llvm::Value *i32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /**************************************************************************************************************************************
+         * @region `U32`
+         *************************************************************************************************************************************/
+
+        /// @function `u32_to_i32`
+        /// @brief Converts a u32 value to an i32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u32 value to convert
+        /// @return `llvm::Value *` The converted i32 value
+        static llvm::Value *u32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `u32_to_i64`
+        /// @brief Converts a u32 value to an i64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u32 value to convert
+        /// @return `llvm::Value *` The converted i64 value
+        static llvm::Value *u32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `u32_to_u64`
+        /// @brief Converts a u32 value to a u64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u32 value to convert
+        /// @return `llvm::Value *` The converted u64 value
+        static llvm::Value *u32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `u32_to_f32`
+        /// @brief Converts a u32 value to a f32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u32 value to convert
+        /// @return `llvm::Value *` The converted f32 value
+        static llvm::Value *u32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `u32_to_f64`
+        /// @brief Converts a u32 value to a f64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u32 value to convert
+        /// @return `llvm::Value *` The converted f64 value
+        static llvm::Value *u32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /**************************************************************************************************************************************
+         * @region `I64`
+         *************************************************************************************************************************************/
+
+        /// @function `i64_to_i32`
+        /// @brief Converts an i64 value to an i32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The i64 value to convert
+        /// @return `llvm::Value *` The converted i32 value
+        static llvm::Value *i64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `i64_to_u32`
+        /// @brief Converts an i64 value to a u32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The i64 value to convert
+        /// @return `llvm::Value *` The converted u32 value
+        static llvm::Value *i64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `i64_to_u64`
+        /// @brief Converts an i64 value to a u64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The i64 value to convert
+        /// @return `llvm::Value *` The converted u64 value
+        static llvm::Value *i64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `i64_to_f32`
+        /// @brief Converts an i64 value to a f32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The i64 value to convert
+        /// @return `llvm::Value *` The converted f32 value
+        static llvm::Value *i64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `i64_to_f64`
+        /// @brief Converts an i64 value to a f64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The i64 value to convert
+        /// @return `llvm::Value *` The converted f64 value
+        static llvm::Value *i64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /**************************************************************************************************************************************
+         * @region `U64`
+         *************************************************************************************************************************************/
+
+        /// @function `u64_to_i32`
+        /// @brief Converts a u64 value to an i32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u64 value to convert
+        /// @return `llvm::Value *` The converted i32 value
+        static llvm::Value *u64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `u64_to_u32`
+        /// @brief Converts a u64 value to a u32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u64 value to convert
+        /// @return `llvm::Value *` The converted u32 value
+        static llvm::Value *u64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `u64_to_i64`
+        /// @brief Converts a u64 value to an i64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u64 value to convert
+        /// @return `llvm::Value *` The converted i64 value
+        static llvm::Value *u64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `u64_to_f32`
+        /// @brief Converts a u64 value to a f32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u64 value to convert
+        /// @return `llvm::Value *` The converted f32 value
+        static llvm::Value *u64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `u64_to_f64`
+        /// @brief Converts a u64 value to a f64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `int_value` The u64 value to convert
+        /// @return `llvm::Value *` The converted f64 value
+        static llvm::Value *u64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /**************************************************************************************************************************************
+         * @region `F32`
+         *************************************************************************************************************************************/
+
+        /// @function `f32_to_i32`
+        /// @brief Converts a f32 value to an i32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `float_value` The f32 value to convert
+        /// @return `llvm::Value *` The converted i32 value
+        static llvm::Value *f32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *float_value);
+
+        /// @function `f32_to_u32`
+        /// @brief Converts a f32 value to a u32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `float_value` The f32 value to convert
+        /// @return `llvm::Value *` The converted u32 value
+        static llvm::Value *f32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *float_value);
+
+        /// @function `f32_to_i64`
+        /// @brief Converts a f32 value to an i64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `float_value` The f32 value to convert
+        /// @return `llvm::Value *` The converted i64 value
+        static llvm::Value *f32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *float_value);
+
+        /// @function `f32_to_u64`
+        /// @brief Converts a f32 value to a u64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `float_value` The f32 value to convert
+        /// @return `llvm::Value *` The converted u64 value
+        static llvm::Value *f32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *float_value);
+
+        /// @function `f32_to_f64`
+        /// @brief Converts a f32 value to a f64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `float_value` The f32 value to convert
+        /// @return `llvm::Value *` The converted f64 value
+        static llvm::Value *f32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *float_value);
+
+        /**************************************************************************************************************************************
+         * @region `F64`
+         *************************************************************************************************************************************/
+
+        /// @function `f64_to_i32`
+        /// @brief Converts a f64 value to an i32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `double_value` The f64 value to convert
+        /// @return `llvm::Value *` The converted i32 value
+        static llvm::Value *f64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *double_value);
+
+        /// @function `f64_to_u32`
+        /// @brief Converts a f64 value to a u32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `double_value` The f64 value to convert
+        /// @return `llvm::Value *` The converted u32 value
+        static llvm::Value *f64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *double_value);
+
+        /// @function `f64_to_i64`
+        /// @brief Converts a f64 value to an i64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `double_value` The f64 value to convert
+        /// @return `llvm::Value *` The converted i64 value
+        static llvm::Value *f64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *double_value);
+
+        /// @function `f64_to_u64`
+        /// @brief Converts a f64 value to a u64 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `double_value` The f64 value to convert
+        /// @return `llvm::Value *` The converted u64 value
+        static llvm::Value *f64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *double_value);
+
+        /// @function `f64_to_f32`
+        /// @brief Converts a f64 value to a f32 value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `double_value` The f64 value to convert
+        /// @return `llvm::Value *` The converted f32 value
+        static llvm::Value *f64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *double_value);
+    }; // subclass TypeCast
 
     /// @class `Allocation`
     /// @brief The class which is responsible for everything allocation-related, like varaible preallocation
