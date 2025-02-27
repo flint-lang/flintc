@@ -164,54 +164,54 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *scope, const token_list &tokens) {
     std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
-    token_list cond_tokens = clone_from_to(0, tokens.size(), tokens);
+    token_list expr_tokens = clone_from_to(0, tokens.size(), tokens);
     // remove trailing semicolons
-    for (auto iterator = cond_tokens.rbegin(); iterator != cond_tokens.rend(); ++iterator) {
+    for (auto iterator = expr_tokens.rbegin(); iterator != expr_tokens.rend(); ++iterator) {
         if (iterator->type == TOK_SEMICOLON) {
-            cond_tokens.erase(std::next(iterator).base());
+            expr_tokens.erase(std::next(iterator).base());
         } else {
             break;
         }
     }
     // remove surrounding parenthesis when the first and last token are '(' and ')'
-    if (cond_tokens.begin()->type == TOK_LEFT_PAREN && cond_tokens.at(cond_tokens.size() - 1).type == TOK_RIGHT_PAREN) {
-        cond_tokens.erase(cond_tokens.begin());
-        cond_tokens.pop_back();
+    if (expr_tokens.begin()->type == TOK_LEFT_PAREN && expr_tokens.at(expr_tokens.size() - 1).type == TOK_RIGHT_PAREN) {
+        expr_tokens.erase(expr_tokens.begin());
+        expr_tokens.pop_back();
     }
 
     // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
-    if (Signature::tokens_contain(cond_tokens, Signature::function_call)) {
-        expression = create_call_expression(scope, cond_tokens);
-    } else if (Signature::tokens_contain(cond_tokens, Signature::bin_op_expr)) {
-        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, cond_tokens);
+    if (Signature::tokens_contain(expr_tokens, Signature::function_call)) {
+        expression = create_call_expression(scope, expr_tokens);
+    } else if (Signature::tokens_contain(expr_tokens, Signature::bin_op_expr)) {
+        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, expr_tokens);
         if (!bin_op.has_value()) {
-            THROW_ERR(ErrExprBinopCreationFailed, ERR_PARSING, file_name, cond_tokens);
+            THROW_ERR(ErrExprBinopCreationFailed, ERR_PARSING, file_name, expr_tokens);
             return std::nullopt;
         }
         expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
-    } else if (Signature::tokens_contain(cond_tokens, Signature::literal_expr)) {
-        std::optional<LiteralNode> lit = create_literal(cond_tokens);
+    } else if (Signature::tokens_contain(expr_tokens, Signature::literal_expr)) {
+        std::optional<LiteralNode> lit = create_literal(expr_tokens);
         if (!lit.has_value()) {
-            THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, cond_tokens);
+            THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, expr_tokens);
             return std::nullopt;
         }
         expression = std::make_unique<LiteralNode>(std::move(lit.value()));
-    } else if (Signature::tokens_match(cond_tokens, Signature::unary_op_expr)) {
-        std::optional<UnaryOpNode> unary_op = create_unary_op(scope, cond_tokens);
+    } else if (Signature::tokens_match(expr_tokens, Signature::unary_op_expr)) {
+        std::optional<UnaryOpNode> unary_op = create_unary_op(scope, expr_tokens);
         if (!unary_op.has_value()) {
-            THROW_ERR(ErrExprUnaryOpCreationFailed, ERR_PARSING, file_name, cond_tokens);
+            THROW_ERR(ErrExprUnaryOpCreationFailed, ERR_PARSING, file_name, expr_tokens);
             return std::nullopt;
         }
         expression = std::make_unique<UnaryOpNode>(std::move(unary_op.value()));
-    } else if (Signature::tokens_match(cond_tokens, Signature::variable_expr)) {
-        std::optional<VariableNode> variable = create_variable(scope, cond_tokens);
+    } else if (Signature::tokens_match(expr_tokens, Signature::variable_expr)) {
+        std::optional<VariableNode> variable = create_variable(scope, expr_tokens);
         if (!variable.has_value()) {
-            THROW_ERR(ErrExprVariableCreationFailed, ERR_PARSING, file_name, cond_tokens);
+            THROW_ERR(ErrExprVariableCreationFailed, ERR_PARSING, file_name, expr_tokens);
         }
         expression = std::make_unique<VariableNode>(std::move(variable.value()));
     } else {
         // Undefined expression
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, cond_tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
         return std::nullopt;
     }
 
