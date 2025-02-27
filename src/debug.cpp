@@ -21,6 +21,7 @@
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
@@ -334,6 +335,13 @@ namespace Debug {
             print_expression(indent_lvl + 2, empty, bin.right);
         }
 
+        void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast) {
+            print_header(indent_lvl, empty, "TypeCast ");
+            std::cout << cast.type << std::endl;
+            empty.second = indent_lvl + 2;
+            print_expression(indent_lvl + 1, empty, cast.expr);
+        }
+
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr) {
             if (const auto *variable_node = dynamic_cast<const VariableNode *>(expr.get())) {
                 print_variable(indent_lvl, empty, *variable_node);
@@ -345,6 +353,8 @@ namespace Debug {
                 print_call(indent_lvl, empty, *dynamic_cast<const CallNodeBase *>(call_node));
             } else if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expr.get())) {
                 print_binary_op(indent_lvl, empty, *binary_op_node);
+            } else if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expr.get())) {
+                print_type_cast(indent_lvl, empty, *type_cast_node);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;

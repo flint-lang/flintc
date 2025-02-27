@@ -5,8 +5,11 @@ def get_int() -> i32:
 	return 5;
 
 def main():
+	u32 u = u32(2);
+	u = u - u32(3);
+	print(u);
 	f32 i = 7.5;
-	i = i * 2.6;
+	i = i - f32(9);
 	print("\nflint i = ");
 	print(i);
 	print("\n");

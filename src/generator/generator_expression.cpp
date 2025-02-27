@@ -26,6 +26,9 @@ llvm::Value *Generator::Expression::generate_expression(                   //
     if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
         return generate_binary_op(builder, parent, scope, allocations, binary_op_node);
     }
+    if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expression_node)) {
+        return generate_type_cast(builder, parent, scope, allocations, type_cast_node);
+    }
     THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;
 }
@@ -354,11 +357,127 @@ void Generator::Expression::generate_rethrow(                              //
     builder.SetInsertPoint(merge_block);
 }
 
+llvm::Value *Generator::Expression::generate_type_cast(                    //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const TypeCastNode *type_cast_node                                     //
+) {
+    // First, generate the expression
+    llvm::Value *expr = generate_expression(builder, parent, scope, allocations, type_cast_node->expr.get());
+    // Then, check if the expression is castable
+    const std::string &from_type = type_cast_node->expr->type;
+    const std::string &to_type = type_cast_node->type;
+    if (from_type == to_type) {
+        return expr;
+    } else if (from_type == "i32") {
+        if (to_type == "u32") {
+            return TypeCast::i32_to_u32(builder, expr);
+        }
+        if (to_type == "i64") {
+            return TypeCast::i32_to_i64(builder, expr);
+        }
+        if (to_type == "u64") {
+            return TypeCast::i32_to_u64(builder, expr);
+        }
+        if (to_type == "f32") {
+            return TypeCast::i32_to_f32(builder, expr);
+        }
+        if (to_type == "f64") {
+            return TypeCast::i32_to_f64(builder, expr);
+        }
+    } else if (from_type == "u32") {
+        if (to_type == "i32") {
+            return TypeCast::u32_to_i32(builder, expr);
+        }
+        if (to_type == "i64") {
+            return TypeCast::u32_to_i64(builder, expr);
+        }
+        if (to_type == "u64") {
+            return TypeCast::u32_to_u64(builder, expr);
+        }
+        if (to_type == "f32") {
+            return TypeCast::u32_to_f32(builder, expr);
+        }
+        if (to_type == "f64") {
+            return TypeCast::u32_to_f64(builder, expr);
+        }
+    } else if (from_type == "i64") {
+        if (to_type == "i32") {
+            return TypeCast::i64_to_i32(builder, expr);
+        }
+        if (to_type == "u32") {
+            return TypeCast::i64_to_u32(builder, expr);
+        }
+        if (to_type == "u64") {
+            return TypeCast::i64_to_u64(builder, expr);
+        }
+        if (to_type == "f32") {
+            return TypeCast::i64_to_f32(builder, expr);
+        }
+        if (to_type == "f64") {
+            return TypeCast::i64_to_f64(builder, expr);
+        }
+    } else if (from_type == "u64") {
+        if (to_type == "i32") {
+            return TypeCast::u64_to_i32(builder, expr);
+        }
+        if (to_type == "u32") {
+            return TypeCast::u64_to_u32(builder, expr);
+        }
+        if (to_type == "i64") {
+            return TypeCast::u64_to_i64(builder, expr);
+        }
+        if (to_type == "f32") {
+            return TypeCast::u64_to_f32(builder, expr);
+        }
+        if (to_type == "f64") {
+            return TypeCast::u64_to_f64(builder, expr);
+        }
+    } else if (from_type == "f32") {
+        if (to_type == "i32") {
+            return TypeCast::f32_to_i32(builder, expr);
+        }
+        if (to_type == "u32") {
+            return TypeCast::f32_to_u32(builder, expr);
+        }
+        if (to_type == "i64") {
+            return TypeCast::f32_to_i64(builder, expr);
+        }
+        if (to_type == "u64") {
+            return TypeCast::f32_to_u64(builder, expr);
+        }
+        if (to_type == "f64") {
+            return TypeCast::f32_to_f64(builder, expr);
+        }
+    } else if (from_type == "f64") {
+        if (to_type == "i32") {
+            return TypeCast::f64_to_i32(builder, expr);
+        }
+        if (to_type == "u32") {
+            return TypeCast::f64_to_u32(builder, expr);
+        }
+        if (to_type == "i64") {
+            return TypeCast::f64_to_i64(builder, expr);
+        }
+        if (to_type == "u64") {
+            return TypeCast::f64_to_u64(builder, expr);
+        }
+        if (to_type == "f32") {
+            return TypeCast::f64_to_f32(builder, expr);
+        }
+    }
+    THROW_BASIC_ERR(ERR_GENERATING);
+    return nullptr;
+}
+
 llvm::Value *Generator::Expression::generate_unary_op( //
     llvm::IRBuilder<> &builder,                        //
     llvm::Function *parent,                            //
     const UnaryOpNode *unary_op_node                   //
 ) {
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return nullptr;
 }
 

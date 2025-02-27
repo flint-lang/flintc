@@ -7,6 +7,7 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 #include "parser/ast/file_node.hpp"
@@ -1069,6 +1070,23 @@ class Generator {
             llvm::Function *parent,                                                //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const CallNodeBase *call_node                                          //
+        );
+
+        /// @function `generate_type_cast`
+        /// @brief Generates a type cast from a TypeCastNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the type cast is generated in
+        /// @param `scope` The scope the type cast is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `type_cast_node` The type cast to generate
+        /// @return `llvm::Value *` The value containing the result of the type cast
+        static llvm::Value *generate_type_cast(                                    //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const TypeCastNode *type_cast_node                                     //
         );
 
         /// @function `generate_unary_op`

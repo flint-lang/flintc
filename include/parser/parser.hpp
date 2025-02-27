@@ -29,6 +29,7 @@
 #include "ast/expressions/call_node_expression.hpp"
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/literal_node.hpp"
+#include "ast/expressions/type_cast_node.hpp"
 #include "ast/expressions/unary_op_node.hpp"
 #include "ast/expressions/variable_node.hpp"
 #include "ast/statements/catch_node.hpp"
@@ -352,6 +353,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the binary operation
     /// @return `std::optional<BinaryOpNode>` An optional BinaryOpNode if creation is successful, nullopt otherwise
     std::optional<BinaryOpNode> create_binary_op(Scope *scope, token_list &tokens);
+
+    /// @function `create_type_cast`
+    /// @brief Creates a TypeCastNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the type cast is defined
+    /// @param `tokens` The list of tokens representing the type cast
+    /// @return `std::optional<TypeCastNode>` An optional TypeCastNode if creation is successful, nullopt otherwise
+    std::optional<TypeCastNode> create_type_cast(Scope *scope, token_list &tokens);
 
     /// @function `create_expression`
     /// @brief Creates an ExpressionNode from the given tokens

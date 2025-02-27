@@ -104,6 +104,7 @@ namespace Signature {
     // --- EXPRESSIONS ---
     const signature expression = combine({{"("}, anytoken, {")*"}});
     const signature function_call = combine({{TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, expression, {")?", TOK_RIGHT_PAREN}});
+    const signature type_cast = combine({type_prim, {TOK_LEFT_PAREN, "("}, expression, {")", TOK_RIGHT_PAREN}});
     const signature bin_op_expr = combine({expression, binary_operator, expression});
     const signature unary_op_expr = combine({{"(("}, expression, unary_operator, {")|("}, unary_operator, expression, {"))"}});
     const signature literal_expr = combine({//

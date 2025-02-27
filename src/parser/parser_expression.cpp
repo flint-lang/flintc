@@ -1,7 +1,11 @@
 #include "error/error.hpp"
+#include "lexer/builtins.hpp"
+#include "lexer/token.hpp"
+#include "lexer/token_context.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/signature.hpp"
+#include <algorithm>
 
 std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_list &tokens) {
     std::optional<VariableNode> var = std::nullopt;
@@ -162,6 +166,54 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
     return BinaryOpNode(operator_token, lhs.value(), rhs.value(), lhs.value()->type);
 }
 
+std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &tokens) {
+    std::optional<uint2> expr_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+    if (!expr_range.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Remove the parenthesis from the expression token ranges
+    expr_range.value().first++;
+    expr_range.value().second--;
+    assert(expr_range.value().second > expr_range.value().first);
+
+    // Get the type the expression needs to be converted to
+    TokenContext type_token = TokenContext{TOK_EOF};
+    for (auto iterator = tokens.begin(); iterator != tokens.end(); ++iterator) {
+        if (Signature::tokens_match({*iterator}, Signature::type_prim) && std::next(iterator) != tokens.end() &&
+            std::next(iterator)->type == TOK_LEFT_PAREN) {
+            type_token = *iterator;
+            break;
+        }
+    }
+    if (type_token.type == TOK_EOF) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Create the expression
+    token_list expr_tokens = clone_from_to(expr_range.value().first, expr_range.value().second, tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expr_tokens);
+    if (!expression.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
+        return std::nullopt;
+    }
+
+    // Check if the type of the expression is castable at all
+    if (primitive_casting_table.find(expression.value()->type) == primitive_casting_table.end()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const std::vector<std::string_view> &to_types = primitive_casting_table.at(expression.value()->type);
+    if (std::find(to_types.begin(), to_types.end(), type_token.lexme) == to_types.end()) {
+        // The given expression type cannot be cast to the wanted type
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    return TypeCastNode(type_token.lexme, std::move(expression.value()));
+}
+
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *scope, const token_list &tokens) {
     std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
     token_list expr_tokens = clone_from_to(0, tokens.size(), tokens);
@@ -189,6 +241,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(Scope *
             return std::nullopt;
         }
         expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
+    } else if (Signature::tokens_contain(expr_tokens, Signature::type_cast)) {
+        std::optional<TypeCastNode> type_cast = create_type_cast(scope, expr_tokens);
+        if (!type_cast.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        expression = std::make_unique<TypeCastNode>(std::move(type_cast.value()));
     } else if (Signature::tokens_contain(expr_tokens, Signature::literal_expr)) {
         std::optional<LiteralNode> lit = create_literal(expr_tokens);
         if (!lit.has_value()) {
