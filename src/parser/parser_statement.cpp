@@ -4,6 +4,7 @@
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "parser/signature.hpp"
+#include "types.hpp"
 
 #include <optional>
 
@@ -184,10 +185,82 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
 std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     Scope *scope,                                                    //
     const token_list &definition,                                    //
-    const token_list &body                                           //
+    token_list &body                                                 //
 ) {
-    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-    return std::nullopt;
+    std::optional<std::unique_ptr<StatementNode>> initializer;
+    std::optional<std::unique_ptr<ExpressionNode>> condition;
+    std::optional<std::unique_ptr<StatementNode>> looparound;
+
+    // Get the content of the for loop
+    std::optional<uint2> expressions_range = Signature::get_next_match_range(definition, Signature::match_until_signature({{TOK_COLON}}));
+    if (!expressions_range.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Get the actual expressions inside the for loops definition
+    std::vector<uint2> expression_ranges = Signature::get_match_ranges_in_range( //
+        definition,                                                              //
+        Signature::match_until_signature({{TOK_SEMICOLON}}),                     //
+        expressions_range.value()                                                //
+    );
+    if (expression_ranges.size() < 2) {
+        // Too less expressions in the for loop definition
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    } else if (expression_ranges.size() > 2) {
+        // Too many expressions in the for loop definition
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Parse the actual expressions / statements. Note that only non-scoped statements are valid within the for loops definition
+    std::unique_ptr<Scope> definition_scope = std::make_unique<Scope>(scope);
+    uint2 &initializer_range = expression_ranges.at(0);
+    // "remove" everything including the 'for' keyword from the initializer statement
+    // otherwise the for loop would create itself recursively
+    for (unsigned int i = initializer_range.first; i < initializer_range.second; i++) {
+        if (definition.at(i).type == TOK_FOR) {
+            initializer_range.first = i + 1;
+            break;
+        }
+    }
+    // Parse the initializer statement
+    token_list initializer_tokens = clone_from_to(initializer_range.first, initializer_range.second, definition);
+    initializer = create_statement(definition_scope.get(), initializer_tokens);
+    if (!initializer.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Parse the loop condition expression
+    uint2 &condition_range = expression_ranges.at(1);
+    const token_list condition_tokens = clone_from_to(initializer_range.first, initializer_range.second, definition);
+    condition = create_expression(definition_scope.get(), condition_tokens);
+    if (!condition.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Parse the looparound statement
+    uint2 looparound_range{condition_range.second, expressions_range.value().second};
+    token_list looparound_tokens = clone_from_to(looparound_range.first, looparound_range.second, definition);
+    looparound = create_statement(definition_scope.get(), looparound_tokens);
+    if (!looparound.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Parse the for loops body
+    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(definition_scope.get());
+    auto body_statements = create_body(body_scope.get(), body);
+    if (!body_statements.has_value()) {
+        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
+        return std::nullopt;
+    }
+    body_scope->body = std::move(body_statements.value());
+
+    return std::make_unique<ForLoopNode>(initializer.value(), condition.value(), looparound.value(), body_scope);
 }
 
 std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop(Scope *scope, const token_list &definition,
@@ -501,8 +574,24 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
     std::vector<std::unique_ptr<StatementNode>> body_statements;
     const Signature::signature statement_signature = Signature::match_until_signature({"((", TOK_SEMICOLON, ")|(", TOK_COLON, "))"});
 
+    std::optional<uint2> for_match;
+    std::optional<token_list> for_definition_tokens;
     while (auto next_match = Signature::get_next_match_range(body, statement_signature)) {
         token_list statement_tokens = extract_from_to(next_match.value().first, next_match.value().second, body);
+        if (Signature::tokens_contain(statement_tokens, {{TOK_FOR}})) {
+            for_match = next_match;
+            for_definition_tokens = std::move(statement_tokens);
+            continue;
+        } else if (for_match.has_value()) {
+            for_match.value().second = next_match.value().second;
+            std::copy(statement_tokens.begin(), statement_tokens.end(), std::back_inserter(for_definition_tokens.value()));
+            if (!Signature::tokens_contain(statement_tokens, {{TOK_COLON}})) {
+                continue;
+            } else {
+                next_match = for_match.value();
+                statement_tokens = std::move(for_definition_tokens.value());
+            }
+        }
         std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
         if (Signature::tokens_contain(statement_tokens, {TOK_COLON})) {
             // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
@@ -518,6 +607,9 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
             THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, statement_tokens);
             return std::nullopt;
         }
+
+        for_match = std::nullopt;
+        for_definition_tokens = std::nullopt;
     }
 
     return body_statements;

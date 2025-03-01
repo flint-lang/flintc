@@ -432,7 +432,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the for loop definition
     /// @param `body` The list of tokens representing the for loop body
     /// @return `std::optional<std::unique_ptr<ForLoopNode>>` An optional unique pointer to the created ForLoopNode
-    std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(Scope *scope, const token_list &definition, const token_list &body);
+    std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(Scope *scope, const token_list &definition, token_list &body);
 
     /// @function `create_enh_for_loop`
     /// @brief Creates an enhanced ForLoopNode from the given list of tokens

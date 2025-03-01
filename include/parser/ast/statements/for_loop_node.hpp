@@ -6,17 +6,23 @@
 #include "statement_node.hpp"
 
 #include <memory>
-#include <string>
 #include <utility>
 
-/// ForLoopNode
-///     Represents both traditional and enhanced for loops.
+/// @class `ForLoopNode`
+/// @brief Represents traditional for loops
+///
+/// @note Takes ownership of all its constructor arguments
 class ForLoopNode : public StatementNode {
   public:
-    ForLoopNode(std::string &iterator_name, std::unique_ptr<ExpressionNode> &iterable, std::unique_ptr<Scope> &scope) :
-        iterator_name(iterator_name),
-        iterable(std::move(iterable)),
-        scope(std::move(scope)) {}
+    ForLoopNode(std::unique_ptr<StatementNode> &initializer, //
+        std::unique_ptr<ExpressionNode> &condition,          //
+        std::unique_ptr<StatementNode> &looparound,          //
+        std::unique_ptr<Scope> &definition_scope             //
+        ) :
+        initializer(std::move(initializer)),
+        condition(std::move(condition)),
+        looparound(std::move(looparound)),
+        definition_scope(std::move(definition_scope)) {}
 
     // constructor
     ForLoopNode() = default;
@@ -29,15 +35,22 @@ class ForLoopNode : public StatementNode {
     ForLoopNode(ForLoopNode &&) = default;
     ForLoopNode &operator=(ForLoopNode &&) = delete;
 
-    /// iterator_name
-    ///     The name of the iterator variable
-    std::string iterator_name;
-    /// iterable
-    ///     Iterable expression (e.g. range or array)
-    std::unique_ptr<ExpressionNode> iterable;
-    /// body
-    ///     The body of the loop
-    std::unique_ptr<Scope> scope;
+    /// @var `initializer`
+    /// @brief The initializer of the loop, most often 'i32 i = 0'
+    std::unique_ptr<StatementNode> initializer;
+
+    /// @var `condition`
+    /// @brief The loop condition, for example 'i < 10'
+    std::unique_ptr<ExpressionNode> condition;
+
+    /// @var `looparound`
+    /// @brief The looparound expression, for example 'i++'
+    std::unique_ptr<StatementNode> looparound;
+
+    /// @var `definition_scope`
+    /// @brief The Scope of the definition, this is necessary to encapsulate the initializer within the for loop.
+    ///        The definition_scope's body scope contains the body of the for loop
+    std::unique_ptr<Scope> definition_scope;
 };
 
 #endif

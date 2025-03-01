@@ -422,13 +422,18 @@ namespace Debug {
 
         void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node) {
             print_header(indent_lvl, empty, "For ");
-            std::cout << "for ";
-            std::cout << for_node.iterator_name;
-            std::cout << " in ";
-            print_expression(0, {0, 0}, for_node.iterable);
+            std::cout << "for " << std::endl;
+            empty.second = indent_lvl + 1;
+            print_statement(indent_lvl + 1, empty, for_node.initializer);
+            print_expression(indent_lvl + 1, empty, for_node.condition);
+            print_statement(indent_lvl + 1, empty, for_node.looparound);
+
+            empty.second = indent_lvl;
+            print_header(indent_lvl, empty, "Do ");
+            std::cout << "do " << std::endl;
 
             empty.second = indent_lvl + 1;
-            print_body(indent_lvl + 1, empty, for_node.scope->body);
+            print_body(indent_lvl + 1, empty, for_node.definition_scope->body);
         }
 
         void print_catch(unsigned int indent_lvl, uint2 empty, const CatchNode &catch_node) {

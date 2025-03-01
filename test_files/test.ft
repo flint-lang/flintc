@@ -5,6 +5,8 @@ def get_int() -> i32:
 	return 5;
 
 def main():
+	for i32 c = 0; c < 10; c = c + 1:
+		print(c);
 	u32 u = 2;
 	u = 7;
 	u = u - 3;
