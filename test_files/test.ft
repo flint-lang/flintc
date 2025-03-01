@@ -1,32 +1,11 @@
-use "add.ft"
-use "divide.ft"
-
-def get_int() -> i32:
-	return 5;
-
 def main():
 	for i32 c = 0; c < 10; c = c + 1:
 		print(c);
-	u32 u = 2;
-	u = 7;
-	u = u - 3;
-	print(u);
-	f32 i = 7.5;
-	i = i - 9;
-	print("\nflint i = ");
-	print(i);
+		print("\n");
+	i32 c = 5;
 	print("\n");
-	res := get_int();
-	res = add_more(10, 2);
-	print(res);
+	print(c);
+	c = 3;
 	print("\n");
-	res = divide(res, 2) catch err:
-		print(err);
-		print("\nCouldnt divide cause reasons!\n");
-	print(res);
-	print("\n");
-	res = divide(res, 0) catch err:
-		print(err);
-		print("\nWhoops! Zero division error!\n");
-	print(res);
+	print(c);
 	print("\n");

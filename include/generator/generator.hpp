@@ -938,8 +938,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the for loop will be generated in
+        /// @param `allocations` The map of all allocations (from the preallcation system) to track the AllocaInst instructions
         /// @param `for_node` The for loop node to generate
-        static void generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node);
+        static void generate_for_loop(                                             //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const ForLoopNode *for_node                                            //
+        );
 
         /// @function `generate_catch_statement`
         /// @brief Generates the catch statement from the given CatchNode

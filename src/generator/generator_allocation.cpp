@@ -32,8 +32,8 @@ void Generator::Allocation::generate_allocations(                         //
                 }
             }
         } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node.get())) {
-            // TODO #1
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            generate_allocations(builder, parent, for_loop_node->definition_scope.get(), allocations);
+            generate_allocations(builder, parent, for_loop_node->body.get(), allocations);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node.get())) {
             if (auto *call_node = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.get())) {
                 generate_call_allocations(builder, parent, scope, allocations, call_node);

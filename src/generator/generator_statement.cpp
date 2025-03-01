@@ -21,7 +21,7 @@ void Generator::Statement::generate_statement(                             //
     } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement.get())) {
         generate_while_loop(builder, parent, allocations, while_node);
     } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
-        generate_for_loop(builder, parent, for_node);
+        generate_for_loop(builder, parent, allocations, for_node);
     } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement.get())) {
         generate_assignment(builder, parent, scope, allocations, assignment_node);
     } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement.get())) {
@@ -332,7 +332,59 @@ void Generator::Statement::generate_while_loop(                            //
     builder.SetInsertPoint(while_blocks[2]);
 }
 
-void Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, llvm::Function *parent, const ForLoopNode *for_node) {}
+void Generator::Statement::generate_for_loop(                              //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const ForLoopNode *for_node                                            //
+) {
+    // Get the current block, we need to add a branch instruction to this block to point to the while condition block
+    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+
+    // Generate the instructions from the definition scope (it should only contain the initializer statement, for example 'i32 i = 0')
+    generate_body(builder, parent, for_node->definition_scope.get(), allocations);
+
+    // Create the basic blocks for the condition check, the while body and the merge block
+    std::array<llvm::BasicBlock *, 3> for_blocks{};
+    // Create then condition block (for the else if blocks)
+    for_blocks[0] = llvm::BasicBlock::Create(builder.getContext(), "for_cond", parent);
+    for_blocks[1] = llvm::BasicBlock::Create(builder.getContext(), "for_body", parent);
+    for_blocks[2] = llvm::BasicBlock::Create(builder.getContext(), "merge", parent);
+
+    // Create the branch instruction in the predecessor block to point to the for_cond block
+    builder.SetInsertPoint(pred_block);
+    generate_body(builder, parent, for_node->definition_scope.get(), allocations);
+    llvm::BranchInst *init_for_br = builder.CreateBr(for_blocks[0]);
+    init_for_br->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Start for loop in '" + for_blocks[0]->getName().str() + "'")));
+
+    // Create the condition block's content
+    builder.SetInsertPoint(for_blocks[0]);
+    llvm::Value *expression = Expression::generate_expression( //
+        builder,                                               //
+        parent,                                                //
+        for_node->definition_scope.get(),                      //
+        allocations,                                           //
+        for_node->condition.get()                              //
+    );
+    llvm::BranchInst *branch = builder.CreateCondBr(expression, for_blocks[1], for_blocks[2]);
+    branch->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(),
+                "Continue loop in '" + for_blocks[1]->getName().str() + "' based on cond '" + expression->getName().str() + "'")));
+
+    // Create the while block's body
+    builder.SetInsertPoint(for_blocks[1]);
+    generate_body(builder, parent, for_node->body.get(), allocations);
+    if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+        // Point back to the condition block to create the loop
+        builder.CreateBr(for_blocks[0]);
+    }
+
+    // Finally set the builder to the merge block again
+    builder.SetInsertPoint(for_blocks[2]);
+}
 
 void Generator::Statement::generate_catch_statement(                       //
     llvm::IRBuilder<> &builder,                                            //
