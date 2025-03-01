@@ -232,21 +232,13 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
+    definition_scope->body.emplace_back(std::move(initializer.value()));
 
     // Parse the loop condition expression
     uint2 &condition_range = expression_ranges.at(1);
-    const token_list condition_tokens = clone_from_to(initializer_range.first, initializer_range.second, definition);
+    const token_list condition_tokens = clone_from_to(condition_range.first, condition_range.second, definition);
     condition = create_expression(definition_scope.get(), condition_tokens);
     if (!condition.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-
-    // Parse the looparound statement
-    uint2 looparound_range{condition_range.second, expressions_range.value().second};
-    token_list looparound_tokens = clone_from_to(looparound_range.first, looparound_range.second, definition);
-    looparound = create_statement(definition_scope.get(), looparound_tokens);
-    if (!looparound.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -260,7 +252,17 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     }
     body_scope->body = std::move(body_statements.value());
 
-    return std::make_unique<ForLoopNode>(initializer.value(), condition.value(), looparound.value(), body_scope);
+    // Parse the looparound statement. The looparound statement is actually part of the body is the last statement of the body
+    uint2 looparound_range{condition_range.second, expressions_range.value().second};
+    token_list looparound_tokens = clone_from_to(looparound_range.first, looparound_range.second, definition);
+    looparound = create_statement(body_scope.get(), looparound_tokens);
+    if (!looparound.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    body_scope->body.emplace_back(std::move(looparound.value()));
+
+    return std::make_unique<ForLoopNode>(condition.value(), definition_scope, body_scope);
 }
 
 std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop(Scope *scope, const token_list &definition,

@@ -424,16 +424,14 @@ namespace Debug {
             print_header(indent_lvl, empty, "For ");
             std::cout << "for " << std::endl;
             empty.second = indent_lvl + 1;
-            print_statement(indent_lvl + 1, empty, for_node.initializer);
             print_expression(indent_lvl + 1, empty, for_node.condition);
-            print_statement(indent_lvl + 1, empty, for_node.looparound);
 
             empty.second = indent_lvl;
             print_header(indent_lvl, empty, "Do ");
             std::cout << "do " << std::endl;
 
             empty.second = indent_lvl + 1;
-            print_body(indent_lvl + 1, empty, for_node.definition_scope->body);
+            print_body(indent_lvl + 1, empty, for_node.body->body);
         }
 
         void print_catch(unsigned int indent_lvl, uint2 empty, const CatchNode &catch_node) {

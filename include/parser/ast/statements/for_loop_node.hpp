@@ -14,15 +14,13 @@
 /// @note Takes ownership of all its constructor arguments
 class ForLoopNode : public StatementNode {
   public:
-    ForLoopNode(std::unique_ptr<StatementNode> &initializer, //
-        std::unique_ptr<ExpressionNode> &condition,          //
-        std::unique_ptr<StatementNode> &looparound,          //
-        std::unique_ptr<Scope> &definition_scope             //
+    ForLoopNode(std::unique_ptr<ExpressionNode> &condition, //
+        std::unique_ptr<Scope> &definition_scope,           //
+        std::unique_ptr<Scope> &body                        //
         ) :
-        initializer(std::move(initializer)),
         condition(std::move(condition)),
-        looparound(std::move(looparound)),
-        definition_scope(std::move(definition_scope)) {}
+        definition_scope(std::move(definition_scope)),
+        body(std::move(body)) {}
 
     // constructor
     ForLoopNode() = default;
@@ -35,22 +33,19 @@ class ForLoopNode : public StatementNode {
     ForLoopNode(ForLoopNode &&) = default;
     ForLoopNode &operator=(ForLoopNode &&) = delete;
 
-    /// @var `initializer`
-    /// @brief The initializer of the loop, most often 'i32 i = 0'
-    std::unique_ptr<StatementNode> initializer;
-
     /// @var `condition`
     /// @brief The loop condition, for example 'i < 10'
     std::unique_ptr<ExpressionNode> condition;
 
-    /// @var `looparound`
-    /// @brief The looparound expression, for example 'i++'
-    std::unique_ptr<StatementNode> looparound;
-
     /// @var `definition_scope`
-    /// @brief The Scope of the definition, this is necessary to encapsulate the initializer within the for loop.
-    ///        The definition_scope's body scope contains the body of the for loop
+    /// @brief The scope of the loops definition, containing the initializer ( 'i32 i = 0' for example )
     std::unique_ptr<Scope> definition_scope;
+
+    /// @var `body`
+    /// @brief The scope of the actual loops body. The parent of the `body` scope is the `definition_scope` of the for loop. In this
+    /// scope, the actual instantiation of the loop variable, the initializer, takes place. Ad the end of the body is the looparound
+    /// statement contained, for example 'i++'
+    std::unique_ptr<Scope> body;
 };
 
 #endif
