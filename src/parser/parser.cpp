@@ -1,6 +1,7 @@
 #include "parser/parser.hpp"
 
 #include "debug.hpp"
+#include "error/error.hpp"
 #include "lexer/lexer.hpp"
 #include "parallel.hpp"
 #include "profiler.hpp"

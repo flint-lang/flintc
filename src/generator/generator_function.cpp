@@ -1,3 +1,4 @@
+#include "error/error.hpp"
 #include "generator/generator.hpp"
 
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {

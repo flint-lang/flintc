@@ -37,6 +37,7 @@
 
 #include <cassert>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>

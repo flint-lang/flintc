@@ -1,12 +1,12 @@
 #ifndef __ISCOPE_HPP__
 #define __ISCOPE_HPP__
 
-#include "error/error.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class Scope {
   public:

@@ -1,3 +1,4 @@
+#include "error/error.hpp"
 #include "generator/generator.hpp"
 #include "parser/parser.hpp"
 
