@@ -1,11 +1,11 @@
-def fibonacci(int num) -> int:
+def fibonacci(i32 num) -> i32:
 	if num <= 1:
 		return num;
 	else:
-		int fib_n_1 = fibonacci(num - 1);
-		int fib_n_2 = fibonacci(num - 2);
+		i32 fib_n_1 = fibonacci(num - 1);
+		i32 fib_n_2 = fibonacci(num - 2);
 		return fib_n_1 + fib_n_2;
 
 def main():
-	int fib = fibonacci(40);
+	i32 fib = fibonacci(40);
 	print(fib);

@@ -1,10 +1,10 @@
-def factorial(int num) -> int:
+def factorial(i32 num) -> i32:
 	if num == 0:
 		return 1;
 	else:
-		int n_1 = factorial(num - 1);
+		i32 n_1 = factorial(num - 1);
 		return num * n_1;
 
 def main():
-	int fac = factorial(12);
+	i32 fac = factorial(12);
 	print(fac);
