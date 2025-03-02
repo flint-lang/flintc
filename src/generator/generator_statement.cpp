@@ -43,12 +43,6 @@ void Generator::Statement::generate_body(                                 //
 ) {
     for (const auto &statement : scope->body) {
         generate_statement(builder, parent, scope, allocations, statement);
-        // Check if the last block does contain any instructions, if it does not, delete it
-        if (const auto *if_node = dynamic_cast<const IfNode *>(statement.get())) {
-            if (builder.GetInsertBlock()->empty() && statement == scope->body.back()) {
-                builder.GetInsertBlock()->eraseFromParent();
-            }
-        }
     }
 }
 
