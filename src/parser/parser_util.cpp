@@ -25,8 +25,11 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         }
         ImportNode import_node = create_import(definition_tokens);
         file_node.add_import(import_node);
-    } else if (Signature::tokens_contain(definition_tokens, Signature::function_definition)) {
-        token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+        return true;
+    }
+
+    token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+    if (Signature::tokens_contain(definition_tokens, Signature::function_definition)) {
         // Dont actually parse the function body, only its definition
         std::optional<FunctionNode> function_node = create_function(definition_tokens, body_tokens);
         if (!function_node.has_value()) {
@@ -37,11 +40,9 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         add_open_function({added_function, body_tokens});
         add_parsed_function(added_function, file_name);
     } else if (Signature::tokens_contain(definition_tokens, Signature::data_definition)) {
-        token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         DataNode data_node = create_data(definition_tokens, body_tokens);
         file_node.add_data(data_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::func_definition)) {
-        token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_tokens);
         if (!func_node.has_value()) {
             THROW_ERR(ErrDefFuncCreation, ERR_PARSING, file_name, definition_tokens);
@@ -49,7 +50,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         }
         file_node.add_func(func_node.value());
     } else if (Signature::tokens_contain(definition_tokens, Signature::entity_definition)) {
-        token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         create_entity_type entity_creation = create_entity(definition_tokens, body_tokens);
         file_node.add_entity(entity_creation.first);
         if (entity_creation.second.has_value()) {
@@ -59,15 +59,12 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
             file_node.add_func(*func_node_ptr);
         }
     } else if (Signature::tokens_contain(definition_tokens, Signature::enum_definition)) {
-        token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         EnumNode enum_node = create_enum(definition_tokens, body_tokens);
         file_node.add_enum(enum_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::error_definition)) {
-        token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         ErrorNode error_node = create_error(definition_tokens, body_tokens);
         file_node.add_error(error_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::variant_definition)) {
-        token_list body_tokens = get_body_tokens(definition_indentation, tokens);
         VariantNode variant_node = create_variant(definition_tokens, body_tokens);
         file_node.add_variant(variant_node);
     } else {
