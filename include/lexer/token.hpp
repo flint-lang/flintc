@@ -147,8 +147,9 @@ enum Token {
     TOK_PERSISTENT = -99,
 
     // other tokens
-    TOK_INDENT = -100,
-    TOK_EOL = -101,
+    TOK_TEST = -100,
+    TOK_INDENT = -101,
+    TOK_EOL = -102,
 };
 
 #endif

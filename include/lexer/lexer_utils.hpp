@@ -128,6 +128,8 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     {"const", TOK_CONST},           // -97
     {"mut", TOK_MUT},               // - 98
     {"persistent", TOK_PERSISTENT}, // -99
+    // other tokens
+    {"test", TOK_TEST}, // -100
 };
 
 static std::string get_token_name(Token token) {
