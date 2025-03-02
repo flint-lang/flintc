@@ -109,8 +109,19 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     if (clp.build_exe) {
+        if (clp.run) {
+            std::filesystem::path out_path = clp.out_file_path.parent_path() / ".flintc";
+            if (!std::filesystem::exists(out_path)) {
+                std::filesystem::create_directory(out_path);
+            }
+            clp.out_file_path = out_path / clp.out_file_path.filename();
+        }
         build_executable("output.bc", clp.out_file_path, clp.compile_command, clp.compile_flags);
     }
     Profiler::print_results(Profiler::TimeUnit::MICS);
+    if (clp.run) {
+        std::cout << "\n--- Running the executable '" << clp.out_file_path.filename().string() << "' ---" << std::endl;
+        system(clp.out_file_path.string().c_str());
+    }
     return 0;
 }

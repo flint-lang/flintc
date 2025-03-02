@@ -63,6 +63,8 @@ class CLIParserMain : public CLIParserBase {
                     compile_flags.append(" ");
                 }
                 compile_flags.append("-static");
+            } else if (arg == "--run") {
+                run = true;
             } else if (starts_with(arg, "--compiler=")) {
                 // Erase the '--compiler=' part of the string
                 compile_command = arg.substr(11);
@@ -84,6 +86,7 @@ class CLIParserMain : public CLIParserBase {
     std::string compile_flags{""};
     std::filesystem::path ll_file_path = "";
     bool build_exe{true};
+    bool run{false};
 
   private:
     void print_help() override {
@@ -93,6 +96,8 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --help, -h                  Show help\n";
         std::cout << "  --file, -f <file>           The file to compile\n";
         std::cout << "  --out, -o <file>            The name and path of the built output file\n";
+        // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
+        std::cout << "  --run                       Run the built binary directly without outputting it\n";
         std::cout << "  --flags \"[flags]\"           The compile flags used to build the executable\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code.\n";
         std::cout << "                              HINT: The compiler will not create an executable with this flag set.\n";
