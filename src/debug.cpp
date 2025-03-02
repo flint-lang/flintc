@@ -15,6 +15,7 @@
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/ast/definitions/link_node.hpp"
+#include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
 
 #include "parser/ast/expressions/binary_op_node.hpp"
@@ -267,6 +268,8 @@ namespace Debug {
                     print_link(0, empty, *link_node);
                 } else if (const auto *variant_node = dynamic_cast<const VariantNode *>(node.get())) {
                     print_variant(0, *variant_node);
+                } else if (const auto *test_node = dynamic_cast<const TestNode *>(node.get())) {
+                    print_test(0, empty, *test_node);
                 } else {
                     THROW_BASIC_ERR(ERR_DEBUG);
                     return;
@@ -620,6 +623,16 @@ namespace Debug {
         ///     Prints the content of the generated VariantNode
         void print_variant(unsigned int indent_lvl, const VariantNode &variant) {
             std::cout << "    Variant: " << typeid(variant).name() << "\n";
+        }
+
+        void print_test(unsigned int indent_lvl, uint2 empty, const TestNode &test) {
+            print_header(indent_lvl, empty, "Test ");
+            std::cout << test.file_name << ":\"" << test.name << "\"" << std::endl;
+
+            // The test body
+            empty.first++;
+            empty.second = ++indent_lvl;
+            print_body(indent_lvl, empty, test.scope->body);
         }
     } // namespace AST
 } // namespace Debug

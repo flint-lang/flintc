@@ -10,6 +10,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -49,7 +50,7 @@ void build_executable(                         //
 /// generate_ll_file
 ///     Generates the "output.ll" file from a given source file
 bool generate_ll_file(const std::filesystem::path &source_file_path, const std::filesystem::path &out_file_path,
-    const std::filesystem::path &ll_file_path) {
+    const std::filesystem::path &ll_file_path, const bool is_test) {
     PROFILE_SCOPE("'generate_ll_file'");
 
     // Parse the .ft file and resolve all inclusions
@@ -68,13 +69,19 @@ bool generate_ll_file(const std::filesystem::path &source_file_path, const std::
     if (!parsed_successful) {
         return false;
     }
+    if (is_test) {
+        bool parsed_tests_successful = Parser::parse_all_open_tests();
+        if (!parsed_tests_successful) {
+            return false;
+        }
+    }
     Parser::clear_instances();
     Debug::AST::print_file(Resolver::file_map.at(Resolver::main_file_name));
 
     // Generate the whole program
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> program;
-    program = Generator::generate_program_ir("main", context, dep_graph.value());
+    program = Generator::generate_program_ir(is_test ? "test" : "main", context, dep_graph.value());
 
     // Write the code to the normal output.bc file
     std::error_code EC;
@@ -106,7 +113,7 @@ int main(int argc, char *argv[]) {
     if (result != 0) {
         return result;
     }
-    if (!generate_ll_file(clp.source_file_path, "output.bc", clp.ll_file_path)) {
+    if (!generate_ll_file(clp.source_file_path, "output.bc", clp.ll_file_path, clp.test)) {
         return 1;
     }
     if (clp.build_exe) {

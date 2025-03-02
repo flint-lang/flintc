@@ -9,6 +9,7 @@
 #include "definitions/func_node.hpp"
 #include "definitions/function_node.hpp"
 #include "definitions/import_node.hpp"
+#include "definitions/test_node.hpp"
 #include "definitions/variant_node.hpp"
 
 #include <memory>
@@ -62,6 +63,11 @@ class FileNode : public ASTNode {
 
     void add_variant(VariantNode &variant) {
         definitions.emplace_back(std::make_unique<VariantNode>(std::move(variant)));
+    }
+
+    TestNode *add_test(TestNode &test) {
+        definitions.emplace_back(std::make_unique<TestNode>(std::move(test)));
+        return static_cast<TestNode *>(definitions.back().get());
     }
 };
 

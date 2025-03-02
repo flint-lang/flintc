@@ -20,6 +20,12 @@ std::map<unsigned int, CallNodeBase *> Parser::parsed_calls;
 std::mutex Parser::parsed_calls_mutex;
 std::vector<std::pair<FunctionNode *, std::string>> Parser::parsed_functions;
 std::mutex Parser::parsed_functions_mutex;
+std::vector<std::pair<TestNode *, std::string>> Parser::parsed_tests;
+std::mutex Parser::parsed_tests_mutex;
+
+// The static variables of the `TestNode` class
+std::unordered_map<std::string, std::vector<std::string>> TestNode::test_names;
+std::mutex TestNode::test_names_mutex;
 
 Parser *Parser::create(const std::filesystem::path &file) {
     instances.emplace_back(Parser(file));
@@ -69,6 +75,35 @@ bool Parser::parse_all_open_functions() {
             }
             function->scope.get()->body = std::move(body_statements.value());
             next = parser.get_next_open_function();
+        }
+        return true;
+    };
+
+    // Create explicit reducer and initializer functions
+    auto reducer = [](bool a, bool b) -> bool { return a && b; };
+    auto initializer = []() -> bool { return true; };
+
+    // Call reduce_on_all with explicit template parameters if needed
+    bool result = Parallel::reduce_on_all(process_parser, instances.begin(), instances.end(), reducer, initializer);
+
+    return result;
+}
+
+bool Parser::parse_all_open_tests() {
+    PROFILE_SCOPE("Parse Open Tests");
+    // Create a function object type that matches what reduce_on_all expects
+    auto process_parser = [](Parser &parser) -> bool {
+        auto next = parser.get_next_open_test();
+        while (next.has_value()) {
+            auto &[test, tokens] = next.value();
+            // Create the body and add the body statements to the created scope
+            auto body_statements = parser.create_body(test->scope.get(), tokens);
+            if (!body_statements.has_value()) {
+                THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, tokens);
+                return false;
+            }
+            test->scope.get()->body = std::move(body_statements.value());
+            next = parser.get_next_open_test();
         }
         return true;
     };

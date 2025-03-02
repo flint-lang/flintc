@@ -67,6 +67,15 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     } else if (Signature::tokens_contain(definition_tokens, Signature::variant_definition)) {
         VariantNode variant_node = create_variant(definition_tokens, body_tokens);
         file_node.add_variant(variant_node);
+    } else if (Signature::tokens_contain(definition_tokens, Signature::test_definition)) {
+        std::optional<TestNode> test_node = create_test(definition_tokens, body_tokens);
+        if (!test_node.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        TestNode *added_test = file_node.add_test(test_node.value());
+        add_open_test({added_test, body_tokens});
+        add_parsed_test(added_test, file_name);
     } else {
         Debug::print_token_context_vector(definition_tokens, file_name);
         THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_name, definition_tokens);

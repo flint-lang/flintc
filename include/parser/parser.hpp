@@ -14,6 +14,7 @@
 #include "ast/definitions/function_node.hpp"
 #include "ast/definitions/import_node.hpp"
 #include "ast/definitions/link_node.hpp"
+#include "ast/definitions/test_node.hpp"
 #include "ast/definitions/variant_node.hpp"
 
 #include "ast/statements/assignment_node.hpp"
@@ -76,11 +77,20 @@ class Parser {
     /// @return `bool` Wheter all functions were able to be parsed
     static bool parse_all_open_functions();
 
+    /// @function `parse_all_open_tests`
+    /// @brief Parses all still open test bodies
+    ///
+    /// @return `bool` Whether all tests were able to be parsed
+    /// @note This will only be called when the developer wants to run the tests, e.g. make a test build. In the normal compilation
+    /// pipeline, the parsing and generation of all tests will not be done, to make compilation as fast as possible.
+    static bool parse_all_open_tests();
+
     /// @function `clear_instances`
     /// @brief Clears all parser instances
     static void clear_instances() {
         instances.clear();
     }
+
   private:
     // The constructor is private because only the Parser (the instances list) contains the actual Parser
     explicit Parser(const std::filesystem::path &file) :
@@ -144,6 +154,20 @@ class Parser {
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser
     std::vector<std::pair<FunctionNode *, token_list>> open_functions_list{};
 
+    /// @var `parsed_tests`
+    /// @brief Stores all the tests that have been parsed
+    ///
+    /// @details The list exists to keep track of all parsed test nodes
+    static std::vector<std::pair<TestNode *, std::string>> parsed_tests;
+
+    /// @var `parsed_tests_mutex`
+    /// @brief A mutex for the `parsed_tests` varible, which is used to provide thread-safe access to the list
+    static std::mutex parsed_tests_mutex;
+
+    /// @var `open_tests_list`
+    /// @brief The lsit of all open tests, which will be parsed in the second phase of the parser
+    std::vector<std::pair<TestNode *, token_list>> open_tests_list{};
+
     /// @var `file`
     /// @brief The path to the file to parse
     const std::filesystem::path file;
@@ -184,6 +208,16 @@ class Parser {
     static inline void add_parsed_function(FunctionNode *function_node, std::string file_name) {
         std::lock_guard<std::mutex> lock(parsed_functions_mutex);
         parsed_functions.emplace_back(function_node, file_name);
+    }
+
+    /// @function `add_parsed_test`
+    /// @brief Adds a given test combined with the file it is contained in
+    ///
+    /// @param `test_node` The test which was parsed
+    /// @param `file_name` The name of the file the test was parsed in
+    static inline void add_parsed_test(TestNode *test_node, std::string file_name) {
+        std::lock_guard<std::mutex> lock(parsed_tests_mutex);
+        parsed_tests.emplace_back(test_node, file_name);
     }
 
     /// @function `get_function_from_call`
@@ -239,6 +273,29 @@ class Parser {
         std::pair<FunctionNode *, token_list> of = std::move(open_functions_list.back());
         open_functions_list.pop_back();
         return of;
+    }
+
+    /// @function `add_open_test`
+    /// @brief Adds a open test to the list of all open tests
+    ///
+    /// @param `open_test` A rvalue reference to the OpenTest to add to the list
+    ///
+    /// @attention This function takes ownership of the `open_test` parameter
+    void add_open_test(std::pair<TestNode *, token_list> &&open_test) {
+        open_tests_list.push_back(std::move(open_test));
+    }
+
+    /// @function `get_next_open_test`
+    /// @brief Returns the next open test to parse
+    ///
+    /// @return `std::optional<OpenTest>` The next Open Test to parse. Returns a nullopt if there are no open tests left
+    std::optional<std::pair<TestNode *, token_list>> get_next_open_test() {
+        if (open_tests_list.empty()) {
+            return std::nullopt;
+        }
+        std::pair<TestNode *, token_list> ot = std::move(open_tests_list.back());
+        open_tests_list.pop_back();
+        return ot;
     }
 
     /**************************************************************************************************************************************
@@ -620,6 +677,14 @@ class Parser {
     /// @param `body` The list of tokens representing the variant body
     /// @return `VariantNode` The created VariantNode
     VariantNode create_variant(const token_list &definition, const token_list &body);
+
+    /// @function `create_test`
+    /// @brief Creates a TestNode from the given definition and body tokens
+    ///
+    /// @param `definition` The list of tokens representing the test definition
+    /// @param `body` The list of tokens representing the test body
+    /// @return `std::optional<TestNode>` The created TestNode, if creation was successful, nullopt otherwise
+    std::optional<TestNode> create_test(const token_list &definition, token_list &bdoy);
 
     /// @function `create_import`
     /// @brief Creates an ImportNode from the given list of tokens

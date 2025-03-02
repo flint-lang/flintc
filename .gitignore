@@ -4,6 +4,7 @@ llvm/llvm-dev
 xml2/xml2
 build
 main
+test
 output.ll
 ft_test
 c_test

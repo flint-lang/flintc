@@ -1,3 +1,6 @@
+def add(i32 x, i32 y) -> i32:
+	return x + y;
+
 def main():
 	for i32 c = 0; c < 10; c = c + 1:
 		print(c);
@@ -9,3 +12,8 @@ def main():
 	print("\n");
 	print(c);
 	print("\n");
+
+test "Test 1":
+	i32 res = add(4, 5);
+	print(res);
+	//assert(res == 9);

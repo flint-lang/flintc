@@ -69,14 +69,6 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
 
     // Dont parse the body yet, it will be parsed in the second pass of the parser
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);
-
-    // Create the body and add the body statements to the created scope
-    // auto body_statements = create_body(body_scope.get(), body);
-    // if (!body_statements.has_value()) {
-    //     THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
-    //     return std::nullopt;
-    // }
-    // body_scope->body = std::move(body_statements.value());
 }
 
 DataNode Parser::create_data(const token_list &definition, const token_list &body) {
@@ -437,6 +429,26 @@ VariantNode Parser::create_variant(const token_list &definition, const token_lis
     }
 
     return VariantNode(name, possible_types);
+}
+
+std::optional<TestNode> Parser::create_test(const token_list &definition, token_list &body) {
+    std::string test_name;
+    // Extract the name of the test
+    for (auto it = definition.begin(); it != definition.end(); ++it) {
+        if (it->type == TOK_TEST && std::next(it) != definition.end() && std::next(it)->type == TOK_STR_VALUE) {
+            test_name = std::next(it)->lexme;
+        }
+    }
+    if (test_name == "") {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Create the body scope
+    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>();
+
+    // Dont parse the body yet, it will be parsed as part of the second pass of the parser
+    return TestNode(file_name, test_name, body_scope);
 }
 
 ImportNode Parser::create_import(const token_list &tokens) {

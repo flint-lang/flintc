@@ -18,6 +18,7 @@ constexpr inline bool DEBUG_MODE = false;
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/ast/definitions/link_node.hpp"
+#include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
 
 #include "parser/ast/expressions/binary_op_node.hpp"
@@ -107,6 +108,7 @@ namespace Debug {
         void print_import(unsigned int indent_lvl, const ImportNode &import);
         void print_link(unsigned int indent_lvl, uint2 empty, const LinkNode &link);
         void print_variant(unsigned int indent_lvl, const VariantNode &variant);
+        void print_test(unsigned int indent_lvl, uint2 empty, const TestNode &test);
     } // namespace AST
 } // namespace Debug
 
