@@ -76,6 +76,11 @@ class Parser {
     /// @return `bool` Wheter all functions were able to be parsed
     static bool parse_all_open_functions();
 
+    /// @function `clear_instances`
+    /// @brief Clears all parser instances
+    static void clear_instances() {
+        instances.clear();
+    }
   private:
     // The constructor is private because only the Parser (the instances list) contains the actual Parser
     explicit Parser(const std::filesystem::path &file) :
@@ -128,7 +133,7 @@ class Parser {
     /// @var `parsed_functions`
     /// @brief Stores all the functions that have been parsed
     ///
-    /// @details This list exists to keep track of all parsed function nodes.
+    /// @details This list exists to keep track of all parsed function nodes
     static std::vector<std::pair<FunctionNode *, std::string>> parsed_functions;
 
     /// @var `parsed_functions_mutex`
@@ -218,7 +223,7 @@ class Parser {
     ///
     /// @param `open_function` A rvalue reference to the OpenFunction to add to the list
     ///
-    /// @attention This function takes ownership of the `open_functions` parameter
+    /// @attention This function takes ownership of the `open_function` parameter
     void add_open_function(std::pair<FunctionNode *, token_list> &&open_function) {
         open_functions_list.push_back(std::move(open_function));
     }

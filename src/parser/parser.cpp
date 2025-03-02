@@ -80,6 +80,5 @@ bool Parser::parse_all_open_functions() {
     // Call reduce_on_all with explicit template parameters if needed
     bool result = Parallel::reduce_on_all(process_parser, instances.begin(), instances.end(), reducer, initializer);
 
-    instances.clear();
     return result;
 }

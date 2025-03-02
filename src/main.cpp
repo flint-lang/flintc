@@ -68,6 +68,7 @@ bool generate_ll_file(const std::filesystem::path &source_file_path, const std::
     if (!parsed_successful) {
         return false;
     }
+    Parser::clear_instances();
     Debug::AST::print_file(Resolver::file_map.at(Resolver::main_file_name));
 
     // Generate the whole program
