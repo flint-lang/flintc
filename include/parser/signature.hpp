@@ -43,9 +43,10 @@ namespace Signature {
     const signature operational_binop = {"((", TOK_PLUS, ")|(", TOK_MINUS, ")|(", TOK_MULT, ")|(", TOK_DIV, ")|(", TOK_SQUARE, "))"};
     const signature relational_binop = {"((", TOK_EQUAL_EQUAL, ")|(", TOK_NOT_EQUAL, ")|(", TOK_LESS, ")|(", TOK_LESS_EQUAL, ")|(",
         TOK_GREATER, ")|(", TOK_GREATER_EQUAL, "))"};
+    const signature boolean_binop = {"((", TOK_AND, ")|(", TOK_OR, "))"};
     const signature binary_operator = combine({//
-        {"("}, operational_binop, {"|"}, relational_binop, {")"}});
-    const signature unary_operator = {"((", TOK_INCREMENT, ")|(", TOK_DECREMENT, "))"};
+        {"("}, operational_binop, {"|"}, relational_binop, {"|"}, boolean_binop, {")"}});
+    const signature unary_operator = {"((", TOK_INCREMENT, ")|(", TOK_DECREMENT, ")|(", TOK_NOT, "))"};
     const signature reference = {TOK_IDENTIFIER, "(", TOK_COLON, TOK_COLON, TOK_IDENTIFIER, ")+"};
     const signature args = combine({//
         type, {TOK_IDENTIFIER, "(", TOK_COMMA}, type, {TOK_IDENTIFIER, ")*"}});

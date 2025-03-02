@@ -394,7 +394,7 @@ class Parser {
     /// @param `scope` The scope in which the unary operation is defined
     /// @param `tokens` The list of tokens representing the unary operation
     /// @return `std::optional<UnaryOpNode>` An optional UnaryOpNode if creation is successful, nullopt otherwise
-    std::optional<UnaryOpNode> create_unary_op(Scope *scope, const token_list &tokens);
+    std::optional<UnaryOpNode> create_unary_op(Scope *scope, token_list &tokens);
 
     /// @function `create_literal`
     /// @brief Creates a LiteralNode from the given tokens

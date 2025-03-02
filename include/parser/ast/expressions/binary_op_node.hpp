@@ -1,8 +1,8 @@
 #ifndef __BINARY_OP_NODE_HPP__
 #define __BINARY_OP_NODE_HPP__
 
-#include "../../../lexer/token.hpp"
 #include "expression_node.hpp"
+#include "lexer/token.hpp"
 
 #include <memory>
 #include <utility>

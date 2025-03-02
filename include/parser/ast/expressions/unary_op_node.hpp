@@ -1,8 +1,8 @@
 #ifndef __UNARY_OP_NODE_HPP__
 #define __UNARY_OP_NODE_HPP__
 
-#include "../../../lexer/token.hpp"
 #include "expression_node.hpp"
+#include "lexer/token.hpp"
 
 #include <memory>
 #include <utility>
@@ -11,9 +11,10 @@
 ///     Represents unary operations
 class UnaryOpNode : public ExpressionNode {
   public:
-    UnaryOpNode(Token operator_token, std::unique_ptr<ExpressionNode> &operand)
-        : operator_token(operator_token),
-          operand(std::move(operand)) {}
+    UnaryOpNode(Token operator_token, std::unique_ptr<ExpressionNode> &operand, const bool is_left) :
+        operator_token(operator_token),
+        operand(std::move(operand)),
+        is_left(is_left) {}
 
     // empty constructor
     UnaryOpNode() = default;
@@ -26,8 +27,9 @@ class UnaryOpNode : public ExpressionNode {
     UnaryOpNode(UnaryOpNode &&) = default;
     UnaryOpNode &operator=(UnaryOpNode &&) = default;
 
-    Token operator_token{TOK_EOF};
+    Token operator_token{};
     std::unique_ptr<ExpressionNode> operand;
+    bool is_left;
 };
 
 #endif
