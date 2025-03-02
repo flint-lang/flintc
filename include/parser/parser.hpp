@@ -74,16 +74,18 @@ class Parser {
     /// @function `parse_all_open_functions`
     /// @brief Parses all still open function bodies
     ///
+    /// @param `parse_parallel` Whether to parse the open functions in parallel
     /// @return `bool` Wheter all functions were able to be parsed
-    static bool parse_all_open_functions();
+    static bool parse_all_open_functions(const bool parse_parallel);
 
     /// @function `parse_all_open_tests`
     /// @brief Parses all still open test bodies
     ///
+    /// @param `parse_parallel` Whether to parse the open tests in parallel
     /// @return `bool` Whether all tests were able to be parsed
     /// @note This will only be called when the developer wants to run the tests, e.g. make a test build. In the normal compilation
     /// pipeline, the parsing and generation of all tests will not be done, to make compilation as fast as possible.
-    static bool parse_all_open_tests();
+    static bool parse_all_open_tests(const bool parse_parallel);
 
     /// @function `clear_instances`
     /// @brief Clears all parser instances

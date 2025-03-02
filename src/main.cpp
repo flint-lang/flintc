@@ -49,8 +49,13 @@ void build_executable(                         //
 
 /// generate_ll_file
 ///     Generates the "output.ll" file from a given source file
-bool generate_ll_file(const std::filesystem::path &source_file_path, const std::filesystem::path &out_file_path,
-    const std::filesystem::path &ll_file_path, const bool is_test) {
+bool generate_ll_file(                             //
+    const std::filesystem::path &source_file_path, //
+    const std::filesystem::path &out_file_path,    //
+    const std::filesystem::path &ll_file_path,     //
+    const bool is_test,                            //
+    const bool parse_parallel                      //
+) {
     PROFILE_SCOPE("'generate_ll_file'");
 
     // Parse the .ft file and resolve all inclusions
@@ -65,12 +70,12 @@ bool generate_ll_file(const std::filesystem::path &source_file_path, const std::
         std::exit(EXIT_FAILURE);
     }
     Debug::Dep::print_dep_tree(0, dep_graph.value());
-    bool parsed_successful = Parser::parse_all_open_functions();
+    bool parsed_successful = Parser::parse_all_open_functions(parse_parallel);
     if (!parsed_successful) {
         return false;
     }
     if (is_test) {
-        bool parsed_tests_successful = Parser::parse_all_open_tests();
+        bool parsed_tests_successful = Parser::parse_all_open_tests(parse_parallel);
         if (!parsed_tests_successful) {
             return false;
         }
@@ -113,7 +118,7 @@ int main(int argc, char *argv[]) {
     if (result != 0) {
         return result;
     }
-    if (!generate_ll_file(clp.source_file_path, "output.bc", clp.ll_file_path, clp.test)) {
+    if (!generate_ll_file(clp.source_file_path, "output.bc", clp.ll_file_path, clp.test, clp.parallel)) {
         return 1;
     }
     if (clp.build_exe) {

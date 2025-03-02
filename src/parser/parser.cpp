@@ -60,7 +60,7 @@ std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
     return std::nullopt;
 }
 
-bool Parser::parse_all_open_functions() {
+bool Parser::parse_all_open_functions(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Functions");
     // Create a function object type that matches what reduce_on_all expects
     auto process_parser = [](Parser &parser) -> bool {
@@ -79,17 +79,23 @@ bool Parser::parse_all_open_functions() {
         return true;
     };
 
-    // Create explicit reducer and initializer functions
-    auto reducer = [](bool a, bool b) -> bool { return a && b; };
-    auto initializer = []() -> bool { return true; };
-
-    // Call reduce_on_all with explicit template parameters if needed
-    bool result = Parallel::reduce_on_all(process_parser, instances.begin(), instances.end(), reducer, initializer);
+    bool result;
+    if (parse_parallel) {
+        // Create explicit reducer and initializer functions
+        auto reducer = [](bool a, bool b) -> bool { return a && b; };
+        auto initializer = []() -> bool { return true; };
+        // Call reduce_on_all with explicit template parameters if needed
+        result = Parallel::reduce_on_all(process_parser, instances.begin(), instances.end(), reducer, initializer);
+    } else {
+        for (auto &parser : Parser::instances) {
+            result = result && process_parser(parser);
+        }
+    }
 
     return result;
 }
 
-bool Parser::parse_all_open_tests() {
+bool Parser::parse_all_open_tests(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Tests");
     // Create a function object type that matches what reduce_on_all expects
     auto process_parser = [](Parser &parser) -> bool {
@@ -108,12 +114,18 @@ bool Parser::parse_all_open_tests() {
         return true;
     };
 
-    // Create explicit reducer and initializer functions
-    auto reducer = [](bool a, bool b) -> bool { return a && b; };
-    auto initializer = []() -> bool { return true; };
-
-    // Call reduce_on_all with explicit template parameters if needed
-    bool result = Parallel::reduce_on_all(process_parser, instances.begin(), instances.end(), reducer, initializer);
+    bool result;
+    if (parse_parallel) {
+        // Create explicit reducer and initializer functions
+        auto reducer = [](bool a, bool b) -> bool { return a && b; };
+        auto initializer = []() -> bool { return true; };
+        // Call reduce_on_all with explicit template parameters if needed
+        result = Parallel::reduce_on_all(process_parser, instances.begin(), instances.end(), reducer, initializer);
+    } else {
+        for (auto &parser : Parser::instances) {
+            result = result && process_parser(parser);
+        }
+    }
 
     return result;
 }

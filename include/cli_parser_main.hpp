@@ -70,6 +70,8 @@ class CLIParserMain : public CLIParserBase {
                 }
             } else if (arg == "--run") {
                 run = true;
+            } else if (arg == "--parallel") {
+                parallel = true;
             } else if (starts_with(arg, "--compiler=")) {
                 // Erase the '--compiler=' part of the string
                 compile_command = arg.substr(11);
@@ -93,6 +95,7 @@ class CLIParserMain : public CLIParserBase {
     bool build_exe{true};
     bool run{false};
     bool test{false};
+    bool parallel{false};
 
   private:
     void print_help() override {
@@ -106,6 +109,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --test                      Output a test binary instad of the normal binary\n";
         // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
         std::cout << "  --run                       Run the built binary directly without outputting it\n";
+        std::cout << "  --parallel                  Compile in parallel (only recommended for bigger projects)\n";
         std::cout << "  --flags \"[flags]\"           The compile flags used to build the executable\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code.\n";
         std::cout << "                              HINT: The compiler will not create an executable with this flag set.\n";
