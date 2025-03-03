@@ -23,7 +23,6 @@
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
-#include "parser/ast/expressions/unary_op_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/assignment_node.hpp"
@@ -39,6 +38,7 @@
 #include "parser/ast/call_node_base.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
+#include "parser/ast/unary_op_base.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -286,7 +286,7 @@ namespace Debug {
             std::cout << std::endl;
         }
 
-        void print_unary_op(unsigned int indent_lvl, uint2 empty, const UnaryOpNode &unary) {
+        void print_unary_op(unsigned int indent_lvl, uint2 empty, const UnaryOpBase &unary) {
             print_header(indent_lvl, empty, "UnOp ");
             std::cout << "operation: " << get_token_name(unary.operator_token);
             std::cout << std::endl;
@@ -348,7 +348,7 @@ namespace Debug {
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr) {
             if (const auto *variable_node = dynamic_cast<const VariableNode *>(expr.get())) {
                 print_variable(indent_lvl, empty, *variable_node);
-            } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode *>(expr.get())) {
+            } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpExpression *>(expr.get())) {
                 print_unary_op(indent_lvl, empty, *unary_op_node);
             } else if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expr.get())) {
                 print_literal(indent_lvl, empty, *literal_node);
@@ -497,6 +497,8 @@ namespace Debug {
                 print_catch(indent_lvl, empty, *catch_node);
             } else if (const auto *call_node = dynamic_cast<const CallNodeBase *>(statement.get())) {
                 print_call(indent_lvl, empty, *call_node);
+            } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpStatement *>(statement.get())) {
+                print_unary_op(indent_lvl, empty, *unary_op_node);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;

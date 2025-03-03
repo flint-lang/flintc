@@ -30,6 +30,8 @@ void Generator::Statement::generate_statement(                             //
         generate_throw_statement(builder, parent, scope, allocations, throw_node);
     } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
         generate_catch_statement(builder, parent, scope, allocations, catch_node);
+    } else if (const auto *unary_node = dynamic_cast<const UnaryOpStatement *>(statement.get())) {
+        generate_unary_op_statement(builder, parent, scope, allocations, unary_node);
     } else {
         THROW_BASIC_ERR(ERR_GENERATING);
     }
@@ -563,4 +565,70 @@ void Generator::Statement::generate_assignment(                            //
     store->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(), "Store result of expr in var '" + assignment_node->name + "'")));
+}
+
+void Generator::Statement::generate_unary_op_statement(                    //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const UnaryOpStatement *unary_op                                       //
+) {
+    const VariableNode *var_node = dynamic_cast<const VariableNode *>(unary_op->operand.get());
+    if (var_node == nullptr) {
+        // Expression is not a variable
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return;
+    }
+    const unsigned int scope_id = scope->variable_types.at(var_node->name).second;
+    const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
+    llvm::AllocaInst *const alloca = allocations.at(var_name);
+
+    llvm::LoadInst *var_value = builder.CreateLoad(alloca->getAllocatedType(), alloca, var_node->name + "_val");
+    var_value->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(), llvm::MDString::get(parent->getContext(), "Load val of var '" + var_node->name + "'")));
+    llvm::Value *operation_result = nullptr;
+
+    switch (unary_op->operator_token) {
+        default:
+            // Unknown unary operator
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return;
+        case TOK_INCREMENT:
+            if (var_node->type == "i32" || var_node->type == "i64") {
+                llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
+                operation_result = Arithmetic::int_safe_add(builder, var_value, one);
+            } else if (var_node->type == "u32" || var_node->type == "u64") {
+                llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
+                operation_result = Arithmetic::uint_safe_add(builder, var_value, one);
+            } else if (var_node->type == "f32" || var_node->type == "f64") {
+                llvm::Value *one = llvm::ConstantFP::get(var_value->getType(), 1.0);
+                operation_result = builder.CreateFAdd(var_value, one);
+            } else {
+                // Type not allowed for decrement operator
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return;
+            }
+            break;
+        case TOK_DECREMENT:
+            if (var_node->type == "i32" || var_node->type == "i64") {
+                llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
+                operation_result = Arithmetic::int_safe_sub(builder, var_value, one);
+            } else if (var_node->type == "u32" || var_node->type == "u64") {
+                llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
+                operation_result = Arithmetic::uint_safe_sub(builder, var_value, one);
+            } else if (var_node->type == "f32" || var_node->type == "f64") {
+                llvm::Value *one = llvm::ConstantFP::get(var_value->getType(), 1.0);
+                operation_result = builder.CreateFSub(var_value, one);
+            } else {
+                // Type not allowed for decrement operator
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return;
+            }
+            break;
+    }
+    llvm::StoreInst *operation_store = builder.CreateStore(operation_result, alloca);
+    operation_store->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Store result of unary operation on '" + var_node->name + "'")));
 }

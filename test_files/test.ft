@@ -2,14 +2,17 @@
 // 	return x + y;
 
 def main():
-	for i32 c = 0; c < 10; c = c + 1:
-		print(c);
+	for i32 i = 0; i < 10; i++:
+		print(i);
 		print("\n");
-	i32 c = 5;
+	i32 c = 3;
+	c++;
 	if not c < 4:
 		print("\nBigger than 4\n");
 	else:
 		print("\nSmaller than 4\n");
+	print(c);
+	print("\n");
 
 // test "Test 1":
 // 	i32 res = add(4, 5);

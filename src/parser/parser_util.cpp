@@ -1,4 +1,5 @@
 #include "lexer/builtins.hpp"
+#include "lexer/token.hpp"
 #include "parser/parser.hpp"
 
 #include "debug.hpp"
@@ -287,4 +288,62 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
         }
     }
     return std::make_tuple(function_name, std::move(arguments), return_type);
+}
+
+std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base(Scope *scope, token_list &tokens) {
+    // The unary operator can either be at the beginning of the operation or at the end, but for that all unnecessary leading and trailing
+    // tokens need to be removed
+    // Remove all unnecessary leading tokens
+    for (auto it = tokens.begin(); it != tokens.end();) {
+        if (it->type == TOK_INDENT || it->type == TOK_EOL) {
+            tokens.erase(it);
+        } else {
+            break;
+        }
+    }
+    // Remove all unnecessary trailing tokens
+    for (auto it = tokens.rbegin(); it != tokens.rend();) {
+        if (it->type == TOK_INDENT || it->type == TOK_EOL || it->type == TOK_SEMICOLON || it->type == TOK_COLON) {
+            ++it;
+            tokens.erase(std::prev(it).base());
+        } else {
+            break;
+        }
+    }
+    // For an unary operator to work, the tokens now must have at least two tokens
+    if (tokens.size() < 2) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Check if the unary operator is defined to the left of the expression or the right of it
+    bool is_left;
+    const uint2 left_range = {0, 1};
+    const uint2 right_range = {tokens.size() - 1, tokens.size()};
+    if (Signature::tokens_contain_in_range(tokens, Signature::unary_operator, left_range)) {
+        is_left = true;
+    } else if (Signature::tokens_contain_in_range(tokens, Signature::unary_operator, right_range)) {
+        is_left = false;
+    } else {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Extract the operator token
+    token_list operator_tokens = extract_from_to(         //
+        is_left ? left_range.first : right_range.first,   //
+        is_left ? left_range.second : right_range.second, //
+        tokens                                            //
+    );
+    assert(operator_tokens.size() == 1);
+    Token operator_token = operator_tokens.at(0).type;
+
+    // All other tokens now are the expression
+    auto expression = create_expression(scope, tokens);
+    if (!expression.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+
+    return std::make_tuple(operator_token, std::move(expression.value()), is_left);
 }

@@ -8,7 +8,7 @@
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
-#include "parser/ast/expressions/unary_op_node.hpp"
+#include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
@@ -19,6 +19,7 @@
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/throw_node.hpp"
+#include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
 #include "resolver/resolver.hpp"
 
@@ -1011,6 +1012,22 @@ class Generator {
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const AssignmentNode *assignment_node                                  //
         );
+
+        /// @function `generate_unary_op_statement`
+        /// @brief Generates the unary operation value from the given UnaryOpStatement
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the unary operation is generated in
+        /// @param `scope` The scope the binary operation is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `unary_op` The unary operation to generate
+        static void generate_unary_op_statement(                                   //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const UnaryOpStatement *unary_op                                       //
+        );
     }; // subclass Statement
 
     /// @class `Expression`
@@ -1127,21 +1144,21 @@ class Generator {
             const std::string &to_type          //
         );
 
-        /// @function `generate_unary_op`
+        /// @function `generate_unary_op_expression`
         /// @brief Generates the unary operation value from the given UnaryOpNode
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the unary operation is generated in
         /// @param `scope` The scope the binary operation is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `unary_op_node` The unary operation to generate
+        /// @param `unary_op` The unary operation to generate
         /// @return `llvm::Value *` The value containing the result of the unary operation
-        static llvm::Value *generate_unary_op(                                     //
+        static llvm::Value *generate_unary_op_expression(                          //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const UnaryOpNode *unary_op_node                                       //
+            const UnaryOpExpression *unary_op                                      //
         );
 
         /// @function `generate_binary_op`

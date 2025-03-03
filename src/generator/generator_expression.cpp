@@ -15,8 +15,8 @@ llvm::Value *Generator::Expression::generate_expression(                   //
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
         return generate_variable(builder, parent, scope, allocations, variable_node);
     }
-    if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode *>(expression_node)) {
-        return generate_unary_op(builder, parent, scope, allocations, unary_op_node);
+    if (const auto *unary_op_node = dynamic_cast<const UnaryOpExpression *>(expression_node)) {
+        return generate_unary_op_expression(builder, parent, scope, allocations, unary_op_node);
     }
     if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
         return generate_literal(builder, parent, literal_node);
@@ -483,23 +483,23 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     return nullptr;
 }
 
-llvm::Value *Generator::Expression::generate_unary_op(                     //
+llvm::Value *Generator::Expression::generate_unary_op_expression(          //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const UnaryOpNode *unary_op_node                                       //
+    const UnaryOpExpression *unary_op                                      //
 ) {
-    const ExpressionNode *expression = unary_op_node->operand.get();
+    const ExpressionNode *expression = unary_op->operand.get();
     llvm::Value *operand = generate_expression(builder, parent, scope, allocations, expression);
-    switch (unary_op_node->operator_token) {
+    switch (unary_op->operator_token) {
         default:
             // Unknown unary operator
             THROW_BASIC_ERR(ERR_GENERATING);
             break;
         case TOK_NOT:
             // Not is only allowed to be placed at the left of the expression
-            if (!unary_op_node->is_left) {
+            if (!unary_op->is_left) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }

@@ -1,10 +1,12 @@
 #ifndef __PARSER_HPP__
 #define __PARSER_HPP__
 
+#include "parser/ast/statements/unary_op_statement.hpp"
 #include "types.hpp"
 
 #include "ast/call_node_base.hpp"
 #include "ast/file_node.hpp"
+#include "ast/unary_op_base.hpp"
 
 #include "ast/definitions/data_node.hpp"
 #include "ast/definitions/entity_node.hpp"
@@ -31,7 +33,7 @@
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/type_cast_node.hpp"
-#include "ast/expressions/unary_op_node.hpp"
+#include "ast/expressions/unary_op_expression.hpp"
 #include "ast/expressions/variable_node.hpp"
 #include "ast/statements/catch_node.hpp"
 #include "ast/statements/throw_node.hpp"
@@ -371,6 +373,15 @@ class Parser {
         token_list &tokens                                                                                              //
     );
 
+    /// @function `create_unary_op_base`
+    /// @brief Creates a UnaryOpBase from the given tokens
+    ///
+    /// @param `scope` The scope in which the unary operation is defined
+    /// @param `tokens` The list of tokens representing the unary operation
+    /// @return A optional value containing a tuple, where the first value is the operator token, the second value is the expression on
+    /// which the unary operation is applied on and the third value is whether the unary operator is left to the expression
+    std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> create_unary_op_base(Scope *scope, token_list &tokens);
+
     /**************************************************************************************************************************************
      * @region `Util` END
      *************************************************************************************************************************************/
@@ -388,13 +399,13 @@ class Parser {
     /// @return `std::optional<VariableNode>` An optional VariableNode if creation is successful, nullopt otherwise
     std::optional<VariableNode> create_variable(Scope *scope, const token_list &tokens);
 
-    /// @function `create_unary_op`
-    /// @brief Creates a UnaryOpNode from the given tokens
+    /// @function `create_unary_op_expression`
+    /// @brief Creates a UnaryOpExpression from the given tokens
     ///
     /// @param `scope` The scope in which the unary operation is defined
     /// @param `tokens` The list of tokens representing the unary operation
-    /// @return `std::optional<UnaryOpNode>` An optional UnaryOpNode if creation is successful, nullopt otherwise
-    std::optional<UnaryOpNode> create_unary_op(Scope *scope, token_list &tokens);
+    /// @return `std::optional<UnaryOpExpression>` An optional UnaryOpExpression if creation is successful, nullopt otherwise
+    std::optional<UnaryOpExpression> create_unary_op_expression(Scope *scope, token_list &tokens);
 
     /// @function `create_literal`
     /// @brief Creates a LiteralNode from the given tokens
@@ -550,6 +561,14 @@ class Parser {
     /// @param `is_infered` Determines whether the type of the declared variable is infered
     /// @return `std::optional<std::unique_ptr<DeclarationNode>>` An optional unique pointer to the created DeclarationNode
     std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool &is_infered);
+
+    /// @function `create_unary_op_statement`
+    /// @brief Creates a UnaryOpStatement from the given tokens
+    ///
+    /// @param `scope` The scope in which the unary operation is defined
+    /// @param `tokens` The list of tokens representing the unary operation
+    /// @return `std::optional<UnaryOpStatement>` An optional UnaryOpStatement if creation is successful, nullopt otherwise
+    std::optional<UnaryOpStatement> create_unary_op_statement(Scope *scope, token_list &tokens);
 
     /// @function `create_statement`
     /// @brief Creates a StatementNode from the given list of tokens

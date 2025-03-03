@@ -425,6 +425,19 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
     return declaration;
 }
 
+std::optional<UnaryOpStatement> Parser::create_unary_op_statement(Scope *scope, token_list &tokens) {
+    auto unary_op_values = create_unary_op_base(scope, tokens);
+    if (!unary_op_values.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    return UnaryOpStatement(                  //
+        std::get<0>(unary_op_values.value()), //
+        std::get<1>(unary_op_values.value()), //
+        std::get<2>(unary_op_values.value())  //
+    );
+}
+
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, token_list &tokens) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
@@ -465,6 +478,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
     } else if (Signature::tokens_contain(tokens, Signature::function_call)) {
         statement_node = create_call_statement(scope, tokens);
+    } else if (Signature::tokens_contain(tokens, Signature::unary_op_expr)) {
+        std::optional<UnaryOpStatement> unary_op = create_unary_op_statement(scope, tokens);
+        if (!unary_op.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<UnaryOpStatement>(std::move(unary_op.value()));
     } else {
         THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
