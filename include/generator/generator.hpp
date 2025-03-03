@@ -396,6 +396,23 @@ class Generator {
         static llvm::Value *uint_safe_div(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
     }; // subclass Arithmetic
 
+    /// @class `Logical`
+    /// @brief The class which is responsible for everything logical-related
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Logical {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        Logical() = delete;
+
+        /// @function `generate_not`
+        /// @brief Inverts the given value. If the given value is a boolean, it creates a 'not' expression, otherwise it inverts all bits
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `value_to_negate` The value which is inverted
+        /// @return `llvm::Value *` The inverted value
+        static llvm::Value *generate_not(llvm::IRBuilder<> &builder, llvm::Value *value_to_negate);
+    };
+
     /// @class `TypeCast`
     /// @brief The class which is responsilbe for everything type-casting related
     /// @note This class cannot be initialized and all functions within this class are static
