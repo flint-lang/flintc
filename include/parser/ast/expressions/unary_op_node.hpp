@@ -14,7 +14,9 @@ class UnaryOpNode : public ExpressionNode {
     UnaryOpNode(Token operator_token, std::unique_ptr<ExpressionNode> &operand, const bool is_left) :
         operator_token(operator_token),
         operand(std::move(operand)),
-        is_left(is_left) {}
+        is_left(is_left) {
+        this->type = this->operand->type;
+    }
 
     // empty constructor
     UnaryOpNode() = default;
