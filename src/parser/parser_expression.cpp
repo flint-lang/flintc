@@ -292,13 +292,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
     if (Signature::tokens_contain(expr_tokens, Signature::function_call)) {
         expression = create_call_expression(scope, expr_tokens);
-    } else if (Signature::tokens_contain(expr_tokens, Signature::bin_op_expr)) {
-        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, expr_tokens);
-        if (!bin_op.has_value()) {
-            THROW_ERR(ErrExprBinopCreationFailed, ERR_PARSING, file_name, expr_tokens);
-            return std::nullopt;
-        }
-        expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
     } else if (Signature::tokens_contain(expr_tokens, Signature::unary_op_expr)) {
         std::optional<UnaryOpNode> unary_op = create_unary_op(scope, expr_tokens);
         if (!unary_op.has_value()) {
@@ -306,6 +299,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
             return std::nullopt;
         }
         expression = std::make_unique<UnaryOpNode>(std::move(unary_op.value()));
+    } else if (Signature::tokens_contain(expr_tokens, Signature::bin_op_expr)) {
+        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, expr_tokens);
+        if (!bin_op.has_value()) {
+            THROW_ERR(ErrExprBinopCreationFailed, ERR_PARSING, file_name, expr_tokens);
+            return std::nullopt;
+        }
+        expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
     } else if (Signature::tokens_contain(expr_tokens, Signature::type_cast)) {
         std::optional<TypeCastNode> type_cast = create_type_cast(scope, expr_tokens);
         if (!type_cast.has_value()) {
