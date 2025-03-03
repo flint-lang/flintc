@@ -1132,9 +1132,17 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the unary operation is generated in
+        /// @param `scope` The scope the binary operation is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `unary_op_node` The unary operation to generate
         /// @return `llvm::Value *` The value containing the result of the unary operation
-        static llvm::Value *generate_unary_op(llvm::IRBuilder<> &builder, llvm::Function *parent, const UnaryOpNode *unary_op_node);
+        static llvm::Value *generate_unary_op(                                     //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const UnaryOpNode *unary_op_node                                       //
+        );
 
         /// @function `generate_binary_op`
         /// @brief Generates a binary operation from the given BinaryOpNode

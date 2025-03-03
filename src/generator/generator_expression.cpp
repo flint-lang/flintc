@@ -2,6 +2,7 @@
 #include "error/error_type.hpp"
 #include "generator/generator.hpp"
 
+#include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 
 llvm::Value *Generator::Expression::generate_expression(                   //
@@ -15,7 +16,7 @@ llvm::Value *Generator::Expression::generate_expression(                   //
         return generate_variable(builder, parent, scope, allocations, variable_node);
     }
     if (const auto *unary_op_node = dynamic_cast<const UnaryOpNode *>(expression_node)) {
-        return generate_unary_op(builder, parent, unary_op_node);
+        return generate_unary_op(builder, parent, scope, allocations, unary_op_node);
     }
     if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
         return generate_literal(builder, parent, literal_node);
@@ -482,12 +483,52 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     return nullptr;
 }
 
-llvm::Value *Generator::Expression::generate_unary_op( //
-    llvm::IRBuilder<> &builder,                        //
-    llvm::Function *parent,                            //
-    const UnaryOpNode *unary_op_node                   //
+llvm::Value *Generator::Expression::generate_unary_op(                     //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const UnaryOpNode *unary_op_node                                       //
 ) {
-    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+    const ExpressionNode *expression = unary_op_node->operand.get();
+    llvm::Value *operand = generate_expression(builder, parent, scope, allocations, expression);
+    switch (unary_op_node->operator_token) {
+        default:
+            // Unknown unary operator
+            THROW_BASIC_ERR(ERR_GENERATING);
+            break;
+        case TOK_NOT:
+            // Not is only allowed to be placed at the left of the expression
+            if (!unary_op_node->is_left) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
+            return Logical::generate_not(builder, operand);
+        case TOK_INCREMENT:
+            if (expression->type == "i32" || expression->type == "i64") {
+                llvm::Value *one = llvm::ConstantInt::get(operand->getType(), 1);
+                return Arithmetic::int_safe_add(builder, operand, one);
+            } else if (expression->type == "u32" || expression->type == "u64") {
+                llvm::Value *one = llvm::ConstantInt::get(operand->getType(), 1);
+                return Arithmetic::uint_safe_add(builder, operand, one);
+            } else if (expression->type == "f32" || expression->type == "f64") {
+                llvm::Value *one = llvm::ConstantFP::get(operand->getType(), 1.0);
+                return builder.CreateFAdd(operand, one);
+            }
+            break;
+        case TOK_DECREMENT:
+            if (expression->type == "i32" || expression->type == "i64") {
+                llvm::Value *one = llvm::ConstantInt::get(operand->getType(), 1);
+                return Arithmetic::int_safe_sub(builder, operand, one);
+            } else if (expression->type == "u32" || expression->type == "u64") {
+                llvm::Value *one = llvm::ConstantInt::get(operand->getType(), 1);
+                return Arithmetic::uint_safe_sub(builder, operand, one);
+            } else if (expression->type == "f32" || expression->type == "f64") {
+                llvm::Value *one = llvm::ConstantFP::get(operand->getType(), 1.0);
+                return builder.CreateFSub(operand, one);
+            }
+            break;
+    }
     return nullptr;
 }
 

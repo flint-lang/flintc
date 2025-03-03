@@ -7,9 +7,9 @@ def main():
 		print("\n");
 	i32 c = 5;
 	if not c < 4:
-		print("\Bigger than 4\n");
+		print("\nBigger than 4\n");
 	else:
-		print("\Smaller than 4\n");
+		print("\nSmaller than 4\n");
 
 // test "Test 1":
 // 	i32 res = add(4, 5);
