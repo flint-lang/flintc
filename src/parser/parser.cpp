@@ -23,10 +23,6 @@ std::mutex Parser::parsed_functions_mutex;
 std::vector<std::pair<TestNode *, std::string>> Parser::parsed_tests;
 std::mutex Parser::parsed_tests_mutex;
 
-// The static variables of the `TestNode` class
-std::unordered_map<std::string, std::vector<std::string>> TestNode::test_names;
-std::mutex TestNode::test_names_mutex;
-
 Parser *Parser::create(const std::filesystem::path &file) {
     instances.emplace_back(Parser(file));
     return &instances.back();

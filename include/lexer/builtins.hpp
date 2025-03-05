@@ -10,7 +10,7 @@
 enum BuiltinFunction { //
     PRINT,
     PRINT_ERR,
-    ASSERT,
+    // ASSERT,
     ASSERT_ARG,
     RUN_ON_ALL,
     MAP_ON_ALL,
@@ -28,7 +28,7 @@ static const std::unordered_map<std::string_view, BuiltinFunction> builtin_funct
     {"print", PRINT},        //
     {"printerr", PRINT_ERR}, //
     // assertions
-    {"assert", ASSERT},         //
+    // {"assert", ASSERT},         //
     {"assert_arg", ASSERT_ARG}, //
     // concurrency
     {"run_on_all", RUN_ON_ALL},            //

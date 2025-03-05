@@ -42,11 +42,13 @@ std::unordered_map<std::string, std::vector<std::string>> Generator::file_functi
 std::vector<std::string> Generator::function_names;
 std::array<llvm::CallInst *, 1> Generator::main_call_array;
 std::array<llvm::Module *, 1> Generator::main_module;
+std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> Generator::tests;
 
 std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     const std::string &program_name,                          //
     llvm::LLVMContext &context,                               //
-    std::shared_ptr<DepNode> &dep_graph                       //
+    const std::shared_ptr<DepNode> &dep_graph,                //
+    const bool is_test                                        //
 ) {
     PROFILE_SCOPE("Generate program IR");
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
@@ -56,8 +58,10 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     // Generate built-in functions in the main module
     Builtin::generate_builtin_prints(builder.get(), module.get());
 
-    // Generate main function in the main module
-    Builtin::generate_builtin_main(builder.get(), module.get());
+    if (!is_test) {
+        // Generate main function in the main module
+        Builtin::generate_builtin_main(builder.get(), module.get());
+    }
 
     // std::cout << " -------- MAIN -------- \n"
     //           << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
@@ -119,7 +123,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
 
             // Generate the IR code from the given FileNode
             const FileNode *file = &Resolver::file_map.at(shared_tip->file_name);
-            std::unique_ptr<llvm::Module> file_module = generate_file_ir(builder.get(), context, shared_tip, *file);
+            std::unique_ptr<llvm::Module> file_module = generate_file_ir(builder.get(), context, shared_tip, *file, is_test);
 
             // Store the generated module in the resolver
             Resolver::add_ir(shared_tip->file_name, file_module.get());
@@ -151,13 +155,19 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
         }
     }
 
-    // Connect the call from the main module to the actual main function declared by the user
-    llvm::Function *main_function = module->getFunction("main_custom");
-    if (main_function == nullptr) {
-        // No main function defined
-        THROW_BASIC_ERR(ERR_GENERATING);
+    // Finally, create the entry point of the tests _or_ check if a main function is present
+    if (is_test) {
+        // Generate the entry point of the program when in test mode
+        Builtin::generate_builtin_test(builder.get(), module.get());
+    } else {
+        // Connect the call from the main module to the actual main function declared by the user
+        llvm::Function *main_function = module->getFunction("main_custom");
+        if (main_function == nullptr) {
+            // No main function defined
+            THROW_BASIC_ERR(ERR_GENERATING);
+        }
+        main_call_array[0]->getCalledOperandUse().set(main_function);
     }
-    main_call_array[0]->getCalledOperandUse().set(main_function);
 
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program\n"
@@ -173,7 +183,8 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     llvm::IRBuilder<> *builder,                            //
     llvm::LLVMContext &context,                            //
     const std::shared_ptr<DepNode> &dep_node,              //
-    const FileNode &file                                   //
+    const FileNode &file,                                  //
+    const bool is_test                                     //
 ) {
     PROFILE_SCOPE("Generate IR for '" + file.file_name + "'");
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(dep_node->file_name, context);
@@ -225,6 +236,9 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     // Iterate through all AST Nodes in the file and generate them accordingly (only functions for now!)
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
+            if (is_test && function_node->name == "main") {
+                continue;
+            }
             llvm::Function *function_definition = Function::generate_function(module.get(), function_node);
             // No return statement found despite the signature requires return OR
             // Rerutn statement found but the signature has no return type defined (basically a simple xnor between the two booleans)
@@ -235,6 +249,16 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
             // if ((function_has_return(function_definition) ^ function_node->return_types.empty()) == 0) {
             //     throw_err(ERR_GENERATING);
             // }
+        } else if (auto *test_node = dynamic_cast<TestNode *>(node.get())) {
+            if (!is_test) {
+                continue;
+            }
+            llvm::Function *test_function = Builtin::generate_test_function(module.get(), test_node);
+            if (tests.count(test_node->file_name) == 0) {
+                tests[test_node->file_name].emplace_back(test_node->name, test_function->getName().str());
+            } else {
+                tests.at(test_node->file_name).emplace_back(test_node->name, test_function->getName().str());
+            }
         }
     }
 

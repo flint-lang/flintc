@@ -1,20 +1,10 @@
-// def add(i32 x, i32 y) -> i32:
-// 	return x + y;
+use "assert.ft"
+use "add.ft"
 
 def main():
-	for i32 i = 0; i < 10; i++:
-		print(i);
-		print("\n");
-	i32 c = 3;
-	c++;
-	if not c < 4:
-		print("\nBigger than 4\n");
-	else:
-		print("\nSmaller than 4\n");
-	print(c);
-	print("\n");
+	print("Before\n");
+	assert(true);
+	print("Middle\n");
+	assert(false);
+	print("After\n");
 
-// test "Test 1":
-// 	i32 res = add(4, 5);
-// 	print(res);
-// 	//assert(res == 9);

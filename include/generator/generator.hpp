@@ -46,6 +46,7 @@ class Generator {
     /// @param `program_name` The name the program (the module) will have
     /// @param `context` The context used for generation
     /// @param `dep_graph` The root DepNode of the dependency graph
+    /// @param `is_test` Whether the program is built in test mode
     /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated program module
     ///
     /// @attention Do not forget to call `Resolver::clear()` before the module returned from this function goes out of scope! You would get
@@ -53,7 +54,8 @@ class Generator {
     static std::unique_ptr<llvm::Module> generate_program_ir( //
         const std::string &program_name,                      //
         llvm::LLVMContext &context,                           //
-        std::shared_ptr<DepNode> &dep_graph                   //
+        const std::shared_ptr<DepNode> &dep_graph,            //
+        const bool is_test                                    //
     );
 
     /// @function `generate_file_ir`
@@ -63,12 +65,14 @@ class Generator {
     /// @param `context` The LLVM context
     /// @param `dep_node` The dependency graph node of the file (used for circular dependencies)
     /// @param `file` The file node to generate
+    /// @param `is_test` Whether the program is built in test mode
     /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated file module
     static std::unique_ptr<llvm::Module> generate_file_ir( //
         llvm::IRBuilder<> *builder,                        //
         llvm::LLVMContext &context,                        //
         const std::shared_ptr<DepNode> &dep_node,          //
-        const FileNode &file                               //
+        const FileNode &file,                              //
+        const bool is_test                                 //
     );
 
     /// @function `get_module_ir_string`
@@ -101,7 +105,7 @@ class Generator {
     static inline std::unordered_map<BuiltinFunction, llvm::Function *> builtins = {
         {BuiltinFunction::PRINT, nullptr},
         {BuiltinFunction::PRINT_ERR, nullptr},
-        {BuiltinFunction::ASSERT, nullptr},
+        // {BuiltinFunction::ASSERT, nullptr},
         {BuiltinFunction::ASSERT_ARG, nullptr},
         {BuiltinFunction::RUN_ON_ALL, nullptr},
         {BuiltinFunction::MAP_ON_ALL, nullptr},
@@ -255,6 +259,11 @@ class Generator {
     /// static array than to pass it around unnecessarily.
     static std::array<llvm::Module *, 1> main_module;
 
+    /// @var `tests`
+    /// @brief A list of all generated test functions across all files together with the file names, and the name of the test and the exact
+    /// name of the function, because a `llvm::Function *` type would become invalid after combining multiple llvm modules
+    static std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> tests;
+
     /// @class `IR`
     /// @brief The class which is responsible for the utility functions for the IR generation
     /// @note This class cannot be initialized and all functions within this class are static
@@ -362,6 +371,21 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the print function definition will be generated in
         static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_builtin_test`
+        /// @brief Generates the entry point of the program when compiled with the `--test` flag enabled
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the test entry point will be generated in
+        static void generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_test_function`
+        /// @brief Generates the test function
+        ///
+        /// @param `module` The LLVM Module in which the test will be generated in
+        /// @param `test_node` The TestNode to generate
+        /// @return `llvm::Function *` The generated test function
+        static llvm::Function *generate_test_function(llvm::Module *module, const TestNode *test_node);
     }; // subclass Builtin
 
     /// @class `Arithmetic`

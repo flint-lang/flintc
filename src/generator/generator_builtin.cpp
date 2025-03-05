@@ -244,3 +244,192 @@ void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder,
 
     print_functions["bool"] = print_function;
 }
+
+void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    llvm::Value *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(module->getContext()), 0);
+    llvm::Value *one = llvm::ConstantInt::get(llvm::Type::getInt32Ty(module->getContext()), 1);
+    llvm::FunctionType *main_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(module->getContext()),        // Return type: int
+        {},                                                  // Takes nothing
+        false                                                // no varargs
+    );
+    llvm::Function *main_function = llvm::Function::Create( //
+        main_type,                                          //
+        llvm::Function::ExternalLinkage,                    //
+        "main",                                             //
+        module                                              //
+    );
+
+    // Create the functions entry block
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
+        module->getContext(),                                 //
+        "entry",                                              //
+        main_function                                         //
+    );
+    builder->SetInsertPoint(entry_block);
+
+    // Handle the case that there are no tests to run
+    if (tests.empty()) {
+        llvm::Value *msg = builder->CreateGlobalStringPtr("There are no tests to run!\n", "no_tests_msg", 0, module);
+        builder->CreateCall(builtins[PRINT], {msg});
+        builder->CreateRet(zero);
+        return;
+    }
+
+    // Create the counter to count how many tests have failed
+    llvm::AllocaInst *counter = builder->CreateAlloca( //
+        llvm::Type::getInt32Ty(module->getContext()),  //
+        nullptr,                                       //
+        "err_counter"                                  //
+    );
+    builder->CreateStore(zero, counter);
+
+    // Create the return struct of the test call. It only needs to be allocated once and will be reused by all test calls
+    FunctionNode empty_function{};
+    llvm::AllocaInst *test_alloca = builder->CreateAlloca(               //
+        IR::add_and_or_get_type(&module->getContext(), &empty_function), //
+        nullptr,                                                         //
+        "test_alloca"                                                    //
+    );
+
+    // Go through all files for all tests
+    for (const auto &[file_name, test_list] : tests) {
+        // Print which file we are currently at
+        llvm::Value *success_fmt = builder->CreateGlobalStringPtr(" -> \"%s\" \033[32m✓ passed\033[0m\n", "success_str", 0, module);
+        llvm::Value *fail_fmt = builder->CreateGlobalStringPtr(" -> \"%s\" \033[31m✗ failed\033[0m\n", "fail_str", 0, module);
+        llvm::Value *file_name_value = builder->CreateGlobalStringPtr("\n" + file_name + ":\n");
+        builder->CreateCall(builtins[PRINT], //
+            {file_name_value}                //
+        );
+
+        // Run all tests and print whether they succeeded
+        for (const auto &[test_name, test_function_name] : test_list) {
+            llvm::BasicBlock *current_block = builder->GetInsertBlock();
+            llvm::BasicBlock *succeed_block = llvm::BasicBlock::Create(module->getContext(), "test_success", main_function);
+            llvm::BasicBlock *fail_block = llvm::BasicBlock::Create(module->getContext(), "test_fail", main_function);
+            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(module->getContext(), "merge", main_function);
+            builder->SetInsertPoint(current_block);
+
+            // Get the actual test function
+            llvm::Function *test_function = module->getFunction(test_function_name);
+            if (test_function == nullptr) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return;
+            }
+
+            // Print the tests name
+            llvm::Value *test_name_value = builder->CreateGlobalStringPtr(test_name);
+
+            // Add a call to the actual function
+            llvm::CallInst *test_call = builder->CreateCall( //
+                test_function,                               //
+                {},                                          //
+                "call_test"                                  //
+            );
+            llvm::StoreInst *test_store = builder->CreateStore(test_call, test_alloca);
+            llvm::Value *err_ptr = builder->CreateStructGEP(test_function->getReturnType(), test_alloca, 0, "test_err_ptr");
+            llvm::Value *err_value = builder->CreateLoad(     //
+                llvm::Type::getInt32Ty(module->getContext()), //
+                err_ptr,                                      //
+                "test_er_val"                                 //
+            );
+
+            // Create branching condition. Go to succeed block if the test_err_val is != 0, to the fail_block otherwise
+            llvm::Value *comparison = builder->CreateICmpEQ(err_value, zero, "errcmp");
+            // Branch to the succeed block or the fail block depending on the condition
+            builder->CreateCondBr(comparison, succeed_block, fail_block);
+
+            builder->SetInsertPoint(succeed_block);
+            builder->CreateCall(builtins[PRINT], //
+                {success_fmt, test_name_value}   //
+            );
+            builder->CreateBr(merge_block);
+
+            builder->SetInsertPoint(fail_block);
+            builder->CreateCall(builtins[PRINT], //
+                {fail_fmt, test_name_value}      //
+            );
+            // Increment the fail counter only if the test has failed
+            llvm::LoadInst *counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(module->getContext()), counter, "counter_val");
+            llvm::Value *new_counter_value = Arithmetic::int_safe_add(*builder, counter_value, one);
+            builder->CreateStore(new_counter_value, counter);
+            builder->CreateBr(merge_block);
+
+            builder->SetInsertPoint(merge_block);
+        }
+    }
+
+    // Create the comparison with zero
+    llvm::Value *counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(module->getContext()), counter, "counter_value");
+    llvm::Value *is_zero = builder->CreateICmpEQ(counter_value, zero);
+
+    // Create basic blocks for the two paths
+    llvm::BasicBlock *current_block = builder->GetInsertBlock();
+    llvm::BasicBlock *success_block = llvm::BasicBlock::Create(module->getContext(), "print_success", main_function);
+    llvm::BasicBlock *fail_block = llvm::BasicBlock::Create(module->getContext(), "print_fail", main_function);
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(module->getContext(), "merge", main_function);
+
+    // Branch based on the comparison
+    builder->SetInsertPoint(current_block);
+    builder->CreateCondBr(is_zero, success_block, fail_block);
+
+    // Success block
+    builder->SetInsertPoint(success_block);
+    llvm::Value *success_fmt = builder->CreateGlobalStringPtr("\n\033[32m✓ All tests passed!\033[0m\n", "success_fmt", 0, module);
+    builder->CreateCall(builtins[PRINT], {success_fmt});
+    builder->CreateBr(merge_block);
+
+    // Fail block
+    builder->SetInsertPoint(fail_block);
+    llvm::Value *fail_fmt = builder->CreateGlobalStringPtr("\n\033[31m✗ %d tests failed!\033[0m\n", "fail_fmt", 0, module);
+    builder->CreateCall(builtins[PRINT], {fail_fmt, counter_value});
+    builder->CreateStore(one, counter);
+    builder->CreateBr(merge_block);
+
+    // Merge block and return
+    builder->SetInsertPoint(merge_block);
+    counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(module->getContext()), counter);
+    builder->CreateRet(counter_value);
+}
+
+llvm::Function *Generator::Builtin::generate_test_function(llvm::Module *module, const TestNode *test_node) {
+    // Create the functions return type, which is a struct containing only one value, the error value
+    FunctionNode fn{};
+    // Use the function of the IR class to not unnecessarily create an additional type to the one that already exists
+    llvm::StructType *return_type = IR::add_and_or_get_type(&module->getContext(), &fn);
+
+    // Create the function type
+    llvm::FunctionType *test_type = llvm::FunctionType::get( //
+        return_type,                                         // return { i32 }
+        {},                                                  // takes nothing
+        false                                                // no vararg
+    );
+    // Create the test function itself
+    llvm::Function *test_function = llvm::Function::Create( //
+        test_type,                                          //
+        llvm::Function::ExternalLinkage,                    //
+        "___test_" + std::to_string(test_node->test_id),    //
+        module                                              //
+    );
+
+    // Create the entry block
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
+        module->getContext(),                                 //
+        "entry",                                              //
+        test_function                                         //
+    );
+
+    // The test function has no parameters when called, it just returns whether it has succeeded through the error value
+    llvm::IRBuilder<> builder(entry_block);
+    std::unordered_map<std::string, llvm::AllocaInst *const> allocations;
+    Allocation::generate_allocations(builder, test_function, test_node->scope.get(), allocations);
+    // Normally generate the tests body
+    Statement::generate_body(builder, test_function, test_node->scope.get(), allocations);
+
+    // Check if the function has a terminator, if not add an "empty" return (only the error return)
+    if (!test_function->empty() && test_function->back().getTerminator() == nullptr) {
+        Statement::generate_return_statement(builder, test_function, test_node->scope.get(), allocations, {});
+    }
+
+    return test_function;
+}

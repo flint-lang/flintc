@@ -6,3 +6,17 @@ def add(i32 x, i32 y) -> i32:
 def add_more(i32 x, i32 y) -> i32:
 	i32 z = mult(x, 2);
 	return z + y;
+
+// --- THE TESTS ---
+
+test "Test 1":
+	i32 res = add(4, 5);
+	assert(res == 9);
+
+test "Test 2":
+	i32 res = add(1, 2);
+	assert(res == 4);
+
+test "Test 3":
+	i32 res = add(6, 7);
+	assert(res == 13);

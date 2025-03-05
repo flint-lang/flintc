@@ -86,7 +86,7 @@ bool generate_ll_file(                             //
     // Generate the whole program
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> program;
-    program = Generator::generate_program_ir(is_test ? "test" : "main", context, dep_graph.value());
+    program = Generator::generate_program_ir(is_test ? "test" : "main", context, dep_graph.value(), is_test);
 
     // Write the code to the normal output.bc file
     std::error_code EC;
