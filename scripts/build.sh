@@ -67,7 +67,7 @@ else
 fi
 
 # And finally, build the cmake targets
-cmake --build "$root/build" --target static
+cmake --build "$root/build" --target static "-j$(nproc)"
 
 if [ $? -eq 0 ]; then
     echo "-- Build finished! Look at 'build/out' to see the built binaries"
