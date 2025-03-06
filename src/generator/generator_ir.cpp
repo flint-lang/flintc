@@ -38,7 +38,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type(llvm::LLVMContext *context,
     return type_map[return_types];
 }
 
-void Generator::IR::generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::Module *module, const FileNode &file_node) {
+void Generator::IR::generate_forward_declarations(llvm::Module *module, const FileNode &file_node) {
     unsigned int mangle_id = 1;
     file_function_mangle_ids[file_node.file_name] = {};
     file_function_names[file_node.file_name] = {};
@@ -106,10 +106,10 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
 }
 
 llvm::Value *Generator::IR::generate_pow_instruction( //
-    llvm::IRBuilder<> &builder,                       //
-    llvm::Function *parent,                           //
-    llvm::Value *lhs,                                 //
-    llvm::Value *rhs                                  //
+    [[maybe_unused]] llvm::IRBuilder<> &builder,      //
+    [[maybe_unused]] llvm::Function *parent,          //
+    [[maybe_unused]] llvm::Value *lhs,                //
+    [[maybe_unused]] llvm::Value *rhs                 //
 ) {
     return nullptr;
 }

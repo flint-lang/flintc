@@ -1,12 +1,6 @@
 #ifndef __DEBUG_HPP__
 #define __DEBUG_HPP__
 
-#ifdef DEBUG_BUILD
-constexpr inline bool DEBUG_MODE = true;
-#else
-constexpr inline bool DEBUG_MODE = false;
-#endif
-
 #include "resolver/resolver.hpp"
 #include "result.hpp"
 #include "types.hpp"
@@ -43,7 +37,6 @@ constexpr inline bool DEBUG_MODE = false;
 
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 namespace Debug {

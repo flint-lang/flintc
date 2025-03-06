@@ -26,7 +26,7 @@ class FileNode : public ASTNode {
     std::string file_name;
 
     FileNode() = default;
-    explicit FileNode(std::string &file_name) :
+    explicit FileNode(const std::string &file_name) :
         file_name(file_name) {}
     FileNode(std::vector<std::unique_ptr<ASTNode>> &definitions, std::string &file_name) :
         definitions(std::move(definitions)),

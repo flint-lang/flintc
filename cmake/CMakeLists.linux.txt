@@ -44,7 +44,21 @@ include_directories(${LLVM_INCLUDE_DIR})
 set(BASE_CXX_FLAGS ${BASE_CXX_FLAGS}
     -g
     -O1
+    -Werror
     -Wall         # Enable most warnings
+    -Wextra       # Enable extra warnings
+    -Wshadow      # Warn about shadow variables
+    -Wcast-align  # Warn about pointer casts that increase alignment requirement
+     -Wcast-qual   # Warn about casts that remove const qualifier
+     -Wunused      # Warn about unused variables
+     -Wold-style-cast  # Warn about C-style casts
+     -Wdouble-promotion # Warn about float being implicitly promoted to double
+    -Wformat=2    # Warn about printf/scanf/strftime/strfmon format string issue
+    # Even more warnings:
+    -Wundef       # Warn if an undefined identifier is evaluated in an #if
+    -Wpointer-arith # Warn about sizeof(void) and add/sub with void*
+    -Wunreachable-code # Warn about unreachable code
+    # Rest of the flags
     -std=c++17
     -fno-omit-frame-pointer
     -DEBUG

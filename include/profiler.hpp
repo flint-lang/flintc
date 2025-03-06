@@ -106,7 +106,7 @@ class ScopeProfiler {
     /// @param task_name Name of the task to profile.
     explicit ScopeProfiler(std::string task_name) :
         task_name(std::move(task_name)) {
-        profile_data = ProfileData{std::chrono::high_resolution_clock::now()};
+        profile_data = ProfileData{std::chrono::high_resolution_clock::now(), {}};
     }
 
     /// @brief Destructs the `ScopeProfiler` and ends timing the task.

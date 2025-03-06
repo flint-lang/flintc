@@ -35,12 +35,12 @@ void Generator::Allocation::generate_allocations(                         //
             generate_allocations(builder, parent, for_loop_node->definition_scope.get(), allocations);
             generate_allocations(builder, parent, for_loop_node->body.get(), allocations);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node.get())) {
-            if (auto *call_node = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.get())) {
-                generate_call_allocations(builder, parent, scope, allocations, call_node);
+            if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.get())) {
+                generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
 
                 // Create the actual variable allocation with the declared type
                 const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
-                generate_allocation(builder, scope, allocations, var_alloca_name,        //
+                generate_allocation(builder, allocations, var_alloca_name,               //
                     IR::get_type_from_str(parent->getContext(), declaration_node->type), //
                     declaration_node->name + "__VAL_1",                                  //
                     "Create alloc of 1st ret var '" + var_alloca_name + "'"              //
@@ -48,16 +48,16 @@ void Generator::Allocation::generate_allocations(                         //
             } else {
                 // A "normal" allocation
                 const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
-                generate_allocation(builder, scope, allocations, alloca_name,            //
+                generate_allocation(builder, allocations, alloca_name,                   //
                     IR::get_type_from_str(parent->getContext(), declaration_node->type), //
                     declaration_node->name + "__VAR",                                    //
                     "Create alloc of var '" + alloca_name + "'"                          //
                 );
             }
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node.get())) {
-            if (auto *call_node = dynamic_cast<CallNodeExpression *>(assignment_node->expression.get())) {
+            if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(assignment_node->expression.get())) {
                 // Generate only the call allocations, not the variable allocations
-                generate_call_allocations(builder, parent, scope, allocations, call_node);
+                generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
             }
         }
     }
@@ -86,7 +86,7 @@ void Generator::Allocation::generate_call_allocations(                     //
 
     // Temporary allocation for the entire return struct
     const std::string ret_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
-    generate_allocation(builder, scope, allocations, ret_alloca_name,                                                        //
+    generate_allocation(builder, allocations, ret_alloca_name,                                                               //
         func_decl->getReturnType(),                                                                                          //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "__RET",                                       //
         "Create alloc of struct for called function '" + call_node->function_name + "', called by '" + ret_alloca_name + "'" //
@@ -94,7 +94,7 @@ void Generator::Allocation::generate_call_allocations(                     //
 
     // Create the error return valua allocation
     const std::string err_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
-    generate_allocation(builder, scope, allocations, err_alloca_name,                  //
+    generate_allocation(builder, allocations, err_alloca_name,                         //
         llvm::Type::getInt32Ty(parent->getContext()),                                  //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "__ERR", //
         "Create alloc of err ret var '" + err_alloca_name + "'"                        //
@@ -103,7 +103,6 @@ void Generator::Allocation::generate_call_allocations(                     //
 
 void Generator::Allocation::generate_allocation(                           //
     llvm::IRBuilder<> &builder,                                            //
-    const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const std::string &alloca_name,                                        //
     llvm::Type *type,                                                      //

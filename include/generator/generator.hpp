@@ -61,14 +61,12 @@ class Generator {
     /// @function `generate_file_ir`
     /// @brief Generates the llvm IR code for a single file and saves it into a llvm module
     ///
-    /// @param `builder` The IR builder
     /// @param `context` The LLVM context
     /// @param `dep_node` The dependency graph node of the file (used for circular dependencies)
     /// @param `file` The file node to generate
     /// @param `is_test` Whether the program is built in test mode
     /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated file module
     static std::unique_ptr<llvm::Module> generate_file_ir( //
-        llvm::IRBuilder<> *builder,                        //
         llvm::LLVMContext &context,                        //
         const std::shared_ptr<DepNode> &dep_node,          //
         const FileNode &file,                              //
@@ -285,10 +283,9 @@ class Generator {
         /// @brief Generates the forward-declarations of all constructs in the given FileNode, except the 'use' constructs to make another
         /// module able to use them. This function is also essential for Flint's support of circular dependency resolution
         ///
-        /// @param `builder` The IR builder
         /// @param `module` The module the forward declarations are declared inside
         /// @param `file_node` The FileNode whose construct definitions will be forward-declared in the given module
-        static void generate_forward_declarations(llvm::IRBuilder<> &builder, llvm::Module *module, const FileNode &file_node);
+        static void generate_forward_declarations(llvm::Module *module, const FileNode &file_node);
 
         /// @function `get_type_from_str`
         /// @brief Returns the llvm Type from a given string value
@@ -767,7 +764,6 @@ class Generator {
         /// @brief Generates a custom allocation call. This is a helper function to make allocations easier
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `scope` The scope the allocation would take place in
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `alloca_name` The name of the allocation (its name in the allocations map)
         /// @param `type` The type of the allocation
@@ -775,7 +771,6 @@ class Generator {
         /// @param `ir_comment` The comment the allocation gets, only important for the IR Code output
         static void generate_allocation(                                           //
             llvm::IRBuilder<> &builder,                                            //
-            const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const std::string &alloca_name,                                        //
             llvm::Type *type,                                                      //
@@ -932,12 +927,10 @@ class Generator {
         /// @function `generate_if_blocks`
         /// @brief Generates all blocks of the if-chain
         ///
-        /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the basic blocks will be created in
         /// @param `blocks` The list of all basic blocks which will be created
         /// @param `if_node` The if node containin ght whole if-chain to generate the BasicBlocks from
         static void generate_if_blocks(              //
-            llvm::IRBuilder<> &builder,              //
             llvm::Function *parent,                  //
             std::vector<llvm::BasicBlock *> &blocks, //
             const IfNode *if_node                    //
@@ -994,13 +987,11 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the catch statement will be generated in
-        /// @param `scope` The scope the catch statement is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `catch_node` The catch node to generate
         static void generate_catch_statement(                                      //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const CatchNode *catch_node                                            //
         );

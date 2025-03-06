@@ -25,7 +25,7 @@ static std::vector<TokenContext> create_token_vector(const std::vector<Token> &t
     std::vector<TokenContext> token_contexts;
     token_contexts.reserve(tokens.size());
     for (const Token &tok : tokens) {
-        token_contexts.push_back({tok, "", 0});
+        token_contexts.push_back({tok, "", 0, 0});
     }
     return token_contexts;
 }
@@ -114,8 +114,8 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
         ft_exit_code_sum += ft_exit_code;
     }
 
-    const double c_duration_ms = ((double)c_duration) / (1000 * count);
-    const double ft_duration_ms = ((double)ft_duration) / (1000 * count);
+    const double c_duration_ms = static_cast<double>(c_duration) / (1000 * count);
+    const double ft_duration_ms = static_cast<double>(ft_duration) / (1000 * count);
 
     const double perf_factor = ft_duration_ms / c_duration_ms;
     const double perf_diff_percent = -1 + perf_factor;

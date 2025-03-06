@@ -128,12 +128,12 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
         } else {
             // 'else'
             std::unique_ptr<Scope> else_scope_ptr = std::make_unique<Scope>(scope);
-            auto body_statements = create_body(else_scope_ptr.get(), if_chain.at(0).second);
-            if (!body_statements.has_value()) {
+            auto else_body_statements = create_body(else_scope_ptr.get(), if_chain.at(0).second);
+            if (!else_body_statements.has_value()) {
                 THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, if_chain.at(0).second);
                 return std::nullopt;
             }
-            else_scope_ptr->body = std::move(body_statements.value());
+            else_scope_ptr->body = std::move(else_body_statements.value());
             else_scope = std::move(else_scope_ptr);
         }
     }
@@ -265,8 +265,11 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     return std::make_unique<ForLoopNode>(condition.value(), definition_scope, body_scope);
 }
 
-std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop(Scope *scope, const token_list &definition,
-    const token_list &body) {
+std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop( //
+    [[maybe_unused]] Scope *scope,                                       //
+    [[maybe_unused]] const token_list &definition,                       //
+    [[maybe_unused]] const token_list &body                              //
+) {
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }

@@ -1,6 +1,5 @@
 #include "generator/generator.hpp"
 
-#include "debug.hpp"
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "parser/ast/ast_node.hpp"
@@ -123,7 +122,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
 
             // Generate the IR code from the given FileNode
             const FileNode *file = &Resolver::file_map.at(shared_tip->file_name);
-            std::unique_ptr<llvm::Module> file_module = generate_file_ir(builder.get(), context, shared_tip, *file, is_test);
+            std::unique_ptr<llvm::Module> file_module = generate_file_ir(context, shared_tip, *file, is_test);
 
             // Store the generated module in the resolver
             Resolver::add_ir(shared_tip->file_name, file_module.get());
@@ -180,7 +179,6 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
 }
 
 std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
-    llvm::IRBuilder<> *builder,                            //
     llvm::LLVMContext &context,                            //
     const std::shared_ptr<DepNode> &dep_node,              //
     const FileNode &file,                                  //
@@ -211,7 +209,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     for (const auto &dep : dep_node->dependencies) {
         if (std::holds_alternative<std::weak_ptr<DepNode>>(dep)) {
             std::weak_ptr<DepNode> weak_dep = std::get<std::weak_ptr<DepNode>>(dep);
-            IR::generate_forward_declarations(*builder, module.get(), Resolver::file_map.at(weak_dep.lock()->file_name));
+            IR::generate_forward_declarations(module.get(), Resolver::file_map.at(weak_dep.lock()->file_name));
         }
     }
 
@@ -335,7 +333,7 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
             std::string comment_text = std::string(spaces, ' ') + "; " + metadata_it->second;
 
             // Store position, length and replacement text
-            replacements.push_back({(size_t)it->position(), {it->length(), comment_text}});
+            replacements.push_back({static_cast<size_t>(it->position()), {it->length(), comment_text}});
         }
     }
 

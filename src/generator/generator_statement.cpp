@@ -29,7 +29,7 @@ void Generator::Statement::generate_statement(                             //
     } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement.get())) {
         generate_throw_statement(builder, parent, scope, allocations, throw_node);
     } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
-        generate_catch_statement(builder, parent, scope, allocations, catch_node);
+        generate_catch_statement(builder, parent, allocations, catch_node);
     } else if (const auto *unary_node = dynamic_cast<const UnaryOpStatement *>(statement.get())) {
         generate_unary_op_statement(builder, parent, scope, allocations, unary_node);
     } else {
@@ -129,7 +129,6 @@ void Generator::Statement::generate_throw_statement(                       //
 }
 
 void Generator::Statement::generate_if_blocks( //
-    llvm::IRBuilder<> &builder,                //
     llvm::Function *parent,                    //
     std::vector<llvm::BasicBlock *> &blocks,   //
     const IfNode *if_node                      //
@@ -200,7 +199,7 @@ void Generator::Statement::generate_if_statement(                          //
 
     // First call (nesting_level == 0): Create all blocks for entire if-chain
     if (nesting_level == 0) {
-        generate_if_blocks(builder, parent, blocks, if_node);
+        generate_if_blocks(parent, blocks, if_node);
     }
 
     // Index calculation for current blocks
@@ -385,7 +384,6 @@ void Generator::Statement::generate_for_loop(                              //
 void Generator::Statement::generate_catch_statement(                       //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const CatchNode *catch_node                                            //
 ) {

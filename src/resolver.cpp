@@ -196,20 +196,20 @@ void Resolver::get_dependency_graph_tips(const std::shared_ptr<DepNode> &dep_nod
 ///     Removes those dependencies from the given map too
 ///     Works by
 std::map<std::string, std::vector<dependency>> Resolver::extract_duplicates( //
-    std::map<std::string, std::vector<dependency>> &dependency_map           //
+    std::map<std::string, std::vector<dependency>> &duplicate_map            //
 ) {
     std::map<std::string, std::vector<dependency>> unique_dependencies;
-    for (auto it = dependency_map.begin(); it != dependency_map.end();) {
+    for (auto it = duplicate_map.begin(); it != duplicate_map.end();) {
         if (unique_dependencies.find(it->first) == unique_dependencies.end() && file_map.find(it->first) != file_map.end()) {
             unique_dependencies.insert(*it);
             ++it;
-            dependency_map.erase(std::prev(it));
+            duplicate_map.erase(std::prev(it));
         } else {
             ++it;
         }
     }
-    auto duplicates = dependency_map;
-    dependency_map = unique_dependencies;
+    auto duplicates = duplicate_map;
+    duplicate_map = unique_dependencies;
     return duplicates;
 }
 

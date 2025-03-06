@@ -127,7 +127,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
             }
         }
         // Check if the next token is a binary operator token
-        if (Signature::tokens_match({{iterator->type}}, Signature::binary_operator)) {
+        if (Signature::tokens_match({{iterator->type, "", 0, 0}}, Signature::binary_operator)) {
             if (first_operator_token == TOK_EOL) {
                 first_operator_idx = std::distance(tokens.begin(), iterator);
                 first_operator_token = iterator->type;
@@ -169,7 +169,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
     //     return std::nullopt;
     // }
     // The binop expression is of type bool when its a relational operator
-    if (Signature::tokens_contain({{operator_token}}, Signature::relational_binop)) {
+    if (Signature::tokens_contain({{operator_token, "", 0, 0}}, Signature::relational_binop)) {
         return BinaryOpNode(operator_token, lhs.value(), rhs.value(), "bool");
     }
     return BinaryOpNode(operator_token, lhs.value(), rhs.value(), lhs.value()->type);
@@ -187,7 +187,7 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
     assert(expr_range.value().second > expr_range.value().first);
 
     // Get the type the expression needs to be converted to
-    TokenContext type_token = TokenContext{TOK_EOF};
+    TokenContext type_token = TokenContext{TOK_EOF, "", 0, 0};
     for (auto iterator = tokens.begin(); iterator != tokens.end(); ++iterator) {
         if (Signature::tokens_match({*iterator}, Signature::type_prim) && std::next(iterator) != tokens.end() &&
             std::next(iterator)->type == TOK_LEFT_PAREN) {

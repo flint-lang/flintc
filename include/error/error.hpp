@@ -1,6 +1,12 @@
 #ifndef __ERROR_HPP__
 #define __ERROR_HPP__
 
+#ifdef DEBUG_BUILD
+constexpr inline bool DEBUG_MODE = true;
+#else
+constexpr inline bool DEBUG_MODE = false;
+#endif
+
 #include "error_type.hpp"
 
 // All error types are included here to make using the error header file easier
@@ -75,9 +81,9 @@
 /// @param error_type The error enum type, whose Enum ID will be printed to the console
 inline void throw_err(ErrorType error_type, const char *file = __FILE__, const int line = __LINE__) {
     std::cerr << "Custom Error: " << std::to_string(static_cast<int>(error_type));
-#ifdef DEBUG_BUILD
-    std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
-#endif
+    if (DEBUG_MODE) {
+        std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
+    }
     std::cerr << std::endl;
 }
 
@@ -103,9 +109,9 @@ std::enable_if_t<std::is_base_of_v<BaseError, ErrorType> && !std::is_same_v<Base
 throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
     ErrorType error(std::forward<Args>(args)...);
     std::cerr << error.to_string();
-#ifdef DEBUG_BUILD
-    std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
-#endif
+    if (DEBUG_MODE) {
+        std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
+    }
     std::cerr << "\n" << std::endl;
 }
 

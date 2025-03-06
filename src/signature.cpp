@@ -180,7 +180,7 @@ namespace Signature {
     std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line) {
         unsigned int leading_indents = 0;
         int start_index = -1;
-        for (int i = 0; i < tokens.size(); i++) {
+        for (size_t i = 0; i < tokens.size(); i++) {
             if (start_index == -1 && tokens.at(i).line == line) {
                 start_index = i;
                 if (tokens.at(i).type == TOK_INDENT) {
@@ -208,7 +208,7 @@ namespace Signature {
         int start_index = -1;
         unsigned int end_index = 0;
 
-        for (int i = 0; i < tokens.size(); i++) {
+        for (size_t i = 0; i < tokens.size(); i++) {
             if (start_index == 0 && tokens.at(i).line == line) {
                 start_index = i;
             } else if (start_index != -1 && tokens.at(i).line != line) {

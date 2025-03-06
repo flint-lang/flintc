@@ -5,7 +5,7 @@
 
 #include <optional>
 
-std::optional<FunctionNode> Parser::create_function(const token_list &definition, token_list &body) {
+std::optional<FunctionNode> Parser::create_function(const token_list &definition) {
     std::string name;
     std::vector<std::pair<std::string, std::string>> parameters;
     std::vector<std::string> return_types;
@@ -33,20 +33,20 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
         if (tok_iterator->type == TOK_RIGHT_PAREN && begin_params) {
             begin_params = false;
         }
-        if (begin_params && Signature::tokens_match({TokenContext{tok_iterator->type, "", 0}}, Signature::type) &&
+        if (begin_params && Signature::tokens_match({TokenContext{tok_iterator->type, "", 0, 0}}, Signature::type) &&
             (tok_iterator + 1)->type == TOK_IDENTIFIER) {
             parameters.emplace_back(tok_iterator->lexme, (tok_iterator + 1)->lexme);
         }
         // Adding the functions return types
         if (tok_iterator->type == TOK_ARROW) {
             // Only one return type
-            if (Signature::tokens_match({{(tok_iterator + 1)->type}}, Signature::type)) {
+            if (Signature::tokens_match({{(tok_iterator + 1)->type, "", 0, 0}}, Signature::type)) {
                 return_types.emplace_back((tok_iterator + 1)->lexme);
                 break;
             }
             begin_returns = true;
         }
-        if (begin_returns && Signature::tokens_match({{tok_iterator->type}}, Signature::type)) {
+        if (begin_returns && Signature::tokens_match({{tok_iterator->type, "", 0, 0}}, Signature::type)) {
             return_types.emplace_back(tok_iterator->lexme);
         }
         if (begin_returns && tok_iterator->type == TOK_RIGHT_PAREN) {
@@ -103,7 +103,7 @@ DataNode Parser::create_data(const token_list &definition, const token_list &bod
     auto body_iterator = body.begin();
     bool parsing_constructor = false;
     while (body_iterator != body.end()) {
-        if (Signature::tokens_match({TokenContext{body_iterator->type, "", 0}}, Signature::type) &&
+        if (Signature::tokens_match({TokenContext{body_iterator->type, "", 0, 0}}, Signature::type) &&
             (body_iterator + 1)->type == TOK_IDENTIFIER) {
             fields.emplace_back(body_iterator->lexme, (body_iterator + 1)->lexme);
             if ((body_iterator + 2)->type == TOK_EQUAL) {
@@ -158,7 +158,7 @@ std::optional<FuncNode> Parser::create_func(const token_list &definition, token_
     int current_line = -1;
     FuncNode func_node = FuncNode(name, required_data, {});
     while (body_iterator != body.end()) {
-        if (current_line == body_iterator->line) {
+        if (current_line == static_cast<int>(body_iterator->line)) {
             ++body_iterator;
             continue;
         }
@@ -170,7 +170,7 @@ std::optional<FuncNode> Parser::create_func(const token_list &definition, token_
         unsigned int leading_indents = Signature::get_leading_indents(function_definition, current_line).value();
         token_list function_body = get_body_tokens(leading_indents, body);
 
-        std::optional<FunctionNode> function = create_function(function_definition, function_body);
+        std::optional<FunctionNode> function = create_function(function_definition);
         if (!function.has_value()) {
             THROW_ERR(ErrDefFunctionCreation, ERR_PARSING, file_name, function_definition);
             return std::nullopt;
@@ -254,15 +254,16 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
                 // TODO: Add a generic constructor for the data module
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
                 token_list data_body = get_body_tokens(leading_indents, body);
-                token_list data_definition = {TokenContext{TOK_DATA, "", 0}, TokenContext{TOK_IDENTIFIER, name + "__D", 0}};
+                token_list data_definition = {TokenContext{TOK_DATA, "", 0, 0}, TokenContext{TOK_IDENTIFIER, name + "__D", 0, 0}};
                 data_node = create_data(data_definition, data_body);
                 data_modules.emplace_back(name + "__D");
             } else if (body_iterator->type == TOK_FUNC) {
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
                 token_list func_body = get_body_tokens(leading_indents, body);
-                token_list func_definition = {TokenContext{TOK_FUNC}, TokenContext{TOK_IDENTIFIER, name + "__F"},
-                    TokenContext{TOK_REQUIRES}, TokenContext{TOK_LEFT_PAREN}, TokenContext{TOK_IDENTIFIER, name + "__D"},
-                    TokenContext{TOK_IDENTIFIER, "d"}, TokenContext{TOK_RIGHT_PAREN}, TokenContext{TOK_COLON}};
+                token_list func_definition = {TokenContext{TOK_FUNC, "", 0, 0}, TokenContext{TOK_IDENTIFIER, name + "__F", 0, 0},
+                    TokenContext{TOK_REQUIRES, "", 0, 0}, TokenContext{TOK_LEFT_PAREN, "", 0, 0},
+                    TokenContext{TOK_IDENTIFIER, name + "__D", 0, 0}, TokenContext{TOK_IDENTIFIER, "d", 0, 0},
+                    TokenContext{TOK_RIGHT_PAREN, "", 0, 0}, TokenContext{TOK_COLON, "", 0, 0}};
                 // TODO: change the functions accesses to the data by placing "d." in front of every variable access.
                 std::optional<FuncNode> created_func = create_func(func_definition, func_body);
                 if (!created_func.has_value()) {
@@ -298,7 +299,7 @@ std::vector<std::unique_ptr<LinkNode>> Parser::create_links(token_list &body) {
 
     std::vector<uint2> link_matches = Signature::get_match_ranges(body, Signature::entity_body_link);
     links.reserve(link_matches.size());
-    for (int i = 0; i < link_matches.size(); i++) {
+    for (size_t i = 0; i < link_matches.size(); i++) {
         links.emplace_back(std::make_unique<LinkNode>(create_link(body)));
     }
 
@@ -431,7 +432,7 @@ VariantNode Parser::create_variant(const token_list &definition, const token_lis
     return VariantNode(name, possible_types);
 }
 
-std::optional<TestNode> Parser::create_test(const token_list &definition, token_list &body) {
+std::optional<TestNode> Parser::create_test(const token_list &definition) {
     std::string test_name;
     // Extract the name of the test
     for (auto it = definition.begin(); it != definition.end(); ++it) {

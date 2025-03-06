@@ -338,7 +338,7 @@ char Lexer::peek() {
 ///     Peeks at the next character without advancing the
 ///     current index.
 char Lexer::peek_next() {
-    if (current + 1 >= source.size()) {
+    if (static_cast<size_t>(current + 1) >= source.size()) {
         return '\0'; // Not EOF, but end of string
     }
     return source.at(current + 1);
@@ -374,7 +374,7 @@ bool Lexer::is_alpha_num(char c) {
 ///     Determines whether the scanner has reached the
 ///     end of the string
 bool Lexer::is_at_end() {
-    return current >= source.size();
+    return static_cast<size_t>(current) >= source.size();
 }
 
 /// advance

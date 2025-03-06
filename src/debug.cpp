@@ -491,33 +491,33 @@ namespace Debug {
 
         /// print_data
         ///     Prints the content of the generated DataNode
-        void print_data(unsigned int indent_lvl, const DataNode &data) {
-            std::cout << "    Data: " << typeid(data).name() << "\n";
-        }
+        // void print_data(unsigned int indent_lvl, const DataNode &data) {
+        //     std::cout << "    Data: " << typeid(data).name() << "\n";
+        // }
 
         /// print_entity
         ///     Prints the content of the generated EntityNode
-        void print_entity(unsigned int indent_lvl, const EntityNode &entity) {
-            std::cout << "    Entity: " << typeid(entity).name() << "\n";
-        }
+        // void print_entity(unsigned int indent_lvl, const EntityNode &entity) {
+        //     std::cout << "    Entity: " << typeid(entity).name() << "\n";
+        // }
 
         /// print_enum
         ///     Prints the content of the generated EnumNode
-        void print_enum(unsigned int indent_lvl, const EnumNode &enum_node) {
-            std::cout << "    Enum: " << typeid(enum_node).name() << "\n";
-        }
+        // void print_enum(unsigned int indent_lvl, const EnumNode &enum_node) {
+        //     std::cout << "    Enum: " << typeid(enum_node).name() << "\n";
+        // }
 
         /// print_error
         ///     Prints the content of the generated ErrorNode
-        void print_error(unsigned int indent_lvl, const ErrorNode &error) {
-            std::cout << "    Error: " << typeid(error).name() << "\n";
-        }
+        // void print_error(unsigned int indent_lvl, const ErrorNode &error) {
+        //     std::cout << "    Error: " << typeid(error).name() << "\n";
+        // }
 
         /// print_func
         ///     Prints the content of the generated FuncNode
-        void print_func(unsigned int indent_lvl, const FuncNode &func) {
-            std::cout << "    Func: " << typeid(func).name() << "\n";
-        }
+        // void print_func(unsigned int indent_lvl, const FuncNode &func) {
+        //     std::cout << "    Func: " << typeid(func).name() << "\n";
+        // }
 
         /// print_function
         ///     Prints the content of the generated FunctionNode
@@ -587,15 +587,15 @@ namespace Debug {
 
         /// print_link
         ///     Prints the content of the generated LinkNode
-        void print_link(unsigned int indent_lvl, uint2 empty, const LinkNode &link) {
-            std::cout << "    Link: " << typeid(link).name() << "\n";
-        }
+        // void print_link(unsigned int indent_lvl, uint2 empty, const LinkNode &link) {
+        //     std::cout << "    Link: " << typeid(link).name() << "\n";
+        // }
 
         /// print_link
         ///     Prints the content of the generated VariantNode
-        void print_variant(unsigned int indent_lvl, const VariantNode &variant) {
-            std::cout << "    Variant: " << typeid(variant).name() << "\n";
-        }
+        // void print_variant(unsigned int indent_lvl, const VariantNode &variant) {
+        //     std::cout << "    Variant: " << typeid(variant).name() << "\n";
+        // }
 
         void print_test(unsigned int indent_lvl, uint2 empty, const TestNode &test) {
             Local::print_header(indent_lvl, empty, "Test ");

@@ -32,7 +32,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     token_list body_tokens = get_body_tokens(definition_indentation, tokens);
     if (Signature::tokens_contain(definition_tokens, Signature::function_definition)) {
         // Dont actually parse the function body, only its definition
-        std::optional<FunctionNode> function_node = create_function(definition_tokens, body_tokens);
+        std::optional<FunctionNode> function_node = create_function(definition_tokens);
         if (!function_node.has_value()) {
             THROW_ERR(ErrDefFunctionCreation, ERR_PARSING, file_name, definition_tokens);
             return false;
@@ -69,7 +69,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         VariantNode variant_node = create_variant(definition_tokens, body_tokens);
         file_node.add_variant(variant_node);
     } else if (Signature::tokens_contain(definition_tokens, Signature::test_definition)) {
-        std::optional<TestNode> test_node = create_test(definition_tokens, body_tokens);
+        std::optional<TestNode> test_node = create_test(definition_tokens);
         if (!test_node.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
@@ -88,7 +88,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
 token_list Parser::get_definition_tokens(token_list &tokens) {
     // Scan through all the tokens and first extract all tokens from this line
     int end_index = 0;
-    int start_line = tokens.at(0).line;
+    unsigned int start_line = tokens.at(0).line;
     for (const TokenContext &tok : tokens) {
         if (tok.line == start_line) {
             end_index++;
@@ -100,8 +100,8 @@ token_list Parser::get_definition_tokens(token_list &tokens) {
 }
 
 token_list Parser::get_body_tokens(unsigned int definition_indentation, token_list &tokens) {
-    int current_line = tokens.at(0).line;
     int end_idx = 0;
+    unsigned int current_line = tokens.at(0).line;
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         if (it->line != current_line || it == tokens.begin()) {
             current_line = it->line;

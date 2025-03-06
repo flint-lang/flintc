@@ -42,9 +42,9 @@ llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder,
         );
     }
     if (std::holds_alternative<float>(literal_node->value)) {
-        return llvm::ConstantFP::get(                     //
-            llvm::Type::getFloatTy(parent->getContext()), //
-            std::get<float>(literal_node->value)          //
+        return llvm::ConstantFP::get(                                 //
+            llvm::Type::getFloatTy(parent->getContext()),             //
+            static_cast<double>(std::get<float>(literal_node->value)) //
         );
     }
     if (std::holds_alternative<std::string>(literal_node->value)) {

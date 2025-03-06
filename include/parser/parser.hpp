@@ -626,9 +626,8 @@ class Parser {
     /// creation of AST Nodes for the body
     ///
     /// @param `definition` The list of tokens representing the function definition
-    /// @param `body` The list of tokens representing the function body
     /// @return `std::optional<FunctionNode>` The created FunctionNode
-    std::optional<FunctionNode> create_function(const token_list &definition, token_list &body);
+    std::optional<FunctionNode> create_function(const token_list &definition);
 
     /// @function `create_data`
     /// @brief Creates a DataNode from the given definition and body tokens
@@ -703,9 +702,8 @@ class Parser {
     /// @brief Creates a TestNode from the given definition and body tokens
     ///
     /// @param `definition` The list of tokens representing the test definition
-    /// @param `body` The list of tokens representing the test body
     /// @return `std::optional<TestNode>` The created TestNode, if creation was successful, nullopt otherwise
-    std::optional<TestNode> create_test(const token_list &definition, token_list &bdoy);
+    std::optional<TestNode> create_test(const token_list &definition);
 
     /// @function `create_import`
     /// @brief Creates an ImportNode from the given list of tokens

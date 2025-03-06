@@ -54,7 +54,7 @@ class CLIParserBase {
     CLIParserBase(int argc, char *argv[]) {
         // Convert the char* argv[] to a vector of strings
         args.reserve(argc - 1);
-        for (size_t i = 1; i < argc; ++i) {
+        for (int i = 1; i < argc; ++i) {
             args.emplace_back(argv[i]);
         }
     }
