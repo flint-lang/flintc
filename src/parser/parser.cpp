@@ -75,7 +75,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
         return true;
     };
 
-    bool result;
+    bool result = true;
     if (parse_parallel) {
         // Create explicit reducer and initializer functions
         auto reducer = [](bool a, bool b) -> bool { return a && b; };
@@ -110,7 +110,7 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         return true;
     };
 
-    bool result;
+    bool result = true;
     if (parse_parallel) {
         // Create explicit reducer and initializer functions
         auto reducer = [](bool a, bool b) -> bool { return a && b; };
