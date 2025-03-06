@@ -7,4 +7,6 @@ def main():
 	print("Middle\n");
 	assert(false);
 	print("After\n");
-
+	i32 i = 0;
+	i++;
+	print(i);

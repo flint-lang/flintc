@@ -401,13 +401,13 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
         unsigned int type_begin = 0;
         unsigned int type_end = lhs_tokens.size() - 2;
         for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
-            if ((it + 1)->type == TOK_IDENTIFIER && (it + 2)->type == TOK_EQUAL) {
+            if (std::next(it) != lhs_tokens.end() && std::next(std::next(it)) != lhs_tokens.end() && (it + 1)->type == TOK_IDENTIFIER &&
+                (it + 2)->type == TOK_EQUAL) {
                 const token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
                 type = Lexer::to_string(type_tokens);
                 name = it->lexme;
                 break;
             }
-            ++it;
         }
         if (!scope->add_variable_type(name, type, scope->scope_id)) {
             // Variable shadowing

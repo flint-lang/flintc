@@ -51,7 +51,6 @@ token_list Lexer::scan() {
     bool is_empty_line = true;
     unsigned int line_start_idx = 0;
     unsigned int current_line = 0;
-    unsigned int current_column = 0;
     for (auto tok = tokens.begin(); tok != tokens.end();) {
         // Check if on a new line
         if (current_line != tok->line) {

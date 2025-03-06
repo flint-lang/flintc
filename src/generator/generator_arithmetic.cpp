@@ -29,7 +29,7 @@ llvm::Value *Generator::Arithmetic::int_safe_add(llvm::IRBuilder<> &builder, llv
     // Select appropriate result
     auto use_max = pos_overflow;
     auto use_min = neg_overflow;
-    auto normal_case = builder.CreateNot(builder.CreateOr(use_max, use_min));
+    builder.CreateNot(builder.CreateOr(use_max, use_min));
 
     auto temp = builder.CreateSelect(use_max, int_max, add);
     return builder.CreateSelect(use_min, int_min, temp);
@@ -60,7 +60,7 @@ llvm::Value *Generator::Arithmetic::int_safe_sub(llvm::IRBuilder<> &builder, llv
     // Select appropriate result
     auto use_max = pos_overflow;
     auto use_min = neg_overflow;
-    auto normal_case = builder.CreateNot(builder.CreateOr(use_max, use_min));
+    builder.CreateNot(builder.CreateOr(use_max, use_min));
 
     auto temp = builder.CreateSelect(use_max, int_max, sub);
     return builder.CreateSelect(use_min, int_min, temp);

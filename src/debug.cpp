@@ -175,37 +175,7 @@ namespace Debug {
     } // namespace Dep
 
     namespace AST {
-        namespace {
-            /// print_table_header
-            ///     Prints the header of a table from the AST tree
-            void print_table_header(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells) {
-                std::cout << get_string_container(padding, "");
-
-                for (const auto &cell : cells) {
-                    std::cout << get_string_container(cell.first, cell.second);
-                    std::cout << "| ";
-                }
-                std::cout << std::endl;
-                std::cout << get_string_container(padding, "");
-                for (const auto &cell : cells) {
-                    std::cout << fill_container_with(cell.first, '-');
-                    std::cout << "|-";
-                }
-                std::cout << std::endl;
-            }
-
-            /// print_table_row
-            ///     Prints a table row
-            void print_table_row(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells) {
-                std::cout << get_string_container(padding, "");
-
-                for (const auto &cell : cells) {
-                    std::cout << get_string_container(cell.first, cell.second);
-                    std::cout << "| ";
-                }
-                std::cout << std::endl;
-            }
-
+        namespace Local {
             /// print_header
             ///     Prints the header of the AST node (the left part incl. the header name)
             void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header) {
@@ -235,7 +205,7 @@ namespace Debug {
                 }
                 std::cout << "> ";
             }
-        } // namespace
+        } // namespace Local
 
         /// print_ast_tree
         ///     Prints the whole AST Tree recursively
@@ -281,13 +251,13 @@ namespace Debug {
         // --- EXPRESSIONS ---
 
         void print_variable(unsigned int indent_lvl, uint2 empty, const VariableNode &var) {
-            print_header(indent_lvl, empty, "Variable ");
+            Local::print_header(indent_lvl, empty, "Variable ");
             std::cout << var.name;
             std::cout << std::endl;
         }
 
         void print_unary_op(unsigned int indent_lvl, uint2 empty, const UnaryOpBase &unary) {
-            print_header(indent_lvl, empty, "UnOp ");
+            Local::print_header(indent_lvl, empty, "UnOp ");
             std::cout << "operation: " << get_token_name(unary.operator_token);
             std::cout << std::endl;
 
@@ -296,7 +266,7 @@ namespace Debug {
         }
 
         void print_literal(unsigned int indent_lvl, uint2 empty, const LiteralNode &lit) {
-            print_header(indent_lvl, empty, "Lit ");
+            Local::print_header(indent_lvl, empty, "Lit ");
             std::cout << "value: ";
             if (std::holds_alternative<int>(lit.value)) {
                 std::cout << std::get<int>(lit.value);
@@ -311,7 +281,7 @@ namespace Debug {
         }
 
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call) {
-            print_header(indent_lvl, empty, "Call ");
+            Local::print_header(indent_lvl, empty, "Call ");
             std::cout << "'" << call.function_name << "' with args";
             std::cout << std::endl;
             unsigned int counter = 0;
@@ -324,22 +294,22 @@ namespace Debug {
         }
 
         void print_binary_op(unsigned int indent_lvl, uint2 empty, const BinaryOpNode &bin) {
-            print_header(indent_lvl, empty, "BinOp ");
+            Local::print_header(indent_lvl, empty, "BinOp ");
             std::cout << get_token_name(bin.operator_token);
             std::cout << std::endl;
-            print_header(indent_lvl + 1, empty, "LHS ");
+            Local::print_header(indent_lvl + 1, empty, "LHS ");
             std::cout << std::endl;
             empty.second = indent_lvl + 1;
             print_expression(indent_lvl + 2, empty, bin.left);
             empty.second = indent_lvl + 2;
-            print_header(indent_lvl + 1, empty, "RHS ");
+            Local::print_header(indent_lvl + 1, empty, "RHS ");
             std::cout << std::endl;
             empty.second = indent_lvl + 3;
             print_expression(indent_lvl + 2, empty, bin.right);
         }
 
         void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast) {
-            print_header(indent_lvl, empty, "TypeCast ");
+            Local::print_header(indent_lvl, empty, "TypeCast ");
             std::cout << cast.type << std::endl;
             empty.second = indent_lvl + 2;
             print_expression(indent_lvl + 1, empty, cast.expr);
@@ -367,7 +337,7 @@ namespace Debug {
         // --- STATEMENTS ---
 
         void print_throw(unsigned int indent_lvl, uint2 empty, const ThrowNode &return_node) {
-            print_header(indent_lvl, empty, "Throw ");
+            Local::print_header(indent_lvl, empty, "Throw ");
             std::cout << "throw";
             std::cout << std::endl;
 
@@ -376,7 +346,7 @@ namespace Debug {
         }
 
         void print_return(unsigned int indent_lvl, uint2 empty, const ReturnNode &return_node) {
-            print_header(indent_lvl, empty, "Return ");
+            Local::print_header(indent_lvl, empty, "Return ");
             std::cout << "return";
             std::cout << std::endl;
 
@@ -385,19 +355,19 @@ namespace Debug {
         }
 
         void print_if(unsigned int indent_lvl, uint2 empty, const IfNode &if_node) {
-            print_header(indent_lvl, empty, "If ");
+            Local::print_header(indent_lvl, empty, "If ");
             std::cout << "if " << std::endl;
 
             empty.second = indent_lvl + 2;
             print_expression(indent_lvl + 1, empty, if_node.condition);
 
             empty.second = indent_lvl + 1;
-            print_header(indent_lvl, empty, "Then ");
+            Local::print_header(indent_lvl, empty, "Then ");
             std::cout << std::endl;
             print_body(indent_lvl + 1, empty, if_node.then_scope->body);
 
             // empty.second = indent_lvl + 1;
-            print_header(indent_lvl, empty, "Else ");
+            Local::print_header(indent_lvl, empty, "Else ");
             std::cout << std::endl;
 
             // empty.second = indent_lvl + 2;
@@ -411,26 +381,26 @@ namespace Debug {
         }
 
         void print_while(unsigned int indent_lvl, uint2 empty, const WhileNode &while_node) {
-            print_header(indent_lvl, empty, "While ");
+            Local::print_header(indent_lvl, empty, "While ");
             std::cout << "while" << std::endl;
             empty.second = indent_lvl + 1;
             print_expression(indent_lvl + 1, empty, while_node.condition);
 
             empty.second = indent_lvl;
-            print_header(indent_lvl, empty, "Do ");
+            Local::print_header(indent_lvl, empty, "Do ");
             std::cout << "do" << std::endl;
             empty.second = indent_lvl + 1;
             print_body(indent_lvl + 1, empty, while_node.scope->body);
         }
 
         void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node) {
-            print_header(indent_lvl, empty, "For ");
+            Local::print_header(indent_lvl, empty, "For ");
             std::cout << "for " << std::endl;
             empty.second = indent_lvl + 1;
             print_expression(indent_lvl + 1, empty, for_node.condition);
 
             empty.second = indent_lvl;
-            print_header(indent_lvl, empty, "Do ");
+            Local::print_header(indent_lvl, empty, "Do ");
             std::cout << "do " << std::endl;
 
             empty.second = indent_lvl + 1;
@@ -442,7 +412,7 @@ namespace Debug {
             if (!call_node.has_value()) {
                 return;
             }
-            print_header(indent_lvl, empty, "Catch ");
+            Local::print_header(indent_lvl, empty, "Catch ");
             std::cout << "catch '";
             std::cout << call_node.value()->function_name;
             std::cout << "'";
@@ -458,7 +428,7 @@ namespace Debug {
         }
 
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign) {
-            print_header(indent_lvl, empty, "Assign ");
+            Local::print_header(indent_lvl, empty, "Assign ");
             std::cout << "'" << assign.name << "' to be";
             std::cout << std::endl;
 
@@ -468,7 +438,7 @@ namespace Debug {
         }
 
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl) {
-            print_header(indent_lvl, empty, "Decl ");
+            Local::print_header(indent_lvl, empty, "Decl ");
             std::cout << "'" << decl.type << " ";
             std::cout << decl.name << "' to be";
             std::cout << std::endl;
@@ -552,7 +522,7 @@ namespace Debug {
         /// print_function
         ///     Prints the content of the generated FunctionNode
         void print_function(unsigned int indent_lvl, uint2 empty, const FunctionNode &function) {
-            print_header(indent_lvl, empty, "Function ");
+            Local::print_header(indent_lvl, empty, "Function ");
 
             if (function.is_aligned) {
                 std::cout << "aligned ";
@@ -596,7 +566,7 @@ namespace Debug {
         /// print_import
         ///     Prints the content of the generated ImportNode
         void print_import(unsigned int indent_lvl, const ImportNode &import) {
-            print_header(indent_lvl, {0, 0}, "Import ");
+            Local::print_header(indent_lvl, {0, 0}, "Import ");
 
             if (std::holds_alternative<std::string>(import.path)) {
                 std::cout << "\"" << std::get<std::string>(import.path) << "\"";
@@ -628,7 +598,7 @@ namespace Debug {
         }
 
         void print_test(unsigned int indent_lvl, uint2 empty, const TestNode &test) {
-            print_header(indent_lvl, empty, "Test ");
+            Local::print_header(indent_lvl, empty, "Test ");
             std::cout << test.file_name << ":\"" << test.name << "\"" << std::endl;
 
             // The test body

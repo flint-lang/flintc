@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
     Profiler::print_results(Profiler::TimeUnit::MICS);
     if (clp.run) {
         std::cout << "\n--- Running the executable '" << clp.out_file_path.filename().string() << "' ---" << std::endl;
-        system(clp.out_file_path.string().c_str());
+        return system(clp.out_file_path.string().c_str());
     }
     return 0;
 }

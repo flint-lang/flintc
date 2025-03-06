@@ -239,7 +239,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
             if (is_test && function_node->name == "main") {
                 continue;
             }
-            llvm::Function *function_definition = Function::generate_function(module.get(), function_node);
+            Function::generate_function(module.get(), function_node);
             // No return statement found despite the signature requires return OR
             // Rerutn statement found but the signature has no return type defined (basically a simple xnor between the two booleans)
 

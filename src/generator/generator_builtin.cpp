@@ -37,7 +37,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::AllocaInst *main_ret = builder->CreateAlloca(custom_main_ret_type, nullptr, "custom_main_ret");
     llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {});
     main_call_array[0] = main_call;
-    llvm::StoreInst *main_res = builder->CreateStore(main_call, main_ret);
+    builder->CreateStore(main_call, main_ret);
 
     // First, load the first return value of the return struct
     llvm::Value *err_ptr = builder->CreateStructGEP(custom_main_ret_type, main_ret, 0);
@@ -95,7 +95,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     builder->CreateBr(merge_block);
     builder->SetInsertPoint(merge_block);
-    llvm::Value *ret = builder->CreateRet(err_val);
+    builder->CreateRet(err_val);
 }
 
 void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -326,7 +326,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
                 {},                                          //
                 "call_test"                                  //
             );
-            llvm::StoreInst *test_store = builder->CreateStore(test_call, test_alloca);
+            builder->CreateStore(test_call, test_alloca);
             llvm::Value *err_ptr = builder->CreateStructGEP(test_function->getReturnType(), test_alloca, 0, "test_err_ptr");
             llvm::Value *err_value = builder->CreateLoad(     //
                 llvm::Type::getInt32Ty(module->getContext()), //

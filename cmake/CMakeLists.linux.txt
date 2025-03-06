@@ -9,7 +9,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set default build type if not specified
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
+        "Choose the type of build, options are:\
+Debug \
+Release \
+RelWithDebInfo \
+MinSizeRel" FORCE)
 endif()
 
 # Set the possible values of build type for cmake-gui
@@ -27,16 +32,19 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# Get LLVM include directories and link flags using llvm-config
+# Get LLVM include directories
 execute_process(
     COMMAND llvm-config --includedir
-    OUTPUT_VARIABLE BASE_CXX_FLAGS
+    OUTPUT_VARIABLE LLVM_INCLUDE_DIR
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+# Add LLVM include directory
+include_directories(${LLVM_INCLUDE_DIR})
+# Set other compiler flags
 set(BASE_CXX_FLAGS ${BASE_CXX_FLAGS}
     -g
-    -O0
-    -Wall
+    -O1
+    -Wall         # Enable most warnings
     -std=c++17
     -fno-omit-frame-pointer
     -DEBUG
@@ -46,7 +54,8 @@ set(BASE_CXX_FLAGS ${BASE_CXX_FLAGS}
     -D__STDC_CONSTANT_MACROS
     -D__STDC_FORMAT_MACROS
     -D__STDC_LIMIT_MACROS
-    $<$<BOOL:${DEBUG_MODE}>:-DDEBUG_BUILD> # Set the debug build definition (generator expression to only add -DDEBUG_BUILD flag when DEBUG_BUILD is ON)
+    $<$<BOOL:${DEBUG_MODE}>:-DDEBUG_BUILD> # Set the debug build definition
+    # (generator expr to only add -DDEBUG_BUILD flag when DEBUG_BUILD is ON)
 )
 
 # Get the static flags for static linking

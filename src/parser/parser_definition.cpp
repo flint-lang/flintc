@@ -298,8 +298,8 @@ std::vector<std::unique_ptr<LinkNode>> Parser::create_links(token_list &body) {
 
     std::vector<uint2> link_matches = Signature::get_match_ranges(body, Signature::entity_body_link);
     links.reserve(link_matches.size());
-    for (uint2 link_match : link_matches) {
-        links.emplace_back(std::make_unique<LinkNode>(std::move(create_link(body))));
+    for (int i = 0; i < link_matches.size(); i++) {
+        links.emplace_back(std::make_unique<LinkNode>(create_link(body)));
     }
 
     return links;

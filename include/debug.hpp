@@ -69,11 +69,9 @@ namespace Debug {
     } // namespace Dep
 
     namespace AST {
-        namespace {
-            void print_table_header(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
-            void print_table_row(const unsigned int &padding, const std::vector<std::pair<unsigned int, std::string>> &cells);
+        namespace Local {
             void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header);
-        } // namespace
+        } // namespace Local
 
         void print_file(const FileNode &file);
 

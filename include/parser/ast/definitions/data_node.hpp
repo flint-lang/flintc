@@ -14,16 +14,15 @@ class DataNode : public ASTNode {
     DataNode() = default;
     explicit DataNode(bool &is_shared, bool &is_immutable, bool &is_aligned, std::string &name,
         std::vector<std::pair<std::string, std::string>> &fields, std::vector<std::pair<std::string, std::string>> &default_values,
-        std::vector<std::string> &order)
-        : is_shared(is_shared),
-          is_immutable(is_immutable),
-          is_aligned(is_aligned),
-          name(name),
-          fields(std::move(fields)),
-          default_values(std::move(default_values)),
-          order(std::move(order)) {}
+        std::vector<std::string> &order) :
+        is_shared(is_shared),
+        is_immutable(is_immutable),
+        is_aligned(is_aligned),
+        name(name),
+        fields(std::move(fields)),
+        default_values(std::move(default_values)),
+        order(std::move(order)) {}
 
-  private:
     /// is_shared
     ///     Determines whether the data is shared between multiple entities
     bool is_shared{false};

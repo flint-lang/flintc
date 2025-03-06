@@ -2,6 +2,7 @@
 #define __TEST_UTILS_HPP__
 
 #include "cli_parser_base.hpp"
+#include "colors.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
 #include "result.hpp"
@@ -77,12 +78,14 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
     auto [ft_comp_code, ft_comp_out] = CLIParserBase::get_command_output(ft_compile_command + " 2>&1");
 
     // Check if any of the compile processes failed. If yes, print the compile output:
-    // if (c_comp_code != 0) {
-    std::cout << "\n -- C Compile command '" << c_compile_command << "' failed:\n" << c_comp_out << std::endl;
-    // }
-    // if (ft_comp_code != 0) {
-    std::cout << "\n -- FT Compile command '" << ft_compile_command << "' failed:\n" << ft_comp_out << std::endl;
-    // }
+    if (c_comp_code != 0) {
+        std::cout << "\n -- C Compile command '" << YELLOW << c_compile_command << "' failed with the following output:\n"
+                  << DEFAULT << c_comp_out << std::endl;
+    }
+    if (ft_comp_code != 0) {
+        std::cout << "\n -- Flint Compile command '" << YELLOW << ft_compile_command << "' failed with the following output:\n"
+                  << ft_comp_out << std::endl;
+    }
     if (c_comp_code != 0 || ft_comp_code != 0) {
         return;
     }
@@ -135,14 +138,15 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
         color = GREEN;
     }
 
-    // bool outputs_differ = c_output != ft_output || c_exit_code_sum != ft_exit_code_sum;
-    bool outputs_differ = false;
+    bool outputs_differ = c_output != ft_output || c_exit_code_sum != ft_exit_code_sum;
+    // bool outputs_differ = false;
 
     // Output the results
     std::cout << "TEST: " << test_path.string() << std::endl;
-    std::cout << "\tC  [" << std::fixed << std::setprecision(2) << c_duration_ms << " ms]:        " << (outputs_differ ? c_output : "\n");
+    std::cout << "\tC  [" << std::fixed << std::setprecision(2) << c_duration_ms << " ms]:        " << (outputs_differ ? c_output : "")
+              << "\n";
     std::cout << "\tFT [" << std::fixed << std::setprecision(2) << ft_duration_ms << " ms] [" << color << (perf_diff_percent > 0 ? "+" : "")
-              << int(perf_diff_percent * 100) << "\%" << DEFAULT << "]: " << (outputs_differ ? ft_output : "\n");
+              << int(perf_diff_percent * 100) << "\%" << DEFAULT << "]: " << (outputs_differ ? ft_output : "") << "\n";
 }
 
 #endif
