@@ -34,27 +34,15 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# Handle platform specifics
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    message(STATUS "Compiling for Windows target")
-    add_definitions(-D_WIN32)
-    set(PLATFORM_LIBS "")
-else()
-    message(STATUS "Compiling for Unix-like target")
-    set(PLATFORM_LIBS dl)
-endif()
+# Linux platform settings
+message(STATUS "Compiling for Linux target")
+set(PLATFORM_LIBS dl)
 
-# Setting the default llvm lib path
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw/lib" CACHE PATH "Path to LLVM libraries")
-    if(BUILD_STATIC)
-        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw-static/lib" CACHE PATH "Path to LLVM libraries")
-    endif()
+# Setting the default LLVM lib path based on static build
+if(BUILD_STATIC)
+    set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux-static/lib" CACHE PATH "Path to LLVM libraries")
 else()
     set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/lib" CACHE PATH "Path to LLVM libraries")
-    if(BUILD_STATIC)
-        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux-static/lib" CACHE PATH "Path to LLVM libraries")
-    endif()
 endif()
 
 # Find the llvm-config tool relative to LLVM_LIB_PATH
@@ -77,15 +65,12 @@ endforeach()
 if(EXISTS "${LLVM_BIN_DIR}/llvm-config")
     set(LLVM_CONFIG "${LLVM_BIN_DIR}/llvm-config")
     message(STATUS "Found llvm-config at: ${LLVM_CONFIG}")
-elseif(EXISTS "${LLVM_BIN_DIR}/llvm-config.exe")
-    set(LLVM_CONFIG "${LLVM_BIN_DIR}/llvm-config.exe")
-    message(STATUS "Found llvm-config.exe at: ${LLVM_CONFIG}")
 else()
     # Use find_program as a fallback
     find_program(LLVM_CONFIG llvm-config
-            PATHS ${LLVM_BIN_DIR}
-            NO_DEFAULT_PATH
-        )
+        PATHS ${LLVM_BIN_DIR}
+        NO_DEFAULT_PATH
+    )
 
     if(NOT LLVM_CONFIG)
         message(FATAL_ERROR "llvm-config not found in ${LLVM_BIN_DIR}. Please ensure it was built and installed.")
@@ -101,18 +86,18 @@ message(STATUS "Using llvm-config: ${LLVM_CONFIG}")
 
 # Get llvm-config version for debugging
 execute_process(
-        COMMAND ${LLVM_CONFIG} --version
-        OUTPUT_VARIABLE LLVM_CONFIG_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+    COMMAND ${LLVM_CONFIG} --version
+    OUTPUT_VARIABLE LLVM_CONFIG_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 message(STATUS "llvm-config version: ${LLVM_CONFIG_VERSION}")
 
 # Check llvm-config prefix
 execute_process(
-        COMMAND ${LLVM_CONFIG} --prefix
-        OUTPUT_VARIABLE LLVM_CONFIG_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+    COMMAND ${LLVM_CONFIG} --prefix
+    OUTPUT_VARIABLE LLVM_CONFIG_PREFIX
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 message(STATUS "llvm-config prefix: ${LLVM_CONFIG_PREFIX}")
 
 # Verify the prefix matches our expected installation
@@ -123,12 +108,12 @@ endif()
 
 # Use llvm-config to get proper static libraries
 execute_process(
-        COMMAND ${LLVM_CONFIG} --link-static --libs all
-        OUTPUT_VARIABLE LLVM_STATIC_LIBS
-        RESULT_VARIABLE LLVM_CONFIG_RESULT
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_VARIABLE LLVM_CONFIG_ERROR
-    )
+    COMMAND ${LLVM_CONFIG} --link-static --libs all
+    OUTPUT_VARIABLE LLVM_STATIC_LIBS
+    RESULT_VARIABLE LLVM_CONFIG_RESULT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE LLVM_CONFIG_ERROR
+)
 
 # Check for errors
 if(NOT LLVM_CONFIG_RESULT EQUAL 0)
@@ -137,12 +122,12 @@ endif()
 
 # Get system libraries needed
 execute_process(
-        COMMAND ${LLVM_CONFIG} --link-static --system-libs
-        OUTPUT_VARIABLE LLVM_SYSTEM_LIBS
-        RESULT_VARIABLE LLVM_CONFIG_RESULT
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_VARIABLE LLVM_CONFIG_ERROR
-    )
+    COMMAND ${LLVM_CONFIG} --link-static --system-libs
+    OUTPUT_VARIABLE LLVM_SYSTEM_LIBS
+    RESULT_VARIABLE LLVM_CONFIG_RESULT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE LLVM_CONFIG_ERROR
+)
 
 # Check for errors
 if(NOT LLVM_CONFIG_RESULT EQUAL 0)
@@ -153,23 +138,19 @@ endif()
 string(REPLACE " " ";" LLVM_STATIC_LIBS_LIST "${LLVM_STATIC_LIBS}")
 string(REPLACE " " ";" LLVM_SYSTEM_LIBS_LIST "${LLVM_SYSTEM_LIBS}")
 
+# Always add this definition to prevent LLVM from using zstd
+add_definitions(-DLLVM_DISABLE_ZLIB_SYMBOLS -DLLVM_ENABLE_ZSTD=0)
+
 # Setup static build configuration
 if(BUILD_STATIC)
     message(STATUS "Building static executable")
     # Force using static libraries only
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
 
-    # For Linux-specific settings
-    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-        # These flags help ensure truly static builds on Linux
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-        # Optional: disable position independent executable for fully static builds
-        set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
-    endif()
-
-    # Add a definition to prevent LLVM from using dynamic zlib symbols
-    add_definitions(-DLLVM_DISABLE_ZLIB_SYMBOLS)
+    # These flags help ensure truly static builds on Linux
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+    # Optional: disable position independent executable for fully static builds
+    set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
 
     # Manually find and specify the static zlib library
     find_library(ZLIB_LIBRARY NAMES libz.a)
@@ -200,7 +181,7 @@ else()
     find_package(Threads REQUIRED)
 
     # Find zstd library for dynamic builds
-    find_library(ZSTD_LIBRARY NAMES zestd libzstd libzstd.so.1)
+    find_library(ZSTD_LIBRARY NAMES zstd libzstd libzstd.so.1)
     if(ZSTD_LIBRARY)
         message(STATUS "Found zstd library: ${ZSTD_LIBRARY}")
     else()
@@ -220,7 +201,7 @@ else()
     )
 endif()
 
-# Common compiler flags, preserving your existing ones
+# Linux/Unix compiler flags including Clang-specific options
 set(BASE_CXX_FLAGS
     -g
     -O1
@@ -239,7 +220,7 @@ set(BASE_CXX_FLAGS
     -Wunreachable-code # Warn about unreachable code
     -fno-omit-frame-pointer
     -funwind-tables
-    -fstandalone-debug
+    -fstandalone-debug # Only for Clang on Linux
     -D_GNU_SOURCE
     -D__STDC_CONSTANT_MACROS
     -D__STDC_FORMAT_MACROS
@@ -273,17 +254,8 @@ function(create_executable target_name sources is_static)
     # Apply compiler flags
     target_compile_options(${target_name} PRIVATE ${BASE_CXX_FLAGS})
 
-    # Set appropriate link libraries
-    if(${is_static})
-        target_link_libraries(${target_name} PRIVATE ${FINAL_LINK_LIBS})
-
-        # Set Windows-specific link flags for static builds
-        if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-            set_target_properties(${target_name} PROPERTIES LINK_FLAGS "-static")
-        endif()
-    else()
-        target_link_libraries(${target_name} PRIVATE ${FINAL_LINK_LIBS})
-    endif()
+    # Link libraries
+    target_link_libraries(${target_name} PRIVATE ${FINAL_LINK_LIBS})
 endfunction()
 
 # Create binaries

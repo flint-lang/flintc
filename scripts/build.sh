@@ -46,7 +46,7 @@ if [ "$(which bc)" != "" ]; then
 else
     core_count="$(nproc)"
 fi
-verbosity_flag=""
+verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=OFF"
 
 # Parse all CLI arguments
 while [ "$#" -gt 0 ]; do
@@ -180,9 +180,9 @@ if [ "$build_windows" = "true" ]; then
         -DLLVM_INCLUDE_EXAMPLES=OFF \
         -DLLVM_INCLUDE_BENCHMARKS=OFF \
         -DLLVM_BUILD_TOOLS=ON \
+        -DLLVM_INCLUDE_TOOLS=ON \
         -DLLVM_BUILD_UTILS=OFF \
         -DLLVM_BUILD_RUNTIME=OFF \
-        -DLLVM_INCLUDE_TOOLS=OFF \
         -DLLVM_INCLUDE_UTILS=OFF \
         -DLLVM_INCLUDE_RUNTIME=OFF \
         $llvm_static_flags
