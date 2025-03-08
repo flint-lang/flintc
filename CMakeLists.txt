@@ -57,6 +57,102 @@ else()
     endif()
 endif()
 
+# Find the llvm-config tool relative to LLVM_LIB_PATH
+get_filename_component(LLVM_BIN_DIR "${LLVM_LIB_PATH}/../bin" ABSOLUTE)
+message(STATUS "Looking for llvm-config in: ${LLVM_BIN_DIR}")
+
+# Check if the bin directory exists
+if(NOT EXISTS ${LLVM_BIN_DIR})
+    message(FATAL_ERROR "LLVM bin directory does not exist: ${LLVM_BIN_DIR}. Please check your LLVM installation.")
+endif()
+
+# List files in bin directory for debugging
+file(GLOB BIN_DIR_CONTENTS "${LLVM_BIN_DIR}/*")
+message(STATUS "Files in ${LLVM_BIN_DIR}:")
+foreach(FILE ${BIN_DIR_CONTENTS})
+    message(STATUS "  ${FILE}")
+endforeach()
+
+# Try to find llvm-config specifically
+if(EXISTS "${LLVM_BIN_DIR}/llvm-config")
+    set(LLVM_CONFIG "${LLVM_BIN_DIR}/llvm-config")
+    message(STATUS "Found llvm-config at: ${LLVM_CONFIG}")
+elseif(EXISTS "${LLVM_BIN_DIR}/llvm-config.exe")
+    set(LLVM_CONFIG "${LLVM_BIN_DIR}/llvm-config.exe")
+    message(STATUS "Found llvm-config.exe at: ${LLVM_CONFIG}")
+else()
+    # Use find_program as a fallback
+    find_program(LLVM_CONFIG llvm-config
+            PATHS ${LLVM_BIN_DIR}
+            NO_DEFAULT_PATH
+        )
+
+    if(NOT LLVM_CONFIG)
+        message(FATAL_ERROR "llvm-config not found in ${LLVM_BIN_DIR}. Please ensure it was built and installed.")
+    endif()
+endif()
+
+# Double-check that we're not using the system llvm-config
+if(LLVM_CONFIG MATCHES "^/usr/bin/")
+    message(FATAL_ERROR "Found system llvm-config at ${LLVM_CONFIG} but we need to use the version from your LLVM build. Please ensure llvm-config was built and installed to ${LLVM_BIN_DIR}.")
+endif()
+
+message(STATUS "Using llvm-config: ${LLVM_CONFIG}")
+
+# Get llvm-config version for debugging
+execute_process(
+        COMMAND ${LLVM_CONFIG} --version
+        OUTPUT_VARIABLE LLVM_CONFIG_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+message(STATUS "llvm-config version: ${LLVM_CONFIG_VERSION}")
+
+# Check llvm-config prefix
+execute_process(
+        COMMAND ${LLVM_CONFIG} --prefix
+        OUTPUT_VARIABLE LLVM_CONFIG_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+message(STATUS "llvm-config prefix: ${LLVM_CONFIG_PREFIX}")
+
+# Verify the prefix matches our expected installation
+get_filename_component(EXPECTED_PREFIX "${LLVM_LIB_PATH}/.." ABSOLUTE)
+if(NOT LLVM_CONFIG_PREFIX STREQUAL EXPECTED_PREFIX)
+    message(WARNING "llvm-config prefix (${LLVM_CONFIG_PREFIX}) doesn't match expected prefix (${EXPECTED_PREFIX})")
+endif()
+
+# Use llvm-config to get proper static libraries
+execute_process(
+        COMMAND ${LLVM_CONFIG} --link-static --libs all
+        OUTPUT_VARIABLE LLVM_STATIC_LIBS
+        RESULT_VARIABLE LLVM_CONFIG_RESULT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_VARIABLE LLVM_CONFIG_ERROR
+    )
+
+# Check for errors
+if(NOT LLVM_CONFIG_RESULT EQUAL 0)
+    message(FATAL_ERROR "Error running llvm-config --link-static --libs all: ${LLVM_CONFIG_ERROR}")
+endif()
+
+# Get system libraries needed
+execute_process(
+        COMMAND ${LLVM_CONFIG} --link-static --system-libs
+        OUTPUT_VARIABLE LLVM_SYSTEM_LIBS
+        RESULT_VARIABLE LLVM_CONFIG_RESULT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_VARIABLE LLVM_CONFIG_ERROR
+    )
+
+# Check for errors
+if(NOT LLVM_CONFIG_RESULT EQUAL 0)
+    message(FATAL_ERROR "Error running llvm-config --link-static --system-libs: ${LLVM_CONFIG_ERROR}")
+endif()
+
+# Convert space-separated lists to CMake lists
+string(REPLACE " " ";" LLVM_STATIC_LIBS_LIST "${LLVM_STATIC_LIBS}")
+string(REPLACE " " ";" LLVM_SYSTEM_LIBS_LIST "${LLVM_SYSTEM_LIBS}")
+
 # Setup static build configuration
 if(BUILD_STATIC)
     message(STATUS "Building static executable")
@@ -83,102 +179,6 @@ if(BUILD_STATIC)
         message(STATUS "Using static zlib: ${ZLIB_LIBRARY}")
     endif()
 
-    # Find the llvm-config tool relative to LLVM_LIB_PATH
-    get_filename_component(LLVM_BIN_DIR "${LLVM_LIB_PATH}/../bin" ABSOLUTE)
-    message(STATUS "Looking for llvm-config in: ${LLVM_BIN_DIR}")
-
-    # Check if the bin directory exists
-    if(NOT EXISTS ${LLVM_BIN_DIR})
-        message(FATAL_ERROR "LLVM bin directory does not exist: ${LLVM_BIN_DIR}. Please check your LLVM installation.")
-    endif()
-
-    # List files in bin directory for debugging
-    file(GLOB BIN_DIR_CONTENTS "${LLVM_BIN_DIR}/*")
-    message(STATUS "Files in ${LLVM_BIN_DIR}:")
-    foreach(FILE ${BIN_DIR_CONTENTS})
-        message(STATUS "  ${FILE}")
-    endforeach()
-
-    # Try to find llvm-config specifically
-    if(EXISTS "${LLVM_BIN_DIR}/llvm-config")
-        set(LLVM_CONFIG "${LLVM_BIN_DIR}/llvm-config")
-        message(STATUS "Found llvm-config at: ${LLVM_CONFIG}")
-    elseif(EXISTS "${LLVM_BIN_DIR}/llvm-config.exe")
-        set(LLVM_CONFIG "${LLVM_BIN_DIR}/llvm-config.exe")
-        message(STATUS "Found llvm-config.exe at: ${LLVM_CONFIG}")
-    else()
-        # Use find_program as a fallback
-        find_program(LLVM_CONFIG llvm-config
-            PATHS ${LLVM_BIN_DIR}
-            NO_DEFAULT_PATH
-        )
-
-        if(NOT LLVM_CONFIG)
-            message(FATAL_ERROR "llvm-config not found in ${LLVM_BIN_DIR}. Please ensure it was built and installed.")
-        endif()
-    endif()
-
-    # Double-check that we're not using the system llvm-config
-    if(LLVM_CONFIG MATCHES "^/usr/bin/")
-        message(FATAL_ERROR "Found system llvm-config at ${LLVM_CONFIG} but we need to use the version from your LLVM build. Please ensure llvm-config was built and installed to ${LLVM_BIN_DIR}.")
-    endif()
-
-    message(STATUS "Using llvm-config: ${LLVM_CONFIG}")
-
-    # Get llvm-config version for debugging
-    execute_process(
-        COMMAND ${LLVM_CONFIG} --version
-        OUTPUT_VARIABLE LLVM_CONFIG_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    message(STATUS "llvm-config version: ${LLVM_CONFIG_VERSION}")
-
-    # Check llvm-config prefix
-    execute_process(
-        COMMAND ${LLVM_CONFIG} --prefix
-        OUTPUT_VARIABLE LLVM_CONFIG_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    message(STATUS "llvm-config prefix: ${LLVM_CONFIG_PREFIX}")
-
-    # Verify the prefix matches our expected installation
-    get_filename_component(EXPECTED_PREFIX "${LLVM_LIB_PATH}/.." ABSOLUTE)
-    if(NOT LLVM_CONFIG_PREFIX STREQUAL EXPECTED_PREFIX)
-        message(WARNING "llvm-config prefix (${LLVM_CONFIG_PREFIX}) doesn't match expected prefix (${EXPECTED_PREFIX})")
-    endif()
-
-    # Use llvm-config to get proper static libraries
-    execute_process(
-        COMMAND ${LLVM_CONFIG} --link-static --libs all
-        OUTPUT_VARIABLE LLVM_STATIC_LIBS
-        RESULT_VARIABLE LLVM_CONFIG_RESULT
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_VARIABLE LLVM_CONFIG_ERROR
-    )
-
-    # Check for errors
-    if(NOT LLVM_CONFIG_RESULT EQUAL 0)
-        message(FATAL_ERROR "Error running llvm-config --link-static --libs all: ${LLVM_CONFIG_ERROR}")
-    endif()
-
-    # Get system libraries needed
-    execute_process(
-        COMMAND ${LLVM_CONFIG} --link-static --system-libs
-        OUTPUT_VARIABLE LLVM_SYSTEM_LIBS
-        RESULT_VARIABLE LLVM_CONFIG_RESULT
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_VARIABLE LLVM_CONFIG_ERROR
-    )
-
-    # Check for errors
-    if(NOT LLVM_CONFIG_RESULT EQUAL 0)
-        message(FATAL_ERROR "Error running llvm-config --link-static --system-libs: ${LLVM_CONFIG_ERROR}")
-    endif()
-
-    # Convert space-separated lists to CMake lists
-    string(REPLACE " " ";" LLVM_STATIC_LIBS_LIST "${LLVM_STATIC_LIBS}")
-    string(REPLACE " " ";" LLVM_SYSTEM_LIBS_LIST "${LLVM_SYSTEM_LIBS}")
-
     # Create the final link libraries list
     set(FINAL_LINK_LIBS
         -Wl,--start-group
@@ -199,39 +199,23 @@ else()
     # Find Threads package for dynamic builds
     find_package(Threads REQUIRED)
 
-    # Find LLVM packages using the modern approach for dynamic builds
-    find_package(LLVM REQUIRED CONFIG)
-    message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-    message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-
-    # Include LLVM directories
-    include_directories(${LLVM_INCLUDE_DIRS})
-    add_definitions(${LLVM_DEFINITIONS})
-
-    # List of LLVM components you need
-    set(LLVM_COMPONENTS
-        Core
-        Support
-        Demangle
-        BinaryFormat
-        Linker
-        IRReader
-        Remarks
-        Object
-        BitReader
-        Analysis
-        Target
-    )
-
-    # Get proper libraries
-    llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
-    message(STATUS "LLVM libraries: ${LLVM_LIBS}")
+    # Find zstd library for dynamic builds
+    find_library(ZSTD_LIBRARY NAMES zestd libzstd libzstd.so.1)
+    if(ZSTD_LIBRARY)
+        message(STATUS "Found zstd library: ${ZSTD_LIBRARY}")
+    else()
+        message(STATUS "Zstd library not found, will try to continue without it")
+        set(ZSTD_LIBRARY "")
+    endif()
 
     # Set final link libraries for dynamic builds
     set(FINAL_LINK_LIBS
-        ${LLVM_LIBS}
         ${PLATFORM_LIBS}
+        -Wl,--start-group
+        ${LLVM_STATIC_LIBS_LIST}
         ${ZLIB_LIBRARY}
+        ${ZSTD_LIBRARY}
+        -Wl,--end-group
         Threads::Threads
     )
 endif()
