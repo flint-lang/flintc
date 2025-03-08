@@ -378,9 +378,9 @@ endfunction()
 
 # Create binaries
 create_executable(flintc "${MAIN_FILE};${SRC_FILES}" TRUE)
-create_executable(flintc-dynamic "${MAIN_FILE};${SRC_FILES}" FALSE)
+create_executable(dynamic-flintc "${MAIN_FILE};${SRC_FILES}" FALSE)
 create_executable(tests "${TEST_FILES};${SRC_FILES}" TRUE)
-create_executable(tests-dynamic "${TEST_FILES};${SRC_FILES}" FALSE)
+create_executable(dynamic-tests "${TEST_FILES};${SRC_FILES}" FALSE)
 
 # Create build directories
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out)
@@ -395,9 +395,9 @@ add_custom_target(clean-all
 add_custom_target(build-all
     DEPENDS
         flintc
-        flintc-dynamic
+        dynamic-flintc
         tests
-        tests-dynamic
+        dynamic-tests
 )
 
 add_custom_target(static
@@ -408,6 +408,6 @@ add_custom_target(static
 
 add_custom_target(dynamic
     DEPENDS
-        flintc-dynamic
-        tests-dynamic
+        dynamic-flintc
+        dynamic-tests
 )
