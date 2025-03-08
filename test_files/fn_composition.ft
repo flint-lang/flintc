@@ -10,7 +10,10 @@ def square(i32 x) -> i32:
 def divide(i32 x, i32 y) -> i32:
 	return x / y;
 
-def divide_double(i32x2 x, i32x2 y) -> i32x2:
+def divide_2(i32x2 x, i32x2 y) -> i32x2:
+	return x / y;
+
+def divide_3(i32x3 x, i32x3 y) -> i32x3:
 	return x / y;
 
 def main():
@@ -34,7 +37,8 @@ def main():
 	// The above code expands to:
 	// .. = (i32 a, b) -> add(a, b) |> square($);
 
-	/** NOTE: The pipe operator is not allowed to be used in mixed-cases.
+	/** 
+	 * NOTE: The pipe operator is not allowed to be used in mixed-cases.
 	 * It can _either_ compose functions _or_ be used for execution piping.
 	 * As it can be seen, the lambda which will be created within the composed function is
 	 * exactly the same as if the |> operator would have been written out directly
@@ -50,8 +54,8 @@ def main():
 	print($"asd 3 7 5 = {add_square_div(3, 7, 5)}"); // Result of add_square_div will be '20'
 	str some_val = $"{$"{((i32 x, i32 y) -> x + y)(1, 2)}" + supi}";
 
-	// Because the result of 'divide_double' is a multi-type, splitting it into two i32 is allowed, because a multi-type is just a native group!
-	fn<i32x2, i32x2 -> i32> div_double_add = ::divide_double(_, _) |> ::add($1, $2);
+	// Because the result of 'divide_2' is a multi-type, splitting it into two i32 is allowed, because a multi-type is just a native group!
+	fn<i32x2, i32x2 -> i32> div_2_add = ::divide_2(_, _) |> ::add($1, $2);
 	// The above is the same as the one below
-	div_double_add = (i32x2 x, y) -> divide_double(x, y) |> add($1, $1);
-	res = div_double_add((4, 6), (2, 3)); // res = '4'
+	div_2_add = (i32x2 x, y) -> divide_2(x, y) |> add($1, $1);
+	res = div_2_add((4, 6), (2, 3)); // res = '4'

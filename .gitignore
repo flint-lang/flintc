@@ -3,6 +3,7 @@ documents/LLDB_Cheatsheet.md
 llvm/llvm-dev
 xml2/xml2
 build
+vendor
 main
 test
 output.ll
