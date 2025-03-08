@@ -265,7 +265,7 @@ void Resolver::add_ir(const std::string &file_name, const llvm::Module *module) 
 void Resolver::add_path(const std::string &file_name, const std::filesystem::path &path) {
     std::lock_guard<std::mutex> lock(path_map_mutex);
     std::string file_name_copy = file_name;
-    std::string path_copy = path;
+    std::string path_copy = path.string();
     path_map.emplace(file_name_copy, path_copy);
 }
 

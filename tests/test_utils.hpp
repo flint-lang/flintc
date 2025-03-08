@@ -59,7 +59,7 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
     static const std::string default_flags = "-static -Wl,--start-group -lpthread -ldl -Wl,--end-group";
     // Create all the paths of all strings
     const std::string cwd = std::filesystem::current_path().string();
-    const std::string this_path = cwd / test_path;
+    const std::string this_path = (cwd / test_path).string();
     const std::string c_bin = this_path + "/c_test";
     const std::string ft_bin = this_path + "/ft_test";
     const std::string c_compile_command = "clang " + default_flags + " " + compile_flags + " " + this_path + "/test.c -o " + c_bin;

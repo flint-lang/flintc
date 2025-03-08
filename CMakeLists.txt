@@ -34,198 +34,305 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# Linux platform settings
-message(STATUS "Compiling for Linux target")
-set(PLATFORM_LIBS dl)
-
-# Setting the default LLVM lib path based on static build
-if(BUILD_STATIC)
-    set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux-static/lib" CACHE PATH "Path to LLVM libraries")
-else()
-    set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/lib" CACHE PATH "Path to LLVM libraries")
-endif()
-
-# Find the llvm-config tool relative to LLVM_LIB_PATH
-get_filename_component(LLVM_BIN_DIR "${LLVM_LIB_PATH}/../bin" ABSOLUTE)
-message(STATUS "Looking for llvm-config in: ${LLVM_BIN_DIR}")
-
-# Check if the bin directory exists
-if(NOT EXISTS ${LLVM_BIN_DIR})
-    message(FATAL_ERROR "LLVM bin directory does not exist: ${LLVM_BIN_DIR}. Please check your LLVM installation.")
-endif()
-
-# List files in bin directory for debugging
-file(GLOB BIN_DIR_CONTENTS "${LLVM_BIN_DIR}/*")
-message(STATUS "Files in ${LLVM_BIN_DIR}:")
-foreach(FILE ${BIN_DIR_CONTENTS})
-    message(STATUS "  ${FILE}")
-endforeach()
-
-# Try to find llvm-config specifically
-if(EXISTS "${LLVM_BIN_DIR}/llvm-config")
-    set(LLVM_CONFIG "${LLVM_BIN_DIR}/llvm-config")
-    message(STATUS "Found llvm-config at: ${LLVM_CONFIG}")
-else()
-    # Use find_program as a fallback
-    find_program(LLVM_CONFIG llvm-config
-        PATHS ${LLVM_BIN_DIR}
-        NO_DEFAULT_PATH
+# Platform-specific settings
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    message(STATUS "Compiling for Windows target")
+    add_definitions(-D_WIN32)
+    set(PLATFORM_LIBS "")
+    # Windows-specific compiler flags for MinGW
+    set(BASE_CXX_FLAGS
+        -g
+        -O1
+        -Wall         # Keep basic warnings
+        -Wextra       # Extra warnings
+        # Remove -Werror to allow warnings in LLVM headers
+        -Wno-unused-parameter  # Suppress specific warnings common in LLVM
+        -Wno-unused-variable
+        -Wno-deprecated-declarations
+        -fno-omit-frame-pointer
+        -funwind-tables
+        # No -fstandalone-debug for MinGW
+        -D_GNU_SOURCE
+        -D__STDC_CONSTANT_MACROS
+        -D__STDC_FORMAT_MACROS
+        -D__STDC_LIMIT_MACROS
     )
+else()
+    message(STATUS "Compiling for Linux target")
+    set(PLATFORM_LIBS dl)
+    # Linux/Unix compiler flags including Clang-specific options
+    set(BASE_CXX_FLAGS
+        -g
+        -O1
+        -Werror
+        -Wall         # Enable most warnings
+        -Wextra       # Enable extra warnings
+        -Wshadow      # Warn about shadow variables
+        -Wcast-align  # Warn about pointer casts that increase alignment requirement
+        -Wcast-qual   # Warn about casts that remove const qualifier
+        -Wunused      # Warn about unused variables
+        -Wold-style-cast  # Warn about C-style casts
+        -Wdouble-promotion # Warn about float being implicitly promoted to double
+        -Wformat=2    # Warn about printf/scanf/strftime/strfmon format string issue
+        -Wundef       # Warn if an undefined identifier is evaluated in an #if
+        -Wpointer-arith # Warn about sizeof(void) and add/sub with void*
+        -Wunreachable-code # Warn about unreachable code
+        -fno-omit-frame-pointer
+        -funwind-tables
+        -fstandalone-debug # Only for Clang on Linux
+        -D_GNU_SOURCE
+        -D__STDC_CONSTANT_MACROS
+        -D__STDC_FORMAT_MACROS
+        -D__STDC_LIMIT_MACROS
+    )
+endif()
 
-    if(NOT LLVM_CONFIG)
-        message(FATAL_ERROR "llvm-config not found in ${LLVM_BIN_DIR}. Please ensure it was built and installed.")
+# Setting the default LLVM lib path based on platform and build type
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    if(BUILD_STATIC)
+        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw-static/lib" CACHE PATH "Path to LLVM libraries")
+    else()
+        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw/lib" CACHE PATH "Path to LLVM libraries")
+    endif()
+
+    # Get the LLVM include directory
+    get_filename_component(LLVM_INCLUDE_DIR "${LLVM_LIB_PATH}/../include" ABSOLUTE)
+
+    # Check if the include directory exists
+    if(NOT EXISTS ${LLVM_INCLUDE_DIR})
+        message(FATAL_ERROR "LLVM include directory does not exist: ${LLVM_INCLUDE_DIR}. Please check your LLVM installation.")
+    endif()
+
+    # Add the LLVM include directory to the include paths
+    include_directories(${LLVM_INCLUDE_DIR})
+
+    message(STATUS "Using LLVM include directory: ${LLVM_INCLUDE_DIR}")
+else()  # Linux
+    if(BUILD_STATIC)
+        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux-static/lib" CACHE PATH "Path to LLVM libraries")
+    else()
+        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/lib" CACHE PATH "Path to LLVM libraries")
     endif()
 endif()
-
-# Double-check that we're not using the system llvm-config
-if(LLVM_CONFIG MATCHES "^/usr/bin/")
-    message(FATAL_ERROR "Found system llvm-config at ${LLVM_CONFIG} but we need to use the version from your LLVM build. Please ensure llvm-config was built and installed to ${LLVM_BIN_DIR}.")
-endif()
-
-message(STATUS "Using llvm-config: ${LLVM_CONFIG}")
-
-# Get llvm-config version for debugging
-execute_process(
-    COMMAND ${LLVM_CONFIG} --version
-    OUTPUT_VARIABLE LLVM_CONFIG_VERSION
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-message(STATUS "llvm-config version: ${LLVM_CONFIG_VERSION}")
-
-# Check llvm-config prefix
-execute_process(
-    COMMAND ${LLVM_CONFIG} --prefix
-    OUTPUT_VARIABLE LLVM_CONFIG_PREFIX
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-message(STATUS "llvm-config prefix: ${LLVM_CONFIG_PREFIX}")
-
-# Verify the prefix matches our expected installation
-get_filename_component(EXPECTED_PREFIX "${LLVM_LIB_PATH}/.." ABSOLUTE)
-if(NOT LLVM_CONFIG_PREFIX STREQUAL EXPECTED_PREFIX)
-    message(WARNING "llvm-config prefix (${LLVM_CONFIG_PREFIX}) doesn't match expected prefix (${EXPECTED_PREFIX})")
-endif()
-
-# Use llvm-config to get proper static libraries
-execute_process(
-    COMMAND ${LLVM_CONFIG} --link-static --libs all
-    OUTPUT_VARIABLE LLVM_STATIC_LIBS
-    RESULT_VARIABLE LLVM_CONFIG_RESULT
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_VARIABLE LLVM_CONFIG_ERROR
-)
-
-# Check for errors
-if(NOT LLVM_CONFIG_RESULT EQUAL 0)
-    message(FATAL_ERROR "Error running llvm-config --link-static --libs all: ${LLVM_CONFIG_ERROR}")
-endif()
-
-# Get system libraries needed
-execute_process(
-    COMMAND ${LLVM_CONFIG} --link-static --system-libs
-    OUTPUT_VARIABLE LLVM_SYSTEM_LIBS
-    RESULT_VARIABLE LLVM_CONFIG_RESULT
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_VARIABLE LLVM_CONFIG_ERROR
-)
-
-# Check for errors
-if(NOT LLVM_CONFIG_RESULT EQUAL 0)
-    message(FATAL_ERROR "Error running llvm-config --link-static --system-libs: ${LLVM_CONFIG_ERROR}")
-endif()
-
-# Convert space-separated lists to CMake lists
-string(REPLACE " " ";" LLVM_STATIC_LIBS_LIST "${LLVM_STATIC_LIBS}")
-string(REPLACE " " ";" LLVM_SYSTEM_LIBS_LIST "${LLVM_SYSTEM_LIBS}")
 
 # Always add this definition to prevent LLVM from using zstd
 add_definitions(-DLLVM_DISABLE_ZLIB_SYMBOLS -DLLVM_ENABLE_ZSTD=0)
 
+# Find the Linux static llvm-config for use in both Linux and Windows builds
+get_filename_component(LINUX_STATIC_LLVM_BIN_DIR "${CMAKE_SOURCE_DIR}/vendor/llvm-linux-static/bin" ABSOLUTE)
+find_program(LINUX_LLVM_CONFIG llvm-config
+    PATHS ${LINUX_STATIC_LLVM_BIN_DIR}
+    NO_DEFAULT_PATH
+)
+
+if(NOT LINUX_LLVM_CONFIG)
+    message(FATAL_ERROR "Linux static llvm-config not found at ${LINUX_STATIC_LLVM_BIN_DIR}. This is needed for builds.")
+endif()
+
+message(STATUS "Using Linux static llvm-config: ${LINUX_LLVM_CONFIG}")
+
+# Get the complete library list from Linux llvm-config
+execute_process(
+    COMMAND ${LINUX_LLVM_CONFIG} --link-static --libs all
+    OUTPUT_VARIABLE LINUX_LLVM_LIBS
+    RESULT_VARIABLE LLVM_CONFIG_RESULT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE LLVM_CONFIG_ERROR
+)
+
+# Check for errors
+if(NOT LLVM_CONFIG_RESULT EQUAL 0)
+    message(FATAL_ERROR "Error running Linux llvm-config --link-static --libs all: ${LLVM_CONFIG_ERROR}")
+endif()
+
+# Get system libraries needed
+execute_process(
+    COMMAND ${LINUX_LLVM_CONFIG} --link-static --system-libs
+    OUTPUT_VARIABLE LINUX_SYSTEM_LIBS
+    RESULT_VARIABLE LLVM_CONFIG_RESULT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE LLVM_CONFIG_ERROR
+)
+
+# Check for errors
+if(NOT LLVM_CONFIG_RESULT EQUAL 0)
+    message(FATAL_ERROR "Error running Linux llvm-config --link-static --system-libs: ${LLVM_CONFIG_ERROR}")
+endif()
+
+# Get LLVM version
+execute_process(
+    COMMAND ${LINUX_LLVM_CONFIG} --version
+    OUTPUT_VARIABLE LLVM_CONFIG_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+message(STATUS "LLVM version: ${LLVM_CONFIG_VERSION}")
+
+# Platform-specific LLVM library handling
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    # Transform the -l... format to component names for Windows
+    string(REGEX REPLACE "-l(LLVM[^ \t\r\n]+)" "\\1" LLVM_COMPONENTS "${LINUX_LLVM_LIBS}")
+    # Split into a list
+    string(REGEX REPLACE "[ \t\r\n]+" ";" LLVM_COMPONENTS_LIST "${LLVM_COMPONENTS}")
+
+    message(STATUS "Components from Linux llvm-config: ${LLVM_COMPONENTS_LIST}")
+
+    # Check which components actually exist for Windows
+    set(WINDOWS_COMPONENTS_LIST "")
+    foreach(COMPONENT ${LLVM_COMPONENTS_LIST})
+        # Check if the library exists in the Windows LLVM path
+        if(EXISTS "${LLVM_LIB_PATH}/lib${COMPONENT}.a")
+            list(APPEND WINDOWS_COMPONENTS_LIST ${COMPONENT})
+        else()
+            message(STATUS "Skipping component not available in Windows build: ${COMPONENT}")
+        endif()
+    endforeach()
+
+    # Use the filtered list for Windows
+    set(LLVM_STATIC_LIBS_LIST ${WINDOWS_COMPONENTS_LIST})
+    set(LLVM_SYSTEM_LIBS_LIST "")  # Windows doesn't use the same system libs
+
+    message(STATUS "Final Windows LLVM components: ${LLVM_STATIC_LIBS_LIST}")
+else()
+    # For Linux, use the output directly
+    string(REPLACE " " ";" LLVM_STATIC_LIBS_LIST "${LINUX_LLVM_LIBS}")
+    string(REPLACE " " ";" LLVM_SYSTEM_LIBS_LIST "${LINUX_SYSTEM_LIBS}")
+
+    message(STATUS "Linux LLVM libraries: ${LLVM_STATIC_LIBS_LIST}")
+    message(STATUS "Linux system libraries: ${LLVM_SYSTEM_LIBS_LIST}")
+endif()
+
 # Setup static build configuration
 if(BUILD_STATIC)
     message(STATUS "Building static executable")
-    # Force using static libraries only
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 
-    # These flags help ensure truly static builds on Linux
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
-    # Optional: disable position independent executable for fully static builds
-    set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
+    # Platform-specific static build settings
+    if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        # For Windows, we use .a with MinGW
+        set(CMAKE_FIND_LIBRARY_SUFFIXES ".a;.lib")
 
-    # Manually find and specify the static zlib library
-    find_library(ZLIB_LIBRARY NAMES libz.a)
-    if(NOT ZLIB_LIBRARY)
-        message(FATAL_ERROR "Static zlib library not found")
+        # Find static zlib for Windows (optional)
+        find_library(ZLIB_LIBRARY
+            NAMES libz.a z.a zlib.a
+            PATHS "${CMAKE_SOURCE_DIR}/vendor/zlib/lib" /mingw64/lib /usr/x86_64-w64-mingw32/lib
+        )
+
+        if(NOT ZLIB_LIBRARY)
+            message(STATUS "Static zlib library not found for Windows, continuing without it")
+            set(ZLIB_LIBRARY "")
+            add_definitions(-DLLVM_ENABLE_ZLIB=OFF)
+        else()
+            message(STATUS "Using static zlib for Windows: ${ZLIB_LIBRARY}")
+        endif()
+
+        # Windows-specific static libraries
+        set(WIN_STATIC_LIBS
+            ws2_32    # Windows sockets
+            psapi     # Process status API
+            imagehlp  # Image Help Library
+            advapi32  # Windows advanced services
+            shell32   # Shell functions
+            ole32     # OLE functions
+            uuid      # UUID functions
+            ntdll     # Native API functions
+        )
+
+        # Create the final link libraries list for Windows
+        set(FINAL_LINK_LIBS
+            ${LLVM_STATIC_LIBS_LIST}
+            ${ZLIB_LIBRARY}
+            ${WIN_STATIC_LIBS}
+        )
     else()
-        message(STATUS "Using static zlib: ${ZLIB_LIBRARY}")
+        # Linux static build settings
+        set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+
+        # Force using static linking for Linux
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+        set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
+
+        # Find static zlib for Linux
+        find_library(ZLIB_LIBRARY NAMES libz.a)
+        if(NOT ZLIB_LIBRARY)
+            message(FATAL_ERROR "Static zlib library not found for Linux")
+        else()
+            message(STATUS "Using static zlib for Linux: ${ZLIB_LIBRARY}")
+        endif()
+
+        # Create the final link libraries list for Linux
+        set(FINAL_LINK_LIBS
+            -Wl,--start-group
+            ${LLVM_STATIC_LIBS_LIST}
+            ${ZLIB_LIBRARY}
+            -Wl,--end-group
+            ${LLVM_SYSTEM_LIBS_LIST}
+        )
     endif()
-
-    # Create the final link libraries list
-    set(FINAL_LINK_LIBS
-        -Wl,--start-group
-        ${LLVM_STATIC_LIBS_LIST}
-        ${ZLIB_LIBRARY}
-        -Wl,--end-group
-        ${LLVM_SYSTEM_LIBS_LIST}
-    )
-
-    message(STATUS "Static build: using llvm-config libraries:")
-    message(STATUS "  LLVM static libs: ${LLVM_STATIC_LIBS}")
-    message(STATUS "  LLVM system libs: ${LLVM_SYSTEM_LIBS}")
 else()
-    # For dynamic builds, use the regular zlib
-    find_package(ZLIB REQUIRED)
-    set(ZLIB_LIBRARY ${ZLIB_LIBRARIES})
+    # Dynamic build settings
+    message(STATUS "Building dynamic executable")
 
-    # Find Threads package for dynamic builds
-    find_package(Threads REQUIRED)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        # Find dynamic zlib for Windows
+        find_library(ZLIB_LIBRARY
+            NAMES zlib1.dll libzlib.dll.a zlib.dll.a
+            PATHS "${CMAKE_SOURCE_DIR}/vendor/zlib/bin" /mingw64/bin /usr/x86_64-w64-mingw32/bin
+        )
 
-    # Find zstd library for dynamic builds
-    find_library(ZSTD_LIBRARY NAMES zstd libzstd libzstd.so.1)
-    if(ZSTD_LIBRARY)
-        message(STATUS "Found zstd library: ${ZSTD_LIBRARY}")
+        if(NOT ZLIB_LIBRARY)
+            message(STATUS "Dynamic zlib library not found for Windows, continuing without it")
+            set(ZLIB_LIBRARY "")
+            add_definitions(-DLLVM_ENABLE_ZLIB=OFF)
+        else()
+            message(STATUS "Using dynamic zlib for Windows: ${ZLIB_LIBRARY}")
+        endif()
+
+        # Windows-specific dynamic libraries
+        set(WIN_DYNAMIC_LIBS
+            ws2_32    # Windows sockets
+            psapi     # Process status API
+            imagehlp  # Image Help Library
+            advapi32  # Windows advanced services
+            shell32   # Shell functions
+            ole32     # OLE functions
+            uuid      # UUID functions
+            ntdll     # Native API functions
+        )
+
+        # Set final link libraries for dynamic Windows builds
+        set(FINAL_LINK_LIBS
+            ${LLVM_STATIC_LIBS_LIST}  # We're still statically linking LLVM
+            ${ZLIB_LIBRARY}
+            ${WIN_DYNAMIC_LIBS}
+        )
     else()
-        message(STATUS "Zstd library not found, will try to continue without it")
-        set(ZSTD_LIBRARY "")
+        # For Linux dynamic builds
+        find_package(ZLIB REQUIRED)
+        set(ZLIB_LIBRARY ${ZLIB_LIBRARIES})
+
+        # Find Threads package for dynamic builds
+        find_package(Threads REQUIRED)
+
+        # Find zstd library for dynamic builds
+        find_library(ZSTD_LIBRARY NAMES zstd libzstd libzstd.so.1)
+        if(ZSTD_LIBRARY)
+            message(STATUS "Found zstd library: ${ZSTD_LIBRARY}")
+        else()
+            message(STATUS "Zstd library not found, will try to continue without it")
+            set(ZSTD_LIBRARY "")
+        endif()
+
+        # Set final link libraries for dynamic Linux builds
+        set(FINAL_LINK_LIBS
+            ${PLATFORM_LIBS}
+            -Wl,--start-group
+            ${LLVM_STATIC_LIBS_LIST}
+            ${ZLIB_LIBRARY}
+            ${ZSTD_LIBRARY}
+            -Wl,--end-group
+            Threads::Threads
+        )
     endif()
-
-    # Set final link libraries for dynamic builds
-    set(FINAL_LINK_LIBS
-        ${PLATFORM_LIBS}
-        -Wl,--start-group
-        ${LLVM_STATIC_LIBS_LIST}
-        ${ZLIB_LIBRARY}
-        ${ZSTD_LIBRARY}
-        -Wl,--end-group
-        Threads::Threads
-    )
 endif()
-
-# Linux/Unix compiler flags including Clang-specific options
-set(BASE_CXX_FLAGS
-    -g
-    -O1
-    -Werror
-    -Wall         # Enable most warnings
-    -Wextra       # Enable extra warnings
-    -Wshadow      # Warn about shadow variables
-    -Wcast-align  # Warn about pointer casts that increase alignment requirement
-    -Wcast-qual   # Warn about casts that remove const qualifier
-    -Wunused      # Warn about unused variables
-    -Wold-style-cast  # Warn about C-style casts
-    -Wdouble-promotion # Warn about float being implicitly promoted to double
-    -Wformat=2    # Warn about printf/scanf/strftime/strfmon format string issue
-    -Wundef       # Warn if an undefined identifier is evaluated in an #if
-    -Wpointer-arith # Warn about sizeof(void) and add/sub with void*
-    -Wunreachable-code # Warn about unreachable code
-    -fno-omit-frame-pointer
-    -funwind-tables
-    -fstandalone-debug # Only for Clang on Linux
-    -D_GNU_SOURCE
-    -D__STDC_CONSTANT_MACROS
-    -D__STDC_FORMAT_MACROS
-    -D__STDC_LIMIT_MACROS
-)
 
 # Add debug definition if enabled
 if(DEBUG_MODE)
@@ -254,8 +361,19 @@ function(create_executable target_name sources is_static)
     # Apply compiler flags
     target_compile_options(${target_name} PRIVATE ${BASE_CXX_FLAGS})
 
-    # Link libraries
+    # Link libraries with platform-specific settings
     target_link_libraries(${target_name} PRIVATE ${FINAL_LINK_LIBS})
+
+    # For Windows, set the required properties
+    if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        # Set output name with .exe extension explicitly
+        set_target_properties(${target_name} PROPERTIES SUFFIX ".exe")
+
+        # Add static flag if needed
+        if(${is_static} AND BUILD_STATIC)
+            set_target_properties(${target_name} PROPERTIES LINK_FLAGS "-static")
+        endif()
+    endif()
 endfunction()
 
 # Create binaries

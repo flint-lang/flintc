@@ -31,7 +31,7 @@ Parser *Parser::create(const std::filesystem::path &file) {
 std::optional<FileNode> Parser::parse() {
     PROFILE_SCOPE("Parsing file '" + file_name + "'");
     FileNode file_node(file_name);
-    token_list tokens = Lexer(file).scan();
+    token_list tokens = Lexer(file.string()).scan();
     Debug::print_token_context_vector(tokens, file_name);
     // Consume all tokens and convert them to nodes
     bool had_failure = false;
