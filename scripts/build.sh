@@ -7,7 +7,9 @@ print_usage() {
 
 Options:
     -h, --help              Print this help message
-    -d, --debug             Compile the compiler in debug mode
+    -a, --all               Build all possible versions (dynamic and static for linux and windows)
+    -d, --dynamic           Build the executable as dynamic (default)
+        --debug             Compile the compiler in debug mode
     -l, --linux             Build the executable for linux
         --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')
     -s, --static            Build the executable as static
@@ -25,122 +27,57 @@ err_exit() {
     exit "$1"
 }
 
-# If no CLI arguments are given, print the help and exit
-if [ "$#" -eq 0 ]; then
-    print_usage
-    exit 0
-fi
+# Ensures that the needed directories exist
+create_directories() {
+    mkdir -p "$root/build"
+    mkdir -p "$root/build/out"
+    mkdir -p "$root/vendor"
 
-# Get the projects root directory (use cd + dirname + pwd to always get absolute path, even when it is called relatively)
-root="$(cd "$(dirname "$0")" && cd .. && pwd)"
-
-is_static=false
-build_windows=false
-build_linux=false
-run_tests=false
-debug_mode=false
-llvm_version="llvmorg-19.1.7"
-if [ "$(which bc)" != "" ]; then
-    # Dont fully peg the CPU, only use half its cores, this is stil plenty fast
-    core_count="$(echo "$(nproc)/2" | bc)"
-else
-    core_count="$(nproc)"
-fi
-verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=OFF"
-
-# Parse all CLI arguments
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        -h|--help)
-            print_usage
-            exit 0 ;;
-        -d|--debug)
-            debug_mode=true
-            shift ;;
-        -l|--linux)
-            build_linux=true
-            shift ;;
-        --llvm)
-            [ "$2" != "" ] || err_exit 1 "Option '$1' requires an argument"
-            llvm_version="$2"
-            shift 2 ;;
-        -s|--static)
-            is_static=true
-            shift ;;
-        -t|--test)
-            run_tests=true
-            shift ;;
-        -w|--windows)
-            build_windows=true
-            shift ;;
-        -v|--verbose)
-            verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=ON"
-            shift ;;
-        *)
-            err_exit 1 "Unknown cli argument: '$1'"
-            ;;
-    esac
-done
-
-# Default to Linux build if no platform specified
-if [ "$build_windows" = "false" ] && [ "$build_linux" = "false" ]; then
-    build_linux=true
-fi
-
-# First, ensure that the needed directories exist
-echo "-- Creating necessary directories..."
-
-mkdir -p "$root/build"
-mkdir -p "$root/build/out"
-mkdir -p "$root/vendor"
-
-if [ "$build_windows" = "true" ]; then
-    # Create directories
-    if [ "$is_static" = "true" ]; then
-        mkdir -p "$root/build/llvm-mingw-static"
-        mkdir -p "$root/vendor/llvm-mingw-static"
-    else
-        mkdir -p "$root/build/llvm-mingw"
-        mkdir -p "$root/vendor/llvm-mingw"
+    if [ "$build_windows" = "true" ]; then
+        # Create directories
+        if [ "$build_static" = "true" ]; then
+            mkdir -p "$root/build/llvm-mingw-static"
+            mkdir -p "$root/vendor/llvm-mingw-static"
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            mkdir -p "$root/build/llvm-mingw"
+            mkdir -p "$root/vendor/llvm-mingw"
+        fi
     fi
-fi
 
-if [ "$build_linux" = "true" ]; then
-    # Create directories
-    if [ "$is_static" = "true" ]; then
-        mkdir -p "$root/build/llvm-linux-static"
-        mkdir -p "$root/vendor/llvm-linux-static"
-    else
-        mkdir -p "$root/build/llvm-linux"
-        mkdir -p "$root/vendor/llvm-linux"
+    if [ "$build_linux" = "true" ]; then
+        # Create directories
+        if [ "$build_static" = "true" ]; then
+            mkdir -p "$root/build/llvm-linux-static"
+            mkdir -p "$root/vendor/llvm-linux-static"
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            mkdir -p "$root/build/llvm-linux"
+            mkdir -p "$root/vendor/llvm-linux"
+        fi
     fi
-fi
+}
 
-
-echo "-- Checking Library requirements..."
-
+# Checks if a given library is present in the /usr/lib path
+# $1 - The library to search for
 check_lib() {
     lib_file="$(find /usr/lib -name "$1" | head -n 1)"
     [ ! -z "$lib_file" ] || err_exit 1 "Library '$1' could not be found"
 }
 
-check_lib "libz.a"
-check_lib "libdl.a"
-check_lib "libm.a"
-check_lib "librt.a"
+# Checks if all needed libraries are present
+check_library_requirements() {
+    check_lib "libz.a"
+    check_lib "libdl.a"
+    check_lib "libm.a"
+    check_lib "librt.a"
+}
 
-
-if [ ! -d "$root/vendor/llvm-project" ]; then
-    echo "-- Fetching llvm version $llvm_version from GitHub..."
-    cd "$root/vendor"
-    git clone --depth 1 --branch "$llvm_version" "https://github.com/llvm/llvm-project.git"
-    cd "$root"
-fi
-
-
-if [ "$build_windows" = "true" ]; then
+# Builds llvm for windows
+# $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of llvm
+build_llvm_windows() {
     # Set build and install directories based on static flag
-    if [ "$is_static" = "true" ]; then
+    if [ "$1" = "true" ]; then
         llvm_build_dir="$root/build/llvm-mingw-static"
         llvm_install_dir="$root/vendor/llvm-mingw-static"
         echo "-- Building static LLVM for Windows..."
@@ -155,7 +92,7 @@ if [ "$build_windows" = "true" ]; then
     mkdir -p "$llvm_install_dir"
 
     llvm_static_flags=""
-    if [ "$is_static" = "true" ]; then
+    if [ "$1" = "true" ]; then
         llvm_static_flags="-DLLVM_BUILD_STATIC=ON \
             -DBUILD_SHARED_LIBS=OFF \
             -DLLVM_ENABLE_PIC=OFF \
@@ -189,12 +126,13 @@ if [ "$build_windows" = "true" ]; then
 
     cmake --build "$llvm_build_dir" -j$core_count
     cmake --install "$llvm_build_dir" --prefix=$llvm_install_dir
-fi
+}
 
-
-if [ "$build_linux" = "true" ]; then
+# Builds llvm for linux
+# $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of llvm
+build_llvm_linux() {
     # Set build and install directories based on static flagx
-    if [ "$is_static" = "true" ]; then
+    if [ "$1" = "true" ]; then
         llvm_build_dir="$root/build/llvm-linux-static"
         llvm_install_dir="$root/vendor/llvm-linux-static"
         echo "-- Building static LLVM for Linux..."
@@ -209,7 +147,7 @@ if [ "$build_linux" = "true" ]; then
     mkdir -p "$llvm_install_dir"
 
     llvm_static_flags=""
-    if [ "$is_static" = "true" ]; then
+    if [ "$1" = "true" ]; then
         llvm_static_flags="-DLLVM_BUILD_STATIC=ON \
             -DBUILD_SHARED_LIBS=OFF \
             -DLLVM_ENABLE_ZSTD=OFF \
@@ -250,17 +188,47 @@ if [ "$build_linux" = "true" ]; then
 
     cmake --build "$llvm_build_dir" -j$core_count
     cmake --install "$llvm_build_dir" --prefix=$llvm_install_dir
-fi
+}
 
+# Checks if llvm has been cloned, if not does clone it
+fetch_llvm() {
+    if [ ! -d "$root/vendor/llvm-project" ]; then
+        echo "-- Fetching llvm version $llvm_version from GitHub..."
+        cd "$root/vendor"
+        git clone --depth 1 --branch "$llvm_version" "https://github.com/llvm/llvm-project.git"
+        cd "$root"
+    fi
+}
 
-echo "-- Starting CMake configuration phase..."
+# Compiles the needed versions of llvm
+build_llvm() {
+    if [ "$build_windows" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            build_llvm_windows "true"
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            build_llvm_windows "false"
+        fi
+    fi
 
-if [ "$build_windows" = "true" ]; then
+    if [ "$build_linux" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            build_llvm_linux "true"
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            build_llvm_linux "false"
+        fi
+    fi
+}
+
+# Sets up the cmake build directory for windows
+# $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of llvm
+setup_build_windows() {
     echo "-- Configuring compiler for Windows..."
 
     static_flag=""
     build_dir="$root/build/windows"
-    if [ "$is_static" = "true" ]; then
+    if [ "$1" = "true" ]; then
         static_flag="-DBUILD_STATIC=ON"
         build_dir="${build_dir}-static"
         llvm_lib_path="$root/vendor/llvm-mingw-static/lib"
@@ -282,14 +250,16 @@ if [ "$build_windows" = "true" ]; then
         "$static_flag" \
         "$debug_flag" \
         "$verbosity_flag"
-fi
+}
 
-if [ "$build_linux" = "true" ]; then
+# Sets up the cmake build directory for linux
+# $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of llvm
+setup_build_linux() {
     echo "-- Configuring compiler for Linux..."
 
     static_flag=""
     build_dir="$root/build/linux"
-    if [ "$is_static" = "true" ]; then
+    if [ "$1" = "true" ]; then
         static_flag="-DBUILD_STATIC=ON"
         build_dir="${build_dir}-static"
         llvm_lib_path="$root/vendor/llvm-linux-static/lib"
@@ -311,43 +281,206 @@ if [ "$build_linux" = "true" ]; then
         "$static_flag" \
         "$debug_flag" \
         "$verbosity_flag"
+}
+
+# Sets up all build directories for all compiler builds
+setup_builds() {
+    if [ "$build_windows" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            setup_build_windows "true"
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            setup_build_windows "false"
+        fi
+    fi
+
+    if [ "$build_linux" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            setup_build_linux "true"
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            setup_build_linux "false"
+        fi
+    fi
+}
+
+# Builds all requested compilers
+build_compilers() {
+    if [ "$build_windows" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            echo "-- Building static Windows targets..."
+            cmake --build "$root/build/windows-static" -j$core_count --target static
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            echo "-- Building Windows targets..."
+            cmake --build "$root/build/windows" -j$core_count --target dynamic
+        fi
+    fi
+
+    if [ "$build_linux" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            echo "-- Building static Linux targets..."
+            cmake --build "$root/build/linux-static" -j$core_count --target static
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            echo "-- Building Linux targets..."
+            cmake --build "$root/build/linux" -j$core_count --target dynamic
+        fi
+    fi
+}
+
+# Copies all executables from the nested out directories into one out directory, where all outs are saved
+copy_executables() {
+    if [ "$build_windows" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            cp "$root/build/windows-static/out/flintc.exe" "$root/build/out/"
+            cp "$root/build/windows-static/out/tests.exe" "$root/build/out/"
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            cp "$root/build/windows/out/dynamic-flintc.exe" "$root/build/out/"
+            cp "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/"
+        fi
+    fi
+
+    if [ "$build_linux" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            cp "$root/build/linux-static/out/flintc" "$root/build/out/"
+            cp "$root/build/linux-static/out/tests" "$root/build/out/"
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            cp "$root/build/linux/out/dynamic-flintc" "$root/build/out/"
+            cp "$root/build/linux/out/dynamic-tests" "$root/build/out/"
+        fi
+    fi
+}
+
+# Executes all tests to ensure the compiler is in a working state
+run_tests() {
+    if [ "$build_windows" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            echo "-- Running tests for the static Windows compiler..."
+            $root/build/out/tests.exe
+            echo
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            echo "-- Running tests for the dynamic Windows compiler is not suppoerted!"
+            # $root/build/out/dynamic-tests.exe
+        fi
+    fi
+
+    if [ "$build_linux" = "true" ]; then
+        if [ "$build_static" = "true" ]; then
+            echo "-- Running tests for the static Linux compiler..."
+            $root/build/out/tests
+        fi
+        if [ "$build_dynamic" = "true" ]; then
+            echo "-- Running tests for the dynamic Linux compiler..."
+            $root/build/out/dynamic-tests
+        fi
+    fi
+}
+
+# If no CLI arguments are given, print the help and exit
+if [ "$#" -eq 0 ]; then
+    print_usage
+    exit 0
 fi
 
+# Get the projects root directory (use cd + dirname + pwd to always get absolute path, even when it is called relatively)
+root="$(cd "$(dirname "$0")" && cd .. && pwd)"
+
+build_dynamic=false
+build_static=false
+build_windows=false
+build_linux=false
+run_tests=false
+debug_mode=false
+llvm_version="llvmorg-19.1.7"
+if [ "$(which bc)" != "" ]; then
+    # Dont fully peg the CPU, only use half its cores, this is stil plenty fast
+    core_count="$(echo "$(nproc)/2" | bc)"
+else
+    core_count="$(nproc)"
+fi
+verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=OFF"
+
+# Parse all CLI arguments
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -h|--help)
+            print_usage
+            exit 0 ;;
+        -a|--all)
+            build_linux=true
+            build_windows=true
+            build_static=true
+            build_dynamic=true
+            shift ;;
+        -d|--dynamic)
+            build_dynamic=true
+            shift ;;
+        --debug)
+            debug_mode=true
+            shift ;;
+        -l|--linux)
+            build_linux=true
+            shift ;;
+        --llvm)
+            [ "$2" != "" ] || err_exit 1 "Option '$1' requires an argument"
+            llvm_version="$2"
+            shift 2 ;;
+        -s|--static)
+            build_static=true
+            shift ;;
+        -t|--test)
+            run_tests=true
+            shift ;;
+        -w|--windows)
+            build_windows=true
+            shift ;;
+        -v|--verbose)
+            verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=ON"
+            shift ;;
+        *)
+            err_exit 1 "Unknown cli argument: '$1'"
+            ;;
+    esac
+done
+
+# Default to Linux build if no platform specified
+if [ "$build_windows" = "false" ] && [ "$build_linux" = "false" ]; then
+    build_linux=true
+fi
+
+# Default to dynamic build if no flag is specified
+if [ "$build_static" = "false" ] && [ "$build_dynamic" = "false" ]; then
+    build_dynamic=true
+fi
+
+echo "-- Creating necessary directories..."
+create_directories
+
+echo "-- Checking Library requirements..."
+check_library_requirements
+
+echo "-- Checking if LLVM has been fetched yet..."
+fetch_llvm
+
+echo "-- Building all required llvm versions..."
+build_llvm
+
+echo "-- Starting CMake configuration phase..."
+setup_builds
 
 echo "-- Starting CMake build phase..."
+build_compilers
 
-if [ "$build_windows" = "true" ]; then
-    if [ "$is_static" = "true" ]; then
-        echo "-- Building static Windows targets..."
-        cmake --build "$root/build/windows-static" -j$core_count --target static
-    else
-        echo "-- Building Windows targets..."
-        cmake --build "$root/build/windows" -j$core_count --target dynamic
-    fi
-fi
+echo "-- Putting the built binaries into the 'build/out' directory..."
+copy_executables
 
-if [ "$build_linux" = "true" ]; then
-    if [ "$is_static" = "true" ]; then
-        echo "-- Building static Linux targets..."
-        cmake --build "$root/build/linux-static" -j$core_count --target static
-    else
-        echo "-- Building Linux targets..."
-        cmake --build "$root/build/linux" -j$core_count --target dynamic
-    fi
-fi
-
-
-echo "-- Build finished! Look at 'build/out' to see the built binaries"
-
-# Execute all tests to ensure the compiler is in a working state
 if [ "$run_tests" = "true" ]; then
-    if [ "$build_windows" = "true" ]; then
-        echo "-- Running tests for the Windows compiler"
-        ./build/out/tests.exe
-    fi
-
-    if [ "build_linux" = "true" ]; then
-        echo "-- Running tests for the Linux compiler"
-        ./build/out/tests
-    fi
+    echo "-- Running all tests..."
+    run_tests
 fi
+
+echo "-- Build finished! Look at 'build/out' to see the built binaries!"
