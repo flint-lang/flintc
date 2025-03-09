@@ -12,11 +12,11 @@
 /// @brief This class is responsible for lexing a character stream and outputting a token stream
 class Lexer {
   public:
-    explicit Lexer(const std::string &path) {
+    explicit Lexer(const std::filesystem::path &path) {
         if (!file_exists_and_is_readable(path)) {
-            throw std::runtime_error("The passed file '" + path + "' could not be opened!");
+            throw std::runtime_error("The passed file '" + path.string() + "' could not be opened!");
         }
-        file = std::filesystem::path(path).filename().string();
+        file = path.filename().string();
         source = load_file(path);
     }
 
@@ -78,14 +78,14 @@ class Lexer {
     ///
     /// @param `file_path` The file path to check
     /// @return `bool` Whether the file exists and is readable
-    static bool file_exists_and_is_readable(const std::string &file_path);
+    static bool file_exists_and_is_readable(const std::filesystem::path &file_path);
 
     /// @function `load_file`
     /// @brief Loads a given file from a file path and returns the files content
     ///
     /// @param `path` The path to the file
     /// @return `std::string` The loaded file
-    static std::string load_file(const std::string &path);
+    static std::string load_file(const std::filesystem::path &path);
 
     /// @function `scan_token`
     /// @brief Scans the current character and creates tokens depending on the current character

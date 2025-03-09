@@ -15,15 +15,15 @@
 #include <string>
 #include <vector>
 
-bool Lexer::file_exists_and_is_readable(const std::string &file_path) {
+bool Lexer::file_exists_and_is_readable(const std::filesystem::path &file_path) {
     std::ifstream file(file_path);
     return file.is_open() && !file.fail();
 }
 
-std::string Lexer::load_file(const std::string &file_path) {
+std::string Lexer::load_file(const std::filesystem::path &file_path) {
     std::ifstream file(file_path);
     if (!file) {
-        throw std::runtime_error("Failed to load file " + file_path);
+        throw std::runtime_error("Failed to load file " + file_path.string());
     }
     std::stringstream buffer;
     buffer << file.rdbuf();
