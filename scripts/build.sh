@@ -62,7 +62,7 @@ create_directories() {
 # $1 - The library to search for
 check_lib() {
     lib_file="$(find /usr/lib -name "$1" | head -n 1)"
-    [ ! -z "$lib_file" ] || err_exit 1 "Library '$1' could not be found"
+    [ -n "$lib_file" ] || err_exit 1 "Library '$1' could not be found"
 }
 
 # Checks if all needed libraries are present
@@ -101,7 +101,7 @@ build_llvm_windows() {
     fi
 
     cmake -S vendor/llvm-project/llvm -B "$llvm_build_dir" \
-        -DCMAKE_INSTALL_PREFIX=$llvm_install_dir \
+        -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
         -DLLVM_ENABLE_PROJECTS="" \
         -DCMAKE_SYSTEM_NAME=Windows \
@@ -122,10 +122,10 @@ build_llvm_windows() {
         -DLLVM_BUILD_RUNTIME=OFF \
         -DLLVM_INCLUDE_UTILS=OFF \
         -DLLVM_INCLUDE_RUNTIME=OFF \
-        $llvm_static_flags
+        "$llvm_static_flags"
 
-    cmake --build "$llvm_build_dir" -j$core_count
-    cmake --install "$llvm_build_dir" --prefix=$llvm_install_dir
+    cmake --build "$llvm_build_dir" -j"$core_count"
+    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir"
 }
 
 # Builds llvm for linux
@@ -162,11 +162,11 @@ build_llvm_linux() {
 
     # Pre-locate the static zlib to ensure we use it
     STATIC_ZLIB="$(find /usr/lib -name "libz.a" | head -n 1)"
-    [ ! -z "$STATIC_ZLIB" ] || print_err 1 "Static zlib (libz.a) not found. Please install it first."
+    [ -n "$STATIC_ZLIB" ] || print_err 1 "Static zlib (libz.a) not found. Please install it first."
     echo "Using static zlib: $STATIC_ZLIB"
 
     cmake -S vendor/llvm-project/llvm -B "$llvm_build_dir" \
-        -DCMAKE_INSTALL_PREFIX=$llvm_install_dir \
+        -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
         -DLLVM_ENABLE_PROJECTS="" \
         -DLLVM_TARGET_ARCH=X86 \
@@ -184,10 +184,10 @@ build_llvm_linux() {
         -DLLVM_INCLUDE_RUNTIME=OFF \
         -DZLIB_LIBRARY="$STATIC_ZLIB" \
         -DZLIB_INCLUDE_DIR="/usr/include" \
-        $llvm_static_flags
+        "$llvm_static_flags"
 
-    cmake --build "$llvm_build_dir" -j$core_count
-    cmake --install "$llvm_build_dir" --prefix=$llvm_install_dir
+    cmake --build "$llvm_build_dir" -j"$core_count"
+    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir"
 }
 
 # Checks if llvm has been cloned, if not does clone it
@@ -309,22 +309,22 @@ build_compilers() {
     if [ "$build_windows" = "true" ]; then
         if [ "$build_static" = "true" ]; then
             echo "-- Building static Windows targets..."
-            cmake --build "$root/build/windows-static" -j$core_count --target static
+            cmake --build "$root/build/windows-static" -j"$core_count" --target static
         fi
         if [ "$build_dynamic" = "true" ]; then
             echo "-- Building Windows targets..."
-            cmake --build "$root/build/windows" -j$core_count --target dynamic
+            cmake --build "$root/build/windows" -j"$core_count" --target dynamic
         fi
     fi
 
     if [ "$build_linux" = "true" ]; then
         if [ "$build_static" = "true" ]; then
             echo "-- Building static Linux targets..."
-            cmake --build "$root/build/linux-static" -j$core_count --target static
+            cmake --build "$root/build/linux-static" -j"$core_count" --target static
         fi
         if [ "$build_dynamic" = "true" ]; then
             echo "-- Building Linux targets..."
-            cmake --build "$root/build/linux" -j$core_count --target dynamic
+            cmake --build "$root/build/linux" -j"$core_count" --target dynamic
         fi
     fi
 }
@@ -359,23 +359,23 @@ run_tests() {
     if [ "$build_windows" = "true" ]; then
         if [ "$build_static" = "true" ]; then
             echo "-- Running tests for the static Windows compiler..."
-            $root/build/out/tests.exe
+            "$root"/build/out/tests.exe
             echo
         fi
         if [ "$build_dynamic" = "true" ]; then
             echo "-- Running tests for the dynamic Windows compiler is not suppoerted!"
-            # $root/build/out/dynamic-tests.exe
+            # "$root"/build/out/dynamic-tests.exe
         fi
     fi
 
     if [ "$build_linux" = "true" ]; then
         if [ "$build_static" = "true" ]; then
             echo "-- Running tests for the static Linux compiler..."
-            $root/build/out/tests
+            "$root"/build/out/tests
         fi
         if [ "$build_dynamic" = "true" ]; then
             echo "-- Running tests for the dynamic Linux compiler..."
-            $root/build/out/dynamic-tests
+            "$root"/build/out/dynamic-tests
         fi
     fi
 }
@@ -407,43 +407,53 @@ verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=OFF"
 # Parse all CLI arguments
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        -h|--help)
-            print_usage
-            exit 0 ;;
-        -a|--all)
-            build_linux=true
-            build_windows=true
-            build_static=true
-            build_dynamic=true
-            shift ;;
-        -d|--dynamic)
-            build_dynamic=true
-            shift ;;
-        --debug)
-            debug_mode=true
-            shift ;;
-        -l|--linux)
-            build_linux=true
-            shift ;;
-        --llvm)
-            [ "$2" != "" ] || err_exit 1 "Option '$1' requires an argument"
-            llvm_version="$2"
-            shift 2 ;;
-        -s|--static)
-            build_static=true
-            shift ;;
-        -t|--test)
-            run_tests=true
-            shift ;;
-        -w|--windows)
-            build_windows=true
-            shift ;;
-        -v|--verbose)
-            verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=ON"
-            shift ;;
-        *)
-            err_exit 1 "Unknown cli argument: '$1'"
-            ;;
+    -h | --help)
+        print_usage
+        exit 0
+        ;;
+    -a | --all)
+        build_linux=true
+        build_windows=true
+        build_static=true
+        build_dynamic=true
+        shift
+        ;;
+    -d | --dynamic)
+        build_dynamic=true
+        shift
+        ;;
+    --debug)
+        debug_mode=true
+        shift
+        ;;
+    -l | --linux)
+        build_linux=true
+        shift
+        ;;
+    --llvm)
+        [ "$2" != "" ] || err_exit 1 "Option '$1' requires an argument"
+        llvm_version="$2"
+        shift 2
+        ;;
+    -s | --static)
+        build_static=true
+        shift
+        ;;
+    -t | --test)
+        run_tests=true
+        shift
+        ;;
+    -w | --windows)
+        build_windows=true
+        shift
+        ;;
+    -v | --verbose)
+        verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=ON"
+        shift
+        ;;
+    *)
+        err_exit 1 "Unknown cli argument: '$1'"
+        ;;
     esac
 done
 
