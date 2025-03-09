@@ -475,11 +475,20 @@ void Generator::Statement::generate_declaration(                           //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const DeclarationNode *declaration_node                                //
 ) {
-    llvm::Value *expression = Expression::generate_expression(builder, parent, scope, allocations, declaration_node->initializer.get());
+    llvm::Value *expression;
+    if (declaration_node->initializer.has_value()) {
+        expression = Expression::generate_expression(builder, parent, scope, allocations, declaration_node->initializer.value().get());
+    } else {
+        expression = IR::get_default_value_of_type(IR::get_type_from_str(builder.getContext(), declaration_node->type));
+    }
 
     // Check if the declaration_node is a function call.
     // If it is, the "real" value of the call has to be extracted. Otherwise, it can be used directly!
-    if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(declaration_node->initializer.get())) {
+    const CallNodeExpression *call_node = nullptr;
+    if (declaration_node->initializer.has_value()) {
+        call_node = dynamic_cast<const CallNodeExpression *>(declaration_node->initializer.value().get());
+    }
+    if (call_node != nullptr) {
         // Call the function and store its result in the return stuct
         const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
         llvm::AllocaInst *const alloca_ret = allocations.at(call_ret_name);

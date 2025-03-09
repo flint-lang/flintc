@@ -86,6 +86,7 @@ namespace Signature {
         anytoken, {")*"}, entity_body_constructor});
 
     // --- STATEMENTS ---
+    const signature declaration_without_initializer = combine({type, {TOK_IDENTIFIER, TOK_SEMICOLON}});
     const signature declaration_explicit = combine({type, {TOK_IDENTIFIER, TOK_EQUAL}});
     const signature declaration_infered = {TOK_IDENTIFIER, TOK_COLON_EQUAL};
     const signature assignment = {TOK_IDENTIFIER, TOK_EQUAL};

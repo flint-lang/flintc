@@ -441,11 +441,16 @@ namespace Debug {
             Local::print_header(indent_lvl, empty, "Decl ");
             std::cout << "'" << decl.type << " ";
             std::cout << decl.name << "' to be";
-            std::cout << std::endl;
 
+            if (!decl.initializer.has_value()) {
+                std::cout << " its default value" << std::endl;
+                return;
+            }
+
+            std::cout << std::endl;
             empty.first++;
             empty.second = indent_lvl + 2;
-            print_expression(++indent_lvl, empty, decl.initializer);
+            print_expression(++indent_lvl, empty, decl.initializer.value());
         }
 
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement) {

@@ -1,12 +1,23 @@
-use "assert.ft"
-use "add.ft"
+//use "assert.ft"
+//use "add.ft"
+
+// def double_return() -> (i32, i32):
+// 	return (3, 4);
+
+def get_5() -> i32:
+	return 5;
 
 def main():
-	print("Before\n");
-	assert(true);
-	print("Middle\n");
-	assert(false);
-	print("After\n");
-	i32 i = 0;
-	i++;
-	print(i);
+	i32 x;
+	i32 y;
+	print(x);
+	print("\n");
+	print(y);
+	print("\n");
+	x = get_5();
+	y = 7;
+	// (x, y) = double_return();
+	print(x);
+	print("\n");
+	print(y);
+	print("\n");

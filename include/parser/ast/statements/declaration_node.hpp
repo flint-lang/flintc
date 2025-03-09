@@ -4,6 +4,7 @@
 #include "statement_node.hpp"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -11,7 +12,7 @@
 ///     Represents variable or data declarations
 class DeclarationNode : public StatementNode {
   public:
-    DeclarationNode(std::string &type, std::string &name, std::unique_ptr<ExpressionNode> &initializer) :
+    DeclarationNode(std::string &type, std::string &name, std::optional<std::unique_ptr<ExpressionNode>> &initializer) :
         type(type),
         name(name),
         initializer(std::move(initializer)) {}
@@ -35,5 +36,5 @@ class DeclarationNode : public StatementNode {
     std::string name;
     /// initializer
     ///     The initial value
-    std::unique_ptr<ExpressionNode> initializer;
+    std::optional<std::unique_ptr<ExpressionNode>> initializer;
 };

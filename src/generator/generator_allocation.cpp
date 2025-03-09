@@ -35,7 +35,11 @@ void Generator::Allocation::generate_allocations(                         //
             generate_allocations(builder, parent, for_loop_node->definition_scope.get(), allocations);
             generate_allocations(builder, parent, for_loop_node->body.get(), allocations);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node.get())) {
-            if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.get())) {
+            CallNodeExpression *call_node_expr = nullptr;
+            if (declaration_node->initializer.has_value()) {
+                call_node_expr = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.value().get());
+            }
+            if (call_node_expr != nullptr) {
                 generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
 
                 // Create the actual variable allocation with the declared type

@@ -6,6 +6,7 @@
 #include "parser/signature.hpp"
 #include "types.hpp"
 
+#include <iterator>
 #include <optional>
 
 std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(Scope *scope, token_list &tokens) {
@@ -359,14 +360,21 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
     return std::nullopt;
 }
 
-std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_list &tokens, const bool &is_infered) {
+std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_list &tokens, const bool is_infered, const bool has_rhs) {
+    assert(!(is_infered && !has_rhs));
+
     std::optional<DeclarationNode> declaration = std::nullopt;
     std::string type;
     std::string name;
 
-    const Signature::signature lhs = Signature::match_until_signature({"(", TOK_EQUAL, "|", TOK_COLON_EQUAL, ")"});
-    uint2 lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
-    token_list lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
+    token_list lhs_tokens;
+    if (has_rhs) {
+        const Signature::signature lhs = Signature::match_until_signature({"(", TOK_EQUAL, "|", TOK_COLON_EQUAL, ")"});
+        uint2 lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
+        lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
+    } else {
+        lhs_tokens = tokens;
+    }
 
     // Remove all \n and \t from the lhs tokens
     for (auto it = lhs_tokens.begin(); it != lhs_tokens.end();) {
@@ -375,6 +383,30 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
         } else {
             ++it;
         }
+    }
+
+    if (!has_rhs) {
+        for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
+            if (std::next(it) != lhs_tokens.end() && std::next(it)->type == TOK_SEMICOLON) {
+                name = it->lexme;
+                const long dist = std::distance(lhs_tokens.begin(), it);
+                if (dist < 1) {
+                    // No type declared
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                type = Lexer::to_string(clone_from_to(0, dist, lhs_tokens));
+                break;
+            }
+        }
+        if (!scope->add_variable_type(name, type, scope->scope_id)) {
+            // Variable shadowing
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, name);
+            return std::nullopt;
+        }
+        std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
+        declaration = DeclarationNode(type, name, expr);
+        return declaration;
     }
 
     if (lhs_tokens.size() == 0) {
@@ -399,7 +431,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;
         }
-        declaration = DeclarationNode(expr.value()->type, name, expr.value());
+        declaration = DeclarationNode(expr.value()->type, name, expr);
     } else {
         unsigned int type_begin = 0;
         unsigned int type_end = lhs_tokens.size() - 2;
@@ -422,7 +454,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
             THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
-        declaration = DeclarationNode(type, name, expr.value());
+        declaration = DeclarationNode(type, name, expr);
     }
 
     return declaration;
@@ -445,14 +477,21 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
     if (Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
-        std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false);
+        std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false, true);
         if (!decl.has_value()) {
             THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Signature::tokens_contain(tokens, Signature::declaration_infered)) {
-        std::optional<DeclarationNode> decl = create_declaration(scope, tokens, true);
+        std::optional<DeclarationNode> decl = create_declaration(scope, tokens, true, true);
+        if (!decl.has_value()) {
+            THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
+    } else if (Signature::tokens_contain(tokens, Signature::declaration_without_initializer)) {
+        std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false, false);
         if (!decl.has_value()) {
             THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
