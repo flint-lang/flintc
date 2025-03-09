@@ -20,6 +20,11 @@ class Lexer {
         source = load_file(path);
     }
 
+    explicit Lexer(const std::string &file_name, const std::string &file_content) {
+        source = file_content;
+        file = file_name;
+    }
+
     /// @function `scan`
     /// @brief Scans the given file of the lexer and returns the token stream
     ///
