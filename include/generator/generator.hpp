@@ -392,28 +392,76 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Arithmetic() = delete;
 
-        /**************************************************************************************************************************************
-         * @region `I32` / `I64`
-         *************************************************************************************************************************************/
-
+        /// @function `int_safe_add`
+        /// @brief Creates a safe addition of two signed integer types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The lhs value of the safe addition
+        /// @param `rhs` The rhs value of the safe addition
+        /// @return `llvm::Value *` The result of the safe signed addition
         static llvm::Value *int_safe_add(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
 
+        /// @function `int_safe_sub`
+        /// @brief Creates a safe subtraction of two signed integer types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The lhs value of the safe subtraction
+        /// @param `rhs` The rhs value of the safe subtraction
+        /// @return `llvm::Value *` The result of the safe signed subtraction
         static llvm::Value *int_safe_sub(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
 
+        /// @function `int_safe_mul`
+        /// @brief Creates a safe multiplication of two signed integer types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The lhs value of the safe multiplication
+        /// @param `rhs` The rhs value of the safe multiplication
+        /// @return `llvm::Value *` The result of the safe signed multiplication
         static llvm::Value *int_safe_mul(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
 
+        /// @function `int_safe_div`
+        /// @brief Creates a safe division of two signed integer types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The lhs value of the safe division
+        /// @param `rhs` The rhs value of the safe division
+        /// @return `llvm::Value *` The result of the safe signed division
         static llvm::Value *int_safe_div(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
 
-        /**************************************************************************************************************************************
-         * @region `U32` / `U64`
-         *************************************************************************************************************************************/
-
+        /// @function `uint_safe_add`
+        /// @brief Creates a safe addition of two unsigned integer types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The lhs value of the safe addition
+        /// @param `rhs` The rhs value of the safe addition
+        /// @return `llvm::Value *` The result of the safe unsigned addition
         static llvm::Value *uint_safe_add(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
 
+        /// @function `int_safe_sub`
+        /// @brief Creates a safe subtraction of two unsigned integer types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The lhs value of the safe subtraction
+        /// @param `rhs` The rhs value of the safe subtraction
+        /// @return `llvm::Value *` The result of the safe unsigned subtraction
         static llvm::Value *uint_safe_sub(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
 
+        /// @function `int_safe_mul`
+        /// @brief Creates a safe multiplication of two unsigned integer types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The lhs value of the safe multiplication
+        /// @param `rhs` The rhs value of the safe multiplication
+        /// @return `llvm::Value *` The result of the safe unsigned multiplication
         static llvm::Value *uint_safe_mul(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
 
+        /// @function `int_safe_div`
+        /// @brief Creates a safe division of two unsigned integer types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The lhs value of the safe division
+        /// @param `rhs` The rhs value of the safe division
+        /// @return `llvm::Value *` The result of the safe unsigned division
         static llvm::Value *uint_safe_div(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
     }; // subclass Arithmetic
 
