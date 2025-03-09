@@ -15,15 +15,11 @@
 #include <string>
 #include <vector>
 
-/// file_exists_and_is_readable
-///     checks if the given file does exist and if it is readable or not
 bool Lexer::file_exists_and_is_readable(const std::string &file_path) {
     std::ifstream file(file_path);
     return file.is_open() && !file.fail();
 }
 
-/// load_file
-///     reads a file and returns the read file as a string
 std::string Lexer::load_file(const std::string &file_path) {
     std::ifstream file(file_path);
     if (!file) {
@@ -34,12 +30,6 @@ std::string Lexer::load_file(const std::string &file_path) {
     return buffer.str();
 }
 
-/// scan
-///     Scans the saved source file and returns a vector
-///     of all the scanned tokens.
-///     If any error occurs, the scanner will cancel scanning
-///     and throw an error, alongside the character(s) which
-///     caused it.
 token_list Lexer::scan() {
     tokens.clear();
 
@@ -86,8 +76,6 @@ token_list Lexer::scan() {
     return tokens;
 }
 
-/// to_string
-///     Converts a token list back to its original string format
 std::string Lexer::to_string(const token_list &tokens) {
     std::string token_string;
 
@@ -98,9 +86,6 @@ std::string Lexer::to_string(const token_list &tokens) {
     return token_string;
 }
 
-/// scan_token
-///     Scans the current character and creates tokens depending on the current
-///     character
 void Lexer::scan_token() {
     static unsigned int space_counter = 0;
     // ensure the first character isnt skipped
@@ -271,8 +256,6 @@ void Lexer::scan_token() {
     advance();
 }
 
-/// identifier
-///     Lexes an identifier
 void Lexer::identifier() {
     // Includes all characters in the identifier which are
     // alphanumerical
@@ -286,8 +269,6 @@ void Lexer::identifier() {
     add_token(type, identifier);
 }
 
-/// number
-///     Lexes a number
 void Lexer::number() {
     while (is_digit(peek_next())) {
         advance(false);
@@ -310,8 +291,6 @@ void Lexer::number() {
     }
 }
 
-/// str
-///     Lexes a string value
 void Lexer::str() {
     start = current + 1;
     while (peek_next() != '"' && !is_at_end()) {
@@ -337,9 +316,6 @@ void Lexer::str() {
     advance();
 }
 
-/// peek
-///     Peeks at the current character whithout advancing
-///     the current index.
 char Lexer::peek() {
     if (is_at_end()) {
         return '\0'; // Not EOF, but end of string
@@ -347,9 +323,6 @@ char Lexer::peek() {
     return source.at(current);
 }
 
-/// peek_next
-///     Peeks at the next character without advancing the
-///     current index.
 char Lexer::peek_next() {
     if (static_cast<size_t>(current + 1) >= source.size()) {
         return '\0'; // Not EOF, but end of string
@@ -357,42 +330,26 @@ char Lexer::peek_next() {
     return source.at(current + 1);
 }
 
-/// match
-///     checks if the next character aligns with the expected character
 bool Lexer::match(char expected) {
     return !is_at_end() && source.at(current) == expected;
 }
 
-/// is_alpha
-///     Determines whether the given character is allowed
-///     to be used in identifiers('[a-zA-Z_]')
 bool Lexer::is_alpha(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-/// is_digit
-///     Determines whether the given character is a digit
 bool Lexer::is_digit(char c) {
     return c >= '0' && c <= '9';
 }
 
-/// is_alpha_num
-///     Determines whether the given character is an
-///     alphanumerical character.
 bool Lexer::is_alpha_num(char c) {
     return is_alpha(c) || is_digit(c);
 }
 
-/// is_at_end
-///     Determines whether the scanner has reached the
-///     end of the string
 bool Lexer::is_at_end() {
     return static_cast<size_t>(current) >= source.size();
 }
 
-/// advance
-///     Returns the next character while also incrementing
-///     the index counter for the current character.
 char Lexer::advance(bool increment_column) {
     if (increment_column) {
         if (column_diff > 0) {
@@ -406,23 +363,15 @@ char Lexer::advance(bool increment_column) {
     return source.at(current++);
 }
 
-/// add_token
-///     adds a token combined with a given string
-void Lexer::add_token(Token token, std::string lexme) {
-    tokens.emplace_back(TokenContext{token, std::move(lexme), line, column});
-}
-
-/// add_token
-///     adds a given token with the added string being the
-///     current character
 void Lexer::add_token(Token token) {
     std::string lexme = source.substr(start, current - start + 1);
     add_token(token, lexme);
 }
 
-/// add_token_option
-///     adds the 'mult_token' when the next character is equal
-///     to 'c', otherwise adds the 'single_token'
+void Lexer::add_token(Token token, std::string lexme) {
+    tokens.emplace_back(TokenContext{token, std::move(lexme), line, column});
+}
+
 void Lexer::add_token_option(Token single_token, char c, Token mult_token) {
     if (peek_next() == c) {
         std::string substr = source.substr(current, 2);
@@ -433,9 +382,6 @@ void Lexer::add_token_option(Token single_token, char c, Token mult_token) {
     }
 }
 
-/// add_token_options
-///     adds a token depending on the next character, multiple
-///     next characters are possible
 void Lexer::add_token_options(Token single_token, const std::map<char, Token> &options) {
     bool token_added = false;
     for (const auto &option : options) {
