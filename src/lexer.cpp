@@ -102,9 +102,13 @@ std::string Lexer::to_string(const token_list &tokens) {
 ///     Scans the current character and creates tokens depending on the current
 ///     character
 void Lexer::scan_token() {
+    static unsigned int space_counter = 0;
     // ensure the first character isnt skipped
     start = current;
     char character = peek();
+    if (character != ' ') {
+        space_counter = 0;
+    }
 
     switch (character) {
         // single character tokens
@@ -236,12 +240,21 @@ void Lexer::scan_token() {
             column += TAB_SIZE - 1;
             break;
         case ' ':
+            space_counter++;
+            if (space_counter == TAB_SIZE) {
+                space_counter = 0;
+                column -= TAB_SIZE;
+                add_token(TOK_INDENT);
+                column += TAB_SIZE;
+            }
+            break;
         case '\r':
             break;
         case '\n':
             add_token(TOK_EOL);
             column = 0;
             column_diff = 0;
+            space_counter = 0;
             line++;
             break;
         default:
