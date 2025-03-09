@@ -1,5 +1,4 @@
-#ifndef __ERR_EXPR_CALL_WRONG_ARG_COUNT_HPP__
-#define __ERR_EXPR_CALL_WRONG_ARG_COUNT_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -36,5 +35,3 @@ class ErrExprCallWrongArgCount : public BaseError {
     unsigned int parameter_count;
     unsigned int arg_count;
 };
-
-#endif

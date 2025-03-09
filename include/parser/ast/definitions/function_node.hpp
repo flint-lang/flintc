@@ -1,5 +1,4 @@
-#ifndef __FUNCTION_NODE_HPP__
-#define __FUNCTION_NODE_HPP__
+#pragma once
 
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/scope.hpp"
@@ -52,5 +51,3 @@ class FunctionNode : public ASTNode {
     ///     The body of the function containing all statements
     std::unique_ptr<Scope> scope;
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __UNARY_OP_EXPRESSION_HPP__
-#define __UNARY_OP_EXPRESSION_HPP__
+#pragma once
 
 #include "expression_node.hpp"
 #include "lexer/token.hpp"
@@ -25,5 +24,3 @@ class UnaryOpExpression : public UnaryOpBase, public ExpressionNode {
     UnaryOpExpression(UnaryOpExpression &&) = default;
     UnaryOpExpression &operator=(UnaryOpExpression &&) = default;
 };
-
-#endif

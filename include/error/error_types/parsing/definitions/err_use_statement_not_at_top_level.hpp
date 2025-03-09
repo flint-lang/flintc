@@ -1,5 +1,4 @@
-#ifndef __ERR_USE_STATEMENT_NOT_AT_TOP_LEVEL_HPP__
-#define __ERR_USE_STATEMENT_NOT_AT_TOP_LEVEL_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -24,5 +23,3 @@ class ErrUseStatementNotAtTopLevel : public BaseError {
   private:
     token_list tokens;
 };
-
-#endif

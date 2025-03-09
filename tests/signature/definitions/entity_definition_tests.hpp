@@ -1,5 +1,4 @@
-#ifndef __ENTITY_DEFINITION_TESTS_HPP__
-#define __ENTITY_DEFINITION_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -192,5 +191,3 @@ function_list get_entity_definition_tests() {
     };
     return entity_definition_tests;
 }
-
-#endif

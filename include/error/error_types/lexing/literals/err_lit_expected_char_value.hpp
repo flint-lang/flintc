@@ -1,5 +1,4 @@
-#ifndef __ERR_LIT_EXPECTED_CHAR_VALUE_HPP__
-#define __ERR_LIT_EXPECTED_CHAR_VALUE_HPP__
+#pragma once
 
 #include "error/error_types/base_error.hpp"
 
@@ -19,5 +18,3 @@ class ErrLitExpectedCharValue : public BaseError {
   private:
     std::string text;
 };
-
-#endif

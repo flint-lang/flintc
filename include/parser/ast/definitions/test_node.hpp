@@ -1,5 +1,4 @@
-#ifndef __TEST_NODE_HPP__
-#define __TEST_NODE_HPP__
+#pragma once
 
 #include "error/error.hpp"
 #include "parser/ast/ast_node.hpp"
@@ -77,5 +76,3 @@ class TestNode : public ASTNode {
         return test_id++;
     }
 };
-
-#endif

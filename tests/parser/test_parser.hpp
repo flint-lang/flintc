@@ -1,5 +1,4 @@
-#ifndef __TEST_PARSER_HPP__
-#define __TEST_PARSER_HPP__
+#pragma once
 
 #include "test_utils.hpp"
 
@@ -12,5 +11,3 @@ TestResult test_parser() {
     }
     return result;
 }
-
-#endif

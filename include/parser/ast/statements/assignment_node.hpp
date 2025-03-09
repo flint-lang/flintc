@@ -1,5 +1,4 @@
-#ifndef __ASSIGNMENT_NODE_HPP__
-#define __ASSIGNMENT_NODE_HPP__
+#pragma once
 
 #include "../expressions/expression_node.hpp"
 #include "statement_node.hpp"
@@ -38,5 +37,3 @@ class AssignmentNode : public StatementNode {
     ///     The expression to assign
     std::unique_ptr<ExpressionNode> expression;
 };
-
-#endif

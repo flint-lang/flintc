@@ -1,5 +1,4 @@
-#ifndef __EXPRESSION_NODE_HPP__
-#define __EXPRESSION_NODE_HPP__
+#pragma once
 
 #include "../ast_node.hpp"
 
@@ -26,5 +25,3 @@ class ExpressionNode : public ASTNode {
     ///     The type of the expression
     std::string type;
 };
-
-#endif

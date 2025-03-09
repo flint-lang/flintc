@@ -1,5 +1,4 @@
-#ifndef __TYPE_CAST_NODE__
-#define __TYPE_CAST_NODE__
+#pragma once
 
 #include "expression_node.hpp"
 
@@ -17,5 +16,3 @@ class TypeCastNode : public ExpressionNode {
 
     std::unique_ptr<ExpressionNode> expr;
 };
-
-#endif

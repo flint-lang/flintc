@@ -1,5 +1,4 @@
-#ifndef __TYPES_HPP__
-#define __TYPES_HPP__
+#pragma once
 
 #include "lexer/token_context.hpp"
 
@@ -7,5 +6,3 @@
 
 using token_list = std::vector<TokenContext>;
 using uint2 = std::pair<unsigned int, unsigned int>;
-
-#endif

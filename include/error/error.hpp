@@ -1,5 +1,4 @@
-#ifndef __ERROR_HPP__
-#define __ERROR_HPP__
+#pragma once
 
 #ifdef DEBUG_BUILD
 constexpr inline bool DEBUG_MODE = true;
@@ -117,5 +116,3 @@ throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
 
 // Define a macro to autimatically pass file and line information
 #define THROW_ERR(ErrorType, ...) throw_err<ErrorType>(__FILE__, __LINE__, ##__VA_ARGS__)
-
-#endif

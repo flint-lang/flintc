@@ -1,5 +1,4 @@
-#ifndef __ISCOPE_HPP__
-#define __ISCOPE_HPP__
+#pragma once
 
 #include "parser/ast/statements/statement_node.hpp"
 
@@ -75,5 +74,3 @@ class Scope {
         return scope_id++;
     }
 };
-
-#endif

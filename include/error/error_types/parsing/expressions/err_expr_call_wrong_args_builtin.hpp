@@ -1,5 +1,4 @@
-#ifndef __ERR_EXPR_CALL_WRONG_ARGS_BUILTIN_HPP__
-#define __ERR_EXPR_CALL_WRONG_ARGS_BUILTIN_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -38,5 +37,3 @@ class ErrExprCallWrongArgsBuiltin : public BaseError {
     std::string function_name;
     std::vector<std::string> arg_types;
 };
-
-#endif

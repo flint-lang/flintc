@@ -1,5 +1,4 @@
-#ifndef __CLI_PARSER_HPP__
-#define __CLI_PARSER_HPP__
+#pragma once
 
 #include "cli_parser_base.hpp"
 
@@ -118,5 +117,3 @@ class CLIParserMain : public CLIParserBase {
         std::cout << std::endl;
     }
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __PARSER_HPP__
-#define __PARSER_HPP__
+#pragma once
 
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "types.hpp"
@@ -716,5 +715,3 @@ class Parser {
      * @region `Definition` END
      *************************************************************************************************************************************/
 };
-
-#endif

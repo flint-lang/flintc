@@ -1,5 +1,4 @@
-#ifndef __FUNC_NODE_HPP__
-#define __FUNC_NODE_HPP__
+#pragma once
 
 #include "../ast_node.hpp"
 #include "function_node.hpp"
@@ -41,5 +40,3 @@ class FuncNode : public ASTNode {
     ///     default
     std::vector<std::unique_ptr<FunctionNode>> functions;
 };
-
-#endif

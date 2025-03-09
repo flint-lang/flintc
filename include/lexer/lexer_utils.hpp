@@ -1,5 +1,4 @@
-#ifndef __LEXER_UTILS_HPP__
-#define __LEXER_UTILS_HPP__
+#pragma once
 
 #include "token.hpp"
 
@@ -167,5 +166,3 @@ static std::string get_token_name(Token token) {
     }
     return type;
 }
-
-#endif

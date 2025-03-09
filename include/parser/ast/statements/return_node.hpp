@@ -1,5 +1,4 @@
-#ifndef __RETURN_NODE_HPP__
-#define __RETURN_NODE_HPP__
+#pragma once
 
 #include "../expressions/expression_node.hpp"
 #include "statement_node.hpp"
@@ -11,8 +10,8 @@
 ///     Represents return statements
 class ReturnNode : public StatementNode {
   public:
-    explicit ReturnNode(std::unique_ptr<ExpressionNode> &return_value)
-        : return_value(std::move(return_value)) {}
+    explicit ReturnNode(std::unique_ptr<ExpressionNode> &return_value) :
+        return_value(std::move(return_value)) {}
 
     // constructor
     ReturnNode() = default;
@@ -29,5 +28,3 @@ class ReturnNode : public StatementNode {
     ///     The return values expression
     std::unique_ptr<ExpressionNode> return_value;
 };
-
-#endif

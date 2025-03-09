@@ -1,5 +1,4 @@
-#ifndef __ERR_STMT_DANGLING_EQUAL_SIGN_HPP__
-#define __ERR_STMT_DANGLING_EQUAL_SIGN_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -22,5 +21,3 @@ class ErrStmtDanglingEqualSign : public BaseError {
   private:
     token_list tokens;
 };
-
-#endif

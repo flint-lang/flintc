@@ -1,5 +1,4 @@
-#ifndef __DATA_DEFINITION_TESTS_HPP__
-#define __DATA_DEFINITION_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -233,5 +232,3 @@ function_list get_data_definition_tests() {
     };
     return data_definition_tests;
 }
-
-#endif

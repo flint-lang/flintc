@@ -1,5 +1,4 @@
-#ifndef __CALL_STATEMENT_NODE_HPP__
-#define __CALL_STATEMENT_NODE_HPP__
+#pragma once
 
 #include "parser/ast/call_node_base.hpp"
 #include "statement_node.hpp"
@@ -19,5 +18,3 @@ class CallNodeStatement : public CallNodeBase, public StatementNode {
     CallNodeStatement(CallNodeStatement &&) = default;
     CallNodeStatement &operator=(CallNodeStatement &&) = delete;
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __ERR_PARS_UNEXPECTED_TOKEN_HPP__
-#define __ERR_PARS_UNEXPECTED_TOKEN_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -30,5 +29,3 @@ class ErrParsUnexpectedToken : public BaseError {
     std::vector<Token> expected;
     Token but_got;
 };
-
-#endif

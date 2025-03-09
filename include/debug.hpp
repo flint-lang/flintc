@@ -1,5 +1,4 @@
-#ifndef __DEBUG_HPP__
-#define __DEBUG_HPP__
+#pragma once
 
 #include "resolver/resolver.hpp"
 #include "result.hpp"
@@ -102,5 +101,3 @@ namespace Debug {
         void print_test(unsigned int indent_lvl, uint2 empty, const TestNode &test);
     } // namespace AST
 } // namespace Debug
-
-#endif

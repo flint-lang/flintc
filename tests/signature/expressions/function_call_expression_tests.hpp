@@ -1,5 +1,4 @@
-#ifndef __FUNCTION_CALL_EXPRESSION_TESTS_HPP__
-#define __FUNCTION_CALL_EXPRESSION_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -187,5 +186,3 @@ function_list get_function_call_expression_tests() {
     };
     return function_call_expression_tests;
 }
-
-#endif

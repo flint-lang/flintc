@@ -1,5 +1,4 @@
-#ifndef __ERR_EXPR_BINOP_TYPE_MISMATCH_HPP__
-#define __ERR_EXPR_BINOP_TYPE_MISMATCH_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -41,5 +40,3 @@ class ErrExprBinopTypeMismatch : public BaseError {
     std::string lhs_type;
     std::string rhs_type;
 };
-
-#endif

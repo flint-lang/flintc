@@ -1,5 +1,4 @@
-#ifndef __CATCH_NODE_HPP__
-#define __CATCH_NODE_HPP__
+#pragma once
 
 #include "../statements/statement_node.hpp"
 #include "parser/ast/scope.hpp"
@@ -38,5 +37,3 @@ class CatchNode : public StatementNode {
     ///     The id of the call
     unsigned int call_id{0};
 };
-
-#endif

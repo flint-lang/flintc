@@ -1,5 +1,4 @@
-#ifndef __ERR_STMT_IF_CHAIN_MISSING_IF_HPP__
-#define __ERR_STMT_IF_CHAIN_MISSING_IF_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -22,5 +21,3 @@ class ErrStmtIfChainMissingIf : public BaseError {
   private:
     token_list tokens;
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __ERR_UNEXPECTED_TOKEN_HPP__
-#define __ERR_UNEXPECTED_TOKEN_HPP__
+#pragma once
 
 #include "error/error_types/base_error.hpp"
 
@@ -19,5 +18,3 @@ class ErrUnexpectedToken : public BaseError {
   private:
     char text;
 };
-
-#endif

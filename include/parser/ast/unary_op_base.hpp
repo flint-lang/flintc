@@ -1,5 +1,4 @@
-#ifndef __UNARY_OP_NODE_HPP__
-#define __UNARY_OP_NODE_HPP__
+#pragma once
 
 #include "expressions/expression_node.hpp"
 #include "lexer/token.hpp"
@@ -29,5 +28,3 @@ class UnaryOpBase {
     std::unique_ptr<ExpressionNode> operand;
     bool is_left;
 };
-
-#endif

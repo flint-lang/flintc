@@ -1,5 +1,4 @@
-#ifndef __WHILE_NODE_HPP__
-#define __WHILE_NODE_HPP__
+#pragma once
 
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/scope.hpp"
@@ -34,5 +33,3 @@ class WhileNode : public StatementNode {
     ///     The body of the while loop
     std::unique_ptr<Scope> scope;
 };
-
-#endif

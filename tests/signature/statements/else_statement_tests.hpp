@@ -1,5 +1,4 @@
-#ifndef __ELSE_STATEMENT_TESTS__
-#define __ELSE_STATEMENT_TESTS__
+#pragma once
 
 #include "debug.hpp"
 #include "lexer/token.hpp"
@@ -73,5 +72,3 @@ function_list get_else_statement_tests() {
     };
     return else_statement_tests;
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __PROGRAM_NODE_HPP__
-#define __PROGRAM_NODE_HPP__
+#pragma once
 
 #include "ast_node.hpp"
 #include "definitions/data_node.hpp"
@@ -70,5 +69,3 @@ class FileNode : public ASTNode {
         return static_cast<TestNode *>(definitions.back().get());
     }
 };
-
-#endif

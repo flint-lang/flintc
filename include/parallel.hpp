@@ -1,5 +1,4 @@
-#ifndef __PARALLEL_HPP__
-#define __PARALLEL_HPP__
+#pragma once
 
 #include "thread_pool.hpp"
 
@@ -147,5 +146,3 @@ namespace Parallel {
         return results;
     }
 } // namespace Parallel
-
-#endif

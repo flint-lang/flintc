@@ -1,5 +1,4 @@
-#ifndef __DATA_NODE_HPP__
-#define __DATA_NODE_HPP__
+#pragma once
 
 #include "../ast_node.hpp"
 
@@ -46,5 +45,3 @@ class DataNode : public ASTNode {
     ///     The order of the dada fields in the constructor
     std::vector<std::string> order;
 };
-
-#endif

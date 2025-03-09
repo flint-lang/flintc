@@ -1,5 +1,4 @@
-#ifndef __ENUM_NODE_HPP__
-#define __ENUM_NODE_HPP__
+#pragma once
 
 #include "../ast_node.hpp"
 
@@ -11,9 +10,9 @@
 ///     Represents enum type definitions
 class EnumNode : public ASTNode {
   public:
-    explicit EnumNode(std::string &name, std::vector<std::string> &values)
-        : name(name),
-          values(std::move(values)) {}
+    explicit EnumNode(std::string &name, std::vector<std::string> &values) :
+        name(name),
+        values(std::move(values)) {}
 
   private:
     /// name
@@ -24,5 +23,3 @@ class EnumNode : public ASTNode {
     ///     relates to their enum id (for now).
     std::vector<std::string> values;
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __ERR_DEF_ERR_ONLY_ONE_PARENT_HPP__
-#define __ERR_DEF_ERR_ONLY_ONE_PARENT_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -22,5 +21,3 @@ class ErrDefErrOnlyOneParent : public BaseError {
   private:
     token_list tokens;
 };
-
-#endif

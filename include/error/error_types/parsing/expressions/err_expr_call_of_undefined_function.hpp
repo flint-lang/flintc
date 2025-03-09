@@ -1,5 +1,4 @@
-#ifndef __ERR_EXPR_CALL_OF_UNDEFINED_FUNCTION_HPP__
-#define __ERR_EXPR_CALL_OF_UNDEFINED_FUNCTION_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -25,5 +24,3 @@ class ErrExprCallOfUndefinedFunction : public BaseError {
     token_list tokens;
     std::string function_name;
 };
-
-#endif

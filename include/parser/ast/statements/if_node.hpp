@@ -1,5 +1,4 @@
-#ifndef __IF_NODE_HPP__
-#define __IF_NODE_HPP__
+#pragma once
 
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/scope.hpp"
@@ -41,5 +40,3 @@ class IfNode : public StatementNode {
     ///     The statements to execute when the condition evaluates to 'false'
     std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> else_scope;
 };
-
-#endif

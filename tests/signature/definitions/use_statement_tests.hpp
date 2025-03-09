@@ -1,5 +1,4 @@
-#ifndef __USE_STATEMENT_TESTS_HPP__
-#define __USE_STATEMENT_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -371,5 +370,3 @@ function_list get_use_statement_tests() {
     };
     return use_statement_tests;
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __ERR_LIT_CHAR_LONGER_THAN_SINGLE_CHARACTER_HPP__
-#define __ERR_LIT_CHAR_LONGER_THAN_SINGLE_CHARACTER_HPP__
+#pragma once
 
 #include "error/error_types/base_error.hpp"
 
@@ -20,5 +19,3 @@ class ErrLitCharLongerThanSingleCharacter : public BaseError {
   private:
     std::string text;
 };
-
-#endif

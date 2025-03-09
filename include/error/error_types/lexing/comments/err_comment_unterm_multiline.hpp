@@ -1,5 +1,4 @@
-#ifndef __ERR_COMMENT_UNTERMINATED_MULTILINE_HPP__
-#define __ERR_COMMENT_UNTERMINATED_MULTILINE_HPP__
+#pragma once
 
 #include "error/error_types/base_error.hpp"
 
@@ -15,5 +14,3 @@ class ErrCommentUnterminatedMultiline : public BaseError {
         return oss.str();
     }
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __CHECKER_HPP__
-#define __CHECKER_HPP__
+#pragma once
 
 /// @class `Checker`
 /// @brief This class is responsible for checking why a compile error happened and it is responsible for printing a comprehensive error
@@ -11,5 +10,3 @@ class Checker {
 
   private:
 };
-
-#endif

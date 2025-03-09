@@ -1,5 +1,4 @@
-#ifndef __FOR_LOOP_NODE_HPP__
-#define __FOR_LOOP_NODE_HPP__
+#pragma once
 
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/scope.hpp"
@@ -47,5 +46,3 @@ class ForLoopNode : public StatementNode {
     /// statement contained, for example 'i++'
     std::unique_ptr<Scope> body;
 };
-
-#endif

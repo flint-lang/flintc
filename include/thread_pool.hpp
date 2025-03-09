@@ -1,5 +1,4 @@
-#ifndef __THRED_POOL_HPP__
-#define __THRED_POOL_HPP__
+#pragma once
 
 #include <condition_variable>
 #include <functional>
@@ -95,5 +94,3 @@ class ThreadPool {
         }
     }
 };
-
-#endif

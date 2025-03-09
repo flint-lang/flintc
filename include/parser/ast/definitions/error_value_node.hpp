@@ -1,5 +1,4 @@
-#ifndef __ERROR_VALUE_NODE_HPP__
-#define __ERROR_VALUE_NODE_HPP__
+#pragma once
 
 #include "../ast_node.hpp"
 
@@ -9,9 +8,9 @@
 ///
 class ErrorValueNode : public ASTNode {
   public:
-    ErrorValueNode(std::string &type, std::string &message)
-        : type(type),
-          message(message) {}
+    ErrorValueNode(std::string &type, std::string &message) :
+        type(type),
+        message(message) {}
 
   private:
     /// type
@@ -21,5 +20,3 @@ class ErrorValueNode : public ASTNode {
     ///     The message of the error
     std::string message;
 };
-
-#endif

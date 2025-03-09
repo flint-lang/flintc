@@ -1,5 +1,4 @@
-#ifndef __TEST_SIGNATURE_HPP__
-#define __TEST_SIGNATURE_HPP__
+#pragma once
 
 #include "test_utils.hpp"
 
@@ -66,5 +65,3 @@ TestResult test_signature() {
     run_all_tests(result, tests, true);
     return result;
 }
-
-#endif

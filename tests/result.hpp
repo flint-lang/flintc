@@ -1,5 +1,4 @@
-#ifndef __RESULT_HPP__
-#define __RESULT_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "parser/signature.hpp"
@@ -76,5 +75,3 @@ class TestResult {
         append("\t" + str + "\t...");
     }
 };
-
-#endif

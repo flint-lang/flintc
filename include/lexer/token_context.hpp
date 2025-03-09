@@ -1,5 +1,4 @@
-#ifndef __TOKEN_CONTEXT_HPP__
-#define __TOKEN_CONTEXT_HPP__
+#pragma once
 
 #include <string>
 
@@ -14,5 +13,3 @@ struct TokenContext {
     unsigned int line;
     unsigned int column;
 };
-
-#endif

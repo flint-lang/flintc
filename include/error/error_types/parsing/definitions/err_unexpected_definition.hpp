@@ -1,5 +1,4 @@
-#ifndef __ERR_UNEXPECTED_DEFINITION_HPP__
-#define __ERR_UNEXPECTED_DEFINITION_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -21,5 +20,3 @@ class ErrUnexpectedDefinition : public BaseError {
   private:
     token_list tokens;
 };
-
-#endif

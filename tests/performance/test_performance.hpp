@@ -1,5 +1,4 @@
-#ifndef __TEST_PERFORMANCE_HPP__
-#define __TEST_PERFORMANCE_HPP__
+#pragma once
 
 #include "test_utils.hpp"
 #include <string>
@@ -17,5 +16,3 @@ TestResult test_performance(const std::string &flags, const unsigned int count) 
 
     return result;
 }
-
-#endif

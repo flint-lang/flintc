@@ -1,5 +1,4 @@
-#ifndef __SIGNATURE_HPP__
-#define __SIGNATURE_HPP__
+#pragma once
 
 #include "lexer/token.hpp"
 #include "types.hpp"
@@ -116,5 +115,3 @@ namespace Signature {
     // --- ERROR HANDLING --- (requires function_call to be defined)
     const signature catch_statement = combine({function_call, {TOK_CATCH, "(", TOK_IDENTIFIER, ")?", TOK_COLON}});
 } // namespace Signature
-
-#endif

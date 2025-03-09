@@ -1,5 +1,4 @@
-#ifndef __BUILTINS_HPP__
-#define __BUILTINS_HPP__
+#pragma once
 
 #include <string_view>
 #include <unordered_map>
@@ -75,5 +74,3 @@ static inline std::unordered_map<std::string_view, std::vector<std::string_view>
     {"u32", {"i32", "i64", "u64", "f32", "f64"}},
     {"f32", {"f64"}},
 };
-
-#endif

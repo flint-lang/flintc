@@ -1,5 +1,4 @@
-#ifndef __IF_STATEMENT_TESTS__
-#define __IF_STATEMENT_TESTS__
+#pragma once
 
 #include "debug.hpp"
 #include "lexer/token.hpp"
@@ -567,5 +566,3 @@ function_list get_if_statement_tests() {
     };
     return if_statement_tests;
 }
-
-#endif

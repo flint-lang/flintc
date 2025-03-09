@@ -1,5 +1,4 @@
-#ifndef __VARIABLE_NODE_HPP__
-#define __VARIABLE_NODE_HPP__
+#pragma once
 
 #include "expression_node.hpp"
 
@@ -18,5 +17,3 @@ class VariableNode : public ExpressionNode {
     ///     Name of the variable
     std::string name;
 };
-
-#endif

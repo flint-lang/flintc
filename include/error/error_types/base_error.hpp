@@ -1,5 +1,4 @@
-#ifndef __BASE_ERROR_HPP__
-#define __BASE_ERROR_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_type.hpp"
@@ -120,5 +119,3 @@ class BaseError {
         return "";
     }
 };
-
-#endif

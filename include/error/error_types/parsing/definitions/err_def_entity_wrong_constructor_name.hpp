@@ -1,5 +1,4 @@
-#ifndef __ERR_DEF_ENTITY_WRONG_CONSTRUCTOR_NAME_HPP__
-#define __ERR_DEF_ENTITY_WRONG_CONSTRUCTOR_NAME_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -30,5 +29,3 @@ class ErrDefEntityWrongConstructorName : public BaseError {
     std::string expected_name;
     std::string actual_name;
 };
-
-#endif

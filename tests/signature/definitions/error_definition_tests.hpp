@@ -1,5 +1,4 @@
-#ifndef __ERROR_DEFINITION_TESTS_HPP__
-#define __ERROR_DEFINITION_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -141,5 +140,3 @@ function_list get_error_definition_tests() {
     };
     return error_definition_tests;
 }
-
-#endif

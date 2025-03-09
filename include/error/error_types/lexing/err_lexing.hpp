@@ -1,5 +1,4 @@
-#ifndef __ERR_LEXING_HPP__
-#define __ERR_LEXING_HPP__
+#pragma once
 
 #include "error/error_types/base_error.hpp"
 
@@ -19,5 +18,3 @@ class ErrLexing : public BaseError {
   private:
     std::string text;
 };
-
-#endif

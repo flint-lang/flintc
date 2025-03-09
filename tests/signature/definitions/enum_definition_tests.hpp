@@ -1,5 +1,4 @@
-#ifndef __ENUM_DEFINITION_TESTS_HPP__
-#define __ENUM_DEFINITION_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -95,5 +94,3 @@ function_list get_enum_definition_tests() {
     };
     return enum_definition_tests;
 }
-
-#endif

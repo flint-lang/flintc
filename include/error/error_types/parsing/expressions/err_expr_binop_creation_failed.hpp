@@ -1,5 +1,4 @@
-#ifndef __ERR_EXPR_BINOP_CREATION_FAILED_HPP__
-#define __ERR_EXPR_BINOP_CREATION_FAILED_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -25,5 +24,3 @@ class ErrExprBinopCreationFailed : public BaseError {
   private:
     token_list tokens;
 };
-
-#endif

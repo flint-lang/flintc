@@ -1,5 +1,4 @@
-#ifndef __LEXER_HPP__
-#define __LEXER_HPP__
+#pragma once
 
 #include "token.hpp"
 #include "types.hpp"
@@ -60,5 +59,3 @@ class Lexer {
     void add_token_option(Token single_token, char c, Token mult_token);
     void add_token_options(Token single_token, const std::map<char, Token> &options);
 };
-
-#endif

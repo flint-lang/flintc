@@ -1,5 +1,4 @@
-#ifndef __TYPE_TESTS_HPP__
-#define __TYPE_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -328,5 +327,3 @@ function_list get_type_tests() {
     };
     return type_tests;
 }
-
-#endif

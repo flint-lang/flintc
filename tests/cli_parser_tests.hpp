@@ -1,5 +1,4 @@
-#ifndef __CLI_PARSER_TESTS_HPP__
-#define __CLI_PARSER_TESTS_HPP__
+#pragma once
 
 #include "cli_parser_base.hpp"
 
@@ -90,5 +89,3 @@ class CLIParserTests : public CLIParserBase {
         return !iss.fail() && iss.eof();
     }
 };
-
-#endif

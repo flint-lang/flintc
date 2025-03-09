@@ -1,5 +1,4 @@
-#ifndef __VARIANT_NODE_HPP__
-#define __VARIANT_NODE_HPP__
+#pragma once
 
 #include "../ast_node.hpp"
 
@@ -11,9 +10,9 @@
 ///     Represents the variant type definition
 class VariantNode : public ASTNode {
   public:
-    explicit VariantNode(std::string &name, std::vector<std::string> &possible_types)
-        : name(name),
-          possible_types(std::move(possible_types)) {}
+    explicit VariantNode(std::string &name, std::vector<std::string> &possible_types) :
+        name(name),
+        possible_types(std::move(possible_types)) {}
 
   private:
     /// name
@@ -23,5 +22,3 @@ class VariantNode : public ASTNode {
     ///     List of all types the varaint can hold
     std::vector<std::string> possible_types;
 };
-
-#endif

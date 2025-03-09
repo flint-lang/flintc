@@ -1,5 +1,4 @@
-#ifndef __PROFILER_HPP__
-#define __PROFILER_HPP__
+#pragma once
 
 /**
  * @file Profiler.hpp
@@ -143,7 +142,6 @@ class ScopeProfiler {
 #define PROFILE_SCOPE(name) ScopeProfiler CONCAT(sp_, __LINE__)(name)
 #else
 #define PROFILE_SCOPE(name) ((void)0)
-#endif
 
 /// @def CONCAT(a, b)
 /// @brief Macro for concatenating two tokens.
@@ -158,5 +156,3 @@ class ScopeProfiler {
 /// @param b Second token.
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CONCAT_INNER(a, b) a##b
-
-#endif

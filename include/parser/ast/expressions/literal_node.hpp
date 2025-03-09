@@ -1,5 +1,4 @@
-#ifndef __LITERAL_NODE_HPP__
-#define __LITERAL_NODE_HPP__
+#pragma once
 
 #include "expression_node.hpp"
 
@@ -20,5 +19,3 @@ class LiteralNode : public ExpressionNode {
     ///     the literal value
     std::variant<int, float, std::string, bool, char> value;
 };
-
-#endif

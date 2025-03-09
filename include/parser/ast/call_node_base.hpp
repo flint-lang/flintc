@@ -1,5 +1,4 @@
-#ifndef __CALL_NODE_BASE_HPP__
-#define __CALL_NODE_BASE_HPP__
+#pragma once
 
 #include "expressions/expression_node.hpp"
 
@@ -55,5 +54,3 @@ class CallNodeBase {
         return call_id++;
     }
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __CLI_PARSER_BASE_HPP__
-#define __CLI_PARSER_BASE_HPP__
+#pragma once
 
 #include <array>
 #include <filesystem>
@@ -102,5 +101,3 @@ class CLIParserBase {
         return file_path;
     }
 };
-
-#endif

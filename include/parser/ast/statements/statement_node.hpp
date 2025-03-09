@@ -1,5 +1,4 @@
-#ifndef __STATEMENT_NODE_HPP__
-#define __STATEMENT_NODE_HPP__
+#pragma once
 
 #include "../ast_node.hpp"
 
@@ -20,5 +19,3 @@ class StatementNode : public ASTNode {
     StatementNode(StatementNode &&) = default;
     StatementNode &operator=(StatementNode &&) = default;
 };
-
-#endif

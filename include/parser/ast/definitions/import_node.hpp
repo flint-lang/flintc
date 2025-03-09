@@ -1,5 +1,4 @@
-#ifndef __IMPORT_NODE_HPP__
-#define __IMPORT_NODE_HPP__
+#pragma once
 
 #include "../ast_node.hpp"
 
@@ -19,5 +18,3 @@ class ImportNode : public ASTNode {
     ///     'xxx.xxx.xxx')
     std::variant<std::string, std::vector<std::string>> path;
 };
-
-#endif

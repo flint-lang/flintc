@@ -1,5 +1,4 @@
-#ifndef __TOKEN_HPP__
-#define __TOKEN_HPP__
+#pragma once
 
 // The lexer returns tokens [0-255] if it is an unknown character, otherwise one
 // of these for known things.
@@ -151,5 +150,3 @@ enum Token {
     TOK_INDENT = -101,
     TOK_EOL = -102,
 };
-
-#endif

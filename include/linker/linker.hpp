@@ -1,5 +1,4 @@
-#ifndef __LINKER_HPP__
-#define __LINKER_HPP__
+#pragma once
 
 #include "parser/ast/file_node.hpp"
 
@@ -11,5 +10,3 @@ class Linker {
   public:
     Linker() = delete;
 };
-
-#endif

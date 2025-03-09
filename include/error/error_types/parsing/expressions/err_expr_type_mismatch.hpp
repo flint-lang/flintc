@@ -1,5 +1,4 @@
-#ifndef __ERR_EXPR_TYPE_MISMATCH_HPP__
-#define __ERR_EXPR_TYPE_MISMATCH_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -27,5 +26,3 @@ class ErrExprTypeMismatch : public BaseError {
     std::string expected;
     std::string type;
 };
-
-#endif

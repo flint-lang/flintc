@@ -1,5 +1,4 @@
-#ifndef __TEST_UTILS_HPP__
-#define __TEST_UTILS_HPP__
+#pragma once
 
 #include "cli_parser_base.hpp"
 #include "colors.hpp"
@@ -148,5 +147,3 @@ static void run_performance_test(const std::filesystem::path &test_path, const s
     std::cout << "\tFT [" << std::fixed << std::setprecision(2) << ft_duration_ms << " ms] [" << color << (perf_diff_percent > 0 ? "+" : "")
               << int(perf_diff_percent * 100) << "\%" << DEFAULT << "]: " << (outputs_differ ? ft_output : "") << "\n";
 }
-
-#endif

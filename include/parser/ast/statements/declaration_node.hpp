@@ -1,5 +1,4 @@
-#ifndef __DECLARATION_NODE_HPP__
-#define __DECLARATION_NODE_HPP__
+#pragma once
 
 #include "../expressions/expression_node.hpp"
 #include "statement_node.hpp"
@@ -38,5 +37,3 @@ class DeclarationNode : public StatementNode {
     ///     The initial value
     std::unique_ptr<ExpressionNode> initializer;
 };
-
-#endif

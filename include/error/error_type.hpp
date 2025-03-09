@@ -1,5 +1,4 @@
-#ifndef __ERROR_TYPE_HPP__
-#define __ERROR_TYPE_HPP__
+#pragma once
 
 #include <string_view>
 #include <unordered_map>
@@ -23,5 +22,3 @@ static const std::unordered_map<ErrorType, std::string_view> error_type_names = 
     {ERR_GENERATING, "Generate Error"},
     {ERR_LINKING, "Link Error"},
 };
-
-#endif

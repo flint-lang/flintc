@@ -1,5 +1,4 @@
-#ifndef __ERR_VAL_UNKNOWN_LITERAL_HPP__
-#define __ERR_VAL_UNKNOWN_LITERAL_HPP__
+#pragma once
 
 #include "error/error_types/base_error.hpp"
 
@@ -19,5 +18,3 @@ class ErrValUnknownLiteral : public BaseError {
   private:
     std::string literal_value;
 };
-
-#endif

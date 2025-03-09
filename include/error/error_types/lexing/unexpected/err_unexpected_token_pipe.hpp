@@ -1,5 +1,4 @@
-#ifndef __ERR_UNEXPECTED_TOKEN_PIPE_HPP__
-#define __ERR_UNEXPECTED_TOKEN_PIPE_HPP__
+#pragma once
 
 #include "error/error_types/base_error.hpp"
 
@@ -19,5 +18,3 @@ class ErrUnexpectedTokenPipe : public BaseError {
   private:
     char text;
 };
-
-#endif

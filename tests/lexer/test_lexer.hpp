@@ -1,5 +1,4 @@
-#ifndef __TEST_LEXER_HPP__
-#define __TEST_LEXER_HPP__
+#pragma once
 
 #include "test_utils.hpp"
 
@@ -20,5 +19,3 @@ TestResult test_lexer() {
     run_all_tests(result, tests, true);
     return result;
 }
-
-#endif

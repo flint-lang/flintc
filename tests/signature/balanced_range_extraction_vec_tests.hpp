@@ -1,5 +1,4 @@
-#ifndef __BALANCED_RANGE_EXTRACTION_VEC_TESTS_HPP__
-#define __BALANCED_RANGE_EXTRACTION_VEC_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -80,5 +79,3 @@ function_list get_balanced_range_extraction_vec_tests() {
     };
     return balanced_range_extraction_vec;
 }
-
-#endif

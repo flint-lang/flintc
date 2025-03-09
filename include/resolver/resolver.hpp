@@ -1,5 +1,4 @@
-#ifndef __RESOLVER_HPP__
-#define __RESOLVER_HPP__
+#pragma once
 
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/ast/file_node.hpp"
@@ -77,5 +76,3 @@ class Resolver {
   private:
     static dependency create_dependency(const ImportNode &node, const std::filesystem::path &path);
 };
-
-#endif

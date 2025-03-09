@@ -1,5 +1,4 @@
-#ifndef __CALL_EXPRESSION_NODE_HPP__
-#define __CALL_EXPRESSION_NODE_HPP__
+#pragma once
 
 #include "expression_node.hpp"
 #include "parser/ast/call_node_base.hpp"
@@ -27,5 +26,3 @@ class CallNodeExpression : public CallNodeBase, public ExpressionNode {
     CallNodeExpression(CallNodeExpression &&) = default;
     CallNodeExpression &operator=(CallNodeExpression &&) = delete;
 };
-
-#endif

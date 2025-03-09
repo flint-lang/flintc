@@ -1,5 +1,4 @@
-#ifndef __ARGS_TESTS_HPP__
-#define __ARGS_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -143,5 +142,3 @@ function_list get_args_tests() {
     };
     return args_tests;
 }
-
-#endif

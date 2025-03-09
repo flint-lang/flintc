@@ -1,5 +1,4 @@
-#ifndef __PRIMARY_TESTS_HPP__
-#define __PRIMARY_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -280,5 +279,3 @@ function_list get_primary_tests() {
     };
     return primary_tests;
 }
-
-#endif

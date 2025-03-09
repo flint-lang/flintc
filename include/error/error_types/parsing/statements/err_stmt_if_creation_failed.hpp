@@ -1,5 +1,4 @@
-#ifndef __ERR_STMT_IF_CREATION_FAILED_HPP__
-#define __ERR_STMT_IF_CREATION_FAILED_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -27,5 +26,3 @@ class ErrStmtIfCreationFailed : public BaseError {
   private:
     std::vector<std::pair<token_list, token_list>> if_chain;
 };
-
-#endif

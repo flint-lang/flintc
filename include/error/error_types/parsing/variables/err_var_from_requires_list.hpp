@@ -1,5 +1,4 @@
-#ifndef __ERR_VAR_FROM_REQUIRES_LIST_HPP__
-#define __ERR_VAR_FROM_REQUIRES_LIST_HPP__
+#pragma once
 
 #include "error/error_types/base_error.hpp"
 
@@ -19,5 +18,3 @@ class ErrVarFromRequiresList : public BaseError {
   private:
     std::string var_name;
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __ERROR_NODE_HPP__
-#define __ERROR_NODE_HPP__
+#pragma once
 
 #include "../ast_node.hpp"
 
@@ -11,10 +10,10 @@
 ///     Represents error definitions
 class ErrorNode : public ASTNode {
   public:
-    explicit ErrorNode(std::string &name, std::string &parent_error, std::vector<std::string> &error_types)
-        : name(name),
-          parent_error(parent_error),
-          error_types(std::move(error_types)) {}
+    explicit ErrorNode(std::string &name, std::string &parent_error, std::vector<std::string> &error_types) :
+        name(name),
+        parent_error(parent_error),
+        error_types(std::move(error_types)) {}
 
   private:
     /// name
@@ -28,5 +27,3 @@ class ErrorNode : public ASTNode {
     ///     The error types the newly created error contains
     std::vector<std::string> error_types;
 };
-
-#endif

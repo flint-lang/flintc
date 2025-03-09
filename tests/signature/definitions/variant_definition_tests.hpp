@@ -1,5 +1,4 @@
-#ifndef __VARIANT_DEFINITION_TESTS_HPP__
-#define __VARIANT_DEFINITION_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -95,5 +94,3 @@ function_list get_variant_definition_tests() {
     };
     return variant_definition_tests;
 }
-
-#endif

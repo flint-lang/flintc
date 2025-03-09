@@ -1,5 +1,4 @@
-#ifndef __UNARY_OP_STATEMENT_HPP__
-#define __UNARY_OP_STATEMENT_HPP__
+#pragma once
 
 #include "parser/ast/unary_op_base.hpp"
 #include "statement_node.hpp"
@@ -19,5 +18,3 @@ class UnaryOpStatement : public UnaryOpBase, public StatementNode {
     UnaryOpStatement(UnaryOpStatement &&) = default;
     UnaryOpStatement &operator=(UnaryOpStatement &&) = default;
 };
-
-#endif

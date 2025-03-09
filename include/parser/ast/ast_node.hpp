@@ -1,5 +1,4 @@
-#ifndef __BASE_AST_HPP__
-#define __BASE_AST_HPP__
+#pragma once
 
 /// ASTNode
 ///     Base class for all AST nodes.
@@ -18,5 +17,3 @@ class ASTNode {
     ASTNode(ASTNode &&) = default;
     ASTNode &operator=(ASTNode &&) = default;
 };
-
-#endif

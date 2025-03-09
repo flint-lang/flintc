@@ -1,5 +1,4 @@
-#ifndef __ERR_EXPR_UNARY_OP_CREATION_FAILED_HPP__
-#define __ERR_EXPR_UNARY_OP_CREATION_FAILED_HPP__
+#pragma once
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
@@ -21,5 +20,3 @@ class ErrExprUnaryOpCreationFailed : public BaseError {
   private:
     token_list tokens;
 };
-
-#endif

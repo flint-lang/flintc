@@ -1,5 +1,4 @@
-#ifndef __BIN_OP_EXPRESSION_TESTS_HPP__
-#define __BIN_OP_EXPRESSION_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -96,5 +95,3 @@ function_list get_bin_op_expression_tests() {
     };
     return bin_op_expr_tests;
 }
-
-#endif

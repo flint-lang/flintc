@@ -1,5 +1,4 @@
-#ifndef __GROUP_TESTS_HPP__
-#define __GROUP_TESTS_HPP__
+#pragma once
 
 #include "debug.hpp"
 #include "parser/signature.hpp"
@@ -145,5 +144,3 @@ function_list get_group_tests() {
     };
     return group_tests;
 }
-
-#endif

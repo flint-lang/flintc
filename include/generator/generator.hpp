@@ -1,5 +1,4 @@
-#ifndef __GENERATOR_HPP__
-#define __GENERATOR_HPP__
+#pragma once
 
 #include "lexer/builtins.hpp"
 #include "parser/ast/call_node_base.hpp"
@@ -1194,5 +1193,3 @@ class Generator {
         );
     }; // subclass Expression
 };
-
-#endif
