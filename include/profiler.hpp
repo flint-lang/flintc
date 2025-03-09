@@ -142,6 +142,7 @@ class ScopeProfiler {
 #define PROFILE_SCOPE(name) ScopeProfiler CONCAT(sp_, __LINE__)(name)
 #else
 #define PROFILE_SCOPE(name) ((void)0)
+#endif
 
 /// @def CONCAT(a, b)
 /// @brief Macro for concatenating two tokens.
