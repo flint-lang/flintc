@@ -318,6 +318,23 @@ namespace Debug {
             print_expression(indent_lvl + 1, empty, cast.expr);
         }
 
+        void print_group_expression(unsigned int indent_lvl, uint2 empty, const GroupExpressionNode &group) {
+            Local::print_header(indent_lvl, empty, "Group Expr ");
+            std::cout << "group types: (";
+            for (auto it = group.expressions.begin(); it != group.expressions.end(); ++it) {
+                if (it != group.expressions.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << (*it)->type;
+            }
+            std::cout << ")" << std::endl;
+
+            empty.second = indent_lvl + 1;
+            for (auto &expr : group.expressions) {
+                print_expression(indent_lvl + 1, empty, expr);
+            }
+        }
+
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr) {
             if (const auto *variable_node = dynamic_cast<const VariableNode *>(expr.get())) {
                 print_variable(indent_lvl, empty, *variable_node);
@@ -331,6 +348,8 @@ namespace Debug {
                 print_binary_op(indent_lvl, empty, *binary_op_node);
             } else if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expr.get())) {
                 print_type_cast(indent_lvl, empty, *type_cast_node);
+            } else if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expr.get())) {
+                print_group_expression(indent_lvl, empty, *group_node);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;

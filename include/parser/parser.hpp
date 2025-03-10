@@ -31,6 +31,7 @@
 #include "ast/expressions/binary_op_node.hpp"
 #include "ast/expressions/call_node_expression.hpp"
 #include "ast/expressions/expression_node.hpp"
+#include "ast/expressions/group_expression_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/type_cast_node.hpp"
 #include "ast/expressions/unary_op_expression.hpp"
@@ -477,6 +478,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the type cast
     /// @return `std::optional<TypeCastNode>` An optional TypeCastNode if creation is successful, nullopt otherwise
     std::optional<TypeCastNode> create_type_cast(Scope *scope, token_list &tokens);
+
+    /// @function `create_group_expression`
+    /// @brief Creates a GroupExpressionNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the grouped expression is defined
+    /// @param `tokens` The list of tokens representing the type cast
+    /// @return `std::optional<GroupExpressionNode>` An optiional grouped expression, nullopt otherwise
+    std::optional<GroupExpressionNode> create_group_expression(Scope *scope, token_list &tokens);
 
     /// @function `create_expression`
     /// @brief Creates an ExpressionNode from the given tokens

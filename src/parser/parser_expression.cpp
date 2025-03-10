@@ -227,6 +227,64 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
     return TypeCastNode(type_token.lexme, expression.value());
 }
 
+std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope, token_list &tokens) {
+    // First, remove all leading and trailing garbage from the expression tokens
+    remove_leading_garbage(tokens);
+    remove_trailing_garbage(tokens);
+    // Now, the first and the last token must be open and closing parenthesis respectively
+    assert(tokens.begin()->type == TOK_LEFT_PAREN);
+    assert(std::prev(tokens.end())->type == TOK_RIGHT_PAREN);
+    // Remove the open and closing parenthesis
+    tokens.erase(tokens.begin());
+    tokens.pop_back();
+    std::vector<std::unique_ptr<ExpressionNode>> expressions;
+    while (!tokens.empty()) {
+        // Check if the tokens contain any opening / closing parenthesis. If it doesnt, the group parsing can be simplified a lot
+        if (!Signature::tokens_contain(tokens, {{TOK_LEFT_PAREN}})) {
+            // Extract all tokens until the comma if it contains a comma. If it does not contain a comma, we are at the end of the group
+            if (!Signature::tokens_contain(tokens, {{TOK_COMMA}})) {
+                auto expr = create_expression(scope, tokens);
+                if (!expr.has_value()) {
+                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+                    return std::nullopt;
+                }
+                expressions.emplace_back(std::move(expr.value()));
+                break;
+            } else {
+                std::optional<uint2> expr_range = Signature::get_next_match_range(tokens, Signature::match_until_signature({TOK_COMMA}));
+                if (!expr_range.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                token_list expr_tokens = extract_from_to(expr_range.value().first, expr_range.value().second, tokens);
+                auto expr = create_expression(scope, expr_tokens);
+                if (!expr.has_value()) {
+                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
+                    return std::nullopt;
+                }
+                expressions.emplace_back(std::move(expr.value()));
+            }
+        } else if (Signature::tokens_contain(tokens, {{TOK_COMMA}})) {
+            std::optional<uint2> expr_range = Signature::get_next_match_range(tokens, Signature::match_until_signature({TOK_COMMA}));
+            if (!expr_range.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            token_list expr_tokens = extract_from_to(expr_range.value().first, expr_range.value().second, tokens);
+            auto expr = create_expression(scope, expr_tokens);
+            if (!expr.has_value()) {
+                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
+                return std::nullopt;
+            }
+            expressions.emplace_back(std::move(expr.value()));
+        } else {
+            // THIS IS NOT A GROUPED EXPRESSION
+            return std::nullopt;
+        }
+    }
+    return GroupExpressionNode(expressions);
+}
+
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     Scope *scope,                                                         //
     const token_list &tokens,                                             //
@@ -248,6 +306,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
             return std::nullopt;
         }
         expression = std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
+    } else if (Signature::tokens_contain(expr_tokens, Signature::group_expression)) {
+        std::optional<GroupExpressionNode> group = create_group_expression(scope, expr_tokens);
+        if (!group.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        expression = std::make_unique<GroupExpressionNode>(std::move(group.value()));
     } else if (Signature::tokens_contain(expr_tokens, Signature::bin_op_expr)) {
         std::optional<BinaryOpNode> bin_op = create_binary_op(scope, expr_tokens);
         if (!bin_op.has_value()) {

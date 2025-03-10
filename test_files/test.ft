@@ -1,8 +1,8 @@
 //use "assert.ft"
 //use "add.ft"
 
-// def double_return() -> (i32, i32):
-// 	return (3, 4);
+def double_return() -> (i32, i32):
+	return (3, 4);
 
 def get_5() -> i32:
 	return 5;
@@ -16,8 +16,8 @@ def main():
 	print("\n");
 	x = get_5();
 	y = 7;
-	// (x, y) = double_return();
-	print(x);
+	(x, y) = double_return();
+	print(x + y);
 	print("\n");
-	print(y);
+	print((y + x) / 2);
 	print("\n");
