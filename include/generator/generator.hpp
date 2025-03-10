@@ -270,13 +270,13 @@ class Generator {
         IR() = delete;
 
         /// @function `add_and_or_get_type`
-        /// @brief Checks if a given return type of a given FunctionNode already exists. If it exists, it returns a reference to it, if it
+        /// @brief Checks if a given return type of a given types list already exists. If it exists, it returns a reference to it, if it
         /// does not exist it creates it and then returns a reference to the created StructType
         ///
         /// @param `context` The LLVM context
-        /// @param `function_node` The FunctionNode whose return types will be analyzed
-        /// @return `llvm::StructType *` The reference to the StructType, representing the return type of the given function
-        static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node);
+        /// @param `types` The list of types to get or set the struct type from
+        /// @return `llvm::StructType *` The reference to the StructType, representing the return type of the types map
+        static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const std::vector<std::string> &types);
 
         /// @function `generate_forward_declarations`
         /// @brief Generates the forward-declarations of all constructs in the given FileNode, except the 'use' constructs to make another

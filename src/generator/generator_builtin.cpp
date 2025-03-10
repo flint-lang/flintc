@@ -9,7 +9,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     FunctionNode function_node = FunctionNode(false, false, "main_custom", parameters, return_types, scope);
 
     // Create the declaration of the custom main function
-    llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(&builder->getContext(), &function_node);
+    llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(&builder->getContext(), function_node.return_types);
     llvm::FunctionType *custom_main_type = Function::generate_function_type(module->getContext(), &function_node);
     llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction("main_custom", custom_main_type);
 
@@ -285,11 +285,10 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     builder->CreateStore(zero, counter);
 
     // Create the return struct of the test call. It only needs to be allocated once and will be reused by all test calls
-    FunctionNode empty_function{};
-    llvm::AllocaInst *test_alloca = builder->CreateAlloca(               //
-        IR::add_and_or_get_type(&module->getContext(), &empty_function), //
-        nullptr,                                                         //
-        "test_alloca"                                                    //
+    llvm::AllocaInst *test_alloca = builder->CreateAlloca(  //
+        IR::add_and_or_get_type(&module->getContext(), {}), //
+        nullptr,                                            //
+        "test_alloca"                                       //
     );
 
     // Go through all files for all tests
@@ -393,14 +392,11 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 }
 
 llvm::Function *Generator::Builtin::generate_test_function(llvm::Module *module, const TestNode *test_node) {
-    // Create the functions return type, which is a struct containing only one value, the error value
-    FunctionNode fn{};
-    // Use the function of the IR class to not unnecessarily create an additional type to the one that already exists
-    llvm::StructType *return_type = IR::add_and_or_get_type(&module->getContext(), &fn);
+    llvm::StructType *void_type = IR::add_and_or_get_type(&module->getContext(), {});
 
     // Create the function type
     llvm::FunctionType *test_type = llvm::FunctionType::get( //
-        return_type,                                         // return { i32 }
+        void_type,                                           // return { i32 }
         {},                                                  // takes nothing
         false                                                // no vararg
     );

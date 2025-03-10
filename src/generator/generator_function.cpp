@@ -2,7 +2,7 @@
 #include "generator/generator.hpp"
 
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {
-    llvm::Type *return_types = IR::add_and_or_get_type(&context, function_node);
+    llvm::Type *return_types = IR::add_and_or_get_type(&context, function_node->return_types);
 
     // Get the parameter types
     std::vector<llvm::Type *> param_types_vec;

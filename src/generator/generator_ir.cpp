@@ -4,38 +4,38 @@
 
 #include "lexer/lexer_utils.hpp"
 
-llvm::StructType *Generator::IR::add_and_or_get_type(llvm::LLVMContext *context, const FunctionNode *function_node) {
-    std::string return_types;
-    for (auto return_it = function_node->return_types.begin(); return_it < function_node->return_types.end(); ++return_it) {
-        return_types.append(*return_it);
-        if (std::distance(return_it, function_node->return_types.end()) > 1) {
-            return_types.append("_");
+llvm::StructType *Generator::IR::add_and_or_get_type(llvm::LLVMContext *context, const std::vector<std::string> &types) {
+    std::string types_str;
+    for (auto it = types.begin(); it < types.end(); ++it) {
+        types_str.append(*it);
+        if (std::distance(it, types.end()) > 1) {
+            types_str.append("_");
         }
     }
-    if (return_types == "") {
-        return_types = "void";
+    if (types_str == "") {
+        types_str = "void";
     }
-    if (type_map.find(return_types) != type_map.end()) {
-        return type_map[return_types];
+    if (type_map.find(types_str) != type_map.end()) {
+        return type_map[types_str];
     }
 
     // Get the return types
-    std::vector<llvm::Type *> return_types_vec;
-    return_types_vec.reserve(function_node->return_types.size() + 1);
+    std::vector<llvm::Type *> types_vec;
+    types_vec.reserve(types.size() + 1);
     // First element is always the error code (i32)
-    return_types_vec.push_back(llvm::Type::getInt32Ty(*context));
+    types_vec.push_back(llvm::Type::getInt32Ty(*context));
     // Rest of the elements are the return types
-    for (const auto &ret_value : function_node->return_types) {
-        return_types_vec.emplace_back(get_type_from_str(*context, ret_value));
+    for (const auto &ret_value : types) {
+        types_vec.emplace_back(get_type_from_str(*context, ret_value));
     }
-    llvm::ArrayRef<llvm::Type *> return_types_arr(return_types_vec);
-    type_map[return_types] = llvm::StructType::create( //
-        *context,                                      //
-        return_types_arr,                              //
-        "type_" + return_types,                        //
-        true                                           //
+    llvm::ArrayRef<llvm::Type *> return_types_arr(types_vec);
+    type_map[types_str] = llvm::StructType::create( //
+        *context,                                   //
+        return_types_arr,                           //
+        "type_" + types_str,                        //
+        true                                        //
     );
-    return type_map[return_types];
+    return type_map[types_str];
 }
 
 void Generator::IR::generate_forward_declarations(llvm::Module *module, const FileNode &file_node) {
