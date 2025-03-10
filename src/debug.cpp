@@ -282,7 +282,10 @@ namespace Debug {
 
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call) {
             Local::print_header(indent_lvl, empty, "Call ");
-            std::cout << "'" << call.function_name << "' with args";
+            std::cout << "'" << call.function_name << "'";
+            if (!call.arguments.empty()) {
+                std::cout << " with args";
+            }
             std::cout << std::endl;
             unsigned int counter = 0;
             for (const auto &arg : call.arguments) {
@@ -427,6 +430,30 @@ namespace Debug {
             print_body(indent_lvl + 1, empty, catch_node.scope->body);
         }
 
+        void print_group_assignment(unsigned int indent_lvl, uint2 empty, const GroupAssignmentNode &assign) {
+            Local::print_header(indent_lvl, empty, "Group Assign ");
+            std::cout << "(";
+            for (auto it = assign.assignees.begin(); it != assign.assignees.end(); ++it) {
+                if (it != assign.assignees.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << it->second;
+            }
+            std::cout << ") of types (";
+            for (auto it = assign.assignees.begin(); it != assign.assignees.end(); ++it) {
+                if (it != assign.assignees.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << it->first;
+            }
+            std::cout << ") to be";
+            std::cout << std::endl;
+
+            empty.first++;
+            empty.second = indent_lvl + 2;
+            print_expression(++indent_lvl, empty, assign.expression);
+        }
+
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign) {
             Local::print_header(indent_lvl, empty, "Assign ");
             std::cout << "'" << assign.name << "' to be";
@@ -462,6 +489,8 @@ namespace Debug {
                 print_while(indent_lvl, empty, *while_node);
             } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
                 print_for(indent_lvl, empty, *for_node);
+            } else if (const auto *group_assignment = dynamic_cast<const GroupAssignmentNode *>(statement.get())) {
+                print_group_assignment(indent_lvl, empty, *group_assignment);
             } else if (const auto *assignment = dynamic_cast<const AssignmentNode *>(statement.get())) {
                 print_assignment(indent_lvl, empty, *assignment);
             } else if (const auto *declaration = dynamic_cast<const DeclarationNode *>(statement.get())) {

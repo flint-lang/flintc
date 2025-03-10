@@ -332,6 +332,63 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     return std::make_unique<CatchNode>(err_var, body_scope, last_call_id);
 }
 
+std::optional<std::unique_ptr<GroupAssignmentNode>> Parser::create_group_assignment(Scope *scope, token_list &tokens) {
+    // Remove all leading whitespaces
+    for (auto it = tokens.begin(); it != tokens.end();) {
+        if (it->type != TOK_INDENT && it->type != TOK_EOL) {
+            break;
+        }
+        tokens.erase(it);
+    }
+    assert(!tokens.empty());
+    // Now a left paren is expected as the start of the group assignment
+    if (tokens.at(0).type != TOK_LEFT_PAREN) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Remove the left paren
+    tokens.erase(tokens.begin());
+    // Extract all assignees, we expect assingees to follow the strict pattern of: \( (\W+,)+ \W \)
+    // or if you're super correct with the regex it matches this exact pattern: \(\W*(\w+\W*,\W*)+\w+\W*\)
+    std::vector<std::pair<std::string, std::string>> assignees;
+    unsigned int index = 0;
+    for (auto it = tokens.begin(); it != tokens.end(); it += 2) {
+        // The next element has to be either a comma or the right paren
+        if (std::next(it) == tokens.end() || (std::next(it)->type != TOK_COMMA && std::next(it)->type != TOK_RIGHT_PAREN)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        // This element is the assignee
+        if (scope->variable_types.find(it->lexme) == scope->variable_types.end()) {
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+            return std::nullopt;
+        }
+        const std::string &expected_type = scope->variable_types.at(it->lexme).first;
+        assignees.emplace_back(expected_type, it->lexme);
+        index += 2;
+        if (std::next(it)->type == TOK_RIGHT_PAREN) {
+            break;
+        }
+    }
+    // Erase all the assignment tokens
+    tokens.erase(tokens.begin(), tokens.begin() + index);
+    // Now the first token should be an equals token
+    if (tokens.at(0).type != TOK_EQUAL) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Remove the equal sign
+    tokens.erase(tokens.begin());
+    // The rest of the tokens now is the expression
+    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, tokens);
+    if (!expr.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+    std::unique_ptr<GroupAssignmentNode> group_assignment = std::make_unique<GroupAssignmentNode>(assignees, expr.value());
+    return group_assignment;
+}
+
 std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *scope, token_list &tokens) {
     auto iterator = tokens.begin();
     while (iterator != tokens.end()) {
@@ -497,6 +554,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
+    } else if (Signature::tokens_contain(tokens, Signature::group_assignment)) {
+        std::optional<std::unique_ptr<GroupAssignmentNode>> assign = create_group_assignment(scope, tokens);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::move(assign.value());
     } else if (Signature::tokens_contain(tokens, Signature::assignment)) {
         std::optional<std::unique_ptr<AssignmentNode>> assign = create_assignment(scope, tokens);
         if (!assign.has_value()) {

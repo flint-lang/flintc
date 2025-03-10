@@ -22,6 +22,7 @@
 #include "ast/statements/call_node_statement.hpp"
 #include "ast/statements/declaration_node.hpp"
 #include "ast/statements/for_loop_node.hpp"
+#include "ast/statements/group_assignment_node.hpp"
 #include "ast/statements/if_node.hpp"
 #include "ast/statements/return_node.hpp"
 #include "ast/statements/statement_node.hpp"
@@ -543,6 +544,14 @@ class Parser {
         token_list &body,                                       //
         std::vector<std::unique_ptr<StatementNode>> &statements //
     );
+
+    /// @function `create_group_assignment`
+    /// @brief Creates an GroupAssignmentNode from the given list of tokens
+    ///
+    /// @param `scope` The scope in which the assignment is defined
+    /// @param `tokens` The list of tokens representing the assignment
+    /// @return `std::optional<std::unique_ptr<GroupAssignmentNode>>` An optional unique pointer to the created GroupAssignmentNode
+    std::optional<std::unique_ptr<GroupAssignmentNode>> create_group_assignment(Scope *scope, token_list &tokens);
 
     /// @function `create_assignment`
     /// @brief Creates an AssignmentNode from the given list of tokens

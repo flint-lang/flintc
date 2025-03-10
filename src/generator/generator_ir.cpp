@@ -9,7 +9,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type(llvm::LLVMContext *context,
     for (auto return_it = function_node->return_types.begin(); return_it < function_node->return_types.end(); ++return_it) {
         return_types.append(*return_it);
         if (std::distance(return_it, function_node->return_types.end()) > 1) {
-            return_types.append(",");
+            return_types.append("_");
         }
     }
     if (return_types == "") {
