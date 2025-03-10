@@ -302,6 +302,46 @@ class Parser {
         return ot;
     }
 
+    /// @function `remove_leading_garbage`
+    /// @brief Removes all leading garbage, such as indentation or eol characters from the list of tokens
+    ///
+    /// @param `tokens` The tokens in which to remove all leading garbage
+    static void remove_leading_garbage(token_list &tokens) {
+        for (auto it = tokens.begin(); it != tokens.end();) {
+            if (it->type == TOK_INDENT || it->type == TOK_EOL) {
+                tokens.erase(it);
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// @function `remove_trailing_garbage`
+    /// @brief Removes all trailing garbage, such as indentation, eol characters or semicolons from the list of tokens
+    ///
+    /// @param `tokens` The tokens in which to remove all trailing garbage
+    static void remove_trailing_garbage(token_list &tokens) {
+        for (auto it = tokens.rbegin(); it != tokens.rend();) {
+            if (it->type == TOK_INDENT || it->type == TOK_EOL || it->type == TOK_SEMICOLON) {
+                ++it;
+                tokens.erase(std::prev(it).base());
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// @function `remove_surrounding_paren`
+    /// @brief Removes surrounding parenthesis of the given token list if they are at the begin and the end
+    ///
+    /// @param `tokens` The tokens in which to remove the surrounding parens, if they exist
+    static void remove_surrounding_paren(token_list &tokens) {
+        if (tokens.begin()->type == TOK_LEFT_PAREN && std::prev(tokens.end())->type == TOK_RIGHT_PAREN) {
+            tokens.erase(tokens.begin());
+            tokens.pop_back();
+        }
+    }
+
     /**************************************************************************************************************************************
      * @region `Util`
      * @brief This region is responsible for priving common functionality

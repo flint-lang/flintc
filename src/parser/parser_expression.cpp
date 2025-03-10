@@ -23,6 +23,7 @@ std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_li
 }
 
 std::optional<UnaryOpExpression> Parser::create_unary_op_expression(Scope *scope, token_list &tokens) {
+    remove_surrounding_paren(tokens);
     auto unary_op_values = create_unary_op_base(scope, tokens);
     if (!unary_op_values.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -74,6 +75,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
 }
 
 std::optional<std::unique_ptr<CallNodeExpression>> Parser::create_call_expression(Scope *scope, token_list &tokens) {
+    remove_surrounding_paren(tokens);
     auto call_node_args = create_call_base(scope, tokens);
     if (!call_node_args.has_value()) {
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens);
@@ -89,6 +91,7 @@ std::optional<std::unique_ptr<CallNodeExpression>> Parser::create_call_expressio
 }
 
 std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &tokens) {
+    remove_surrounding_paren(tokens);
     unsigned int first_operator_idx = 0;
     unsigned int second_operator_idx = 0;
     Token first_operator_token = Token::TOK_EOL;
@@ -176,6 +179,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
 }
 
 std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &tokens) {
+    remove_surrounding_paren(tokens);
     std::optional<uint2> expr_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
     if (!expr_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -231,18 +235,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
     token_list expr_tokens = clone_from_to(0, tokens.size(), tokens);
     // remove trailing semicolons
-    for (auto iterator = expr_tokens.rbegin(); iterator != expr_tokens.rend(); ++iterator) {
-        if (iterator->type == TOK_SEMICOLON) {
-            expr_tokens.erase(std::next(iterator).base());
-        } else {
-            break;
-        }
-    }
+    remove_trailing_garbage(expr_tokens);
     // remove surrounding parenthesis when the first and last token are '(' and ')'
-    if (expr_tokens.begin()->type == TOK_LEFT_PAREN && expr_tokens.at(expr_tokens.size() - 1).type == TOK_RIGHT_PAREN) {
-        expr_tokens.erase(expr_tokens.begin());
-        expr_tokens.pop_back();
-    }
 
     // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
     if (Signature::tokens_contain(expr_tokens, Signature::function_call)) {

@@ -291,25 +291,8 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base(Scope *scope, token_list &tokens) {
-    // The unary operator can either be at the beginning of the operation or at the end, but for that all unnecessary leading and trailing
-    // tokens need to be removed
-    // Remove all unnecessary leading tokens
-    for (auto it = tokens.begin(); it != tokens.end();) {
-        if (it->type == TOK_INDENT || it->type == TOK_EOL) {
-            tokens.erase(it);
-        } else {
-            break;
-        }
-    }
-    // Remove all unnecessary trailing tokens
-    for (auto it = tokens.rbegin(); it != tokens.rend();) {
-        if (it->type == TOK_INDENT || it->type == TOK_EOL || it->type == TOK_SEMICOLON || it->type == TOK_COLON) {
-            ++it;
-            tokens.erase(std::prev(it).base());
-        } else {
-            break;
-        }
-    }
+    remove_leading_garbage(tokens);
+    remove_trailing_garbage(tokens);
     // For an unary operator to work, the tokens now must have at least two tokens
     if (tokens.size() < 2) {
         THROW_BASIC_ERR(ERR_PARSING);

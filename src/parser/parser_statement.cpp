@@ -333,13 +333,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 }
 
 std::optional<std::unique_ptr<GroupAssignmentNode>> Parser::create_group_assignment(Scope *scope, token_list &tokens) {
-    // Remove all leading whitespaces
-    for (auto it = tokens.begin(); it != tokens.end();) {
-        if (it->type != TOK_INDENT && it->type != TOK_EOL) {
-            break;
-        }
-        tokens.erase(it);
-    }
+    remove_leading_garbage(tokens);
     assert(!tokens.empty());
     // Now a left paren is expected as the start of the group assignment
     if (tokens.at(0).type != TOK_LEFT_PAREN) {
