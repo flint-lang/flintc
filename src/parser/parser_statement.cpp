@@ -411,8 +411,8 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
     return std::nullopt;
 }
 
-std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_list &tokens, const bool is_infered, const bool has_rhs) {
-    assert(!(is_infered && !has_rhs));
+std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_list &tokens, const bool is_inferred, const bool has_rhs) {
+    assert(!(is_inferred && !has_rhs));
 
     std::optional<DeclarationNode> declaration = std::nullopt;
     std::string type;
@@ -421,20 +421,14 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
     token_list lhs_tokens;
     if (has_rhs) {
         const Signature::signature lhs = Signature::match_until_signature({"(", TOK_EQUAL, "|", TOK_COLON_EQUAL, ")"});
-        uint2 lhs_range = Signature::get_match_ranges(tokens, lhs).at(0);
+        uint2 lhs_range = Signature::get_next_match_range(tokens, lhs).value();
         lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
     } else {
         lhs_tokens = tokens;
     }
 
     // Remove all \n and \t from the lhs tokens
-    for (auto it = lhs_tokens.begin(); it != lhs_tokens.end();) {
-        if (it->type == TOK_INDENT || it->type == TOK_EOL) {
-            it = lhs_tokens.erase(it);
-        } else {
-            ++it;
-        }
-    }
+    remove_leading_garbage(lhs_tokens);
 
     if (!has_rhs) {
         for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
@@ -465,7 +459,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
         return std::nullopt;
     }
 
-    if (is_infered) {
+    if (is_inferred) {
         auto expr = create_expression(scope, tokens);
         if (!expr.has_value()) {
             THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
@@ -534,7 +528,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
-    } else if (Signature::tokens_contain(tokens, Signature::declaration_infered)) {
+    } else if (Signature::tokens_contain(tokens, Signature::declaration_inferred)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, true, true);
         if (!decl.has_value()) {
             THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
@@ -635,9 +629,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             if (!next_line_range.has_value()) {
                 break;
             }
-            // Check if the definition contains a 'else if' or 'else' statement. It cannot only contain a 'if' statement, as this then will
-            // be part of its own IfNode and not part of this if-chain! This can be simplified to just check if the definition contains a
-            // 'else' statement
+            // Check if the definition contains a 'else if' or 'else' statement. It cannot only contain a 'if' statement, as this then
+            // will be part of its own IfNode and not part of this if-chain! This can be simplified to just check if the definition
+            // contains a 'else' statement
             if (!Signature::tokens_contain_in_range(body, {TOK_ELSE}, next_line_range.value())) {
                 break;
             }

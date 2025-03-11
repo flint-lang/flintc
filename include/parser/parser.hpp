@@ -615,10 +615,10 @@ class Parser {
     ///
     /// @param `scope` The scope in which the declaration is defined
     /// @param `tokens` The list of tokens representing the declaration
-    /// @param `is_infered` Determines whether the type of the declared variable is infered
+    /// @param `is_inferred` Determines whether the type of the declared variable is inferred
     /// @param `has_rhs` Determines whether the declaration even has a rhs
-    /// @return `std::optional<std::unique_ptr<DeclarationNode>>` An optional unique pointer to the created DeclarationNode
-    std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool is_infered, const bool has_rhs);
+    /// @return `std::optional<DeclarationNode>` An optional DeclarationNode, if creation was sucessfull
+    std::optional<DeclarationNode> create_declaration(Scope *scope, token_list &tokens, const bool is_inferred, const bool has_rhs);
 
     /// @function `create_unary_op_statement`
     /// @brief Creates a UnaryOpStatement from the given tokens

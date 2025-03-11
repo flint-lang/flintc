@@ -85,10 +85,21 @@ namespace Signature {
         {"("}, entity_body_data, {")?("}, anytoken, {")*("}, entity_body_func, {")?("}, anytoken, {")*("}, entity_body_links, {")?("},
         anytoken, {")*"}, entity_body_constructor});
 
+    // --- EXPRESSIONS ---
+    const signature expression = combine({{"("}, anytoken, {")*"}});
+    const signature group_expression = combine({{TOK_LEFT_PAREN}, expression, {TOK_COMMA}, expression, {TOK_RIGHT_PAREN}});
+    const signature function_call = combine({{TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, expression, {")?", TOK_RIGHT_PAREN}});
+    const signature type_cast = combine({type_prim, {TOK_LEFT_PAREN, "("}, expression, {")", TOK_RIGHT_PAREN}});
+    const signature bin_op_expr = combine({expression, binary_operator, expression});
+    const signature unary_op_expr = combine({{"(("}, expression, unary_operator, {")|("}, unary_operator, expression, {"))"}});
+    const signature literal_expr = combine({//
+        {"(("}, literal, {"("}, binary_operator, literal, {")*)|("}, unary_operator, literal, {")|("}, literal, unary_operator, {"))"}});
+    const signature variable_expr = {TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
+
     // --- STATEMENTS ---
     const signature declaration_without_initializer = combine({type, {TOK_IDENTIFIER, TOK_SEMICOLON}});
     const signature declaration_explicit = combine({type, {TOK_IDENTIFIER, TOK_EQUAL}});
-    const signature declaration_infered = {TOK_IDENTIFIER, TOK_COLON_EQUAL};
+    const signature declaration_inferred = {TOK_IDENTIFIER, TOK_COLON_EQUAL};
     const signature assignment = {TOK_IDENTIFIER, TOK_EQUAL};
     const signature group_assignment = combine({{TOK_LEFT_PAREN}, match_until_signature({TOK_RIGHT_PAREN}), {TOK_EQUAL}});
     const signature for_loop = combine({//
@@ -103,17 +114,6 @@ namespace Signature {
     const signature else_statement = combine({{TOK_ELSE}, match_until_signature({TOK_COLON})});
     const signature return_statement = combine({{TOK_RETURN}, match_until_signature({TOK_SEMICOLON})});
     const signature throw_statement = combine({{TOK_THROW}, match_until_signature({TOK_SEMICOLON})});
-
-    // --- EXPRESSIONS ---
-    const signature expression = combine({{"("}, anytoken, {")*"}});
-    const signature group_expression = combine({{TOK_LEFT_PAREN}, expression, {TOK_COMMA}, expression, {TOK_RIGHT_PAREN}});
-    const signature function_call = combine({{TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, expression, {")?", TOK_RIGHT_PAREN}});
-    const signature type_cast = combine({type_prim, {TOK_LEFT_PAREN, "("}, expression, {")", TOK_RIGHT_PAREN}});
-    const signature bin_op_expr = combine({expression, binary_operator, expression});
-    const signature unary_op_expr = combine({{"(("}, expression, unary_operator, {")|("}, unary_operator, expression, {"))"}});
-    const signature literal_expr = combine({//
-        {"(("}, literal, {"("}, binary_operator, literal, {")*)|("}, unary_operator, literal, {")|("}, literal, unary_operator, {"))"}});
-    const signature variable_expr = {TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
 
     // --- ERROR HANDLING --- (requires function_call to be defined)
     const signature catch_statement = combine({function_call, {TOK_CATCH, "(", TOK_IDENTIFIER, ")?", TOK_COLON}});
