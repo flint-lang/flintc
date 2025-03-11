@@ -3,42 +3,8 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "lexer/lexer_utils.hpp"
-#include "parser/parser.hpp"
-#include "result.hpp"
-#include "types.hpp"
-
-#include "parser/ast/definitions/data_node.hpp"
-#include "parser/ast/definitions/entity_node.hpp"
-#include "parser/ast/definitions/enum_node.hpp"
-#include "parser/ast/definitions/error_node.hpp"
-#include "parser/ast/definitions/func_node.hpp"
-#include "parser/ast/definitions/function_node.hpp"
-#include "parser/ast/definitions/import_node.hpp"
-#include "parser/ast/definitions/link_node.hpp"
-#include "parser/ast/definitions/test_node.hpp"
-#include "parser/ast/definitions/variant_node.hpp"
-
-#include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/ast/expressions/call_node_expression.hpp"
-#include "parser/ast/expressions/expression_node.hpp"
-#include "parser/ast/expressions/literal_node.hpp"
-#include "parser/ast/expressions/type_cast_node.hpp"
-#include "parser/ast/expressions/variable_node.hpp"
-
-#include "parser/ast/statements/assignment_node.hpp"
-#include "parser/ast/statements/catch_node.hpp"
-#include "parser/ast/statements/declaration_node.hpp"
-#include "parser/ast/statements/for_loop_node.hpp"
-#include "parser/ast/statements/if_node.hpp"
-#include "parser/ast/statements/return_node.hpp"
-#include "parser/ast/statements/statement_node.hpp"
-#include "parser/ast/statements/throw_node.hpp"
-#include "parser/ast/statements/while_node.hpp"
-
-#include "parser/ast/call_node_base.hpp"
-#include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
-#include "parser/ast/unary_op_base.hpp"
+#include "parser/parser.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -483,6 +449,22 @@ namespace Debug {
             print_expression(++indent_lvl, empty, assign.expression);
         }
 
+        void print_group_declaration(unsigned int indent_lvl, uint2 empty, const GroupDeclarationNode &decl) {
+            Local::print_header(indent_lvl, empty, "Group Decl");
+            std::cout << "of type (";
+            for (auto it = decl.variables.begin(); it != decl.variables.end(); ++it) {
+                if (it != decl.variables.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << it->first;
+            }
+            std::cout << ") to be" << std::endl;
+
+            empty.first++;
+            empty.second = indent_lvl + 2;
+            print_expression(++indent_lvl, empty, decl.initializer);
+        }
+
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl) {
             Local::print_header(indent_lvl, empty, "Decl ");
             std::cout << "'" << decl.type << " ";
@@ -512,6 +494,8 @@ namespace Debug {
                 print_group_assignment(indent_lvl, empty, *group_assignment);
             } else if (const auto *assignment = dynamic_cast<const AssignmentNode *>(statement.get())) {
                 print_assignment(indent_lvl, empty, *assignment);
+            } else if (const auto *group_declaration = dynamic_cast<const GroupDeclarationNode *>(statement.get())) {
+                print_group_declaration(indent_lvl, empty, *group_declaration);
             } else if (const auto *declaration = dynamic_cast<const DeclarationNode *>(statement.get())) {
                 print_declaration(indent_lvl, empty, *declaration);
             } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement.get())) {

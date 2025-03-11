@@ -411,6 +411,92 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
     return std::nullopt;
 }
 
+std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scope, token_list &tokens) {
+    std::optional<GroupDeclarationNode> declaration = std::nullopt;
+    std::vector<std::pair<std::string, std::string>> variables;
+
+    std::optional<uint2> lhs_range = Signature::get_next_match_range(tokens, Signature::match_until_signature({TOK_COLON_EQUAL}));
+    if (!lhs_range.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    token_list lhs_tokens = extract_from_to(lhs_range.value().first, lhs_range.value().second, tokens);
+
+    remove_leading_garbage(lhs_tokens);
+    // The last token now should be the COLON_EQUAL
+    assert(lhs_tokens.back().type == TOK_COLON_EQUAL);
+    lhs_tokens.pop_back();
+    remove_surrounding_paren(lhs_tokens);
+    while (!lhs_tokens.empty()) {
+        std::optional<uint2> var_range = Signature::get_next_match_range(lhs_tokens, Signature::match_until_signature({TOK_COMMA}));
+        if (!var_range.has_value()) {
+            // The whole lhs tokens is the last variable
+            assert(lhs_tokens.back().type == TOK_IDENTIFIER);
+            variables.emplace_back("", lhs_tokens.back().lexme);
+            break;
+        } else {
+            token_list var_tokens = extract_from_to(var_range.value().first, var_range.value().second, lhs_tokens);
+            // The last token now should be the comma
+            assert(var_tokens.back().type == TOK_COMMA);
+            var_tokens.pop_back();
+            // The last element is the variable name now
+            assert(var_tokens.back().type == TOK_IDENTIFIER);
+            variables.emplace_back("", var_tokens.back().lexme);
+        }
+    }
+    // Now parse the expression (rhs)
+    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, tokens);
+    if (!expression.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+    if (const auto call_node = dynamic_cast<const CallNodeExpression *>(expression.value().get())) {
+        std::vector<std::string> arg_types;
+        for (const auto &arg : call_node->arguments) {
+            arg_types.emplace_back(arg->type);
+        }
+        auto found_function = get_function_from_call(call_node->function_name, arg_types);
+        if (!found_function.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (found_function.value().first->return_types.size() != variables.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        unsigned int id = 0;
+        for (const auto &ret_type : found_function.value().first->return_types) {
+            variables[id].first = ret_type;
+            if (!scope->add_variable_type(variables[id].second, ret_type, scope->scope_id)) {
+                // Variable shadowing
+                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, variables[id].second);
+                return std::nullopt;
+            }
+            id++;
+        }
+    } else if (const auto group_node = dynamic_cast<const GroupExpressionNode *>(expression.value().get())) {
+        if (group_node->expressions.size() != variables.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        unsigned int id = 0;
+        for (const auto &expr : group_node->expressions) {
+            variables[id].first = expr->type;
+            if (!scope->add_variable_type(variables[id].second, expr->type, scope->scope_id)) {
+                // Variable shadowing
+                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, variables[id].second);
+                return std::nullopt;
+            }
+            id++;
+        }
+    } else {
+        // RHS of group declaration is not a group
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    return GroupDeclarationNode(variables, expression.value());
+}
+
 std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_list &tokens, const bool is_inferred, const bool has_rhs) {
     assert(!(is_inferred && !has_rhs));
 
@@ -521,7 +607,14 @@ std::optional<UnaryOpStatement> Parser::create_unary_op_statement(Scope *scope, 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, token_list &tokens) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
-    if (Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
+    if (Signature::tokens_contain(tokens, Signature::group_declaration_inferred)) {
+        std::optional<GroupDeclarationNode> group_decl = create_group_declaration(scope, tokens);
+        if (!group_decl.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<GroupDeclarationNode>(std::move(group_decl.value()));
+    } else if (Signature::tokens_contain(tokens, Signature::declaration_explicit)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false, true);
         if (!decl.has_value()) {
             THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);

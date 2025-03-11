@@ -1,6 +1,5 @@
 #pragma once
 
-#include "parser/ast/statements/unary_op_statement.hpp"
 #include "types.hpp"
 
 #include "ast/call_node_base.hpp"
@@ -23,10 +22,12 @@
 #include "ast/statements/declaration_node.hpp"
 #include "ast/statements/for_loop_node.hpp"
 #include "ast/statements/group_assignment_node.hpp"
+#include "ast/statements/group_declaration_node.hpp"
 #include "ast/statements/if_node.hpp"
 #include "ast/statements/return_node.hpp"
 #include "ast/statements/statement_node.hpp"
 #include "ast/statements/while_node.hpp"
+#include "parser/ast/statements/unary_op_statement.hpp"
 
 #include "ast/expressions/binary_op_node.hpp"
 #include "ast/expressions/call_node_expression.hpp"
@@ -609,6 +610,16 @@ class Parser {
     /// @param `tokens` The list of tokens representing the assignment
     /// @return `std::optional<std::unique_ptr<AssignmentNode>>` An optional unique pointer to the created AssignmentNode
     std::optional<std::unique_ptr<AssignmentNode>> create_assignment(Scope *scope, token_list &tokens);
+
+    /// @function `create_group_declaration`
+    /// @brief Creates a GroupDeclarationNode from the given list of tokens
+    ///
+    /// @param `scope` The scope in which the group declaration is defined
+    /// @param `tokens` The list of tokens representing the group declaration
+    /// @return `std::optional<GroupDeclarationNode>` An optional GroupDeclarationNode, if creation was sucessfull
+    ///
+    /// @note A group declaration is _always_ inferred and cannot be not inferred
+    std::optional<GroupDeclarationNode> create_group_declaration(Scope *scope, token_list &tokens);
 
     /// @function `create_declaration`
     /// @brief Creates a DeclarationNode from the given list of tokens

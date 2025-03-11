@@ -4,19 +4,8 @@
 def double_return() -> (i32, i32):
 	return (3, 4);
 
-def get_5() -> i32:
-	return 5;
-
 def main():
-	i32 x;
-	i32 y;
-	print(x);
-	print(", ");
-	print(y);
-	print("\n");
-	x = get_5();
-	y = 7;
-	(x, y) = double_return();
+	(x, y) := double_return();
 	print(x);
 	print(", ");
 	print(y);

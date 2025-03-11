@@ -97,6 +97,8 @@ namespace Signature {
     const signature variable_expr = {TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
 
     // --- STATEMENTS ---
+    const signature group_declaration_inferred = combine({//
+        {TOK_LEFT_PAREN}, expression, {TOK_COMMA}, expression, {TOK_RIGHT_PAREN, TOK_COLON_EQUAL}});
     const signature declaration_without_initializer = combine({type, {TOK_IDENTIFIER, TOK_SEMICOLON}});
     const signature declaration_explicit = combine({type, {TOK_IDENTIFIER, TOK_EQUAL}});
     const signature declaration_inferred = {TOK_IDENTIFIER, TOK_COLON_EQUAL};

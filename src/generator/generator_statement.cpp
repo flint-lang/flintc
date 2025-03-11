@@ -29,6 +29,8 @@ void Generator::Statement::generate_statement(                             //
         generate_group_assignment(builder, parent, scope, allocations, group_assignment_node);
     } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement.get())) {
         generate_assignment(builder, parent, scope, allocations, assignment_node);
+        // } else if (const auto *group_declaration_node = dynamic_cast<const GroupDeclarationNode *>(statement.get())) {
+        //     generate_group_declaration();
     } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement.get())) {
         generate_declaration(builder, parent, scope, allocations, declaration_node);
     } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement.get())) {
