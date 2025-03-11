@@ -257,6 +257,10 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
                     return std::nullopt;
                 }
                 token_list expr_tokens = extract_from_to(expr_range.value().first, expr_range.value().second, tokens);
+                // If the last token is a comma, it is removed
+                if (expr_tokens.back().type == TOK_COMMA) {
+                    expr_tokens.pop_back();
+                }
                 auto expr = create_expression(scope, expr_tokens);
                 if (!expr.has_value()) {
                     THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
@@ -294,7 +298,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     token_list expr_tokens = clone_from_to(0, tokens.size(), tokens);
     // remove trailing semicolons
     remove_trailing_garbage(expr_tokens);
-    // remove surrounding parenthesis when the first and last token are '(' and ')'
 
     // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
     if (Signature::tokens_contain(expr_tokens, Signature::function_call)) {

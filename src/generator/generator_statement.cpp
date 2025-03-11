@@ -1,8 +1,11 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
+#include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/statements/call_node_statement.hpp"
+#include "llvm/IR/Instructions.h"
+#include <string>
 
 void Generator::Statement::generate_statement(                             //
     llvm::IRBuilder<> &builder,                                            //
@@ -22,6 +25,8 @@ void Generator::Statement::generate_statement(                             //
         generate_while_loop(builder, parent, allocations, while_node);
     } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
         generate_for_loop(builder, parent, allocations, for_node);
+    } else if (const auto *group_assignment_node = dynamic_cast<const GroupAssignmentNode *>(statement.get())) {
+        generate_group_assignment(builder, parent, scope, allocations, group_assignment_node);
     } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement.get())) {
         generate_assignment(builder, parent, scope, allocations, assignment_node);
     } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement.get())) {
@@ -79,13 +84,47 @@ void Generator::Statement::generate_return_statement(                      //
             THROW_BASIC_ERR(ERR_GENERATING);
         }
 
-        // Store the return value in the struct (at index 1)
-        llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "val_ptr");
-        llvm::StoreInst *value_store = builder.CreateStore(return_value, value_ptr);
-        value_store->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(),
-                    "Store result of expr '" + return_value->getName().str() + "' in '" + value_store->getName().str() + "'")));
+        // Check if the return value is a group or a single value
+        if (const auto *group_expression = dynamic_cast<const GroupExpressionNode *>(return_node->return_value.get())) {
+            const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g::" + std::to_string(group_expression->group_id);
+            llvm::AllocaInst *const alloca = allocations.at(alloca_name);
+            std::vector<std::string> types;
+            for (const auto &expr : group_expression->expressions) {
+                types.emplace_back(expr->type);
+            }
+            llvm::StructType *group_type = IR::add_and_or_get_type(&builder.getContext(), types, false);
+            unsigned int ret_id = 0;
+            for (const auto &type : types) {
+                llvm::Value *group_val_ptr = builder.CreateStructGEP( //
+                    group_type,                                       //
+                    alloca,                                           //
+                    ret_id,                                           //
+                    "group_val_" + std::to_string(ret_id) + "_ptr"    //
+                );
+                llvm::LoadInst *group_val = builder.CreateLoad(        //
+                    IR::get_type_from_str(builder.getContext(), type), //
+                    group_val_ptr,                                     //
+                    "group_val_" + std::to_string(ret_id)              //
+                );
+                llvm::Value *ret_val_ptr = builder.CreateStructGEP(return_struct_type, return_struct, ret_id + 1, //
+                    "ret_val_" + std::to_string(ret_id + 1) + "_ptr"                                              //
+                );
+                llvm::StoreInst *ret_val_store = builder.CreateStore(group_val, ret_val_ptr);
+                ret_val_store->setMetadata("comment",
+                    llvm::MDNode::get(parent->getContext(),
+                        llvm::MDString::get(parent->getContext(),
+                            "Store value of '" + group_val->getName().str() + "' of group in '" + return_struct->getName().str() + "'")));
+                ret_id++;
+            }
+        } else {
+            // Store the return value in the struct (at index 1)
+            llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "val_ptr");
+            llvm::StoreInst *value_store = builder.CreateStore(return_value, value_ptr);
+            value_store->setMetadata("comment",
+                llvm::MDNode::get(parent->getContext(),
+                    llvm::MDString::get(parent->getContext(),
+                        "Store result of expr '" + return_value->getName().str() + "' in '" + return_struct->getName().str() + "'")));
+        }
     }
 
     // Generate the return instruction with the evaluated value
@@ -527,6 +566,58 @@ void Generator::Statement::generate_declaration(                           //
     store->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
+}
+
+void Generator::Statement::generate_group_assignment(                      //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const GroupAssignmentNode *group_assignment                            //
+) {
+    Expression::generate_expression(builder, parent, scope, allocations, group_assignment->expression.get());
+    llvm::AllocaInst *expression_alloca;
+    // The returned value now should be a struct value
+    std::vector<std::string> types;
+    for (const auto &assign : group_assignment->assignees) {
+        types.emplace_back(assign.first);
+    }
+    // If the expression was a call, the "group_type" acutally is a "normal" function return type, and the elem_idx starts at 1!
+    const CallNodeExpression *call = dynamic_cast<const CallNodeExpression *>(group_assignment->expression.get());
+    const bool is_call = call != nullptr;
+    llvm::StructType *group_type = IR::add_and_or_get_type(&builder.getContext(), types, is_call);
+    unsigned int elem_idx = is_call ? 1 : 0;
+    if (is_call) {
+        // Load the correct value of the call from the expression_alloca
+        const std::string call_ret_name = "s" + std::to_string(call->scope_id) + "::c" + std::to_string(call->call_id) + "::ret";
+        expression_alloca = allocations.at(call_ret_name);
+    } else {
+        const GroupExpressionNode *group = dynamic_cast<const GroupExpressionNode *>(group_assignment->expression.get());
+        if (group == nullptr) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return;
+        }
+        // Load the allocation of the group into the expression_alloca
+        const std::string group_name = "s" + std::to_string(scope->scope_id) + "::g::" + std::to_string(group->group_id);
+        expression_alloca = allocations.at(group_name);
+    }
+    for (const auto &assign : group_assignment->assignees) {
+        const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + assign.second;
+        llvm::AllocaInst *const alloca = allocations.at(var_name);
+        llvm::Value *struct_pointer = builder.CreateStructGEP( //
+            group_type,                                        //
+            expression_alloca,                                 //
+            elem_idx,                                          //
+            "group_ptr_" + std::to_string(elem_idx)            //
+        );
+        llvm::LoadInst *elem_load = builder.CreateLoad(                //
+            IR::get_type_from_str(builder.getContext(), assign.first), //
+            struct_pointer,                                            //
+            "group_val_" + std::to_string(elem_idx)                    //
+        );
+        builder.CreateStore(elem_load, alloca);
+        elem_idx++;
+    }
 }
 
 void Generator::Statement::generate_assignment(                            //

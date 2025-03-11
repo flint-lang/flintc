@@ -5,6 +5,7 @@
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/unary_op_expression.hpp"
@@ -15,6 +16,7 @@
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
+#include "parser/ast/statements/group_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/throw_node.hpp"
@@ -275,8 +277,13 @@ class Generator {
         ///
         /// @param `context` The LLVM context
         /// @param `types` The list of types to get or set the struct type from
+        /// @param `is_return_type` Whether the StructType is a return type (if it is, it has one return value more, the error return value)
         /// @return `llvm::StructType *` The reference to the StructType, representing the return type of the types map
-        static llvm::StructType *add_and_or_get_type(llvm::LLVMContext *context, const std::vector<std::string> &types);
+        static llvm::StructType *add_and_or_get_type( //
+            llvm::LLVMContext *context,               //
+            const std::vector<std::string> &types,    //
+            const bool is_return_type = true          //
+        );
 
         /// @function `generate_forward_declarations`
         /// @brief Generates the forward-declarations of all constructs in the given FileNode, except the 'use' constructs to make another
@@ -1075,6 +1082,22 @@ class Generator {
             const AssignmentNode *assignment_node                                  //
         );
 
+        /// @function `generate_group_assignment`
+        /// @brief Generates the group assignment from the given GroupAssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the group assignment will be generated in
+        /// @param `scope` The scope the group assignment is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `group_assignment` The group assignemnt node to generate
+        static void generate_group_assignment(                                     //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const GroupAssignmentNode *group_assignment                            //
+        );
+
         /// @function `generate_unary_op_statement`
         /// @brief Generates the unary operation value from the given UnaryOpStatement
         ///
@@ -1172,6 +1195,23 @@ class Generator {
             llvm::Function *parent,                                                //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const CallNodeBase *call_node                                          //
+        );
+
+        /// @function `generate_group_expression`
+        /// @brief Generates a group expression from the given GroupExpressionNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the group expression is generated in
+        /// @param `scope` The scope the group expression is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `group_node` The group operation to generate
+        /// @return `llvm::Value *` The value containing the result of the group expression
+        static llvm::Value *generate_group_expression(                             //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const GroupExpressionNode *group_node                                  //
         );
 
         /// @function `generate_type_cast`

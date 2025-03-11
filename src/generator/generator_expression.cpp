@@ -4,6 +4,7 @@
 
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "llvm/IR/Instructions.h"
 
 llvm::Value *Generator::Expression::generate_expression(                   //
     llvm::IRBuilder<> &builder,                                            //
@@ -29,6 +30,9 @@ llvm::Value *Generator::Expression::generate_expression(                   //
     }
     if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expression_node)) {
         return generate_type_cast(builder, parent, scope, allocations, type_cast_node);
+    }
+    if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expression_node)) {
+        return generate_group_expression(builder, parent, scope, allocations, group_node);
     }
     THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;
@@ -356,6 +360,32 @@ void Generator::Expression::generate_rethrow(                              //
     }
 
     builder.SetInsertPoint(merge_block);
+}
+
+llvm::Value *Generator::Expression::generate_group_expression(             //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const GroupExpressionNode *group_node                                  //
+) {
+    std::vector<std::string> types;
+    for (const auto &expr : group_node->expressions) {
+        types.emplace_back(expr->type);
+    }
+    llvm::StructType *group_type = IR::add_and_or_get_type(&builder.getContext(), types, false);
+    const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g::" + std::to_string(group_node->group_id);
+    llvm::AllocaInst *const alloca = allocations.at(alloca_name);
+    unsigned int alloca_id = 0;
+    for (const auto &expr : group_node->expressions) {
+        llvm::Value *expr_val = generate_expression(builder, parent, scope, allocations, expr.get());
+        llvm::Value *gep = builder.CreateStructGEP(group_type, alloca, alloca_id,
+            "group_" + std::to_string(group_node->group_id) + "_ptr_" + std::to_string(alloca_id));
+        builder.CreateStore(expr_val, gep);
+        alloca_id++;
+    }
+    llvm::Value *group_value = builder.CreateLoad(group_type, alloca, "group_" + std::to_string(group_node->group_id) + "_val");
+    return group_value;
 }
 
 llvm::Value *Generator::Expression::generate_type_cast(                    //

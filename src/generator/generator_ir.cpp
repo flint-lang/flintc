@@ -4,16 +4,22 @@
 
 #include "lexer/lexer_utils.hpp"
 
-llvm::StructType *Generator::IR::add_and_or_get_type(llvm::LLVMContext *context, const std::vector<std::string> &types) {
-    std::string types_str;
+llvm::StructType *Generator::IR::add_and_or_get_type( //
+    llvm::LLVMContext *context,                       //
+    const std::vector<std::string> &types,            //
+    const bool is_return_type                         //
+) {
+    std::string types_str = is_return_type ? "ret_" : "";
     for (auto it = types.begin(); it < types.end(); ++it) {
         types_str.append(*it);
         if (std::distance(it, types.end()) > 1) {
             types_str.append("_");
         }
     }
-    if (types_str == "") {
-        types_str = "void";
+    // If its a return type it can be void, if not it cant
+    assert(is_return_type || types_str != "");
+    if (types_str == "ret_") {
+        types_str = "ret_void";
     }
     if (type_map.find(types_str) != type_map.end()) {
         return type_map[types_str];
@@ -21,9 +27,13 @@ llvm::StructType *Generator::IR::add_and_or_get_type(llvm::LLVMContext *context,
 
     // Get the return types
     std::vector<llvm::Type *> types_vec;
-    types_vec.reserve(types.size() + 1);
-    // First element is always the error code (i32)
-    types_vec.push_back(llvm::Type::getInt32Ty(*context));
+    if (is_return_type) {
+        types_vec.reserve(types.size() + 1);
+        // First element is always the error code (i32)
+        types_vec.push_back(llvm::Type::getInt32Ty(*context));
+    } else {
+        types_vec.reserve(types.size());
+    }
     // Rest of the elements are the return types
     for (const auto &ret_value : types) {
         types_vec.emplace_back(get_type_from_str(*context, ret_value));

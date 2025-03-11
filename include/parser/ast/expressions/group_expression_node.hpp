@@ -28,4 +28,16 @@ class GroupExpressionNode : public ExpressionNode {
     /// @var `expressions`
     /// @brief All the expressions part of the group expression
     std::vector<std::unique_ptr<ExpressionNode>> expressions;
+
+    /// @var `group_id`
+    /// @brief The unique id of the group
+    const unsigned int group_id = get_next_group_id();
+
+  private:
+    /// @function `get_next_group_id`
+    /// @brief Returns the next group id. Ensures that each group gets its own id for the lifetime of the program
+    static unsigned inline int get_next_group_id() {
+        static unsigned int group_id = 0;
+        return group_id++;
+    }
 };
