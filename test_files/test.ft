@@ -5,6 +5,14 @@ def double_return() -> (i32, i32):
 	return (3, 4);
 
 def main():
+	(a, b, c) := (1, 2, 3);
+	(a, b, c) = (c, a, b);
+	print(a);
+	print(", ");
+	print(b);
+	print(", ");
+	print(c);
+	print("\n");
 	(x, y) := double_return();
 	print(x);
 	print(", ");

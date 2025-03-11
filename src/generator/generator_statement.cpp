@@ -523,14 +523,17 @@ void Generator::Statement::generate_group_declaration(                     //
     const GroupExpressionNode *group_node = dynamic_cast<const GroupExpressionNode *>(declaration_node->initializer.get());
     llvm::AllocaInst *alloca = nullptr;
     unsigned int id = 0;
+    std::string name;
 
     if (call_node != nullptr) {
         const std::string call_ret_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
         alloca = allocations.at(call_ret_name);
         id = 1;
+        name = "call_" + std::to_string(call_node->call_id);
     } else if (group_node != nullptr) {
         const std::string group_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_node->group_id);
         alloca = allocations.at(group_name);
+        name = "group_" + std::to_string(group_node->group_id);
     } else {
         // If its neither a call nor a group, error
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -540,16 +543,16 @@ void Generator::Statement::generate_group_declaration(                     //
     for (const auto &variable : declaration_node->variables) {
         const std::string variable_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
         llvm::AllocaInst *const variable_alloca = allocations.at(variable_name);
-        llvm::Value *elem_ptr = builder.CreateStructGEP(              //
-            alloca->getAllocatedType(),                               //
-            alloca,                                                   //
-            id,                                                       //
-            "call_" + std::to_string(call_node->call_id) + "_val_ptr" //
+        llvm::Value *elem_ptr = builder.CreateStructGEP( //
+            alloca->getAllocatedType(),                  //
+            alloca,                                      //
+            id,                                          //
+            name + "_val_ptr"                            //
         );
         llvm::LoadInst *elem_value = builder.CreateLoad(                 //
             IR::get_type_from_str(builder.getContext(), variable.first), //
             elem_ptr,                                                    //
-            "call_" + std::to_string(call_node->call_id) + "_val"        //
+            name + "_val"                                                //
         );
         builder.CreateStore(elem_value, variable_alloca);
         id++;
