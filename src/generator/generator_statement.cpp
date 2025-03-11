@@ -1,6 +1,7 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
+#include "parser/ast/statements/declaration_node.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/statements/call_node_statement.hpp"
@@ -29,8 +30,8 @@ void Generator::Statement::generate_statement(                             //
         generate_group_assignment(builder, parent, scope, allocations, group_assignment_node);
     } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement.get())) {
         generate_assignment(builder, parent, scope, allocations, assignment_node);
-        // } else if (const auto *group_declaration_node = dynamic_cast<const GroupDeclarationNode *>(statement.get())) {
-        //     generate_group_declaration();
+    } else if (const auto *group_declaration_node = dynamic_cast<const GroupDeclarationNode *>(statement.get())) {
+        generate_group_declaration(builder, parent, scope, allocations, group_declaration_node);
     } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement.get())) {
         generate_declaration(builder, parent, scope, allocations, declaration_node);
     } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement.get())) {
@@ -88,7 +89,7 @@ void Generator::Statement::generate_return_statement(                      //
 
         // Check if the return value is a group or a single value
         if (const auto *group_expression = dynamic_cast<const GroupExpressionNode *>(return_node->return_value.get())) {
-            const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g::" + std::to_string(group_expression->group_id);
+            const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_expression->group_id);
             llvm::AllocaInst *const alloca = allocations.at(alloca_name);
             std::vector<std::string> types;
             for (const auto &expr : group_expression->expressions) {
@@ -509,6 +510,52 @@ void Generator::Statement::generate_catch_statement(                       //
     builder.SetInsertPoint(merge_block);
 }
 
+void Generator::Statement::generate_group_declaration(                     //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const GroupDeclarationNode *declaration_node                           //
+) {
+    Expression::generate_expression(builder, parent, scope, allocations, declaration_node->initializer.get());
+
+    const CallNodeExpression *call_node = dynamic_cast<const CallNodeExpression *>(declaration_node->initializer.get());
+    const GroupExpressionNode *group_node = dynamic_cast<const GroupExpressionNode *>(declaration_node->initializer.get());
+    llvm::AllocaInst *alloca = nullptr;
+    unsigned int id = 0;
+
+    if (call_node != nullptr) {
+        const std::string call_ret_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
+        alloca = allocations.at(call_ret_name);
+        id = 1;
+    } else if (group_node != nullptr) {
+        const std::string group_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_node->group_id);
+        alloca = allocations.at(group_name);
+    } else {
+        // If its neither a call nor a group, error
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return;
+    }
+
+    for (const auto &variable : declaration_node->variables) {
+        const std::string variable_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
+        llvm::AllocaInst *const variable_alloca = allocations.at(variable_name);
+        llvm::Value *elem_ptr = builder.CreateStructGEP(              //
+            alloca->getAllocatedType(),                               //
+            alloca,                                                   //
+            id,                                                       //
+            "call_" + std::to_string(call_node->call_id) + "_val_ptr" //
+        );
+        llvm::LoadInst *elem_value = builder.CreateLoad(                 //
+            IR::get_type_from_str(builder.getContext(), variable.first), //
+            elem_ptr,                                                    //
+            "call_" + std::to_string(call_node->call_id) + "_val"        //
+        );
+        builder.CreateStore(elem_value, variable_alloca);
+        id++;
+    }
+}
+
 void Generator::Statement::generate_declaration(                           //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
@@ -517,18 +564,14 @@ void Generator::Statement::generate_declaration(                           //
     const DeclarationNode *declaration_node                                //
 ) {
     llvm::Value *expression;
+    const CallNodeExpression *call_node = nullptr;
     if (declaration_node->initializer.has_value()) {
         expression = Expression::generate_expression(builder, parent, scope, allocations, declaration_node->initializer.value().get());
+        call_node = dynamic_cast<const CallNodeExpression *>(declaration_node->initializer.value().get());
     } else {
         expression = IR::get_default_value_of_type(IR::get_type_from_str(builder.getContext(), declaration_node->type));
     }
 
-    // Check if the declaration_node is a function call.
-    // If it is, the "real" value of the call has to be extracted. Otherwise, it can be used directly!
-    const CallNodeExpression *call_node = nullptr;
-    if (declaration_node->initializer.has_value()) {
-        call_node = dynamic_cast<const CallNodeExpression *>(declaration_node->initializer.value().get());
-    }
     if (call_node != nullptr) {
         // Call the function and store its result in the return stuct
         const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
@@ -600,7 +643,7 @@ void Generator::Statement::generate_group_assignment(                      //
             return;
         }
         // Load the allocation of the group into the expression_alloca
-        const std::string group_name = "s" + std::to_string(scope->scope_id) + "::g::" + std::to_string(group->group_id);
+        const std::string group_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group->group_id);
         expression_alloca = allocations.at(group_name);
     }
     for (const auto &assign : group_assignment->assignees) {

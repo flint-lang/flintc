@@ -6,6 +6,7 @@
 #include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/return_node.hpp"
+#include <string>
 
 void Generator::Allocation::generate_allocations(                         //
     llvm::IRBuilder<> &builder,                                           //
@@ -60,6 +61,32 @@ void Generator::Allocation::generate_allocations(                         //
                     "Create alloc of var '" + alloca_name + "'"                          //
                 );
             }
+        } else if (const auto *group_declaration_node = dynamic_cast<const GroupDeclarationNode *>(statement_node.get())) {
+            if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(group_declaration_node->initializer.get())) {
+                generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
+            } else if (auto *group_expr = dynamic_cast<GroupExpressionNode *>(group_declaration_node->initializer.get())) {
+                const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_expr->group_id);
+                std::vector<std::string> types;
+                for (const auto &expr : group_expr->expressions) {
+                    types.emplace_back(expr->type);
+                }
+                generate_allocation(builder, allocations, alloca_name,               //
+                    IR::add_and_or_get_type(&builder.getContext(), types, false),    //
+                    "group_" + std::to_string(group_expr->group_id),                 //
+                    "Create alloc for group " + std::to_string(group_expr->group_id) //
+                );
+            }
+
+            // Allocating the actual variable values from the LHS
+            for (const auto &variable : group_declaration_node->variables) {
+                const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
+                generate_allocation(builder, allocations, alloca_name,           //
+                    IR::get_type_from_str(parent->getContext(), variable.first), //
+                    variable.second + "__VAR",                                   //
+                    "Create alloc of var '" + alloca_name + "'"                  //
+                );
+            }
+
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node.get())) {
             if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(assignment_node->expression.get())) {
                 // Generate only the call allocations, not the variable allocations
@@ -69,7 +96,7 @@ void Generator::Allocation::generate_allocations(                         //
             if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(group_assignment_node->expression.get())) {
                 generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
             } else if (auto *group_expr = dynamic_cast<GroupExpressionNode *>(group_assignment_node->expression.get())) {
-                const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g::" + std::to_string(group_expr->group_id);
+                const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_expr->group_id);
                 std::vector<std::string> types;
                 for (const auto &expr : group_expr->expressions) {
                     types.emplace_back(expr->type);
@@ -84,7 +111,7 @@ void Generator::Allocation::generate_allocations(                         //
             if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(return_node->return_value.get())) {
                 generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
             } else if (auto *group_expr = dynamic_cast<GroupExpressionNode *>(return_node->return_value.get())) {
-                const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g::" + std::to_string(group_expr->group_id);
+                const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_expr->group_id);
                 std::vector<std::string> types;
                 for (const auto &expr : group_expr->expressions) {
                     types.emplace_back(expr->type);

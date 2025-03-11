@@ -374,7 +374,7 @@ llvm::Value *Generator::Expression::generate_group_expression(             //
         types.emplace_back(expr->type);
     }
     llvm::StructType *group_type = IR::add_and_or_get_type(&builder.getContext(), types, false);
-    const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g::" + std::to_string(group_node->group_id);
+    const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_node->group_id);
     llvm::AllocaInst *const alloca = allocations.at(alloca_name);
     unsigned int alloca_id = 0;
     for (const auto &expr : group_node->expressions) {

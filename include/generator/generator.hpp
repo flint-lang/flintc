@@ -17,6 +17,7 @@
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
+#include "parser/ast/statements/group_declaration_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/throw_node.hpp"
@@ -1048,6 +1049,22 @@ class Generator {
             llvm::Function *parent,                                                //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const CatchNode *catch_node                                            //
+        );
+
+        /// @function `generate_group_declaration`
+        /// @brief Generates the group declaration from the given GroupDeclarationNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the group declaration will be generated in
+        /// @param `scope` The scope the group declaration is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `declaration_node` The group declaration node to generate
+        static void generate_group_declaration(                                    //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const GroupDeclarationNode *declaration_node                           //
         );
 
         /// @function `generate_declaration`
