@@ -782,8 +782,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The Function the allocations are generated in
-        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `scope` The Scope from which all allocations are collected and allocated at the start of the scope
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         ///
         /// @attention The allocations map will be modified (new entries are added), but it will not be cleared. If you want a clear
         ///            allocations map before calling this function, you need to clear it yourself.
@@ -801,9 +801,9 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the allocations are generated in
+        /// @param `scope` The scope the allocation would take place in
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `call_node` The CallNode used to generate the allocations from
-        /// @param `scope` The scope the allocation would take place in
         ///
         /// @attention The allocations map will be modified
         /// @attention The call_node variable will be modified
@@ -813,6 +813,74 @@ class Generator {
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             CallNodeBase *call_node                                                //
+        );
+
+        /// @funnction `generate_if_allcoations`
+        /// @brief Generates the allocations for if chains
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the allocations are generated in
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `if_node` The IfNode used to generate the allocations from
+        ///
+        /// @attention The allocations map will be modified
+        static void generate_if_allocations(                                       //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const IfNode *if_node                                                  //
+        );
+
+        /// @funnction `generate_declaration_allcoations`
+        /// @brief Generates the allocations for a normal declaration
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the allocations are generated in
+        /// @param `scope` The scope the allocation would take place in
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `declaration_node` The DeclarationNode used to generate the allocations from
+        ///
+        /// @attention The allocations map will be modified
+        static void generate_declaration_allocations(                              //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const DeclarationNode *declaration_node                                //
+        );
+
+        /// @funnction `generate_group_declaration_allcoations`
+        /// @brief Generates the allocations for grouped declarations
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the allocations are generated in
+        /// @param `scope` The scope the allocation would take place in
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `group_declaration_node` The GroupDeclarationNode used to generate the allocations from
+        ///
+        /// @attention The allocations map will be modified
+        static void generate_group_declaration_allocations(                        //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const GroupDeclarationNode *group_declaration_node                     //
+        );
+
+        /// @funnction `generate_group_expression_allcoations`
+        /// @brief Generates the allocations for grouped expressions
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `scope` The scope the allocation would take place in
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `group_expression` The GroupExpressionNode used to generate the allocations from
+        ///
+        /// @attention The allocations map will be modified
+        static void generate_group_expression_allocations(                         //
+            llvm::IRBuilder<> &builder,                                            //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const GroupExpressionNode *group_expression                            //
         );
 
         /// @function `generate_allocation`
