@@ -9,7 +9,7 @@ This project contains the custom **Flint Compiler** built in C++. The Compiler i
 - [x] IR Generation (Generator)
 - [ ] Comprehensive Compile Error output (Error)
 - [ ] Semantics Checking Stage (Checker / Linter)
-- [x] Linking of IR Files (Linker)
+- [ ] Linking of IR Files (Linker)
 - [ ] Fetching libraries from FlintHub (Fetcher)
 - [x] Creation and Management of dependencies (Resolver)
 - [x] Compilation of IR code to a binary (Compiler)
@@ -19,15 +19,18 @@ This project contains the custom **Flint Compiler** built in C++. The Compiler i
 Currently, only the most basic features are working:
 
 - Declaring functions (main and custom ones)
-- Calling functions (n arguments, currently only 1 return value)
-- Catching errors of functions (`catch` keyword)
+- Calling functions (n arguments, m return values)
+- Groups work in general (inferred declaration of multiple variables `(x, y) := (1, 2)` etc.)
+- Variable swaps through groups (`(x, y) = (y, x)`)
+- Catching errors of functions (`catch` keyword) and accessing the error value with `catch err:`
 - `if` chains (`if`, `else if`, `else`)
 - `while` loops
 - `for` loops
 - The builtin `print` function, with overloaded variants to print `i32`, `flint`, `str` and `bool` variables or literals
+- Unary operators such as `++`, `--` or `not`
 - safe `i32`, `i64`, `u32`, `u64`, `f32` and `f64` variables, addition, substraction and multiplication
 - implicit primitive type conversions
-- explicit primitive type conversions (`i32(f32(5))`)
+- explicit primitive type conversions (`i32(5.4)`)
 - `str` variables, alltough currently not able to be changed
 - `bool` variables
 
@@ -41,7 +44,6 @@ Currently, only the most basic features are working:
 - Custom `error` sets
 - `enum` type
 - `variant` type
-- Unary operators such as `++` or `--`
 - The pow operator `**`
 - Everything about DIMA (`str` manipulation, `data` saving, memory management overall)
 - Everything about DOCP (`data`, `func`, `entity`, `link`)
@@ -49,21 +51,4 @@ Currently, only the most basic features are working:
 
 ## Building
 
-You need `nkx` installed on your machine ([https://nix.dev/install-nix.html](https://nix.dev/install-nix.html)).
-The build process then is easy. Just clone the `flintc` repository and execute
-
-```sh
-nix-shell
-```
-
-in the base directory (if you have nix installed). This will result in the correct packages and dependencies being fetched.
-When inside the nix-shell, execute
-
-```sh
-./scripts/build.sh
-```
-
-to build the project. You can optionally add the `debug` option when calling the build script, it then will create a debug build.
-You could also, alternatively, ensure manually that all dependencies are installed and just call the build script without `nix`.
-
-To get correct highlighting and code completion of llvm-stuff, look at [this](llvm/Readme.md) Readme!
+Building is easy. There exists a single `build.sh` script in the `scripts` directory, with many cli options to choose from. Choose what you whish to do and the script will do it for you. The script works independently of the cwd.
