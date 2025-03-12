@@ -77,13 +77,11 @@ token_list Lexer::scan() {
 }
 
 std::string Lexer::to_string(const token_list &tokens) {
-    std::string token_string;
-
+    std::stringstream token_stream;
     for (const TokenContext &tok : tokens) {
-        token_string += get_token_name(tok.type);
+        token_stream << tok.lexme;
     }
-
-    return token_string;
+    return token_stream.str();
 }
 
 void Lexer::scan_token() {
