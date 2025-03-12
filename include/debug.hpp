@@ -69,6 +69,7 @@ namespace Debug {
             void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header);
         } // namespace Local
 
+        void print_all_files();
         void print_file(const FileNode &file);
 
         // --- EXPRESSIONS ---

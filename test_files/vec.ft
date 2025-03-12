@@ -1,0 +1,35 @@
+data Vector2:
+    f32 x;
+    f32 y;
+    Vector2(x, y),
+
+data Vector2i:
+	i32 x;
+	i32 y;
+	Vector2i(x, y);
+
+data Vector3:
+    f32 x;
+    f32 y;
+    f32 z;
+    Vector3(x, y, z);
+
+data Vector3i:
+    i32 x;
+    i32 y;
+    i32 z;
+    Vector3i(x, y, z);
+
+data Vector4:
+    f32 r;
+    f32 g;
+    f32 b;
+    f32 a;
+    Vector4(r, g, b, a);
+
+data Vector4i:
+    i32 r;
+    i32 g;
+    i32 b;
+    i32 a;
+    Vector4i(r, g, b, a);

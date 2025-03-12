@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <ostream>
 #include <string>
 #include <typeinfo>
@@ -173,8 +174,15 @@ namespace Debug {
             }
         } // namespace Local
 
-        /// print_ast_tree
-        ///     Prints the whole AST Tree recursively
+        void print_all_files() {
+            std::lock_guard<std::mutex> lock(Resolver::file_map_mutex);
+            for (const auto &file_pair : Resolver::file_map) {
+                print_file(file_pair.second);
+            }
+        }
+
+        /// print_file
+        ///     Prints the AST of the given file node
         void print_file(const FileNode &file) {
             if (!DEBUG_MODE) {
                 return;

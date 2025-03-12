@@ -81,7 +81,8 @@ bool generate_ll_file(                             //
         }
     }
     Parser::clear_instances();
-    Debug::AST::print_file(Resolver::file_map.at(Resolver::main_file_name));
+    Debug::AST::print_all_files();
+    // Debug::AST::print_file(Resolver::file_map.at(Resolver::main_file_name));
 
     // Generate the whole program
     llvm::LLVMContext context;
