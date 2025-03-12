@@ -49,8 +49,13 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         add_open_function({added_function, body_tokens});
         add_parsed_function(added_function, file_name);
     } else if (Signature::tokens_contain(definition_tokens, Signature::data_definition)) {
-        DataNode data_node = create_data(definition_tokens, body_tokens);
-        file_node.add_data(data_node);
+        std::optional<DataNode> data_node = create_data(definition_tokens, body_tokens);
+        if (!data_node.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        DataNode *added_data = file_node.add_data(data_node.value());
+        add_parsed_data(added_data, file_name);
     } else if (Signature::tokens_contain(definition_tokens, Signature::func_definition)) {
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_tokens);
         if (!func_node.has_value()) {

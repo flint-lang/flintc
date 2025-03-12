@@ -1,6 +1,11 @@
 //use "assert.ft"
 //use "add.ft"
 
+data Vector2i:
+	i32 x;
+	i32 y
+	Vector2i(x, y);
+
 def double_return() -> (i32, i32):
 	return (3, 4);
 

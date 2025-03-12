@@ -166,6 +166,16 @@ class Parser {
     /// @brief A mutex for the `parsed_tests` varible, which is used to provide thread-safe access to the list
     static std::mutex parsed_tests_mutex;
 
+    /// @var `parsed_data`
+    /// @brief Stores all the data nodes that have been parsed
+    ///
+    /// @details The key is the file in which the data definitions are defined in, and the value is a list of all data nodes in that file
+    static std::unordered_map<std::string, std::vector<DataNode *>> parsed_data;
+
+    /// @var `parsed_data_mutex`
+    /// @brief A mutex for the `parsed_data` variable, which is used to provide thread-safe access to the map
+    static std::mutex parsed_data_mutex;
+
     /// @var `open_functions_list`
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser
     std::vector<std::pair<FunctionNode *, token_list>> open_functions_list{};
@@ -230,6 +240,16 @@ class Parser {
         parsed_tests.emplace_back(test_node, file_name);
     }
 
+    /// @function `add_parsed_data`
+    /// @brief Adds a given data node to the map of all data nodes
+    ///
+    /// @param `data_node` The data node which was parsed
+    /// @param `file_name` The name of the file the data node is contained in
+    static inline void add_parsed_data(DataNode *data_node, std::string file_name) {
+        std::lock_guard<std::mutex> lock(parsed_data_mutex);
+        parsed_data[file_name].emplace_back(data_node);
+    }
+
     /// @function `get_function_from_call`
     /// @brief Looks through all parsed functions for a match for the given function call
     ///
@@ -241,6 +261,24 @@ class Parser {
     static std::optional<std::pair<FunctionNode *, std::string>> get_function_from_call( //
         const std::string &call_name,                                                    //
         const std::vector<std::string> &arg_types                                        //
+    );
+
+    /// @function `get_data_definition`
+    /// @brief Get the DataNode of the given data name and arg types of the data`s constructor
+    ///
+    /// @param `file_name` The name of the current file
+    /// @param `data_name` The name of the data node to search for
+    /// @param `imports` All the use statements of the current file
+    /// @param `arg_types` The argument types with which said type is initialized with
+    /// @param `is_known_data_type` Whether the given data type should be a data type, set this to false if you only want to check _if_ its
+    /// a data type but dont want to generate errors if its not
+    /// @return `std::optional<DataNode *>` The pointer to the data node, if it exists
+    static std::optional<DataNode *> get_data_definition( //
+        const std::string &file_name,                     //
+        const std::string &data_name,                     //
+        const std::vector<ImportNode *> &imports,         //
+        const std::vector<std::string> &arg_types,        //
+        const bool is_known_data_type = true              //
     );
 
     /// @function `add_open_function`
@@ -688,8 +726,8 @@ class Parser {
     ///
     /// @param `definition` The list of tokens representing the data definition
     /// @param `body` The list of tokens representing the data body
-    /// @return `DataNode` The created DataNode
-    DataNode create_data(const token_list &definition, const token_list &body);
+    /// @return `std::optional<DataNode>` The created DataNode, nullopt if creation failed
+    std::optional<DataNode> create_data(const token_list &definition, const token_list &body);
 
     /// @function `create_func`
     /// @brief Creates a FuncNode from the given definition and body tokens

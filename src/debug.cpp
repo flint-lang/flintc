@@ -189,7 +189,7 @@ namespace Debug {
                     empty.second = 2;
                 }
                 if (const auto *data_node = dynamic_cast<const DataNode *>(node.get())) {
-                    print_data(0, *data_node);
+                    print_data(0, empty, *data_node);
                 } else if (const auto *entity_node = dynamic_cast<const EntityNode *>(node.get())) {
                     print_entity(0, *entity_node);
                 } else if (const auto *enum_node = dynamic_cast<const EnumNode *>(node.get())) {
@@ -528,8 +528,39 @@ namespace Debug {
 
         // print_data
         //     Prints the content of the generated DataNode
-        void print_data([[maybe_unused]] unsigned int indent_lvl, [[maybe_unused]] const DataNode &data) {
-            std::cout << "    Data: " << typeid(data).name() << "\n";
+        void print_data(unsigned int indent_lvl, uint2 empty, const DataNode &data) {
+            Local::print_header(indent_lvl, empty, "Data");
+            if (data.is_aligned) {
+                std::cout << "aligned ";
+            }
+            if (data.is_immutable) {
+                std::cout << "immutable ";
+            }
+            if (data.is_shared) {
+                std::cout << "shared ";
+            }
+            std::cout << data.name << "(";
+            for (auto it = data.order.begin(); it != data.order.end(); ++it) {
+                if (it != data.order.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << *it;
+            }
+            std::cout << "):" << std::endl;
+
+            indent_lvl++;
+            empty.first++;
+            for (const auto &[field_name, field_type_default] : data.fields) {
+                empty.second = indent_lvl + 1;
+                Local::print_header(indent_lvl, empty, "Field");
+                std::cout << field_type_default.first << " " << field_name << "\n";
+                if (field_type_default.second.has_value()) {
+                    // Only print default values if they exist
+                    empty.second = indent_lvl + 2;
+                    Local::print_header(indent_lvl + 1, empty, "Default Value");
+                    std::cout << field_type_default.second.value();
+                }
+            }
         }
 
         // print_entity

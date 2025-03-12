@@ -95,7 +95,7 @@ namespace Debug {
         void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<std::unique_ptr<StatementNode>> &body);
 
         // --- DEFINITIONS ---
-        void print_data(unsigned int indent_lvl, const DataNode &data);
+        void print_data(unsigned int indent_lvl, uint2 empty, const DataNode &data);
         void print_entity(unsigned int indent_lvl, const EntityNode &entity);
         void print_enum(unsigned int indent_lvl, const EnumNode &enum_node);
         void print_error(unsigned int indent_lvl, const ErrorNode &error);

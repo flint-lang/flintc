@@ -3,6 +3,7 @@
 #include "error/error.hpp"
 #include "parser/signature.hpp"
 
+#include <algorithm>
 #include <optional>
 
 std::optional<FunctionNode> Parser::create_function(const token_list &definition) {
@@ -71,14 +72,13 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);
 }
 
-DataNode Parser::create_data(const token_list &definition, const token_list &body) {
+std::optional<DataNode> Parser::create_data(const token_list &definition, const token_list &body) {
     bool is_shared = false;
     bool is_immutable = false;
     bool is_aligned = false;
     std::string name;
 
-    std::vector<std::pair<std::string, std::string>> fields;
-    std::vector<std::pair<std::string, std::string>> default_values;
+    std::unordered_map<std::string, std::pair<std::string, std::optional<std::string>>> fields;
     std::vector<std::string> order;
 
     auto definition_iterator = definition.begin();
@@ -105,9 +105,14 @@ DataNode Parser::create_data(const token_list &definition, const token_list &bod
     while (body_iterator != body.end()) {
         if (Signature::tokens_match({TokenContext{body_iterator->type, "", 0, 0}}, Signature::type) &&
             (body_iterator + 1)->type == TOK_IDENTIFIER) {
-            fields.emplace_back(body_iterator->lexme, (body_iterator + 1)->lexme);
+            if (fields.find((body_iterator + 1)->lexme) != fields.end()) {
+                // Field name duplication
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            fields[(body_iterator + 1)->lexme] = {body_iterator->lexme, std::nullopt};
             if ((body_iterator + 2)->type == TOK_EQUAL) {
-                default_values.emplace_back((body_iterator + 1)->lexme, (body_iterator + 3)->lexme);
+                fields[(body_iterator + 1)->lexme].second = (body_iterator + 3)->lexme;
             }
         }
 
@@ -117,6 +122,7 @@ DataNode Parser::create_data(const token_list &definition, const token_list &bod
                     file_name, body_iterator->line, body_iterator->column, //
                     name, body_iterator->lexme                             //
                 );
+                return std::nullopt;
             }
             parsing_constructor = true;
             ++body_iterator;
@@ -131,7 +137,7 @@ DataNode Parser::create_data(const token_list &definition, const token_list &bod
         ++body_iterator;
     }
 
-    return DataNode(is_shared, is_immutable, is_aligned, name, fields, default_values, order);
+    return DataNode(is_shared, is_immutable, is_aligned, name, fields, order);
 }
 
 std::optional<FuncNode> Parser::create_func(const token_list &definition, token_list &body) {
@@ -255,7 +261,7 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
                 token_list data_body = get_body_tokens(leading_indents, body);
                 token_list data_definition = {TokenContext{TOK_DATA, "", 0, 0}, TokenContext{TOK_IDENTIFIER, name + "__D", 0, 0}};
-                data_node = create_data(data_definition, data_body);
+                data_node = create_data(data_definition, data_body).value();
                 data_modules.emplace_back(name + "__D");
             } else if (body_iterator->type == TOK_FUNC) {
                 unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
