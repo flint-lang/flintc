@@ -17,6 +17,7 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
+#include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
@@ -77,6 +78,7 @@ namespace Debug {
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call);
         void print_binary_op(unsigned int indent_lvl, uint2 empty, const BinaryOpNode &bin);
         void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast);
+        void print_initilalizer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer);
         void print_group_expression(unsigned int indent_lvl, uint2 empty, const GroupExpressionNode &group);
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr);
 

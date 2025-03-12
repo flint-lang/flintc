@@ -4,7 +4,6 @@
 
 #include "ast/call_node_base.hpp"
 #include "ast/file_node.hpp"
-#include "ast/unary_op_base.hpp"
 
 #include "ast/definitions/data_node.hpp"
 #include "ast/definitions/entity_node.hpp"
@@ -33,6 +32,7 @@
 #include "ast/expressions/call_node_expression.hpp"
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/group_expression_node.hpp"
+#include "ast/expressions/initializer_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/type_cast_node.hpp"
 #include "ast/expressions/unary_op_expression.hpp"
@@ -48,6 +48,7 @@
 #include <optional>
 #include <tuple>
 #include <utility>
+#include <variant>
 
 /// @class `Parser`
 /// @brief The class which is responsible for the AST generation (parsing)
@@ -424,19 +425,20 @@ class Parser {
     /// @assert to >= from and to <= tokens.size()
     token_list clone_from_to(unsigned int from, unsigned int to, const token_list &tokens);
 
-    /// @function `create_call_base`
-    /// @brief Creates the base node for all calls
+    /// @function `create_call_or_initializer_base`
+    /// @brief Creates the base node for all calls or initializers
     ///
     /// @details This function is part of the `Util` class, as both call statements as well as call expressions use this function
     ///
     /// @param `scope` The scope the call happens in
     /// @param `tokens` The tokens which will be interpreted as call
-    /// @return A optional value containing a tuple, where the first value is the function name, the second value is a list of all
-    /// expressions (the argument expression) of the call and the third value is the call's return type, encoded as a string
-    std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> create_call_base( //
-        Scope *scope,                                                                                                   //
-        token_list &tokens                                                                                              //
-    );
+    /// @return A optional value containing a tuple, where:
+    ///         - the first value is the function or initializers name
+    ///         - the second value is a list of all expressions (the argument expression) of the call / initializier
+    ///         - the third value is the call's return type, or the initializers type encoded as a string
+    ///         - the forth value is: true if the expression is a Data initializer, false if an entity initializer, nullopt if its a call
+    std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string, std::optional<bool>>>
+    create_call_or_initializer_base(Scope *scope, token_list &tokens);
 
     /// @function `create_unary_op_base`
     /// @brief Creates a UnaryOpBase from the given tokens
@@ -479,13 +481,15 @@ class Parser {
     /// @return `std::optional<LiteralNode>` An optional LiteralNode if creation is successful, nullopt otherwise
     std::optional<LiteralNode> create_literal(const token_list &tokens);
 
-    /// @function `create_call_expression`
+    /// @function `create_call_or_initializer_expression`
     /// @brief Creates a CallNodeExpression from the given tokens
     ///
     /// @param `scope` The scope in which the call expression is defined
     /// @param `tokens` The list of tokens representing the call expression
-    /// @return `std::optional<std::unique_ptr<CallNodeExpression>>` A unique pointer to the created CallNodeExpression
-    std::optional<std::unique_ptr<CallNodeExpression>> create_call_expression(Scope *scope, token_list &tokens);
+    /// @return `std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>` A unique pointer to the
+    /// created CallNodeExpression or InitializerNode, depending on if it was an call or initialization
+    std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>>
+    create_call_or_initializer_expression(Scope *scope, token_list &tokens);
 
     /// @function `create_binary_op`
     /// @brief Creates a BinaryOpNode from the given tokens

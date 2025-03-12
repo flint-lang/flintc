@@ -6,6 +6,8 @@
 
 #include "parser/signature.hpp"
 #include <algorithm>
+#include <memory>
+#include <variant>
 
 std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_list &tokens) {
     std::optional<VariableNode> var = std::nullopt;
@@ -74,20 +76,33 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
     return std::nullopt;
 }
 
-std::optional<std::unique_ptr<CallNodeExpression>> Parser::create_call_expression(Scope *scope, token_list &tokens) {
+std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>> //
+Parser::create_call_or_initializer_expression(Scope *scope, token_list &tokens) {
     remove_surrounding_paren(tokens);
-    auto call_node_args = create_call_base(scope, tokens);
-    if (!call_node_args.has_value()) {
+    auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens);
+    if (!call_or_init_node_args.has_value()) {
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
-    std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
-        std::get<0>(call_node_args.value()),                                              // name
-        std::get<1>(call_node_args.value()),                                              // args
-        std::get<2>(call_node_args.value())                                               // type
-    );
-    set_last_parsed_call(call_node->call_id, call_node.get());
-    return call_node;
+    // Now, check if its a initializer or a call
+    if (std::get<3>(call_or_init_node_args.value()).has_value()) {
+        // Its an initializer
+        std::unique_ptr<InitializerNode> initializer_node = std::make_unique<InitializerNode>( //
+            std::get<2>(call_or_init_node_args.value()),                                       // type
+            std::get<3>(call_or_init_node_args.value()).value(),                               // is_data
+            std::get<1>(call_or_init_node_args.value())                                        // args
+        );
+        return initializer_node;
+    } else {
+        // Its a call
+        std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
+            std::get<0>(call_or_init_node_args.value()),                                      // name
+            std::get<1>(call_or_init_node_args.value()),                                      // args
+            std::get<2>(call_or_init_node_args.value())                                       // type
+        );
+        set_last_parsed_call(call_node->call_id, call_node.get());
+        return call_node;
+    }
 }
 
 std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &tokens) {
@@ -301,7 +316,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
 
     // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
     if (Signature::tokens_contain(expr_tokens, Signature::function_call)) {
-        expression = create_call_expression(scope, expr_tokens);
+        auto call_or_initializer_expression = create_call_or_initializer_expression(scope, expr_tokens);
+        if (!call_or_initializer_expression.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (std::holds_alternative<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value())) {
+            expression = std::move(std::get<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value()));
+        } else {
+            expression = std::move(std::get<std::unique_ptr<InitializerNode>>(call_or_initializer_expression.value()));
+        }
     } else if (Signature::tokens_contain(expr_tokens, Signature::unary_op_expr)) {
         std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, expr_tokens);
         if (!unary_op.has_value()) {

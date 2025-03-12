@@ -12,6 +12,7 @@ def double_return() -> (i32, i32):
 def main():
 	(a, b, c) := (1, 2, 3);
 	(a, b, c) = (c, a, b);
+	Vector2i v2 = Vector2i(1, 2);
 	print(a);
 	print(", ");
 	print(b);

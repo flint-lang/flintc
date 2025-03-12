@@ -284,6 +284,16 @@ namespace Debug {
             print_expression(indent_lvl + 1, empty, cast.expr);
         }
 
+        void print_initilalizer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer) {
+            Local::print_header(indent_lvl, empty, "Initializer");
+            std::cout << "of " << (initializer.is_data ? "data" : "entity") << " type '" << initializer.type << "'";
+            std::cout << std::endl;
+            empty.second = indent_lvl + 1;
+            for (auto &expr : initializer.args) {
+                print_expression(indent_lvl + 1, empty, expr);
+            }
+        }
+
         void print_group_expression(unsigned int indent_lvl, uint2 empty, const GroupExpressionNode &group) {
             Local::print_header(indent_lvl, empty, "Group Expr ");
             std::cout << "group types: (";
@@ -314,6 +324,8 @@ namespace Debug {
                 print_binary_op(indent_lvl, empty, *binary_op_node);
             } else if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expr.get())) {
                 print_type_cast(indent_lvl, empty, *type_cast_node);
+            } else if (const auto *initializer = dynamic_cast<const InitializerNode *>(expr.get())) {
+                print_initilalizer(indent_lvl, empty, *initializer);
             } else if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expr.get())) {
                 print_group_expression(indent_lvl, empty, *group_node);
             } else {

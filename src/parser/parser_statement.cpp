@@ -10,9 +10,14 @@
 #include <optional>
 
 std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(Scope *scope, token_list &tokens) {
-    auto call_node_args = create_call_base(scope, tokens);
+    auto call_node_args = create_call_or_initializer_base(scope, tokens);
     if (!call_node_args.has_value()) {
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+    if (std::get<3>(call_node_args.value()).has_value()) {
+        // Initializers are not allowed to be statements
+        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     std::unique_ptr<CallNodeStatement> call_node = std::make_unique<CallNodeStatement>( //

@@ -151,10 +151,8 @@ token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token
     return extraction;
 }
 
-std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string>> Parser::create_call_base( //
-    Scope *scope,                                                                                                           //
-    token_list &tokens                                                                                                      //
-) {
+std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string, std::optional<bool>>>
+Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
     if (!arg_range.has_value()) {
         // Function call does not have opening and closing brackets ()
@@ -257,11 +255,21 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
                 function_name, argument_types);
             return std::nullopt;
         }
-        return std::make_tuple(function_name, std::move(arguments), "");
+        return std::make_tuple(function_name, std::move(arguments), "", std::nullopt);
     }
     // Get the acutal function this call targets, and check if it even exists
     auto function = get_function_from_call(function_name, argument_types);
     if (!function.has_value()) {
+        auto data_definition = get_data_definition(file_name, function_name, imported_files, argument_types);
+        if (data_definition.has_value()) {
+            // Its not a function call but actually a data initializer
+            return std::make_tuple(            //
+                data_definition.value()->name, //
+                std::move(arguments),          //
+                data_definition.value()->name, //
+                true                           //
+            );
+        }
         THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name);
         return std::nullopt;
     }
@@ -300,7 +308,7 @@ std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode
             return_type += *it;
         }
     }
-    return std::make_tuple(function_name, std::move(arguments), return_type);
+    return std::make_tuple(function_name, std::move(arguments), return_type, std::nullopt);
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base(Scope *scope, token_list &tokens) {
