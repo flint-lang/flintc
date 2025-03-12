@@ -124,3 +124,29 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
 
     return result;
 }
+
+std::optional<std::pair<FunctionNode *, std::string>> Parser::get_function_from_call( //
+    const std::string &call_name,                                                     //
+    const std::vector<std::string> &arg_types                                         //
+) {
+    std::lock_guard<std::mutex> lock(parsed_functions_mutex);
+    std::vector<std::string> fn_arg_types;
+    for (const auto &[fn, file_name] : parsed_functions) {
+        if (fn->name != call_name) {
+            continue;
+        }
+        if (fn->parameters.size() != arg_types.size()) {
+            continue;
+        }
+        fn_arg_types.reserve(fn->parameters.size());
+        for (const auto &[type, name] : fn->parameters) {
+            fn_arg_types.emplace_back(type);
+        }
+        if (fn_arg_types != arg_types) {
+            fn_arg_types.clear();
+            continue;
+        }
+        return std::make_pair(fn, file_name);
+    }
+    return std::nullopt;
+}
