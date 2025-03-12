@@ -127,9 +127,9 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
             // Store the generated module in the resolver
             Resolver::add_ir(shared_tip->file_name, file_module.get());
 
-            std::cout << " -------- MODULE -------- \n"
-                      << resolve_ir_comments(get_module_ir_string(file_module.get())) << "\n ---------------- \n"
-                      << std::endl;
+            // std::cout << " -------- MODULE -------- \n"
+            //           << resolve_ir_comments(get_module_ir_string(file_module.get())) << "\n ---------------- \n"
+            //           << std::endl;
 
             // Link the generated module in the main module
             if (linker.linkInModule(std::move(file_module))) {

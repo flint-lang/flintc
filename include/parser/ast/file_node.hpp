@@ -31,8 +31,9 @@ class FileNode : public ASTNode {
         definitions(std::move(definitions)),
         file_name(file_name) {}
 
-    void add_import(ImportNode &import) {
+    ImportNode *add_import(ImportNode &import) {
         definitions.emplace_back(std::make_unique<ImportNode>(std::move(import)));
+        return static_cast<ImportNode *>(definitions.back().get());
     }
 
     void add_data(DataNode &data) {

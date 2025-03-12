@@ -174,6 +174,10 @@ class Parser {
     /// @brief The lsit of all open tests, which will be parsed in the second phase of the parser
     std::vector<std::pair<TestNode *, token_list>> open_tests_list{};
 
+    /// @var `imported_files`
+    /// @brief The list of all files the file that is currently parsed can seee / has imported
+    std::vector<ImportNode *> imported_files{};
+
     /// @var `file`
     /// @brief The path to the file to parse
     const std::filesystem::path file;

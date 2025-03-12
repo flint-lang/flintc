@@ -25,7 +25,15 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
             return false;
         }
         ImportNode import_node = create_import(definition_tokens);
-        file_node.add_import(import_node);
+        for (const auto &imported_file : imported_files) {
+            if (imported_file->path == import_node.path) {
+                // The same use statemnt was written twice in the same file
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+        }
+        ImportNode *added_import = file_node.add_import(import_node);
+        imported_files.emplace_back(added_import);
         return true;
     }
 
