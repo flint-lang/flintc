@@ -7,23 +7,37 @@
  * This file defines classes and utilities for measuring the execution duration of tasks.
  * The `Profiler` class offers static methods for starting, ending, and printing task profiles,
  * while the `ScopeProfiler` class provides RAII-based scope profiling.
+ * The profiling system captures a hierarchical call stack for better visualization.
  */
 
+#include "debug.hpp"
+
 #include <chrono>
-#include <iomanip> // For formatting
 #include <iostream>
 #include <map>
+#include <memory>
+#include <stack>
 #include <string>
+#include <vector>
 
 /// @typedef `TimePoint`
 /// @brief Alias for a high-resolution time point.
 using TimePoint = std::chrono::high_resolution_clock::time_point;
 
-/// @struct ProfileData
-/// @brief Stores timing information for a task.
-struct ProfileData {
-    TimePoint start; ///< Start time of the task.
-    TimePoint end;   ///< End time of the task.
+/// @struct ProfileNode
+/// @brief Represents a node in the profiling tree.
+struct ProfileNode {
+    std::string name;                                   ///< Name of the task.
+    TimePoint start;                                    ///< Start time of the task.
+    TimePoint end;                                      ///< End time of the task.
+    std::vector<std::shared_ptr<ProfileNode>> children; ///< Child profiling nodes.
+
+    /// @brief Constructor for a profile node
+    /// @param name Name of the task
+    explicit ProfileNode(std::string name) :
+        name(std::move(name)),
+        start(std::chrono::high_resolution_clock::now()),
+        end{} {}
 };
 
 class ScopeProfiler; ///< Forward declaration.
@@ -80,21 +94,86 @@ class Profiler {
     /// @tparam Duration Type of the duration (default: milliseconds).
     /// @param unit Label for the time unit.
     template <typename Duration = std::chrono::milliseconds> static void print_results(std::string_view unit = "ms") {
-        std::cout << std::setw(30) << std::left << "Task Name" << std::setw(15) << ("Duration (" + std::string(unit) + ")") << "\n";
-        std::cout << std::string(45, '-') << "\n";
+        if (root_nodes.empty()) {
+            std::cout << "No profiling data available.\n";
+            return;
+        }
 
-        for (const auto &[task, data] : profiles) {
-            if (data.end == TimePoint{}) {
-                std::cerr << "Warning: Task \"" << task << "\" was not ended properly.\n";
-                continue;
-            }
-            auto duration = std::chrono::duration_cast<Duration>(data.end - data.start);
-            std::cout << std::setw(30) << std::left << task << std::setw(15) << format_with_separator(duration.count(), '.') << "\n";
+        for (size_t i = 0; i < root_nodes.size(); ++i) {
+            // Pass last flag for proper tree drawing
+            bool is_last = (i == root_nodes.size() - 1);
+            print_node<Duration>(root_nodes[i], {}, is_last, unit);
         }
     }
 
-    /// @brief Stores profiling data for all tasks.
-    static std::map<std::string, ProfileData> profiles;
+    /// @brief Internal function to print a node and its children recursively
+    /// @tparam Duration Duration type for time measurement
+    /// @param node The node to print
+    /// @param prefix The prefix string for the current line
+    /// @param is_last Whether this node is the last child of its parent
+    /// @param unit Time unit label
+    template <typename Duration>
+    static void print_node(const std::shared_ptr<ProfileNode> &node, const std::vector<bool> &prefix_branches, bool is_last,
+        std::string_view unit) {
+        if (!node) {
+            return;
+        }
+
+        // Calculate duration
+        auto duration = std::chrono::duration_cast<Duration>(node->end - node->start);
+
+        // Generate the prefix string with appropriate tree characters
+        std::string line_prefix;
+
+        // Add vertical lines for all ancestors - each is a single character plus a space
+        for (bool has_next_sibling : prefix_branches) {
+            if (has_next_sibling) {
+                line_prefix += Debug::tree_characters.at(Debug::VERT) + "  ";
+            } else {
+                line_prefix += "   ";
+            }
+        }
+
+        // Add the branch character for this node - single character plus a space
+        if (!prefix_branches.empty()) { // Not a root node
+            if (is_last) {
+                line_prefix += Debug::tree_characters.at(Debug::SINGLE) + Debug::tree_characters.at(Debug::HOR) + " ";
+            } else {
+                line_prefix += Debug::tree_characters.at(Debug::BRANCH) + Debug::tree_characters.at(Debug::HOR) + " ";
+            }
+        }
+
+        // Format the duration with color (optional) and arrow to task name
+        std::string formatted_duration = format_with_separator(duration.count(), '.') + " " + std::string(unit) + " " +
+            Debug::tree_characters.at(Debug::HOR) + "> " + Debug::TextFormat::BOLD_START + node->name + Debug::TextFormat::BOLD_END;
+
+        // Print node with duration
+        std::cout << line_prefix << formatted_duration << "\n";
+
+        // Print children with updated prefix
+        std::vector<bool> next_prefix = prefix_branches;
+        next_prefix.push_back(!is_last);
+
+        for (size_t i = 0; i < node->children.size(); ++i) {
+            bool child_is_last = (i == node->children.size() - 1);
+            print_node<Duration>(node->children[i], next_prefix, child_is_last, unit);
+        }
+    }
+
+    /// @brief Access the current profile node
+    /// @return Pointer to the current profile node or nullptr if no profiling in progress
+    static std::shared_ptr<ProfileNode> current_node() {
+        return profile_stack.empty() ? nullptr : profile_stack.top();
+    }
+
+    // Stores root profiling nodes
+    static std::vector<std::shared_ptr<ProfileNode>> root_nodes;
+
+    // Profiling stack to track nested calls
+    static std::stack<std::shared_ptr<ProfileNode>> profile_stack;
+
+    // Map for quick lookup when using manual start_task/end_task
+    static std::map<std::string, std::shared_ptr<ProfileNode>> active_tasks;
 };
 
 /// @class ScopeProfiler
@@ -105,16 +184,33 @@ class ScopeProfiler {
     /// @param task_name Name of the task to profile.
     explicit ScopeProfiler(std::string task_name) :
         task_name(std::move(task_name)) {
-        profile_data = ProfileData{std::chrono::high_resolution_clock::now(), {}};
+        node = std::make_shared<ProfileNode>(this->task_name);
+
+        // Add to parent if we have one
+        auto current = Profiler::current_node();
+        if (current) {
+            current->children.push_back(node);
+        } else {
+            // No parent, this is a root node
+            Profiler::root_nodes.push_back(node);
+        }
+
+        // Push this node onto the stack
+        Profiler::profile_stack.push(node);
     }
 
     /// @brief Destructs the `ScopeProfiler` and ends timing the task.
     ~ScopeProfiler() {
-        profile_data.end = std::chrono::high_resolution_clock::now();
-        if (Profiler::profiles.find(task_name) != Profiler::profiles.end()) {
-            std::cerr << "Error: Task \"" << task_name << "\" was already started.\n";
+        if (!node)
+            return; // Safety check
+
+        // Set end time
+        node->end = std::chrono::high_resolution_clock::now();
+
+        // Pop from stack only if this is the top node
+        if (!Profiler::profile_stack.empty() && Profiler::profile_stack.top() == node) {
+            Profiler::profile_stack.pop();
         }
-        Profiler::profiles[task_name] = profile_data;
     }
 
     /// @brief Default copy constructor.
@@ -130,8 +226,8 @@ class ScopeProfiler {
     ScopeProfiler &operator=(ScopeProfiler &&) = delete;
 
   protected:
-    std::string task_name;    ///< Name of the task being profiled.
-    ProfileData profile_data; ///< Profiling data for the task.
+    std::string task_name;             ///< Name of the task being profiled.
+    std::shared_ptr<ProfileNode> node; ///< Node representing this profile in the tree.
 };
 
 /// @def PROFILE_SCOPE(name)

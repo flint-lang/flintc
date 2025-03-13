@@ -49,7 +49,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     const std::shared_ptr<DepNode> &dep_graph,                //
     const bool is_test                                        //
 ) {
-    PROFILE_SCOPE("Generate program IR");
+    PROFILE_SCOPE("Generate program '" + program_name);
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
     auto module = std::make_unique<llvm::Module>(program_name, context);
     main_module[0] = module.get();

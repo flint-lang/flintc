@@ -137,7 +137,7 @@ void write_ll_file(const std::filesystem::path &ll_path, const llvm::Module *mod
 /// @param `binary_file` The path where the built binary should be placed at
 /// @param `module` The program to compile
 void compile_module(const std::filesystem::path &binary_file, llvm::Module *module) {
-    PROFILE_SCOPE("Compile module");
+    PROFILE_SCOPE("Compile module " + module->getName().str());
     // Initialize LLVM targets (call this once in your compiler)
     static bool initialized = false;
     if (!initialized) {
@@ -167,14 +167,14 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
     module->setDataLayout(targetMachine->createDataLayout());
 
     // Create an output file
-    Profiler::start_task("Create .o file");
+    Profiler::start_task("Create " + binary_file.filename().string() + ".o file");
     std::error_code EC;
     llvm::raw_fd_ostream dest(binary_file.string() + ".o", EC, llvm::sys::fs::OF_None);
     if (EC) {
         llvm::errs() << "Could not open file: " << EC.message() << "\n";
         return;
     }
-    Profiler::end_task("Create .o file");
+    Profiler::end_task("Create " + binary_file.filename().string() + ".o file");
 
     // Set up the pass manager and code generation
     llvm::legacy::PassManager pass;
@@ -196,9 +196,8 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
     // Link the object file to create an executable
     std::string link_command =
         "ld " + binary_file.string() + ".o -o " + binary_file.string() + " -lc -dynamic-linker /lib64/ld-linux-x86-64.so.2 -e _start";
-    Profiler::start_task("Creating the binary with 'ld'");
+    PROFILE_SCOPE("Creating the binary '" + binary_file.filename().string() + "'");
     int link_result = std::system(link_command.c_str());
-    Profiler::end_task("Creating the binary with 'ld'");
     if (link_result != 0) {
         llvm::errs() << "Linking failed with command: " << link_command << "\n";
         return;

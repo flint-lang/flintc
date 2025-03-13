@@ -52,6 +52,24 @@ namespace Debug {
         {HOR, "\u2500"},
     };
 
+    namespace TextFormat {
+        const inline std::string UNDERLINE_START = "\033[4m";
+        const inline std::string UNDERLINE_END = "\033[24m";
+        const inline std::string BOLD_START = "\033[1m";
+        const inline std::string BOLD_END = "\033[22m";
+        const inline std::string RESET = "\033[0m";
+
+        // Colored underlines (SGR 58 for underline color)
+        const inline std::string RED_UNDERLINE = "\033[4;58;5;196m";
+        const inline std::string GREEN_UNDERLINE = "\033[4;58;5;46m";
+        const inline std::string BLUE_UNDERLINE = "\033[4;58;5;33m";
+        const inline std::string YELLOW_UNDERLINE = "\033[4;58;5;226m";
+        const inline std::string CYAN_UNDERLINE = "\033[4;58;5;51m";
+        const inline std::string MAGENTA_UNDERLINE = "\033[4;58;5;201m";
+        const inline std::string WHITE_UNDERLINE = "\033[4;58;5;255m";
+        const inline std::string RESET_UNDERLINE = "\033[59m";
+    } // namespace TextFormat
+
     std::string get_string_container(unsigned int size, const std::string &value);
     void print_in_container(unsigned int size, const std::string &str);
     std::string fill_container_with(const unsigned int &size, const char &character);
