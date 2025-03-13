@@ -40,14 +40,8 @@ class CLIParserMain : public CLIParserBase {
                 }
                 out_file_path = get_absolute(cwd_path, args.at(i + 1));
                 i++;
-            } else if (arg == "--flags") {
-                if (!n_args_follow(i + 1, "\"[flags]\"", arg)) {
-                    return 1;
-                }
-                if (!args.at(i + 1).empty()) {
-                    compile_flags.append(" ").append(args.at(i + 1));
-                }
-                i++;
+            } else if (starts_with(arg, "--flags=")) {
+                compile_flags.append(arg.substr(8, arg.length() - 9));
             } else if (arg == "--output-ll-file") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
@@ -73,7 +67,7 @@ class CLIParserMain : public CLIParserBase {
                 parallel = true;
             } else if (starts_with(arg, "--compiler=")) {
                 // Erase the '--compiler=' part of the string
-                compile_command = arg.substr(11);
+                compile_command = arg.substr(11, arg.length() - 12);
             } else {
                 print_err("Unknown argument: " + arg);
                 return 1;
@@ -109,7 +103,7 @@ class CLIParserMain : public CLIParserBase {
         // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
         std::cout << "  --run                       Run the built binary directly without outputting it\n";
         std::cout << "  --parallel                  Compile in parallel (only recommended for bigger projects)\n";
-        std::cout << "  --flags \"[flags]\"           The compile flags used to build the executable\n";
+        std::cout << "  --flags=\"[flags]\"           The compile flags used to build the executable\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code.\n";
         std::cout << "                              HINT: The compiler will not create an executable with this flag set.\n";
         std::cout << "  --static                    Build the executable as static\n";
