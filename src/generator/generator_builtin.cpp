@@ -1,17 +1,17 @@
 #include "generator/generator.hpp"
 
 void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    // Create the FunctionNode of the main_custom function
+    // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
     std::vector<std::pair<std::string, std::string>> parameters;
     std::vector<std::string> return_types;
     std::unique_ptr<Scope> scope;
-    FunctionNode function_node = FunctionNode(false, false, "main_custom", parameters, return_types, scope);
+    FunctionNode function_node = FunctionNode(false, false, "main", parameters, return_types, scope);
 
     // Create the declaration of the custom main function
     llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(&builder->getContext(), function_node.return_types);
     llvm::FunctionType *custom_main_type = Function::generate_function_type(module->getContext(), &function_node);
-    llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction("main_custom", custom_main_type);
+    llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction("main", custom_main_type);
 
     llvm::FunctionType *main_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(module->getContext()),        // Return type: int
@@ -21,7 +21,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Function *main_function = llvm::Function::Create( //
         main_type,                                          //
         llvm::Function::ExternalLinkage,                    //
-        "main",                                             //
+        "_start",                                           //
         module                                              //
     );
 
@@ -34,7 +34,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     builder->SetInsertPoint(entry_block);
 
     // Create the return types of the call of the main function.
-    llvm::AllocaInst *main_ret = builder->CreateAlloca(custom_main_ret_type, nullptr, "custom_main_ret");
+    llvm::AllocaInst *main_ret = builder->CreateAlloca(custom_main_ret_type, nullptr, "main_ret");
     llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {});
     main_call_array[0] = main_call;
     builder->CreateStore(main_call, main_ret);
@@ -68,8 +68,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     builder->CreateCondBr(err_condition, catch_block, merge_block)
         ->setMetadata("comment",
             llvm::MDNode::get(module->getContext(),
-                llvm::MDString::get(module->getContext(),
-                    "Branch to '" + catch_block->getName().str() + "' if 'main_custom' returned error")));
+                llvm::MDString::get(module->getContext(), "Branch to '" + catch_block->getName().str() + "' if 'main' returned error")));
 
     // Generate the body of the catch block
     builder->SetInsertPoint(catch_block);
@@ -95,7 +94,23 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     builder->CreateBr(merge_block);
     builder->SetInsertPoint(merge_block);
-    builder->CreateRet(err_val);
+
+    // Create the exit call (calling the C exit() function)
+    llvm::FunctionType *exit_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(module->getContext()),         // return void
+        llvm::Type::getInt32Ty(module->getContext()),        // takes i32
+        false                                                // no vararg
+    );
+    llvm::Function *exit_function = llvm::Function::Create( //
+        exit_type,                                          //
+        llvm::Function::ExternalLinkage,                    //
+        "exit",                                             //
+        module                                              //
+    );
+    builder->CreateCall(exit_function, {err_val});
+
+    // Making the end unreachable that llvm doesnt optimize it
+    builder->CreateUnreachable();
 }
 
 void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -256,7 +271,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     llvm::Function *main_function = llvm::Function::Create( //
         main_type,                                          //
         llvm::Function::ExternalLinkage,                    //
-        "main",                                             //
+        "_start",                                           //
         module                                              //
     );
 

@@ -82,7 +82,7 @@ class CLIParserMain : public CLIParserBase {
 
     std::filesystem::path source_file_path = "";
     std::filesystem::path out_file_path = "main";
-    std::string compile_command{"clang"};
+    std::string compile_command{""};
     std::string compile_flags{""};
     std::filesystem::path ll_file_path = "";
     bool build_exe{true};
@@ -107,7 +107,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code.\n";
         std::cout << "                              HINT: The compiler will not create an executable with this flag set.\n";
         std::cout << "  --static                    Build the executable as static\n";
-        std::cout << "  --compiler=\"[command]\"      The compile command to use. Defaults to 'zig c++'";
+        std::cout << "  --compiler=\"[command]\"      The external compiler command to use for code generation. ";
         std::cout << std::endl;
     }
 };

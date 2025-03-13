@@ -25,11 +25,11 @@ llvm::Function *Generator::Function::generate_function(llvm::Module *module, Fun
     llvm::FunctionType *function_type = generate_function_type(module->getContext(), function_node);
 
     // Creating the function itself
-    llvm::Function *function = llvm::Function::Create(                         //
-        function_type,                                                         //
-        llvm::Function::ExternalLinkage,                                       //
-        (function_node->name == "main") ? "main_custom" : function_node->name, //
-        module                                                                 //
+    llvm::Function *function = llvm::Function::Create( //
+        function_type,                                 //
+        llvm::Function::ExternalLinkage,               //
+        function_node->name,                           //
+        module                                         //
     );
 
     // Assign names to function arguments and add them to the function's body

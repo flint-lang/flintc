@@ -160,7 +160,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
         Builtin::generate_builtin_test(builder.get(), module.get());
     } else {
         // Connect the call from the main module to the actual main function declared by the user
-        llvm::Function *main_function = module->getFunction("main_custom");
+        llvm::Function *main_function = module->getFunction("main");
         if (main_function == nullptr) {
             // No main function defined
             THROW_BASIC_ERR(ERR_GENERATING);
