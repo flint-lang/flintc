@@ -15,15 +15,15 @@
 #include <map>
 #include <string>
 
-/// @typedef time_point
+/// @typedef `TimePoint`
 /// @brief Alias for a high-resolution time point.
-using time_point = std::chrono::high_resolution_clock::time_point;
+using TimePoint = std::chrono::high_resolution_clock::time_point;
 
 /// @struct ProfileData
 /// @brief Stores timing information for a task.
 struct ProfileData {
-    time_point start; ///< Start time of the task.
-    time_point end;   ///< End time of the task.
+    TimePoint start; ///< Start time of the task.
+    TimePoint end;   ///< End time of the task.
 };
 
 class ScopeProfiler; ///< Forward declaration.
@@ -84,7 +84,7 @@ class Profiler {
         std::cout << std::string(45, '-') << "\n";
 
         for (const auto &[task, data] : profiles) {
-            if (data.end == time_point{}) {
+            if (data.end == TimePoint{}) {
                 std::cerr << "Warning: Task \"" << task << "\" was not ended properly.\n";
                 continue;
             }
