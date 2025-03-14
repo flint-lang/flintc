@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
     if (!clp.build_exe) {
         // Output the built module and write it to the given file
         write_ll_file(clp.ll_file_path, program.value().get());
-    } else if (clp.run) {
+        // } else if (clp.run) {
         // Run the IR code idrectly through JIT compilation
         // TODO
     } else if (!clp.compile_command.empty()) {
@@ -241,8 +241,8 @@ int main(int argc, char *argv[]) {
     program.value().reset();
 
     if (clp.run) {
-        std::cout << "\n--- Running the executable '" << clp.out_file_path.filename().string() << "' ---" << std::endl;
-        return system(clp.out_file_path.string().c_str());
+        std::cout << "\n--- Running the executable '" << clp.out_file_path.string() << "' ---" << std::endl;
+        return system(std::string("./" + clp.out_file_path.string()).c_str());
     }
     return 0;
 }
