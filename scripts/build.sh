@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -e
 
 print_usage() {
@@ -418,7 +418,7 @@ while [ "$#" -gt 0 ]; do
         build_dynamic=true
         shift
         ;;
-    -d | --dynamic)
+    --dynamic)
         build_dynamic=true
         shift
         ;;
@@ -426,7 +426,7 @@ while [ "$#" -gt 0 ]; do
         debug_mode=true
         shift
         ;;
-    -l | --linux)
+    --linux)
         build_linux=true
         shift
         ;;
@@ -435,21 +435,57 @@ while [ "$#" -gt 0 ]; do
         llvm_version="$2"
         shift 2
         ;;
-    -s | --static)
+    --static)
         build_static=true
         shift
         ;;
-    -t | --test)
+    --test)
         run_tests=true
         shift
         ;;
-    -w | --windows)
+    --windows)
         build_windows=true
         shift
         ;;
-    -v | --verbose)
+    --verbose)
         verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=ON"
         shift
+        ;;
+    --*) # Handle long options
+        err_exit 1 "Unknown cli argument: '$1'"
+        ;;
+    -*) # Handle short options, including combined ones
+        arg="${1#-}"
+        shift
+
+        while [ -n "$arg" ]; do
+            opt="${arg:0:1}" # Extract first character
+            arg="${arg:1}"   # Remove first character
+
+            case "$opt" in
+            d)
+                build_dynamic=true
+                ;;
+            l)
+                build_linux=true
+                ;;
+            s)
+                build_static=true
+                ;;
+            t)
+                run_tests=true
+                ;;
+            w)
+                build_windows=true
+                ;;
+            v)
+                verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=ON"
+                ;;
+            *)
+                err_exit 1 "Unknown option: -$opt"
+                ;;
+            esac
+        done
         ;;
     *)
         err_exit 1 "Unknown cli argument: '$1'"
