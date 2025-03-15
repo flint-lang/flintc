@@ -806,13 +806,12 @@ class Generator {
         /// @param `call_node` The CallNode used to generate the allocations from
         ///
         /// @attention The allocations map will be modified
-        /// @attention The call_node variable will be modified
         static void generate_call_allocations(                                     //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            CallNodeBase *call_node                                                //
+            const CallNodeBase *call_node                                          //
         );
 
         /// @funnction `generate_if_allcoations`

@@ -54,7 +54,7 @@ void Generator::Allocation::generate_call_allocations(                     //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    CallNodeBase *call_node                                                //
+    const CallNodeBase *call_node                                          //
 ) {
     // Get the function definition from any module
     auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
@@ -67,8 +67,6 @@ void Generator::Allocation::generate_call_allocations(                     //
         // Builtin function call with void return
         return;
     }
-    // Set the scope the call happens in
-    call_node->scope_id = scope->scope_id;
 
     // Temporary allocation for the entire return struct
     const std::string ret_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
