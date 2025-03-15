@@ -130,6 +130,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
             // std::cout << " -------- MODULE -------- \n"
             //           << resolve_ir_comments(get_module_ir_string(file_module.get())) << "\n ---------------- \n"
             //           << std::endl;
+            // llvm::verifyModule(*file_module, &llvm::errs());
 
             // Link the generated module in the main module
             if (linker.linkInModule(std::move(file_module))) {

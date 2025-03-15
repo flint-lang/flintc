@@ -6,21 +6,24 @@
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "llvm/IR/Instructions.h"
 
-llvm::Value *Generator::Expression::generate_expression(                   //
+Generator::group_mapping Generator::Expression::generate_expression(       //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const ExpressionNode *expression_node                                  //
 ) {
+    std::vector<llvm::Value *> group_map;
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
-        return generate_variable(builder, parent, scope, allocations, variable_node);
+        group_map.emplace_back(generate_variable(builder, parent, scope, allocations, variable_node));
+        return group_map;
     }
     if (const auto *unary_op_node = dynamic_cast<const UnaryOpExpression *>(expression_node)) {
         return generate_unary_op_expression(builder, parent, scope, allocations, unary_op_node);
     }
     if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
-        return generate_literal(builder, parent, literal_node);
+        group_map.emplace_back(generate_literal(builder, parent, literal_node));
+        return group_map;
     }
     if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expression_node)) {
         return generate_call(builder, parent, scope, allocations, call_node);
@@ -35,7 +38,7 @@ llvm::Value *Generator::Expression::generate_expression(                   //
         return generate_group_expression(builder, parent, scope, allocations, group_node);
     }
     THROW_BASIC_ERR(ERR_GENERATING);
-    return nullptr;
+    return std::nullopt;
 }
 
 llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node) {
@@ -153,7 +156,7 @@ llvm::Value *Generator::Expression::generate_variable(                     //
     return load;
 }
 
-llvm::Value *Generator::Expression::generate_call(                         //
+Generator::group_mapping Generator::Expression::generate_call(             //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
@@ -164,7 +167,7 @@ llvm::Value *Generator::Expression::generate_call(                         //
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
     for (const auto &arg : call_node->arguments) {
-        args.emplace_back(generate_expression(builder, parent, scope, allocations, arg.get()));
+        args.emplace_back(generate_expression(builder, parent, scope, allocations, arg.get()).value().at(0));
     }
 
     // Check if it is a builtin function and call it
@@ -173,30 +176,33 @@ llvm::Value *Generator::Expression::generate_call(                         //
         if (builtin_function == nullptr) {
             // Function has not been generated yet, but it should have been
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return nullptr;
+            return std::nullopt;
         }
         // Call the builtin function 'print'
+        std::vector<llvm::Value *> return_value;
         if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
             print_functions.find(call_node->arguments.at(0)->type) != print_functions.end()) {
-            return builder.CreateCall(                             //
+            return_value.emplace_back(builder.CreateCall(          //
                 print_functions[call_node->arguments.at(0)->type], //
                 args                                               //
-            );
+                ));
+            return return_value;
         }
-        return builder.CreateCall(builtin_function, args);
+        return_value.emplace_back(builder.CreateCall(builtin_function, args));
+        return return_value;
     }
 
     // Get the function definition from any module
     auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
     if (!func_decl_res.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
-        return nullptr;
+        return std::nullopt;
     }
     llvm::Function *func_decl = func_decl_res.value();
     if (func_decl == nullptr) {
         // Is a builtin function, but the code block above should have been executed in that case, because we are here, something went wrong
         THROW_BASIC_ERR(ERR_GENERATING);
-        return nullptr;
+        return std::nullopt;
     }
 
     // Create the call instruction using the original declaration
@@ -265,7 +271,24 @@ llvm::Value *Generator::Expression::generate_call(                         //
         }
     }
 
-    return call;
+    // Extract all the return values from the call (everything except the error return)
+    std::vector<llvm::Value *> return_value;
+    llvm::StructType *return_type = static_cast<llvm::StructType *>(res_var->getAllocatedType());
+    for (unsigned int i = 1; i < return_type->getNumElements(); i++) {
+        llvm::Value *elem_ptr = builder.CreateStructGEP(                                                                 //
+            return_type,                                                                                                 //
+            res_var,                                                                                                     //
+            i,                                                                                                           //
+            call_node->function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value_ptr" //
+        );
+        llvm::LoadInst *elem_value = builder.CreateLoad(                                                       //
+            return_type->getElementType(i),                                                                    //
+            elem_ptr,                                                                                          //
+            call_node->function_name + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
+        );
+        return_value.emplace_back(elem_value);
+    }
+    return return_value;
 }
 
 void Generator::Expression::generate_rethrow(                              //
@@ -362,33 +385,23 @@ void Generator::Expression::generate_rethrow(                              //
     builder.SetInsertPoint(merge_block);
 }
 
-llvm::Value *Generator::Expression::generate_group_expression(             //
+Generator::group_mapping Generator::Expression::generate_group_expression( //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const GroupExpressionNode *group_node                                  //
 ) {
-    std::vector<std::string> types;
+    std::vector<llvm::Value *> group_values = {};
     for (const auto &expr : group_node->expressions) {
-        types.emplace_back(expr->type);
+        std::vector<llvm::Value *> expr_val = generate_expression(builder, parent, scope, allocations, expr.get()).value();
+        assert(expr_val.size() == 1); // Nested groups are not allowed
+        group_values.emplace_back(expr_val.at(0));
     }
-    llvm::StructType *group_type = IR::add_and_or_get_type(&builder.getContext(), types, false);
-    const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_node->group_id);
-    llvm::AllocaInst *const alloca = allocations.at(alloca_name);
-    unsigned int alloca_id = 0;
-    for (const auto &expr : group_node->expressions) {
-        llvm::Value *expr_val = generate_expression(builder, parent, scope, allocations, expr.get());
-        llvm::Value *gep = builder.CreateStructGEP(group_type, alloca, alloca_id,
-            "group_" + std::to_string(group_node->group_id) + "_ptr_" + std::to_string(alloca_id));
-        builder.CreateStore(expr_val, gep);
-        alloca_id++;
-    }
-    llvm::Value *group_value = builder.CreateLoad(group_type, alloca, "group_" + std::to_string(group_node->group_id) + "_val");
-    return group_value;
+    return group_values;
 }
 
-llvm::Value *Generator::Expression::generate_type_cast(                    //
+Generator::group_mapping Generator::Expression::generate_type_cast(        //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
@@ -396,11 +409,14 @@ llvm::Value *Generator::Expression::generate_type_cast(                    //
     const TypeCastNode *type_cast_node                                     //
 ) {
     // First, generate the expression
-    llvm::Value *expr = generate_expression(builder, parent, scope, allocations, type_cast_node->expr.get());
+    std::vector<llvm::Value *> expr = generate_expression(builder, parent, scope, allocations, type_cast_node->expr.get()).value();
     // Then, check if the expression is castable
     const std::string &from_type = type_cast_node->expr->type;
     const std::string &to_type = type_cast_node->type;
-    return generate_type_cast(builder, expr, from_type, to_type);
+    for (size_t i = 0; i < expr.size(); i++) {
+        expr.at(i) = generate_type_cast(builder, expr.at(i), from_type, to_type);
+    }
+    return expr;
 }
 
 llvm::Value *Generator::Expression::generate_type_cast( //
@@ -513,226 +529,234 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     return nullptr;
 }
 
-llvm::Value *Generator::Expression::generate_unary_op_expression(          //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const UnaryOpExpression *unary_op                                      //
+Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
+    llvm::IRBuilder<> &builder,                                               //
+    llvm::Function *parent,                                                   //
+    const Scope *scope,                                                       //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,    //
+    const UnaryOpExpression *unary_op                                         //
 ) {
     const ExpressionNode *expression = unary_op->operand.get();
-    llvm::Value *operand = generate_expression(builder, parent, scope, allocations, expression);
-    switch (unary_op->operator_token) {
-        default:
-            // Unknown unary operator
-            THROW_BASIC_ERR(ERR_GENERATING);
-            break;
-        case TOK_NOT:
-            // Not is only allowed to be placed at the left of the expression
-            if (!unary_op->is_left) {
+    std::vector<llvm::Value *> operand = generate_expression(builder, parent, scope, allocations, expression).value();
+    for (size_t i = 0; i < operand.size(); i++) {
+        switch (unary_op->operator_token) {
+            default:
+                // Unknown unary operator
                 THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-            return Logical::generate_not(builder, operand);
-        case TOK_INCREMENT:
-            if (expression->type == "i32" || expression->type == "i64") {
-                llvm::Value *one = llvm::ConstantInt::get(operand->getType(), 1);
-                return Arithmetic::int_safe_add(builder, operand, one);
-            } else if (expression->type == "u32" || expression->type == "u64") {
-                llvm::Value *one = llvm::ConstantInt::get(operand->getType(), 1);
-                return Arithmetic::uint_safe_add(builder, operand, one);
-            } else if (expression->type == "f32" || expression->type == "f64") {
-                llvm::Value *one = llvm::ConstantFP::get(operand->getType(), 1.0);
-                return builder.CreateFAdd(operand, one);
-            }
-            break;
-        case TOK_DECREMENT:
-            if (expression->type == "i32" || expression->type == "i64") {
-                llvm::Value *one = llvm::ConstantInt::get(operand->getType(), 1);
-                return Arithmetic::int_safe_sub(builder, operand, one);
-            } else if (expression->type == "u32" || expression->type == "u64") {
-                llvm::Value *one = llvm::ConstantInt::get(operand->getType(), 1);
-                return Arithmetic::uint_safe_sub(builder, operand, one);
-            } else if (expression->type == "f32" || expression->type == "f64") {
-                llvm::Value *one = llvm::ConstantFP::get(operand->getType(), 1.0);
-                return builder.CreateFSub(operand, one);
-            }
-            break;
+                break;
+            case TOK_NOT:
+                // Not is only allowed to be placed at the left of the expression
+                if (!unary_op->is_left) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                operand.at(i) = Logical::generate_not(builder, operand.at(i));
+            case TOK_INCREMENT:
+                if (expression->type == "i32" || expression->type == "i64") {
+                    llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
+                    operand.at(i) = Arithmetic::int_safe_add(builder, operand.at(i), one);
+                } else if (expression->type == "u32" || expression->type == "u64") {
+                    llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
+                    operand.at(i) = Arithmetic::uint_safe_add(builder, operand.at(i), one);
+                } else if (expression->type == "f32" || expression->type == "f64") {
+                    llvm::Value *one = llvm::ConstantFP::get(operand.at(i)->getType(), 1.0);
+                    operand.at(i) = builder.CreateFAdd(operand.at(i), one);
+                }
+                break;
+            case TOK_DECREMENT:
+                if (expression->type == "i32" || expression->type == "i64") {
+                    llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
+                    operand.at(i) = Arithmetic::int_safe_sub(builder, operand.at(i), one);
+                } else if (expression->type == "u32" || expression->type == "u64") {
+                    llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
+                    operand.at(i) = Arithmetic::uint_safe_sub(builder, operand.at(i), one);
+                } else if (expression->type == "f32" || expression->type == "f64") {
+                    llvm::Value *one = llvm::ConstantFP::get(operand.at(i)->getType(), 1.0);
+                    operand.at(i) = builder.CreateFSub(operand.at(i), one);
+                }
+                break;
+        }
     }
-    return nullptr;
+    return operand;
 }
 
-llvm::Value *Generator::Expression::generate_binary_op(                    //
+Generator::group_mapping Generator::Expression::generate_binary_op(        //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const BinaryOpNode *bin_op_node                                        //
 ) {
-    llvm::Value *lhs = generate_expression(builder, parent, scope, allocations, bin_op_node->left.get());
-    llvm::Value *rhs = generate_expression(builder, parent, scope, allocations, bin_op_node->right.get());
-    switch (bin_op_node->operator_token) {
-        default:
-            break;
-        case TOK_MINUS:
-        case TOK_PLUS:
-        case TOK_MULT:
-        case TOK_DIV:
-        case TOK_SQUARE:
-            if (bin_op_node->left->type != bin_op_node->type) {
-                lhs = generate_type_cast(builder, lhs, bin_op_node->left->type, bin_op_node->type);
-            }
-            if (bin_op_node->right->type != bin_op_node->type) {
-                rhs = generate_type_cast(builder, rhs, bin_op_node->right->type, bin_op_node->type);
-            }
-            break;
+    std::vector<llvm::Value *> lhs = generate_expression(builder, parent, scope, allocations, bin_op_node->left.get()).value();
+    std::vector<llvm::Value *> rhs = generate_expression(builder, parent, scope, allocations, bin_op_node->right.get()).value();
+    assert(lhs.size() == rhs.size());
+    std::vector<llvm::Value *> return_value = {};
+
+    for (size_t i = 0; i < lhs.size(); i++) {
+        switch (bin_op_node->operator_token) {
+            default:
+                break;
+            case TOK_MINUS:
+            case TOK_PLUS:
+            case TOK_MULT:
+            case TOK_DIV:
+            case TOK_SQUARE:
+                if (bin_op_node->left->type != bin_op_node->type) {
+                    lhs.at(i) = generate_type_cast(builder, lhs.at(i), bin_op_node->left->type, bin_op_node->type);
+                }
+                if (bin_op_node->right->type != bin_op_node->type) {
+                    rhs.at(i) = generate_type_cast(builder, rhs.at(i), bin_op_node->right->type, bin_op_node->type);
+                }
+                break;
+        }
+        const std::string_view type = bin_op_node->left->type;
+        switch (bin_op_node->operator_token) {
+            default:
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            case TOK_PLUS:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(Arithmetic::int_safe_add(builder, lhs.at(i), rhs.at(i)));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(Arithmetic::uint_safe_add(builder, lhs.at(i), rhs.at(i)));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFAdd(lhs.at(i), rhs.at(i), "faddtmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            case TOK_MINUS:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(Arithmetic::int_safe_sub(builder, lhs.at(i), rhs.at(i)));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(Arithmetic::uint_safe_sub(builder, lhs.at(i), rhs.at(i)));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFSub(lhs.at(i), rhs.at(i), "fsubtmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            case TOK_MULT:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(Arithmetic::int_safe_mul(builder, lhs.at(i), rhs.at(i)));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(Arithmetic::uint_safe_mul(builder, lhs.at(i), rhs.at(i)));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFMul(lhs.at(i), rhs.at(i), "fmultmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            case TOK_DIV:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(Arithmetic::int_safe_div(builder, lhs.at(i), rhs.at(i)));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(Arithmetic::uint_safe_div(builder, lhs.at(i), rhs.at(i)));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFDiv(lhs.at(i), rhs.at(i), "fdivtmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            case TOK_SQUARE:
+                return_value.emplace_back(IR::generate_pow_instruction(builder, parent, lhs.at(i), rhs.at(i)));
+            case TOK_LESS:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(builder.CreateICmpSLT(lhs.at(i), rhs.at(i), "icmptmp"));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(builder.CreateICmpULT(lhs.at(i), rhs.at(i), "ucmptmp"));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFCmpOLT(lhs.at(i), rhs.at(i), "fcmptmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            case TOK_GREATER:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(builder.CreateICmpSGT(lhs.at(i), rhs.at(i), "icmptmp"));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(builder.CreateICmpUGT(lhs.at(i), rhs.at(i), "ucmptmp"));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFCmpOGT(lhs.at(i), rhs.at(i), "fcmptmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            case TOK_LESS_EQUAL:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(builder.CreateICmpSLE(lhs.at(i), rhs.at(i), "icmptmp"));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(builder.CreateICmpULE(lhs.at(i), rhs.at(i), "ucmptmp"));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFCmpOLE(lhs.at(i), rhs.at(i), "fcmptmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            case TOK_GREATER_EQUAL:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(builder.CreateICmpSGE(lhs.at(i), rhs.at(i), "icmptmp"));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(builder.CreateICmpUGE(lhs.at(i), rhs.at(i), "ucmptmp"));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFCmpOGE(lhs.at(i), rhs.at(i), "fcmptmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            case TOK_EQUAL_EQUAL:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(builder.CreateICmpEQ(lhs.at(i), rhs.at(i), "icmptmp"));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(builder.CreateICmpEQ(lhs.at(i), rhs.at(i), "ucmptmp"));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFCmpOEQ(lhs.at(i), rhs.at(i), "fcmptmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            case TOK_NOT_EQUAL:
+                if (type == "i32" || type == "i64") {
+                    return_value.emplace_back(builder.CreateICmpNE(lhs.at(i), rhs.at(i), "icmptmp"));
+                } else if (type == "u32" || type == "u64") {
+                    return_value.emplace_back(builder.CreateICmpNE(lhs.at(i), rhs.at(i), "ucmptmp"));
+                } else if (type == "f32" || type == "f64") {
+                    return_value.emplace_back(builder.CreateFCmpONE(lhs.at(i), rhs.at(i), "fcmptmp"));
+                } else if (type == "flint") {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                } else {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+        }
     }
-    const std::string_view type = bin_op_node->left->type;
-    switch (bin_op_node->operator_token) {
-        default:
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
-        case TOK_PLUS:
-            if (type == "i32" || type == "i64") {
-                return Arithmetic::int_safe_add(builder, lhs, rhs);
-            } else if (type == "u32" || type == "u64") {
-                return Arithmetic::uint_safe_add(builder, lhs, rhs);
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFAdd(lhs, rhs, "faddtmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-        case TOK_MINUS:
-            if (type == "i32" || type == "i64") {
-                return Arithmetic::int_safe_sub(builder, lhs, rhs);
-            } else if (type == "u32" || type == "u64") {
-                return Arithmetic::uint_safe_sub(builder, lhs, rhs);
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFSub(lhs, rhs, "fsubtmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-        case TOK_MULT:
-            if (type == "i32" || type == "i64") {
-                return Arithmetic::int_safe_mul(builder, lhs, rhs);
-            } else if (type == "u32" || type == "u64") {
-                return Arithmetic::uint_safe_mul(builder, lhs, rhs);
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFMul(lhs, rhs, "fmultmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-        case TOK_DIV:
-            if (type == "i32" || type == "i64") {
-                return Arithmetic::int_safe_div(builder, lhs, rhs);
-            } else if (type == "u32" || type == "u64") {
-                return Arithmetic::uint_safe_div(builder, lhs, rhs);
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFDiv(lhs, rhs, "fdivtmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-        case TOK_SQUARE:
-            return IR::generate_pow_instruction(builder, parent, lhs, rhs);
-        case TOK_LESS:
-            if (type == "i32" || type == "i64") {
-                return builder.CreateICmpSLT(lhs, rhs, "icmptmp");
-            } else if (type == "u32" || type == "u64") {
-                return builder.CreateICmpULT(lhs, rhs, "ucmptmp");
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFCmpOLT(lhs, rhs, "fcmptmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-        case TOK_GREATER:
-            if (type == "i32" || type == "i64") {
-                return builder.CreateICmpSGT(lhs, rhs, "icmptmp");
-            } else if (type == "u32" || type == "u64") {
-                return builder.CreateICmpUGT(lhs, rhs, "ucmptmp");
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFCmpOGT(lhs, rhs, "fcmptmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-        case TOK_LESS_EQUAL:
-            if (type == "i32" || type == "i64") {
-                return builder.CreateICmpSLE(lhs, rhs, "icmptmp");
-            } else if (type == "u32" || type == "u64") {
-                return builder.CreateICmpULE(lhs, rhs, "ucmptmp");
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFCmpOLE(lhs, rhs, "fcmptmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-        case TOK_GREATER_EQUAL:
-            if (type == "i32" || type == "i64") {
-                return builder.CreateICmpSGE(lhs, rhs, "icmptmp");
-            } else if (type == "u32" || type == "u64") {
-                return builder.CreateICmpUGE(lhs, rhs, "ucmptmp");
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFCmpOGE(lhs, rhs, "fcmptmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-        case TOK_EQUAL_EQUAL:
-            if (type == "i32" || type == "i64") {
-                return builder.CreateICmpEQ(lhs, rhs, "icmptmp");
-            } else if (type == "u32" || type == "u64") {
-                return builder.CreateICmpEQ(lhs, rhs, "ucmptmp");
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFCmpOEQ(lhs, rhs, "fcmptmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-        case TOK_NOT_EQUAL:
-            if (type == "i32" || type == "i64") {
-                return builder.CreateICmpNE(lhs, rhs, "icmptmp");
-            } else if (type == "u32" || type == "u64") {
-                return builder.CreateICmpNE(lhs, rhs, "ucmptmp");
-            } else if (type == "f32" || type == "f64") {
-                return builder.CreateFCmpONE(lhs, rhs, "fcmptmp");
-            } else if (type == "flint") {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
-            } else {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
-            }
-    }
+    return return_value;
 }

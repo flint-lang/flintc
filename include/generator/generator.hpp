@@ -90,6 +90,11 @@ class Generator {
     static std::string resolve_ir_comments(const std::string &ir_string);
 
   private:
+    /// @alias `group_mapping`
+    /// @brief This type represents all values of the group. Everything is considered a group, if one single value is returned, its a group
+    /// of size 1. This makes direct-group mappings much easier
+    using group_mapping = std::optional<std::vector<llvm::Value *>>;
+
     /// @var `builtins`
     /// @brief Map containing references to all builtin functions
     ///
@@ -866,20 +871,21 @@ class Generator {
             const GroupDeclarationNode *group_declaration_node                     //
         );
 
-        /// @funnction `generate_group_expression_allcoations`
-        /// @brief Generates the allocations for grouped expressions
+        /// @function `generate_expression_allocations`
+        /// @brief Goes throught all expressions and searches for all calls to allocate them
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `scope` The scope the allocation would take place in
-        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `group_expression` The GroupExpressionNode used to generate the allocations from
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc in encoded
+        /// @param `expression` The expression to search for calls for
         ///
         /// @attention The allocations map will be modified
-        static void generate_group_expression_allocations(                         //
+        static void generate_expression_allocations(                               //
             llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const GroupExpressionNode *group_expression                            //
+            const ExpressionNode *expression                                       //
         );
 
         /// @function `generate_allocation`
@@ -1215,8 +1221,8 @@ class Generator {
         /// @param `scope` The scope the expression is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `expression_node` The expression node to generate
-        /// @return `llvm::Value *` The value containing the result of the expression
-        static llvm::Value *generate_expression(                                   //
+        /// @return `group_mapping` The value(s) containing the result of the expression
+        static group_mapping generate_expression(                                  //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
@@ -1258,8 +1264,8 @@ class Generator {
         /// @param `scope` The scope the call is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `call_node` The call node to generate
-        /// @return `llvm::Value *` The value containing the result of the call (this will be a struct)
-        static llvm::Value *generate_call(                                         //
+        /// @return `group_mapping` The value(s) containing the result of the call
+        static group_mapping generate_call(                                        //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
@@ -1289,8 +1295,8 @@ class Generator {
         /// @param `scope` The scope the group expression is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `group_node` The group operation to generate
-        /// @return `llvm::Value *` The value containing the result of the group expression
-        static llvm::Value *generate_group_expression(                             //
+        /// @return `group_mapping` The value(s) containing the result of the group expression
+        static group_mapping generate_group_expression(                            //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
@@ -1306,8 +1312,8 @@ class Generator {
         /// @param `scope` The scope the type cast is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `type_cast_node` The type cast to generate
-        /// @return `llvm::Value *` The value containing the result of the type cast
-        static llvm::Value *generate_type_cast(                                    //
+        /// @return `group_mapping` The value(s) containing the result of the type cast
+        static group_mapping generate_type_cast(                                   //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
@@ -1338,8 +1344,8 @@ class Generator {
         /// @param `scope` The scope the binary operation is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `unary_op` The unary operation to generate
-        /// @return `llvm::Value *` The value containing the result of the unary operation
-        static llvm::Value *generate_unary_op_expression(                          //
+        /// @return `group_mapping` The value containing the result of the unary operation
+        static group_mapping generate_unary_op_expression(                         //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //
@@ -1355,8 +1361,8 @@ class Generator {
         /// @param `scope` The scope the binary operation is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `bin_op_node` The binary operation to generate
-        /// @return `llvm::Value *` The value containing the result of the binop
-        static llvm::Value *generate_binary_op(                                    //
+        /// @return `group_mapping` The value(s) containing the result of the binop
+        static group_mapping generate_binary_op(                                   //
             llvm::IRBuilder<> &builder,                                            //
             llvm::Function *parent,                                                //
             const Scope *scope,                                                    //

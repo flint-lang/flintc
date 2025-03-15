@@ -6,6 +6,7 @@
 #include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/return_node.hpp"
+
 #include <string>
 
 void Generator::Allocation::generate_allocations(                         //
@@ -29,22 +30,11 @@ void Generator::Allocation::generate_allocations(                         //
         } else if (const auto *group_declaration_node = dynamic_cast<const GroupDeclarationNode *>(statement_node.get())) {
             generate_group_declaration_allocations(builder, parent, scope, allocations, group_declaration_node);
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node.get())) {
-            if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(assignment_node->expression.get())) {
-                // Generate only the call allocations, not the variable allocations
-                generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
-            }
+            generate_expression_allocations(builder, parent, scope, allocations, assignment_node->expression.get());
         } else if (const auto *group_assignment_node = dynamic_cast<const GroupAssignmentNode *>(statement_node.get())) {
-            if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(group_assignment_node->expression.get())) {
-                generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
-            } else if (auto *group_expr = dynamic_cast<GroupExpressionNode *>(group_assignment_node->expression.get())) {
-                generate_group_expression_allocations(builder, scope, allocations, group_expr);
-            }
+            generate_expression_allocations(builder, parent, scope, allocations, group_assignment_node->expression.get());
         } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node.get())) {
-            if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(return_node->return_value.get())) {
-                generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
-            } else if (auto *group_expr = dynamic_cast<GroupExpressionNode *>(return_node->return_value.get())) {
-                generate_group_expression_allocations(builder, scope, allocations, group_expr);
-            }
+            generate_expression_allocations(builder, parent, scope, allocations, return_node->return_value.get());
         }
     }
 }
@@ -146,11 +136,7 @@ void Generator::Allocation::generate_group_declaration_allocations(        //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const GroupDeclarationNode *group_declaration_node                     //
 ) {
-    if (auto *call_node_expr = dynamic_cast<CallNodeExpression *>(group_declaration_node->initializer.get())) {
-        generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
-    } else if (auto *group_expr = dynamic_cast<GroupExpressionNode *>(group_declaration_node->initializer.get())) {
-        generate_group_expression_allocations(builder, scope, allocations, group_expr);
-    }
+    generate_expression_allocations(builder, parent, scope, allocations, group_declaration_node->initializer.get());
 
     // Allocating the actual variable values from the LHS
     for (const auto &variable : group_declaration_node->variables) {
@@ -163,22 +149,27 @@ void Generator::Allocation::generate_group_declaration_allocations(        //
     }
 }
 
-void Generator::Allocation::generate_group_expression_allocations(         //
+void Generator::Allocation::generate_expression_allocations(               //
     llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const GroupExpressionNode *group_expression                            //
+    const ExpressionNode *expression                                       //
 ) {
-    const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_expression->group_id);
-    std::vector<std::string> types;
-    for (const auto &expr : group_expression->expressions) {
-        types.emplace_back(expr->type);
+    if (const auto *binary_op = dynamic_cast<const BinaryOpNode *>(expression)) {
+        generate_expression_allocations(builder, parent, scope, allocations, binary_op->left.get());
+        generate_expression_allocations(builder, parent, scope, allocations, binary_op->right.get());
+    } else if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expression)) {
+        generate_call_allocations(builder, parent, scope, allocations, dynamic_cast<const CallNodeBase *>(call_node));
+    } else if (const auto *group_expression = dynamic_cast<const GroupExpressionNode *>(expression)) {
+        for (const auto &expr : group_expression->expressions) {
+            generate_expression_allocations(builder, parent, scope, allocations, expr.get());
+        }
+    } else if (const auto *type_cast = dynamic_cast<const TypeCastNode *>(expression)) {
+        generate_expression_allocations(builder, parent, scope, allocations, type_cast->expr.get());
+    } else if (const auto *unary_op = dynamic_cast<const UnaryOpExpression *>(expression)) {
+        generate_expression_allocations(builder, parent, scope, allocations, unary_op->operand.get());
     }
-    generate_allocation(builder, allocations, alloca_name,                     //
-        IR::add_and_or_get_type(&builder.getContext(), types, false),          //
-        "group_" + std::to_string(group_expression->group_id),                 //
-        "Create alloc for group " + std::to_string(group_expression->group_id) //
-    );
 }
 
 void Generator::Allocation::generate_allocation(                           //

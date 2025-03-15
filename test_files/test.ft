@@ -1,26 +1,19 @@
-//use "assert.ft"
-//use "add.ft"
-use "vec.ft"
+// use "assert.ft"
+// use "add.ft"
+// use "vec.ft"
 
 def double_return() -> (i32, i32):
 	return (3, 4);
 
 def main():
-	(a, b, c) := (1, 2, 3);
-	(a, b, c) = (c, a, b);
-	Vector2i v2 = Vector2i(1, 2);
+	(a, b) := (1, 2);
+	(a, b) = (b, a);
+	// Vector2i v2 = Vector2i(1, 2);
 	print(a);
 	print(", ");
 	print(b);
-	print(", ");
-	print(c);
 	print("\n");
-	(x, y) := double_return();
-	print(x);
-	print(", ");
-	print(y);
-	print("\n");
-	(x, y) = (y, x);
+	(x, y) := (1, 1) + double_return() + (1, 1);
 	print(x);
 	print(", ");
 	print(y);

@@ -1,11 +1,11 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
-#include "parser/ast/expressions/group_expression_node.hpp"
-#include "parser/ast/statements/declaration_node.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/statements/call_node_statement.hpp"
-#include "llvm/IR/Instructions.h"
+#include "parser/ast/statements/declaration_node.hpp"
+
+#include <llvm/IR/Instructions.h>
 #include <string>
 
 void Generator::Statement::generate_statement(                             //
@@ -80,53 +80,27 @@ void Generator::Statement::generate_return_statement(                      //
     // If we have a return value, store it in the struct
     if (return_node != nullptr && return_node->return_value != nullptr) {
         // Generate the expression for the return value
-        llvm::Value *return_value = Expression::generate_expression(builder, parent, scope, allocations, return_node->return_value.get());
+        auto return_value = Expression::generate_expression(builder, parent, scope, allocations, return_node->return_value.get());
 
         // Ensure the return value matches the function's return type
-        if (return_value == nullptr) {
+        if (!return_value.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
+            return;
         }
 
-        // Check if the return value is a group or a single value
-        if (const auto *group_expression = dynamic_cast<const GroupExpressionNode *>(return_node->return_value.get())) {
-            const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_expression->group_id);
-            llvm::AllocaInst *const alloca = allocations.at(alloca_name);
-            std::vector<std::string> types;
-            for (const auto &expr : group_expression->expressions) {
-                types.emplace_back(expr->type);
-            }
-            llvm::StructType *group_type = IR::add_and_or_get_type(&builder.getContext(), types, false);
-            unsigned int ret_id = 0;
-            for (const auto &type : types) {
-                llvm::Value *group_val_ptr = builder.CreateStructGEP( //
-                    group_type,                                       //
-                    alloca,                                           //
-                    ret_id,                                           //
-                    "group_val_" + std::to_string(ret_id) + "_ptr"    //
-                );
-                llvm::LoadInst *group_val = builder.CreateLoad(        //
-                    IR::get_type_from_str(builder.getContext(), type), //
-                    group_val_ptr,                                     //
-                    "group_val_" + std::to_string(ret_id)              //
-                );
-                llvm::Value *ret_val_ptr = builder.CreateStructGEP(return_struct_type, return_struct, ret_id + 1, //
-                    "ret_val_" + std::to_string(ret_id + 1) + "_ptr"                                              //
-                );
-                llvm::StoreInst *ret_val_store = builder.CreateStore(group_val, ret_val_ptr);
-                ret_val_store->setMetadata("comment",
-                    llvm::MDNode::get(parent->getContext(),
-                        llvm::MDString::get(parent->getContext(),
-                            "Store value of '" + group_val->getName().str() + "' of group in '" + return_struct->getName().str() + "'")));
-                ret_id++;
-            }
-        } else {
-            // Store the return value in the struct (at index 1)
-            llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "val_ptr");
-            llvm::StoreInst *value_store = builder.CreateStore(return_value, value_ptr);
+        // Then, save all values of the return_value in the return struct
+        for (size_t i = 0; i < return_value.value().size(); i++) {
+            llvm::Value *value_ptr = builder.CreateStructGEP( //
+                return_struct_type,                           //
+                return_struct,                                //
+                i + 1,                                        //
+                "ret_val_" + std::to_string(i)                //
+            );
+            llvm::StoreInst *value_store = builder.CreateStore(return_value.value().at(i), value_ptr);
             value_store->setMetadata("comment",
                 llvm::MDNode::get(parent->getContext(),
                     llvm::MDString::get(parent->getContext(),
-                        "Store result of expr '" + return_value->getName().str() + "' in '" + return_struct->getName().str() + "'")));
+                        "Store result " + std::to_string(i) + " in return '" + return_struct->getName().str() + "'")));
         }
     }
 
@@ -158,7 +132,8 @@ void Generator::Statement::generate_throw_statement(                       //
     // Create the pointer to the error value (the 0th index of the struct)
     llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
     // Generate the expression right of the throw statement, it has to be of type int
-    llvm::Value *err_value = Expression::generate_expression(builder, parent, scope, allocations, throw_node->throw_value.get());
+    llvm::Value *err_value =
+        Expression::generate_expression(builder, parent, scope, allocations, throw_node->throw_value.get()).value().at(0);
     // Store the error value in the struct
     builder.CreateStore(err_value, error_ptr);
 
@@ -254,17 +229,20 @@ void Generator::Statement::generate_if_statement(                          //
     unsigned int next_idx = then_idx + 1;
 
     // Generate the condition
-    llvm::Value *condition = Expression::generate_expression( //
-        builder,                                              //
-        parent,                                               //
-        if_node->then_scope->parent_scope,                    //
-        allocations,                                          //
-        if_node->condition.get()                              //
+    std::optional<std::vector<llvm::Value *>> condition_arr = Expression::generate_expression( //
+        builder,                                                                               //
+        parent,                                                                                //
+        if_node->then_scope->parent_scope,                                                     //
+        allocations,                                                                           //
+        if_node->condition.get()                                                               //
     );
-    if (condition == nullptr) {
+    if (!condition_arr.has_value()) {
         // Failed to generate condition expression
         THROW_BASIC_ERR(ERR_GENERATING);
     }
+    assert(condition_arr.value().size() == 1); // The condition must have a bool value type
+    llvm::Value *condition = condition_arr.value().at(0);
+
     // Create conditional branch
     llvm::BranchInst *branch = builder.CreateCondBr( //
         condition,                                   //
@@ -344,13 +322,14 @@ void Generator::Statement::generate_while_loop(                            //
 
     // Create the condition block's content
     builder.SetInsertPoint(while_blocks[0]);
-    llvm::Value *expression = Expression::generate_expression( //
-        builder,                                               //
-        parent,                                                //
-        while_node->scope->get_parent(),                       //
-        allocations,                                           //
-        while_node->condition.get()                            //
+    std::optional<std::vector<llvm::Value *>> expression_arr = Expression::generate_expression( //
+        builder,                                                                                //
+        parent,                                                                                 //
+        while_node->scope->get_parent(),                                                        //
+        allocations,                                                                            //
+        while_node->condition.get()                                                             //
     );
+    llvm::Value *expression = expression_arr.value().at(0);
     llvm::BranchInst *branch = builder.CreateCondBr(expression, while_blocks[1], while_blocks[2]);
     branch->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
@@ -398,13 +377,14 @@ void Generator::Statement::generate_for_loop(                              //
 
     // Create the condition block's content
     builder.SetInsertPoint(for_blocks[0]);
-    llvm::Value *expression = Expression::generate_expression( //
-        builder,                                               //
-        parent,                                                //
-        for_node->definition_scope.get(),                      //
-        allocations,                                           //
-        for_node->condition.get()                              //
+    std::optional<std::vector<llvm::Value *>> expression_arr = Expression::generate_expression( //
+        builder,                                                                                //
+        parent,                                                                                 //
+        for_node->definition_scope.get(),                                                       //
+        allocations,                                                                            //
+        for_node->condition.get()                                                               //
     );
+    llvm::Value *expression = expression_arr.value().at(0); // Conditions only are allowed to have one type, bool
     llvm::BranchInst *branch = builder.CreateCondBr(expression, for_blocks[1], for_blocks[2]);
     branch->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(),
@@ -517,45 +497,20 @@ void Generator::Statement::generate_group_declaration(                     //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const GroupDeclarationNode *declaration_node                           //
 ) {
-    Expression::generate_expression(builder, parent, scope, allocations, declaration_node->initializer.get());
-
-    const CallNodeExpression *call_node = dynamic_cast<const CallNodeExpression *>(declaration_node->initializer.get());
-    const GroupExpressionNode *group_node = dynamic_cast<const GroupExpressionNode *>(declaration_node->initializer.get());
-    llvm::AllocaInst *alloca = nullptr;
-    unsigned int id = 0;
-    std::string name;
-
-    if (call_node != nullptr) {
-        const std::string call_ret_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
-        alloca = allocations.at(call_ret_name);
-        id = 1;
-        name = "call_" + std::to_string(call_node->call_id);
-    } else if (group_node != nullptr) {
-        const std::string group_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group_node->group_id);
-        alloca = allocations.at(group_name);
-        name = "group_" + std::to_string(group_node->group_id);
-    } else {
-        // If its neither a call nor a group, error
+    auto expression = Expression::generate_expression(builder, parent, scope, allocations, declaration_node->initializer.get());
+    if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return;
     }
+    assert(declaration_node->variables.size() == expression.value().size());
 
+    unsigned int elem_idx = 0;
     for (const auto &variable : declaration_node->variables) {
         const std::string variable_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
         llvm::AllocaInst *const variable_alloca = allocations.at(variable_name);
-        llvm::Value *elem_ptr = builder.CreateStructGEP( //
-            alloca->getAllocatedType(),                  //
-            alloca,                                      //
-            id,                                          //
-            name + "_val_ptr"                            //
-        );
-        llvm::LoadInst *elem_value = builder.CreateLoad(                 //
-            IR::get_type_from_str(builder.getContext(), variable.first), //
-            elem_ptr,                                                    //
-            name + "_val"                                                //
-        );
+        llvm::Value *elem_value = expression.value().at(elem_idx);
         builder.CreateStore(elem_value, variable_alloca);
-        id++;
+        elem_idx++;
     }
 }
 
@@ -567,43 +522,15 @@ void Generator::Statement::generate_declaration(                           //
     const DeclarationNode *declaration_node                                //
 ) {
     llvm::Value *expression;
-    const CallNodeExpression *call_node = nullptr;
     if (declaration_node->initializer.has_value()) {
-        expression = Expression::generate_expression(builder, parent, scope, allocations, declaration_node->initializer.value().get());
-        call_node = dynamic_cast<const CallNodeExpression *>(declaration_node->initializer.value().get());
+        auto expr_val = Expression::generate_expression(builder, parent, scope, allocations, declaration_node->initializer.value().get());
+        if (!expr_val.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return;
+        }
+        expression = expr_val.value().at(0);
     } else {
         expression = IR::get_default_value_of_type(IR::get_type_from_str(builder.getContext(), declaration_node->type));
-    }
-
-    if (call_node != nullptr) {
-        // Call the function and store its result in the return stuct
-        const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
-        llvm::AllocaInst *const alloca_ret = allocations.at(call_ret_name);
-
-        // Extract the second field (index 1) from the struct - this is the actual return value
-        llvm::Value *value_ptr = builder.CreateStructGEP( //
-            expression->getType(),                        //
-            alloca_ret,                                   //
-            1,                                            //
-            declaration_node->name + "__VAL_PTR"          //
-        );
-        llvm::LoadInst *value_load = builder.CreateLoad(                         //
-            IR::get_type_from_str(parent->getContext(), declaration_node->type), //
-            value_ptr,                                                           //
-            declaration_node->name + "__VAL"                                     //
-        );
-        value_load->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(), "Load the actual val of '" + declaration_node->name + "' from its ptr")));
-
-        // Store the actual value in the declared variable
-        const std::string call_val_1_name = "s" + std::to_string(call_node->scope_id) + "::" + declaration_node->name;
-        llvm::AllocaInst *const call_val_1_alloca = allocations.at(call_val_1_name);
-        builder.CreateStore(value_load, call_val_1_alloca)
-            ->setMetadata("comment",
-                llvm::MDNode::get(parent->getContext(),
-                    llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
-        return;
     }
 
     const unsigned int scope_id = scope->variable_types.at(declaration_node->name).second;
@@ -623,47 +550,14 @@ void Generator::Statement::generate_group_assignment(                      //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const GroupAssignmentNode *group_assignment                            //
 ) {
-    Expression::generate_expression(builder, parent, scope, allocations, group_assignment->expression.get());
-    llvm::AllocaInst *expression_alloca;
-    // The returned value now should be a struct value
-    std::vector<std::string> types;
-    for (const auto &assign : group_assignment->assignees) {
-        types.emplace_back(assign.first);
-    }
-    // If the expression was a call, the "group_type" acutally is a "normal" function return type, and the elem_idx starts at 1!
-    const CallNodeExpression *call = dynamic_cast<const CallNodeExpression *>(group_assignment->expression.get());
-    const bool is_call = call != nullptr;
-    llvm::StructType *group_type = IR::add_and_or_get_type(&builder.getContext(), types, is_call);
-    unsigned int elem_idx = is_call ? 1 : 0;
-    if (is_call) {
-        // Load the correct value of the call from the expression_alloca
-        const std::string call_ret_name = "s" + std::to_string(call->scope_id) + "::c" + std::to_string(call->call_id) + "::ret";
-        expression_alloca = allocations.at(call_ret_name);
-    } else {
-        const GroupExpressionNode *group = dynamic_cast<const GroupExpressionNode *>(group_assignment->expression.get());
-        if (group == nullptr) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return;
-        }
-        // Load the allocation of the group into the expression_alloca
-        const std::string group_name = "s" + std::to_string(scope->scope_id) + "::g" + std::to_string(group->group_id);
-        expression_alloca = allocations.at(group_name);
-    }
+    auto expression = Expression::generate_expression(builder, parent, scope, allocations, group_assignment->expression.get());
+
+    unsigned int elem_idx = 0;
     for (const auto &assign : group_assignment->assignees) {
         const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + assign.second;
         llvm::AllocaInst *const alloca = allocations.at(var_name);
-        llvm::Value *struct_pointer = builder.CreateStructGEP( //
-            group_type,                                        //
-            expression_alloca,                                 //
-            elem_idx,                                          //
-            "group_ptr_" + std::to_string(elem_idx)            //
-        );
-        llvm::LoadInst *elem_load = builder.CreateLoad(                //
-            IR::get_type_from_str(builder.getContext(), assign.first), //
-            struct_pointer,                                            //
-            "group_val_" + std::to_string(elem_idx)                    //
-        );
-        builder.CreateStore(elem_load, alloca);
+        llvm::Value *elem_value = expression.value().at(elem_idx);
+        builder.CreateStore(elem_value, alloca);
         elem_idx++;
     }
 }
@@ -675,7 +569,8 @@ void Generator::Statement::generate_assignment(                            //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const AssignmentNode *assignment_node                                  //
 ) {
-    llvm::Value *expression = Expression::generate_expression(builder, parent, scope, allocations, assignment_node->expression.get());
+    auto expr = Expression::generate_expression(builder, parent, scope, allocations, assignment_node->expression.get());
+    llvm::Value *expression = expr.value().at(0);
 
     // Check if the variable is declared
     if (scope->variable_types.find(assignment_node->name) == scope->variable_types.end()) {
@@ -685,27 +580,6 @@ void Generator::Statement::generate_assignment(                            //
     // Get the allocation of the lhs
     const unsigned int variable_decl_scope = scope->variable_types.at(assignment_node->name).second;
     llvm::AllocaInst *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
-
-    // Check if the rhs is a function call
-    if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(assignment_node->expression.get())) {
-        const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
-        llvm::AllocaInst *const alloca_ret = allocations.at(call_ret_name);
-
-        // Extract the actual return value (index 1)
-        llvm::Value *value_ptr = builder.CreateStructGEP( //
-            expression->getType(),                        //
-            alloca_ret,                                   //
-            1,                                            //
-            assignment_node->name + "__VAL_PTR"           //
-        );
-        llvm::LoadInst *value_load = builder.CreateLoad( //
-            lhs->getAllocatedType(),                     //
-            value_ptr,                                   //
-            assignment_node->name + "__VAL"              //
-        );
-        // Use the extracted value instead of the struct
-        expression = value_load;
-    }
 
     llvm::StoreInst *store = builder.CreateStore(expression, lhs);
     store->setMetadata("comment",
