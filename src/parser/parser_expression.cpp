@@ -309,85 +309,186 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
     return GroupExpressionNode(expressions);
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
-    Scope *scope,                                                         //
-    const token_list &tokens,                                             //
-    const std::optional<std::string> expected_type                        //
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( //
+    Scope *scope,                                                               //
+    token_list &tokens                                                          //
 ) {
-    std::optional<std::unique_ptr<ExpressionNode>> expression = std::nullopt;
-    token_list expr_tokens = clone_from_to(0, tokens.size(), tokens);
-    // remove trailing semicolons
-    remove_trailing_garbage(expr_tokens);
+    if (!Signature::tokens_match(tokens, Signature::group_expression)) {
+        remove_surrounding_paren(tokens);
+    }
 
-    // TODO: A more advanced expression matching should be implemented, as this current implementation works not in all cases
-    if (Signature::tokens_contain(expr_tokens, Signature::function_call)) {
-        auto call_or_initializer_expression = create_call_or_initializer_expression(scope, expr_tokens);
-        if (!call_or_initializer_expression.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
+    // Try to parse primary expressions first (literal, variables)
+    if (tokens.size() == 1) {
+        if (Signature::tokens_match(tokens, Signature::literal)) {
+            std::optional<LiteralNode> lit = create_literal(tokens);
+            if (!lit.has_value()) {
+                THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
+                return std::nullopt;
+            }
+            return std::make_unique<LiteralNode>(std::move(lit.value()));
+        } else if (Signature::tokens_match(tokens, Signature::variable_expr)) {
+            std::optional<VariableNode> variable = create_variable(scope, tokens);
+            if (!variable.has_value()) {
+                THROW_ERR(ErrExprVariableCreationFailed, ERR_PARSING, file_name, tokens);
+                return std::nullopt;
+            }
+            return std::make_unique<VariableNode>(std::move(variable.value()));
         }
-        if (std::holds_alternative<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value())) {
-            expression = std::move(std::get<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value()));
-        } else {
-            expression = std::move(std::get<std::unique_ptr<InitializerNode>>(call_or_initializer_expression.value()));
+    }
+
+    if (Signature::tokens_match(tokens, Signature::function_call)) {
+        auto range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        if (range.has_value() && range.value().second == tokens.size()) {
+            // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something located
+            // on the right of the call still
+            auto call_or_initializer_expression = create_call_or_initializer_expression(scope, tokens);
+            if (!call_or_initializer_expression.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (std::holds_alternative<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value())) {
+                return std::move(std::get<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value()));
+            } else {
+                return std::move(std::get<std::unique_ptr<InitializerNode>>(call_or_initializer_expression.value()));
+            }
         }
-    } else if (Signature::tokens_contain(expr_tokens, Signature::unary_op_expr)) {
-        std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, expr_tokens);
-        if (!unary_op.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
+    } else if (Signature::tokens_match(tokens, Signature::group_expression)) {
+        auto range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        if (range.has_value() && range.value().first == 0 && range.value().second == tokens.size()) {
+            std::optional<GroupExpressionNode> group = create_group_expression(scope, tokens);
+            if (!group.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<GroupExpressionNode>(std::move(group.value()));
         }
-        expression = std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
-    } else if (Signature::tokens_contain(expr_tokens, Signature::group_expression)) {
-        std::optional<GroupExpressionNode> group = create_group_expression(scope, expr_tokens);
-        if (!group.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        expression = std::make_unique<GroupExpressionNode>(std::move(group.value()));
-    } else if (Signature::tokens_contain(expr_tokens, Signature::bin_op_expr)) {
-        std::optional<BinaryOpNode> bin_op = create_binary_op(scope, expr_tokens);
-        if (!bin_op.has_value()) {
-            THROW_ERR(ErrExprBinopCreationFailed, ERR_PARSING, file_name, expr_tokens);
-            return std::nullopt;
-        }
-        expression = std::make_unique<BinaryOpNode>(std::move(bin_op.value()));
-    } else if (Signature::tokens_contain(expr_tokens, Signature::type_cast)) {
-        std::optional<TypeCastNode> type_cast = create_type_cast(scope, expr_tokens);
+    } else if (Signature::tokens_match(tokens, Signature::type_cast)) {
+        std::optional<TypeCastNode> type_cast = create_type_cast(scope, tokens);
         if (!type_cast.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        expression = std::make_unique<TypeCastNode>(std::move(type_cast.value()));
-    } else if (Signature::tokens_contain(expr_tokens, Signature::literal_expr)) {
-        std::optional<LiteralNode> lit = create_literal(expr_tokens);
-        if (!lit.has_value()) {
-            THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, expr_tokens);
+        return std::make_unique<TypeCastNode>(std::move(type_cast.value()));
+    } else if (Signature::tokens_match(tokens, Signature::unary_op_expr)) {
+        std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, tokens);
+        if (!unary_op.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        expression = std::make_unique<LiteralNode>(std::move(lit.value()));
-    } else if (Signature::tokens_match(expr_tokens, Signature::variable_expr)) {
-        std::optional<VariableNode> variable = create_variable(scope, expr_tokens);
-        if (!variable.has_value()) {
-            THROW_ERR(ErrExprVariableCreationFailed, ERR_PARSING, file_name, expr_tokens);
+        return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
+    }
+
+    // Find the highest precedence operator
+    unsigned int highest_precedence = 0; // 0 is assignment, and that doesnt exist in expressions annyway
+    size_t pivot_pos = 0;
+    Token pivot_token = TOK_EOL;
+
+    // Find all possible binary operators at the root level
+    for (size_t i = 0; i < tokens.size(); i++) {
+        // Skip tokens inside parentheses or function calls
+        if (tokens[i].type == TOK_LEFT_PAREN) {
+            int paren_depth = 1;
+            while (++i < tokens.size() && paren_depth > 0) {
+                if (tokens[i].type == TOK_LEFT_PAREN) {
+                    paren_depth++;
+                } else if (tokens[i].type == TOK_RIGHT_PAREN) {
+                    paren_depth--;
+                }
+            }
+            if (i >= tokens.size()) {
+                break;
+            }
         }
-        expression = std::make_unique<VariableNode>(std::move(variable.value()));
-    } else {
-        // Undefined expression
+
+        // Check if this is a operator
+        if (token_precedence.find(tokens[i].type) != token_precedence.end()) {
+            // Update highest precedence if needed
+            unsigned int precedence = token_precedence.at(tokens[i].type);
+            if (precedence > highest_precedence) {
+                highest_precedence = precedence;
+                pivot_pos = i;
+                pivot_token = tokens[i].type;
+            }
+        }
+    }
+
+    // If no binary operators, this is an error
+    if (highest_precedence == 0) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+
+    // Extract the left and right parts of the expression
+    token_list lhs_tokens = clone_from_to(0, pivot_pos, tokens);
+    token_list rhs_tokens = clone_from_to(pivot_pos + 1, tokens.size(), tokens);
+
+    // Recursively parse both sides
+    auto lhs = create_pivot_expression(scope, lhs_tokens);
+    if (!lhs.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, lhs_tokens);
+        return std::nullopt;
+    }
+
+    auto rhs = create_pivot_expression(scope, rhs_tokens);
+    if (!rhs.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_tokens);
+        return std::nullopt;
+    }
+
+    // Create the binary operator node
+    if (Signature::tokens_contain({{pivot_token, "", 0, 0}}, Signature::relational_binop)) {
+        return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), "bool");
+    }
+    return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs.value()->type);
+}
+
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(                   //
+    Scope *scope,                                                                           //
+    const token_list &tokens,                                                               //
+    const std::optional<std::variant<std::string, std::vector<std::string>>> &expected_type //
+) {
+    token_list expr_tokens = clone_from_to(0, tokens.size(), tokens);
+    remove_trailing_garbage(expr_tokens);
+
+    // Parse expression using precedence levels
+    auto expression = create_pivot_expression(scope, expr_tokens);
+
+    if (!expression.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
         return std::nullopt;
     }
 
     // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
     if (expected_type.has_value() && expected_type.value() != expression.value()->type) {
-        if (primitive_implicit_casting_table.find(expression.value()->type) != primitive_implicit_casting_table.end()) {
-            const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(expression.value()->type);
-            if (std::find(to_types.begin(), to_types.end(), expected_type.value()) != to_types.end()) {
-                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+        if (std::holds_alternative<std::string>(expression.value()->type) && std::holds_alternative<std::string>(expected_type.value())) {
+            const std::string type = std::get<std::string>(expression.value()->type);
+            if (primitive_implicit_casting_table.find(type) != primitive_implicit_casting_table.end()) {
+                const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(type);
+                if (std::find(to_types.begin(), to_types.end(), std::get<std::string>(expected_type.value())) != to_types.end()) {
+                    expression = std::make_unique<TypeCastNode>(std::get<std::string>(expected_type.value()), expression.value());
+                }
+            } else {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
             }
+        } else if (std::holds_alternative<std::vector<std::string>>(expression.value()->type) &&
+            std::holds_alternative<std::vector<std::string>>(expected_type.value())) {
+            // TODO
         } else {
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-            return std::nullopt;
+            // Lastly, check if the expression type is a group of size 1, if it is it could become a single type instead
+            if (std::holds_alternative<std::vector<std::string>>(expression.value()->type)) {
+                auto &expression_type = std::get<std::vector<std::string>>(expression.value()->type);
+                if (expression_type.size() == 1) {
+                    std::string type = expression_type.at(0);
+                    expression.value()->type = type;
+                } else {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    return std::nullopt;
+                }
+            } else {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
+            }
         }
     }
 
