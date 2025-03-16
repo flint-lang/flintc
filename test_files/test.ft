@@ -5,7 +5,7 @@
 def double_return() -> (i32, i32):
 	return (3, 4);
 
-def get_5() -> i32:
+def get_5() -> f32:
 	return 5;
 
 def divide(f32 a, f32 b) -> f32:
@@ -26,10 +26,10 @@ def main():
 	print(b);
 	print("\n");
 	(x, y) := (1, 1) + double_return();
-	x = get_5() + x;
+	x = i32(get_5() + x);
 	print(x);
 	print(", ");
-	y = y + get_5();
+	y = i32(y + get_5());
 	print(y);
 	print("\n");
 
