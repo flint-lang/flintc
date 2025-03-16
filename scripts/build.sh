@@ -9,7 +9,7 @@ Options:
     -h, --help              Print this help message
     -a, --all               Build all possible versions (dynamic and static for linux and windows)
     -d, --dynamic           Build the executable as dynamic (default)
-        --debug             Compile the compiler in debug mode
+    -D  --debug             Compile the compiler in debug mode
     -l, --linux             Build the executable for linux
         --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')
     -s, --static            Build the executable as static
@@ -465,6 +465,9 @@ while [ "$#" -gt 0 ]; do
             case "$opt" in
             d)
                 build_dynamic=true
+                ;;
+            D)
+                debug_mode=true
                 ;;
             l)
                 build_linux=true
