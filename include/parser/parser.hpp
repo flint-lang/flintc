@@ -516,14 +516,6 @@ class Parser {
     std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>>
     create_call_or_initializer_expression(Scope *scope, token_list &tokens);
 
-    /// @function `create_binary_op`
-    /// @brief Creates a BinaryOpNode from the given tokens
-    ///
-    /// @param `scope` The scope in which the binary operation is defined
-    /// @param `tokens` The list of tokens representing the binary operation
-    /// @return `std::optional<BinaryOpNode>` An optional BinaryOpNode if creation is successful, nullopt otherwise
-    std::optional<BinaryOpNode> create_binary_op(Scope *scope, token_list &tokens);
-
     /// @function `create_type_cast`
     /// @brief Creates a TypeCastNode from the given tokens
     ///
