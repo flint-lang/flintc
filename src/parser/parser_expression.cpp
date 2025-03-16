@@ -28,7 +28,7 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
             // The left type needs to be cast to the right type
             lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
         }
-    } else if (!std::holds_alternative<std::string>(lhs->type) && !std::holds_alternative<std::string>(rhs->type)) {
+    } else if (!std::holds_alternative<std::string>(lhs->type) && std::holds_alternative<std::string>(rhs->type)) {
         // Left group, right single type
         if (std::get<std::vector<std::string>>(lhs->type).size() > 1) {
             // Not castable, group and single type mismatch
@@ -47,11 +47,13 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
         if (lhs_precedence > rhs_precedence) {
             // The right type needs to be cast to the left type
             rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
+            // Also change the type of the lhs from a single group type to a single value
+            lhs->type = lhs_type;
         } else {
             // The left type needs to be cast to the right type
             lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
         }
-    } else if (std::holds_alternative<std::string>(lhs->type) && std::holds_alternative<std::string>(rhs->type)) {
+    } else if (std::holds_alternative<std::string>(lhs->type) && !std::holds_alternative<std::string>(rhs->type)) {
         // Left single type, right group
         if (std::get<std::vector<std::string>>(rhs->type).size() > 1) {
             // Not castable, group and single type mismatch
@@ -73,6 +75,8 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
         } else {
             // The left type needs to be cast to the right type
             lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
+            // Also change the type of the rhs from a single group type to a single value
+            rhs->type = rhs_type;
         }
     } else {
         // Both group
