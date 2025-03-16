@@ -11,7 +11,7 @@
 class BinaryOpNode : public ExpressionNode {
   public:
     BinaryOpNode(Token operator_token, std::unique_ptr<ExpressionNode> &left, std::unique_ptr<ExpressionNode> &right,
-        const std::string &type) :
+        const std::variant<std::string, std::vector<std::string>> &type) :
         operator_token(operator_token),
         left(std::move(left)),
         right(std::move(right)) {

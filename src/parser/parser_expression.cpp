@@ -88,9 +88,9 @@ Parser::create_call_or_initializer_expression(Scope *scope, token_list &tokens) 
     if (std::get<3>(call_or_init_node_args.value()).has_value()) {
         // Its an initializer
         std::unique_ptr<InitializerNode> initializer_node = std::make_unique<InitializerNode>( //
-            std::get<2>(call_or_init_node_args.value()),                                       // type
-            std::get<3>(call_or_init_node_args.value()).value(),                               // is_data
-            std::get<1>(call_or_init_node_args.value())                                        // args
+            std::get<2>(call_or_init_node_args.value()).at(0),   // type vector (always of size 1 for initializers)
+            std::get<3>(call_or_init_node_args.value()).value(), // is_data
+            std::get<1>(call_or_init_node_args.value())          // args
         );
         return initializer_node;
     } else {
@@ -227,13 +227,17 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
         return std::nullopt;
     }
-
-    // Check if the type of the expression is castable at all
-    if (primitive_casting_table.find(expression.value()->type) == primitive_casting_table.end()) {
+    if (!std::holds_alternative<std::string>(expression.value()->type)) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::vector<std::string_view> &to_types = primitive_casting_table.at(expression.value()->type);
+
+    // Check if the type of the expression is castable at all
+    if (primitive_casting_table.find(std::get<std::string>(expression.value()->type)) == primitive_casting_table.end()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const std::vector<std::string_view> &to_types = primitive_casting_table.at(std::get<std::string>(expression.value()->type));
     if (std::find(to_types.begin(), to_types.end(), type_token.lexme) == to_types.end()) {
         // The given expression type cannot be cast to the wanted type
         THROW_BASIC_ERR(ERR_PARSING);

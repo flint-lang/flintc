@@ -12,7 +12,7 @@
 class CallNodeExpression : public CallNodeBase, public ExpressionNode {
   public:
     explicit CallNodeExpression(std::string &function_name, std::vector<std::unique_ptr<ExpressionNode>> &arguments,
-        const std::string &type) :
+        const std::variant<std::string, std::vector<std::string>> &type) :
         CallNodeBase(function_name, std::move(arguments), type) {
         ExpressionNode::type = type;
     }

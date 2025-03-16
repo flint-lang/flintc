@@ -8,6 +8,8 @@
 
 #include <iterator>
 #include <optional>
+#include <string>
+#include <variant>
 
 std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(Scope *scope, token_list &tokens) {
     auto call_node_args = create_call_or_initializer_base(scope, tokens);
@@ -46,7 +48,7 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) 
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
-    if (expr.value()->type != "i32") {
+    if (!std::holds_alternative<std::string>(expr.value()->type) || std::get<std::string>(expr.value()->type) != "i32") {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, "i32", expr.value()->type);
         return std::nullopt;
     }
@@ -113,7 +115,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, this_if_pair.first);
         return std::nullopt;
     }
-    if (condition.value()->type != "bool") {
+    if (!std::holds_alternative<std::string>(condition.value()->type) || std::get<std::string>(condition.value()->type) != "bool") {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, this_if_pair.first, "bool", condition.value()->type);
         return std::nullopt;
     }
@@ -556,18 +558,22 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
             THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
+        if (!std::holds_alternative<std::string>(expr.value()->type)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
         for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
             if (it->type == TOK_IDENTIFIER && (it + 1)->type == TOK_COLON_EQUAL) {
                 name = it->lexme;
                 break;
             }
         }
-        if (!scope->add_variable_type(name, expr.value()->type, scope->scope_id)) {
+        if (!scope->add_variable_type(name, std::get<std::string>(expr.value()->type), scope->scope_id)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;
         }
-        declaration = DeclarationNode(expr.value()->type, name, expr);
+        declaration = DeclarationNode(std::get<std::string>(expr.value()->type), name, expr);
     } else {
         unsigned int type_begin = 0;
         unsigned int type_end = lhs_tokens.size() - 2;

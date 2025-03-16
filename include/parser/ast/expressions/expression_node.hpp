@@ -1,8 +1,10 @@
 #pragma once
 
-#include "../ast_node.hpp"
+#include "parser/ast/ast_node.hpp"
 
 #include <string>
+#include <variant>
+#include <vector>
 
 /// ExpressionNode
 ///     Base class for all expressions
@@ -21,7 +23,9 @@ class ExpressionNode : public ASTNode {
     ExpressionNode(ExpressionNode &&) = default;
     ExpressionNode &operator=(ExpressionNode &&) = default;
 
-    /// type
-    ///     The type of the expression
-    std::string type;
+    /// @var `type`
+    /// @brief The type of the expression
+    ///
+    /// @details The type of an expression can either be a single type, or a list of types for groups
+    std::variant<std::string, std::vector<std::string>> type;
 };

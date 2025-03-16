@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <sstream>
 #include <string>
+#include <variant>
 
 class BaseError {
   public:
@@ -61,6 +62,24 @@ class BaseError {
             oss << "'" << get_token_name(*it) << "'";
         }
         return oss.str();
+    }
+
+    [[nodiscard]]
+    std::string get_type_string(const std::variant<std::string, std::vector<std::string>> &type) const {
+        if (std::holds_alternative<std::string>(type)) {
+            return std::get<std::string>(type);
+        } else {
+            std::string type_str = "(";
+            const std::vector<std::string> &types = std::get<std::vector<std::string>>(type);
+            for (auto it = types.begin(); it != types.end(); ++it) {
+                if (it != types.begin()) {
+                    type_str += ", ";
+                }
+                type_str += *it;
+            }
+            type_str += ")";
+            return type_str;
+        }
     }
 
     [[nodiscard]]

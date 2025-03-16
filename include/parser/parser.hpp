@@ -437,7 +437,7 @@ class Parser {
     ///         - the second value is a list of all expressions (the argument expression) of the call / initializier
     ///         - the third value is the call's return type, or the initializers type encoded as a string
     ///         - the forth value is: true if the expression is a Data initializer, false if an entity initializer, nullopt if its a call
-    std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string, std::optional<bool>>>
+    std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::vector<std::string>, std::optional<bool>>>
     create_call_or_initializer_base(Scope *scope, token_list &tokens);
 
     /// @function `create_unary_op_base`
@@ -522,10 +522,10 @@ class Parser {
     /// @param `tokens` The list of tokens representing the expression
     /// @param `expected_type` The expected type of the expression. If possible, applies implicit type conversion to get this type
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional unique pointer to the created ExpressionNode
-    std::optional<std::unique_ptr<ExpressionNode>> create_expression( //
-        Scope *scope,                                                 //
-        const token_list &tokens,                                     //
-        const std::optional<std::string> expected_type = std::nullopt //
+    std::optional<std::unique_ptr<ExpressionNode>> create_expression(                                          //
+        Scope *scope,                                                                                          //
+        const token_list &tokens,                                                                              //
+        const std::optional<std::variant<std::string, std::vector<std::string>>> &expected_type = std::nullopt //
     );
 
     /**************************************************************************************************************************************

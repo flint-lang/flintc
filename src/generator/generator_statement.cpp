@@ -609,19 +609,24 @@ void Generator::Statement::generate_unary_op_statement(                    //
         llvm::MDNode::get(parent->getContext(), llvm::MDString::get(parent->getContext(), "Load val of var '" + var_node->name + "'")));
     llvm::Value *operation_result = nullptr;
 
+    if (!std::holds_alternative<std::string>(var_node->type)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return;
+    }
+    const std::string &var_type = std::get<std::string>(var_node->type);
     switch (unary_op->operator_token) {
         default:
             // Unknown unary operator
             THROW_BASIC_ERR(ERR_GENERATING);
             return;
         case TOK_INCREMENT:
-            if (var_node->type == "i32" || var_node->type == "i64") {
+            if (var_type == "i32" || var_type == "i64") {
                 llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
                 operation_result = Arithmetic::int_safe_add(builder, var_value, one);
-            } else if (var_node->type == "u32" || var_node->type == "u64") {
+            } else if (var_type == "u32" || var_type == "u64") {
                 llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
                 operation_result = Arithmetic::uint_safe_add(builder, var_value, one);
-            } else if (var_node->type == "f32" || var_node->type == "f64") {
+            } else if (var_type == "f32" || var_type == "f64") {
                 llvm::Value *one = llvm::ConstantFP::get(var_value->getType(), 1.0);
                 operation_result = builder.CreateFAdd(var_value, one);
             } else {
@@ -631,13 +636,13 @@ void Generator::Statement::generate_unary_op_statement(                    //
             }
             break;
         case TOK_DECREMENT:
-            if (var_node->type == "i32" || var_node->type == "i64") {
+            if (var_type == "i32" || var_type == "i64") {
                 llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
                 operation_result = Arithmetic::int_safe_sub(builder, var_value, one);
-            } else if (var_node->type == "u32" || var_node->type == "u64") {
+            } else if (var_type == "u32" || var_type == "u64") {
                 llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
                 operation_result = Arithmetic::uint_safe_sub(builder, var_value, one);
-            } else if (var_node->type == "f32" || var_node->type == "f64") {
+            } else if (var_type == "f32" || var_type == "f64") {
                 llvm::Value *one = llvm::ConstantFP::get(var_value->getType(), 1.0);
                 operation_result = builder.CreateFSub(var_value, one);
             } else {

@@ -287,14 +287,26 @@ namespace Debug {
 
         void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast) {
             Local::print_header(indent_lvl, empty, "TypeCast ");
-            std::cout << cast.type << std::endl;
+            if (std::holds_alternative<std::string>(cast.type)) {
+                std::cout << std::get<std::string>(cast.type) << std::endl;
+            } else {
+                const std::vector<std::string> &types = std::get<std::vector<std::string>>(cast.type);
+                std::cout << "(";
+                for (auto it = types.begin(); it != types.end(); ++it) {
+                    if (it != types.begin()) {
+                        std::cout << ", ";
+                    }
+                    std::cout << *it;
+                }
+                std::cout << ")" << std::endl;
+            }
             empty.second = indent_lvl + 2;
             print_expression(indent_lvl + 1, empty, cast.expr);
         }
 
         void print_initilalizer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer) {
             Local::print_header(indent_lvl, empty, "Initializer");
-            std::cout << "of " << (initializer.is_data ? "data" : "entity") << " type '" << initializer.type << "'";
+            std::cout << "of " << (initializer.is_data ? "data" : "entity") << " type '" << std::get<std::string>(initializer.type) << "'";
             std::cout << std::endl;
             empty.second = indent_lvl + 1;
             for (auto &expr : initializer.args) {
@@ -305,11 +317,12 @@ namespace Debug {
         void print_group_expression(unsigned int indent_lvl, uint2 empty, const GroupExpressionNode &group) {
             Local::print_header(indent_lvl, empty, "Group Expr ");
             std::cout << "group types: (";
-            for (auto it = group.expressions.begin(); it != group.expressions.end(); ++it) {
-                if (it != group.expressions.begin()) {
+            const std::vector<std::string> &types = std::get<std::vector<std::string>>(group.type);
+            for (auto it = types.begin(); it != types.end(); ++it) {
+                if (it != types.begin()) {
                     std::cout << ", ";
                 }
-                std::cout << (*it)->type;
+                std::cout << *it;
             }
             std::cout << ")" << std::endl;
 

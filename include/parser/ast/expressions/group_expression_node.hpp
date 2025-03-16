@@ -1,28 +1,29 @@
 #pragma once
 
+#include "error/error.hpp"
 #include "expression_node.hpp"
 
 #include <memory>
 #include <string>
+#include <variant>
 #include <vector>
 
-/// GroupExpressionNode
-///     Represents group expression values
+/// @class `GroupExpressionNode`
+/// @brief Represents group expression values
 class GroupExpressionNode : public ExpressionNode {
   public:
     explicit GroupExpressionNode(std::vector<std::unique_ptr<ExpressionNode>> &expressions) :
         expressions(std::move(expressions)) {
-        std::string type;
+        std::vector<std::string> types;
         for (auto it = this->expressions.begin(); it != this->expressions.end(); ++it) {
-            if (it == this->expressions.begin()) {
-                type += "(" + (*it)->type;
-            } else if (it == this->expressions.end()) {
-                type += (*it)->type + ")";
-            } else {
-                type += "," + (*it)->type;
+            if (std::holds_alternative<std::vector<std::string>>((*it)->type)) {
+                // Nested groups are not allowed
+                THROW_BASIC_ERR(ERR_PARSING);
+                return;
             }
+            types.emplace_back(std::get<std::string>((*it)->type));
         }
-        this->type = type;
+        this->type = types;
     }
 
     /// @var `expressions`

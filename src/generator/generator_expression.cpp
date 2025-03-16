@@ -4,7 +4,10 @@
 
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
-#include "llvm/IR/Instructions.h"
+
+#include <llvm/IR/Instructions.h>
+#include <string>
+#include <variant>
 
 Generator::group_mapping Generator::Expression::generate_expression(       //
     llvm::IRBuilder<> &builder,                                            //
@@ -145,7 +148,7 @@ llvm::Value *Generator::Expression::generate_variable(                     //
     llvm::AllocaInst *const variable = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
 
     // Get the type that the pointer points to
-    llvm::Type *value_type = IR::get_type_from_str(parent->getContext(), variable_node->type);
+    llvm::Type *value_type = IR::get_type_from_str(parent->getContext(), std::get<std::string>(variable_node->type));
 
     // Load the variable's value if it's a pointer
     llvm::LoadInst *load = builder.CreateLoad(value_type, variable, variable_node->name + "_val");
@@ -175,16 +178,21 @@ Generator::group_mapping Generator::Expression::generate_call(             //
         llvm::Function *builtin_function = builtins.at(builtin_functions.at(call_node->function_name));
         if (builtin_function == nullptr) {
             // Function has not been generated yet, but it should have been
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        // There doesnt exist a builtin print function for any groups
+        if (!std::holds_alternative<std::string>(call_node->arguments.at(0)->type)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
         // Call the builtin function 'print'
         std::vector<llvm::Value *> return_value;
         if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
-            print_functions.find(call_node->arguments.at(0)->type) != print_functions.end()) {
-            return_value.emplace_back(builder.CreateCall(          //
-                print_functions[call_node->arguments.at(0)->type], //
-                args                                               //
+            print_functions.find(std::get<std::string>(call_node->arguments.at(0)->type)) != print_functions.end()) {
+            return_value.emplace_back(builder.CreateCall(                                 //
+                print_functions[std::get<std::string>(call_node->arguments.at(0)->type)], //
+                args                                                                      //
                 ));
             return return_value;
         }
@@ -392,11 +400,13 @@ Generator::group_mapping Generator::Expression::generate_group_expression( //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const GroupExpressionNode *group_node                                  //
 ) {
-    std::vector<llvm::Value *> group_values = {};
+    std::vector<llvm::Value *> group_values;
+    group_values.reserve(group_node->expressions.size());
     for (const auto &expr : group_node->expressions) {
         std::vector<llvm::Value *> expr_val = generate_expression(builder, parent, scope, allocations, expr.get()).value();
         assert(expr_val.size() == 1); // Nested groups are not allowed
-        group_values.emplace_back(expr_val.at(0));
+        assert(expr_val.at(0) != nullptr);
+        group_values.push_back(expr_val[0]);
     }
     return group_values;
 }
@@ -411,8 +421,8 @@ Generator::group_mapping Generator::Expression::generate_type_cast(        //
     // First, generate the expression
     std::vector<llvm::Value *> expr = generate_expression(builder, parent, scope, allocations, type_cast_node->expr.get()).value();
     // Then, check if the expression is castable
-    const std::string &from_type = type_cast_node->expr->type;
-    const std::string &to_type = type_cast_node->type;
+    const std::string &from_type = std::get<std::string>(type_cast_node->expr->type);
+    const std::string &to_type = std::get<std::string>(type_cast_node->type);
     for (size_t i = 0; i < expr.size(); i++) {
         expr.at(i) = generate_type_cast(builder, expr.at(i), from_type, to_type);
     }
@@ -539,6 +549,7 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
     const ExpressionNode *expression = unary_op->operand.get();
     std::vector<llvm::Value *> operand = generate_expression(builder, parent, scope, allocations, expression).value();
     for (size_t i = 0; i < operand.size(); i++) {
+        const std::string &expression_type = std::get<std::string>(expression->type);
         switch (unary_op->operator_token) {
             default:
                 // Unknown unary operator
@@ -552,25 +563,25 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                 }
                 operand.at(i) = Logical::generate_not(builder, operand.at(i));
             case TOK_INCREMENT:
-                if (expression->type == "i32" || expression->type == "i64") {
+                if (expression_type == "i32" || expression_type == "i64") {
                     llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
                     operand.at(i) = Arithmetic::int_safe_add(builder, operand.at(i), one);
-                } else if (expression->type == "u32" || expression->type == "u64") {
+                } else if (expression_type == "u32" || expression_type == "u64") {
                     llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
                     operand.at(i) = Arithmetic::uint_safe_add(builder, operand.at(i), one);
-                } else if (expression->type == "f32" || expression->type == "f64") {
+                } else if (expression_type == "f32" || expression_type == "f64") {
                     llvm::Value *one = llvm::ConstantFP::get(operand.at(i)->getType(), 1.0);
                     operand.at(i) = builder.CreateFAdd(operand.at(i), one);
                 }
                 break;
             case TOK_DECREMENT:
-                if (expression->type == "i32" || expression->type == "i64") {
+                if (expression_type == "i32" || expression_type == "i64") {
                     llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
                     operand.at(i) = Arithmetic::int_safe_sub(builder, operand.at(i), one);
-                } else if (expression->type == "u32" || expression->type == "u64") {
+                } else if (expression_type == "u32" || expression_type == "u64") {
                     llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
                     operand.at(i) = Arithmetic::uint_safe_sub(builder, operand.at(i), one);
-                } else if (expression->type == "f32" || expression->type == "f64") {
+                } else if (expression_type == "f32" || expression_type == "f64") {
                     llvm::Value *one = llvm::ConstantFP::get(operand.at(i)->getType(), 1.0);
                     operand.at(i) = builder.CreateFSub(operand.at(i), one);
                 }
@@ -587,29 +598,58 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const BinaryOpNode *bin_op_node                                        //
 ) {
-    std::vector<llvm::Value *> lhs = generate_expression(builder, parent, scope, allocations, bin_op_node->left.get()).value();
-    std::vector<llvm::Value *> rhs = generate_expression(builder, parent, scope, allocations, bin_op_node->right.get()).value();
+    auto lhs_maybe = generate_expression(builder, parent, scope, allocations, bin_op_node->left.get());
+    if (!lhs_maybe.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+    std::vector<llvm::Value *> lhs = lhs_maybe.value();
+    auto rhs_maybe = generate_expression(builder, parent, scope, allocations, bin_op_node->right.get());
+    if (!rhs_maybe.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+    std::vector<llvm::Value *> rhs = rhs_maybe.value();
     assert(lhs.size() == rhs.size());
-    std::vector<llvm::Value *> return_value = {};
+    std::vector<llvm::Value *> return_value;
 
     for (size_t i = 0; i < lhs.size(); i++) {
         switch (bin_op_node->operator_token) {
             default:
                 break;
             case TOK_MINUS:
+                [[fallthrough]];
             case TOK_PLUS:
+                [[fallthrough]];
             case TOK_MULT:
+                [[fallthrough]];
             case TOK_DIV:
+                [[fallthrough]];
             case TOK_SQUARE:
-                if (bin_op_node->left->type != bin_op_node->type) {
-                    lhs.at(i) = generate_type_cast(builder, lhs.at(i), bin_op_node->left->type, bin_op_node->type);
+                if (bin_op_node->left->type != bin_op_node->type && std::holds_alternative<std::string>(bin_op_node->left->type) &&
+                    std::holds_alternative<std::string>(bin_op_node->type)) {
+                    lhs.at(i) = generate_type_cast(                     //
+                        builder,                                        //
+                        lhs.at(i),                                      //
+                        std::get<std::string>(bin_op_node->left->type), //
+                        std::get<std::string>(bin_op_node->type)        //
+                    );
                 }
-                if (bin_op_node->right->type != bin_op_node->type) {
-                    rhs.at(i) = generate_type_cast(builder, rhs.at(i), bin_op_node->right->type, bin_op_node->type);
+                if (bin_op_node->right->type != bin_op_node->type && std::holds_alternative<std::string>(bin_op_node->right->type) &&
+                    std::holds_alternative<std::string>(bin_op_node->type)) {
+                    rhs.at(i) = generate_type_cast(                      //
+                        builder,                                         //
+                        rhs.at(i),                                       //
+                        std::get<std::string>(bin_op_node->right->type), //
+                        std::get<std::string>(bin_op_node->type)         //
+                    );
                 }
                 break;
         }
-        const std::string_view type = bin_op_node->left->type;
+
+        const std::string_view type = std::holds_alternative<std::string>(bin_op_node->left->type)
+            ? std::get<std::string>(bin_op_node->left->type)
+            : std::get<std::vector<std::string>>(bin_op_node->left->type).at(i);
         switch (bin_op_node->operator_token) {
             default:
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -628,6 +668,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
             case TOK_MINUS:
                 if (type == "i32" || type == "i64") {
                     return_value.emplace_back(Arithmetic::int_safe_sub(builder, lhs.at(i), rhs.at(i)));
@@ -642,6 +683,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
             case TOK_MULT:
                 if (type == "i32" || type == "i64") {
                     return_value.emplace_back(Arithmetic::int_safe_mul(builder, lhs.at(i), rhs.at(i)));
@@ -656,6 +698,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
             case TOK_DIV:
                 if (type == "i32" || type == "i64") {
                     return_value.emplace_back(Arithmetic::int_safe_div(builder, lhs.at(i), rhs.at(i)));
@@ -670,8 +713,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
             case TOK_SQUARE:
                 return_value.emplace_back(IR::generate_pow_instruction(builder, parent, lhs.at(i), rhs.at(i)));
+                break;
             case TOK_LESS:
                 if (type == "i32" || type == "i64") {
                     return_value.emplace_back(builder.CreateICmpSLT(lhs.at(i), rhs.at(i), "icmptmp"));
@@ -686,6 +731,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
             case TOK_GREATER:
                 if (type == "i32" || type == "i64") {
                     return_value.emplace_back(builder.CreateICmpSGT(lhs.at(i), rhs.at(i), "icmptmp"));
@@ -700,6 +746,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
             case TOK_LESS_EQUAL:
                 if (type == "i32" || type == "i64") {
                     return_value.emplace_back(builder.CreateICmpSLE(lhs.at(i), rhs.at(i), "icmptmp"));
@@ -714,6 +761,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
             case TOK_GREATER_EQUAL:
                 if (type == "i32" || type == "i64") {
                     return_value.emplace_back(builder.CreateICmpSGE(lhs.at(i), rhs.at(i), "icmptmp"));
@@ -728,6 +776,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
             case TOK_EQUAL_EQUAL:
                 if (type == "i32" || type == "i64") {
                     return_value.emplace_back(builder.CreateICmpEQ(lhs.at(i), rhs.at(i), "icmptmp"));
@@ -742,6 +791,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
             case TOK_NOT_EQUAL:
                 if (type == "i32" || type == "i64") {
                     return_value.emplace_back(builder.CreateICmpNE(lhs.at(i), rhs.at(i), "icmptmp"));
@@ -756,6 +806,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                break;
         }
     }
     return return_value;

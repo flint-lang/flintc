@@ -151,7 +151,7 @@ token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token
     return extraction;
 }
 
-std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::string, std::optional<bool>>>
+std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::vector<std::string>, std::optional<bool>>>
 Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
     if (!arg_range.has_value()) {
@@ -217,7 +217,8 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     std::vector<std::string> argument_types;
     argument_types.reserve(arguments.size());
     for (auto &arg : arguments) {
-        argument_types.emplace_back(arg->type);
+        assert(std::holds_alternative<std::string>(arg->type));
+        argument_types.emplace_back(std::get<std::string>(arg->type));
     }
 
     // Check if its a call to a builtin function, if it is, get the return type of said function
@@ -255,7 +256,12 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
                 function_name, argument_types);
             return std::nullopt;
         }
-        return std::make_tuple(function_name, std::move(arguments), "", std::nullopt);
+        std::vector<std::string> types;
+        types.reserve(found_function.value().second.size());
+        for (const std::string_view &type : found_function.value().second) {
+            types.emplace_back(type);
+        }
+        return std::make_tuple(function_name, std::move(arguments), types, std::nullopt);
     }
     // Get the acutal function this call targets, and check if it even exists
     auto function = get_function_from_call(function_name, argument_types);
@@ -263,10 +269,11 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
         auto data_definition = get_data_definition(file_name, function_name, imported_files, argument_types);
         if (data_definition.has_value()) {
             // Its not a function call but actually a data initializer
+            std::vector<std::string> return_type{data_definition.value()->name};
             return std::make_tuple(            //
                 data_definition.value()->name, //
                 std::move(arguments),          //
-                data_definition.value()->name, //
+                return_type,                   //
                 true                           //
             );
         }
@@ -298,17 +305,7 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
         ++arg_it;
     }
 
-    // TODO: Change this eventually to support returning multiple types. Currently all return types are packed into one return type
-    std::string return_type;
-    auto &ret_types = function.value().first->return_types;
-    for (auto it = ret_types.begin(); it != ret_types.end(); ++it) {
-        if (it != ret_types.begin()) {
-            return_type += "," + *it;
-        } else {
-            return_type += *it;
-        }
-    }
-    return std::make_tuple(function_name, std::move(arguments), return_type, std::nullopt);
+    return std::make_tuple(function_name, std::move(arguments), function.value().first->return_types, std::nullopt);
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base(Scope *scope, token_list &tokens) {

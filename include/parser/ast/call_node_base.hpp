@@ -10,7 +10,8 @@
 ///     The base class for calls, both statements and expressions
 class CallNodeBase {
   public:
-    CallNodeBase(std::string function_name, std::vector<std::unique_ptr<ExpressionNode>> arguments, std::string type) :
+    CallNodeBase(std::string function_name, std::vector<std::unique_ptr<ExpressionNode>> arguments,
+        const std::variant<std::string, std::vector<std::string>> &type) :
         function_name(std::move(function_name)),
         arguments(std::move(arguments)),
         type(type) {}
@@ -40,8 +41,8 @@ class CallNodeBase {
     ///     The id of this function call. Used for Catch-referentiation of this CallNode
     const unsigned int call_id = get_next_call_id();
     /// type
-    ///     The type of the call`s return value
-    std::string type;
+    ///     The type of the call`s return value(s)
+    std::variant<std::string, std::vector<std::string>> type;
 
   protected:
     CallNodeBase() = default;
