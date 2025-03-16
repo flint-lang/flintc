@@ -457,50 +457,18 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
-    if (const auto call_node = dynamic_cast<const CallNodeExpression *>(expression.value().get())) {
-        std::vector<std::string> arg_types;
-        for (const auto &arg : call_node->arguments) {
-            arg_types.emplace_back(arg->type);
-        }
-        auto found_function = get_function_from_call(call_node->function_name, arg_types);
-        if (!found_function.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+    assert(std::holds_alternative<std::vector<std::string>>(expression.value()->type));
+    const std::vector<std::string> &types = std::get<std::vector<std::string>>(expression.value()->type);
+    assert(variables.size() == types.size());
+    for (unsigned int i = 0; i < variables.size(); i++) {
+        variables.at(i).first = types.at(i);
+        if (!scope->add_variable_type(variables.at(i).second, types.at(i), scope->scope_id)) {
+            // Variable shadowing
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, variables.at(i).second);
             return std::nullopt;
         }
-        if (found_function.value().first->return_types.size() != variables.size()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        unsigned int id = 0;
-        for (const auto &ret_type : found_function.value().first->return_types) {
-            variables[id].first = ret_type;
-            if (!scope->add_variable_type(variables[id].second, ret_type, scope->scope_id)) {
-                // Variable shadowing
-                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, variables[id].second);
-                return std::nullopt;
-            }
-            id++;
-        }
-    } else if (const auto group_node = dynamic_cast<const GroupExpressionNode *>(expression.value().get())) {
-        if (group_node->expressions.size() != variables.size()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        unsigned int id = 0;
-        for (const auto &expr : group_node->expressions) {
-            variables[id].first = expr->type;
-            if (!scope->add_variable_type(variables[id].second, expr->type, scope->scope_id)) {
-                // Variable shadowing
-                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, variables[id].second);
-                return std::nullopt;
-            }
-            id++;
-        }
-    } else {
-        // RHS of group declaration is not a group
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
     }
+
     return GroupDeclarationNode(variables, expression.value());
 }
 
