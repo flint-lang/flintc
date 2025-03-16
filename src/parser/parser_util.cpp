@@ -164,7 +164,6 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
 
     std::string function_name;
     std::vector<std::unique_ptr<ExpressionNode>> arguments;
-    std::vector<std::pair<unsigned int, unsigned int>> arg_ids;
 
     for (const auto &tok : tokens) {
         // Get the function name
@@ -196,7 +195,6 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
                         return std::nullopt;
                     }
                     arguments.emplace_back(std::move(expression.value()));
-                    arg_ids.emplace_back(*match);
                     if (match == match_ranges.end()) {
                         break;
                     }
@@ -235,7 +233,6 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
                 continue;
             }
             auto param_it = parameter_types.begin();
-            auto arg_id_it = arg_ids.begin();
             auto arg_it = argument_types.begin();
             bool is_same = true;
             while (arg_it != argument_types.end()) {
@@ -243,7 +240,6 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
                     is_same = false;
                 }
                 ++param_it;
-                ++arg_id_it;
                 ++arg_it;
             }
             if (is_same) {
@@ -287,23 +283,7 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
         THROW_ERR(ErrExprCallWrongArgCount, ERR_PARSING, file_name, tokens, function_name, param_count, arg_count);
         return std::nullopt;
     }
-    // Check if all parameter types actually match the argument types
-    // If we came until here, the arg count definitely matches the parameter count
-    auto param_it = function.value().first->parameters.begin();
-    auto arg_id_it = arg_ids.begin();
-    auto arg_it = argument_types.begin();
-    while (arg_it != argument_types.end()) {
-        if (param_it->first != *arg_it) {
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name,          //
-                clone_from_to(arg_id_it->first, arg_id_it->second, tokens), // tokens
-                param_it->first,                                            // expected type
-                *arg_it                                                     // actual type
-            );
-        }
-        ++param_it;
-        ++arg_id_it;
-        ++arg_it;
-    }
+    // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been found
 
     return std::make_tuple(function_name, std::move(arguments), function.value().first->return_types, std::nullopt);
 }

@@ -135,6 +135,20 @@ class Parser {
         {TOK_EQUAL, 0},
     };
 
+    /// @var `type_precedence`
+    /// @brief Map containing the precedences of types. Lower types will always be cast to higher types, if possible.
+    ///
+    /// This map exists to ensure that in the expression (4 / 2.4) the left side will be implicitely cast to a float, and not the right side
+    /// to an int
+    static const inline std::unordered_map<std::string_view, unsigned int> type_precedence = {
+        {"f64", 5},
+        {"f32", 4},
+        {"i64", 3},
+        {"i32", 2},
+        {"u64", 1},
+        {"u32", 0},
+    };
+
     /// @var `parsed_calls`
     /// @brief Stores all the calls that have been parsed
     ///
@@ -457,6 +471,17 @@ class Parser {
      * @region `Expression`
      * @brief This region is responsible for parsing everything about expressions
      *************************************************************************************************************************************/
+
+    /// @function `check_castability`
+    /// @brief Checks if one of the two expression can be implicitely cast to the other expression. If yes, it wraps the expression in a
+    /// type cast
+    ///
+    /// @param `lhs` The lhs of which to check the type and cast if needed
+    /// @param `rhs` The rhs of which to check the type and cast if needed
+    /// @return `bool` Whether the casting was sucessful
+    ///
+    /// @attention Modifies the `lhs` or `rhs` expressions, depending on castablity, or throws an error if its not castable
+    static bool check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs);
 
     /// @function `create_variable`
     /// @brief Creates a VariableNode from the given tokens

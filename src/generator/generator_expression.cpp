@@ -614,39 +614,6 @@ Generator::group_mapping Generator::Expression::generate_binary_op(        //
     std::vector<llvm::Value *> return_value;
 
     for (size_t i = 0; i < lhs.size(); i++) {
-        switch (bin_op_node->operator_token) {
-            default:
-                break;
-            case TOK_MINUS:
-                [[fallthrough]];
-            case TOK_PLUS:
-                [[fallthrough]];
-            case TOK_MULT:
-                [[fallthrough]];
-            case TOK_DIV:
-                [[fallthrough]];
-            case TOK_SQUARE:
-                if (bin_op_node->left->type != bin_op_node->type && std::holds_alternative<std::string>(bin_op_node->left->type) &&
-                    std::holds_alternative<std::string>(bin_op_node->type)) {
-                    lhs.at(i) = generate_type_cast(                     //
-                        builder,                                        //
-                        lhs.at(i),                                      //
-                        std::get<std::string>(bin_op_node->left->type), //
-                        std::get<std::string>(bin_op_node->type)        //
-                    );
-                }
-                if (bin_op_node->right->type != bin_op_node->type && std::holds_alternative<std::string>(bin_op_node->right->type) &&
-                    std::holds_alternative<std::string>(bin_op_node->type)) {
-                    rhs.at(i) = generate_type_cast(                      //
-                        builder,                                         //
-                        rhs.at(i),                                       //
-                        std::get<std::string>(bin_op_node->right->type), //
-                        std::get<std::string>(bin_op_node->type)         //
-                    );
-                }
-                break;
-        }
-
         const std::string_view type = std::holds_alternative<std::string>(bin_op_node->left->type)
             ? std::get<std::string>(bin_op_node->left->type)
             : std::get<std::vector<std::string>>(bin_op_node->left->type).at(i);

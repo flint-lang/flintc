@@ -8,6 +8,11 @@ def double_return() -> (i32, i32):
 def get_5() -> i32:
 	return 5;
 
+def divide(f32 a, f32 b) -> f32:
+	if b == 0.0:
+		throw 1;
+	return a / b;
+
 def main():
 	(a, b) := (1, 2) + (2, 3);
 	print(a);
@@ -27,3 +32,22 @@ def main():
 	y = y + get_5();
 	print(y);
 	print("\n");
+
+// --- ALL THE TESTS ---
+def assert(bool condition):
+	if not condition:
+		throw 10;
+
+test "Dviide success":
+	f32 res = divide(10.0, 3.0);
+
+test "Divide fail":
+	f32 res = divide(10.0, 0.0);
+	assert(res == 0);
+
+test "Divide catch":
+	f32 res = divide(10.0, 0.0) catch err:
+		print("Divison by 0, err code: ");
+		print(err);
+		print("\n");
+	assert(res == 0);

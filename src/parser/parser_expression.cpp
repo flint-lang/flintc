@@ -9,6 +9,78 @@
 #include <memory>
 #include <variant>
 
+bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
+    if (std::holds_alternative<std::string>(lhs->type) && std::holds_alternative<std::string>(rhs->type)) {
+        // Both single type
+        const std::string lhs_type = std::get<std::string>(lhs->type);
+        const std::string rhs_type = std::get<std::string>(rhs->type);
+        if (type_precedence.find(lhs_type) == type_precedence.end() || type_precedence.find(rhs_type) == type_precedence.end()) {
+            // Not castable, wrong arg types
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const unsigned int lhs_precedence = type_precedence.at(lhs_type);
+        const unsigned int rhs_precedence = type_precedence.at(rhs_type);
+        if (lhs_precedence > rhs_precedence) {
+            // The right type needs to be cast to the left type
+            rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
+        } else {
+            // The left type needs to be cast to the right type
+            lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
+        }
+    } else if (!std::holds_alternative<std::string>(lhs->type) && !std::holds_alternative<std::string>(rhs->type)) {
+        // Left group, right single type
+        if (std::get<std::vector<std::string>>(lhs->type).size() > 1) {
+            // Not castable, group and single type mismatch
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const std::string lhs_type = std::get<std::vector<std::string>>(lhs->type).at(0);
+        const std::string rhs_type = std::get<std::string>(rhs->type);
+        if (type_precedence.find(lhs_type) == type_precedence.end() || type_precedence.find(rhs_type) == type_precedence.end()) {
+            // Not castable, wrong types
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const unsigned int lhs_precedence = type_precedence.at(lhs_type);
+        const unsigned int rhs_precedence = type_precedence.at(rhs_type);
+        if (lhs_precedence > rhs_precedence) {
+            // The right type needs to be cast to the left type
+            rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
+        } else {
+            // The left type needs to be cast to the right type
+            lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
+        }
+    } else if (std::holds_alternative<std::string>(lhs->type) && std::holds_alternative<std::string>(rhs->type)) {
+        // Left single type, right group
+        if (std::get<std::vector<std::string>>(rhs->type).size() > 1) {
+            // Not castable, group and single type mismatch
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const std::string lhs_type = std::get<std::string>(lhs->type);
+        const std::string rhs_type = std::get<std::vector<std::string>>(rhs->type).at(0);
+        if (type_precedence.find(lhs_type) == type_precedence.end() || type_precedence.find(rhs_type) == type_precedence.end()) {
+            // Not castable, wrong types
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const unsigned int lhs_precedence = type_precedence.at(lhs_type);
+        const unsigned int rhs_precedence = type_precedence.at(rhs_type);
+        if (lhs_precedence > rhs_precedence) {
+            // The right type needs to be cast to the left type
+            rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
+        } else {
+            // The left type needs to be cast to the right type
+            lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
+        }
+    } else {
+        // Both group
+        // TODO
+    }
+    return true;
+}
+
 std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_list &tokens) {
     std::optional<VariableNode> var = std::nullopt;
     for (const auto &tok : tokens) {
@@ -181,12 +253,7 @@ std::optional<BinaryOpNode> Parser::create_binary_op(Scope *scope, token_list &t
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_tokens);
         return std::nullopt;
     }
-    // This check is done in the generator now, because of the implicit casting system
-    // if (lhs.value()->type != rhs.value()->type) {
-    //     THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_name, lhs_tokens, rhs_tokens, operator_token, lhs.value()->type,
-    //         rhs.value()->type);
-    //     return std::nullopt;
-    // }
+
     // The binop expression is of type bool when its a relational operator
     if (Signature::tokens_contain({{operator_token, "", 0, 0}}, Signature::relational_binop)) {
         return BinaryOpNode(operator_token, lhs.value(), rhs.value(), "bool");
@@ -339,8 +406,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     if (Signature::tokens_match(tokens, Signature::function_call)) {
         auto range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
         if (range.has_value() && range.value().second == tokens.size()) {
-            // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something located
-            // on the right of the call still
+            // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
+            // located on the right of the call still
             auto call_or_initializer_expression = create_call_or_initializer_expression(scope, tokens);
             if (!call_or_initializer_expression.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
@@ -433,6 +500,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     if (!rhs.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_tokens);
         return std::nullopt;
+    }
+
+    // Check if all parameter types actually match the argument types
+    // If we came until here, the arg count definitely matches the parameter count
+    if (lhs.value()->type != rhs.value()->type) {
+        if (!check_castability(lhs.value(), rhs.value())) {
+            return std::nullopt;
+        }
     }
 
     // Create the binary operator node

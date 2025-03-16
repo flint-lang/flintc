@@ -128,7 +128,7 @@ class Generator {
     /// generation phase. Whenever a builtin print function is being refernced this map is used to resolve it.
     ///
     /// @details
-    /// - **Key** `std::string` - The type of the print function
+    /// - **Key** `std::string_view` - The type of the print function
     /// - **Value** `llvm::Function *` - The reference to the genereated print function
     ///
     /// @attention The print functions are nullpointers until the `generate_builtin_prints` function is called
