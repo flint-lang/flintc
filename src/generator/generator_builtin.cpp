@@ -1,5 +1,24 @@
 #include "generator/generator.hpp"
 
+void Generator::Builtin::generate_exit(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Value *exit_value) {
+    // Create the exit call (calling the C exit() function)
+    llvm::FunctionType *exit_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(module->getContext()),         // return void
+        llvm::Type::getInt32Ty(module->getContext()),        // takes i32
+        false                                                // no vararg
+    );
+    llvm::Function *exit_function = llvm::Function::Create( //
+        exit_type,                                          //
+        llvm::Function::ExternalLinkage,                    //
+        "exit",                                             //
+        module                                              //
+    );
+    builder->CreateCall(exit_function, {exit_value});
+
+    // Making the end unreachable that llvm doesnt optimize it
+    builder->CreateUnreachable();
+}
+
 void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
@@ -94,23 +113,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     builder->CreateBr(merge_block);
     builder->SetInsertPoint(merge_block);
-
-    // Create the exit call (calling the C exit() function)
-    llvm::FunctionType *exit_type = llvm::FunctionType::get( //
-        llvm::Type::getVoidTy(module->getContext()),         // return void
-        llvm::Type::getInt32Ty(module->getContext()),        // takes i32
-        false                                                // no vararg
-    );
-    llvm::Function *exit_function = llvm::Function::Create( //
-        exit_type,                                          //
-        llvm::Function::ExternalLinkage,                    //
-        "exit",                                             //
-        module                                              //
-    );
-    builder->CreateCall(exit_function, {err_val});
-
-    // Making the end unreachable that llvm doesnt optimize it
-    builder->CreateUnreachable();
+    generate_exit(builder, module, err_val);
 }
 
 void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -287,7 +290,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     if (tests.empty()) {
         llvm::Value *msg = builder->CreateGlobalStringPtr("There are no tests to run!\n", "no_tests_msg", 0, module);
         builder->CreateCall(builtins[PRINT], {msg});
-        builder->CreateRet(zero);
+        generate_exit(builder, module, zero);
         return;
     }
 
@@ -400,10 +403,10 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     builder->CreateStore(one, counter);
     builder->CreateBr(merge_block);
 
-    // Merge block and return
+    // Merge block and exit
     builder->SetInsertPoint(merge_block);
     counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(module->getContext()), counter);
-    builder->CreateRet(counter_value);
+    generate_exit(builder, module, counter_value);
 }
 
 llvm::Function *Generator::Builtin::generate_test_function(llvm::Module *module, const TestNode *test_node) {

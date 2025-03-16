@@ -346,6 +346,18 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Builtin() = delete;
 
+        /// @function `generate_exit`
+        /// @brief Generates a call to the exit function from C
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the exit call will be generated in
+        /// @param `exit_value` The value which will be passed to the exit function
+        ///
+        /// @attention This function does not create a basic block, make sure to set the basic block in which to generate the exit call
+        /// before
+        /// @attention This function generates an unreachable statement after the exit, so any code after this call will not be generated
+        static void generate_exit(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Value *exit_value);
+
         /// @function `generate_builtin_main`
         /// @brief Generates the builtin main function which calls the user defined main function
         ///
