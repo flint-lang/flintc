@@ -27,6 +27,7 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
         std::move(std::get<1>(call_node_args.value())),                                 // args
         std::get<2>(call_node_args.value())                                             // type
     );
+    call_node->scope_id = scope->scope_id;
     set_last_parsed_call(call_node->call_id, call_node.get());
     return call_node;
 }
