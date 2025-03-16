@@ -216,8 +216,12 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
         return std::nullopt;
     }
     if (!std::holds_alternative<std::string>(expression.value()->type)) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+        if (std::get<std::vector<std::string>>(expression.value()->type).size() == 1) {
+            expression.value()->type = std::get<std::vector<std::string>>(expression.value()->type).at(0);
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
     }
 
     // Check if the type of the expression is castable at all
