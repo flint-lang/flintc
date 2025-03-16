@@ -256,7 +256,7 @@ namespace Debug {
 
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call) {
             Local::print_header(indent_lvl, empty, "Call ");
-            std::cout << "'" << call.function_name << "'";
+            std::cout << "'" << call.function_name << "' [c" << call.call_id << "] in [s" << call.scope_id << "]";
             if (!call.arguments.empty()) {
                 std::cout << " with args";
             }
@@ -384,20 +384,23 @@ namespace Debug {
 
             empty.second = indent_lvl + 1;
             Local::print_header(indent_lvl, empty, "Then ");
-            std::cout << std::endl;
+            std::cout << "then [s" << if_node.then_scope->scope_id << "]" << std::endl;
             print_body(indent_lvl + 1, empty, if_node.then_scope->body);
 
             // empty.second = indent_lvl + 1;
             Local::print_header(indent_lvl, empty, "Else ");
-            std::cout << std::endl;
 
             // empty.second = indent_lvl + 2;
             if (if_node.else_scope.has_value()) {
                 if (std::holds_alternative<std::unique_ptr<Scope>>(if_node.else_scope.value())) {
+                    std::cout << "" << std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->scope_id << "]" << std::endl;
                     print_body(indent_lvl + 1, empty, std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->body);
                 } else {
+                    std::cout << std::endl;
                     print_if(indent_lvl + 1, empty, *std::get<std::unique_ptr<IfNode>>(if_node.else_scope.value()));
                 }
+            } else {
+                std::cout << std::endl;
             }
         }
 
@@ -409,20 +412,20 @@ namespace Debug {
 
             empty.second = indent_lvl;
             Local::print_header(indent_lvl, empty, "Do ");
-            std::cout << "do" << std::endl;
+            std::cout << "do [s" << while_node.scope->scope_id << "]" << std::endl;
             empty.second = indent_lvl + 1;
             print_body(indent_lvl + 1, empty, while_node.scope->body);
         }
 
         void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node) {
             Local::print_header(indent_lvl, empty, "For ");
-            std::cout << "for " << std::endl;
+            std::cout << "for [s" << for_node.definition_scope->scope_id << "]" << std::endl;
             empty.second = indent_lvl + 1;
             print_expression(indent_lvl + 1, empty, for_node.condition);
 
             empty.second = indent_lvl;
             Local::print_header(indent_lvl, empty, "Do ");
-            std::cout << "do " << std::endl;
+            std::cout << "do [s" << for_node.body->scope_id << "]" << std::endl;
 
             empty.second = indent_lvl + 1;
             print_body(indent_lvl + 1, empty, for_node.body->body);
@@ -442,7 +445,7 @@ namespace Debug {
                 std::cout << catch_node.var_name.value();
                 std::cout << "'";
             }
-            std::cout << std::endl;
+            std::cout << " [s" << catch_node.scope->scope_id << "] [c" << catch_node.call_id << "]" << std::endl;
 
             empty.second = indent_lvl + 1;
             print_body(indent_lvl + 1, empty, catch_node.scope->body);
@@ -656,7 +659,7 @@ namespace Debug {
             if (function.return_types.size() > 1) {
                 std::cout << ")";
             }
-            std::cout << std::endl;
+            std::cout << " [s" << function.scope->scope_id << "]" << std::endl;
 
             // The function body
             empty.first++;
@@ -700,7 +703,7 @@ namespace Debug {
 
         void print_test(unsigned int indent_lvl, uint2 empty, const TestNode &test) {
             Local::print_header(indent_lvl, empty, "Test ");
-            std::cout << test.file_name << ":\"" << test.name << "\"" << std::endl;
+            std::cout << test.file_name << " : \"" << test.name << "\" [s" << test.scope->scope_id << "]" << std::endl;
 
             // The test body
             empty.first++;
