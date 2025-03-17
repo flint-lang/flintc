@@ -586,6 +586,21 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                     operand.at(i) = builder.CreateFSub(operand.at(i), one);
                 }
                 break;
+            case TOK_MINUS:
+                if (!unary_op->is_left) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                if (expression_type == "u32" || expression_type == "u64") {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                } else if (expression_type == "i32" || expression_type == "i64") {
+                    llvm::Constant *zero = llvm::ConstantInt::get(operand.at(i)->getType(), 0);
+                    operand.at(i) = builder.CreateSub(zero, operand.at(i), "neg");
+                } else if (expression_type == "f32" || expression_type == "f64") {
+                    operand.at(i) = builder.CreateFNeg(operand.at(i), "fneg");
+                }
+                break;
         }
     }
     return operand;
