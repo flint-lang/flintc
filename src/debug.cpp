@@ -164,7 +164,7 @@ namespace Debug {
                 } else {
                     print_tree_row({BRANCH}, nullptr);
                 }
-                std::cout << header;
+                std::cout << TextFormat::BOLD_START << header << TextFormat::BOLD_END;
                 if (header.size() + (4 * indent_lvl) > C_SIZE) {
                     std::cout << tree_characters.at(HOR);
                 } else {
@@ -310,7 +310,7 @@ namespace Debug {
         }
 
         void print_initilalizer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer) {
-            Local::print_header(indent_lvl, empty, "Initializer");
+            Local::print_header(indent_lvl, empty, "Initializer ");
             std::cout << "of " << (initializer.is_data ? "data" : "entity") << " type '" << std::get<std::string>(initializer.type) << "'";
             std::cout << std::endl;
             empty.second = indent_lvl + 1;
@@ -485,7 +485,7 @@ namespace Debug {
         }
 
         void print_group_declaration(unsigned int indent_lvl, uint2 empty, const GroupDeclarationNode &decl) {
-            Local::print_header(indent_lvl, empty, "Group Decl");
+            Local::print_header(indent_lvl, empty, "Group Decl ");
             std::cout << "of type (";
             for (auto it = decl.variables.begin(); it != decl.variables.end(); ++it) {
                 if (it != decl.variables.begin()) {
