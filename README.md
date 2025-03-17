@@ -20,6 +20,7 @@ Currently, only the most basic features are working:
 
 - Declaring functions (main and custom ones)
 - Calling functions (n arguments, m return values)
+- Calling functions as expressions (as the condition of the while loop, or in binary operations)
 - Groups work in general (inferred declaration of multiple variables `(x, y) := (1, 2)` etc.)
 - Variable swaps through groups (`(x, y) = (y, x)`)
 - Catching errors of functions (`catch` keyword) and accessing the error value with `catch err:`
@@ -36,7 +37,6 @@ Currently, only the most basic features are working:
 
 ## What's not working
 
-- Calling functions as expressions (as the condition of the while loop, or in binary operations), but when the function is the only thing on the RHS of an assignment or declaration, it works fine!
 - `flint` variables dont behave as expected and are always wrong
 - enhanced `for` loops (because arrays dont exist yet, because DIMA doesnt exist yet)
 - Arrays `[]`
