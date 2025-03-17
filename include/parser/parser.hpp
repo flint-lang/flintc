@@ -27,6 +27,7 @@
 #include "ast/statements/statement_node.hpp"
 #include "ast/statements/while_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
+#include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 
 #include "ast/expressions/binary_op_node.hpp"
@@ -752,6 +753,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the data field assignment node
     /// @return `std::optional<DataFieldAssignmentNode>` The created DataFieldAssignmentNode, nullopt if its creation failed
     std::optional<DataFieldAssignmentNode> create_data_field_assignment(Scope *scope, token_list &tokens);
+
+    /// @function `create_grouped_data_field_assignment`
+    /// @brief Creates a GroupedDataFieldAssignmentNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the grouped data field assignment is defined
+    /// @param `tokens` The list of tokens representing the grouped data field assignment
+    /// @return `std::optional<GroupedDataFieldAssignmentNode>` The created GroupedDataFieldAssignmentNode, nullopt if its creation failed
+    std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment(Scope *scope, token_list &tokens);
 
     /// @function `create_statement`
     /// @brief Creates a StatementNode from the given list of tokens

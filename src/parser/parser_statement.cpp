@@ -610,6 +610,34 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment(Scop
     );
 }
 
+std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_assignment([[maybe_unused]] Scope *scope,
+    [[maybe_unused]] token_list &tokens) {
+    auto grouped_field_access_base = create_grouped_access_base(scope, tokens);
+    if (!grouped_field_access_base.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Now the equal sign should follow, we will delete that one too
+    assert(tokens.front().type == TOK_EQUAL);
+    tokens.erase(tokens.begin());
+
+    // The rest of the tokens is the expression to parse
+    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, tokens);
+    if (!expression.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    return GroupedDataFieldAssignmentNode(              //
+        std::get<0>(grouped_field_access_base.value()), // var_name
+        std::get<1>(grouped_field_access_base.value()), // field_names
+        std::get<2>(grouped_field_access_base.value()), // field_ids
+        std::get<3>(grouped_field_access_base.value()), // field_types
+        expression.value()                              //
+    );
+}
+
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, token_list &tokens) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
@@ -641,6 +669,20 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
+    } else if (Signature::tokens_contain(tokens, Signature::data_field_assignment)) {
+        std::optional<DataFieldAssignmentNode> assign = create_data_field_assignment(scope, tokens);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<DataFieldAssignmentNode>(std::move(assign.value()));
+    } else if (Signature::tokens_contain(tokens, Signature::grouped_data_assignment)) {
+        std::optional<GroupedDataFieldAssignmentNode> assign = create_grouped_data_field_assignment(scope, tokens);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<GroupedDataFieldAssignmentNode>(std::move(assign.value()));
     } else if (Signature::tokens_contain(tokens, Signature::group_assignment)) {
         std::optional<GroupAssignmentNode> assign = create_group_assignment(scope, tokens);
         if (!assign.has_value()) {

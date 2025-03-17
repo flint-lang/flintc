@@ -558,6 +558,30 @@ namespace Debug {
             print_expression(++indent_lvl, empty, assignment.expression);
         }
 
+        void print_grouped_data_field_assignment(unsigned int indent_lvl, uint2 empty, const GroupedDataFieldAssignmentNode &assignment) {
+            Local::print_header(indent_lvl, empty, "Grouped Field Assignment ");
+            std::cout << "assign " << assignment.var_name << ".(";
+            for (auto it = assignment.field_names.begin(); it != assignment.field_names.end(); ++it) {
+                if (it != assignment.field_names.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << *it;
+            }
+            std::cout << ") of types ";
+            Local::print_type(assignment.field_types);
+            std::cout << " at IDs (";
+            for (auto it = assignment.field_ids.begin(); it != assignment.field_ids.end(); ++it) {
+                if (it != assignment.field_ids.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << *it;
+            }
+            std::cout << ") to be" << std::endl;
+            empty.first++;
+            empty.second = indent_lvl + 2;
+            print_expression(++indent_lvl, empty, assignment.expression);
+        }
+
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement) {
             if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
                 print_return(indent_lvl, empty, *return_node);
@@ -583,6 +607,10 @@ namespace Debug {
                 print_call(indent_lvl, empty, *call_node);
             } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpStatement *>(statement.get())) {
                 print_unary_op(indent_lvl, empty, *unary_op_node);
+            } else if (const auto *data_assignment = dynamic_cast<const DataFieldAssignmentNode *>(statement.get())) {
+                print_data_field_assignment(indent_lvl, empty, *data_assignment);
+            } else if (const auto *grouped_data_assignment = dynamic_cast<const GroupedDataFieldAssignmentNode *>(statement.get())) {
+                print_grouped_data_field_assignment(indent_lvl, empty, *grouped_data_assignment);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;
