@@ -155,12 +155,12 @@ std::optional<std::pair<FunctionNode *, std::string>> Parser::get_function_from_
     return std::nullopt;
 }
 
-std::optional<DataNode *> Parser::get_data_definition( //
-    const std::string &file_name,                      //
-    const std::string &data_name,                      //
-    const std::vector<ImportNode *> &imports,          //
-    const std::vector<std::string> &arg_types,         //
-    const bool is_known_data_type                      //
+std::optional<DataNode *> Parser::get_data_definition(        //
+    const std::string &file_name,                             //
+    const std::string &data_name,                             //
+    const std::vector<ImportNode *> &imports,                 //
+    const std::optional<std::vector<std::string>> &arg_types, //
+    const bool is_known_data_type                             //
 ) {
     std::lock_guard<std::mutex> lock(parsed_data_mutex);
 
@@ -208,19 +208,21 @@ std::optional<DataNode *> Parser::get_data_definition( //
         return std::nullopt;
     }
 
-    // Now, get all initializer types of the data
     DataNode *data_definition = visible_data.front();
-    std::vector<std::string> initializer_types;
-    for (const auto &initializer_name : data_definition->order) {
-        initializer_types.emplace_back(data_definition->fields.at(initializer_name).first);
-    }
-
-    // Now, check if the initializer types match the entered types
-    if (initializer_types != arg_types) {
-        if (is_known_data_type) {
-            THROW_BASIC_ERR(ERR_PARSING);
+    if (arg_types.has_value()) {
+        // Check if the initializer types match the arg types
+        std::vector<std::string> initializer_types;
+        for (const auto &initializer_name : data_definition->order) {
+            initializer_types.emplace_back(data_definition->fields.at(initializer_name).first);
         }
-        return std::nullopt;
+
+        // Now, check if the initializer types match the entered types
+        if (initializer_types != arg_types) {
+            if (is_known_data_type) {
+                THROW_BASIC_ERR(ERR_PARSING);
+            }
+            return std::nullopt;
+        }
     }
 
     // Its this data definition
