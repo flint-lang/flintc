@@ -269,6 +269,15 @@ class Generator {
     /// name of the function, because a `llvm::Function *` type would become invalid after combining multiple llvm modules
     static std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> tests;
 
+    /// @var `data_nodes`
+    /// @brief A list of all available data nodes across all parsed files. If a file has access to a given set of data is determined in the
+    /// parsing steps, so we can assume that all usages of data types are valid when generating the IR code.
+    static std::unordered_map<std::string, const DataNode *const> data_nodes;
+
+    /// @function `get_data_nodes`
+    /// @brief This function collects all data nodes from the parser and puts them into the `data_nodes` map in the generator
+    static void get_data_nodes();
+
     /// @class `IR`
     /// @brief The class which is responsible for the utility functions for the IR generation
     /// @note This class cannot be initialized and all functions within this class are static

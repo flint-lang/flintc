@@ -102,6 +102,16 @@ class Parser {
         instances.clear();
     }
 
+    /// @var `parsed_data`
+    /// @brief Stores all the data nodes that have been parsed
+    ///
+    /// @details The key is the file in which the data definitions are defined in, and the value is a list of all data nodes in that file
+    static std::unordered_map<std::string, std::vector<DataNode *>> parsed_data;
+
+    /// @var `parsed_data_mutex`
+    /// @brief A mutex for the `parsed_data` variable, which is used to provide thread-safe access to the map
+    static std::mutex parsed_data_mutex;
+
   private:
     // The constructor is private because only the Parser (the instances list) contains the actual Parser
     explicit Parser(const std::filesystem::path &file) :
@@ -184,16 +194,6 @@ class Parser {
     /// @var `parsed_tests_mutex`
     /// @brief A mutex for the `parsed_tests` varible, which is used to provide thread-safe access to the list
     static std::mutex parsed_tests_mutex;
-
-    /// @var `parsed_data`
-    /// @brief Stores all the data nodes that have been parsed
-    ///
-    /// @details The key is the file in which the data definitions are defined in, and the value is a list of all data nodes in that file
-    static std::unordered_map<std::string, std::vector<DataNode *>> parsed_data;
-
-    /// @var `parsed_data_mutex`
-    /// @brief A mutex for the `parsed_data` variable, which is used to provide thread-safe access to the map
-    static std::mutex parsed_data_mutex;
 
     /// @var `open_functions_list`
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser

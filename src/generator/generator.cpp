@@ -4,6 +4,7 @@
 #include "error/error_type.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
+#include "parser/parser.hpp"
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
 
@@ -26,6 +27,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <regex>
 #include <string>
 #include <unordered_map>
@@ -43,6 +45,19 @@ std::array<llvm::CallInst *, 1> Generator::main_call_array;
 std::array<llvm::Module *, 1> Generator::main_module;
 std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> Generator::tests;
 
+void Generator::get_data_nodes() {
+    std::lock_guard<std::mutex> lock(Parser::parsed_data_mutex);
+    for (const auto &file : Parser::parsed_data) {
+        for (const auto &data : file.second) {
+            if (data_nodes.find(data->name) != data_nodes.end()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                exit(1);
+            }
+            data_nodes.emplace(data->name, data);
+        }
+    }
+}
+
 std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     const std::string &program_name,                          //
     llvm::LLVMContext &context,                               //
@@ -53,6 +68,9 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
     auto module = std::make_unique<llvm::Module>(program_name, context);
     main_module[0] = module.get();
+
+    // First, get all the data definitions from the parser
+    get_data_nodes();
 
     // Generate built-in functions in the main module
     Builtin::generate_builtin_prints(builder.get(), module.get());
