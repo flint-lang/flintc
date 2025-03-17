@@ -657,7 +657,7 @@ class Parser {
     /// @param `scope` The scope in which the assignment is defined
     /// @param `tokens` The list of tokens representing the assignment
     /// @return `std::optional<std::unique_ptr<GroupAssignmentNode>>` An optional unique pointer to the created GroupAssignmentNode
-    std::optional<std::unique_ptr<GroupAssignmentNode>> create_group_assignment(Scope *scope, token_list &tokens);
+    std::optional<GroupAssignmentNode> create_group_assignment(Scope *scope, token_list &tokens);
 
     /// @function `create_assignment`
     /// @brief Creates an AssignmentNode from the given list of tokens
@@ -665,7 +665,7 @@ class Parser {
     /// @param `scope` The scope in which the assignment is defined
     /// @param `tokens` The list of tokens representing the assignment
     /// @return `std::optional<std::unique_ptr<AssignmentNode>>` An optional unique pointer to the created AssignmentNode
-    std::optional<std::unique_ptr<AssignmentNode>> create_assignment(Scope *scope, token_list &tokens);
+    std::optional<AssignmentNode> create_assignment(Scope *scope, token_list &tokens);
 
     /// @function `create_group_declaration`
     /// @brief Creates a GroupDeclarationNode from the given list of tokens

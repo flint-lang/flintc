@@ -340,7 +340,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     return std::make_unique<CatchNode>(err_var, body_scope, last_call_id);
 }
 
-std::optional<std::unique_ptr<GroupAssignmentNode>> Parser::create_group_assignment(Scope *scope, token_list &tokens) {
+std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope, token_list &tokens) {
     remove_leading_garbage(tokens);
     assert(!tokens.empty());
     // Now a left paren is expected as the start of the group assignment
@@ -387,11 +387,10 @@ std::optional<std::unique_ptr<GroupAssignmentNode>> Parser::create_group_assignm
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
-    std::unique_ptr<GroupAssignmentNode> group_assignment = std::make_unique<GroupAssignmentNode>(assignees, expr.value());
-    return group_assignment;
+    return GroupAssignmentNode(assignees, expr.value());
 }
 
-std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *scope, token_list &tokens) {
+std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, token_list &tokens) {
     auto iterator = tokens.begin();
     while (iterator != tokens.end()) {
         if (iterator->type == TOK_IDENTIFIER) {
@@ -408,7 +407,7 @@ std::optional<std::unique_ptr<AssignmentNode>> Parser::create_assignment(Scope *
                     THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
                     return std::nullopt;
                 }
-                return std::make_unique<AssignmentNode>(expected_type, iterator->lexme, expression.value());
+                return AssignmentNode(expected_type, iterator->lexme, expression.value());
             } else {
                 THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
@@ -616,19 +615,19 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Signature::tokens_contain(tokens, Signature::group_assignment)) {
-        std::optional<std::unique_ptr<GroupAssignmentNode>> assign = create_group_assignment(scope, tokens);
+        std::optional<GroupAssignmentNode> assign = create_group_assignment(scope, tokens);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        statement_node = std::move(assign.value());
+        statement_node = std::make_unique<GroupAssignmentNode>(std::move(assign.value()));
     } else if (Signature::tokens_contain(tokens, Signature::assignment)) {
-        std::optional<std::unique_ptr<AssignmentNode>> assign = create_assignment(scope, tokens);
+        std::optional<AssignmentNode> assign = create_assignment(scope, tokens);
         if (!assign.has_value()) {
             THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
-        statement_node = std::move(assign.value());
+        statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
     } else if (Signature::tokens_contain(tokens, Signature::return_statement)) {
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
         if (!return_node.has_value()) {
