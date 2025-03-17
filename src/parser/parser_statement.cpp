@@ -583,6 +583,33 @@ std::optional<UnaryOpStatement> Parser::create_unary_op_statement(Scope *scope, 
     );
 }
 
+std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment(Scope *scope, token_list &tokens) {
+    auto field_access_base = create_field_access_base(scope, tokens);
+    if (!field_access_base.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Now the equal sign should follow, we will delete that one too
+    assert(tokens.front().type == TOK_EQUAL);
+    tokens.erase(tokens.begin());
+
+    // The rest of the tokens is the expression to parse
+    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, tokens);
+    if (!expression.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    return DataFieldAssignmentNode(             //
+        std::get<0>(field_access_base.value()), // var_name
+        std::get<1>(field_access_base.value()), // field_name
+        std::get<2>(field_access_base.value()), // field_id
+        std::get<3>(field_access_base.value()), // field_type
+        expression.value()                      //
+    );
+}
+
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, token_list &tokens) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 

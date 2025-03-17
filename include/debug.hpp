@@ -25,6 +25,7 @@
 
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/catch_node.hpp"
+#include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
@@ -115,6 +116,7 @@ namespace Debug {
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign);
         void print_group_declaration(unsigned int indent_lvl, uint2 empty, const GroupDeclarationNode &decl);
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl);
+        void print_data_field_assignment(unsigned int indent_lvl, uint2 empty, const DataFieldAssignmentNode &assignment);
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement);
         void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<std::unique_ptr<StatementNode>> &body);
 

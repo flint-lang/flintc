@@ -525,6 +525,16 @@ namespace Debug {
             print_expression(++indent_lvl, empty, decl.initializer.value());
         }
 
+        void print_data_field_assignment(unsigned int indent_lvl, uint2 empty, const DataFieldAssignmentNode &assignment) {
+            Local::print_header(indent_lvl, empty, "Data Field Assignment ");
+            std::cout << "assign " << assignment.var_name << "." << assignment.field_name << " at IDs " << assignment.field_id
+                      << " of types " << assignment.field_type << " to be";
+            std::cout << std::endl;
+            empty.first++;
+            empty.second = indent_lvl + 2;
+            print_expression(++indent_lvl, empty, assignment.expression);
+        }
+
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement) {
             if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
                 print_return(indent_lvl, empty, *return_node);

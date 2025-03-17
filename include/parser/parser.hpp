@@ -26,6 +26,7 @@
 #include "ast/statements/return_node.hpp"
 #include "ast/statements/statement_node.hpp"
 #include "ast/statements/while_node.hpp"
+#include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 
 #include "ast/expressions/binary_op_node.hpp"
@@ -718,6 +719,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the unary operation
     /// @return `std::optional<UnaryOpStatement>` An optional UnaryOpStatement if creation is successful, nullopt otherwise
     std::optional<UnaryOpStatement> create_unary_op_statement(Scope *scope, token_list &tokens);
+
+    /// @function `create_data_field_assignment`
+    /// @brief Creates a DataFieldAssignmentNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the data field assignment is defined
+    /// @param `tokens` The list of tokens representing the data field assignment node
+    /// @return `std::optional<DataFieldAssignmentNode>` The created DataFieldAssignmentNode, nullopt if its creation failed
+    std::optional<DataFieldAssignmentNode> create_data_field_assignment(Scope *scope, token_list &tokens);
 
     /// @function `create_statement`
     /// @brief Creates a StatementNode from the given list of tokens

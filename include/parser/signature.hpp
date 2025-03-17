@@ -105,6 +105,7 @@ namespace Signature {
     const signature declaration_inferred = {TOK_IDENTIFIER, TOK_COLON_EQUAL};
     const signature assignment = {TOK_IDENTIFIER, TOK_EQUAL};
     const signature group_assignment = combine({{TOK_LEFT_PAREN}, match_until_signature({TOK_RIGHT_PAREN}), {TOK_EQUAL}});
+    const signature data_field_assignment = combine({data_access, {TOK_EQUAL}});
     const signature for_loop = combine({//
         {TOK_FOR}, match_until_signature({TOK_SEMICOLON}), match_until_signature({TOK_SEMICOLON}), match_until_signature({TOK_COLON})});
     const signature enhanced_for_loop = combine({//
