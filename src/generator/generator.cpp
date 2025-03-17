@@ -44,6 +44,7 @@ std::vector<std::string> Generator::function_names;
 std::array<llvm::CallInst *, 1> Generator::main_call_array;
 std::array<llvm::Module *, 1> Generator::main_module;
 std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> Generator::tests;
+std::unordered_map<std::string, const DataNode *const> Generator::data_nodes;
 
 void Generator::get_data_nodes() {
     std::lock_guard<std::mutex> lock(Parser::parsed_data_mutex);
