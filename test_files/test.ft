@@ -25,6 +25,7 @@ def main():
 	v2.x = v2.y;
 	print(v2.x);
 	print(a);
+	(a, b) = v2.(x, y);
 	print(", ");
 	print(b);
 	print("\n");

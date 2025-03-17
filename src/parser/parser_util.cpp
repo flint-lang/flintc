@@ -381,3 +381,80 @@ std::optional<std::tuple<std::string, std::string, unsigned int, std::string>> P
 
     return std::make_tuple(var_name, field_name, field_id, field_type);
 }
+
+std::optional<std::tuple<std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::string>>>
+Parser::create_grouped_access_base( //
+    [[maybe_unused]] Scope *scope,  //
+    token_list &tokens              //
+) {
+    remove_leading_garbage(tokens);
+
+    // The first token is the accessed variable name
+    assert(tokens.front().type == TOK_IDENTIFIER);
+    const std::string var_name = tokens.front().lexme;
+    tokens.erase(tokens.begin());
+
+    // The next token should be a dot, skip it
+    assert(tokens.front().type == TOK_DOT);
+    tokens.erase(tokens.begin());
+
+    // Then there should be an opening parenthesis the name of the field to access
+    assert(tokens.front().type == TOK_LEFT_PAREN);
+    tokens.erase(tokens.begin());
+
+    // Now, extract the names of all accessed fields
+    std::vector<std::string> field_names;
+    while (!tokens.empty() && tokens.front().type != TOK_RIGHT_PAREN) {
+        if (tokens.front().type == TOK_IDENTIFIER) {
+            field_names.emplace_back(tokens.front().lexme);
+        }
+        tokens.erase(tokens.begin());
+    }
+    if (field_names.empty()) {
+        // Empty group access
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Now remove the right paren
+    assert(tokens.front().type == TOK_RIGHT_PAREN);
+    tokens.erase(tokens.begin());
+
+    // Now get the data type from the data variables name
+    const std::optional<std::string> data_type = scope->get_variable_type(var_name);
+    if (!data_type.has_value()) {
+        // The variable doesnt exist
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    std::optional<DataNode *> data_node = get_data_definition(file_name, data_type.value(), imported_files, std::nullopt, true);
+    if (!data_node.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Next, get the field types and field ids from the data node
+    std::vector<std::string> field_types;
+    std::vector<unsigned int> field_ids;
+    for (const auto &field_name : field_names) {
+        // Now we can check if the given field name exists in the data
+        if (data_node.value()->fields.find(field_name) == data_node.value()->fields.end()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        field_types.emplace_back(data_node.value()->fields.at(field_name).first);
+        unsigned int field_id = 0;
+        for (; field_id < data_node.value()->order.size(); field_id++) {
+            if (data_node.value()->order.at(field_id) == field_name) {
+                break;
+            }
+        }
+        if (field_id == data_node.value()->order.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        field_ids.emplace_back(field_id);
+    }
+
+    return std::make_tuple(var_name, field_names, field_ids, field_types);
+}

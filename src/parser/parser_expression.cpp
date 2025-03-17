@@ -316,6 +316,21 @@ std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, token_lis
     );
 }
 
+std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *scope, token_list &tokens) {
+    auto grouped_field_access_base = create_grouped_access_base(scope, tokens);
+    if (!grouped_field_access_base.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    return GroupedDataAccessNode(                       //
+        std::get<0>(grouped_field_access_base.value()), // var_name
+        std::get<1>(grouped_field_access_base.value()), // field_names
+        std::get<2>(grouped_field_access_base.value()), // field_ids
+        std::get<3>(grouped_field_access_base.value())  // field_types
+    );
+}
+
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( //
     Scope *scope,                                                               //
     token_list &tokens                                                          //
@@ -396,6 +411,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return std::make_unique<DataAccessNode>(std::move(data_access.value()));
+        }
+    } else if (Signature::tokens_match(tokens, Signature::grouped_data_access)) {
+        auto range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        if (range.has_value() && range.value().first == 2 && range.value().second == tokens.size()) {
+            std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(scope, tokens);
+            if (!group_access.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
         }
     }
 

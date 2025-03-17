@@ -34,6 +34,7 @@
 #include "ast/expressions/data_access_node.hpp"
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/group_expression_node.hpp"
+#include "ast/expressions/grouped_data_access_node.hpp"
 #include "ast/expressions/initializer_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/type_cast_node.hpp"
@@ -480,6 +481,22 @@ class Parser {
         token_list &tokens                                                                                   //
     );
 
+    /// @function `create_grouped_access_base`
+    /// @brief Creates a tuple for all group access variables extracted from a grouped variable access
+    ///
+    /// @param `scope` The scope in which the grouped access is defined
+    /// @param `tokens` The list of tokens representing the grouped access
+    /// @return A optional value containing a tuple, where the
+    ///     - first value is the name of the accessed data variable
+    ///     - second value is the list of accessed field names
+    ///     - third value is the list of accessed field ids
+    ///     - fourth value is the list of accessed field types
+    std::optional<std::tuple<std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::string>>>
+    create_grouped_access_base( //
+        Scope *scope,           //
+        token_list &tokens      //
+    );
+
     /**************************************************************************************************************************************
      * @region `Util` END
      *************************************************************************************************************************************/
@@ -556,6 +573,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the data access
     /// @return `std::optional<DataAccessNode>` An optional data access node, nullopt if its creation failed
     std::optional<DataAccessNode> create_data_access(Scope *scope, token_list &tokens);
+
+    /// @function `create_grouped_data_access`
+    /// @brief Creates a GroupedDataAccessNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the data access is defined
+    /// @param `tokens` The list of tokens representing the data access
+    /// @return `std::optional<GroupedDataAccessNode>` A grouped data access node, nullopt if its creation failed
+    std::optional<GroupedDataAccessNode> create_grouped_data_access(Scope *scope, token_list &tokens);
 
     /// @function `create_pivot_expression`
     /// @brief Creates a expression based on token precedences, where the token with the highest precedence is the "pivot point" of the
