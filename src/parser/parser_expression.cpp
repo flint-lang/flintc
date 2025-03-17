@@ -376,7 +376,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     // Find the highest precedence operator
-    unsigned int highest_precedence = 0; // 0 is assignment, and that doesnt exist in expressions annyway
+    unsigned int smallest_precedence = 100; //
     size_t pivot_pos = 0;
     Token pivot_token = TOK_EOL;
 
@@ -402,10 +402,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         // this means that this operator is an unary operator
         if (token_precedence.find(tokens[i].type) != token_precedence.end() &&
             token_precedence.find(tokens[i - 1].type) == token_precedence.end()) {
-            // Update highest precedence if needed
+            // Update smallest precedence if needed
             unsigned int precedence = token_precedence.at(tokens[i].type);
-            if (precedence > highest_precedence) {
-                highest_precedence = precedence;
+            if (precedence < smallest_precedence) {
+                smallest_precedence = precedence;
                 pivot_pos = i;
                 pivot_token = tokens[i].type;
             }
@@ -413,7 +413,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     // If no binary operators, this is an error
-    if (highest_precedence == 0) {
+    if (smallest_precedence == 0) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
