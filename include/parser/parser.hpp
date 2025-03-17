@@ -30,6 +30,7 @@
 
 #include "ast/expressions/binary_op_node.hpp"
 #include "ast/expressions/call_node_expression.hpp"
+#include "ast/expressions/data_access_node.hpp"
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/group_expression_node.hpp"
 #include "ast/expressions/initializer_node.hpp"
@@ -463,6 +464,21 @@ class Parser {
     /// which the unary operation is applied on and the third value is whether the unary operator is left to the expression
     std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> create_unary_op_base(Scope *scope, token_list &tokens);
 
+    /// @function `create_field_access_base`
+    /// @brief Creates a tuple of all field access variables extracted from a field access
+    ///
+    /// @param `scope` The scope in which the field access is defined
+    /// @param `tokens` The list of tokens representing the field access
+    /// @return A optional value containing a tuple, where the
+    ///     - first value is the name of the accessed data variable
+    ///     - second value is the name of the accessed field
+    ///     - third value is the id of the field
+    ///     - fourth value is the type of the field
+    std::optional<std::tuple<std::string, std::string, unsigned int, std::string>> create_field_access_base( //
+        Scope *scope,                                                                                        //
+        token_list &tokens                                                                                   //
+    );
+
     /**************************************************************************************************************************************
      * @region `Util` END
      *************************************************************************************************************************************/
@@ -529,8 +545,16 @@ class Parser {
     ///
     /// @param `scope` The scope in which the grouped expression is defined
     /// @param `tokens` The list of tokens representing the type cast
-    /// @return `std::optional<GroupExpressionNode>` An optiional grouped expression, nullopt otherwise
+    /// @return `std::optional<GroupExpressionNode>` An optional grouped expression, nullopt if its creation failed
     std::optional<GroupExpressionNode> create_group_expression(Scope *scope, token_list &tokens);
+
+    /// @function `create_data_access`
+    /// @brief Creates a DataAccessNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the data access is defined
+    /// @param `tokens` The list of tokens representing the data access
+    /// @return `std::optional<DataAccessNode>` An optional data access node, nullopt if its creation failed
+    std::optional<DataAccessNode> create_data_access(Scope *scope, token_list &tokens);
 
     /// @function `create_pivot_expression`
     /// @brief Creates a expression based on token precedences, where the token with the highest precedence is the "pivot point" of the

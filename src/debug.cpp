@@ -331,6 +331,13 @@ namespace Debug {
             }
         }
 
+        void print_data_access(unsigned int indent_lvl, uint2 empty, const DataAccessNode &access) {
+            Local::print_header(indent_lvl, empty, "Data Access ");
+            std::cout << access.var_name << "." << access.field_name << " at ID " << access.field_id << " with type ";
+            Local::print_type(access.type);
+            std::cout << std::endl;
+        }
+
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr) {
             if (const auto *variable_node = dynamic_cast<const VariableNode *>(expr.get())) {
                 print_variable(indent_lvl, empty, *variable_node);
@@ -348,6 +355,8 @@ namespace Debug {
                 print_initilalizer(indent_lvl, empty, *initializer);
             } else if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expr.get())) {
                 print_group_expression(indent_lvl, empty, *group_node);
+            } else if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expr.get())) {
+                print_data_access(indent_lvl, empty, *data_access);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;

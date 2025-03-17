@@ -95,6 +95,7 @@ namespace Signature {
     const signature literal_expr = combine({//
         {"(("}, literal, {"("}, binary_operator, literal, {")*)|("}, unary_operator, literal, {")|("}, literal, unary_operator, {"))"}});
     const signature variable_expr = {TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
+    const signature data_access = {TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
 
     // --- STATEMENTS ---
     const signature group_declaration_inferred = combine({//

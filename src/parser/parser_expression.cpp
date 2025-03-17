@@ -301,6 +301,21 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
     return GroupExpressionNode(expressions);
 }
 
+std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, token_list &tokens) {
+    auto field_access_base = create_field_access_base(scope, tokens);
+    if (!field_access_base.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    return DataAccessNode(                      //
+        std::get<0>(field_access_base.value()), // var_name
+        std::get<1>(field_access_base.value()), // field_name
+        std::get<2>(field_access_base.value()), // field_id
+        std::get<3>(field_access_base.value())  // field_type
+    );
+}
+
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( //
     Scope *scope,                                                               //
     token_list &tokens                                                          //
@@ -372,6 +387,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
+        }
+    } else if (Signature::tokens_match(tokens, Signature::data_access)) {
+        if (tokens.size() == 3) {
+            std::optional<DataAccessNode> data_access = create_data_access(scope, tokens);
+            if (!data_access.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<DataAccessNode>(std::move(data_access.value()));
         }
     }
 

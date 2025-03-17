@@ -1,6 +1,6 @@
 use "assert.ft"
 // use "add.ft"
-// use "vec.ft"
+use "vec.ft"
 
 def double_return() -> (i32, i32):
 	return (3, 4);
@@ -21,7 +21,8 @@ def main():
 	print(b);
 	print("\n");
 	(a, b) = (b, a);
-	// Vector2i v2 = Vector2i(1, 2);
+	Vector2i v2 = Vector2i(1, 2);
+	print(v2.x);
 	print(a);
 	print(", ");
 	print(b);
