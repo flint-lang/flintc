@@ -85,6 +85,7 @@ namespace Debug {
     namespace AST {
         namespace Local {
             void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header);
+            void print_type(const std::variant<std::string, std::vector<std::string>> &type);
         } // namespace Local
 
         void print_all_files();
