@@ -376,7 +376,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     Token pivot_token = TOK_EOL;
 
     // Find all possible binary operators at the root level
-    for (size_t i = 0; i < tokens.size(); i++) {
+    // Start at the first index because the first token is never a unary operator
+    for (size_t i = 1; i < tokens.size(); i++) {
         // Skip tokens inside parentheses or function calls
         if (tokens[i].type == TOK_LEFT_PAREN) {
             int paren_depth = 1;
@@ -392,8 +393,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
         }
 
-        // Check if this is a operator
-        if (token_precedence.find(tokens[i].type) != token_precedence.end()) {
+        // Check if this is a operator and if no operator is to the left of this operator. If there is any operator to the left of this one,
+        // this means that this operator is an unary operator
+        if (token_precedence.find(tokens[i].type) != token_precedence.end() &&
+            token_precedence.find(tokens[i - 1].type) == token_precedence.end()) {
             // Update highest precedence if needed
             unsigned int precedence = token_precedence.at(tokens[i].type);
             if (precedence > highest_precedence) {
