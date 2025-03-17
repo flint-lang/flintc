@@ -362,12 +362,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
         return std::make_unique<TypeCastNode>(std::move(type_cast.value()));
     } else if (Signature::tokens_match(tokens, Signature::unary_op_expr)) {
-        std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, tokens);
-        if (!unary_op.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
+        // For it to be considered an unary operation, either right after the operator needs to come a paren group, or the tokens must have
+        // size 2
+        auto range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        if (tokens.size() == 2 || (range.has_value() && range.value().second == tokens.size())) {
+            std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, tokens);
+            if (!unary_op.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
         }
-        return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
     }
 
     // Find the highest precedence operator

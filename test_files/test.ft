@@ -15,7 +15,7 @@ def divide(f32 a, f32 b) -> f32:
 
 def main():
 	(a, b) := (1, 2) + (2, 3);
-	a = -5;
+	a = -a + 2;
 	print(a);
 	print(", ");
 	print(b);
