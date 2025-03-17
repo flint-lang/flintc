@@ -6,6 +6,7 @@
 #include <iterator>
 #include <optional>
 #include <regex>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -27,17 +28,17 @@ namespace Signature {
     /// get_regex_string
     ///     Returns the built regex string of a passed in signature
     std::string get_regex_string(const signature &sig) {
-        std::string command_string;
+        std::stringstream command_string;
         for (const std::variant<Token, std::string> &command : sig) {
             if (const auto &tok = std::get_if<Token>(&command)) {
-                command_string.append("#");
-                command_string.append(std::to_string(static_cast<int>(*tok)));
-                command_string.append("#");
+                command_string << "#";
+                command_string << std::to_string(static_cast<int>(*tok));
+                command_string << "#";
             } else if (const auto &str = std::get_if<std::string>(&command)) {
-                command_string.append(*str);
+                command_string << *str;
             }
         }
-        return command_string;
+        return command_string.str();
     }
 
     /// tokens_contain
@@ -164,13 +165,13 @@ namespace Signature {
     /// stringify
     ///     makes a vector of TokenContexts to a string that can be checked by regex
     std::string stringify(const token_list &tokens) {
-        std::string token_string;
+        std::stringstream token_string;
         for (const TokenContext &tok : tokens) {
-            token_string.append("#");
-            token_string.append(std::to_string(static_cast<int>(tok.type)));
-            token_string.append("#");
+            token_string << "#";
+            token_string << std::to_string(static_cast<int>(tok.type));
+            token_string << "#";
         }
-        return token_string;
+        return token_string.str();
     }
 
     /// get_leading_indents
