@@ -3,6 +3,7 @@
 #include "parser/ast/statements/statement_node.hpp"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -63,6 +64,18 @@ class Scope {
     /// @return `bool` Whether insertion of the variable type was successful. If not, this means a variable is shadowed
     bool add_variable_type(const std::string &var, const std::string &type, const unsigned int sid) {
         return variable_types.insert({var, {type, sid}}).second;
+    }
+
+    /// @function `get_variable_type`
+    /// @brief Return the type of the given variable name, if it exists
+    ///
+    /// @param `var_name` The name of the variable to search for
+    /// @return `std::optional<std::string>` The type of the variable, or nullopt if the variable doesnt exist
+    std::optional<std::string> get_variable_type(const std::string &var_name) {
+        if (variable_types.find(var_name) == variable_types.end()) {
+            return std::nullopt;
+        }
+        return variable_types.at(var_name).first;
     }
 
     /// @var `scope_id`
