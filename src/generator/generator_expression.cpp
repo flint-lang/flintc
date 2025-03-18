@@ -43,6 +43,10 @@ Generator::group_mapping Generator::Expression::generate_expression(       //
     if (const auto *initializer = dynamic_cast<const InitializerNode *>(expression_node)) {
         return generate_initializer(builder, parent, scope, allocations, initializer);
     }
+    if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expression_node)) {
+        group_map.emplace_back(generate_data_access(builder, scope, allocations, data_access));
+        return group_map;
+    }
     THROW_BASIC_ERR(ERR_GENERATING);
     return std::nullopt;
 }
@@ -449,6 +453,28 @@ Generator::group_mapping Generator::Expression::generate_initializer(      //
         return return_values;
     }
     return std::nullopt;
+}
+
+llvm::Value *Generator::Expression::generate_data_access(                  //
+    llvm::IRBuilder<> &builder,                                            //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const DataAccessNode *data_access                                      //
+) {
+    // First, get the alloca instance of the given data variable
+    const unsigned int var_decl_scope = scope->variable_types.at(data_access->var_name).second;
+    const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_access->var_name;
+    llvm::AllocaInst *const var_alloca = allocations.at(var_name);
+
+    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), data_access->data_type);
+
+    llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, data_access->field_id);
+    llvm::LoadInst *loaded_value = builder.CreateLoad(                                         //
+        IR::get_type_from_str(builder.getContext(), std::get<std::string>(data_access->type)), //
+        value_ptr,                                                                             //
+        data_access->var_name + "_" + data_access->field_name + "_val"                         //
+    );
+    return loaded_value;
 }
 
 Generator::group_mapping Generator::Expression::generate_type_cast(        //

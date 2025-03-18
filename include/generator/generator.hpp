@@ -4,8 +4,10 @@
 #include "parser/ast/call_node_base.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
+#include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/unary_op_expression.hpp"
@@ -1357,6 +1359,21 @@ class Generator {
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const InitializerNode *initializer                                     //
+        );
+
+        /// @function `generate_data_access`
+        /// @brief Generates a data access from a given DataAccessNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `scope` The scope the data access is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `data_access` The data access node to generate
+        /// @return `llvm::Value *` The value containing the result of the data access
+        static llvm::Value *generate_data_access(                                  //
+            llvm::IRBuilder<> &builder,                                            //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const DataAccessNode *data_access                                      //
         );
 
         /// @function `generate_type_cast`
