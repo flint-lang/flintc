@@ -33,19 +33,19 @@ namespace Signature {
 
     // --- BASIC SIGNATURES ---
     const signature anytoken = {"#-?..#"};
-    const signature type_prim = {"((", TOK_I32, ")|(", TOK_I64, ")|(", TOK_U32, ")|(", TOK_U64, ")|(", TOK_F32, ")|(", TOK_F64, ")|(",
-        TOK_FLINT, ")|(", TOK_STR, ")|(", TOK_CHAR, ")|(", TOK_BOOL, "))"};
-    const signature literal = {"((", TOK_STR_VALUE, ")|(", TOK_INT_VALUE, ")|(", TOK_FLINT_VALUE, ")|(", TOK_CHAR_VALUE, ")|(", TOK_TRUE,
-        ")|(", TOK_FALSE, "))"};
+    const signature type_prim = {"(", TOK_I32, "|", TOK_I64, "|", TOK_U32, "|", TOK_U64, "|", TOK_F32, "|", TOK_F64, "|", TOK_FLINT, "|",
+        TOK_STR, "|", TOK_CHAR, "|", TOK_BOOL, ")"};
+    const signature literal = {"(", TOK_STR_VALUE, "|", TOK_INT_VALUE, "|", TOK_FLINT_VALUE, "|", TOK_CHAR_VALUE, "|", TOK_TRUE, "|",
+        TOK_FALSE, ")"};
     const signature type = combine({//
         {"("}, type_prim, {"|(", TOK_IDENTIFIER, "))"}});
-    const signature operational_binop = {"((", TOK_PLUS, ")|(", TOK_MINUS, ")|(", TOK_MULT, ")|(", TOK_DIV, ")|(", TOK_SQUARE, "))"};
-    const signature relational_binop = {"((", TOK_EQUAL_EQUAL, ")|(", TOK_NOT_EQUAL, ")|(", TOK_LESS, ")|(", TOK_LESS_EQUAL, ")|(",
-        TOK_GREATER, ")|(", TOK_GREATER_EQUAL, "))"};
-    const signature boolean_binop = {"((", TOK_AND, ")|(", TOK_OR, "))"};
+    const signature operational_binop = {"(", TOK_PLUS, "|", TOK_MINUS, "|", TOK_MULT, "|", TOK_DIV, "|", TOK_SQUARE, ")"};
+    const signature relational_binop = {"(", TOK_EQUAL_EQUAL, "|", TOK_NOT_EQUAL, "|", TOK_LESS, "|", TOK_LESS_EQUAL, "|", TOK_GREATER, "|",
+        TOK_GREATER_EQUAL, ")"};
+    const signature boolean_binop = {"(", TOK_AND, "|", TOK_OR, ")"};
     const signature binary_operator = combine({//
         {"("}, operational_binop, {"|"}, relational_binop, {"|"}, boolean_binop, {")"}});
-    const signature unary_operator = {"((", TOK_INCREMENT, ")|(", TOK_DECREMENT, ")|(", TOK_NOT, ")|(", TOK_MINUS, "))"};
+    const signature unary_operator = {"(", TOK_INCREMENT, "|", TOK_DECREMENT, "|", TOK_NOT, "|", TOK_MINUS, ")"};
     const signature reference = {TOK_IDENTIFIER, "(", TOK_COLON, TOK_COLON, TOK_IDENTIFIER, ")+"};
     const signature args = combine({//
         type, {TOK_IDENTIFIER, "(", TOK_COMMA}, type, {TOK_IDENTIFIER, ")*"}});
@@ -54,14 +54,13 @@ namespace Signature {
         {TOK_LEFT_PAREN}, type, {"(", TOK_COMMA}, type, {")*", TOK_RIGHT_PAREN}});
 
     // --- DEFINITIONS ---
-    const signature use_statement = {TOK_USE, "((", TOK_STR_VALUE, ")|(((", TOK_IDENTIFIER, ")|(", TOK_FLINT, "))(", TOK_DOT,
-        TOK_IDENTIFIER, ")*))"};
+    const signature use_statement = {TOK_USE, "(", TOK_STR_VALUE, "|((", TOK_IDENTIFIER, "|", TOK_FLINT, ")(", TOK_DOT, TOK_IDENTIFIER,
+        ")*))"};
 
     const signature function_definition = combine({//
         {"(", TOK_ALIGNED, ")?", "(", TOK_CONST, ")?", TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, args,
-        {")?", TOK_RIGHT_PAREN, "((", TOK_ARROW}, group, {TOK_COLON, ")|(", TOK_ARROW}, type, {TOK_COLON, ")|(", TOK_COLON, "))"}});
-    const signature data_definition = {"((", TOK_SHARED, ")|(", TOK_IMMUTABLE, "))?(", TOK_ALIGNED, ")?", TOK_DATA, TOK_IDENTIFIER,
-        TOK_COLON};
+        {")?", TOK_RIGHT_PAREN, "(", TOK_ARROW}, group, {TOK_COLON, "|", TOK_ARROW}, type, {TOK_COLON, "|", TOK_COLON, ")"}});
+    const signature data_definition = {"(", TOK_SHARED, "|", TOK_IMMUTABLE, ")?(", TOK_ALIGNED, ")?", TOK_DATA, TOK_IDENTIFIER, TOK_COLON};
     const signature func_definition = combine({//
         {TOK_FUNC, TOK_IDENTIFIER, "(", TOK_REQUIRES, TOK_LEFT_PAREN}, no_prim_args, {TOK_RIGHT_PAREN, ")?", TOK_COLON}});
     const signature error_definition = {TOK_ERROR, TOK_IDENTIFIER, "(", TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, ")?", TOK_COLON};
@@ -93,7 +92,7 @@ namespace Signature {
     const signature bin_op_expr = combine({expression, binary_operator, expression});
     const signature unary_op_expr = combine({{"(("}, expression, unary_operator, {")|("}, unary_operator, expression, {"))"}});
     const signature literal_expr = combine({//
-        {"(("}, literal, {"("}, binary_operator, literal, {")*)|("}, unary_operator, literal, {")|("}, literal, unary_operator, {"))"}});
+        {"("}, literal, {"("}, binary_operator, literal, {")*|"}, unary_operator, literal, {"|"}, literal, unary_operator, {")"}});
     const signature variable_expr = {TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
     const signature data_access = {TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
     const signature grouped_data_access = combine({{TOK_IDENTIFIER, TOK_DOT}, group_expression});
@@ -111,7 +110,7 @@ namespace Signature {
     const signature for_loop = combine({//
         {TOK_FOR}, match_until_signature({TOK_SEMICOLON}), match_until_signature({TOK_SEMICOLON}), match_until_signature({TOK_COLON})});
     const signature enhanced_for_loop = combine({//
-        {TOK_FOR, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))", TOK_COMMA, "((", TOK_UNDERSCORE, ")|(", TOK_IDENTIFIER, "))", TOK_IN},
+        {TOK_FOR, "(", TOK_UNDERSCORE, "|", TOK_IDENTIFIER, ")", TOK_COMMA, "(", TOK_UNDERSCORE, "|", TOK_IDENTIFIER, ")", TOK_IN},
         match_until_signature({TOK_COLON})});
     const signature par_for_loop = combine({{TOK_PARALLEL}, enhanced_for_loop});
     const signature while_loop = combine({{TOK_WHILE}, match_until_signature({TOK_COLON})});
