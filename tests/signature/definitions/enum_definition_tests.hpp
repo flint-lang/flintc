@@ -24,7 +24,7 @@ namespace {
         test_result.append_test_name("test_match_enum_definition_normal", false);
         token_list tokens = create_token_vector({//
             TOK_ENUM, TOK_IDENTIFIER, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, Signature::enum_definition);
+        bool result = Signature::tokens_match(tokens, ESignature::ENUM_DEFINITION);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -47,7 +47,7 @@ namespace {
         test_result.append_test_name("test_contain_enum_definition_normal", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, Signature::enum_definition);
+        bool result = Signature::tokens_contain(tokens, ESignature::ENUM_DEFINITION);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -70,7 +70,7 @@ namespace {
         test_result.append_test_name("test_extract_enum_definition_normal", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_ENUM, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::enum_definition);
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::ENUM_DEFINITION);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         test_result.ok_or_not(result);
         if (!result) {

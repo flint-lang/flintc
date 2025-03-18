@@ -24,7 +24,7 @@ namespace {
         test_result.append_test_name("test_match_reference_single", false);
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER});
-        bool result = Signature::tokens_match(tokens, Signature::reference);
+        bool result = Signature::tokens_match(tokens, ESignature::REFERENCE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -38,7 +38,7 @@ namespace {
         test_result.append_test_name("test_match_reference_multiple", false);
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER});
-        bool result = Signature::tokens_match(tokens, Signature::reference);
+        bool result = Signature::tokens_match(tokens, ESignature::REFERENCE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -61,7 +61,7 @@ namespace {
         test_result.append_test_name("test_contain_reference_single", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, Signature::reference);
+        bool result = Signature::tokens_contain(tokens, ESignature::REFERENCE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -75,7 +75,7 @@ namespace {
         test_result.append_test_name("test_contain_reference_multiple", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, Signature::reference);
+        bool result = Signature::tokens_contain(tokens, ESignature::REFERENCE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -98,7 +98,7 @@ namespace {
         test_result.append_test_name("test_extract_reference_single", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_IDENTIFIER, TOK_I32, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::reference);
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::REFERENCE);
         bool result = !result_vec.empty() && result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
         test_result.ok_or_not(result);
         if (!result) {
@@ -114,7 +114,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IDENTIFIER, TOK_I32, TOK_EQUAL, TOK_IDENTIFIER, TOK_COLON, TOK_COLON, TOK_IDENTIFIER, TOK_COLON, TOK_COLON,
             TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::reference);
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::REFERENCE);
         bool result = !result_vec.empty() && result_vec.at(0).first == 4 && result_vec.at(0).second == tokens.size() - 1;
         test_result.ok_or_not(result);
         if (!result) {

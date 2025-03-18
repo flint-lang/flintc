@@ -34,20 +34,20 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
         if (tok_iterator->type == TOK_RIGHT_PAREN && begin_params) {
             begin_params = false;
         }
-        if (begin_params && Signature::tokens_match({TokenContext{tok_iterator->type, "", 0, 0}}, Signature::type) &&
+        if (begin_params && Signature::tokens_match({TokenContext{tok_iterator->type, "", 0, 0}}, ESignature::TYPE) &&
             (tok_iterator + 1)->type == TOK_IDENTIFIER) {
             parameters.emplace_back(tok_iterator->lexme, (tok_iterator + 1)->lexme);
         }
         // Adding the functions return types
         if (tok_iterator->type == TOK_ARROW) {
             // Only one return type
-            if (Signature::tokens_match({{(tok_iterator + 1)->type, "", 0, 0}}, Signature::type)) {
+            if (Signature::tokens_match({{(tok_iterator + 1)->type, "", 0, 0}}, ESignature::TYPE)) {
                 return_types.emplace_back((tok_iterator + 1)->lexme);
                 break;
             }
             begin_returns = true;
         }
-        if (begin_returns && Signature::tokens_match({{tok_iterator->type, "", 0, 0}}, Signature::type)) {
+        if (begin_returns && Signature::tokens_match({{tok_iterator->type, "", 0, 0}}, ESignature::TYPE)) {
             return_types.emplace_back(tok_iterator->lexme);
         }
         if (begin_returns && tok_iterator->type == TOK_RIGHT_PAREN) {
@@ -103,7 +103,7 @@ std::optional<DataNode> Parser::create_data(const token_list &definition, const 
     auto body_iterator = body.begin();
     bool parsing_constructor = false;
     while (body_iterator != body.end()) {
-        if (Signature::tokens_match({TokenContext{body_iterator->type, "", 0, 0}}, Signature::type) &&
+        if (Signature::tokens_match({TokenContext{body_iterator->type, "", 0, 0}}, ESignature::TYPE) &&
             (body_iterator + 1)->type == TOK_IDENTIFIER) {
             if (fields.find((body_iterator + 1)->lexme) != fields.end()) {
                 // Field name duplication
@@ -170,7 +170,7 @@ std::optional<FuncNode> Parser::create_func(const token_list &definition, token_
         }
         current_line = body_iterator->line;
 
-        uint2 definition_ids = Signature::get_line_token_indices(body, current_line).value();
+        uint2 definition_ids = Signature::get_tokens_line_range(body, current_line).value();
         token_list function_definition = extract_from_to(definition_ids.first, definition_ids.second, body);
 
         unsigned int leading_indents = Signature::get_leading_indents(function_definition, current_line).value();
@@ -190,7 +190,7 @@ std::optional<FuncNode> Parser::create_func(const token_list &definition, token_
 }
 
 Parser::create_entity_type Parser::create_entity(const token_list &definition, token_list &body) {
-    bool is_modular = Signature::tokens_match(body, Signature::entity_body);
+    bool is_modular = Signature::tokens_match(body, ESignature::ENTITY_BODY);
     std::string name;
     std::vector<std::string> data_modules;
     std::vector<std::string> func_modules;
@@ -283,7 +283,7 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
         }
     }
 
-    uint2 constructor_token_ids = Signature::get_match_ranges(body, Signature::entity_body_constructor).at(0);
+    uint2 constructor_token_ids = Signature::get_match_ranges(body, ESignature::ENTITY_BODY_CONSTRUCTOR).at(0);
     for (auto it = body.begin() + constructor_token_ids.first; it != body.begin() + constructor_token_ids.second; it++) {
         if (it->type == TOK_IDENTIFIER) {
             if (std::next(it)->type == TOK_LEFT_PAREN && it->lexme != name) {
@@ -303,7 +303,7 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
 std::vector<std::unique_ptr<LinkNode>> Parser::create_links(token_list &body) {
     std::vector<std::unique_ptr<LinkNode>> links;
 
-    std::vector<uint2> link_matches = Signature::get_match_ranges(body, Signature::entity_body_link);
+    std::vector<uint2> link_matches = Signature::get_match_ranges(body, ESignature::ENTITY_BODY_LINK);
     links.reserve(link_matches.size());
     for (size_t i = 0; i < link_matches.size(); i++) {
         links.emplace_back(std::make_unique<LinkNode>(create_link(body)));
@@ -316,7 +316,7 @@ LinkNode Parser::create_link(const token_list &tokens) {
     std::vector<std::string> from_references;
     std::vector<std::string> to_references;
 
-    std::vector<uint2> references = Signature::get_match_ranges(tokens, Signature::reference);
+    std::vector<uint2> references = Signature::get_match_ranges(tokens, ESignature::REFERENCE);
 
     for (unsigned int i = references.at(0).first; i < references.at(0).second; i++) {
         if (tokens.at(i).type == TOK_IDENTIFIER) {
@@ -461,7 +461,7 @@ std::optional<TestNode> Parser::create_test(const token_list &definition) {
 ImportNode Parser::create_import(const token_list &tokens) {
     std::variant<std::string, std::vector<std::string>> import_path;
 
-    if (Signature::tokens_contain(tokens, {TOK_STR_VALUE})) {
+    if (Signature::tokens_contain(tokens, TOK_STR_VALUE)) {
         for (const auto &tok : tokens) {
             if (tok.type == TOK_STR_VALUE) {
                 import_path = tok.lexme;
@@ -469,7 +469,9 @@ ImportNode Parser::create_import(const token_list &tokens) {
             }
         }
     } else {
-        const Signature::signature reference = {"((", TOK_FLINT, ")|(", TOK_IDENTIFIER, "))", "(", TOK_DOT, TOK_IDENTIFIER, ")*"};
+        const std::string reference = Signature::get_regex_string(                             //
+            {"((", TOK_FLINT, ")|(", TOK_IDENTIFIER, "))", "(", TOK_DOT, TOK_IDENTIFIER, ")*"} //
+        );
         const auto matches = Signature::get_match_ranges(tokens, reference).at(0);
         std::vector<std::string> path;
         if (tokens.at(matches.first).type == TOK_FLINT) {

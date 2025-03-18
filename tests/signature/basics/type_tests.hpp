@@ -24,7 +24,7 @@ namespace {
         test_result.append_test_name("test_match_type_int", false);
         token_list tokens = create_token_vector({//
             TOK_I32});
-        bool result = Signature::tokens_match(tokens, Signature::type);
+        bool result = Signature::tokens_match(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -38,7 +38,7 @@ namespace {
         test_result.append_test_name("test_match_type_flint", false);
         token_list tokens = create_token_vector({//
             TOK_FLINT});
-        bool result = Signature::tokens_match(tokens, Signature::type);
+        bool result = Signature::tokens_match(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -52,7 +52,7 @@ namespace {
         test_result.append_test_name("test_match_type_str", false);
         token_list tokens = create_token_vector({//
             TOK_STR});
-        bool result = Signature::tokens_match(tokens, Signature::type);
+        bool result = Signature::tokens_match(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -66,7 +66,7 @@ namespace {
         test_result.append_test_name("test_match_type_char", false);
         token_list tokens = create_token_vector({//
             TOK_CHAR});
-        bool result = Signature::tokens_match(tokens, Signature::type);
+        bool result = Signature::tokens_match(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -80,7 +80,7 @@ namespace {
         test_result.append_test_name("test_match_type_bool", false);
         token_list tokens = create_token_vector({//
             TOK_BOOL});
-        bool result = Signature::tokens_match(tokens, Signature::type);
+        bool result = Signature::tokens_match(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -94,7 +94,7 @@ namespace {
         test_result.append_test_name("test_match_type_identifier", false);
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER});
-        bool result = Signature::tokens_match(tokens, Signature::type);
+        bool result = Signature::tokens_match(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -117,7 +117,7 @@ namespace {
         test_result.append_test_name("test_contain_type_int", false);
         token_list tokens = create_token_vector({//
             TOK_COLON, TOK_I32, TOK_DATA});
-        bool result = Signature::tokens_contain(tokens, Signature::type);
+        bool result = Signature::tokens_contain(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -131,7 +131,7 @@ namespace {
         test_result.append_test_name("test_contain_type_flint", false);
         token_list tokens = create_token_vector({//
             TOK_COLON, TOK_FLINT, TOK_DATA});
-        bool result = Signature::tokens_contain(tokens, Signature::type);
+        bool result = Signature::tokens_contain(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -145,7 +145,7 @@ namespace {
         test_result.append_test_name("test_contain_type_str", false);
         token_list tokens = create_token_vector({//
             TOK_COLON, TOK_STR, TOK_DATA});
-        bool result = Signature::tokens_contain(tokens, Signature::type);
+        bool result = Signature::tokens_contain(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -159,7 +159,7 @@ namespace {
         test_result.append_test_name("test_contain_type_char", false);
         token_list tokens = create_token_vector({//
             TOK_COLON, TOK_CHAR, TOK_DATA});
-        bool result = Signature::tokens_contain(tokens, Signature::type);
+        bool result = Signature::tokens_contain(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -173,7 +173,7 @@ namespace {
         test_result.append_test_name("test_contain_type_bool", false);
         token_list tokens = create_token_vector({//
             TOK_COLON, TOK_BOOL, TOK_DATA});
-        bool result = Signature::tokens_contain(tokens, Signature::type);
+        bool result = Signature::tokens_contain(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -187,7 +187,7 @@ namespace {
         test_result.append_test_name("test_contain_type_identifier", false);
         token_list tokens = create_token_vector({//
             TOK_COLON, TOK_IDENTIFIER, TOK_DATA});
-        bool result = Signature::tokens_contain(tokens, Signature::type);
+        bool result = Signature::tokens_contain(tokens, ESignature::TYPE);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -210,7 +210,7 @@ namespace {
         test_result.append_test_name("test_extract_type_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IDENTIFIER, TOK_I32, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::TYPE);
         bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         test_result.ok_or_not(result);
         if (!result) {
@@ -225,7 +225,7 @@ namespace {
         test_result.append_test_name("test_extract_type_flint", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IDENTIFIER, TOK_FLINT, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::TYPE);
         bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         test_result.ok_or_not(result);
         if (!result) {
@@ -240,7 +240,7 @@ namespace {
         test_result.append_test_name("test_extract_type_str", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IDENTIFIER, TOK_STR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::TYPE);
         bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         test_result.ok_or_not(result);
         if (!result) {
@@ -255,7 +255,7 @@ namespace {
         test_result.append_test_name("test_extract_type_char", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::TYPE);
         bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         test_result.ok_or_not(result);
         if (!result) {
@@ -270,7 +270,7 @@ namespace {
         test_result.append_test_name("test_extract_type_bool", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IDENTIFIER, TOK_BOOL, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::TYPE);
         bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         test_result.ok_or_not(result);
         if (!result) {
@@ -285,7 +285,7 @@ namespace {
         test_result.append_test_name("test_extract_type_identifier", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, Signature::type);
+        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::TYPE);
         bool result = !result_vec.empty();
         result = result && result_vec.at(0).first == 1 && result_vec.at(0).second == 2;
         result = result && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;

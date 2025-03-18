@@ -19,7 +19,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         }
     }
 
-    if (Signature::tokens_contain(definition_tokens, Signature::use_statement)) {
+    if (Signature::tokens_contain(definition_tokens, ESignature::USE_STATEMENT)) {
         if (definition_indentation > 0) {
             THROW_ERR(ErrUseStatementNotAtTopLevel, ERR_PARSING, file_name, definition_tokens);
             return false;
@@ -38,7 +38,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     }
 
     token_list body_tokens = get_body_tokens(definition_indentation, tokens);
-    if (Signature::tokens_contain(definition_tokens, Signature::function_definition)) {
+    if (Signature::tokens_contain(definition_tokens, ESignature::FUNCTION_DEFINITION)) {
         // Dont actually parse the function body, only its definition
         std::optional<FunctionNode> function_node = create_function(definition_tokens);
         if (!function_node.has_value()) {
@@ -48,7 +48,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         FunctionNode *added_function = file_node.add_function(function_node.value());
         add_open_function({added_function, body_tokens});
         add_parsed_function(added_function, file_name);
-    } else if (Signature::tokens_contain(definition_tokens, Signature::data_definition)) {
+    } else if (Signature::tokens_contain(definition_tokens, ESignature::DATA_DEFINITION)) {
         std::optional<DataNode> data_node = create_data(definition_tokens, body_tokens);
         if (!data_node.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -56,14 +56,14 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         }
         DataNode *added_data = file_node.add_data(data_node.value());
         add_parsed_data(added_data, file_name);
-    } else if (Signature::tokens_contain(definition_tokens, Signature::func_definition)) {
+    } else if (Signature::tokens_contain(definition_tokens, ESignature::FUNC_DEFINITION)) {
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_tokens);
         if (!func_node.has_value()) {
             THROW_ERR(ErrDefFuncCreation, ERR_PARSING, file_name, definition_tokens);
             return false;
         }
         file_node.add_func(func_node.value());
-    } else if (Signature::tokens_contain(definition_tokens, Signature::entity_definition)) {
+    } else if (Signature::tokens_contain(definition_tokens, ESignature::ENTITY_DEFINITION)) {
         create_entity_type entity_creation = create_entity(definition_tokens, body_tokens);
         file_node.add_entity(entity_creation.first);
         if (entity_creation.second.has_value()) {
@@ -72,16 +72,16 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
             file_node.add_data(*data_node_ptr);
             file_node.add_func(*func_node_ptr);
         }
-    } else if (Signature::tokens_contain(definition_tokens, Signature::enum_definition)) {
+    } else if (Signature::tokens_contain(definition_tokens, ESignature::ENUM_DEFINITION)) {
         EnumNode enum_node = create_enum(definition_tokens, body_tokens);
         file_node.add_enum(enum_node);
-    } else if (Signature::tokens_contain(definition_tokens, Signature::error_definition)) {
+    } else if (Signature::tokens_contain(definition_tokens, ESignature::ERROR_DEFINITION)) {
         ErrorNode error_node = create_error(definition_tokens, body_tokens);
         file_node.add_error(error_node);
-    } else if (Signature::tokens_contain(definition_tokens, Signature::variant_definition)) {
+    } else if (Signature::tokens_contain(definition_tokens, ESignature::VARIANT_DEFINITION)) {
         VariantNode variant_node = create_variant(definition_tokens, body_tokens);
         file_node.add_variant(variant_node);
-    } else if (Signature::tokens_contain(definition_tokens, Signature::test_definition)) {
+    } else if (Signature::tokens_contain(definition_tokens, ESignature::TEST_DEFINITION)) {
         std::optional<TestNode> test_node = create_test(definition_tokens);
         if (!test_node.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -177,8 +177,8 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     if (arg_range.value().first < arg_range.value().second) {
         // if the args contain at least one comma, it is known that multiple arguments are passed. If not, only one is
         // passed
-        if (Signature::tokens_contain_in_range(tokens, {{TOK_COMMA}}, arg_range.value())) {
-            const auto match_ranges = Signature::get_match_ranges_in_range(tokens, {{TOK_COMMA}}, arg_range.value());
+        if (Signature::tokens_contain_in_range(tokens, TOK_COMMA, arg_range.value())) {
+            const auto match_ranges = Signature::get_match_ranges_in_range(tokens, TOK_COMMA, arg_range.value());
             if (!match_ranges.empty()) {
                 for (auto match = match_ranges.begin();; ++match) {
                     token_list argument_tokens;
@@ -301,9 +301,9 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     bool is_left;
     const uint2 left_range = {0, 1};
     const uint2 right_range = {tokens.size() - 1, tokens.size()};
-    if (Signature::tokens_contain_in_range(tokens, Signature::unary_operator, left_range)) {
+    if (Signature::tokens_contain_in_range(tokens, ESignature::UNARY_OPERATOR, left_range)) {
         is_left = true;
-    } else if (Signature::tokens_contain_in_range(tokens, Signature::unary_operator, right_range)) {
+    } else if (Signature::tokens_contain_in_range(tokens, ESignature::UNARY_OPERATOR, right_range)) {
         is_left = false;
     } else {
         THROW_BASIC_ERR(ERR_PARSING);
