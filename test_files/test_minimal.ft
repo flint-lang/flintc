@@ -1,21 +1,2 @@
-data Vector2i:
-    i32 x;
-    i32 y;
-    Vector2i(x, y);
-
 def main():
-    Vector2i vec2i = Vector2i(1, 2);
-    vec2i.x = 6;
-    vec2i.y = vec2i.x;
-    print(vec2i.y);
-    print("\n");
-    vec2i.(x, y) = (1, 2);
-    print(vec2i.x);
-    print(", ");
-    print(vec2i.y);
-    print("\n");
-    vec2i.(x, y) = vec2i.(y, x);
-    print(vec2i.x);
-    print(", ");
-    print(vec2i.y);
-    print("\n");
+    i32x3 v3 = (1, 2, 3);
