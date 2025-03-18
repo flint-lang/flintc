@@ -14,3 +14,8 @@ def main():
     print(", ");
     print(vec2i.y);
     print("\n");
+    vec2i.(x, y) = vec2i.(y, x);
+    print(vec2i.x);
+    print(", ");
+    print(vec2i.y);
+    print("\n");

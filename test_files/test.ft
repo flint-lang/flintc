@@ -22,6 +22,7 @@ def main():
 	print("\n");
 	(a, b) = (b, a);
 	Vector2i v2 = Vector2i(1, 2);
+	v2.y = 5;
 	v2.x = v2.y;
 	print(v2.x);
 	print(a);

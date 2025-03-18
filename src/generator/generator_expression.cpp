@@ -47,6 +47,9 @@ Generator::group_mapping Generator::Expression::generate_expression(       //
         group_map.emplace_back(generate_data_access(builder, scope, allocations, data_access));
         return group_map;
     }
+    if (const auto *grouped_data_access = dynamic_cast<const GroupedDataAccessNode *>(expression_node)) {
+        return generate_grouped_data_access(builder, scope, allocations, grouped_data_access);
+    }
     THROW_BASIC_ERR(ERR_GENERATING);
     return std::nullopt;
 }
@@ -475,6 +478,35 @@ llvm::Value *Generator::Expression::generate_data_access(                  //
         data_access->var_name + "_" + data_access->field_name + "_val"                         //
     );
     return loaded_value;
+}
+
+Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
+    llvm::IRBuilder<> &builder,                                               //
+    const Scope *scope,                                                       //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,    //
+    const GroupedDataAccessNode *grouped_data_access                          //
+) {
+    // First, get the alloca instance of the given data variable
+    const unsigned int var_decl_scope = scope->variable_types.at(grouped_data_access->var_name).second;
+    const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_data_access->var_name;
+    llvm::AllocaInst *const var_alloca = allocations.at(var_name);
+
+    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), grouped_data_access->data_type);
+    assert(std::holds_alternative<std::vector<std::string>>(grouped_data_access->type));
+    std::vector<std::string> group_types = std::get<std::vector<std::string>>(grouped_data_access->type);
+
+    std::vector<llvm::Value *> return_values;
+    return_values.reserve(group_types.size());
+    for (size_t i = 0; i < grouped_data_access->field_names.size(); i++) {
+        llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_data_access->field_ids.at(i));
+        llvm::LoadInst *loaded_value = builder.CreateLoad(                                        //
+            IR::get_type_from_str(builder.getContext(), group_types.at(i)),                       //
+            value_ptr,                                                                            //
+            grouped_data_access->var_name + "_" + grouped_data_access->field_names.at(i) + "_val" //
+        );
+        return_values.push_back(loaded_value);
+    }
+    return return_values;
 }
 
 Generator::group_mapping Generator::Expression::generate_type_cast(        //

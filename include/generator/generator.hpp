@@ -7,6 +7,7 @@
 #include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
+#include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
@@ -1391,6 +1392,21 @@ class Generator {
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const DataAccessNode *data_access                                      //
+        );
+
+        /// @function `generate_grouped_data_access`
+        /// @brief Generates a grouped data access from a given GroupedDataAccessNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `scope` The scope the grouped data access is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `grouped_data_access` The grouped data access node to generate
+        /// @return `group_mapping` The value(s) containing the result of the grouped data access
+        static group_mapping generate_grouped_data_access(                         //
+            llvm::IRBuilder<> &builder,                                            //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const GroupedDataAccessNode *grouped_data_access                       //
         );
 
         /// @function `generate_type_cast`
