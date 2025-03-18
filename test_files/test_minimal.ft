@@ -5,3 +5,4 @@ data Vector2i:
 
 def main():
     Vector2i vec2i = Vector2i(1, 2);
+    vec2i.x = 6;

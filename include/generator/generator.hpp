@@ -14,6 +14,7 @@
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/catch_node.hpp"
+#include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
@@ -1207,6 +1208,22 @@ class Generator {
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const GroupAssignmentNode *group_assignment                            //
+        );
+
+        /// @function `generate_data_field_assignment`
+        /// @brief Generates the data field assignment from the given DataFieldAssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the data field assignemnt will be generated in
+        /// @param `scope` The scope the data field assignment is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `data_field_assignment` The data field assignment to generate
+        static void generate_data_field_assignment(                                //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const DataFieldAssignmentNode *data_field_assignment                   //
         );
 
         /// @function `generate_unary_op_statement`
