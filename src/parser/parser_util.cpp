@@ -329,9 +329,9 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     return std::make_tuple(operator_token, std::move(expression.value()), is_left);
 }
 
-std::optional<std::tuple<std::string, std::string, unsigned int, std::string>> Parser::create_field_access_base( //
-    Scope *scope,                                                                                                //
-    token_list &tokens                                                                                           //
+std::optional<std::tuple<std::string, std::string, std::string, unsigned int, std::string>> Parser::create_field_access_base( //
+    Scope *scope,                                                                                                             //
+    token_list &tokens                                                                                                        //
 ) {
     remove_leading_garbage(tokens);
 
@@ -379,7 +379,7 @@ std::optional<std::tuple<std::string, std::string, unsigned int, std::string>> P
         return std::nullopt;
     }
 
-    return std::make_tuple(var_name, field_name, field_id, field_type);
+    return std::make_tuple(data_type.value(), var_name, field_name, field_id, field_type);
 }
 
 std::optional<std::tuple<std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::string>>>

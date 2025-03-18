@@ -602,10 +602,11 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment(Scop
     }
 
     return DataFieldAssignmentNode(             //
-        std::get<0>(field_access_base.value()), // var_name
-        std::get<1>(field_access_base.value()), // field_name
-        std::get<2>(field_access_base.value()), // field_id
-        std::get<3>(field_access_base.value()), // field_type
+        std::get<0>(field_access_base.value()), // data_type
+        std::get<1>(field_access_base.value()), // var_name
+        std::get<2>(field_access_base.value()), // field_name
+        std::get<3>(field_access_base.value()), // field_id
+        std::get<4>(field_access_base.value()), // field_type
         expression.value()                      //
     );
 }

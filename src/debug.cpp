@@ -333,7 +333,8 @@ namespace Debug {
 
         void print_data_access(unsigned int indent_lvl, uint2 empty, const DataAccessNode &access) {
             Local::print_header(indent_lvl, empty, "Data Access ");
-            std::cout << access.var_name << "." << access.field_name << " at ID " << access.field_id << " with type ";
+            std::cout << "[" << access.data_type << "]: " << access.var_name << "." << access.field_name << " at ID " << access.field_id
+                      << " with type ";
             Local::print_type(access.type);
             std::cout << std::endl;
         }
@@ -550,8 +551,8 @@ namespace Debug {
 
         void print_data_field_assignment(unsigned int indent_lvl, uint2 empty, const DataFieldAssignmentNode &assignment) {
             Local::print_header(indent_lvl, empty, "Data Field Assignment ");
-            std::cout << "assign " << assignment.var_name << "." << assignment.field_name << " at IDs " << assignment.field_id
-                      << " of types " << assignment.field_type << " to be";
+            std::cout << "assign [" << assignment.data_type << "] " << assignment.var_name << "." << assignment.field_name << " at IDs "
+                      << assignment.field_id << " of types " << assignment.field_type << " to be";
             std::cout << std::endl;
             empty.first++;
             empty.second = indent_lvl + 2;

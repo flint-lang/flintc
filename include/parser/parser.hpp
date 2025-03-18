@@ -473,13 +473,14 @@ class Parser {
     /// @param `scope` The scope in which the field access is defined
     /// @param `tokens` The list of tokens representing the field access
     /// @return A optional value containing a tuple, where the
-    ///     - first value is the name of the accessed data variable
-    ///     - second value is the name of the accessed field
-    ///     - third value is the id of the field
-    ///     - fourth value is the type of the field
-    std::optional<std::tuple<std::string, std::string, unsigned int, std::string>> create_field_access_base( //
-        Scope *scope,                                                                                        //
-        token_list &tokens                                                                                   //
+    ///     - first value is the type of the accessed data variable
+    ///     - second value is the name of the accessed data variable
+    ///     - third value is the name of the accessed field
+    ///     - fourth value is the id of the field
+    ///     - fifth value is the type of the field
+    std::optional<std::tuple<std::string, std::string, std::string, unsigned int, std::string>> create_field_access_base( //
+        Scope *scope,                                                                                                     //
+        token_list &tokens                                                                                                //
     );
 
     /// @function `create_grouped_access_base`
