@@ -382,7 +382,7 @@ std::optional<std::tuple<std::string, std::string, std::string, unsigned int, st
     return std::make_tuple(data_type.value(), var_name, field_name, field_id, field_type);
 }
 
-std::optional<std::tuple<std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::string>>>
+std::optional<std::tuple<std::string, std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::string>>>
 Parser::create_grouped_access_base( //
     [[maybe_unused]] Scope *scope,  //
     token_list &tokens              //
@@ -456,5 +456,5 @@ Parser::create_grouped_access_base( //
         field_ids.emplace_back(field_id);
     }
 
-    return std::make_tuple(var_name, field_names, field_ids, field_types);
+    return std::make_tuple(data_type.value(), var_name, field_names, field_ids, field_types);
 }

@@ -325,10 +325,11 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *s
     }
 
     return GroupedDataAccessNode(                       //
-        std::get<0>(grouped_field_access_base.value()), // var_name
-        std::get<1>(grouped_field_access_base.value()), // field_names
-        std::get<2>(grouped_field_access_base.value()), // field_ids
-        std::get<3>(grouped_field_access_base.value())  // field_types
+        std::get<0>(grouped_field_access_base.value()), // data_type
+        std::get<1>(grouped_field_access_base.value()), // var_name
+        std::get<2>(grouped_field_access_base.value()), // field_names
+        std::get<3>(grouped_field_access_base.value()), // field_ids
+        std::get<4>(grouped_field_access_base.value())  // field_types
     );
 }
 

@@ -489,11 +489,12 @@ class Parser {
     /// @param `scope` The scope in which the grouped access is defined
     /// @param `tokens` The list of tokens representing the grouped access
     /// @return A optional value containing a tuple, where the
-    ///     - first value is the name of the accessed data variable
-    ///     - second value is the list of accessed field names
-    ///     - third value is the list of accessed field ids
-    ///     - fourth value is the list of accessed field types
-    std::optional<std::tuple<std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::string>>>
+    ///     - first value is the type of the accessed data variable
+    ///     - second value is the name of the accessed data variable
+    ///     - third value is the list of accessed field names
+    ///     - fourth value is the list of accessed field ids
+    ///     - fifth value is the list of accessed field types
+    std::optional<std::tuple<std::string, std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::string>>>
     create_grouped_access_base( //
         Scope *scope,           //
         token_list &tokens      //

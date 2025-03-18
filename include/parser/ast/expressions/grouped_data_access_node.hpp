@@ -9,16 +9,22 @@
 class GroupedDataAccessNode : public ExpressionNode {
   public:
     GroupedDataAccessNode(                           //
+        const std::string &data_type,                //
         const std::string &var_name,                 //
         const std::vector<std::string> &field_names, //
         const std::vector<unsigned int> &field_ids,  //
         const std::vector<std::string> &type         //
         ) :
+        data_type(data_type),
         var_name(var_name),
         field_names(field_names),
         field_ids(field_ids) {
         this->type = type;
     }
+
+    /// @var `data_type`
+    /// @brief The type of the data the accessed variable has
+    std::string data_type;
 
     /// @var `var_name`
     /// @brief The name of the data variable

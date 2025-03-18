@@ -12,12 +12,14 @@
 class GroupedDataFieldAssignmentNode : public StatementNode {
   public:
     GroupedDataFieldAssignmentNode(                  //
+        const std::string &data_type,                //
         const std::string &var_name,                 //
         const std::vector<std::string> &field_names, //
         const std::vector<unsigned int> &field_ids,  //
         const std::vector<std::string> &field_types, //
         std::unique_ptr<ExpressionNode> &expression  //
         ) :
+        data_type(data_type),
         var_name(var_name),
         field_names(field_names),
         field_ids(field_ids),
@@ -34,6 +36,10 @@ class GroupedDataFieldAssignmentNode : public StatementNode {
     // move operations
     GroupedDataFieldAssignmentNode(GroupedDataFieldAssignmentNode &&) = default;
     GroupedDataFieldAssignmentNode &operator=(GroupedDataFieldAssignmentNode &&) = default;
+
+    /// @var `data_type`
+    /// @brief The type of the data variable where the values are assigned ti
+    std::string data_type;
 
     /// @var `var_name`
     /// @brief The variable on which the fields are assigned
