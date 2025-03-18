@@ -9,3 +9,8 @@ def main():
     vec2i.y = vec2i.x;
     print(vec2i.y);
     print("\n");
+    vec2i.(x, y) = (1, 2);
+    print(vec2i.x);
+    print(", ");
+    print(vec2i.y);
+    print("\n");

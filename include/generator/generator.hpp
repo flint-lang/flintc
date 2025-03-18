@@ -21,6 +21,7 @@
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
 #include "parser/ast/statements/group_declaration_node.hpp"
+#include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/throw_node.hpp"
@@ -1226,6 +1227,22 @@ class Generator {
             const Scope *scope,                                                    //
             std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
             const DataFieldAssignmentNode *data_field_assignment                   //
+        );
+
+        /// @function `generate_grouped_data_field_assignment`
+        /// @brief Generates the grouped field assignment from the given GroupedDataFieldAssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the grouped data field assignment will be generated in
+        /// @param `scope` The scope the grouped data field assignment is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `grouped_field_assignment` The grouped data field assignment to generate
+        static void generate_grouped_data_field_assignment(                        //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const GroupedDataFieldAssignmentNode *grouped_field_assignment         //
         );
 
         /// @function `generate_unary_op_statement`

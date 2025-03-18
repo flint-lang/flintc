@@ -42,6 +42,8 @@ void Generator::Statement::generate_statement(                             //
         generate_unary_op_statement(builder, parent, scope, allocations, unary_node);
     } else if (const auto *field_assignment_node = dynamic_cast<const DataFieldAssignmentNode *>(statement.get())) {
         generate_data_field_assignment(builder, parent, scope, allocations, field_assignment_node);
+    } else if (const auto *grouped_assignment_node = dynamic_cast<const GroupedDataFieldAssignmentNode *>(statement.get())) {
+        generate_grouped_data_field_assignment(builder, parent, scope, allocations, grouped_assignment_node);
     } else {
         THROW_BASIC_ERR(ERR_GENERATING);
     }
@@ -640,6 +642,39 @@ void Generator::Statement::generate_data_field_assignment(                 //
         llvm::MDNode::get(parent->getContext(),
             llvm::MDString::get(parent->getContext(),
                 "Store result of expr in field '" + data_field_assignment->var_name + "." + data_field_assignment->field_name + "'")));
+}
+
+void Generator::Statement::generate_grouped_data_field_assignment(         //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const GroupedDataFieldAssignmentNode *grouped_field_assignment         //
+) {
+    // Just save the result of the expression in the field of the data
+    group_mapping expression = Expression::generate_expression( //
+        builder, parent, scope, allocations,                    //
+        grouped_field_assignment->expression.get()              //
+    );
+    if (!expression.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return;
+    }
+    const unsigned int var_decl_scope = scope->variable_types.at(grouped_field_assignment->var_name).second;
+    const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_field_assignment->var_name;
+    llvm::AllocaInst *const var_alloca = allocations.at(var_name);
+
+    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), grouped_field_assignment->data_type);
+
+    for (size_t i = 0; i < expression.value().size(); i++) {
+        llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_field_assignment->field_ids.at(i));
+        llvm::StoreInst *store = builder.CreateStore(expression.value().at(i), field_ptr);
+        store->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(),
+                    "Store result of expr in field '" + grouped_field_assignment->var_name + "." +
+                        grouped_field_assignment->field_names.at(i) + "'")));
+    }
 }
 
 void Generator::Statement::generate_unary_op_statement(                    //
