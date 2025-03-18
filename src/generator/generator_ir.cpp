@@ -95,6 +95,15 @@ llvm::Type *Generator::IR::get_type_from_str(llvm::LLVMContext &context, const s
                 return llvm::Type::getVoidTy(context);
         }
     }
+    // Check if its a known data type
+    if (data_nodes.find(str) != data_nodes.end()) {
+        const DataNode *const data_node = data_nodes.at(str);
+        std::vector<std::string> types;
+        for (const auto &order_name : data_node->order) {
+            types.emplace_back(data_node->fields.at(order_name).first);
+        }
+        return add_and_or_get_type(&context, types, false);
+    }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return nullptr;

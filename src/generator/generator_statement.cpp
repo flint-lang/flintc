@@ -521,6 +521,10 @@ void Generator::Statement::generate_declaration(                           //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const DeclarationNode *declaration_node                                //
 ) {
+    const unsigned int scope_id = scope->variable_types.at(declaration_node->name).second;
+    const std::string var_name = "s" + std::to_string(scope_id) + "::" + declaration_node->name;
+    llvm::AllocaInst *const alloca = allocations.at(var_name);
+
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
         auto expr_val = Expression::generate_expression(builder, parent, scope, allocations, declaration_node->initializer.value().get());
@@ -528,14 +532,33 @@ void Generator::Statement::generate_declaration(                           //
             THROW_BASIC_ERR(ERR_GENERATING);
             return;
         }
+        if (const auto *initializer_node = dynamic_cast<const InitializerNode *>(declaration_node->initializer.value().get())) {
+            if (!initializer_node->is_data) {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return;
+            }
+            // If the rhs is a InitializerNode, it returns all element values from the initializer expression
+            // First, get the struct type of the data
+            llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), declaration_node->type);
+            for (size_t i = 0; i < expr_val.value().size(); i++) {
+                llvm::Value *elem_ptr = builder.CreateStructGEP(              //
+                    data_type,                                                //
+                    alloca,                                                   //
+                    static_cast<unsigned int>(i),                             //
+                    declaration_node->name + "_" + std::to_string(i) + "_ptr" //
+                );
+                llvm::StoreInst *store = builder.CreateStore(expr_val.value().at(i), elem_ptr);
+                store->setMetadata("comment",
+                    llvm::MDNode::get(parent->getContext(),
+                        llvm::MDString::get(parent->getContext(),
+                            "Store the actual val of '" + declaration_node->name + "_" + std::to_string(i) + "'")));
+            }
+            return;
+        }
         expression = expr_val.value().at(0);
     } else {
         expression = IR::get_default_value_of_type(IR::get_type_from_str(builder.getContext(), declaration_node->type));
     }
-
-    const unsigned int scope_id = scope->variable_types.at(declaration_node->name).second;
-    const std::string var_name = "s" + std::to_string(scope_id) + "::" + declaration_node->name;
-    llvm::AllocaInst *const alloca = allocations.at(var_name);
 
     llvm::StoreInst *store = builder.CreateStore(expression, alloca);
     store->setMetadata("comment",

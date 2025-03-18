@@ -40,6 +40,9 @@ Generator::group_mapping Generator::Expression::generate_expression(       //
     if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expression_node)) {
         return generate_group_expression(builder, parent, scope, allocations, group_node);
     }
+    if (const auto *initializer = dynamic_cast<const InitializerNode *>(expression_node)) {
+        return generate_initializer(builder, parent, scope, allocations, initializer);
+    }
     THROW_BASIC_ERR(ERR_GENERATING);
     return std::nullopt;
 }
@@ -409,6 +412,43 @@ Generator::group_mapping Generator::Expression::generate_group_expression( //
         group_values.push_back(expr_val[0]);
     }
     return group_values;
+}
+
+Generator::group_mapping Generator::Expression::generate_initializer(      //
+    llvm::IRBuilder<> &builder,                                            //
+    llvm::Function *parent,                                                //
+    const Scope *scope,                                                    //
+    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    const InitializerNode *initializer                                     //
+) {
+    // Check if its a data initializer
+    if (initializer->is_data) {
+        if (!std::holds_alternative<std::string>(initializer->type)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        // Check if the initializer data type is even present
+        if (data_nodes.find(std::get<std::string>(initializer->type)) == data_nodes.end()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        std::vector<llvm::Value *> return_values;
+        for (const auto &expression : initializer->args) {
+            auto expr_result = generate_expression(builder, parent, scope, allocations, expression.get());
+            if (!expr_result.has_value()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            // For initializers, we need pure single-value types
+            if (expr_result.value().size() > 1) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return_values.emplace_back(expr_result.value().at(0));
+        }
+        return return_values;
+    }
+    return std::nullopt;
 }
 
 Generator::group_mapping Generator::Expression::generate_type_cast(        //

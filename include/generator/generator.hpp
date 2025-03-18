@@ -1325,6 +1325,23 @@ class Generator {
             const GroupExpressionNode *group_node                                  //
         );
 
+        /// @function `generate_initializer`
+        /// @brief Generates an initializer from the given InitializerNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the initializer is generated in
+        /// @param `scope` The scope the initializer is contained in
+        /// @param `allocations´`The map of all alloccations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `initializer` The initializer to generate
+        /// @return `group_mapping` The loaded value(s) of the initializer, representing every field of the loaded data
+        static group_mapping generate_initializer(                                 //
+            llvm::IRBuilder<> &builder,                                            //
+            llvm::Function *parent,                                                //
+            const Scope *scope,                                                    //
+            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+            const InitializerNode *initializer                                     //
+        );
+
         /// @function `generate_type_cast`
         /// @brief Generates a type cast from a TypeCastNode
         ///
