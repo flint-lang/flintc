@@ -282,7 +282,7 @@ namespace Debug {
                 if (++counter == call.arguments.size()) {
                     empty.second = indent_lvl + 2;
                 }
-                print_expression(indent_lvl + 1, empty, arg);
+                print_expression(indent_lvl + 1, empty, arg.first);
             }
         }
 

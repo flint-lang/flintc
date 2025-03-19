@@ -180,7 +180,7 @@ Generator::group_mapping Generator::Expression::generate_call(             //
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
     for (const auto &arg : call_node->arguments) {
-        args.emplace_back(generate_expression(builder, parent, scope, allocations, arg.get()).value().at(0));
+        args.emplace_back(generate_expression(builder, parent, scope, allocations, arg.first.get()).value().at(0));
     }
 
     // Check if it is a builtin function and call it
@@ -192,17 +192,17 @@ Generator::group_mapping Generator::Expression::generate_call(             //
             return std::nullopt;
         }
         // There doesnt exist a builtin print function for any groups
-        if (!std::holds_alternative<std::string>(call_node->arguments.at(0)->type)) {
+        if (!std::holds_alternative<std::string>(call_node->arguments.at(0).first->type)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
         // Call the builtin function 'print'
         std::vector<llvm::Value *> return_value;
         if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
-            print_functions.find(std::get<std::string>(call_node->arguments.at(0)->type)) != print_functions.end()) {
-            return_value.emplace_back(builder.CreateCall(                                 //
-                print_functions[std::get<std::string>(call_node->arguments.at(0)->type)], //
-                args                                                                      //
+            print_functions.find(std::get<std::string>(call_node->arguments.at(0).first->type)) != print_functions.end()) {
+            return_value.emplace_back(builder.CreateCall(                                       //
+                print_functions[std::get<std::string>(call_node->arguments.at(0).first->type)], //
+                args                                                                            //
                 ));
             return return_value;
         }

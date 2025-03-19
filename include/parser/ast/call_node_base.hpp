@@ -6,12 +6,15 @@
 #include <string>
 #include <vector>
 
-/// CallNodeBase
-///     The base class for calls, both statements and expressions
+/// @class `CallNodeBase`
+/// @brief The base class for calls, both statements and expressions
 class CallNodeBase {
   public:
-    CallNodeBase(std::string function_name, std::vector<std::unique_ptr<ExpressionNode>> arguments,
-        const std::variant<std::string, std::vector<std::string>> &type) :
+    CallNodeBase(                                                                //
+        std::string function_name,                                               //
+        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments, //
+        const std::variant<std::string, std::vector<std::string>> &type          //
+        ) :
         function_name(std::move(function_name)),
         arguments(std::move(arguments)),
         type(type) {}
@@ -25,23 +28,28 @@ class CallNodeBase {
     CallNodeBase(CallNodeBase &&) = default;
     CallNodeBase &operator=(CallNodeBase &&) = delete;
 
-    /// function_name
-    ///     The name of the function being called
+    /// @var `function_name`
+    /// @brief The name of the function being called
     std::string function_name;
-    /// arguments
-    ///     The list of arguments of the function call
-    std::vector<std::unique_ptr<ExpressionNode>> arguments;
-    /// scope_id
-    ///     The id of the scope the call happens in
+
+    /// @var `arguments`
+    /// @brief The list of arguments of the function call and whether each argument is a reference or not
+    std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments;
+
+    /// @var `scope_id`
+    /// @brief The id of the scope the call happens in
     unsigned int scope_id{0};
-    /// has_catch
-    ///     Determines whether a catch block will follow or not
+
+    /// @var `has_catch`
+    /// @brief Whether a catch block will follow or not
     bool has_catch{false};
-    /// call_id
-    ///     The id of this function call. Used for Catch-referentiation of this CallNode
+
+    /// @var `call_id`
+    /// @brief The id of this function call. Used for Catch-referentiation of this CallNode
     const unsigned int call_id = get_next_call_id();
-    /// type
-    ///     The type of the call`s return value(s)
+
+    /// @var `type`
+    /// @brief The type of the call`s return value(s)
     std::variant<std::string, std::vector<std::string>> type;
 
   protected:

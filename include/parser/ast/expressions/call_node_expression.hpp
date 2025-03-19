@@ -7,12 +7,15 @@
 #include <string>
 #include <vector>
 
-/// CallNodeExpression
-///     Represents function or method calls
+/// @class `CallNodeExpression`
+/// @brief Represents function or method calls
 class CallNodeExpression : public CallNodeBase, public ExpressionNode {
   public:
-    explicit CallNodeExpression(std::string &function_name, std::vector<std::unique_ptr<ExpressionNode>> &arguments,
-        const std::variant<std::string, std::vector<std::string>> &type) :
+    explicit CallNodeExpression(                                                  //
+        std::string &function_name,                                               //
+        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+        const std::variant<std::string, std::vector<std::string>> &type           //
+        ) :
         CallNodeBase(function_name, std::move(arguments), type) {
         ExpressionNode::type = type;
     }

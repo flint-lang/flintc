@@ -458,11 +458,13 @@ class Parser {
     /// @param `scope` The scope the call happens in
     /// @param `tokens` The tokens which will be interpreted as call
     /// @return A optional value containing a tuple, where:
-    ///         - the first value is the function or initializers name
-    ///         - the second value is a list of all expressions (the argument expression) of the call / initializier
-    ///         - the third value is the call's return type, or the initializers type encoded as a string
-    ///         - the forth value is: true if the expression is a Data initializer, false if an entity initializer, nullopt if its a call
-    std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::vector<std::string>, std::optional<bool>>>
+    ///     - the first value is the function or initializers name
+    ///     - the second value is a list of all expressions (the argument expression) of the call / initializier and if the arg is expected
+    ///     to be a reference
+    ///     - the third value is the call's return type, or the initializers type encoded as a string
+    ///     - the forth value is: true if the expression is a Data initializer, false if an entity initializer, nullopt if its a call
+    std::optional<std::tuple<std::string, std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, std::vector<std::string>,
+        std::optional<bool>>>
     create_call_or_initializer_base(Scope *scope, token_list &tokens);
 
     /// @function `create_unary_op_base`

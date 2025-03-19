@@ -163,10 +163,14 @@ Parser::create_call_or_initializer_expression(Scope *scope, token_list &tokens) 
     // Now, check if its a initializer or a call
     if (std::get<3>(call_or_init_node_args.value()).has_value()) {
         // Its an initializer
+        std::vector<std::unique_ptr<ExpressionNode>> args;
+        for (auto &arg : std::get<1>(call_or_init_node_args.value())) {
+            args.emplace_back(std::move(arg.first));
+        }
         std::unique_ptr<InitializerNode> initializer_node = std::make_unique<InitializerNode>( //
             std::get<2>(call_or_init_node_args.value()).at(0),   // type vector (always of size 1 for initializers)
             std::get<3>(call_or_init_node_args.value()).value(), // is_data
-            std::get<1>(call_or_init_node_args.value())          // args
+            args                                                 // args
         );
         return initializer_node;
     } else {

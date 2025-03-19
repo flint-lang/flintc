@@ -151,7 +151,12 @@ token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token
     return extraction;
 }
 
-std::optional<std::tuple<std::string, std::vector<std::unique_ptr<ExpressionNode>>, std::vector<std::string>, std::optional<bool>>>
+std::optional<std::tuple<                                          //
+    std::string,                                                   //
+    std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, //
+    std::vector<std::string>,                                      //
+    std::optional<bool>                                            //
+    >>
 Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
     if (!arg_range.has_value()) {
@@ -163,7 +168,7 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     --arg_range.value().second;
 
     std::string function_name;
-    std::vector<std::unique_ptr<ExpressionNode>> arguments;
+    std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments;
 
     for (const auto &tok : tokens) {
         // Get the function name
@@ -194,7 +199,7 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
                         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
                         return std::nullopt;
                     }
-                    arguments.emplace_back(std::move(expression.value()));
+                    arguments.emplace_back(std::move(expression.value()), false);
                     if (match == match_ranges.end()) {
                         break;
                     }
@@ -207,7 +212,7 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
                 THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
                 return std::nullopt;
             }
-            arguments.emplace_back(std::move(expression.value()));
+            arguments.emplace_back(std::move(expression.value()), false);
         }
     }
 
@@ -215,8 +220,8 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     std::vector<std::string> argument_types;
     argument_types.reserve(arguments.size());
     for (auto &arg : arguments) {
-        assert(std::holds_alternative<std::string>(arg->type));
-        argument_types.emplace_back(std::get<std::string>(arg->type));
+        assert(std::holds_alternative<std::string>(arg.first->type));
+        argument_types.emplace_back(std::get<std::string>(arg.first->type));
     }
 
     // Check if its a call to a builtin function, if it is, get the return type of said function
@@ -284,6 +289,12 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
         return std::nullopt;
     }
     // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been found
+    // Lastly, update the arguments of the call with the information of the function definition, if the arguments should be references
+    unsigned int i = 0;
+    for (const auto &param : function.value().first->parameters) {
+        arguments.at(i).second = std::get<2>(param);
+        i++;
+    }
 
     return std::make_tuple(function_name, std::move(arguments), function.value().first->return_types, std::nullopt);
 }
