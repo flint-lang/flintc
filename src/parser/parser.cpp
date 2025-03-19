@@ -129,6 +129,14 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
     return result;
 }
 
+std::string Parser::get_type_string(const token_list &tokens) {
+    std::stringstream stream;
+    for (const auto &tok : tokens) {
+        stream << tok.lexme;
+    }
+    return stream.str();
+}
+
 std::optional<std::pair<FunctionNode *, std::string>> Parser::get_function_from_call( //
     const std::string &call_name,                                                     //
     const std::vector<std::string> &arg_types                                         //

@@ -102,6 +102,13 @@ class Parser {
         instances.clear();
     }
 
+    /// @function `get_type_string`
+    /// @brief Returns a string representation of the type tokens
+    ///
+    /// @param `tokens` The list of tokens to convert
+    /// @return `std::string` The type string
+    static std::string get_type_string(const token_list &tokens);
+
     /// @var `parsed_data`
     /// @brief Stores all the data nodes that have been parsed
     ///
