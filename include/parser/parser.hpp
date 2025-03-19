@@ -366,7 +366,7 @@ class Parser {
     /// @param `tokens` The tokens in which to remove all trailing garbage
     static void remove_trailing_garbage(token_list &tokens) {
         for (auto it = tokens.rbegin(); it != tokens.rend();) {
-            if (it->type == TOK_INDENT || it->type == TOK_EOL || it->type == TOK_SEMICOLON) {
+            if (it->type == TOK_INDENT || it->type == TOK_EOL || it->type == TOK_SEMICOLON || it->type == TOK_COLON) {
                 ++it;
                 tokens.erase(std::prev(it).base());
             } else {
