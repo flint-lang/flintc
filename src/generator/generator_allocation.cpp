@@ -46,6 +46,10 @@ void Generator::Allocation::generate_call_allocations(                     //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const CallNodeBase *call_node                                          //
 ) {
+    // First, generate the allocations of all the parameter expressions of the call node
+    for (const auto &arg : call_node->arguments) {
+        generate_expression_allocations(builder, parent, scope, allocations, arg.get());
+    }
     // Get the function definition from any module
     auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
     if (!func_decl_res.has_value()) {
