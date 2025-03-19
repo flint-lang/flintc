@@ -99,6 +99,13 @@ class Signature {
     /// dont have to be built up every time a signature is used
     using signature = std::vector<std::variant<Token, std::string>>;
 
+    /// @function `stringify`
+    /// @brief Makes a vector of TokenContexts to a string that can be checked by regex
+    ///
+    /// @param `tokens` The list of tokens to stringify
+    /// @return `std::string` The stringified tokens
+    static std::string stringify(const token_list &tokens);
+
     /// @function `balanced_range_extraction`
     /// @brief Extracts the range of the given signatures where the 'inc' signature increments the amount of 'dec' signatures needed to
     /// reach the end of the range. This can be used to extract all operations between parenthesis, for example
@@ -252,13 +259,6 @@ class Signature {
     /// @param `signature` The signature enum from which to get the regex string
     /// @return `std::string` The regex string signature of the given signature enum
     static std::string get(const ESignature signature);
-
-    /// @function `stringify`
-    /// @brief Makes a vector of TokenContexts to a string that can be checked by regex
-    ///
-    /// @param `tokens` The list of tokens to stringify
-    /// @return `std::string` The stringified tokens
-    static std::string stringify(const token_list &tokens);
 
     /// @function `tokens_contain`
     /// @brief Checks if a given vector of TokenContext contains a given signature

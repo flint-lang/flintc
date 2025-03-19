@@ -12,6 +12,16 @@
 
 // PUBLIC FUNCTIONS
 
+std::string Signature::stringify(const token_list &tokens) {
+    std::stringstream token_string;
+    for (const TokenContext &tok : tokens) {
+        token_string << "#";
+        token_string << std::to_string(static_cast<int>(tok.type));
+        token_string << "#";
+    }
+    return token_string.str();
+}
+
 std::optional<uint2> Signature::balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec) {
     const std::string inc_str = get_regex_string(inc);
     const std::string dec_str = get_regex_string(dec);
@@ -248,16 +258,6 @@ Signature::signature Signature::combine(std::initializer_list<signature> signatu
 
 std::string Signature::get(const ESignature signature) {
     return regex_strings.at(signature);
-}
-
-std::string Signature::stringify(const token_list &tokens) {
-    std::stringstream token_string;
-    for (const TokenContext &tok : tokens) {
-        token_string << "#";
-        token_string << std::to_string(static_cast<int>(tok.type));
-        token_string << "#";
-    }
-    return token_string.str();
 }
 
 bool Signature::tokens_contain(const token_list &tokens, const std::string &signature) {
