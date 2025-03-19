@@ -326,7 +326,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     if (err_var.has_value()) {
-        body_scope->add_variable_type(err_var.value(), "i32", body_scope->scope_id);
+        body_scope->add_variable(err_var.value(), "i32", body_scope->scope_id, false);
     }
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {
@@ -359,11 +359,11 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
             return std::nullopt;
         }
         // This element is the assignee
-        if (scope->variable_types.find(it->lexme) == scope->variable_types.end()) {
+        if (scope->variables.find(it->lexme) == scope->variables.end()) {
             THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
             return std::nullopt;
         }
-        const std::string &expected_type = scope->variable_types.at(it->lexme).first;
+        const std::string &expected_type = std::get<0>(scope->variables.at(it->lexme));
         assignees.emplace_back(expected_type, it->lexme);
         index += 2;
         if (std::next(it)->type == TOK_RIGHT_PAREN) {
@@ -393,11 +393,11 @@ std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, token_list
     while (iterator != tokens.end()) {
         if (iterator->type == TOK_IDENTIFIER) {
             if ((iterator + 1)->type == TOK_EQUAL && (iterator + 2) != tokens.end()) {
-                if (scope->variable_types.find(iterator->lexme) == scope->variable_types.end()) {
+                if (scope->variables.find(iterator->lexme) == scope->variables.end()) {
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, iterator->line, iterator->column, iterator->lexme);
                     return std::nullopt;
                 }
-                std::string expected_type = scope->variable_types.at(iterator->lexme).first;
+                std::string expected_type = std::get<0>(scope->variables.at(iterator->lexme));
                 // Parse the expression with the expected type passed into it
                 token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens, expected_type);
@@ -462,7 +462,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
     assert(variables.size() == types.size());
     for (unsigned int i = 0; i < variables.size(); i++) {
         variables.at(i).first = types.at(i);
-        if (!scope->add_variable_type(variables.at(i).second, types.at(i), scope->scope_id)) {
+        if (!scope->add_variable(variables.at(i).second, types.at(i), scope->scope_id, true)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, variables.at(i).second);
             return std::nullopt;
@@ -505,7 +505,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                 break;
             }
         }
-        if (!scope->add_variable_type(name, type, scope->scope_id)) {
+        if (!scope->add_variable(name, type, scope->scope_id, true)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, name);
             return std::nullopt;
@@ -536,7 +536,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                 break;
             }
         }
-        if (!scope->add_variable_type(name, std::get<std::string>(expr.value()->type), scope->scope_id)) {
+        if (!scope->add_variable(name, std::get<std::string>(expr.value()->type), scope->scope_id, true)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;
@@ -554,7 +554,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                 break;
             }
         }
-        if (!scope->add_variable_type(name, type, scope->scope_id)) {
+        if (!scope->add_variable(name, type, scope->scope_id, true)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;

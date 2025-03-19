@@ -16,7 +16,7 @@ class Scope {
 
     explicit Scope(Scope *parent) :
         parent_scope(parent) {
-        clone_variable_types(parent);
+        clone_variables(parent);
     }
 
     explicit Scope(std::vector<std::unique_ptr<StatementNode>> body, Scope *parent = nullptr) :
@@ -45,9 +45,9 @@ class Scope {
     ///
     /// @param `other` The other scope from which to clone the variable types
     /// @return `bool` Whether the cloning was successful
-    bool clone_variable_types(const Scope *other) {
-        for (const auto &[name, type_scope] : other->variable_types) {
-            if (!add_variable_type(name, type_scope.first, type_scope.second)) {
+    bool clone_variables(const Scope *other) {
+        for (const auto &[name, type_scope] : other->variables) {
+            if (!add_variable(name, std::get<0>(type_scope), std::get<1>(type_scope), std::get<2>(type_scope))) {
                 // Duplicate definition / shadowing
                 return false;
             }
@@ -61,9 +61,10 @@ class Scope {
     /// @param `var` The name of the added variable
     /// @param `type` The type of the added variable
     /// @param `sid` The id of the scope the variable is declared in
+    /// @param `is_mutable` Whether the variable is mutable
     /// @return `bool` Whether insertion of the variable type was successful. If not, this means a variable is shadowed
-    bool add_variable_type(const std::string &var, const std::string &type, const unsigned int sid) {
-        return variable_types.insert({var, {type, sid}}).second;
+    bool add_variable(const std::string &var, const std::string &type, const unsigned int sid, const bool is_mutable) {
+        return variables.insert({var, {type, sid, is_mutable}}).second;
     }
 
     /// @function `get_variable_type`
@@ -72,10 +73,10 @@ class Scope {
     /// @param `var_name` The name of the variable to search for
     /// @return `std::optional<std::string>` The type of the variable, or nullopt if the variable doesnt exist
     std::optional<std::string> get_variable_type(const std::string &var_name) {
-        if (variable_types.find(var_name) == variable_types.end()) {
+        if (variables.find(var_name) == variables.end()) {
             return std::nullopt;
         }
-        return variable_types.at(var_name).first;
+        return std::get<0>(variables.at(var_name));
     }
 
     /// @var `scope_id`
@@ -90,11 +91,14 @@ class Scope {
     /// @brief The parent scope of this scope
     Scope *parent_scope{nullptr};
 
-    /// @var `variable_types`
-    /// @brief All the variable types visible within this scope
+    /// @var `variable`
+    /// @brief All the variables visible within this scope
     ///     The key is the name of the variable
-    ///     The value is the type of the variable and the scope it was declared in
-    std::unordered_map<std::string, std::pair<std::string, unsigned int>> variable_types;
+    ///     The value is:
+    ///         1. the type of the variable
+    ///         2. the scope it was declared in
+    ///         3. if the variable is mutable
+    std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool>> variables;
 
   private:
     /// @function `get_next_scope_id`

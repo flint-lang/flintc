@@ -90,11 +90,11 @@ std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_li
     for (const auto &tok : tokens) {
         if (tok.type == TOK_IDENTIFIER) {
             std::string name = tok.lexme;
-            if (scope->variable_types.find(name) == scope->variable_types.end()) {
+            if (scope->variables.find(name) == scope->variables.end()) {
                 THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tok.line, tok.column, name);
                 return std::nullopt;
             }
-            return VariableNode(name, scope->variable_types.at(name).first);
+            return VariableNode(name, std::get<0>(scope->variables.at(name)));
         }
     }
     return var;

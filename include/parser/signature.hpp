@@ -306,6 +306,9 @@ class Signature {
     static const inline signature reference = {TOK_IDENTIFIER, "(", TOK_COLON, TOK_COLON, TOK_IDENTIFIER, ")+"};
     static const inline signature args = combine({//
         type, {TOK_IDENTIFIER, "(", TOK_COMMA}, type, {TOK_IDENTIFIER, ")*"}});
+    static const inline signature params = combine({//
+        {"(", TOK_MUT, "|", TOK_CONST, ")?"}, type, {TOK_IDENTIFIER, "(", TOK_COMMA, "(", TOK_MUT, "|", TOK_CONST, ")?"}, type,
+        {TOK_IDENTIFIER, ")*"}});
     static const inline signature no_prim_args = {TOK_IDENTIFIER, TOK_IDENTIFIER, "(", TOK_COMMA, TOK_IDENTIFIER, TOK_IDENTIFIER, ")*"};
     static const inline signature group = combine({//
         {TOK_LEFT_PAREN}, type, {"(", TOK_COMMA}, type, {")*", TOK_RIGHT_PAREN}});
@@ -315,7 +318,7 @@ class Signature {
         TOK_IDENTIFIER, ")*))"};
 
     static const inline signature function_definition = combine({//
-        {"(", TOK_ALIGNED, ")?", "(", TOK_CONST, ")?", TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, args,
+        {"(", TOK_ALIGNED, ")?", "(", TOK_CONST, ")?", TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, params,
         {")?", TOK_RIGHT_PAREN, "(", TOK_ARROW}, group, {TOK_COLON, "|", TOK_ARROW}, type, {TOK_COLON, "|", TOK_COLON, ")"}});
     static const inline signature data_definition = {"(", TOK_SHARED, "|", TOK_IMMUTABLE, ")?(", TOK_ALIGNED, ")?", TOK_DATA,
         TOK_IDENTIFIER, TOK_COLON};

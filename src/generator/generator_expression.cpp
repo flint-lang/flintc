@@ -149,12 +149,12 @@ llvm::Value *Generator::Expression::generate_variable(                     //
     }
 
     // If not a parameter, handle as local variable
-    if (scope->variable_types.find(variable_node->name) == scope->variable_types.end()) {
+    if (scope->variables.find(variable_node->name) == scope->variables.end()) {
         // Error: Undeclared Variable
         THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }
-    const unsigned int variable_decl_scope = scope->variable_types.at(variable_node->name).second;
+    const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(variable_node->name));
     llvm::AllocaInst *const variable = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
 
     // Get the type that the pointer points to
@@ -465,7 +465,7 @@ llvm::Value *Generator::Expression::generate_data_access(                  //
     const DataAccessNode *data_access                                      //
 ) {
     // First, get the alloca instance of the given data variable
-    const unsigned int var_decl_scope = scope->variable_types.at(data_access->var_name).second;
+    const unsigned int var_decl_scope = std::get<1>(scope->variables.at(data_access->var_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_access->var_name;
     llvm::AllocaInst *const var_alloca = allocations.at(var_name);
 
@@ -487,7 +487,7 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     const GroupedDataAccessNode *grouped_data_access                          //
 ) {
     // First, get the alloca instance of the given data variable
-    const unsigned int var_decl_scope = scope->variable_types.at(grouped_data_access->var_name).second;
+    const unsigned int var_decl_scope = std::get<1>(scope->variables.at(grouped_data_access->var_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_data_access->var_name;
     llvm::AllocaInst *const var_alloca = allocations.at(var_name);
 

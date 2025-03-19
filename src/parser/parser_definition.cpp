@@ -1,3 +1,4 @@
+#include "lexer/token.hpp"
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
@@ -8,52 +9,96 @@
 
 std::optional<FunctionNode> Parser::create_function(const token_list &definition) {
     std::string name;
-    std::vector<std::pair<std::string, std::string>> parameters;
+    std::vector<std::tuple<std::string, std::string, bool>> parameters;
     std::vector<std::string> return_types;
     bool is_aligned = false;
     bool is_const = false;
 
-    bool begin_params = false;
-    bool begin_returns = false;
     auto tok_iterator = definition.begin();
-    while (tok_iterator != definition.end()) {
+    // Parse everything before the parameters
+    while (tok_iterator != definition.end() && std::next(tok_iterator) != definition.end() && tok_iterator->type != TOK_LEFT_PAREN) {
         if (tok_iterator->type == TOK_ALIGNED) {
             is_aligned = true;
         }
-        if (tok_iterator->type == TOK_CONST && name.empty()) {
+        if (tok_iterator->type == TOK_CONST) {
             is_const = true;
         }
-        // Finding the function name
         if (tok_iterator->type == TOK_DEF) {
-            name = (tok_iterator + 1)->lexme;
+            name = std::next(tok_iterator)->lexme;
         }
-        // Adding the functions parameters
-        if (tok_iterator->type == TOK_LEFT_PAREN && !begin_returns) {
-            begin_params = true;
-        }
-        if (tok_iterator->type == TOK_RIGHT_PAREN && begin_params) {
-            begin_params = false;
-        }
-        if (begin_params && Signature::tokens_match({TokenContext{tok_iterator->type, "", 0, 0}}, ESignature::TYPE) &&
-            (tok_iterator + 1)->type == TOK_IDENTIFIER) {
-            parameters.emplace_back(tok_iterator->lexme, (tok_iterator + 1)->lexme);
-        }
-        // Adding the functions return types
-        if (tok_iterator->type == TOK_ARROW) {
-            // Only one return type
-            if (Signature::tokens_match({{(tok_iterator + 1)->type, "", 0, 0}}, ESignature::TYPE)) {
-                return_types.emplace_back((tok_iterator + 1)->lexme);
-                break;
+        tok_iterator++;
+    }
+    if (tok_iterator == definition.end()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Skip the left paren
+    tok_iterator++;
+    // Parse the parameters only if there are any parameters
+    if (tok_iterator->type != TOK_RIGHT_PAREN) {
+        // Set the last_param_begin to + 1 to skip the left paren
+        unsigned int last_param_begin = std::distance(definition.begin(), tok_iterator);
+        while (tok_iterator != definition.end() && std::next(tok_iterator) != definition.end() && tok_iterator->type != TOK_RIGHT_PAREN) {
+            if (std::next(tok_iterator)->type == TOK_COMMA || std::next(tok_iterator)->type == TOK_RIGHT_PAREN) {
+                // The current token is the parameter type
+                const std::string param_name = tok_iterator->lexme;
+                // The type is everything from the last param begin
+                token_list type_tokens = clone_from_to(last_param_begin, std::distance(definition.begin(), tok_iterator), definition);
+                bool is_mutable = false;
+                if (type_tokens.begin()->type == TOK_CONST) {
+                    type_tokens.erase(type_tokens.begin());
+                } else if (type_tokens.begin()->type == TOK_MUT) {
+                    is_mutable = true;
+                    type_tokens.erase(type_tokens.begin());
+                }
+                const std::string param_type = get_type_string(type_tokens);
+                parameters.emplace_back(param_type, param_name, is_mutable);
+                last_param_begin = std::distance(definition.begin(), tok_iterator) + 2;
             }
-            begin_returns = true;
+            tok_iterator++;
         }
-        if (begin_returns && Signature::tokens_match({{tok_iterator->type, "", 0, 0}}, ESignature::TYPE)) {
-            return_types.emplace_back(tok_iterator->lexme);
+        if (tok_iterator == definition.end()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
-        if (begin_returns && tok_iterator->type == TOK_RIGHT_PAREN) {
-            break;
+    }
+    // Skip the right paren
+    tok_iterator++;
+    // Now the token should be an arrow, if not there are no return values
+    if (tok_iterator->type == TOK_ARROW) {
+        tok_iterator++;
+        if (tok_iterator == definition.end()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
-        ++tok_iterator;
+        if (tok_iterator->type != TOK_LEFT_PAREN) {
+            // There is only a single return type, so everything until the colon is considere the return type
+            unsigned int begin_idx = std::distance(definition.begin(), tok_iterator);
+            while (tok_iterator != definition.end() && tok_iterator->type != TOK_COLON) {
+                tok_iterator++;
+            }
+            const token_list type_tokens = clone_from_to(begin_idx, std::distance(definition.begin(), tok_iterator), definition);
+            return_types.emplace_back(get_type_string(type_tokens));
+        } else {
+            // Skip the left paren
+            tok_iterator++;
+            // Parse the return types
+            unsigned int last_type_begin = std::distance(definition.begin(), tok_iterator);
+            while (
+                tok_iterator != definition.end() && std::next(tok_iterator) != definition.end() && tok_iterator->type != TOK_RIGHT_PAREN) {
+                if (std::next(tok_iterator)->type == TOK_COMMA || std::next(tok_iterator)->type == TOK_RIGHT_PAREN) {
+                    // The type is everything from the last param begin
+                    token_list type_tokens = clone_from_to(                  //
+                        last_type_begin,                                     //
+                        std::distance(definition.begin(), tok_iterator) + 1, //
+                        definition                                           //
+                    );
+                    return_types.emplace_back(get_type_string(type_tokens));
+                    last_type_begin = std::distance(definition.begin(), tok_iterator) + 2;
+                }
+                tok_iterator++;
+            }
+        }
     }
 
     // Create the body scope
@@ -61,9 +106,9 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
-        if (!body_scope->add_variable_type(param.second, param.first, body_scope->scope_id)) {
+        if (!body_scope->add_variable(std::get<1>(param), std::get<0>(param), body_scope->scope_id, std::get<2>(param))) {
             // Variable already exists in the func definition list
-            THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_name, 0, 0, param.second);
+            THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_name, 0, 0, std::get<1>(param));
             return std::nullopt;
         }
     }

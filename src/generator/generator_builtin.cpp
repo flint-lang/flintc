@@ -22,7 +22,7 @@ void Generator::Builtin::generate_exit(llvm::IRBuilder<> *builder, llvm::Module 
 void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
-    std::vector<std::pair<std::string, std::string>> parameters;
+    std::vector<std::tuple<std::string, std::string, bool>> parameters;
     std::vector<std::string> return_types;
     std::unique_ptr<Scope> scope;
     FunctionNode function_node = FunctionNode(false, false, "main", parameters, return_types, scope);

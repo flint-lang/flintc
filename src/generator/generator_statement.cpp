@@ -525,7 +525,7 @@ void Generator::Statement::generate_declaration(                           //
     std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
     const DeclarationNode *declaration_node                                //
 ) {
-    const unsigned int scope_id = scope->variable_types.at(declaration_node->name).second;
+    const unsigned int scope_id = std::get<1>(scope->variables.at(declaration_node->name));
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + declaration_node->name;
     llvm::AllocaInst *const alloca = allocations.at(var_name);
 
@@ -600,12 +600,12 @@ void Generator::Statement::generate_assignment(                            //
     llvm::Value *expression = expr.value().at(0);
 
     // Check if the variable is declared
-    if (scope->variable_types.find(assignment_node->name) == scope->variable_types.end()) {
+    if (scope->variables.find(assignment_node->name) == scope->variables.end()) {
         // Error: Undeclared Variable
         THROW_BASIC_ERR(ERR_GENERATING);
     }
     // Get the allocation of the lhs
-    const unsigned int variable_decl_scope = scope->variable_types.at(assignment_node->name).second;
+    const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(assignment_node->name));
     llvm::AllocaInst *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
     llvm::StoreInst *store = builder.CreateStore(expression, lhs);
@@ -630,7 +630,7 @@ void Generator::Statement::generate_data_field_assignment(                 //
         THROW_BASIC_ERR(ERR_GENERATING);
         return;
     }
-    const unsigned int var_decl_scope = scope->variable_types.at(data_field_assignment->var_name).second;
+    const unsigned int var_decl_scope = std::get<1>(scope->variables.at(data_field_assignment->var_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_field_assignment->var_name;
     llvm::AllocaInst *const var_alloca = allocations.at(var_name);
 
@@ -660,7 +660,7 @@ void Generator::Statement::generate_grouped_data_field_assignment(         //
         THROW_BASIC_ERR(ERR_GENERATING);
         return;
     }
-    const unsigned int var_decl_scope = scope->variable_types.at(grouped_field_assignment->var_name).second;
+    const unsigned int var_decl_scope = std::get<1>(scope->variables.at(grouped_field_assignment->var_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_field_assignment->var_name;
     llvm::AllocaInst *const var_alloca = allocations.at(var_name);
 
@@ -690,7 +690,7 @@ void Generator::Statement::generate_unary_op_statement(                    //
         THROW_BASIC_ERR(ERR_GENERATING);
         return;
     }
-    const unsigned int scope_id = scope->variable_types.at(var_node->name).second;
+    const unsigned int scope_id = std::get<1>(scope->variables.at(var_node->name));
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
     llvm::AllocaInst *const alloca = allocations.at(var_name);
 

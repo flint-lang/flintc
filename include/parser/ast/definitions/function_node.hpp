@@ -8,12 +8,18 @@
 #include <utility>
 #include <vector>
 
-/// FunctionNode
-///     Represents function definitions
+/// @class `FunctionNode`
+/// @brief Represents function definitions
 class FunctionNode : public ASTNode {
   public:
-    explicit FunctionNode(bool is_aligned, bool is_const, std::string name, std::vector<std::pair<std::string, std::string>> &parameters,
-        std::vector<std::string> &return_types, std::unique_ptr<Scope> &scope) :
+    explicit FunctionNode(                                                   //
+        bool is_aligned,                                                     //
+        bool is_const,                                                       //
+        std::string name,                                                    //
+        std::vector<std::tuple<std::string, std::string, bool>> &parameters, //
+        std::vector<std::string> &return_types,                              //
+        std::unique_ptr<Scope> &scope                                        //
+        ) :
         is_aligned(is_aligned),
         is_const(is_const),
         name(std::move(name)),
@@ -32,22 +38,27 @@ class FunctionNode : public ASTNode {
     FunctionNode(FunctionNode &&) = default;
     FunctionNode &operator=(FunctionNode &&) = default;
 
-    /// is_aligned
-    ///     Determines whether the function needs to be aligned
+    /// @var `is_aligned`
+    /// @brief Determines whether the function needs to be aligned
     bool is_aligned{false};
-    /// is_const
-    ///     Determines whether the function is const, e.g. it cannot access data outise of its arguments
+
+    /// @var `is_const`
+    /// @brief Determines whether the function is const, e.g. it cannot access data outise of its arguments
     bool is_const{false};
-    /// name
-    ///     The name of the function
+
+    /// @var `name`
+    /// @brief The name of the function
     std::string name;
-    /// parameters
-    ///     Parameter names and types
-    std::vector<std::pair<std::string, std::string>> parameters;
-    /// return_types
-    ///     The types of all return values
+
+    /// @var `parameters`
+    /// @brief Parameter names, types and whether the parameter variable is mutable
+    std::vector<std::tuple<std::string, std::string, bool>> parameters;
+
+    /// @var `return_types`
+    /// @brief The types of all return values
     std::vector<std::string> return_types;
-    /// body
-    ///     The body of the function containing all statements
+
+    /// @var `scope`
+    /// @brief The scope of the function containing all statements
     std::unique_ptr<Scope> scope;
 };

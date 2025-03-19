@@ -151,8 +151,8 @@ std::optional<std::pair<FunctionNode *, std::string>> Parser::get_function_from_
             continue;
         }
         fn_arg_types.reserve(fn->parameters.size());
-        for (const auto &[type, name] : fn->parameters) {
-            fn_arg_types.emplace_back(type);
+        for (const auto &param : fn->parameters) {
+            fn_arg_types.emplace_back(std::get<0>(param));
         }
         if (fn_arg_types != arg_types) {
             fn_arg_types.clear();

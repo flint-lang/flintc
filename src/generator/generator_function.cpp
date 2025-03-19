@@ -8,7 +8,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::LLVMContex
     std::vector<llvm::Type *> param_types_vec;
     param_types_vec.reserve(function_node->parameters.size());
     for (const auto &param : function_node->parameters) {
-        param_types_vec.emplace_back(IR::get_type_from_str(context, param.first));
+        param_types_vec.emplace_back(IR::get_type_from_str(context, std::get<0>(param)));
     }
     llvm::ArrayRef<llvm::Type *> param_types(param_types_vec);
 
@@ -35,7 +35,7 @@ llvm::Function *Generator::Function::generate_function(llvm::Module *module, Fun
     // Assign names to function arguments and add them to the function's body
     size_t paramIndex = 0;
     for (auto &arg : function->args()) {
-        arg.setName(function_node->parameters.at(paramIndex).second);
+        arg.setName(std::get<1>(function_node->parameters.at(paramIndex)));
         ++paramIndex;
     }
 

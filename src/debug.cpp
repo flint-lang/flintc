@@ -706,8 +706,8 @@ namespace Debug {
             }
             std::cout << function.name << "(";
             size_t counter = 0;
-            for (const std::pair<std::string, std::string> &param : function.parameters) {
-                std::cout << param.first << " " << param.second;
+            for (const std::tuple<std::string, std::string, bool> &param : function.parameters) {
+                std::cout << (std::get<2>(param) ? "mut" : "const") << " " << std::get<0>(param) << " " << std::get<1>(param);
                 if (++counter != function.parameters.size()) {
                     std::cout << ", ";
                 }
