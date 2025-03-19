@@ -318,10 +318,11 @@ class Generator {
         ///
         /// @param `context` The LLVM context
         /// @param `str` The string representation of the type which is matched to get the correct type
-        /// @return `llvm::Type *` A pointer to the correct llvm Type from the given string
+        /// @return `std::pair<llvm::Type *, bool>` A pair containing a pointer to the correct llvm Type from the given string and a boolean
+        /// value to determine if the given data type is a complex type (data, entity etc)
         ///
         /// @throws ErrGenerating when the type could not be parsed from the string representation to a real type
-        static llvm::Type *get_type_from_str(llvm::LLVMContext &context, const std::string &str);
+        static std::pair<llvm::Type *, bool> get_type_from_str(llvm::LLVMContext &context, const std::string &str);
 
         /// @function `get_default_value_of_type`
         /// @brief Returns the default value associated with a given Type

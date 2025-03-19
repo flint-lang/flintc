@@ -543,7 +543,7 @@ void Generator::Statement::generate_declaration(                           //
             }
             // If the rhs is a InitializerNode, it returns all element values from the initializer expression
             // First, get the struct type of the data
-            llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), declaration_node->type);
+            llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), declaration_node->type).first;
             for (size_t i = 0; i < expr_val.value().size(); i++) {
                 llvm::Value *elem_ptr = builder.CreateStructGEP(              //
                     data_type,                                                //
@@ -561,7 +561,7 @@ void Generator::Statement::generate_declaration(                           //
         }
         expression = expr_val.value().at(0);
     } else {
-        expression = IR::get_default_value_of_type(IR::get_type_from_str(builder.getContext(), declaration_node->type));
+        expression = IR::get_default_value_of_type(IR::get_type_from_str(builder.getContext(), declaration_node->type).first);
     }
 
     llvm::StoreInst *store = builder.CreateStore(expression, alloca);
@@ -634,7 +634,7 @@ void Generator::Statement::generate_data_field_assignment(                 //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_field_assignment->var_name;
     llvm::AllocaInst *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), data_field_assignment->data_type);
+    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), data_field_assignment->data_type).first;
 
     llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, data_field_assignment->field_id);
     llvm::StoreInst *store = builder.CreateStore(expression.value().at(0), field_ptr);
@@ -664,7 +664,7 @@ void Generator::Statement::generate_grouped_data_field_assignment(         //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_field_assignment->var_name;
     llvm::AllocaInst *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), grouped_field_assignment->data_type);
+    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), grouped_field_assignment->data_type).first;
 
     for (size_t i = 0; i < expression.value().size(); i++) {
         llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_field_assignment->field_ids.at(i));

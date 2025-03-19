@@ -158,7 +158,7 @@ llvm::Value *Generator::Expression::generate_variable(                     //
     llvm::AllocaInst *const variable = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
 
     // Get the type that the pointer points to
-    llvm::Type *value_type = IR::get_type_from_str(parent->getContext(), std::get<std::string>(variable_node->type));
+    llvm::Type *value_type = IR::get_type_from_str(parent->getContext(), std::get<std::string>(variable_node->type)).first;
 
     // Load the variable's value if it's a pointer
     llvm::LoadInst *load = builder.CreateLoad(value_type, variable, variable_node->name + "_val");
@@ -469,13 +469,13 @@ llvm::Value *Generator::Expression::generate_data_access(                  //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_access->var_name;
     llvm::AllocaInst *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), data_access->data_type);
+    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), data_access->data_type).first;
 
     llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, data_access->field_id);
-    llvm::LoadInst *loaded_value = builder.CreateLoad(                                         //
-        IR::get_type_from_str(builder.getContext(), std::get<std::string>(data_access->type)), //
-        value_ptr,                                                                             //
-        data_access->var_name + "_" + data_access->field_name + "_val"                         //
+    llvm::LoadInst *loaded_value = builder.CreateLoad(                                               //
+        IR::get_type_from_str(builder.getContext(), std::get<std::string>(data_access->type)).first, //
+        value_ptr,                                                                                   //
+        data_access->var_name + "_" + data_access->field_name + "_val"                               //
     );
     return loaded_value;
 }
@@ -491,7 +491,7 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_data_access->var_name;
     llvm::AllocaInst *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), grouped_data_access->data_type);
+    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), grouped_data_access->data_type).first;
     assert(std::holds_alternative<std::vector<std::string>>(grouped_data_access->type));
     std::vector<std::string> group_types = std::get<std::vector<std::string>>(grouped_data_access->type);
 
@@ -500,7 +500,7 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     for (size_t i = 0; i < grouped_data_access->field_names.size(); i++) {
         llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_data_access->field_ids.at(i));
         llvm::LoadInst *loaded_value = builder.CreateLoad(                                        //
-            IR::get_type_from_str(builder.getContext(), group_types.at(i)),                       //
+            IR::get_type_from_str(builder.getContext(), group_types.at(i)).first,                 //
             value_ptr,                                                                            //
             grouped_data_access->var_name + "_" + grouped_data_access->field_names.at(i) + "_val" //
         );

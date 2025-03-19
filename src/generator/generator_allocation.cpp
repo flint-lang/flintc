@@ -117,18 +117,18 @@ void Generator::Allocation::generate_declaration_allocations(              //
 
         // Create the actual variable allocation with the declared type
         const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
-        generate_allocation(builder, allocations, var_alloca_name,               //
-            IR::get_type_from_str(parent->getContext(), declaration_node->type), //
-            declaration_node->name + "__VAL_1",                                  //
-            "Create alloc of 1st ret var '" + var_alloca_name + "'"              //
+        generate_allocation(builder, allocations, var_alloca_name,                     //
+            IR::get_type_from_str(parent->getContext(), declaration_node->type).first, //
+            declaration_node->name + "__VAL_1",                                        //
+            "Create alloc of 1st ret var '" + var_alloca_name + "'"                    //
         );
     } else {
         // A "normal" allocation
         const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
-        generate_allocation(builder, allocations, alloca_name,                   //
-            IR::get_type_from_str(parent->getContext(), declaration_node->type), //
-            declaration_node->name + "__VAR",                                    //
-            "Create alloc of var '" + alloca_name + "'"                          //
+        generate_allocation(builder, allocations, alloca_name,                         //
+            IR::get_type_from_str(parent->getContext(), declaration_node->type).first, //
+            declaration_node->name + "__VAR",                                          //
+            "Create alloc of var '" + alloca_name + "'"                                //
         );
     }
 }
@@ -145,10 +145,10 @@ void Generator::Allocation::generate_group_declaration_allocations(        //
     // Allocating the actual variable values from the LHS
     for (const auto &variable : group_declaration_node->variables) {
         const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
-        generate_allocation(builder, allocations, alloca_name,           //
-            IR::get_type_from_str(parent->getContext(), variable.first), //
-            variable.second + "__VAR",                                   //
-            "Create alloc of var '" + alloca_name + "'"                  //
+        generate_allocation(builder, allocations, alloca_name,                 //
+            IR::get_type_from_str(parent->getContext(), variable.first).first, //
+            variable.second + "__VAR",                                         //
+            "Create alloc of var '" + alloca_name + "'"                        //
         );
     }
 }

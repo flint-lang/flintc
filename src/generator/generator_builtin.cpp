@@ -154,10 +154,10 @@ void Generator::Builtin::generate_builtin_print( //
     }
 
     // Create print function type
-    llvm::FunctionType *print_type = llvm::FunctionType::get( //
-        llvm::Type::getVoidTy(module->getContext()),          // return void
-        {IR::get_type_from_str(module->getContext(), type)},  // takes type
-        false                                                 // no vararg
+    llvm::FunctionType *print_type = llvm::FunctionType::get(      //
+        llvm::Type::getVoidTy(module->getContext()),               // return void
+        {IR::get_type_from_str(module->getContext(), type).first}, // takes type
+        false                                                      // no vararg
     );
 
     // Create the print_int function
@@ -201,10 +201,10 @@ void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder,
     }
 
     // Create print function type
-    llvm::FunctionType *print_type = llvm::FunctionType::get(  //
-        llvm::Type::getVoidTy(module->getContext()),           // return void
-        {IR::get_type_from_str(module->getContext(), "bool")}, // takes type
-        false                                                  // no vararg
+    llvm::FunctionType *print_type = llvm::FunctionType::get(        //
+        llvm::Type::getVoidTy(module->getContext()),                 // return void
+        {IR::get_type_from_str(module->getContext(), "bool").first}, // takes type
+        false                                                        // no vararg
     );
 
     // Create the print_int function

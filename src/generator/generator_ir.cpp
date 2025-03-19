@@ -65,34 +65,34 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
     }
 }
 
-llvm::Type *Generator::IR::get_type_from_str(llvm::LLVMContext &context, const std::string &str) {
+std::pair<llvm::Type *, bool> Generator::IR::get_type_from_str(llvm::LLVMContext &context, const std::string &str) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
     if (keywords.find(str) != keywords.end()) {
         switch (keywords.at(str)) {
             default:
                 THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
+                return {nullptr, false};
             case TOK_I32:
             case TOK_U32:
-                return llvm::Type::getInt32Ty(context);
+                return {llvm::Type::getInt32Ty(context), false};
             case TOK_I64:
             case TOK_U64:
-                return llvm::Type::getInt64Ty(context);
+                return {llvm::Type::getInt64Ty(context), false};
             case TOK_F32:
             case TOK_F64:
-                return llvm::Type::getFloatTy(context);
+                return {llvm::Type::getFloatTy(context), false};
             case TOK_FLINT:
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return nullptr;
+                return {nullptr, false};
             case TOK_CHAR:
-                return llvm::Type::getInt8Ty(context);
+                return {llvm::Type::getInt8Ty(context), false};
             case TOK_STR:
                 // Pointer to an array of i8 values representing the characters
-                return llvm::PointerType::get(llvm::Type::getInt8Ty(context), 0);
+                return {llvm::PointerType::get(llvm::Type::getInt8Ty(context), 0), false};
             case TOK_BOOL:
-                return llvm::Type::getInt1Ty(context);
+                return {llvm::Type::getInt1Ty(context), false};
             case TOK_VOID:
-                return llvm::Type::getVoidTy(context);
+                return {llvm::Type::getVoidTy(context), false};
         }
     }
     // Check if its a known data type
@@ -102,11 +102,11 @@ llvm::Type *Generator::IR::get_type_from_str(llvm::LLVMContext &context, const s
         for (const auto &order_name : data_node->order) {
             types.emplace_back(data_node->fields.at(order_name).first);
         }
-        return add_and_or_get_type(&context, types, false);
+        return {add_and_or_get_type(&context, types, false), true};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-    return nullptr;
+    return {nullptr, false};
 }
 
 llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
