@@ -552,5 +552,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(       
         }
     }
 
+    // Check if the expressions result is a vector of size 1, if it is make its type into a direct string
+    if (std::holds_alternative<std::vector<std::string>>(expression.value()->type)) {
+        std::vector<std::string> &type = std::get<std::vector<std::string>>(expression.value()->type);
+        if (type.size() == 1) {
+            expression.value()->type = type.at(0);
+        }
+    }
+
     return expression;
 }
