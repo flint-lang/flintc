@@ -363,6 +363,11 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
             THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
             return std::nullopt;
         }
+        if (!std::get<2>(scope->variables.at(it->lexme))) {
+            // Mutating an immutable variable
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
         const std::string &expected_type = std::get<0>(scope->variables.at(it->lexme));
         assignees.emplace_back(expected_type, it->lexme);
         index += 2;
@@ -395,6 +400,11 @@ std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, token_list
             if ((iterator + 1)->type == TOK_EQUAL && (iterator + 2) != tokens.end()) {
                 if (scope->variables.find(iterator->lexme) == scope->variables.end()) {
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, iterator->line, iterator->column, iterator->lexme);
+                    return std::nullopt;
+                }
+                if (!std::get<2>(scope->variables.at(iterator->lexme))) {
+                    // Mutating an immutable variable
+                    THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
                 std::string expected_type = std::get<0>(scope->variables.at(iterator->lexme));
@@ -600,6 +610,11 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment(Scop
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
+    if (!std::get<2>(scope->variables.at(std::get<1>(field_access_base.value())))) {
+        // Mutating an immutable data variable
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
 
     return DataFieldAssignmentNode(             //
         std::get<0>(field_access_base.value()), // data_type
@@ -626,6 +641,11 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     // The rest of the tokens is the expression to parse
     std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, tokens);
     if (!expression.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    if (!std::get<2>(scope->variables.at(std::get<1>(grouped_field_access_base.value())))) {
+        // Mutating an immutable data variable
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
