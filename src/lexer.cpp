@@ -178,6 +178,9 @@ void Lexer::scan_token() {
                 while (peek() != '\n' && peek_next() != '\n' && !is_at_end()) {
                     advance();
                 }
+                if (is_at_end()) {
+                    return;
+                }
             } else if (peek_next() == '*') {
                 // eat the '*'
                 advance();
@@ -198,6 +201,9 @@ void Lexer::scan_token() {
                 line += line_count;
                 // eat the '/'
                 advance();
+                if (is_at_end()) {
+                    return;
+                }
             } else {
                 add_token(TOK_DIV);
             }
