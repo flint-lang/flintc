@@ -141,7 +141,7 @@ std::optional<std::tuple<                                          //
     std::optional<bool>                                            //
     >>
 Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
-    std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+    std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
     if (!arg_range.has_value()) {
         // Function call does not have opening and closing brackets ()
         return std::nullopt;

@@ -111,19 +111,19 @@ class Signature {
     /// reach the end of the range. This can be used to extract all operations between parenthesis, for example
     ///
     /// @param `tokens` The list of tokens in which to get the balanced range between the increment and decrement signatures
-    /// @param `inc` The increment signature
-    /// @param `dec` The decrement signature
+    /// @param `inc` The increment signature regex string
+    /// @param `dec` The decrement signature regex string
     /// @return `std::optional<uint2>` The range of the balanced range, nullopt if the tokens do not contain the signatures
-    static std::optional<uint2> balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec);
+    static std::optional<uint2> balanced_range_extraction(const token_list &tokens, const std::string &inc, const std::string &dec);
 
     /// @function `balanced_range_extraction_vec`
     /// @brief Extracts all balanced ranges of the given inc and dec signatures
     ///
     /// @param `tokens` The list of tokens in which to get the balanced ranges between the increment and decrement signatures
-    /// @param `inc` The increment signature
-    /// @param `dec` The decrement signature
+    /// @param `inc` The increment signature regex string
+    /// @param `dec` The decrement signature regex string
     /// @return `std::vector<uint2>` A list of all ranges from the balanced ranges
-    static std::vector<uint2> balanced_range_extraction_vec(const token_list &tokens, const signature &inc, const signature &dec);
+    static std::vector<uint2> balanced_range_extraction_vec(const token_list &tokens, const std::string &inc, const std::string &dec);
 
     /// @function `match_until_signature`
     /// @brief Creates a new signature where all token matches until inclusive the given signature.

@@ -22,15 +22,13 @@ std::string Signature::stringify(const token_list &tokens) {
     return token_string.str();
 }
 
-std::optional<uint2> Signature::balanced_range_extraction(const token_list &tokens, const signature &inc, const signature &dec) {
-    const std::string inc_str = get_regex_string(inc);
-    const std::string dec_str = get_regex_string(dec);
-    if (!tokens_contain(tokens, inc_str) || !tokens_contain(tokens, dec_str)) {
+std::optional<uint2> Signature::balanced_range_extraction(const token_list &tokens, const std::string &inc, const std::string &dec) {
+    if (!tokens_contain(tokens, inc) || !tokens_contain(tokens, dec)) {
         return std::nullopt;
     }
 
-    std::vector<uint2> inc_ranges = get_match_ranges(tokens, inc_str);
-    std::vector<uint2> dec_ranges = get_match_ranges(tokens, dec_str);
+    std::vector<uint2> inc_ranges = get_match_ranges(tokens, inc);
+    std::vector<uint2> dec_ranges = get_match_ranges(tokens, dec);
     assert(!inc_ranges.empty() && !dec_ranges.empty());
     if (inc_ranges.size() == 1 && dec_ranges.size() == 1 && inc_ranges.at(0).first < dec_ranges.at(0).first) {
         return std::make_pair(inc_ranges.at(0).first, dec_ranges.at(0).second);
@@ -62,7 +60,7 @@ std::optional<uint2> Signature::balanced_range_extraction(const token_list &toke
     return std::make_pair(first_idx, last_idx);
 }
 
-std::vector<uint2> Signature::balanced_range_extraction_vec(const token_list &tokens, const signature &inc, const signature &dec) {
+std::vector<uint2> Signature::balanced_range_extraction_vec(const token_list &tokens, const std::string &inc, const std::string &dec) {
     // create a local, mutable, copy of the tokens
     token_list tokens_mut;
     tokens_mut.reserve(tokens.size());

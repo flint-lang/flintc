@@ -18,6 +18,9 @@
 using test_function = std::function<TestResult()>;
 using function_list = std::vector<test_function>;
 
+static inline const std::string LEFT_PAREN_STR = Signature::get_regex_string({{TOK_LEFT_PAREN}});
+static inline const std::string RIGHT_PAREN_STR = Signature::get_regex_string({{TOK_RIGHT_PAREN}});
+
 /// create_token_vector
 ///     Creates a token vector from a given list of tokens
 static std::vector<TokenContext> create_token_vector(const std::vector<Token> &tokens) {

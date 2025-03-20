@@ -22,7 +22,7 @@ namespace {
         // x := func()
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 5;
         test_result.ok_or_not(result);
         if (!result) {
@@ -39,7 +39,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN,
             TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 8;
         test_result.ok_or_not(result);
         if (!result) {
@@ -56,7 +56,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_PLUS, TOK_IDENTIFIER,
             TOK_RIGHT_PAREN, TOK_MULT, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MINUS, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 15;
         test_result.ok_or_not(result);
         if (!result) {
@@ -73,7 +73,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN,
             TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 11;
         test_result.ok_or_not(result);
         if (!result) {
@@ -91,7 +91,7 @@ namespace {
             TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER,
             TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN,
             TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        std::optional<uint2> range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         bool result = range.has_value() && range.value().first == 3 && range.value().second == 18;
         test_result.ok_or_not(result);
         if (!result) {

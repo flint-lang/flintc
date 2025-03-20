@@ -188,7 +188,7 @@ Parser::create_call_or_initializer_expression(Scope *scope, token_list &tokens) 
 
 std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &tokens) {
     remove_surrounding_paren(tokens);
-    std::optional<uint2> expr_range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+    std::optional<uint2> expr_range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
     if (!expr_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -366,7 +366,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     if (Signature::tokens_match(tokens, ESignature::FUNCTION_CALL)) {
-        auto range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        auto range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         if (range.has_value() && range.value().second == tokens.size()) {
             // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
             // located on the right of the call still
@@ -382,7 +382,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
         }
     } else if (Signature::tokens_match(tokens, ESignature::GROUP_EXPRESSION)) {
-        auto range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        auto range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         if (range.has_value() && range.value().first == 0 && range.value().second == tokens.size()) {
             std::optional<GroupExpressionNode> group = create_group_expression(scope, tokens);
             if (!group.has_value()) {
@@ -420,7 +420,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<DataAccessNode>(std::move(data_access.value()));
         }
     } else if (Signature::tokens_match(tokens, ESignature::GROUPED_DATA_ACCESS)) {
-        auto range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
+        auto range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         if (range.has_value() && range.value().first == 2 && range.value().second == tokens.size()) {
             std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(scope, tokens);
             if (!group_access.has_value()) {
