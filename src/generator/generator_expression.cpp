@@ -907,6 +907,20 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                     return std::nullopt;
                 }
                 break;
+            case TOK_AND:
+                if (type != "bool") {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                return_value.emplace_back(builder.CreateLogicalAnd(lhs.at(i), rhs.at(i), "band"));
+                break;
+            case TOK_OR:
+                if (type != "bool") {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                return_value.emplace_back(builder.CreateLogicalOr(lhs.at(i), rhs.at(i), "bor"));
+                break;
         }
     }
     return return_value;
