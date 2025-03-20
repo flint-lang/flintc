@@ -119,6 +119,29 @@ class Parser {
     /// @brief A mutex for the `parsed_data` variable, which is used to provide thread-safe access to the map
     static std::mutex parsed_data_mutex;
 
+    /// @function `extract_from_to`
+    /// @brief Extracts the tokens from a given index up to the given index from the given tokens list
+    ///
+    /// @param `from` The start index from which the extraction starts (inclusive)
+    /// @param `to` The end index at which the extraction ends (exclusive)
+    /// @param `tokens` The tokens from which the range is extracted
+    /// @return `token_list` The extracted token range
+    ///
+    /// @assert to >= from and to <= tokens.size()
+    /// @attention Modifies the given tokens list, deletes all extracted tokens from it
+    static token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
+
+    /// @function `clone_from_to`
+    /// @brief Clones the tokens from a given index up to the given index from the given tokens list
+    ///
+    /// @param `from` The start index from which the cloning starts (inclusive)
+    /// @param `to` The end index at which the cloning ends (exclusive)
+    /// @param `tokens` The tokens from which the range is cloned
+    /// @return `token_list` The cloned token range
+    ///
+    /// @assert to >= from and to <= tokens.size()
+    static token_list clone_from_to(unsigned int from, unsigned int to, const token_list &tokens);
+
   private:
     // The constructor is private because only the Parser (the instances list) contains the actual Parser
     explicit Parser(const std::filesystem::path &file) :
@@ -426,29 +449,6 @@ class Parser {
     ///
     /// @attention This function modifies the given `tokens` list, the retured tokens are no longer part of the given list
     token_list get_body_tokens(unsigned int definition_indentation, token_list &tokens);
-
-    /// @function `extract_from_to`
-    /// @brief Extracts the tokens from a given index up to the given index from the given tokens list
-    ///
-    /// @param `from` The start index from which the extraction starts (inclusive)
-    /// @param `to` The end index at which the extraction ends (exclusive)
-    /// @param `tokens` The tokens from which the range is extracted
-    /// @return `token_list` The extracted token range
-    ///
-    /// @assert to >= from and to <= tokens.size()
-    /// @attention Modifies the given tokens list, deletes all extracted tokens from it
-    token_list extract_from_to(unsigned int from, unsigned int to, token_list &tokens);
-
-    /// @function `clone_from_to`
-    /// @brief Clones the tokens from a given index up to the given index from the given tokens list
-    ///
-    /// @param `from` The start index from which the cloning starts (inclusive)
-    /// @param `to` The end index at which the cloning ends (exclusive)
-    /// @param `tokens` The tokens from which the range is cloned
-    /// @return `token_list` The cloned token range
-    ///
-    /// @assert to >= from and to <= tokens.size()
-    token_list clone_from_to(unsigned int from, unsigned int to, const token_list &tokens);
 
     /// @function `create_call_or_initializer_base`
     /// @brief Creates the base node for all calls or initializers

@@ -236,3 +236,21 @@ std::optional<DataNode *> Parser::get_data_definition(        //
     // Its this data definition
     return data_definition;
 }
+
+token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_list &tokens) {
+    token_list extraction = clone_from_to(from, to, tokens);
+    tokens.erase(tokens.begin() + from, tokens.begin() + to);
+    return extraction;
+}
+
+token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token_list &tokens) {
+    assert(to >= from);
+    assert(to <= tokens.size());
+    token_list extraction;
+    if (to == from) {
+        return extraction;
+    }
+    extraction.reserve(to - from);
+    std::copy(tokens.begin() + from, tokens.begin() + to, std::back_inserter(extraction));
+    return extraction;
+}
