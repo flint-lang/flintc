@@ -139,20 +139,20 @@ class Parser {
     /// - **Key** `Token` - The enum value of token type whose precedence is set
     /// - **Value** `unsigned int` - The precedence of the token type
     static const inline std::unordered_map<Token, unsigned int> token_precedence = {
-        {TOK_SQUARE, 8},
-        {TOK_MULT, 7},
-        {TOK_DIV, 7},
-        {TOK_PLUS, 6},
-        {TOK_MINUS, 6},
-        {TOK_LESS, 5},
-        {TOK_GREATER, 5},
-        {TOK_LESS_EQUAL, 5},
-        {TOK_GREATER_EQUAL, 5},
-        {TOK_NOT, 4},
-        {TOK_AND, 3},
+        {TOK_SQUARE, 7},
+        {TOK_MULT, 6},
+        {TOK_DIV, 6},
+        {TOK_PLUS, 5},
+        {TOK_MINUS, 5},
+        {TOK_LESS, 4},
+        {TOK_GREATER, 4},
+        {TOK_LESS_EQUAL, 4},
+        {TOK_GREATER_EQUAL, 4},
+        {TOK_EQUAL_EQUAL, 4},
+        {TOK_NOT_EQUAL, 4},
+        {TOK_NOT, 3},
         {TOK_OR, 2},
-        {TOK_EQUAL_EQUAL, 1},
-        {TOK_NOT_EQUAL, 1},
+        {TOK_AND, 1},
         {TOK_EQUAL, 0},
     };
 
