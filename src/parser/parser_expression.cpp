@@ -399,10 +399,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
         return std::make_unique<TypeCastNode>(std::move(type_cast.value()));
     } else if (Signature::tokens_match(tokens, ESignature::UNARY_OP_EXPR)) {
-        // For it to be considered an unary operation, either right after the operator needs to come a paren group, or the tokens must have
-        // size 2
-        auto range = Signature::balanced_range_extraction(tokens, {{TOK_LEFT_PAREN}}, {{TOK_RIGHT_PAREN}});
-        if (tokens.size() == 2 || (range.has_value() && range.value().second == tokens.size())) {
+        // For it to be considered an unary operation, either right after the operator needs to come a paren group, or no other binop tokens
+        auto range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
+        if (!Signature::tokens_contain(tokens, ESignature::BINARY_OPERATOR) ||
+            (range.has_value() && range.value().second == tokens.size())) {
             std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, tokens);
             if (!unary_op.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
