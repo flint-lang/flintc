@@ -9,11 +9,11 @@
 
 #include <string>
 
-void Generator::Allocation::generate_allocations(                         //
-    llvm::IRBuilder<> &builder,                                           //
-    llvm::Function *parent,                                               //
-    const Scope *scope,                                                   //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+void Generator::Allocation::generate_allocations(                    //
+    llvm::IRBuilder<> &builder,                                      //
+    llvm::Function *parent,                                          //
+    const Scope *scope,                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations //
 ) {
     for (const auto &statement_node : scope->body) {
         if (auto *call_node = dynamic_cast<CallNodeStatement *>(statement_node.get())) {
@@ -39,12 +39,12 @@ void Generator::Allocation::generate_allocations(                         //
     }
 }
 
-void Generator::Allocation::generate_call_allocations(                     //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const CallNodeBase *call_node                                          //
+void Generator::Allocation::generate_call_allocations(                //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const CallNodeBase *call_node                                     //
 ) {
     // First, generate the allocations of all the parameter expressions of the call node
     for (const auto &arg : call_node->arguments) {
@@ -79,11 +79,11 @@ void Generator::Allocation::generate_call_allocations(                     //
     );
 }
 
-void Generator::Allocation::generate_if_allocations(                       //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const IfNode *if_node                                                  //
+void Generator::Allocation::generate_if_allocations(                  //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const IfNode *if_node                                             //
 ) {
     while (if_node != nullptr) {
         generate_allocations(builder, parent, if_node->then_scope.get(), allocations);
@@ -101,12 +101,12 @@ void Generator::Allocation::generate_if_allocations(                       //
     }
 }
 
-void Generator::Allocation::generate_declaration_allocations(              //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const DeclarationNode *declaration_node                                //
+void Generator::Allocation::generate_declaration_allocations(         //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const DeclarationNode *declaration_node                           //
 ) {
     CallNodeExpression *call_node_expr = nullptr;
     if (declaration_node->initializer.has_value()) {
@@ -133,12 +133,12 @@ void Generator::Allocation::generate_declaration_allocations(              //
     }
 }
 
-void Generator::Allocation::generate_group_declaration_allocations(        //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const GroupDeclarationNode *group_declaration_node                     //
+void Generator::Allocation::generate_group_declaration_allocations(   //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const GroupDeclarationNode *group_declaration_node                //
 ) {
     generate_expression_allocations(builder, parent, scope, allocations, group_declaration_node->initializer.get());
 
@@ -153,12 +153,12 @@ void Generator::Allocation::generate_group_declaration_allocations(        //
     }
 }
 
-void Generator::Allocation::generate_expression_allocations(               //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const ExpressionNode *expression                                       //
+void Generator::Allocation::generate_expression_allocations(          //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const ExpressionNode *expression                                  //
 ) {
     if (const auto *binary_op = dynamic_cast<const BinaryOpNode *>(expression)) {
         generate_expression_allocations(builder, parent, scope, allocations, binary_op->left.get());
@@ -176,13 +176,13 @@ void Generator::Allocation::generate_expression_allocations(               //
     }
 }
 
-void Generator::Allocation::generate_allocation(                           //
-    llvm::IRBuilder<> &builder,                                            //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const std::string &alloca_name,                                        //
-    llvm::Type *type,                                                      //
-    const std::string &ir_name,                                            //
-    const std::string &ir_comment                                          //
+void Generator::Allocation::generate_allocation(                      //
+    llvm::IRBuilder<> &builder,                                       //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const std::string &alloca_name,                                   //
+    llvm::Type *type,                                                 //
+    const std::string &ir_name,                                       //
+    const std::string &ir_comment                                     //
 ) {
     llvm::AllocaInst *alloca = builder.CreateAlloca( //
         type,                                        //

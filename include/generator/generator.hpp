@@ -806,11 +806,11 @@ class Generator {
         /// @function `generate_allocations`
         /// @brief Generates all allocations of the given scope recursively. Adds all AllocaInst pointer to the allocations map
         ///
-        /// This function is meant to be called at the start of the generate_function function. This function goes through all statements
-        /// and expressions recursively down the scope and enters every sub-scope too and generates all allocations of all function
-        /// variables at the start of the function. This is done to make StackOverflows nearly impossible. Before this pre-allocation system
-        /// for all variables was implemented, StackOverflows were common (when calling functions inside loops), caused by the creation of a
-        /// return struct for every function call.
+        /// This function is meant to be called at the start of the generate_function function. This function goes through all
+        /// statements and expressions recursively down the scope and enters every sub-scope too and generates all allocations of all
+        /// function variables at the start of the function. This is done to make StackOverflows nearly impossible. Before this
+        /// pre-allocation system for all variables was implemented, StackOverflows were common (when calling functions inside loops),
+        /// caused by the creation of a return struct for every function call.
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The Function the allocations are generated in
@@ -821,11 +821,12 @@ class Generator {
         ///            allocations map before calling this function, you need to clear it yourself.
         ///
         /// @todo #1 Implement that all varaibles used by the for loop are preallocated too, for loops currently dont work
-        static void generate_allocations(                                         //
-            llvm::IRBuilder<> &builder,                                           //
-            llvm::Function *parent,                                               //
-            const Scope *scope,                                                   //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        static void generate_allocations(                                    //
+            llvm::IRBuilder<> &builder,                                      //
+            llvm::Function *parent,                                          //
+            const Scope *scope,                                              //
+            std::unordered_map<std::string, llvm::Value *const> &allocations //
+        );
         );
 
         /// @funnction `generate_call_allcoations`
@@ -838,12 +839,12 @@ class Generator {
         /// @param `call_node` The CallNode used to generate the allocations from
         ///
         /// @attention The allocations map will be modified
-        static void generate_call_allocations(                                     //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const CallNodeBase *call_node                                          //
+        static void generate_call_allocations(                                //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const CallNodeBase *call_node                                     //
         );
 
         /// @funnction `generate_if_allcoations`
@@ -855,11 +856,11 @@ class Generator {
         /// @param `if_node` The IfNode used to generate the allocations from
         ///
         /// @attention The allocations map will be modified
-        static void generate_if_allocations(                                       //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const IfNode *if_node                                                  //
+        static void generate_if_allocations(                                  //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const IfNode *if_node                                             //
         );
 
         /// @funnction `generate_declaration_allcoations`
@@ -872,12 +873,12 @@ class Generator {
         /// @param `declaration_node` The DeclarationNode used to generate the allocations from
         ///
         /// @attention The allocations map will be modified
-        static void generate_declaration_allocations(                              //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const DeclarationNode *declaration_node                                //
+        static void generate_declaration_allocations(                         //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const DeclarationNode *declaration_node                           //
         );
 
         /// @funnction `generate_group_declaration_allcoations`
@@ -890,12 +891,12 @@ class Generator {
         /// @param `group_declaration_node` The GroupDeclarationNode used to generate the allocations from
         ///
         /// @attention The allocations map will be modified
-        static void generate_group_declaration_allocations(                        //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const GroupDeclarationNode *group_declaration_node                     //
+        static void generate_group_declaration_allocations(                   //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const GroupDeclarationNode *group_declaration_node                //
         );
 
         /// @function `generate_expression_allocations`
@@ -907,12 +908,12 @@ class Generator {
         /// @param `expression` The expression to search for calls for
         ///
         /// @attention The allocations map will be modified
-        static void generate_expression_allocations(                               //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const ExpressionNode *expression                                       //
+        static void generate_expression_allocations(                          //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const ExpressionNode *expression                                  //
         );
 
         /// @function `generate_allocation`
@@ -924,13 +925,13 @@ class Generator {
         /// @param `type` The type of the allocation
         /// @param `ir_name` The name of the allocation, only important for the IR Code output
         /// @param `ir_comment` The comment the allocation gets, only important for the IR Code output
-        static void generate_allocation(                                           //
-            llvm::IRBuilder<> &builder,                                            //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const std::string &alloca_name,                                        //
-            llvm::Type *type,                                                      //
-            const std::string &ir_name,                                            //
-            const std::string &ir_comment                                          //
+        static void generate_allocation(                                      //
+            llvm::IRBuilder<> &builder,                                       //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const std::string &alloca_name,                                   //
+            llvm::Type *type,                                                 //
+            const std::string &ir_name,                                       //
+            const std::string &ir_comment                                     //
         );
 
         /// @function `generate_default_struct`
@@ -1025,12 +1026,12 @@ class Generator {
         /// @param `scope` The scope the statement is being generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `statement` The statement which will be generated
-        static void generate_statement(                                            //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const std::unique_ptr<StatementNode> &statement                        //
+        static void generate_statement(                                       //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const std::unique_ptr<StatementNode> &statement                   //
         );
 
         /// @function `generate_body`
@@ -1040,11 +1041,11 @@ class Generator {
         /// @param `parent` The function the body will be generated in
         /// @param `scope` The scope containing the body which will be generated
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        static void generate_body(                                                //
-            llvm::IRBuilder<> &builder,                                           //
-            llvm::Function *parent,                                               //
-            const Scope *scope,                                                   //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations //
+        static void generate_body(                                           //
+            llvm::IRBuilder<> &builder,                                      //
+            llvm::Function *parent,                                          //
+            const Scope *scope,                                              //
+            std::unordered_map<std::string, llvm::Value *const> &allocations //
         );
 
         /// @function `generate_return_statement`
@@ -1055,12 +1056,12 @@ class Generator {
         /// @param `scope` The scope the return statement will be generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `return_node` The return node to generated
-        static void generate_return_statement(                                     //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const ReturnNode *return_node                                          //
+        static void generate_return_statement(                                //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const ReturnNode *return_node                                     //
         );
 
         /// @function `generate_throw_statement`
@@ -1071,12 +1072,12 @@ class Generator {
         /// @param `scope` The scope the throw statement will be generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `throw_node` The throw node to generate
-        static void generate_throw_statement(                                      //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const ThrowNode *throw_node                                            //
+        static void generate_throw_statement(                                 //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const ThrowNode *throw_node                                       //
         );
 
         /// @function `generate_if_blocks`
@@ -1100,13 +1101,13 @@ class Generator {
         /// @param `blocks` The list of all basic blocks the if bodies are contained in
         /// @param `nesting_level` The nesting level determines how "deep" one is inside the if-chain
         /// @param `if_node` The if node to generate
-        static void generate_if_statement(                                         //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            std::vector<llvm::BasicBlock *> &blocks,                               //
-            unsigned int nesting_level,                                            //
-            const IfNode *if_node                                                  //
+        static void generate_if_statement(                                    //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            std::vector<llvm::BasicBlock *> &blocks,                          //
+            unsigned int nesting_level,                                       //
+            const IfNode *if_node                                             //
         );
 
         /// @function `generate_while_loop`
@@ -1116,11 +1117,11 @@ class Generator {
         /// @param `parent` The function the while loop will be generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `while_node` The while node to generate
-        static void generate_while_loop(                                           //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const WhileNode *while_node                                            //
+        static void generate_while_loop(                                      //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const WhileNode *while_node                                       //
         );
 
         /// @function `generate_for_loop`
@@ -1130,11 +1131,11 @@ class Generator {
         /// @param `parent` The function the for loop will be generated in
         /// @param `allocations` The map of all allocations (from the preallcation system) to track the AllocaInst instructions
         /// @param `for_node` The for loop node to generate
-        static void generate_for_loop(                                             //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const ForLoopNode *for_node                                            //
+        static void generate_for_loop(                                        //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const ForLoopNode *for_node                                       //
         );
 
         /// @function `generate_catch_statement`
@@ -1144,11 +1145,11 @@ class Generator {
         /// @param `parent` The function the catch statement will be generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `catch_node` The catch node to generate
-        static void generate_catch_statement(                                      //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const CatchNode *catch_node                                            //
+        static void generate_catch_statement(                                 //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const CatchNode *catch_node                                       //
         );
 
         /// @function `generate_group_declaration`
@@ -1159,12 +1160,12 @@ class Generator {
         /// @param `scope` The scope the group declaration is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `declaration_node` The group declaration node to generate
-        static void generate_group_declaration(                                    //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const GroupDeclarationNode *declaration_node                           //
+        static void generate_group_declaration(                               //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const GroupDeclarationNode *declaration_node                      //
         );
 
         /// @function `generate_declaration`
@@ -1175,12 +1176,12 @@ class Generator {
         /// @param `scope` The scope the declaration is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `declaration_node` The declaration node to generate
-        static void generate_declaration(                                          //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const DeclarationNode *declaration_node                                //
+        static void generate_declaration(                                     //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const DeclarationNode *declaration_node                           //
         );
 
         /// @function `generate_assignment`
@@ -1191,12 +1192,12 @@ class Generator {
         /// @param `scope` The scope the assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `assignment_node` The assignment node to generate
-        static void generate_assignment(                                           //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const AssignmentNode *assignment_node                                  //
+        static void generate_assignment(                                      //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const AssignmentNode *assignment_node                             //
         );
 
         /// @function `generate_group_assignment`
@@ -1207,12 +1208,12 @@ class Generator {
         /// @param `scope` The scope the group assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `group_assignment` The group assignemnt node to generate
-        static void generate_group_assignment(                                     //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const GroupAssignmentNode *group_assignment                            //
+        static void generate_group_assignment(                                //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const GroupAssignmentNode *group_assignment                       //
         );
 
         /// @function `generate_data_field_assignment`
@@ -1223,12 +1224,12 @@ class Generator {
         /// @param `scope` The scope the data field assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `data_field_assignment` The data field assignment to generate
-        static void generate_data_field_assignment(                                //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const DataFieldAssignmentNode *data_field_assignment                   //
+        static void generate_data_field_assignment(                           //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const DataFieldAssignmentNode *data_field_assignment              //
         );
 
         /// @function `generate_grouped_data_field_assignment`
@@ -1239,12 +1240,12 @@ class Generator {
         /// @param `scope` The scope the grouped data field assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `grouped_field_assignment` The grouped data field assignment to generate
-        static void generate_grouped_data_field_assignment(                        //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const GroupedDataFieldAssignmentNode *grouped_field_assignment         //
+        static void generate_grouped_data_field_assignment(                   //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const GroupedDataFieldAssignmentNode *grouped_field_assignment    //
         );
 
         /// @function `generate_unary_op_statement`
@@ -1255,12 +1256,12 @@ class Generator {
         /// @param `scope` The scope the binary operation is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `unary_op` The unary operation to generate
-        static void generate_unary_op_statement(                                   //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const UnaryOpStatement *unary_op                                       //
+        static void generate_unary_op_statement(                              //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const UnaryOpStatement *unary_op                                  //
         );
     }; // subclass Statement
 
@@ -1281,12 +1282,12 @@ class Generator {
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `expression_node` The expression node to generate
         /// @return `group_mapping` The value(s) containing the result of the expression
-        static group_mapping generate_expression(                                  //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const ExpressionNode *expression_node                                  //
+        static group_mapping generate_expression(                             //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const ExpressionNode *expression_node                             //
         );
 
         /// @function `generate_literal`
@@ -1307,12 +1308,12 @@ class Generator {
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `variable_node` The variable node to generate
         /// @return `llvm::Value *` The value containing the result of the variable
-        static llvm::Value *generate_variable(                                     //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const VariableNode *variable_node                                      //
+        static llvm::Value *generate_variable(                                //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const VariableNode *variable_node                                 //
         );
 
         /// @function `generate_call`
@@ -1324,12 +1325,12 @@ class Generator {
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `call_node` The call node to generate
         /// @return `group_mapping` The value(s) containing the result of the call
-        static group_mapping generate_call(                                        //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const CallNodeBase *call_node                                          //
+        static group_mapping generate_call(                                   //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const CallNodeBase *call_node                                     //
         );
 
         /// @function `generate_rethrow`
@@ -1339,11 +1340,11 @@ class Generator {
         /// @param `parent` The function the rethrow is generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `call_node` The call node which is used to generate the rethrow from
-        static void generate_rethrow(                                              //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const CallNodeBase *call_node                                          //
+        static void generate_rethrow(                                         //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const CallNodeBase *call_node                                     //
         );
 
         /// @function `generate_group_expression`
@@ -1355,12 +1356,12 @@ class Generator {
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `group_node` The group operation to generate
         /// @return `group_mapping` The value(s) containing the result of the group expression
-        static group_mapping generate_group_expression(                            //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const GroupExpressionNode *group_node                                  //
+        static group_mapping generate_group_expression(                       //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const GroupExpressionNode *group_node                             //
         );
 
         /// @function `generate_initializer`
@@ -1372,12 +1373,12 @@ class Generator {
         /// @param `allocations´`The map of all alloccations (from the preallocation system) to track the AllocaInst instructions
         /// @param `initializer` The initializer to generate
         /// @return `group_mapping` The loaded value(s) of the initializer, representing every field of the loaded data
-        static group_mapping generate_initializer(                                 //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const InitializerNode *initializer                                     //
+        static group_mapping generate_initializer(                            //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const InitializerNode *initializer                                //
         );
 
         /// @function `generate_data_access`
@@ -1388,11 +1389,11 @@ class Generator {
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `data_access` The data access node to generate
         /// @return `llvm::Value *` The value containing the result of the data access
-        static llvm::Value *generate_data_access(                                  //
-            llvm::IRBuilder<> &builder,                                            //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const DataAccessNode *data_access                                      //
+        static llvm::Value *generate_data_access(                             //
+            llvm::IRBuilder<> &builder,                                       //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const DataAccessNode *data_access                                 //
         );
 
         /// @function `generate_grouped_data_access`
@@ -1403,11 +1404,11 @@ class Generator {
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `grouped_data_access` The grouped data access node to generate
         /// @return `group_mapping` The value(s) containing the result of the grouped data access
-        static group_mapping generate_grouped_data_access(                         //
-            llvm::IRBuilder<> &builder,                                            //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const GroupedDataAccessNode *grouped_data_access                       //
+        static group_mapping generate_grouped_data_access(                    //
+            llvm::IRBuilder<> &builder,                                       //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const GroupedDataAccessNode *grouped_data_access                  //
         );
 
         /// @function `generate_type_cast`
@@ -1419,12 +1420,12 @@ class Generator {
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `type_cast_node` The type cast to generate
         /// @return `group_mapping` The value(s) containing the result of the type cast
-        static group_mapping generate_type_cast(                                   //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const TypeCastNode *type_cast_node                                     //
+        static group_mapping generate_type_cast(                              //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const TypeCastNode *type_cast_node                                //
         );
 
         /// @function `generate_type_cast`
@@ -1451,12 +1452,12 @@ class Generator {
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `unary_op` The unary operation to generate
         /// @return `group_mapping` The value containing the result of the unary operation
-        static group_mapping generate_unary_op_expression(                         //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const UnaryOpExpression *unary_op                                      //
+        static group_mapping generate_unary_op_expression(                    //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const UnaryOpExpression *unary_op                                 //
         );
 
         /// @function `generate_binary_op`
@@ -1468,12 +1469,12 @@ class Generator {
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `bin_op_node` The binary operation to generate
         /// @return `group_mapping` The value(s) containing the result of the binop
-        static group_mapping generate_binary_op(                                   //
-            llvm::IRBuilder<> &builder,                                            //
-            llvm::Function *parent,                                                //
-            const Scope *scope,                                                    //
-            std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-            const BinaryOpNode *bin_op_node                                        //
+        static group_mapping generate_binary_op(                              //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const BinaryOpNode *bin_op_node                                   //
         );
     }; // subclass Expression
 };

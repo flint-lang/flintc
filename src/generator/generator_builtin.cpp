@@ -435,7 +435,7 @@ llvm::Function *Generator::Builtin::generate_test_function(llvm::Module *module,
 
     // The test function has no parameters when called, it just returns whether it has succeeded through the error value
     llvm::IRBuilder<> builder(entry_block);
-    std::unordered_map<std::string, llvm::AllocaInst *const> allocations;
+    std::unordered_map<std::string, llvm::Value *const> allocations;
     Allocation::generate_allocations(builder, test_function, test_node->scope.get(), allocations);
     // Normally generate the tests body
     Statement::generate_body(builder, test_function, test_node->scope.get(), allocations);

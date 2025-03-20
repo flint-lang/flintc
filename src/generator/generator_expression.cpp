@@ -9,12 +9,12 @@
 #include <string>
 #include <variant>
 
-Generator::group_mapping Generator::Expression::generate_expression(       //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const ExpressionNode *expression_node                                  //
+Generator::group_mapping Generator::Expression::generate_expression(  //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const ExpressionNode *expression_node                             //
 ) {
     std::vector<llvm::Value *> group_map;
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
@@ -127,12 +127,12 @@ llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder,
     return nullptr;
 }
 
-llvm::Value *Generator::Expression::generate_variable(                     //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const VariableNode *variable_node                                      //
+llvm::Value *Generator::Expression::generate_variable(                //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const VariableNode *variable_node                                 //
 ) {
     if (variable_node == nullptr) {
         // Error: Null Node
@@ -155,7 +155,7 @@ llvm::Value *Generator::Expression::generate_variable(                     //
         return nullptr;
     }
     const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(variable_node->name));
-    llvm::AllocaInst *const variable = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
+    llvm::Value *const variable = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
 
     // Get the type that the pointer points to
     llvm::Type *value_type = IR::get_type_from_str(parent->getContext(), std::get<std::string>(variable_node->type)).first;
@@ -169,12 +169,12 @@ llvm::Value *Generator::Expression::generate_variable(                     //
     return load;
 }
 
-Generator::group_mapping Generator::Expression::generate_call(             //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const CallNodeBase *call_node                                          //
+Generator::group_mapping Generator::Expression::generate_call(        //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const CallNodeBase *call_node                                     //
 ) {
     // Get the arguments
     std::vector<llvm::Value *> args;
@@ -238,12 +238,14 @@ Generator::group_mapping Generator::Expression::generate_call(             //
     const std::string call_err_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
 
     // Store function result
-    llvm::AllocaInst *res_var = allocations.at(call_ret_name);
+    llvm::Value *res_var = allocations.at(call_ret_name);
     builder.CreateStore(call, res_var);
 
     // Extract and store error value
+    llvm::StructType *return_type = static_cast<llvm::StructType *>(
+        IR::add_and_or_get_type(&builder.getContext(), std::get<std::vector<std::string>>(call_node->type)));
     llvm::Value *err_ptr = builder.CreateStructGEP(                                //
-        res_var->getAllocatedType(),                                               //
+        return_type,                                                               //
         res_var,                                                                   //
         0,                                                                         //
         call_node->function_name + std::to_string(call_node->call_id) + "_err_ptr" //
@@ -253,7 +255,7 @@ Generator::group_mapping Generator::Expression::generate_call(             //
         err_ptr,                                                                   //
         call_node->function_name + std::to_string(call_node->call_id) + "_err_val" //
     );
-    llvm::AllocaInst *err_var = allocations.at(call_err_name);
+    llvm::Value *err_var = allocations.at(call_err_name);
     builder.CreateStore(err_val, err_var);
 
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
@@ -291,7 +293,6 @@ Generator::group_mapping Generator::Expression::generate_call(             //
 
     // Extract all the return values from the call (everything except the error return)
     std::vector<llvm::Value *> return_value;
-    llvm::StructType *return_type = static_cast<llvm::StructType *>(res_var->getAllocatedType());
     for (unsigned int i = 1; i < return_type->getNumElements(); i++) {
         llvm::Value *elem_ptr = builder.CreateStructGEP(                                                                 //
             return_type,                                                                                                 //
@@ -309,14 +310,14 @@ Generator::group_mapping Generator::Expression::generate_call(             //
     return return_value;
 }
 
-void Generator::Expression::generate_rethrow(                              //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const CallNodeBase *call_node                                          //
+void Generator::Expression::generate_rethrow(                         //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const CallNodeBase *call_node                                     //
 ) {
     const std::string err_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
-    llvm::AllocaInst *const err_var = allocations.at(err_ret_name);
+    llvm::Value *const err_var = allocations.at(err_ret_name);
 
     // Load error value
     llvm::LoadInst *err_val = builder.CreateLoad(                                    //
@@ -407,7 +408,7 @@ Generator::group_mapping Generator::Expression::generate_group_expression( //
     llvm::IRBuilder<> &builder,                                            //
     llvm::Function *parent,                                                //
     const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,      //
     const GroupExpressionNode *group_node                                  //
 ) {
     std::vector<llvm::Value *> group_values;
@@ -421,12 +422,12 @@ Generator::group_mapping Generator::Expression::generate_group_expression( //
     return group_values;
 }
 
-Generator::group_mapping Generator::Expression::generate_initializer(      //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const InitializerNode *initializer                                     //
+Generator::group_mapping Generator::Expression::generate_initializer( //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const InitializerNode *initializer                                //
 ) {
     // Check if its a data initializer
     if (initializer->is_data) {
@@ -458,16 +459,16 @@ Generator::group_mapping Generator::Expression::generate_initializer(      //
     return std::nullopt;
 }
 
-llvm::Value *Generator::Expression::generate_data_access(                  //
-    llvm::IRBuilder<> &builder,                                            //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const DataAccessNode *data_access                                      //
+llvm::Value *Generator::Expression::generate_data_access(             //
+    llvm::IRBuilder<> &builder,                                       //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const DataAccessNode *data_access                                 //
 ) {
     // First, get the alloca instance of the given data variable
     const unsigned int var_decl_scope = std::get<1>(scope->variables.at(data_access->var_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_access->var_name;
-    llvm::AllocaInst *const var_alloca = allocations.at(var_name);
+    llvm::Value *const var_alloca = allocations.at(var_name);
 
     llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), data_access->data_type).first;
 
@@ -483,13 +484,13 @@ llvm::Value *Generator::Expression::generate_data_access(                  //
 Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     llvm::IRBuilder<> &builder,                                               //
     const Scope *scope,                                                       //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,    //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,         //
     const GroupedDataAccessNode *grouped_data_access                          //
 ) {
     // First, get the alloca instance of the given data variable
     const unsigned int var_decl_scope = std::get<1>(scope->variables.at(grouped_data_access->var_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_data_access->var_name;
-    llvm::AllocaInst *const var_alloca = allocations.at(var_name);
+    llvm::Value *const var_alloca = allocations.at(var_name);
 
     llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), grouped_data_access->data_type).first;
     assert(std::holds_alternative<std::vector<std::string>>(grouped_data_access->type));
@@ -509,12 +510,12 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     return return_values;
 }
 
-Generator::group_mapping Generator::Expression::generate_type_cast(        //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const TypeCastNode *type_cast_node                                     //
+Generator::group_mapping Generator::Expression::generate_type_cast(   //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const TypeCastNode *type_cast_node                                //
 ) {
     // First, generate the expression
     std::vector<llvm::Value *> expr = generate_expression(builder, parent, scope, allocations, type_cast_node->expr.get()).value();
@@ -641,7 +642,7 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
     llvm::IRBuilder<> &builder,                                               //
     llvm::Function *parent,                                                   //
     const Scope *scope,                                                       //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations,    //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,         //
     const UnaryOpExpression *unary_op                                         //
 ) {
     const ExpressionNode *expression = unary_op->operand.get();
@@ -704,12 +705,12 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
     return operand;
 }
 
-Generator::group_mapping Generator::Expression::generate_binary_op(        //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::AllocaInst *const> &allocations, //
-    const BinaryOpNode *bin_op_node                                        //
+Generator::group_mapping Generator::Expression::generate_binary_op(   //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const BinaryOpNode *bin_op_node                                   //
 ) {
     auto lhs_maybe = generate_expression(builder, parent, scope, allocations, bin_op_node->left.get());
     if (!lhs_maybe.has_value()) {

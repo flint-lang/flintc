@@ -49,7 +49,7 @@ llvm::Function *Generator::Function::generate_function(llvm::Module *module, Fun
 
     // Create all the functions allocations (declarations, etc.) at the beginning, before the actual function body
     // The key is a combination of the scope id and the variable name, e.g. 1::var1, 2::var2
-    std::unordered_map<std::string, llvm::AllocaInst *const> allocations;
+    std::unordered_map<std::string, llvm::Value *const> allocations;
     Allocation::generate_allocations(builder, function, function_node->scope.get(), allocations);
 
     // Generate all instructions of the functions body
