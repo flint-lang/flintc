@@ -14,12 +14,18 @@ Generator::group_mapping Generator::Expression::generate_expression(  //
     llvm::Function *parent,                                           //
     const Scope *scope,                                               //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const ExpressionNode *expression_node                             //
+    const ExpressionNode *expression_node,                            //
+    const bool is_reference                                           //
 ) {
     std::vector<llvm::Value *> group_map;
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
-        group_map.emplace_back(generate_variable(builder, parent, scope, allocations, variable_node));
+        group_map.emplace_back(generate_variable(builder, parent, scope, allocations, variable_node, is_reference));
         return group_map;
+    }
+    if (is_reference) {
+        // Only variables are allowed as references for now
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
     }
     if (const auto *unary_op_node = dynamic_cast<const UnaryOpExpression *>(expression_node)) {
         return generate_unary_op_expression(builder, parent, scope, allocations, unary_op_node);
@@ -132,7 +138,8 @@ llvm::Value *Generator::Expression::generate_variable(                //
     llvm::Function *parent,                                           //
     const Scope *scope,                                               //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const VariableNode *variable_node                                 //
+    const VariableNode *variable_node,                                //
+    const bool is_reference                                           //
 ) {
     if (variable_node == nullptr) {
         // Error: Null Node
@@ -156,6 +163,9 @@ llvm::Value *Generator::Expression::generate_variable(                //
     }
     const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(variable_node->name));
     llvm::Value *const variable = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
+    if (is_reference) {
+        return variable;
+    }
 
     // Get the type that the pointer points to
     llvm::Type *value_type = IR::get_type_from_str(parent->getContext(), std::get<std::string>(variable_node->type)).first;
@@ -180,7 +190,16 @@ Generator::group_mapping Generator::Expression::generate_call(        //
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
     for (const auto &arg : call_node->arguments) {
-        args.emplace_back(generate_expression(builder, parent, scope, allocations, arg.first.get()).value().at(0));
+        group_mapping expression = generate_expression(builder, parent, scope, allocations, arg.first.get(), arg.second);
+        if (!expression.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        if (expression.value().empty()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        args.emplace_back(expression.value().at(0));
     }
 
     // Check if it is a builtin function and call it

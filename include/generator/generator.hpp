@@ -818,15 +818,24 @@ class Generator {
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         ///
         /// @attention The allocations map will be modified (new entries are added), but it will not be cleared. If you want a clear
-        ///            allocations map before calling this function, you need to clear it yourself.
-        ///
-        /// @todo #1 Implement that all varaibles used by the for loop are preallocated too, for loops currently dont work
+        /// allocations map before calling this function, you need to clear it yourself.
         static void generate_allocations(                                    //
             llvm::IRBuilder<> &builder,                                      //
             llvm::Function *parent,                                          //
             const Scope *scope,                                              //
             std::unordered_map<std::string, llvm::Value *const> &allocations //
         );
+
+        /// @function `generate_function_allocations`
+        /// @brief Maps the argument values to fake allocations in the allocations map to make them accessible in the functions body
+        ///
+        /// @param `parent` The Function from which the arguments are mapped to allocations (if arguments are of non-primitive type)
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name etc is encoded
+        /// @param `function` The function node from which to map the argument allocations
+        static void generate_function_allocations(                            //
+            llvm::Function *parent,                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const FunctionNode *function                                      //
         );
 
         /// @funnction `generate_call_allcoations`
@@ -1281,13 +1290,16 @@ class Generator {
         /// @param `scope` The scope the expression is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `expression_node` The expression node to generate
+        /// @param `is_reference` Whether the result of the expression should be a reference. This is only possible for certain expressions
+        /// like variables for example, defaults to false
         /// @return `group_mapping` The value(s) containing the result of the expression
         static group_mapping generate_expression(                             //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const ExpressionNode *expression_node                             //
+            const ExpressionNode *expression_node,                            //
+            const bool is_reference = false                                   //
         );
 
         /// @function `generate_literal`
@@ -1307,13 +1319,15 @@ class Generator {
         /// @param `scope` The scope the variable is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `variable_node` The variable node to generate
+        /// @param `is_reference` Whether to return the value or the AllocaInst of the variable
         /// @return `llvm::Value *` The value containing the result of the variable
         static llvm::Value *generate_variable(                                //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const VariableNode *variable_node                                 //
+            const VariableNode *variable_node,                                //
+            const bool is_reference = false                                   //
         );
 
         /// @function `generate_call`

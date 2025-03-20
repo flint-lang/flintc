@@ -8,7 +8,14 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::LLVMContex
     std::vector<llvm::Type *> param_types_vec;
     param_types_vec.reserve(function_node->parameters.size());
     for (const auto &param : function_node->parameters) {
-        param_types_vec.emplace_back(IR::get_type_from_str(context, std::get<0>(param)));
+        auto param_type = IR::get_type_from_str(context, std::get<0>(param));
+        if (param_type.second) {
+            // Complex type, passed by reference
+            param_types_vec.emplace_back(param_type.first->getPointerTo());
+        } else {
+            // Primitive type, passed by copy
+            param_types_vec.emplace_back(param_type.first);
+        }
     }
     llvm::ArrayRef<llvm::Type *> param_types(param_types_vec);
 
@@ -50,6 +57,7 @@ llvm::Function *Generator::Function::generate_function(llvm::Module *module, Fun
     // Create all the functions allocations (declarations, etc.) at the beginning, before the actual function body
     // The key is a combination of the scope id and the variable name, e.g. 1::var1, 2::var2
     std::unordered_map<std::string, llvm::Value *const> allocations;
+    Allocation::generate_function_allocations(function, allocations, function_node);
     Allocation::generate_allocations(builder, function, function_node->scope.get(), allocations);
 
     // Generate all instructions of the functions body

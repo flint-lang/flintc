@@ -51,7 +51,7 @@ class FunctionNode : public ASTNode {
     std::string name;
 
     /// @var `parameters`
-    /// @brief Parameter names, types and whether the parameter variable is mutable
+    /// @brief Parameter types, names and whether the parameter variable is mutable
     std::vector<std::tuple<std::string, std::string, bool>> parameters;
 
     /// @var `return_types`

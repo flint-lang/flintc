@@ -272,7 +272,14 @@ namespace Debug {
 
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call) {
             Local::print_header(indent_lvl, empty, "Call ");
-            std::cout << "'" << call.function_name << "' [c" << call.call_id << "] in [s" << call.scope_id << "]";
+            std::cout << "'" << call.function_name << "(";
+            for (auto it = call.arguments.begin(); it != call.arguments.end(); ++it) {
+                if (it != call.arguments.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << (it->second ? "ref" : "val");
+            }
+            std::cout << ")' [c" << call.call_id << "] in [s" << call.scope_id << "]";
             if (!call.arguments.empty()) {
                 std::cout << " with args";
             }
@@ -707,7 +714,10 @@ namespace Debug {
             std::cout << function.name << "(";
             size_t counter = 0;
             for (const std::tuple<std::string, std::string, bool> &param : function.parameters) {
-                std::cout << (std::get<2>(param) ? "mut" : "const") << " " << std::get<0>(param) << " " << std::get<1>(param);
+                std::cout << (std::get<2>(param) ? "mut" : "const") << " ";                    // Whether the param is const or mut
+                std::cout << (keywords.find(std::get<0>(param)) == keywords.end() ? "&" : ""); // If its a primitive or complex type
+                std::cout << std::get<0>(param) << " ";                                        // The actual type
+                std::cout << std::get<1>(param);                                               // The parameter name
                 if (++counter != function.parameters.size()) {
                     std::cout << ", ";
                 }

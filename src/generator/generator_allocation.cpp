@@ -2,6 +2,7 @@
 
 #include "error/error.hpp"
 #include "error/error_type.hpp"
+#include "lexer/lexer_utils.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
@@ -36,6 +37,24 @@ void Generator::Allocation::generate_allocations(                    //
         } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node.get())) {
             generate_expression_allocations(builder, parent, scope, allocations, return_node->return_value.get());
         }
+    }
+}
+
+void Generator::Allocation::generate_function_allocations(            //
+    llvm::Function *parent,                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const FunctionNode *function                                      //
+) {
+    assert(parent->arg_size() == function->parameters.size());
+    unsigned int param_id = 0;
+    for (auto &arg : parent->args()) {
+        const auto &param = function->parameters.at(param_id);
+        if (keywords.find(std::get<0>(param)) == keywords.end()) {
+            // Its not a primitive type, this means it must be passed by reference
+            const std::string param_name = "s" + std::to_string(function->scope->scope_id) + "::" + std::get<1>(param);
+            allocations.emplace(param_name, &arg);
+        }
+        param_id++;
     }
 }
 

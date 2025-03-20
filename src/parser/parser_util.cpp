@@ -1,4 +1,5 @@
 #include "lexer/builtins.hpp"
+#include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "parser/parser.hpp"
 
@@ -290,10 +291,9 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     }
     // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been found
     // Lastly, update the arguments of the call with the information of the function definition, if the arguments should be references
-    unsigned int i = 0;
-    for (const auto &param : function.value().first->parameters) {
-        arguments.at(i).second = std::get<2>(param);
-        i++;
+    // Every non-primitive type is always a reference (for now)
+    for (auto &arg : arguments) {
+        arg.second = keywords.find(std::get<std::string>(arg.first->type)) == keywords.end();
     }
 
     return std::make_tuple(function_name, std::move(arguments), function.value().first->return_types, std::nullopt);

@@ -36,7 +36,12 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     }
     // Rest of the elements are the return types
     for (const auto &ret_value : types) {
-        types_vec.emplace_back(get_type_from_str(*context, ret_value));
+        auto ret_type = get_type_from_str(*context, ret_value);
+        if (ret_type.second) {
+            types_vec.emplace_back(ret_type.first->getPointerTo());
+        } else {
+            types_vec.emplace_back(ret_type.first);
+        }
     }
     llvm::ArrayRef<llvm::Type *> return_types_arr(types_vec);
     type_map[types_str] = llvm::StructType::create( //

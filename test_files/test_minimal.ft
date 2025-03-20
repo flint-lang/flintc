@@ -1,2 +1,18 @@
+data Vector2:
+    i32 x;
+    i32 y;
+    Vector2(x, y);
+
+def get_x(Vector2 v2) -> i32:
+    return v2.x;
+
+def inc_mut_x(mut Vector2 v2):
+    v2.x = v2.x + 1;
+
 def main():
-    i32x3 v3 = (1, 2, 3);
+    Vector2 v2 = Vector2(1, 2);
+    print(v2.x);
+    print("\n");
+    inc_mut_x(v2);
+    print(get_x(v2));
+    print("\n");
