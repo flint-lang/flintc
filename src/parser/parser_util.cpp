@@ -164,9 +164,11 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     // Arguments are separated by commas. When the arg_range.first == arg_range.second, no arguments are passed
     if (arg_range.value().first < arg_range.value().second) {
         // if the args contain at least one comma, it is known that multiple arguments are passed. If not, only one is
-        // passed
-        if (Signature::tokens_contain_in_range(tokens, TOK_COMMA, arg_range.value())) {
-            const auto match_ranges = Signature::get_match_ranges_in_range(tokens, TOK_COMMA, arg_range.value());
+        // passed. But the comma must be present at the top-level and not within one of the balanced range groups
+        if (Signature::tokens_contain_in_range_outside_group(tokens, COMMA_STR, arg_range.value(), LEFT_PAREN_STR, RIGHT_PAREN_STR)) {
+            const auto match_ranges = Signature::get_match_ranges_in_range_outside_group( //
+                tokens, COMMA_STR, arg_range.value(), LEFT_PAREN_STR, RIGHT_PAREN_STR     //
+            );
             if (!match_ranges.empty()) {
                 for (auto match = match_ranges.begin();; ++match) {
                     token_list argument_tokens;

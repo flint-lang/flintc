@@ -184,6 +184,25 @@ class Signature {
     /// @return `bool` Whether the given token list contains the given signature in the given range
     static bool tokens_contain_in_range(const token_list &tokens, const Token signature, const uint2 &range);
 
+    /// @function `tokens_contain_in_range_outside_group`
+    /// @brief Checks if a given token list contains a given signature inside a given range, but outside the balanced ranges inside the list
+    ///
+    /// @details This function is primarily used to help in the extraction of arguments or types
+    ///
+    /// @param `tokens` The list of tokens to check
+    /// @param `signature` The signature to search for
+    /// @param `range` The total range in which to search for the signature
+    /// @param `inc` The increase signature of possible balanced ranges inside the list of tokens to skip
+    /// @param `dec` The decrease signature of possible balanced ranges inside the list of tokens to skip
+    /// @return `bool` Whether the given signature is within the given range but not within any group
+    static bool tokens_contain_in_range_outside_group( //
+        const token_list &tokens,                      //
+        const std::string &signature,                  //
+        const uint2 &range,                            //
+        const std::string &inc,                        //
+        const std::string &dec                         //
+    );
+
     /// @function `get_tokens_line_range`
     /// @brief Returns the range of a given line within the tokens_list
     ///
@@ -225,6 +244,26 @@ class Signature {
     /// @param `range` The range in which to search for matches
     /// @return `std::vector<uint2>` A list of all matches within the given range of the given signature
     static std::vector<uint2> get_match_ranges_in_range(const token_list &tokens, const Token signature, const uint2 &range);
+
+    /// @function `get_match_ranges_in_range_outside_group`
+    /// @brief Returns all matches of the given signature within the given range thats not within any group defined by the inc and dec
+    /// signatures for the balanced range extraction
+    ///
+    /// @details This function is primarily used to help in the extraction of arguments or types
+    ///
+    /// @param `tokens` The list of tokens to check
+    /// @param `signature` The signature to search for
+    /// @param `range` The total range in which to search for the signature
+    /// @param `inc` The increase signature of possible balanced ranges inside the list of tokens to skip
+    /// @param `dec` The decrease signature of possible balanced ranges inside the list of tokens to skip
+    /// @return `std::vector<uint2>` All the match ranges that are inside the given range but not inside any group
+    static std::vector<uint2> get_match_ranges_in_range_outside_group( //
+        const token_list &tokens,                                      //
+        const std::string &signature,                                  //
+        const uint2 &range,                                            //
+        const std::string &inc,                                        //
+        const std::string &dec                                         //
+    );
 
     /// @function `get_next_match_range`
     /// @brief Returns the next match range, if the token_list contains the specified signature

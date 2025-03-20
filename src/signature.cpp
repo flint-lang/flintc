@@ -1,4 +1,5 @@
 #include "parser/signature.hpp"
+#include "parser/parser.hpp"
 #include "types.hpp"
 
 #include <algorithm>
@@ -131,6 +132,16 @@ bool Signature::tokens_contain_in_range(const token_list &tokens, const Token si
     return false;
 }
 
+bool Signature::tokens_contain_in_range_outside_group( //
+    const token_list &tokens,                          //
+    const std::string &signature,                      //
+    const uint2 &range,                                //
+    const std::string &inc,                            //
+    const std::string &dec                             //
+) {
+    return !get_match_ranges_in_range_outside_group(tokens, signature, range, inc, dec).empty();
+}
+
 std::optional<uint2> Signature::get_tokens_line_range(const token_list &tokens, unsigned int line) {
     if (tokens.empty()) {
         return std::nullopt;
@@ -209,6 +220,53 @@ std::vector<uint2> Signature::get_match_ranges_in_range(const token_list &tokens
             match_ranges.emplace_back(index, index + 1);
         }
     }
+    return match_ranges;
+}
+
+std::vector<uint2> Signature::get_match_ranges_in_range_outside_group( //
+    const token_list &tokens,                                          //
+    const std::string &signature,                                      //
+    const uint2 &range,                                                //
+    const std::string &inc,                                            //
+    const std::string &dec                                             //
+) {
+    // No need for more expensive search if the tokens dont contain the signature at all
+    if (!tokens_contain_in_range(tokens, signature, range)) {
+        return {};
+    }
+    std::vector<uint2> balanced_ranges = balanced_range_extraction_vec(Parser::clone_from_to(range.first, range.second, tokens), inc, dec);
+    // Correct all indices of the balanced ranges, range.first now should be added to them
+    for (auto &balanced : balanced_ranges) {
+        balanced.first += range.first;
+        balanced.second += range.first;
+    }
+    std::vector<uint2> match_ranges = get_match_ranges_in_range(tokens, signature, range);
+    if (balanced_ranges.empty()) {
+        // Just return the match ranges because the given signature is contained inside the token list and no balanced ranges exist to check
+        return match_ranges;
+    }
+    // Now go through all matches of the given signature and check if any of the matches lies within the given balanced ranges
+    // This is simply a 'match_ranges - balanced_ranges' extraction, as only the match_ranges that are _not_ within any of the
+    // balanced_ranges are counted as "real" matches
+    for (auto match = match_ranges.begin(); match != match_ranges.end();) {
+        bool inside_any_group = false;
+
+        for (const auto &balanced : balanced_ranges) {
+            if (balanced.first <= match->first && balanced.second >= match->second) {
+                inside_any_group = true;
+                break;
+            }
+        }
+
+        // If we found a match that's not inside any group, return true
+        if (inside_any_group) {
+            match = match_ranges.erase(match);
+        } else {
+            ++match;
+        }
+    }
+
+    // All matches were inside groups
     return match_ranges;
 }
 
