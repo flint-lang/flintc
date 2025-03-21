@@ -27,6 +27,10 @@ Currently, only the most basic features are working:
 - `if` chains (`if`, `else if`, `else`)
 - `while` loops
 - `for` loops
+- Creating custom `data` types
+- Initialization of custom data types, grouped variable access (`v2.(x, y)`) of custom data types
+- Variables of custom `data` types are _always_ passed by reference to functions
+- With the `mut` keyword, function parameters now can become mutable, both primitive and `data` parameters
 - The builtin `print` function, with overloaded variants to print `i32`, `flint`, `str` and `bool` variables or literals
 - Unary operators such as `++`, `--` or `not`
 - safe `i32`, `i64`, `u32`, `u64`, `f32` and `f64` variables, addition, substraction and multiplication
@@ -46,7 +50,7 @@ Currently, only the most basic features are working:
 - `variant` type
 - The pow operator `**`
 - Everything about DIMA (`str` manipulation, `data` saving, memory management overall)
-- Everything about DOCP (`data`, `func`, `entity`, `link`)
+- Everything about DOCP (`func`, `entity`, `link`)
 - etc.
 
 ## Building
