@@ -522,6 +522,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(       
         return std::nullopt;
     }
 
+    // Check if the expressions result is a vector of size 1, if it is make its type into a direct string
+    if (std::holds_alternative<std::vector<std::string>>(expression.value()->type)) {
+        std::vector<std::string> &type = std::get<std::vector<std::string>>(expression.value()->type);
+        if (type.size() == 1) {
+            expression.value()->type = type.at(0);
+        }
+    }
+
     // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
     if (expected_type.has_value() && expected_type.value() != expression.value()->type) {
         if (std::holds_alternative<std::string>(expression.value()->type) && std::holds_alternative<std::string>(expected_type.value())) {
@@ -553,14 +561,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(       
                 THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
                 return std::nullopt;
             }
-        }
-    }
-
-    // Check if the expressions result is a vector of size 1, if it is make its type into a direct string
-    if (std::holds_alternative<std::vector<std::string>>(expression.value()->type)) {
-        std::vector<std::string> &type = std::get<std::vector<std::string>>(expression.value()->type);
-        if (type.size() == 1) {
-            expression.value()->type = type.at(0);
         }
     }
 
