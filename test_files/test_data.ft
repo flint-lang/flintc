@@ -1,0 +1,75 @@
+use "assert.ft"
+
+data Vector2i:
+    i32 x;
+    i32 y;
+    Vector2i(x, y);
+
+def inc_v2i_x(mut Vector2i v2i):
+    v2i.x = v2i.x + 1;
+
+def swp_v2i_x_y(mut Vector2i v2i):
+    v2i.(x, y) = v2i.(y, x);
+
+def get_x_y(const Vector2i v2i) -> (i32, i32):
+    return v2i.(x, y);
+
+
+data Vector2:
+    f32 x;
+    f32 y;
+    Vector2(x, y);
+
+def add_v2_x_y(const Vector2 v2) -> f32:
+    return v2.x + v2.y;
+
+def get_xi(const Vector2 v2) -> i32:
+    return i32(v2.x);
+
+def add_sum_to_x_y(mut Vector2 v2):
+    f32 sum = v2.x + v2.y;
+    v2.(x, y) = v2.(x, y) + (sum, sum);
+
+
+data SomeData:
+    i32 a;
+    f32 b;
+    bool c;
+    SomeData(a, b, c);
+
+def add_a_to_b(mut SomeData sd):
+    sd.b = sd.b + sd.a;
+
+def if_c_revert_a(mut SomeData sd):
+    if sd.c:
+        sd.a = 0;
+
+def test_data():
+    Vector2i v2i = Vector2i(1, 3);
+    assert(v2i.x == 1 and v2i.y == 3);
+    inc_v2i_x(v2i);
+    assert(v2i.x == 2 and v2i.y == 3);
+    swp_v2i_x_y(v2i);
+    assert(v2i.x == 3 and v2i.y == 2);
+    assert(get_x_y(v2i) == (3, 2));
+    assert(v2i.(x, y) == (3, 2));
+
+    Vector2 v2 = Vector2(3.4, 5.6);
+    assert(i32(v2.x - 3.4) == 0 and i32(v2.y - 5.6) == 0);
+    v2.x = 7.3;
+    assert(i32(v2.x - 7.3) == 0);
+    assert(i32(add_v2_x_y(v2) - 12.9) == 0);
+    add_sum_to_x_y(v2);
+    assert(i32(v2.x - 20.2) == 0 and i32(v2.y - 18.5) == 0);
+
+    SomeData sd = SomeData(69, 4.20, false);
+    assert(sd.a == 69 and i32(sd.b - 4.2) == 0 and not sd.c);
+    add_a_to_b(sd);
+    assert((sd.b - 73.2) == 0);
+    if_c_revert_a(sd);
+    assert(sd.a == 69);
+    sd.c = true;
+    if_c_revert_a(sd);
+    assert(sd.a == 0);
+
+

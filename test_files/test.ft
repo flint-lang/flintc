@@ -1,69 +1,9 @@
-use "assert.ft"
-// use "add.ft"
-use "vec.ft"
-
-def double_return() -> (i32, i32):
-	return (3, 4);
-
-def get_5() -> f32:
-	return 5;
-
-def divide(f32 a, f32 b) -> f32:
-	if b == 0:
-		throw 1;
-	return a / b;
-
-def print_from_to(i32 from, i32 to):
-	for i32 i = from; i <= to; i++:
-		print(i);
-		print("\n");
-
-def print_until(u32 limit):
-	u32 i = 0;
-	while i < limit:
-		print(i);
-		print("\n");
-		i++;
+use "test_data.ft"
+use "test_error.ft"
+use "test_loops.ft"
+use "test_tests.ft"
 
 def main():
-	print_from_to(5, 10);
-	print_until(u32(10));
-	(a, b) := (1, 2) + (2, 3);
-	a = -a + 2 * 5;
-	print(a);
-	print(", ");
-	print(b);
-	print("\n");
-	(a, b) = (b, a);
-	Vector2i v2 = Vector2i(1, 2);
-	v2.y = 5;
-	v2.x = v2.y;
-	print(v2.x);
-	print(a);
-	(a, b) = v2.(x, y);
-	v2.(x, y) = v2.(y, x);
-	print(", ");
-	print(b);
-	print("\n");
-	(x, y) := (1, 1) + double_return();
-	x = i32(get_5() + x);
-	print(x);
-	print(", ");
-	y = i32(y + get_5());
-	print(y);
-	print("\n");
-
-// --- THE TESTS ---
-test "Dviide success":
-	f32 res = divide(10.0, 3.0);
-
-test "Divide fail":
-	f32 res = divide(10.0, 0.0);
-	assert(res == 0);
-
-test "Divide catch":
-	f32 res = divide(10.0, 0.0) catch err:
-		print("Divison by 0! err code: ");
-		print(err);
-		print("\n");
-	assert(res == 0);
+	test_data();
+	test_error();
+	test_loops();
