@@ -36,6 +36,8 @@ void Generator::Allocation::generate_allocations(                    //
             generate_expression_allocations(builder, parent, scope, allocations, group_assignment_node->expression.get());
         } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node.get())) {
             generate_expression_allocations(builder, parent, scope, allocations, return_node->return_value.get());
+        } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement_node.get())) {
+            generate_allocations(builder, parent, catch_node->scope.get(), allocations);
         }
     }
 }
