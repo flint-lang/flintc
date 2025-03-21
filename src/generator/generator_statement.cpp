@@ -486,7 +486,9 @@ void Generator::Statement::generate_catch_statement(                  //
     allocations.erase(allocations.find(err_alloca_name));
 
     // Add branch to the merge block from the catch block if it does not contain a terminator (return or throw)
-    if (catch_block->getTerminator() == nullptr) {
+    // If the catch block has its own blocks, we actually dont need to check the catch block but the second last block in the function (the
+    // last one is the merge block)
+    if (builder.GetInsertBlock()->getTerminator() == nullptr) {
         builder.CreateBr(merge_block);
     }
 
