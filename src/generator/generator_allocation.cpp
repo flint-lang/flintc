@@ -43,6 +43,7 @@ void Generator::Allocation::generate_allocations(                    //
 }
 
 void Generator::Allocation::generate_function_allocations(            //
+    llvm::IRBuilder<> &builder,                                       //
     llvm::Function *parent,                                           //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
     const FunctionNode *function                                      //
@@ -51,10 +52,26 @@ void Generator::Allocation::generate_function_allocations(            //
     unsigned int param_id = 0;
     for (auto &arg : parent->args()) {
         const auto &param = function->parameters.at(param_id);
+        const std::string param_name = "s" + std::to_string(function->scope->scope_id) + "::" + std::get<1>(param);
         if (keywords.find(std::get<0>(param)) == keywords.end()) {
             // Its not a primitive type, this means it must be passed by reference
-            const std::string param_name = "s" + std::to_string(function->scope->scope_id) + "::" + std::get<1>(param);
             allocations.emplace(param_name, &arg);
+        } else {
+            // If its a primitive type, it either has to be set as the alloca inst directly, or we need to create a local alloca inst for
+            // the argument, to make the argument mutable. We also need to store the value of the argument in this alloca inst
+            if (std::get<2>(param)) {
+                // Is mutable
+                llvm::AllocaInst *argAlloca = builder.CreateAlloca(arg.getType(), nullptr, arg.getName() + ".addr");
+
+                // Store the initial argument value into the alloca
+                builder.CreateStore(&arg, argAlloca);
+
+                // Register the alloca in allocations map
+                allocations.emplace(param_name, argAlloca);
+            } else {
+                // Is immutable
+                allocations.emplace(param_name, &arg);
+            }
         }
         param_id++;
     }

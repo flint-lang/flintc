@@ -829,10 +829,12 @@ class Generator {
         /// @function `generate_function_allocations`
         /// @brief Maps the argument values to fake allocations in the allocations map to make them accessible in the functions body
         ///
+        /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The Function from which the arguments are mapped to allocations (if arguments are of non-primitive type)
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name etc is encoded
         /// @param `function` The function node from which to map the argument allocations
         static void generate_function_allocations(                            //
+            llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
             const FunctionNode *function                                      //

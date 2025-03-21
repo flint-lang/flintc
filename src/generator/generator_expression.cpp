@@ -2,6 +2,7 @@
 #include "error/error_type.hpp"
 #include "generator/generator.hpp"
 
+#include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 
@@ -150,7 +151,13 @@ llvm::Value *Generator::Expression::generate_variable(                //
     // First, check if this is a function parameter
     for (auto &arg : parent->args()) {
         if (arg.getName() == variable_node->name) {
-            // If it's a parameter, return it directly - no need to load
+            // If it's a parameter, and its an mutable primitive type, we dont return it directly, toherwise we do
+            if (scope->variables.find(arg.getName().str()) != scope->variables.end()) {
+                auto var = scope->variables.at(arg.getName().str());
+                if (keywords.find(std::get<0>(var)) != keywords.end() && std::get<2>(var)) {
+                    continue;
+                }
+            }
             return &arg;
         }
     }
