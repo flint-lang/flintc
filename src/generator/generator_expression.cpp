@@ -545,9 +545,28 @@ Generator::group_mapping Generator::Expression::generate_type_cast(   //
 ) {
     // First, generate the expression
     std::vector<llvm::Value *> expr = generate_expression(builder, parent, scope, allocations, type_cast_node->expr.get()).value();
-    // Then, check if the expression is castable
-    const std::string &from_type = std::get<std::string>(type_cast_node->expr->type);
-    const std::string &to_type = std::get<std::string>(type_cast_node->type);
+    // Then, make sure that the expressions types are "normal" strings
+    if (std::holds_alternative<std::vector<std::string>>(type_cast_node->expr->type)) {
+        std::vector<std::string> &types = std::get<std::vector<std::string>>(type_cast_node->expr->type);
+        if (types.size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        type_cast_node->expr->type = types.at(0);
+    }
+    const std::string from_type = std::get<std::string>(type_cast_node->expr->type);
+    std::string to_type;
+    if (std::holds_alternative<std::vector<std::string>>(type_cast_node->type)) {
+        const std::vector<std::string> &types = std::get<std::vector<std::string>>(type_cast_node->type);
+        if (types.size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        to_type = types.at(0);
+    } else {
+        to_type = std::get<std::string>(type_cast_node->type);
+    }
+    // Lastly, check if the expression is castable, and if it is generate the type cast
     for (size_t i = 0; i < expr.size(); i++) {
         expr.at(i) = generate_type_cast(builder, expr.at(i), from_type, to_type);
     }
