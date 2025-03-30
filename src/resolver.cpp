@@ -32,7 +32,11 @@ std::string Resolver::main_file_name;
 /// create_dependency_graph
 ///     Takes a main file and resolves all file imports, causing the AST generation of all used files
 ///     Moves ownership of the file_node, so it is considered unsafe to access it after ths function call!
-std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph(FileNode &file_node, const std::filesystem::path &path) {
+std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph( //
+    FileNode &file_node,                                                   //
+    const std::filesystem::path &path,                                     //
+    const bool run_in_parallel                                             //
+) {
     PROFILE_SCOPE("Create dependency graph");
     // Add the files path to the path map
     const std::string file_name = file_node.file_name;
@@ -61,34 +65,23 @@ std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph(FileNo
         // Only duplicates from which the file has not been parsed yet will be extracted
         auto open_duplicates = extract_duplicates(open_dependencies);
 
-        // Parse current level's files in parallel
-        std::vector<std::future<bool>> futures;
-        futures.reserve(open_dependencies.size());
-
-        // For all files in the open dependencies map
-        for (const auto &[open_dep_name, deps] : open_dependencies) {
-            // For all the dependencies of said file
-            futures.push_back(                  //
-                std::async(std::launch::async,  //
-                    process_dependency_file,    //
-                    open_dep_name,              //
-                    deps,                       //
-                    std::ref(next_dependencies) //
-                    )                           //
-            );
-        }
-        // Check results from all threads
         bool any_failed = false;
-        for (auto &future : futures) {
-            bool result = future.get();
-            if (!result) {
-                any_failed = true;
+        if (run_in_parallel) {
+            any_failed = process_dependencies_parallel(open_dependencies, next_dependencies);
+        } else {
+            // Run single-threaded
+            for (const auto &[open_dep_name, deps] : open_dependencies) {
+                // For all the dependencies of said file
+                if (!process_dependency_file(open_dep_name, deps, next_dependencies)) {
+                    any_failed = true;
+                }
             }
         }
         if (any_failed) {
             std::cerr << "Error: Failed to process one or more dependencies" << std::endl;
             return std::nullopt;
         }
+
         // Append the duplicate dependencies to the next_dependencies, so that they will run the next iteration
         for (const auto &[name, deps] : open_duplicates) {
             next_dependencies[name].insert(next_dependencies[name].end(), deps.begin(), deps.end());
@@ -97,6 +90,37 @@ std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph(FileNo
     }
 
     return base;
+}
+
+bool Resolver::process_dependencies_parallel(                          //
+    std::map<std::string, std::vector<dependency>> &open_dependencies, //
+    std::map<std::string, std::vector<dependency>> &next_dependencies  //
+) {
+    // Parse current level's files in parallel
+    std::vector<std::future<bool>> futures;
+    futures.reserve(open_dependencies.size());
+
+    // For all files in the open dependencies map
+    for (const auto &[open_dep_name, deps] : open_dependencies) {
+        // For all the dependencies of said file
+        futures.push_back(                  //
+            std::async(std::launch::async,  //
+                process_dependency_file,    //
+                open_dep_name,              //
+                deps,                       //
+                std::ref(next_dependencies) //
+                )                           //
+        );
+    }
+    // Check results from all threads
+    bool any_failed = false;
+    for (auto &future : futures) {
+        bool result = future.get();
+        if (!result) {
+            any_failed = true;
+        }
+    }
+    return any_failed;
 }
 
 /// process_dependency_file

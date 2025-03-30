@@ -40,7 +40,15 @@ class Resolver {
   public:
     Resolver() = delete;
 
-    static std::optional<std::shared_ptr<DepNode>> create_dependency_graph(FileNode &file_node, const std::filesystem::path &path);
+    static std::optional<std::shared_ptr<DepNode>> create_dependency_graph( //
+        FileNode &file_node,                                                //
+        const std::filesystem::path &path,                                  //
+        const bool run_in_parallel                                          //
+    );
+    static bool process_dependencies_parallel(                             //
+        std::map<std::string, std::vector<dependency>> &open_dependencies, //
+        std::map<std::string, std::vector<dependency>> &next_dependencies  //
+    );
     static bool process_dependency_file(                                  //
         const std::string &dep_name,                                      //
         const std::vector<dependency> &dependencies,                      //
