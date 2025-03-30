@@ -15,9 +15,13 @@ class ResourceLock {
         resource_name(resource) {
         std::unique_lock<std::mutex> lock(map_mutex);
         // Get or create mutex for the resource
-        auto &mtx = mutex_map.emplace(resource, std::make_shared<std::mutex>()).first->second;
+        if (mutex_map.find(resource) == mutex_map.end()) {
+            mutex_map[resource] = std::make_pair(0, std::make_shared<std::mutex>());
+        }
+        auto &mtx = mutex_map.at(resource);
+        mtx.first++;   // Increase the reference count by 1 for every lock
         lock.unlock(); // Unlock the map while we lock the resource
-        mtx->lock();
+        mtx.second->lock();
     }
 
     // The destructor unlocks the resource of this ResourceLock again, making it usable for other threads
@@ -25,9 +29,12 @@ class ResourceLock {
         std::unique_lock<std::mutex> lock(map_mutex);
         auto it = mutex_map.find(resource_name);
         if (it != mutex_map.end()) {
-            it->second->unlock();
-            // Optionally clean up unused mutexes
-            if (it->second.unique()) {
+            // Unlock the mutex
+            it->second.second->unlock();
+            // Decrement the counter
+            it->second.first--;
+            // Only erase the entry when the counter has reached 0
+            if (it->second.first == 0) {
                 mutex_map.erase(it);
             }
         }
@@ -39,8 +46,8 @@ class ResourceLock {
     std::string resource_name;
 
     /// @var `mutex_map`
-    /// @brief The map of all mutexes of all resources
-    static inline std::unordered_map<std::string, std::shared_ptr<std::mutex>> mutex_map;
+    /// @brief The map of all mutexes of all resources as well as a counter how many threads have locked this resource
+    static inline std::unordered_map<std::string, std::pair<unsigned int, std::shared_ptr<std::mutex>>> mutex_map;
 
     /// @var `map_mutex`
     /// @brief The mutex of the map itself, to enable thread-safe accessed to the `mutex_map`

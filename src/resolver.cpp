@@ -5,6 +5,7 @@
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/parser.hpp"
 #include "profiler.hpp"
+#include "resolver/resource_lock.hpp"
 
 #include <filesystem>
 #include <future>
@@ -143,6 +144,7 @@ bool Resolver::process_dependency_file(                               //
         // File path
         auto file_dep = std::get<std::pair<std::filesystem::path, std::string>>(open_dep_dep);
         // Check if the file has been parsed already. If it has been, add the DepNode as weak reference to the root dep node
+        ResourceLock file_lock(file_dep.second);
         if (file_map.find(file_dep.second) != file_map.end()) {
             std::lock_guard<std::mutex> lock(dependency_node_map_mutex);
             std::weak_ptr<DepNode> weak(dependency_node_map.at(file_dep.second));
