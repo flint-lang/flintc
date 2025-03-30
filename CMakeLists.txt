@@ -63,7 +63,7 @@ else()
     # Linux/Unix compiler flags including Clang-specific options
     set(BASE_CXX_FLAGS
         -g
-        -O1
+        -O0
         -Werror
         -Wall         # Enable most warnings
         -Wextra       # Enable extra warnings
