@@ -151,7 +151,6 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
     }
 
     // Get the target triple (architecture, OS, etc.)
-    Profiler::start_task("Get target triple");
     std::string targetTriple = llvm::sys::getDefaultTargetTriple();
     module->setTargetTriple(targetTriple);
 
@@ -161,34 +160,27 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
         llvm::errs() << "Error: " << error << "\n";
         return;
     }
-    Profiler::end_task("Get target triple");
 
     // Create the target machine
-    Profiler::start_task("Create target machine");
     llvm::TargetOptions opt;
     auto targetMachine = target->createTargetMachine(targetTriple, llvm::sys::getHostCPUName(), "", opt, llvm::Reloc::PIC_);
     module->setDataLayout(targetMachine->createDataLayout());
-    Profiler::end_task("Create target machine");
 
     // Create an output file
-    Profiler::start_task("Create " + binary_file.filename().string() + ".o file");
     std::error_code EC;
     llvm::raw_fd_ostream dest(binary_file.string() + ".o", EC, llvm::sys::fs::OF_None);
     if (EC) {
         llvm::errs() << "Could not open file: " << EC.message() << "\n";
         return;
     }
-    Profiler::end_task("Create " + binary_file.filename().string() + ".o file");
 
     // Set up the pass manager and code generation
-    Profiler::start_task("Set up pass manager");
     llvm::legacy::PassManager pass;
     llvm::CodeGenFileType fileType = llvm::CodeGenFileType::ObjectFile;
     if (targetMachine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
         llvm::errs() << "TargetMachine can't emit a file of this type!\n";
         return;
     }
-    Profiler::end_task("Set up pass manager");
 
     // Run the passes to generate machine code
     Profiler::start_task("Generate machine code");

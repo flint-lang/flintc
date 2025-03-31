@@ -65,7 +65,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     const std::shared_ptr<DepNode> &dep_graph,                //
     const bool is_test                                        //
 ) {
-    PROFILE_SCOPE("Generate program '" + program_name);
+    PROFILE_SCOPE("Generate program '" + program_name + "'");
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
     auto module = std::make_unique<llvm::Module>(program_name, context);
     main_module[0] = module.get();
@@ -108,6 +108,8 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
                 // DepNode somehow does not exist any more
                 THROW_BASIC_ERR(ERR_GENERATING);
             }
+            PROFILE_SCOPE("Processing tip '" + shared_tip.get()->file_name + "'");
+
             // Add the dependencies root only if all dependants of its root have been compiled
             // Or add it when only weak dependants have not been compiled yet (the content of the file will be forward-declared)
             if (shared_tip->root != nullptr) {
