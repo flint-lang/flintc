@@ -25,7 +25,6 @@
 #include <llvm/Transforms/Utils/Cloning.h>
 
 #include <iostream>
-#include <iterator>
 #include <memory>
 #include <mutex>
 #include <regex>
@@ -309,63 +308,125 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
 }
 
 std::string Generator::resolve_ir_comments(const std::string &ir_string) {
+    PROFILE_SCOPE("Resolving IR comments");
     // LLVM's automatic comments tart at the 50th character, so we will start 10 characters later
     static const unsigned int COMMENT_OFFSET = 60;
 
-    // Step 1: Create containers for regex operations
-    std::unordered_map<std::string, std::string> metadata_map;
-    std::regex metadata_regex(R"(\!(\d+) = \!\{\!\s*\"([^\"]*)\"\})");
-    std::regex comment_reference_regex(R"(, \!comment \!(\d+))");
-    std::regex metadata_line_regex(R"(\!(\d+) = \!\{\!\s*\"([^\"]*)\"\}\n?)");
+    // A segment can either be
+    //      - a pair of ids, representing the start and the end of a given string or
+    //      - a number representing the comment id + the index in the line the comment starts at (for the COMMENT_OFFSET)
+    std::vector<std::variant<std::pair<unsigned int, unsigned int>, std::pair<int, unsigned int>>> segments;
+    std::unordered_map<int, std::string> comments;
 
-    // Step 2: Extract metadata definitions
-    std::sregex_iterator metadata_begin(ir_string.begin(), ir_string.end(), metadata_regex);
-    std::sregex_iterator metadata_end;
-    for (auto it = metadata_begin; it != metadata_end; ++it) {
-        // Map '!X' to its comment text
-        metadata_map[it->str(1)] = it->str(2);
-    }
+    // Go through the whole string line by line and extract all the "normal" text segments as well as the comment segments from it
+    std::stringstream ir_stream(ir_string);
+    std::string line;
+    // The regex pattern for a comment
+    const std::regex comment_id_pattern(", !comment !(\\d+)");
+    const std::regex comment_pattern("^\\!(\\d+) = !\\{!\"([^\"]*)\"\\}$");
+    std::smatch match;
+    unsigned int substr_start_id = 0;
+    unsigned int substr_end_id = 0;
+    while (std::getline(ir_stream, line)) {
+        // Skip empty lines
+        if (line.length() == 0) {
+            // Increment for the \n symbol
+            substr_end_id++;
+            continue;
+        }
 
-    // Step 3: Collect all matches and save them into the 'remplacements' vector
-    std::string processed_ir = ir_string;
-    std::vector<std::pair<size_t, std::pair<size_t, std::string>>> replacements;
-    std::sregex_iterator comment_begin(processed_ir.begin(), processed_ir.end(), comment_reference_regex);
-    std::sregex_iterator comment_end;
+        // First, check if this line contains a '!comment !', this check is quite fast. If it contains it, we can initialize a regex search
+        if (line.find("!comment !") != std::string::npos && std::regex_search(line, match, comment_id_pattern) && match.size() > 1) {
+            // The line does contain a comment, so the `substr_end_id` is right where the comment starts
+            substr_end_id += static_cast<unsigned int>(match.position());
+            // Add the substring ids to the segments vector
+            segments.emplace_back(std::make_pair(substr_start_id, substr_end_id));
+            // Set the start index for the next string match to one after the match
+            substr_start_id = substr_end_id + match[0].str().length() + 1;
+            substr_end_id = substr_start_id;
 
-    for (auto it = comment_begin; it != comment_end; ++it) {
-        std::string comment_id = it->str(1);
-        auto metadata_it = metadata_map.find(comment_id);
-        if (metadata_it != metadata_map.end()) {
-            // Find the start of the line containing this comment
-            size_t line_start = processed_ir.rfind('\n', it->position());
-            if (line_start == std::string::npos) {
-                line_start = 0;
-            } else {
-                // Move past the newline
-                line_start++;
+            // Get the actual group (e.g. the commend id)
+            const std::string comment_id_str = match[1].str();
+            // std::cout << match[0].str() << std::endl;
+            size_t pos;
+            int c_id = std::stoi(comment_id_str, &pos);
+            if (pos != comment_id_str.length()) {
+                std::cout << "Failed to convert number: " << comment_id_str << std::endl;
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return "";
             }
+            // Add the commend id to the segments list
+            segments.emplace_back(std::make_pair(c_id, static_cast<unsigned int>(match.position())));
+            continue;
+        } else if (line.find("!{!\"") != std::string::npos && std::regex_search(line, match, comment_pattern) && match.size() > 2) {
+            // This line is a comment line already, if it is, only comment lines will follow
+            // Add everything until here to the segments list
+            segments.emplace_back(std::make_pair(substr_start_id, substr_end_id));
 
-            // Calculate the current line length up to the comma
-            size_t line_length = it->position() - line_start;
-
-            // Calculate needed spacing
-            unsigned int spaces = (line_length > COMMENT_OFFSET ? 1 : COMMENT_OFFSET - line_length);
-
-            // Create the replacement string with proper spacing
-            std::string comment_text = std::string(spaces, ' ') + "; " + metadata_it->second;
-
-            // Store position, length and replacement text
-            replacements.push_back({static_cast<size_t>(it->position()), {it->length(), comment_text}});
+            // Get the actual group (e.g. the commend id)
+            const std::string comment_id_str = match[1].str();
+            size_t pos;
+            unsigned int c_id = static_cast<unsigned int>(std::stoi(comment_id_str, &pos));
+            if (pos != comment_id_str.length()) {
+                std::cout << "Failed to convert number: " << comment_id_str << std::endl;
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return "";
+            }
+            if (comments.find(c_id) != comments.end()) {
+                std::cout << "Comment " << comment_id_str << " already exists in comments map!" << std::endl;
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return "";
+            }
+            // Add the comment to the comments map
+            comments.emplace(c_id, match[2].str());
+            break;
+        }
+        // Does not contain a comment, so we just increment the end_id and move on to the next line
+        substr_end_id += static_cast<unsigned int>(line.length() + 1);
+    }
+    while (std::getline(ir_stream, line)) {
+        // First, check this line is a comment line already, if it is, only comment lines will follow
+        if (std::regex_search(line, match, comment_pattern) && match.size() > 2) {
+            // Get the actual group (e.g. the commend id)
+            const std::string comment_id_str = match[1].str();
+            size_t pos;
+            int c_id = std::stoi(comment_id_str, &pos);
+            if (pos != comment_id_str.length()) {
+                std::cout << "Failed to convert number: " << comment_id_str << std::endl;
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return "";
+            }
+            if (comments.find(c_id) != comments.end()) {
+                std::cout << "Comment " << comment_id_str << " already exists in comments map!" << std::endl;
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return "";
+            }
+            // Add the comment to the comments map
+            comments.emplace(c_id, match[2].str());
+        } else {
+            break;
         }
     }
 
-    // Step 4: Apply replacements in reverse order to maintain correct positions
-    for (auto it = replacements.rbegin(); it != replacements.rend(); ++it) {
-        processed_ir.replace(it->first, it->second.first, it->second.second);
+    // Finally, put the whole thing together
+    std::stringstream result;
+    for (auto &segment : segments) {
+        if (std::holds_alternative<std::pair<int, unsigned int>>(segment)) {
+            // Add the comment string to the result
+            auto &[comment_id, start_idx] = std::get<std::pair<int, unsigned int>>(segment);
+            if (start_idx < COMMENT_OFFSET) {
+                result << std::string(COMMENT_OFFSET - start_idx, ' ');
+            }
+            if (comments.find(comment_id) == comments.end()) {
+                std::cout << "Comment of ID " << comment_id << " could not be found in the comments map!" << std::endl;
+                exit(1);
+            }
+            result << "; " << comments[comment_id];
+        } else {
+            auto &[substr_start, substr_end] = std::get<std::pair<unsigned int, unsigned int>>(segment);
+            const std::string &ir_substr = ir_string.substr(substr_start, substr_end - substr_start);
+            result << "\n" << ir_substr;
+        }
     }
-
-    // Step 5: Remove metadata definition lines
-    processed_ir = std::regex_replace(processed_ir, metadata_line_regex, "");
-
-    return processed_ir;
+    return result.str();
 }
