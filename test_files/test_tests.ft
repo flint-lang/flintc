@@ -1,0 +1,7 @@
+use "assert.ft"
+
+test "assert(true)":
+    assert(true);
+
+test "assert(false)":
+    assert(false);
