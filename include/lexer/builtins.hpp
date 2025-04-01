@@ -61,16 +61,16 @@ static inline std::unordered_map<BuiltinFunction, std::vector<std::pair<type_lis
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
-    {"i32", {"i64", "f32", "f64", "u32", "u64"}},
-    {"i64", {"i32", "f32", "f64", "u32", "u64"}},
-    {"u32", {"i32", "i64", "f32", "f64", "u64"}},
-    {"u64", {"i32", "i64", "f32", "f64", "u32"}},
-    {"f32", {"i32", "i64", "f64", "u32", "u64"}},
-    {"f64", {"i32", "i64", "f32", "u32", "u64"}},
+    {"i32", {"str", "i64", "f32", "f64", "u32", "u64"}},
+    {"i64", {"str", "i32", "f32", "f64", "u32", "u64"}},
+    {"u32", {"str", "i32", "i64", "f32", "f64", "u64"}},
+    {"u64", {"str", "i32", "i64", "f32", "f64", "u32"}},
+    {"f32", {"str", "i32", "i64", "f64", "u32", "u64"}},
+    {"f64", {"str", "i32", "i64", "f32", "u32", "u64"}},
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_implicit_casting_table = {
-    {"i32", {"u32", "u64", "i64", "f32", "f64"}},
-    {"u32", {"i32", "i64", "u64", "f32", "f64"}},
-    {"f32", {"f64"}},
+    {"i32", {"str", "u32", "u64", "i64", "f32", "f64"}},
+    {"u32", {"str", "i32", "i64", "u64", "f32", "f64"}},
+    {"f32", {"str", "f64"}},
 };
