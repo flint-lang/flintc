@@ -459,8 +459,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (token_precedence.find(tokens[i].type) != token_precedence.end() &&
             token_precedence.find(tokens[i - 1].type) == token_precedence.end()) {
             // Update smallest precedence if needed
-            unsigned int precedence = token_precedence.at(tokens[i].type);
-            if (precedence < smallest_precedence) {
+            const unsigned int precedence = token_precedence.at(tokens[i].type);
+            const Associativity associativity = token_associativity.at(tokens[i].type);
+            if ((precedence <= smallest_precedence && associativity == Associativity::LEFT) ||
+                (precedence < smallest_precedence && associativity == Associativity::RIGHT)) {
                 smallest_precedence = precedence;
                 pivot_pos = i;
                 pivot_token = tokens[i].type;

@@ -192,6 +192,30 @@ class Parser {
         {TOK_EQUAL, 0},
     };
 
+    /// @enum `Associativity`
+    /// @brief The associativity any operational token could have, its either left or right associative
+    enum Associativity { LEFT, RIGHT };
+
+    /// @var `token_associativity`
+    /// @brief The associativity of every token, `false` if left-associative, `true` if right-associative
+    static const inline std::unordered_map<Token, Associativity> token_associativity = {
+        {TOK_SQUARE, Associativity::RIGHT},
+        {TOK_MULT, Associativity::LEFT},
+        {TOK_DIV, Associativity::LEFT},
+        {TOK_PLUS, Associativity::LEFT},
+        {TOK_MINUS, Associativity::LEFT},
+        {TOK_LESS, Associativity::LEFT},
+        {TOK_GREATER, Associativity::LEFT},
+        {TOK_LESS_EQUAL, Associativity::LEFT},
+        {TOK_GREATER_EQUAL, Associativity::LEFT},
+        {TOK_EQUAL_EQUAL, Associativity::LEFT},
+        {TOK_NOT_EQUAL, Associativity::LEFT},
+        {TOK_NOT, Associativity::RIGHT},
+        {TOK_OR, Associativity::LEFT},
+        {TOK_AND, Associativity::LEFT},
+        {TOK_EQUAL, Associativity::RIGHT},
+    };
+
     /// @var `type_precedence`
     /// @brief Map containing the precedences of types. Lower types will always be cast to higher types, if possible.
     ///

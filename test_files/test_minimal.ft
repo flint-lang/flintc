@@ -1,12 +1,9 @@
 use "assert.ft"
 
-def sum_until(mut u32 n) -> u32:
-    u32 sum = 0;
-    n--; // Skip the highest numer, we only count until, not including with
-    while n > 0:
-        sum = sum + n;
-        n--;
-    return sum;
-
 def main():
-    assert(sum_until(u32(20)) == 190);
+    i32 x = 2;
+    i32 y = 2;
+    i32 z = x ** y ** 3; // should be x ** (y ** 3), not (x ** y) ** 3
+    i32 z2 = x - y - 3; // Should be (x - y) - 3, not x - (y - 3)
+    assert(z == 256);
+    assert(z != 64);
