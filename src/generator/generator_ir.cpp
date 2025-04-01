@@ -91,9 +91,25 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type_from_str(llvm::LLVMContext
                 return {nullptr, false};
             case TOK_CHAR:
                 return {llvm::Type::getInt8Ty(context), false};
-            case TOK_STR:
-                // Pointer to an array of i8 values representing the characters
-                return {llvm::PointerType::get(llvm::Type::getInt8Ty(context), 0), false};
+            case TOK_STR: {
+                // A string is a struct of type 'type { i64, [0 x i8] }'
+                llvm::StructType *str_type;
+                if (type_map.find("type_str") != type_map.end()) {
+                    str_type = type_map["type_str"];
+                } else {
+                    str_type = llvm::StructType::create( //
+                        context,                         //
+                        {
+                            llvm::Type::getInt64Ty(context),                        // len of string
+                            llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
+                        },                                                          //
+                        "type_str",
+                        false // is packed
+                    );
+                    type_map["type_str"] = str_type;
+                }
+                return {llvm::PointerType::get(str_type, 0), false};
+            }
             case TOK_BOOL:
                 return {llvm::Type::getInt1Ty(context), false};
             case TOK_VOID:
@@ -127,6 +143,48 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     // No conversion available
     THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;
+}
+
+llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, llvm::Function *parent, const std::string &str) {
+    std::string processed_str;
+    for (unsigned int i = 0; i < str.length(); i++) {
+        if (str[i] == '\\' && i + 1 < str.length()) {
+            switch (str[i + 1]) {
+                case 'n':
+                    processed_str += '\n';
+                    break;
+                case 't':
+                    processed_str += '\t';
+                    break;
+                case 'r':
+                    processed_str += '\r';
+                    break;
+                case '\\':
+                    processed_str += '\\';
+                    break;
+                case '0':
+                    processed_str += '\0';
+                    break;
+            }
+            i++; // Skip the next character
+        } else {
+            processed_str += str[i];
+        }
+    }
+
+    // Create array type for the string (including null terminator)
+    llvm::ArrayType *str_type = llvm::ArrayType::get( //
+        builder.getInt8Ty(),                          //
+        str.length() + 1                              // +1 for null terminator
+    );
+    // Allocate space for the string data on the stack
+    llvm::AllocaInst *str_buf = builder.CreateAlloca(str_type, nullptr, "str_buf");
+    // Create the constant string data
+    llvm::Constant *str_constant = llvm::ConstantDataArray::getString(parent->getContext(), processed_str);
+    // Store the string data in the buffer
+    builder.CreateStore(str_constant, str_buf);
+    // Return the buffer pointer
+    return str_buf;
 }
 
 llvm::Value *Generator::IR::generate_pow_instruction( //

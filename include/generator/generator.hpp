@@ -334,6 +334,15 @@ class Generator {
         /// @todo Add more types to the function, currently it only works with int, flint and pointer types
         static llvm::Value *get_default_value_of_type(llvm::Type *type);
 
+        /// @function `generate_const_string`
+        /// @brief Generates a compile-time constant string that will be embedded into the binary itself, this string is not mutable
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `parent` The function the constant string will be contained in
+        /// @param `str` The value of the string
+        /// @return `llvm::Value *` The generated static string value
+        static llvm::Value *generate_const_string(llvm::IRBuilder<> &builder, llvm::Function *parent, const std::string &str);
+
         /// @function `generate_pow_instruction`
         /// @brief Generates a pow instruction from the given llvm values
         ///

@@ -92,23 +92,13 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     // Generate the body of the catch block
     builder->SetInsertPoint(catch_block);
 
-    // Function to create a string literal
-    std::function<llvm::Value *(llvm::IRBuilder<> *, llvm::Function *, std::string)> //
-        create_str_lit =                                                             //
-        [](llvm::IRBuilder<> *builder, llvm::Function *parent, std::string message)  //
-        -> llvm::Value * {
-        std::variant<int, float, std::string, bool, char> value = message;
-        LiteralNode message_literal = LiteralNode(value, "str");
-        return Expression::generate_literal(*builder, parent, &message_literal);
-    };
-
     // Create the message that an error has occured
-    llvm::Value *message_begin_ptr = create_str_lit(builder, main_function, "ERROR: Program exited with exit code '");
+    llvm::Value *message_begin_ptr = IR::generate_const_string(*builder, main_function, "ERROR: Program exited with exit code '");
     builder->CreateCall(print_functions.at("str"), {message_begin_ptr});
     // Print the actual error value
     builder->CreateCall(print_functions.at("i32"), {err_val});
     // Print the rest of the string
-    llvm::Value *message_end_ptr = create_str_lit(builder, main_function, "'\n");
+    llvm::Value *message_end_ptr = IR::generate_const_string(*builder, main_function, "'\n");
     builder->CreateCall(print_functions.at("str"), {message_end_ptr});
 
     builder->CreateBr(merge_block);
