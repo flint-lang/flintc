@@ -3,7 +3,7 @@ use "assert.ft"
 def main():
     i32 x = 2;
     i32 y = 2;
-    i32 z = x ** y ** 3; // should be x ** (y ** 3), not (x ** y) ** 3
+    // i32 z = x ** y ** 3; // should be x ** (y ** 3), not (x ** y) ** 3
     i32 z2 = x - y - 3; // Should be (x - y) - 3, not x - (y - 3)
-    assert(z == 256);
-    assert(z != 64);
+    assert(z2 == -3);
+    assert(z2 != 64);

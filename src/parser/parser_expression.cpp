@@ -115,37 +115,71 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression(Scope *scope
 }
 
 std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
-    for (const auto &tok : tokens) {
-        if (Signature::tokens_match({tok}, ESignature::LITERAL)) {
-            switch (tok.type) {
-                default:
-                    THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok.line, tok.column, tok.lexme);
-                    return std::nullopt;
-                    break;
-                case TOK_INT_VALUE: {
-                    std::variant<int, float, std::string, bool, char> value = std::stoi(tok.lexme);
+    // Literals can have a size of at most 2 tokens
+    if (tokens.size() > 2) {
+        return std::nullopt;
+    }
+    // If the tokens are 2 long we have a literal expression
+    Token front_token = TOK_EOF;
+    const TokenContext *tok = nullptr;
+    if (tokens.size() == 2) {
+        // Currently the only literal experssion is a minus sign in front of the literal, or a $ sign in front of the string
+        if (tokens.at(0).type == TOK_MINUS) {
+            front_token = TOK_MINUS;
+            tok = &tokens.at(1);
+        } else if (tokens.at(0).type == TOK_DOLLAR) {
+            front_token = TOK_DOLLAR;
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+        }
+    } else {
+        tok = &tokens.at(0);
+    }
+
+    if (Signature::tokens_match({*tok}, ESignature::LITERAL)) {
+        switch (tok->type) {
+            default:
+                THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, tok->lexme);
+                return std::nullopt;
+                break;
+            case TOK_INT_VALUE: {
+                if (front_token == TOK_MINUS) {
+                    std::variant<int, float, std::string, bool, char> value = std::stoi(tok->lexme) * -1;
+                    return LiteralNode(value, "i32");
+                } else {
+                    std::variant<int, float, std::string, bool, char> value = std::stoi(tok->lexme);
                     return LiteralNode(value, "i32");
                 }
-                case TOK_FLINT_VALUE: {
-                    std::variant<int, float, std::string, bool, char> value = std::stof(tok.lexme);
+            }
+            case TOK_FLINT_VALUE: {
+                if (front_token == TOK_MINUS) {
+                    std::variant<int, float, std::string, bool, char> value = std::stof(tok->lexme) * -1;
+                    return LiteralNode(value, "f32");
+                } else {
+                    std::variant<int, float, std::string, bool, char> value = std::stof(tok->lexme);
                     return LiteralNode(value, "f32");
                 }
-                case TOK_STR_VALUE: {
-                    std::variant<int, float, std::string, bool, char> value = tok.lexme;
+            }
+            case TOK_STR_VALUE: {
+                if (front_token == TOK_DOLLAR) {
+                    std::variant<int, float, std::string, bool, char> value = tok->lexme;
+                    return LiteralNode(value, "str");
+                } else {
+                    std::variant<int, float, std::string, bool, char> value = tok->lexme;
                     return LiteralNode(value, "str");
                 }
-                case TOK_TRUE: {
-                    std::variant<int, float, std::string, bool, char> value = true;
-                    return LiteralNode(value, "bool");
-                }
-                case TOK_FALSE: {
-                    std::variant<int, float, std::string, bool, char> value = false;
-                    return LiteralNode(value, "bool");
-                }
-                case TOK_CHAR_VALUE: {
-                    std::variant<int, float, std::string, bool, char> value = tok.lexme[0];
-                    return LiteralNode(value, "char");
-                }
+            }
+            case TOK_TRUE: {
+                std::variant<int, float, std::string, bool, char> value = true;
+                return LiteralNode(value, "bool");
+            }
+            case TOK_FALSE: {
+                std::variant<int, float, std::string, bool, char> value = false;
+                return LiteralNode(value, "bool");
+            }
+            case TOK_CHAR_VALUE: {
+                std::variant<int, float, std::string, bool, char> value = tok->lexme[0];
+                return LiteralNode(value, "char");
             }
         }
     }
@@ -362,6 +396,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return std::make_unique<VariableNode>(std::move(variable.value()));
+        }
+    } else if (tokens.size() == 2) {
+        if (Signature::tokens_match(tokens, ESignature::LITERAL_EXPR)) {
+            std::optional<LiteralNode> lit = create_literal(tokens);
+            if (!lit.has_value()) {
+                THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
+                return std::nullopt;
+            }
+            return std::make_unique<LiteralNode>(std::move(lit.value()));
         }
     }
 
