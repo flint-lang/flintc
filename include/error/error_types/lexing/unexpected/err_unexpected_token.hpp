@@ -4,7 +4,7 @@
 
 class ErrUnexpectedToken : public BaseError {
   public:
-    ErrUnexpectedToken(const ErrorType error_type, const std::string &file, int line, int column, const char &text) :
+    ErrUnexpectedToken(const ErrorType error_type, const std::string &file, int line, int column, const std::string &text) :
         BaseError(error_type, file, line, column),
         text(text) {}
 
@@ -16,5 +16,5 @@ class ErrUnexpectedToken : public BaseError {
     }
 
   private:
-    char text;
+    std::string text;
 };

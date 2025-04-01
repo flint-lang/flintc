@@ -221,6 +221,15 @@ void Lexer::scan_token() {
         case '|':
             add_token_option(TOK_BIT_OR, '>', TOK_PIPE);
             break;
+        case '!':
+            if (peek_next() == '=') {
+                add_token(TOK_NOT_EQUAL);
+                advance();
+            } else {
+                std::string token_str = std::to_string(character) + std::to_string(peek_next());
+                THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, token_str);
+            }
+            break;
         case '"':
             str();
             break;
@@ -252,7 +261,7 @@ void Lexer::scan_token() {
             } else if (is_alpha(character)) {
                 identifier();
             } else {
-                THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, character);
+                THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, std::to_string(character));
                 return;
             }
             break;
