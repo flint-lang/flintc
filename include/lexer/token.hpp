@@ -26,7 +26,7 @@ enum Token {
     TOK_MINUS = -17,
     TOK_MULT = -18,
     TOK_DIV = -19,
-    TOK_SQUARE = -20,
+    TOK_POW = -20,
 
     // assign tokens
     TOK_INCREMENT = -21,

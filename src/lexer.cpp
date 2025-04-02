@@ -168,7 +168,7 @@ void Lexer::scan_token() {
             add_token_options(TOK_MINUS, {{'>', TOK_ARROW}, {'-', TOK_DECREMENT}, {'=', TOK_MINUS_EQUALS}});
             break;
         case '*':
-            add_token_options(TOK_MULT, {{'*', TOK_SQUARE}, {'=', TOK_MULT_EQUALS}});
+            add_token_options(TOK_MULT, {{'*', TOK_POW}, {'=', TOK_MULT_EQUALS}});
             break;
         case '/':
             if (peek_next() == '=') {

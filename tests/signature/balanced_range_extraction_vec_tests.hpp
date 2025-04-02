@@ -57,7 +57,7 @@ namespace {
         // x := (a * func(2)) ** (3 - 4 * 5);
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT_VALUE,
-            TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SQUARE, TOK_LEFT_PAREN, TOK_INT_VALUE, TOK_MINUS, TOK_INT_VALUE, TOK_MULT, TOK_INT_VALUE,
+            TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_POW, TOK_LEFT_PAREN, TOK_INT_VALUE, TOK_MINUS, TOK_INT_VALUE, TOK_MULT, TOK_INT_VALUE,
             TOK_RIGHT_PAREN, TOK_SEMICOLON});
         std::vector<uint2> ranges = Signature::balanced_range_extraction_vec(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         bool result = ranges.size() == 2 && ranges.at(0).first == 2 && ranges.at(0).second == 10 && ranges.at(1).first == 11 &&

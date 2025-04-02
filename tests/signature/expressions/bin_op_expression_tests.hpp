@@ -24,7 +24,7 @@ namespace {
         test_result.append_test_name("test_match_bin_op_expr_vars_square", false);
         // 4 ** 5
         token_list tokens = create_token_vector({//
-            TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE});
+            TOK_INT_VALUE, TOK_POW, TOK_INT_VALUE});
         bool result = Signature::tokens_match(tokens, ESignature::BIN_OP_EXPR);
         test_result.ok_or_not(result);
         if (!result) {
@@ -47,7 +47,7 @@ namespace {
         Debug::print_tree_row({Debug::NONE, Debug::VERT, Debug::SINGLE}, &test_result);
         test_result.append_test_name("test_contain_bin_op_expr_vars_square_int", false);
         token_list tokens = create_token_vector({//
-            TOK_IDENTIFIER, TOK_EQUAL, TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE, TOK_SEMICOLON});
+            TOK_IDENTIFIER, TOK_EQUAL, TOK_INT_VALUE, TOK_POW, TOK_INT_VALUE, TOK_SEMICOLON});
         bool result = Signature::tokens_contain(tokens, ESignature::BIN_OP_EXPR);
         test_result.ok_or_not(result);
         if (!result) {
@@ -70,7 +70,7 @@ namespace {
         Debug::print_tree_row({Debug::NONE, Debug::NONE, Debug::SINGLE}, &test_result);
         test_result.append_test_name("test_extract_bin_op_expr_vars_square_int", false);
         token_list tokens = create_token_vector({//
-            TOK_INT_VALUE, TOK_SQUARE, TOK_INT_VALUE, TOK_SEMICOLON});
+            TOK_INT_VALUE, TOK_POW, TOK_INT_VALUE, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::BIN_OP_EXPR);
         bool result = !result_vec.empty() && result_vec.at(0).first == 0 && result_vec.at(0).second == 4;
         test_result.ok_or_not(result);

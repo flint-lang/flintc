@@ -335,7 +335,7 @@ class Signature {
         TOK_TRUE, "|", TOK_FALSE, ")"};
     static const inline signature type = combine({//
         {"("}, type_prim, {"|", TOK_IDENTIFIER, "|"}, type_prim_mult, {")"}});
-    static const inline signature operational_binop = {"(", TOK_PLUS, "|", TOK_MINUS, "|", TOK_MULT, "|", TOK_DIV, "|", TOK_SQUARE, ")"};
+    static const inline signature operational_binop = {"(", TOK_PLUS, "|", TOK_MINUS, "|", TOK_MULT, "|", TOK_DIV, "|", TOK_POW, ")"};
     static const inline signature relational_binop = {"(", TOK_EQUAL_EQUAL, "|", TOK_NOT_EQUAL, "|", TOK_LESS, "|", TOK_LESS_EQUAL, "|",
         TOK_GREATER, "|", TOK_GREATER_EQUAL, ")"};
     static const inline signature boolean_binop = {"(", TOK_AND, "|", TOK_OR, ")"};

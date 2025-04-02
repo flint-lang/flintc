@@ -175,7 +175,7 @@ class Parser {
     /// - **Key** `Token` - The enum value of token type whose precedence is set
     /// - **Value** `unsigned int` - The precedence of the token type
     static const inline std::unordered_map<Token, unsigned int> token_precedence = {
-        {TOK_SQUARE, 7},
+        {TOK_POW, 7},
         {TOK_MULT, 6},
         {TOK_DIV, 6},
         {TOK_PLUS, 5},
@@ -199,7 +199,7 @@ class Parser {
     /// @var `token_associativity`
     /// @brief The associativity of every token, `false` if left-associative, `true` if right-associative
     static const inline std::unordered_map<Token, Associativity> token_associativity = {
-        {TOK_SQUARE, Associativity::RIGHT},
+        {TOK_POW, Associativity::RIGHT},
         {TOK_MULT, Associativity::LEFT},
         {TOK_DIV, Associativity::LEFT},
         {TOK_PLUS, Associativity::LEFT},

@@ -801,7 +801,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                     return std::nullopt;
                 }
                 break;
-            case TOK_SQUARE:
+            case TOK_POW:
                 return_value.emplace_back(IR::generate_pow_instruction(builder, parent, lhs.at(i), rhs.at(i)));
                 break;
             case TOK_LESS:
