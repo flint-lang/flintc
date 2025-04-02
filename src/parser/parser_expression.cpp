@@ -6,6 +6,7 @@
 
 #include "parser/signature.hpp"
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <variant>
 
@@ -83,6 +84,164 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
         // TODO
     }
     return true;
+}
+
+std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
+    std::unique_ptr<ExpressionNode> &lhs,                                   //
+    const Token operation,                                                  //
+    std::unique_ptr<ExpressionNode> &rhs                                    //
+) {
+    // The lhs and rhs types must be the same to be folded
+    if (lhs->type != rhs->type) {
+        return std::nullopt;
+    }
+    // Currently, only literals can be const folded
+    const LiteralNode *lhs_ptr = dynamic_cast<const LiteralNode *>(lhs.get());
+    const LiteralNode *rhs_ptr = dynamic_cast<const LiteralNode *>(rhs.get());
+    if (lhs_ptr == nullptr || rhs_ptr == nullptr) {
+        return std::nullopt;
+    }
+    // Const folding can only be applied if the binary operator is an arithmetic operation
+    if (!Signature::tokens_match({{operation, "", 0, 0}}, ESignature::OPERATIONAL_BINOP) &&
+        !Signature::tokens_match({{operation, "", 0, 0}}, ESignature::BOOLEAN_BINOP)) {
+        return std::nullopt;
+    }
+
+    // Add the two literals together
+    std::optional<std::unique_ptr<LiteralNode>> result = add_literals(lhs_ptr, operation, rhs_ptr);
+    if (!result.has_value()) {
+        return std::nullopt;
+    }
+
+    // Make sure to actually erase the lhs and rhs pointers to prevent memory leaks
+    lhs.reset();
+    rhs.reset();
+    return result;
+}
+
+std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
+    const LiteralNode *lhs,                                       //
+    const Token operation,                                        //
+    const LiteralNode *rhs                                        //
+) {
+    switch (operation) {
+        default:
+            // It should never come here, if it did something went wrong
+            assert(false);
+            break;
+        case TOK_PLUS:
+            if (std::holds_alternative<int>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                      //
+                    std::get<int>(lhs->value) + std::get<int>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                 //
+                );
+            } else if (std::holds_alternative<float>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                          //
+                    std::get<float>(lhs->value) + std::get<float>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                     //
+                );
+            } else if (std::holds_alternative<std::string>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                                      //
+                    std::get<std::string>(lhs->value) + std::get<std::string>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                                 //
+                );
+            } else if (std::holds_alternative<char>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                        //
+                    std::get<char>(lhs->value) + std::get<char>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                   //
+                );
+            }
+            break;
+        case TOK_MINUS:
+            if (std::holds_alternative<int>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                      //
+                    std::get<int>(lhs->value) - std::get<int>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                 //
+                );
+            } else if (std::holds_alternative<float>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                          //
+                    std::get<float>(lhs->value) - std::get<float>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                     //
+                );
+            } else if (std::holds_alternative<char>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                        //
+                    std::get<char>(lhs->value) - std::get<char>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                   //
+                );
+            }
+            break;
+        case TOK_MULT:
+            if (std::holds_alternative<int>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                      //
+                    std::get<int>(lhs->value) * std::get<int>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                 //
+                );
+            } else if (std::holds_alternative<float>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                          //
+                    std::get<float>(lhs->value) * std::get<float>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                     //
+                );
+            } else if (std::holds_alternative<char>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                        //
+                    std::get<char>(lhs->value) * std::get<char>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                   //
+                );
+            }
+            break;
+        case TOK_DIV:
+            if (std::holds_alternative<int>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                      //
+                    std::get<int>(lhs->value) / std::get<int>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                 //
+                );
+            } else if (std::holds_alternative<float>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                      //
+                    std::get<int>(lhs->value) / std::get<int>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                 //
+                );
+            } else if (std::holds_alternative<char>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                        //
+                    std::get<char>(lhs->value) / std::get<char>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                   //
+                );
+            }
+            break;
+        case TOK_POW:
+            if (std::holds_alternative<int>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                                                 //
+                    static_cast<int>(std::pow(std::get<int>(lhs->value), std::get<int>(rhs->value))), //
+                    std::get<std::string>(lhs->type), true                                            //
+                );
+            } else if (std::holds_alternative<float>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                                                       //
+                    static_cast<float>(std::pow(std::get<float>(lhs->value), std::get<float>(rhs->value))), //
+                    std::get<std::string>(lhs->type), true                                                  //
+                );
+            } else if (std::holds_alternative<char>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                                                    //
+                    static_cast<char>(std::pow(std::get<char>(lhs->value), std::get<char>(rhs->value))), //
+                    std::get<std::string>(lhs->type), true                                               //
+                );
+            }
+            break;
+        case TOK_AND:
+            if (std::holds_alternative<bool>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                         //
+                    std::get<bool>(lhs->value) && std::get<bool>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                    //
+                );
+            }
+            break;
+        case TOK_OR:
+            if (std::holds_alternative<bool>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                         //
+                    std::get<bool>(lhs->value) || std::get<bool>(rhs->value), //
+                    std::get<std::string>(lhs->type), true                    //
+                );
+            }
+            break;
+    }
+    return std::nullopt;
 }
 
 std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_list &tokens) {
@@ -542,6 +701,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (!check_castability(lhs.value(), rhs.value())) {
             return std::nullopt;
         }
+    }
+
+    // Check for const folding, and return the folded value if const folding was able to be applied
+    std::optional<std::unique_ptr<ExpressionNode>> folded_result = check_const_folding(lhs.value(), pivot_token, rhs.value());
+    if (folded_result.has_value()) {
+        return std::move(folded_result.value());
     }
 
     // Create the binary operator node

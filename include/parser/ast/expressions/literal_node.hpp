@@ -3,19 +3,27 @@
 #include "expression_node.hpp"
 
 #include <string>
-#include <utility>
 #include <variant>
 
-/// LiteralNode
-///     Represents literal values
+/// @class `LiteralNode`
+/// @brief Represents literal values
 class LiteralNode : public ExpressionNode {
   public:
-    explicit LiteralNode(std::variant<int, float, std::string, bool, char> &value, const std::string &type) :
-        value(std::move(value)) {
+    explicit LiteralNode(                                               //
+        const std::variant<int, float, std::string, bool, char> &value, //
+        const std::string &type,                                        //
+        const bool is_folded = false                                    //
+        ) :
+        value(value),
+        is_folded(is_folded) {
         this->type = type;
     }
 
-    /// value
-    ///     the literal value
+    /// @var `value`
+    /// @brief The literal value
     std::variant<int, float, std::string, bool, char> value;
+
+    /// @var `is_folded`
+    /// @brief Whether this literal is the result of a fold
+    bool is_folded;
 };

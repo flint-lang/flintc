@@ -566,6 +566,34 @@ class Parser {
     /// @attention Modifies the `lhs` or `rhs` expressions, depending on castablity, or throws an error if its not castable
     static bool check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs);
 
+    /// @function `check_const_folding`
+    /// @brief Checks if the lhs and rhs of a binary operation are able to be constant folded, if they can it returns the result of the
+    /// folding
+    ///
+    /// @param `lhs` The lhs of the binary expression
+    /// @param `operation` The operation which is applied to the lhs and rhs
+    /// @param `rhs` The rhs of the binary expression
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The result of te const folding, nullopt if const folding is not applicable
+    static std::optional<std::unique_ptr<ExpressionNode>> check_const_folding( //
+        std::unique_ptr<ExpressionNode> &lhs,                                  //
+        const Token operation,                                                 //
+        std::unique_ptr<ExpressionNode> &rhs                                   //
+    );
+
+    /// @function `add_literals`
+    /// @brief Adds two literal nodes together and returns an the result wrapped in an optional. If the literals could not be added, nullopt
+    /// is returned
+    ///
+    /// @param `lhs` The left hand side literal
+    /// @param `operation` The operation to apply
+    /// @param `rhs` The right hand side literal
+    /// @return `std::optional<std::unique_ptr<LiteralNode>>` The resulting literal, nullopt if the literals could not be added up
+    static std::optional<std::unique_ptr<LiteralNode>> add_literals( //
+        const LiteralNode *lhs,                                      //
+        const Token operation,                                       //
+        const LiteralNode *rhs                                       //
+    );
+
     /// @function `create_variable`
     /// @brief Creates a VariableNode from the given tokens
     ///

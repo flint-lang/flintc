@@ -1,5 +1,11 @@
-use "assert.ft"
-
 def main():
-    str x_str = str(5);
-    print(x_str);
+    str a;
+    a = "something" + "\n";
+    print(a);
+    i32 x = 5 ** 4;
+    print(x);
+    print("\n");
+    f32 y = 16.0 ** 0.5;
+    print(y);
+    print("\n");
+    

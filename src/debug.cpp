@@ -257,7 +257,7 @@ namespace Debug {
 
         void print_literal(unsigned int indent_lvl, uint2 empty, const LiteralNode &lit) {
             Local::print_header(indent_lvl, empty, "Lit ");
-            std::cout << "value: ";
+            std::cout << std::get<std::string>(lit.type) << ": ";
             if (std::holds_alternative<int>(lit.value)) {
                 std::cout << std::get<int>(lit.value);
             } else if (std::holds_alternative<float>(lit.value)) {
@@ -266,6 +266,9 @@ namespace Debug {
                 std::cout << (std::get<bool>(lit.value) ? "true" : "false");
             } else if (std::holds_alternative<std::string>(lit.value)) {
                 std::cout << std::get<std::string>(lit.value);
+            }
+            if (lit.is_folded) {
+                std::cout << " [folded]";
             }
             std::cout << std::endl;
         }
