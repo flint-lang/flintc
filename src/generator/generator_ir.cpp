@@ -108,7 +108,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type_from_str(llvm::LLVMContext
                     );
                     type_map["type_str"] = str_type;
                 }
-                return {llvm::PointerType::get(str_type, 0), false};
+                return {str_type, false};
             }
             case TOK_BOOL:
                 return {llvm::Type::getInt1Ty(context), false};
