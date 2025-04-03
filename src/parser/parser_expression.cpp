@@ -324,7 +324,33 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
                     std::variant<int, float, std::string, bool, char> value = tok->lexme;
                     return LiteralNode(value, "str");
                 } else {
-                    std::variant<int, float, std::string, bool, char> value = tok->lexme;
+                    const std::string &str = tok->lexme;
+                    std::stringstream processed_str;
+                    for (unsigned int i = 0; i < str.length(); i++) {
+                        if (str[i] == '\\' && i + 1 < str.length()) {
+                            switch (str[i + 1]) {
+                                case 'n':
+                                    processed_str << '\n';
+                                    break;
+                                case 't':
+                                    processed_str << '\t';
+                                    break;
+                                case 'r':
+                                    processed_str << '\r';
+                                    break;
+                                case '\\':
+                                    processed_str << '\\';
+                                    break;
+                                case '0':
+                                    processed_str << '\0';
+                                    break;
+                            }
+                            i++; // Skip the next character
+                        } else {
+                            processed_str << str[i];
+                        }
+                    }
+                    std::variant<int, float, std::string, bool, char> value = processed_str.str();
                     return LiteralNode(value, "str");
                 }
             }

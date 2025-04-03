@@ -265,7 +265,30 @@ namespace Debug {
             } else if (std::holds_alternative<bool>(lit.value)) {
                 std::cout << (std::get<bool>(lit.value) ? "true" : "false");
             } else if (std::holds_alternative<std::string>(lit.value)) {
-                std::cout << std::get<std::string>(lit.value);
+                const std::string &lit_val = std::get<std::string>(lit.value);
+                std::cout << "\"";
+                for (size_t i = 0; i < lit_val.length(); i++) {
+                    switch (lit_val[i]) {
+                        case '\n':
+                            std::cout << "\\n";
+                            break;
+                        case '\t':
+                            std::cout << "\\t";
+                            break;
+                        case '\r':
+                            std::cout << "\\r";
+                            break;
+                        case '\\':
+                            std::cout << "\\";
+                            break;
+                        case '\0':
+                            std::cout << "\\0";
+                            break;
+                        default:
+                            std::cout << lit_val[i];
+                    }
+                }
+                std::cout << "\"";
             }
             if (lit.is_folded) {
                 std::cout << " [folded]";
@@ -301,11 +324,13 @@ namespace Debug {
             std::cout << get_token_name(bin.operator_token);
             std::cout << std::endl;
             Local::print_header(indent_lvl + 1, empty, "LHS ");
+            Local::print_type(bin.left->type);
             std::cout << std::endl;
             empty.second = indent_lvl + 1;
             print_expression(indent_lvl + 2, empty, bin.left);
             empty.second = indent_lvl + 2;
             Local::print_header(indent_lvl + 1, empty, "RHS ");
+            Local::print_type(bin.right->type);
             std::cout << std::endl;
             empty.second = indent_lvl + 3;
             print_expression(indent_lvl + 2, empty, bin.right);
@@ -519,7 +544,7 @@ namespace Debug {
 
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign) {
             Local::print_header(indent_lvl, empty, "Assign ");
-            std::cout << "'" << assign.name << "' to be";
+            std::cout << "'" << assign.type << " " << assign.name << "' to be";
             std::cout << std::endl;
 
             empty.first++;
