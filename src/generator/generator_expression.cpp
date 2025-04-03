@@ -187,6 +187,16 @@ Generator::group_mapping Generator::Expression::generate_call(        //
         std::vector<llvm::Value *> return_value;
         if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
             print_functions.find(std::get<std::string>(call_node->arguments.at(0).first->type)) != print_functions.end()) {
+            // If the argument is of type str we need to differentiate between literals and str variables
+            if (std::get<std::string>(call_node->arguments.at(0).first->type) == "str") {
+                if (dynamic_cast<const LiteralNode *>(call_node->arguments.at(0).first.get())) {
+                    return_value.emplace_back(builder.CreateCall(print_functions["str"], args));
+                    return return_value;
+                } else {
+                    return_value.emplace_back(builder.CreateCall(print_functions["str_var"], args));
+                    return return_value;
+                }
+            }
             return_value.emplace_back(builder.CreateCall(                                       //
                 print_functions[std::get<std::string>(call_node->arguments.at(0).first->type)], //
                 args                                                                            //

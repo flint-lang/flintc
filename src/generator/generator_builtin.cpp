@@ -185,6 +185,7 @@ void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llv
     generate_builtin_print(builder, module, "f64", "%lf");
     generate_builtin_print(builder, module, "char", "%c");
     generate_builtin_print(builder, module, "str", "%s");
+    generate_builtin_print_str_var(builder, module);
     generate_builtin_print_bool(builder, module);
 }
 
@@ -238,6 +239,55 @@ void Generator::Builtin::generate_builtin_print( //
 
     builder->CreateRetVoid();
     print_functions[type] = print_function;
+}
+
+void Generator::Builtin::generate_builtin_print_str_var(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    if (print_functions.at("str_var") != nullptr) {
+        return;
+    }
+
+    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+
+    // Create print function type
+    llvm::FunctionType *print_str_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(module->getContext()),              // Return Type: void
+        {str_type->getPointerTo()},                               // Argument: str* string
+        false                                                     // No varargs
+    );
+
+    // Create the print_int function
+    llvm::Function *print_str_function = llvm::Function::Create( //
+        print_str_type,                                          //
+        llvm::Function::ExternalLinkage,                         //
+        "print_str_var",                                         //
+        module                                                   //
+    );
+    llvm::BasicBlock *block = llvm::BasicBlock::Create( //
+        module->getContext(),                           //
+        "entry",                                        //
+        print_str_function                              //
+    );
+    // Set insert point to the current block
+    builder->SetInsertPoint(block);
+
+    // Convert it to fit the correct format printf expects
+    llvm::Value *arg_string = print_str_function->getArg(0);
+    arg_string->setName("string");
+
+    llvm::Value *str_len_ptr = builder->CreateStructGEP(str_type, arg_string, 0, "str_len_ptr");
+    llvm::Value *str_len = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), str_len_ptr, "str_len");
+    llvm::Value *str_len_val = TypeCast::i64_to_i32(*builder, str_len);
+
+    llvm::Value *str_val_ptr = builder->CreateStructGEP(str_type, arg_string, 1, "str_val_ptr");
+
+    // Call printf with format string and argument
+    llvm::Value *format_str = builder->CreateGlobalStringPtr("%.*s");
+    builder->CreateCall(builtins[PRINT],       //
+        {format_str, str_len_val, str_val_ptr} //
+    );
+
+    builder->CreateRetVoid();
+    print_functions["str_var"] = print_str_function;
 }
 
 void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module) {

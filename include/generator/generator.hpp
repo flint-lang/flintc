@@ -159,6 +159,7 @@ class Generator {
         {"flint", nullptr},
         {"char", nullptr},
         {"str", nullptr},
+        {"str_var", nullptr},
         {"bool", nullptr},
     };
 
@@ -426,6 +427,13 @@ class Generator {
             const std::string &type,        //
             const std::string &format       //
         );
+
+        /// @function `generate_builtin_print_str_var`
+        /// @brief Generates the builtin print_str_var function which prints the value of a string variable
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the print function definition will be generated in
+        static void generate_builtin_print_str_var(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /// @function `generate_builtin_print_bool`
         /// @brief Generates the builtin print_bool function which prints 'true' or 'false' depending on the bool value

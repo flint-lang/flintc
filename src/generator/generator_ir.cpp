@@ -72,6 +72,25 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
 
 std::pair<llvm::Type *, bool> Generator::IR::get_type_from_str(llvm::LLVMContext &context, const std::string &str) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
+    if (str == "str_var") {
+        // A string is a struct of type 'type { i64, [0 x i8] }'
+        llvm::StructType *str_type;
+        if (type_map.find("type_str") != type_map.end()) {
+            str_type = type_map["type_str"];
+        } else {
+            str_type = llvm::StructType::create( //
+                context,                         //
+                {
+                    llvm::Type::getInt64Ty(context),                        // len of string
+                    llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
+                },                                                          //
+                "type_str",
+                false // is packed
+            );
+            type_map["type_str"] = str_type;
+        }
+        return {str_type, false};
+    }
     if (keywords.find(str) != keywords.end()) {
         switch (keywords.at(str)) {
             default:
@@ -91,25 +110,8 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type_from_str(llvm::LLVMContext
                 return {nullptr, false};
             case TOK_CHAR:
                 return {llvm::Type::getInt8Ty(context), false};
-            case TOK_STR: {
-                // A string is a struct of type 'type { i64, [0 x i8] }'
-                llvm::StructType *str_type;
-                if (type_map.find("type_str") != type_map.end()) {
-                    str_type = type_map["type_str"];
-                } else {
-                    str_type = llvm::StructType::create( //
-                        context,                         //
-                        {
-                            llvm::Type::getInt64Ty(context),                        // len of string
-                            llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
-                        },                                                          //
-                        "type_str",
-                        false // is packed
-                    );
-                    type_map["type_str"] = str_type;
-                }
-                return {str_type, false};
-            }
+            case TOK_STR:
+                return {llvm::Type::getInt8Ty(context)->getPointerTo(), false};
             case TOK_BOOL:
                 return {llvm::Type::getInt1Ty(context), false};
             case TOK_VOID:

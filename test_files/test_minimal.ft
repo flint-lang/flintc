@@ -1,6 +1,7 @@
 def main():
     str a = "something";
-    str b = "\n";
-    a = a + b;
+    // str b = "\n";
+    // a = a + b;
     print(a);
+    print("yes!\n");
     
