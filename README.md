@@ -36,7 +36,7 @@ Currently, only the most basic features are working:
 - safe `i32`, `i64`, `u32`, `u64`, `f32` and `f64` variables, addition, substraction and multiplication
 - implicit primitive type conversions
 - explicit primitive type conversions (`i32(5.4)`)
-- `str` variables, alltough currently not able to be changed
+- `str` variables + string mutability
 - `bool` variables
 
 ## What's not working
