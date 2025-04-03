@@ -522,22 +522,14 @@ void Generator::String::generate_string_assignment( //
         const size_t len = std::get<std::string>(lit->value).length();
         llvm::Value *len_val = llvm::ConstantInt::get(builder.getInt64Ty(), len);
 
-        // Create a pointer to the lhs pointer (str**)
-        llvm::Value *lhs_ptr = builder.CreateAlloca(lhs->getType(), nullptr, "lhs_ptr");
-        builder.CreateStore(lhs, lhs_ptr);
-
         // Call the `assign_lit` function
         builder.CreateCall(assign_lit_fn, {lhs, expression, len_val});
     } else {
         // Get the `assign_str` function
         llvm::Function *assign_str_fn = string_manip_functions.at("assign_str");
 
-        // Create a pointer to the lhs pointer (str**)
-        llvm::Value *lhs_ptr = builder.CreateAlloca(lhs->getType(), nullptr, "lhs_ptr");
-        builder.CreateStore(lhs, lhs_ptr);
-
         // Call the `assign_str` function
-        builder.CreateCall(assign_str_fn, {lhs_ptr, expression});
+        builder.CreateCall(assign_str_fn, {lhs, expression});
     }
 }
 
