@@ -1,4 +1,5 @@
 #include "generator/generator.hpp"
+#include "lexer/builtins.hpp"
 
 void Generator::Builtin::generate_exit(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Value *exit_value) {
     // Create the exit call (calling the C exit() function)
@@ -104,6 +105,60 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     builder->CreateBr(merge_block);
     builder->SetInsertPoint(merge_block);
     generate_exit(builder, module, err_val);
+}
+
+void Generator::Builtin::generate_c_functions(llvm::Module *module) {
+    if (c_functions[MALLOC] != nullptr) {
+        return;
+    }
+
+    // malloc
+    {
+        llvm::FunctionType *malloc_type = llvm::FunctionType::get(       //
+            llvm::Type::getVoidTy(module->getContext())->getPointerTo(), // Return type: void*
+            {llvm::Type::getInt64Ty(module->getContext())},              // Arguments: u64
+            false                                                        // No varargs
+        );
+        llvm::Function *malloc_fn = llvm::Function::Create(malloc_type, llvm::Function::ExternalLinkage, "malloc", module);
+        c_functions[MALLOC] = malloc_fn;
+    }
+    // free
+    {
+        llvm::FunctionType *free_type = llvm::FunctionType::get(           //
+            llvm::Type::getVoidTy(module->getContext()),                   // Return type: void
+            {llvm::Type::getVoidTy(module->getContext())->getPointerTo()}, // Argument: void*
+            false                                                          // No varargs
+        );
+        llvm::Function *free_fn = llvm::Function::Create(free_type, llvm::Function::ExternalLinkage, "free", module);
+        c_functions[FREE] = free_fn;
+    }
+    // memcpy
+    {
+        llvm::FunctionType *memcpy_type = llvm::FunctionType::get(       //
+            llvm::Type::getVoidTy(module->getContext())->getPointerTo(), // Return type: void*
+            {
+                llvm::Type::getVoidTy(module->getContext())->getPointerTo(), // Argument: void*
+                llvm::Type::getVoidTy(module->getContext())->getPointerTo(), // Argument: const void*
+                llvm::Type::getInt64Ty(module->getContext())                 // Argument: u64
+            },                                                               //
+            false                                                            // No varargs
+        );
+        llvm::Function *memcpy_fn = llvm::Function::Create(memcpy_type, llvm::Function::ExternalLinkage, "memcpy", module);
+        c_functions[MEMCPY] = memcpy_fn;
+    }
+    // realloc
+    {
+        llvm::FunctionType *realloc_type = llvm::FunctionType::get(      //
+            llvm::Type::getVoidTy(module->getContext())->getPointerTo(), // Return type: void*
+            {
+                llvm::Type::getVoidTy(module->getContext())->getPointerTo(), // Argument: void*
+                llvm::Type::getInt64Ty(module->getContext())                 // Argument: u64
+            },                                                               //
+            false                                                            // No varargs
+        );
+        llvm::Function *realloc_fn = llvm::Function::Create(realloc_type, llvm::Function::ExternalLinkage, "realloc", module);
+        c_functions[REALLOC] = realloc_fn;
+    }
 }
 
 void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module) {

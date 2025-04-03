@@ -38,6 +38,15 @@ static const std::unordered_map<std::string_view, BuiltinFunction> builtin_funct
     {"partition_on_all", PARTITION_ON_ALL} //
 };
 
+/// @enum `CFunctions`
+/// @brief An enum used to access all the C functions
+enum CFunction {
+    MALLOC,
+    FREE,
+    MEMCPY,
+    REALLOC,
+};
+
 /// @typedef `type_list`
 /// @brief This type is used for a list of types in the `builtin_function_types` map to make its signature much clearer
 using type_list = std::vector<std::string_view>;

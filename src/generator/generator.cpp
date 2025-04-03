@@ -75,6 +75,9 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     // Generate built-in functions in the main module
     Builtin::generate_builtin_prints(builder.get(), module.get());
 
+    // Generate all the c functions
+    Builtin::generate_c_functions(module.get());
+
     if (!is_test) {
         // Generate main function in the main module
         Builtin::generate_builtin_main(builder.get(), module.get());
