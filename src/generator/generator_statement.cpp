@@ -574,12 +574,11 @@ void Generator::Statement::generate_declaration(                      //
             initializer = std::nullopt;
         }
         expression = String::generate_string_declaration(builder, expression, initializer);
-    } else {
-        llvm::StoreInst *store = builder.CreateStore(expression, alloca);
-        store->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
     }
+    llvm::StoreInst *store = builder.CreateStore(expression, alloca);
+    store->setMetadata("comment",
+        llvm::MDNode::get(parent->getContext(),
+            llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
 }
 
 void Generator::Statement::generate_group_assignment(                 //
