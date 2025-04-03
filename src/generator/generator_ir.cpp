@@ -146,32 +146,6 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
 }
 
 llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, llvm::Function *parent, const std::string &str) {
-    std::string processed_str;
-    for (unsigned int i = 0; i < str.length(); i++) {
-        if (str[i] == '\\' && i + 1 < str.length()) {
-            switch (str[i + 1]) {
-                case 'n':
-                    processed_str += '\n';
-                    break;
-                case 't':
-                    processed_str += '\t';
-                    break;
-                case 'r':
-                    processed_str += '\r';
-                    break;
-                case '\\':
-                    processed_str += '\\';
-                    break;
-                case '0':
-                    processed_str += '\0';
-                    break;
-            }
-            i++; // Skip the next character
-        } else {
-            processed_str += str[i];
-        }
-    }
-
     // Create array type for the string (including null terminator)
     llvm::ArrayType *str_type = llvm::ArrayType::get( //
         builder.getInt8Ty(),                          //
@@ -180,7 +154,7 @@ llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, ll
     // Allocate space for the string data on the stack
     llvm::AllocaInst *str_buf = builder.CreateAlloca(str_type, nullptr, "str_buf");
     // Create the constant string data
-    llvm::Constant *str_constant = llvm::ConstantDataArray::getString(parent->getContext(), processed_str);
+    llvm::Constant *str_constant = llvm::ConstantDataArray::getString(parent->getContext(), str);
     // Store the string data in the buffer
     builder.CreateStore(str_constant, str_buf);
     // Return the buffer pointer
