@@ -1,11 +1,6 @@
 def main():
-    str a;
-    a = "something" + "\n";
+    str a = "something";
+    str b = "\n";
+    a = a + b;
     print(a);
-    i32 x = 5 ** 4;
-    print(x);
-    print("\n");
-    f32 y = 16.0 ** 0.5;
-    print(y);
-    print("\n");
     

@@ -751,6 +751,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                 } else if (type == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
+                } else if (type == "str") {
+                    return_value.emplace_back(String::generate_string_addition(                           //
+                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
+                    );
                 } else {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;

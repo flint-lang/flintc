@@ -566,10 +566,20 @@ void Generator::Statement::generate_declaration(                      //
         expression = IR::get_default_value_of_type(IR::get_type_from_str(builder.getContext(), declaration_node->type).first);
     }
 
-    llvm::StoreInst *store = builder.CreateStore(expression, alloca);
-    store->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
+    if (declaration_node->type == "str") {
+        std::optional<const ExpressionNode *> initializer;
+        if (declaration_node->initializer.has_value()) {
+            initializer = declaration_node->initializer.value().get();
+        } else {
+            initializer = std::nullopt;
+        }
+        expression = String::generate_string_declaration(builder, expression, initializer);
+    } else {
+        llvm::StoreInst *store = builder.CreateStore(expression, alloca);
+        store->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
+    }
 }
 
 void Generator::Statement::generate_group_assignment(                 //
@@ -580,6 +590,10 @@ void Generator::Statement::generate_group_assignment(                 //
     const GroupAssignmentNode *group_assignment                       //
 ) {
     auto expression = Expression::generate_expression(builder, parent, scope, allocations, group_assignment->expression.get());
+    if (!expression.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return;
+    }
 
     unsigned int elem_idx = 0;
     for (const auto &assign : group_assignment->assignees) {
@@ -599,6 +613,10 @@ void Generator::Statement::generate_assignment(                       //
     const AssignmentNode *assignment_node                             //
 ) {
     auto expr = Expression::generate_expression(builder, parent, scope, allocations, assignment_node->expression.get());
+    if (!expr.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return;
+    }
     llvm::Value *expression = expr.value().at(0);
 
     // Check if the variable is declared
@@ -610,10 +628,15 @@ void Generator::Statement::generate_assignment(                       //
     const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(assignment_node->name));
     llvm::Value *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
-    llvm::StoreInst *store = builder.CreateStore(expression, lhs);
-    store->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Store result of expr in var '" + assignment_node->name + "'")));
+    if (assignment_node->type == "str") {
+        String::generate_string_assignment(builder, lhs, assignment_node, expression);
+        return;
+    } else {
+        llvm::StoreInst *store = builder.CreateStore(expression, lhs);
+        store->setMetadata("comment",
+            llvm::MDNode::get(parent->getContext(),
+                llvm::MDString::get(parent->getContext(), "Store result of expr in var '" + assignment_node->name + "'")));
+    }
 }
 
 void Generator::Statement::generate_data_field_assignment(            //

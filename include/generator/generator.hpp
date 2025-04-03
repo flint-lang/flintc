@@ -1335,9 +1335,17 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The scope the literal is contained in
+        /// @param `scope` The scope the expression is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `literal_node` The literal node to generate
         /// @return `llvm::Value *` The value containing the result of the literal
-        static llvm::Value *generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node);
+        static llvm::Value *generate_literal(                                 //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const LiteralNode *literal_node                                   //
+        );
 
         /// @function `generate_variable`
         /// @brief Generates the variable from the given VariableNode
@@ -1519,4 +1527,132 @@ class Generator {
             const BinaryOpNode *bin_op_node                                   //
         );
     }; // subclass Expression
+
+    /// @class `String`
+    /// @brief The class which is responsible for generating everything related to strings
+    /// @note This class cannot be initialized and all functions within this class are static
+    class String {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        String() = delete;
+
+        /// @var `string_manip_functions`
+        /// @brief Map containing references to all string manipulation functions, to make str handling easier
+        ///
+        /// @details
+        /// - **Key** `std::string_view` - The name of the function
+        /// - **Value** `llvm::Function *` - The reference to the genereated function
+        ///
+        /// @attention The functions are nullpointers until the `generate_builtin_prints` function is called
+        /// @attention The map is not being cleared after the program module has been generated
+        static inline std::unordered_map<std::string_view, llvm::Function *> string_manip_functions = {
+            {"create_str", nullptr},
+            {"init_str", nullptr},
+            {"assign_str", nullptr},
+            {"assign_lit", nullptr},
+            {"add_str_str", nullptr},
+            {"add_str_lit", nullptr},
+            {"add_lit_str", nullptr},
+        };
+
+        /// @function `generate_create_str_function`
+        /// @brief Generates the builtin hidden `create_str` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `create_str` function will be generated in
+        static void generate_create_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_init_str_function`
+        /// @brief Generates the builtin hidden `init_str` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `init_str` function will be generated in
+        static void generate_init_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_assign_str_function`
+        /// @brief Generates the builtin hidden `assign_str` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `assign_str` function will be generated in
+        static void generate_assign_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_assign_lit_function`
+        /// @brief Generates the builtin hidden `assign_lit` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `assign_lit` function will be generated in
+        static void generate_assign_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_add_str_str_functiion`
+        /// @brief Generates the builtin hidden `add_str_str` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `add_str_str` function will be generated in
+        static void generate_add_str_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_add_str_lit_function`
+        /// @brief Generates the builtin hidden `add_str_lit` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `add_str_lit` function will be generated in
+        static void generate_add_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_add_lit_str_function`
+        /// @brief Generates the builtin hidden `add_lit_str` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `add_lit_str` function will be generated in
+        static void generate_add_lit_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_string_manip_functions`
+        /// @brief Generates all the builtin hidden string manipulation functions
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the string manipulation functions will be generated in
+        static void generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_string_declaration`
+        /// @brief Generates the declaration of a string variable
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `rhs` The rhs value of the declaration
+        /// @param `rhs_expr` The rhs expression, if there exists any (to check if its a literal expression)
+        /// @return `llvm::Value *` The resulting declaration value that will be saved on the actual variable
+        static llvm::Value *generate_string_declaration(   //
+            llvm::IRBuilder<> &builder,                    //
+            llvm::Value *rhs,                              //
+            std::optional<const ExpressionNode *> rhs_expr //
+        );
+
+        /// @function `generate_string_assignment`
+        /// @brief Generates an assignment of a string variable
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The pointer to the allocation instruction of the variable to assign to
+        /// @param `assignment_node` The assignment node, used to check if the rhs is a literal or not
+        /// @param `expression` The generated value of the expression of the rhs
+        static void generate_string_assignment(    //
+            llvm::IRBuilder<> &builder,            //
+            llvm::Value *const lhs,                //
+            const AssignmentNode *assignment_node, //
+            llvm::Value *expression                //
+        );
+
+        /// @function `generate_string_addition`
+        /// @brief Generates the addition instruction of two strings and returns the result of the addition
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The lhs value from llvm
+        /// @param `lhs_expr` The lhs expression, to check if it is / was a literal
+        /// @param `rhs` The rhs value from llvm
+        /// @param `rhs_expr` The rhs expression, to check if it is / was a literal
+        /// @return `llvm::Value *` The result of the string addition
+        static llvm::Value *generate_string_addition( //
+            llvm::IRBuilder<> &builder,               //
+            llvm::Value *lhs,                         //
+            const ExpressionNode *lhs_expr,           //
+            llvm::Value *rhs,                         //
+            const ExpressionNode *rhs_expr            //
+        );
+    }; // subclass String
 };
