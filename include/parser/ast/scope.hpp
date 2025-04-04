@@ -79,6 +79,22 @@ class Scope {
         return std::get<0>(variables.at(var_name));
     }
 
+    /// @function `gen_unique_variables`
+    /// @brief Returns all variable definitions which are unique to this scope, and not present in the parent scope. This function is used
+    /// for easy handling for variables when they go out of scope
+    ///
+    /// @return `std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool>>` The variable map thats unique to this scope
+    std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool>> get_unique_variables() const {
+        if (parent_scope == nullptr) {
+            return variables;
+        }
+        auto unique_variables = variables;
+        for (const auto &variable : parent_scope->variables) {
+            unique_variables.erase(variable.first);
+        }
+        return unique_variables;
+    }
+
     /// @var `scope_id`
     /// @brief The unique id of this scope. Every scope has its own id
     const unsigned int scope_id = get_next_scope_id();

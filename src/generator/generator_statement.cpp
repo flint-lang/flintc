@@ -58,6 +58,28 @@ void Generator::Statement::generate_body(                            //
     for (const auto &statement : scope->body) {
         generate_statement(builder, parent, scope, allocations, statement);
     }
+    generate_end_of_scope(builder, scope, allocations);
+}
+
+void Generator::Statement::generate_end_of_scope(                    //
+    llvm::IRBuilder<> &builder,                                      //
+    const Scope *scope,                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations //
+) {
+    // First, get all variables of this scope that went out of scope
+    auto variables = scope->get_unique_variables();
+    for (const auto &[var_name, var_info] : variables) {
+        // Check if the variable is of type str
+        if (std::get<0>(var_info) != "str") {
+            continue;
+        }
+        // Get the allocation of the variable
+        const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+        llvm::Value *const alloca = allocations.at(alloca_name);
+        llvm::Type *str_type = IR::get_type_from_str(builder.getContext(), "str").first;
+        llvm::Value *str_ptr = builder.CreateLoad(str_type->getPointerTo(), alloca, var_name + "_cleanup");
+        builder.CreateCall(c_functions.at(FREE), {str_ptr});
+    }
 }
 
 void Generator::Statement::generate_return_statement(                 //

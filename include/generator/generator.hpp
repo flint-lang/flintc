@@ -1093,6 +1093,18 @@ class Generator {
             std::unordered_map<std::string, llvm::Value *const> &allocations //
         );
 
+        /// @function `generate_end_of_scope`
+        /// @brief Generates the instructions that need to be applied at the end of a scope (variables going out of scope, for example)
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `scope` The scope that ends
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        static void generate_end_of_scope(                                   //
+            llvm::IRBuilder<> &builder,                                      //
+            const Scope *scope,                                              //
+            std::unordered_map<std::string, llvm::Value *const> &allocations //
+        );
+
         /// @function `generate_return_statement`
         /// @brief Generates the return statement from the given ReturnNode
         ///
