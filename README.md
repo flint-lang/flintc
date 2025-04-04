@@ -35,8 +35,8 @@ Currently, only the most basic features are working:
 - Unary operators such as `++`, `--` or `not`
 - safe `i32`, `i64`, `u32`, `u64`, `f32` and `f64` variables, addition, substraction and multiplication
 - implicit primitive type conversions
-- explicit primitive type conversions (`i32(5.4)`)
-- `str` variables + string mutability
+- explicit primitive type conversions (`i32(5.4)`, `str(69)`)
+- `str` variables + string mutability + concatenation
 - `bool` variables
 
 ## What's not working
@@ -49,7 +49,7 @@ Currently, only the most basic features are working:
 - `enum` type
 - `variant` type
 - The pow operator `**`
-- Everything about DIMA (`str` manipulation, `data` saving, memory management overall)
+- Everything about DIMA (`data` and `entity` types saved in dima blocks)
 - Everything about DOCP (`func`, `entity`, `link`)
 - etc.
 
