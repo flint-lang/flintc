@@ -564,6 +564,35 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         TypeCast() = delete;
 
+        /// @var `typecast_functions`
+        /// @brief Map containing references to all typecast functions, to make type casting easier
+        ///
+        /// @details
+        /// - **Key** `std::string_view` - The name of the function
+        /// - **Value** `llvm::Function *` - The reference to the genereated function
+        ///
+        /// @attention The functions are nullpointers until the `generate_helper_functions` function is called
+        /// @attention The map is not being cleared after the program module has been generated
+        static inline std::unordered_map<std::string_view, llvm::Function *> typecast_functions = {
+            {"count_digits", nullptr},
+            {"i32_to_str", nullptr},
+        };
+
+        /// @function `generate_helper_functions`
+        /// @brief Function to generate all helper functions used for the type-casting. Currently these helper functions are only used when
+        /// casting strings
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the function is generated in
+        static void generate_helper_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_count_digits_function`
+        /// @brief Function to generate the `count_digits` helper function, used for to-string casting
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the function is generated in
+        static void generate_count_digits_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
         /**************************************************************************************************************************************
          * @region `I32`
          *************************************************************************************************************************************/
@@ -607,6 +636,13 @@ class Generator {
         /// @param `int_value` The i32 value to convert
         /// @return `llvm::Value *` The converted f64 value
         static llvm::Value *i32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `generate_i32_to_str`
+        /// @brief Generates the `i32_to_str` function which is used to convert i32 values to str values
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module in which the function is generated in
+        static void generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /**************************************************************************************************************************************
          * @region `U32`

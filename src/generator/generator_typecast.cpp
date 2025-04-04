@@ -1,5 +1,99 @@
 #include "generator/generator.hpp"
 
+void Generator::TypeCast::generate_helper_functions(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    generate_count_digits_function(builder, module);
+    generate_i32_to_str(builder, module);
+    generate_u32_to_str(builder, module);
+    generate_i64_to_str(builder, module);
+    generate_u64_to_str(builder, module);
+    generate_f32_to_str(builder, module);
+    generate_f64_to_str(builder, module);
+}
+
+void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // C IMPLEMENTATION:
+    // size_t count_digits(size_t n) {
+    //     if (n == 0) {
+    //         return 1;
+    //     }
+    //     size_t count = 0;
+    //     while (n > 0) {
+    //         n /= 10;
+    //         count++;
+    //     }
+    //     return count;
+    // }
+
+    // Create function type: size_t (size_t)
+    llvm::FunctionType *count_digits_type =
+        llvm::FunctionType::get(llvm::Type::getInt64Ty(builder->getContext()), // Return type: size_t (i64)
+            {llvm::Type::getInt64Ty(builder->getContext())},                   // Parameter: size_t (i64)
+            false                                                              // Not varargs
+        );
+
+    // Create the function
+    llvm::Function *count_digits_fn = llvm::Function::Create(count_digits_type, llvm::Function::ExternalLinkage, "count_digits", module);
+
+    // Set parameter name
+    llvm::Argument *n_arg = count_digits_fn->arg_begin();
+    n_arg->setName("n");
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", count_digits_fn);
+    llvm::BasicBlock *check_zero_block = llvm::BasicBlock::Create(builder->getContext(), "check_zero", count_digits_fn);
+    llvm::BasicBlock *return_one_block = llvm::BasicBlock::Create(builder->getContext(), "return_one", count_digits_fn);
+    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(builder->getContext(), "loop", count_digits_fn);
+    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(builder->getContext(), "loop_body", count_digits_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(builder->getContext(), "exit", count_digits_fn);
+
+    // Entry block: Allocate variables and check if n is 0
+    builder->SetInsertPoint(entry_block);
+    llvm::Value *n = builder->CreateAlloca(llvm::Type::getInt64Ty(builder->getContext()), nullptr, "n_var");
+    llvm::Value *count = builder->CreateAlloca(llvm::Type::getInt64Ty(builder->getContext()), nullptr, "count_var");
+    builder->CreateStore(n_arg, n);
+    builder->CreateStore(builder->getInt64(0), count);
+    builder->CreateBr(check_zero_block);
+
+    // Check if n is 0
+    builder->SetInsertPoint(check_zero_block);
+    llvm::Value *n_value = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), n, "n_val");
+    llvm::Value *is_zero = builder->CreateICmpEQ(n_value, builder->getInt64(0), "is_zero");
+    builder->CreateCondBr(is_zero, return_one_block, loop_block);
+
+    // Return 1 if n is 0
+    builder->SetInsertPoint(return_one_block);
+    builder->CreateRet(builder->getInt64(1));
+
+    // Loop header - check condition
+    builder->SetInsertPoint(loop_block);
+    llvm::Value *loop_n = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), n, "loop_n");
+    llvm::Value *loop_condition = builder->CreateICmpUGT(loop_n, builder->getInt64(0), "loop_condition");
+    builder->CreateCondBr(loop_condition, loop_body_block, exit_block);
+
+    // Loop body
+    builder->SetInsertPoint(loop_body_block);
+    // n = n / 10
+    llvm::Value *n_val = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), n, "n_val");
+    llvm::Value *new_n = builder->CreateUDiv(n_val, builder->getInt64(10), "new_n");
+    builder->CreateStore(new_n, n);
+
+    // count++
+    llvm::Value *count_val = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), count, "count_val");
+    llvm::Value *new_count = builder->CreateAdd(count_val, builder->getInt64(1), "new_count");
+    builder->CreateStore(new_count, count);
+
+    // Go back to loop header
+    builder->CreateBr(loop_block);
+
+    // Exit block - return count
+    builder->SetInsertPoint(exit_block);
+    llvm::Value *result = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), count, "result");
+    builder->CreateRet(result);
+
+    // Store the function for later use
+    typecast_functions["count_digits"] = count_digits_fn;
+}
+
 /******************************************************************************************************************************************
  * @region `I32`
  *****************************************************************************************************************************************/
@@ -36,6 +130,163 @@ llvm::Value *Generator::TypeCast::i32_to_f32(llvm::IRBuilder<> &builder, llvm::V
 
 llvm::Value *Generator::TypeCast::i32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(builder.getContext()), "sitofp");
+}
+
+void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // C IMPLEMENTATION:
+    // str *i32_to_str(const int32_t i_value) {
+    //     // Handle special case of minimum value (can't be negated safely)
+    //     if (i_value == INT32_MIN) {
+    //         const char *min_str = "-2147483648";
+    //         return init_str(min_str, 11); // Length of "-2147483648" is 11
+    //     }
+    //
+    //     // Handle sign
+    //     int is_negative = i_value < 0;
+    //     uint32_t value = is_negative ? -i_value : i_value;
+    //
+    //     // Count digits
+    //     size_t num_digits = count_digits(value);
+    //     size_t len = num_digits + (is_negative ? 1 : 0);
+    //
+    //     // Allocate string
+    //     str *result = create_str(len);
+    //     char *buffer = result->value + len; // Start at the end
+    //
+    //     // Write digits in reverse order
+    //     do {
+    //         *--buffer = '0' + (value % 10);
+    //         value /= 10;
+    //     } while (value > 0);
+    //
+    //     // Add sign if negative
+    //     if (is_negative) {
+    //         *--buffer = '-';
+    //     }
+    //
+    //     return result;
+    // }
+    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
+    llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
+
+    llvm::FunctionType *i32_to_str_type = llvm::FunctionType::get( //
+        str_type->getPointerTo(),                                  // Return type: str*
+        {llvm::Type::getInt32Ty(builder->getContext())},           // Argument: i32 n
+        false                                                      // No varargs
+    );
+    llvm::Function *i32_to_str_fn = llvm::Function::Create(i32_to_str_type, llvm::Function::ExternalLinkage, "i32_to_str", module);
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", i32_to_str_fn);
+    llvm::BasicBlock *min_value_block = llvm::BasicBlock::Create(builder->getContext(), "min_value", i32_to_str_fn);
+    llvm::BasicBlock *regular_case_block = llvm::BasicBlock::Create(builder->getContext(), "regular_case", i32_to_str_fn);
+    llvm::BasicBlock *digit_loop_block = llvm::BasicBlock::Create(builder->getContext(), "digit_loop", i32_to_str_fn);
+    llvm::BasicBlock *negative_sign_block = llvm::BasicBlock::Create(builder->getContext(), "negative_sign", i32_to_str_fn);
+    llvm::BasicBlock *add_sign_block = llvm::BasicBlock::Create(builder->getContext(), "add_sign", i32_to_str_fn);
+    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(builder->getContext(), "return", i32_to_str_fn);
+
+    // Set insert point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Get the function parameter
+    llvm::Argument *arg_ivalue = i32_to_str_fn->arg_begin();
+    arg_ivalue->setName("i_value");
+
+    // Create constant for INT32_MIN
+    llvm::Value *int32_min = llvm::ConstantInt::get(builder->getInt32Ty(), INT32_MIN);
+
+    // Check if i_value == INT32_MIN
+    llvm::Value *is_min_value = builder->CreateICmpEQ(arg_ivalue, int32_min, "is_min_value");
+    builder->CreateCondBr(is_min_value, min_value_block, regular_case_block);
+
+    // Handle INT32_MIN special case
+    builder->SetInsertPoint(min_value_block);
+    llvm::Value *min_str_ptr = builder->CreateGlobalStringPtr("-2147483648", "min_str");
+    llvm::Value *min_result = builder->CreateCall(init_str_fn, {min_str_ptr, builder->getInt64(11)}, "min_result");
+    builder->CreateRet(min_result);
+
+    // Regular case - handle sign
+    builder->SetInsertPoint(regular_case_block);
+    llvm::Value *is_negative = builder->CreateICmpSLT(arg_ivalue, builder->getInt32(0), "is_negative");
+    llvm::Value *abs_value = builder->CreateSelect(is_negative, builder->CreateNeg(arg_ivalue, "negated"), arg_ivalue, "abs_value");
+
+    // Convert to uint32_t for consistent handling
+    llvm::Value *value = builder->CreateZExt(abs_value, builder->getInt64Ty(), "value_u64");
+
+    // Count digits
+    llvm::Value *num_digits = builder->CreateCall(count_digits_fn, {value}, "num_digits");
+
+    // Calculate length: num_digits + (is_negative ? 1 : 0)
+    llvm::Value *sign_len = builder->CreateSelect(is_negative, builder->getInt64(1), builder->getInt64(0), "sign_len");
+    llvm::Value *total_len = builder->CreateAdd(num_digits, sign_len, "total_len");
+
+    // Allocate string
+    llvm::Value *result = builder->CreateCall(create_str_fn, {total_len}, "result");
+
+    // Get pointer to the string data area
+    llvm::Value *data_ptr = builder->CreateStructGEP(str_type, result, 1, "data_ptr");
+
+    // Create a GEP to the end of the buffer (data + len)
+    llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), data_ptr, total_len, "buffer_end");
+
+    // Create variables for the loop
+    llvm::Value *current_value_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "current_value_ptr");
+    llvm::Value *current_buffer_ptr = builder->CreateAlloca(builder->getPtrTy(), nullptr, "current_buffer_ptr");
+
+    // Initialize values
+    builder->CreateStore(value, current_value_ptr);
+    builder->CreateStore(buffer_end, current_buffer_ptr);
+
+    // Start the digit loop
+    builder->CreateBr(digit_loop_block);
+
+    // Digit loop
+    builder->SetInsertPoint(digit_loop_block);
+
+    // Load current value
+    llvm::Value *current_value = builder->CreateLoad(builder->getInt64Ty(), current_value_ptr, "current_value");
+
+    // Calculate digit: value % 10
+    llvm::Value *remainder = builder->CreateURem(current_value, builder->getInt64(10), "remainder");
+    llvm::Value *digit_char =
+        builder->CreateAdd(builder->getInt8('0'), builder->CreateTrunc(remainder, builder->getInt8Ty(), "digit"), "digit_char");
+
+    // Decrement buffer pointer
+    llvm::Value *buffer_ptr = builder->CreateLoad(builder->getPtrTy(), current_buffer_ptr, "buffer_ptr");
+    llvm::Value *prev_buffer = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, builder->getInt32(-1), "prev_buffer");
+    builder->CreateStore(prev_buffer, current_buffer_ptr);
+
+    // Store digit at the decremented position
+    builder->CreateStore(digit_char, prev_buffer);
+
+    // Divide value by 10
+    llvm::Value *next_value = builder->CreateUDiv(current_value, builder->getInt64(10), "next_value");
+    builder->CreateStore(next_value, current_value_ptr);
+
+    // Continue loop if value > 0
+    llvm::Value *continue_loop = builder->CreateICmpUGT(next_value, builder->getInt64(0), "continue_loop");
+    builder->CreateCondBr(continue_loop, digit_loop_block, negative_sign_block);
+
+    // Add negative sign if needed
+    builder->SetInsertPoint(negative_sign_block);
+    llvm::Value *should_add_sign = builder->CreateICmpEQ(sign_len, builder->getInt64(1), "should_add_sign");
+    builder->CreateCondBr(should_add_sign, add_sign_block, return_block);
+
+    // Add negative sign
+    builder->SetInsertPoint(add_sign_block);
+    llvm::Value *sign_buffer_ptr = builder->CreateLoad(builder->getPtrTy(), current_buffer_ptr, "sign_buffer_ptr");
+    llvm::Value *sign_prev_buffer = builder->CreateGEP(builder->getInt8Ty(), sign_buffer_ptr, builder->getInt32(-1), "sign_prev_buffer");
+    builder->CreateStore(builder->getInt8('-'), sign_prev_buffer);
+    builder->CreateBr(return_block);
+
+    // Return the result of the function
+    builder->SetInsertPoint(return_block);
+    builder->CreateRet(result);
+
+    // Store function for later use
+    typecast_functions["i32_to_str"] = i32_to_str_fn;
 }
 
 /******************************************************************************************************************************************
