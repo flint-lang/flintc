@@ -576,6 +576,7 @@ class Generator {
         static inline std::unordered_map<std::string_view, llvm::Function *> typecast_functions = {
             {"count_digits", nullptr},
             {"i32_to_str", nullptr},
+            {"u32_to_str", nullptr},
         };
 
         /// @function `generate_helper_functions`
@@ -687,6 +688,13 @@ class Generator {
         /// @param `int_value` The u32 value to convert
         /// @return `llvm::Value *` The converted f64 value
         static llvm::Value *u32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `generate_u32_to_str`
+        /// @brief Generates the `u32_to_str` function which is used to convert u32 values to str values
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module in which the function is generated in
+        static void generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /**************************************************************************************************************************************
          * @region `I64`

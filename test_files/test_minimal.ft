@@ -1,4 +1,4 @@
 def main():
-    str a = str(7) + "\n";
+    str a = str(u32(7)) + "\n";
     print(a);
     
