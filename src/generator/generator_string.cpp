@@ -550,11 +550,19 @@ llvm::Value *Generator::String::generate_string_addition( //
     } else if (lhs_lit == nullptr && rhs_lit != nullptr) {
         // Only rhs is literal
         llvm::Function *add_str_lit_fn = string_manip_functions.at("add_str_lit");
-        return builder.CreateCall(add_str_lit_fn, {lhs, rhs}, "add_str_lit_res");
+        llvm::Value *rhs_len = llvm::ConstantInt::get(     //
+            llvm::Type::getInt64Ty(builder.getContext()),  //
+            std::get<std::string>(rhs_lit->value).length() //
+        );
+        return builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
     } else if (lhs != nullptr && rhs_lit == nullptr) {
         // Only lhs is literal
         llvm::Function *add_lit_str_fn = string_manip_functions.at("add_lit_str");
-        return builder.CreateCall(add_lit_str_fn, {lhs, rhs}, "add_lit_str_res");
+        llvm::Value *lhs_len = llvm::ConstantInt::get(     //
+            llvm::Type::getInt64Ty(builder.getContext()),  //
+            std::get<std::string>(lhs_lit->value).length() //
+        );
+        return builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
     }
 
     // Both sides are literals, this shouldnt be possible, as they should have been folded already
