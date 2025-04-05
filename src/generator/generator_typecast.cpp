@@ -492,6 +492,166 @@ llvm::Value *Generator::TypeCast::i64_to_f64(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(builder.getContext()), "sitofp");
 }
 
+void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // C IMPLEMENTATION:
+    // str *i64_to_str(const int64_t i_value) {
+    //     // Handle special case of minimum value
+    //     if (i_value == INT64_MIN) {
+    //         const char *min_str = "-9223372036854775808";
+    //         return init_str(min_str, 20); // Length of minimum int64 as string
+    //     }
+    //
+    //     // Handle sign
+    //     int is_negative = i_value < 0;
+    //     uint64_t value = is_negative ? -i_value : i_value;
+    //
+    //     // Count digits
+    //     size_t num_digits = count_digits(value);
+    //     size_t len = num_digits + (is_negative ? 1 : 0);
+    //
+    //     // Allocate string
+    //     str *result = create_str(len);
+    //     char *buffer = result->value + len; // Start at the end
+    //
+    //     // Write digits in reverse order
+    //     do {
+    //         *--buffer = '0' + (value % 10);
+    //         value /= 10;
+    //     } while (value > 0);
+    //
+    //     // Add sign if negative
+    //     if (is_negative) {
+    //         *--buffer = '-';
+    //     }
+    //
+    //     return result;
+    // }
+    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
+    llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
+
+    llvm::FunctionType *i64_to_str_type = llvm::FunctionType::get( //
+        str_type->getPointerTo(),                                  // Return type: str*
+        {llvm::Type::getInt64Ty(builder->getContext())},           // Argument: i64 i_value
+        false                                                      // No varargs
+    );
+    llvm::Function *i64_to_str_fn = llvm::Function::Create(i64_to_str_type, llvm::Function::ExternalLinkage, "i64_to_str", module);
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", i64_to_str_fn);
+    llvm::BasicBlock *min_value_block = llvm::BasicBlock::Create(builder->getContext(), "min_value", i64_to_str_fn);
+    llvm::BasicBlock *regular_case_block = llvm::BasicBlock::Create(builder->getContext(), "regular_case", i64_to_str_fn);
+    llvm::BasicBlock *digit_loop_block = llvm::BasicBlock::Create(builder->getContext(), "digit_loop", i64_to_str_fn);
+    llvm::BasicBlock *negative_sign_block = llvm::BasicBlock::Create(builder->getContext(), "negative_sign", i64_to_str_fn);
+    llvm::BasicBlock *add_sign_block = llvm::BasicBlock::Create(builder->getContext(), "add_sign", i64_to_str_fn);
+    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(builder->getContext(), "return", i64_to_str_fn);
+
+    // Set insert point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Get the function parameter
+    llvm::Argument *arg_ivalue = i64_to_str_fn->arg_begin();
+    arg_ivalue->setName("i_value");
+
+    // Create constant for INT64_MIN
+    llvm::Value *int64_min = llvm::ConstantInt::get(builder->getInt64Ty(), INT64_MIN);
+
+    // Check if i_value == INT64_MIN
+    llvm::Value *is_min_value = builder->CreateICmpEQ(arg_ivalue, int64_min, "is_min_value");
+    builder->CreateCondBr(is_min_value, min_value_block, regular_case_block);
+
+    // Handle INT32_MIN special case
+    builder->SetInsertPoint(min_value_block);
+    llvm::Value *min_str_ptr = builder->CreateGlobalStringPtr("-9223372036854775808", "min_str");
+    llvm::Value *min_result = builder->CreateCall(init_str_fn, {min_str_ptr, builder->getInt64(21)}, "min_result");
+    builder->CreateRet(min_result);
+
+    // Regular case - handle sign
+    builder->SetInsertPoint(regular_case_block);
+    llvm::Value *is_negative = builder->CreateICmpSLT(arg_ivalue, builder->getInt64(0), "is_negative");
+    llvm::Value *abs_value = builder->CreateSelect(is_negative, builder->CreateNeg(arg_ivalue, "negated"), arg_ivalue, "abs_value");
+
+    // Convert to uint64_t for consistent handling
+    llvm::Value *value = builder->CreateZExt(abs_value, builder->getInt64Ty(), "value_u64");
+
+    // Count digits
+    llvm::Value *num_digits = builder->CreateCall(count_digits_fn, {value}, "num_digits");
+
+    // Calculate length: num_digits + (is_negative ? 1 : 0)
+    llvm::Value *sign_len = builder->CreateSelect(is_negative, builder->getInt64(1), builder->getInt64(0), "sign_len");
+    llvm::Value *total_len = builder->CreateAdd(num_digits, sign_len, "total_len");
+
+    // Allocate string
+    llvm::Value *result = builder->CreateCall(create_str_fn, {total_len}, "result");
+
+    // Get pointer to the string data area
+    llvm::Value *data_ptr = builder->CreateStructGEP(str_type, result, 1, "data_ptr");
+
+    // Create a GEP to the end of the buffer (data + len)
+    llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), data_ptr, total_len, "buffer_end");
+
+    // Create variables for the loop
+    llvm::Value *current_value_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "current_value_ptr");
+    llvm::Value *current_buffer_ptr = builder->CreateAlloca(builder->getPtrTy(), nullptr, "current_buffer_ptr");
+
+    // Initialize values
+    builder->CreateStore(value, current_value_ptr);
+    builder->CreateStore(buffer_end, current_buffer_ptr);
+
+    // Start the digit loop
+    builder->CreateBr(digit_loop_block);
+
+    // Digit loop
+    builder->SetInsertPoint(digit_loop_block);
+
+    // Load current value
+    llvm::Value *current_value = builder->CreateLoad(builder->getInt64Ty(), current_value_ptr, "current_value");
+
+    // Calculate digit: value % 10
+    llvm::Value *remainder = builder->CreateURem(current_value, builder->getInt64(10), "remainder");
+    llvm::Value *digit_char = builder->CreateAdd(                       //
+        builder->getInt8('0'),                                          //
+        builder->CreateTrunc(remainder, builder->getInt8Ty(), "digit"), //
+        "digit_char"                                                    //
+    );
+
+    // Decrement buffer pointer
+    llvm::Value *buffer_ptr = builder->CreateLoad(builder->getPtrTy(), current_buffer_ptr, "buffer_ptr");
+    llvm::Value *prev_buffer = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, builder->getInt64(-1), "prev_buffer");
+    builder->CreateStore(prev_buffer, current_buffer_ptr);
+
+    // Store digit at the decremented position
+    builder->CreateStore(digit_char, prev_buffer);
+
+    // Divide value by 10
+    llvm::Value *next_value = builder->CreateUDiv(current_value, builder->getInt64(10), "next_value");
+    builder->CreateStore(next_value, current_value_ptr);
+
+    // Continue loop if value > 0
+    llvm::Value *continue_loop = builder->CreateICmpUGT(next_value, builder->getInt64(0), "continue_loop");
+    builder->CreateCondBr(continue_loop, digit_loop_block, negative_sign_block);
+
+    // Add negative sign if needed
+    builder->SetInsertPoint(negative_sign_block);
+    llvm::Value *should_add_sign = builder->CreateICmpEQ(sign_len, builder->getInt64(1), "should_add_sign");
+    builder->CreateCondBr(should_add_sign, add_sign_block, return_block);
+
+    // Add negative sign
+    builder->SetInsertPoint(add_sign_block);
+    llvm::Value *sign_buffer_ptr = builder->CreateLoad(builder->getPtrTy(), current_buffer_ptr, "sign_buffer_ptr");
+    llvm::Value *sign_prev_buffer = builder->CreateGEP(builder->getInt8Ty(), sign_buffer_ptr, builder->getInt64(-1), "sign_prev_buffer");
+    builder->CreateStore(builder->getInt8('-'), sign_prev_buffer);
+    builder->CreateBr(return_block);
+
+    // Return the result of the function
+    builder->SetInsertPoint(return_block);
+    builder->CreateRet(result);
+
+    // Store function for later use
+    typecast_functions["i64_to_str"] = i64_to_str_fn;
+}
+
 /******************************************************************************************************************************************
  * @region `U64`
  *****************************************************************************************************************************************/

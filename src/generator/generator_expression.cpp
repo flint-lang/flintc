@@ -591,6 +591,9 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return TypeCast::u32_to_f64(builder, expr);
         }
     } else if (from_type == "i64") {
+        if (to_type == "str") {
+            return builder.CreateCall(TypeCast::typecast_functions.at("i64_to_str"), {expr}, "i64_to_str_res");
+        }
         if (to_type == "i32") {
             return TypeCast::i64_to_i32(builder, expr);
         }
