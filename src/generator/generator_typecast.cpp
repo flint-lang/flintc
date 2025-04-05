@@ -684,6 +684,143 @@ llvm::Value *Generator::TypeCast::u64_to_f64(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateUIToFP(int_value, llvm::Type::getDoubleTy(builder.getContext()), "uitofp");
 }
 
+void Generator::TypeCast::generate_u64_to_str([[maybe_unused]] llvm::IRBuilder<> *builder, [[maybe_unused]] llvm::Module *module) {
+    // C IMPLEMENTATION:
+    // str *u64_to_str(const uint64_t u_value) {
+    //     // Count digits
+    //     size_t len = count_digits(u_value);
+    //
+    //     // Allocate string
+    //     str *result = create_str(len);
+    //     char *buffer = result->value + len; // Start at the end
+    //
+    //     // Handle special case for 0
+    //     if (u_value == 0) {
+    //         result->value[0] = '0';
+    //         return result;
+    //     }
+    //
+    //     // Write digits in reverse order
+    //     uint64_t value = u_value;
+    //     do {
+    //         *--buffer = '0' + (value % 10);
+    //         value /= 10;
+    //     } while (value > 0);
+    //
+    //     return result;
+    // }
+    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
+    llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
+
+    llvm::FunctionType *u64_to_str_type = llvm::FunctionType::get( //
+        str_type->getPointerTo(),                                  // Return type: str*
+        {llvm::Type::getInt64Ty(builder->getContext())},           // Argument: u64 u_value
+        false                                                      // No varargs
+    );
+    llvm::Function *u64_to_str_fn = llvm::Function::Create(u64_to_str_type, llvm::Function::ExternalLinkage, "u64_to_str", module);
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", u64_to_str_fn);
+    llvm::BasicBlock *zero_case_block = llvm::BasicBlock::Create(builder->getContext(), "zero_case", u64_to_str_fn);
+    llvm::BasicBlock *nonzero_case_block = llvm::BasicBlock::Create(builder->getContext(), "nonzero_case", u64_to_str_fn);
+    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(builder->getContext(), "loop", u64_to_str_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(builder->getContext(), "exit", u64_to_str_fn);
+
+    // Set insert point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Get the function parameter
+    llvm::Argument *arg_uvalue = u64_to_str_fn->arg_begin();
+    arg_uvalue->setName("u_value");
+
+    // Count digits - call count_digits(u_value)
+    llvm::Value *len = builder->CreateCall(count_digits_fn, {arg_uvalue}, "len");
+
+    // Allocate string - call create_str(len)
+    llvm::Value *result = builder->CreateCall(create_str_fn, {len}, "result");
+
+    // Check if u_value == 0
+    llvm::Value *is_zero = builder->CreateICmpEQ(arg_uvalue, llvm::ConstantInt::get(builder->getInt64Ty(), 0), "is_zero");
+    builder->CreateCondBr(is_zero, zero_case_block, nonzero_case_block);
+
+    // Zero case block
+    builder->SetInsertPoint(zero_case_block);
+    // Get pointer to result->value (the flexible array member at index 1)
+    llvm::Value *data_ptr_zero = builder->CreateStructGEP(str_type, result, 1, "data_ptr_zero");
+    // Store '0' character
+    builder->CreateStore(llvm::ConstantInt::get(builder->getInt8Ty(), '0'), data_ptr_zero);
+    builder->CreateBr(exit_block);
+
+    // Non-zero case block
+    builder->SetInsertPoint(nonzero_case_block);
+    // Get pointer to result->value (the flexible array member)
+    llvm::Value *data_ptr = builder->CreateStructGEP(str_type, result, 1, "data_ptr");
+
+    // Calculate buffer = result->value + len
+    llvm::Value *buffer = builder->CreateGEP(builder->getInt8Ty(), data_ptr, len, "buffer");
+
+    // Create local variable for value
+    llvm::Value *current_value = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "current_value");
+    builder->CreateStore(arg_uvalue, current_value);
+
+    // Create local variable for buffer
+    llvm::Value *current_buffer = builder->CreateAlloca(builder->getPtrTy(), nullptr, "current_buffer");
+    builder->CreateStore(buffer, current_buffer);
+
+    // Branch to the loop
+    builder->CreateBr(loop_block);
+
+    // Loop block
+    builder->SetInsertPoint(loop_block);
+    // Load current value and buffer
+    llvm::Value *value_load = builder->CreateLoad(builder->getInt64Ty(), current_value, "value_load");
+    llvm::Value *buffer_load = builder->CreateLoad(builder->getPtrTy(), current_buffer, "buffer_load");
+
+    // Calculate value % 10
+    llvm::Value *remainder = builder->CreateURem(value_load, llvm::ConstantInt::get(builder->getInt64Ty(), 10), "remainder");
+
+    // Calculate '0' + (value % 10)
+    llvm::Value *digit_char = builder->CreateAdd(              //
+        llvm::ConstantInt::get(builder->getInt8Ty(), '0'),     //
+        builder->CreateTrunc(remainder, builder->getInt8Ty()), //
+        "digit_char"                                           //
+    );
+
+    // Decrement buffer
+    llvm::Value *buffer_prev = builder->CreateGEP(               //
+        builder->getInt8Ty(),                                    //
+        buffer_load,                                             //
+        llvm::ConstantInt::getSigned(builder->getInt64Ty(), -1), //
+        "buffer_prev"                                            //
+    );
+
+    // Store the digit character
+    builder->CreateStore(digit_char, buffer_prev);
+
+    // Update buffer
+    builder->CreateStore(buffer_prev, current_buffer);
+
+    // Calculate value / 10
+    llvm::Value *new_value = builder->CreateUDiv(value_load, llvm::ConstantInt::get(builder->getInt64Ty(), 10), "new_value");
+
+    // Update value
+    builder->CreateStore(new_value, current_value);
+
+    // Check if value > 0
+    llvm::Value *continue_loop = builder->CreateICmpUGT(new_value, llvm::ConstantInt::get(builder->getInt64Ty(), 0), "continue_loop");
+
+    // Branch based on condition
+    builder->CreateCondBr(continue_loop, loop_block, exit_block);
+
+    // Exit block
+    builder->SetInsertPoint(exit_block);
+    builder->CreateRet(result);
+
+    // Register the function
+    typecast_functions["u64_to_str"] = u64_to_str_fn;
+}
+
 /******************************************************************************************************************************************
  * @region `F32`
  *****************************************************************************************************************************************/

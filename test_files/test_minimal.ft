@@ -1,4 +1,4 @@
 def main():
-    str a = str(i64(-7)) + "\n";
+    str a = str(u64(25687)) + "\n";
     print(a);
     

@@ -578,6 +578,7 @@ class Generator {
             {"i32_to_str", nullptr},
             {"u32_to_str", nullptr},
             {"i64_to_str", nullptr},
+            {"u64_to_str", nullptr},
         };
 
         /// @function `generate_helper_functions`
@@ -791,6 +792,13 @@ class Generator {
         /// @param `int_value` The u64 value to convert
         /// @return `llvm::Value *` The converted f64 value
         static llvm::Value *u64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
+        /// @function `generate_u64_to_str`
+        /// @brief Generates the `u64_to_str` function which is used to convert u64 values to str values
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module in which the function is generated in
+        static void generate_u64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /**************************************************************************************************************************************
          * @region `F32`
