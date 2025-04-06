@@ -59,7 +59,8 @@ void Generator::Statement::generate_body(                            //
         generate_statement(builder, parent, scope, allocations, statement);
     }
     // Only generate end of scope if the last statement was not a return statement
-    if (!dynamic_cast<const ReturnNode *>(scope->body.back().get()) && !dynamic_cast<const ThrowNode *>(scope->body.back().get())) {
+    if (scope->parent_scope != nullptr && !dynamic_cast<const ReturnNode *>(scope->body.back().get()) &&
+        !dynamic_cast<const ThrowNode *>(scope->body.back().get())) {
         generate_end_of_scope(builder, scope, allocations);
     }
 }
