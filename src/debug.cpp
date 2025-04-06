@@ -352,6 +352,8 @@ namespace Debug {
 
         void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast) {
             Local::print_header(indent_lvl, empty, "TypeCast ");
+            Local::print_type(cast.expr->type);
+            std::cout << " -> ";
             Local::print_type(cast.type);
             std::cout << std::endl;
             empty.second = indent_lvl + 2;
