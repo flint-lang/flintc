@@ -10,6 +10,7 @@
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/string_interpolation_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
@@ -1481,6 +1482,23 @@ class Generator {
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
             const VariableNode *variable_node,                                //
             const bool is_reference = false                                   //
+        );
+
+        /// @function `generate_string_interpolation`
+        /// @brief Generates the string interpolation expression from the given StringInterpolationNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the string interpolation is generated in
+        /// @param `scope` The scope the string interpolation is defined in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `interpol_node` The string interpolation node to generate
+        /// @retrn `llvm::Value *` The result of the string interpolation expression
+        static llvm::Value *generate_string_interpolation(                    //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const StringInterpolationNode *interpol_node                      //
         );
 
         /// @function `generate_call`

@@ -32,7 +32,11 @@ Generator::group_mapping Generator::Expression::generate_expression(  //
         return generate_unary_op_expression(builder, parent, scope, allocations, unary_op_node);
     }
     if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
-        group_map.emplace_back(generate_literal(builder, parent, literal_node));
+        group_map.emplace_back(generate_literal(builder, parent, scope, allocations, literal_node));
+        return group_map;
+    }
+    if (const auto *interpol_node = dynamic_cast<const StringInterpolationNode *>(expression_node)) {
+        group_map.emplace_back(generate_string_interpolation(builder, parent, scope, allocations, interpol_node));
         return group_map;
     }
     if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expression_node)) {
@@ -61,7 +65,13 @@ Generator::group_mapping Generator::Expression::generate_expression(  //
     return std::nullopt;
 }
 
-llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder, llvm::Function *parent, const LiteralNode *literal_node) {
+llvm::Value *Generator::Expression::generate_literal(                                  //
+    llvm::IRBuilder<> &builder,                                                        //
+    llvm::Function *parent,                                                            //
+    [[maybe_unused]] const Scope *scope,                                               //
+    [[maybe_unused]] std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const LiteralNode *literal_node                                                    //
+) {
     if (std::holds_alternative<int>(literal_node->value)) {
         return llvm::ConstantInt::get(                    //
             llvm::Type::getInt32Ty(parent->getContext()), //
@@ -145,6 +155,53 @@ llvm::Value *Generator::Expression::generate_variable(                //
             llvm::MDString::get(parent->getContext(), "Load val of var '" + variable_node->name + "'")));
 
     return load;
+}
+
+llvm::Value *Generator::Expression::generate_string_interpolation(    //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const StringInterpolationNode *interpol_node                      //
+) {
+    assert(!interpol_node->string_content.empty());
+    // The string interpolation works by adding all strings from the most left up to the most right one
+    // First, create the string variable
+    auto it = interpol_node->string_content.begin();
+    llvm::Value *str_value = nullptr;
+    if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
+        llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+        const std::string lit_string = std::get<std::string>(std::get<std::unique_ptr<LiteralNode>>(*it)->value);
+        llvm::Value *lit_str = IR::generate_const_string(builder, parent, lit_string);
+        str_value = builder.CreateCall(init_str_fn, {lit_str, builder.getInt64(lit_string.length())}, "init_str_value");
+    } else {
+        // Currently only the first output of a group is supported in string interpolation, as there currently is no group printing yet
+        group_mapping res = generate_type_cast(builder, parent, scope, allocations, std::get<std::unique_ptr<TypeCastNode>>(*it).get());
+        if (!res.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        str_value = res.value().at(0);
+    }
+    ++it;
+
+    llvm::Function *add_str_lit = String::string_manip_functions.at("add_str_lit");
+    llvm::Function *add_str_str = String::string_manip_functions.at("add_str_str");
+    for (; it != interpol_node->string_content.end(); ++it) {
+        if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
+            const std::string lit_string = std::get<std::string>(std::get<std::unique_ptr<LiteralNode>>(*it)->value);
+            llvm::Value *lit_str = IR::generate_const_string(builder, parent, lit_string);
+            str_value = builder.CreateCall(add_str_lit, {str_value, lit_str, builder.getInt64(lit_string.length())});
+        } else {
+            group_mapping res = generate_type_cast(builder, parent, scope, allocations, std::get<std::unique_ptr<TypeCastNode>>(*it).get());
+            if (!res.has_value()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
+            str_value = builder.CreateCall(add_str_str, {str_value, res.value().at(0)});
+        }
+    }
+    return str_value;
 }
 
 Generator::group_mapping Generator::Expression::generate_call(        //

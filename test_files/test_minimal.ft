@@ -2,5 +2,5 @@ def add(i32 x, i32 y) -> i32:
     return x + y;
 
 def main():
-    str a = $"{add(1, 3)} = {add(1, 3)}";
+    str a = $"{add(1, 3)} = {add(1, 3)}\n";
     print(a);

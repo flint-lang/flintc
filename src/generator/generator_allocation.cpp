@@ -4,9 +4,7 @@
 #include "error/error_type.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
-#include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
-#include "parser/ast/statements/return_node.hpp"
 
 #include <string>
 
@@ -149,6 +147,9 @@ void Generator::Allocation::generate_declaration_allocations(         //
     CallNodeExpression *call_node_expr = nullptr;
     if (declaration_node->initializer.has_value()) {
         call_node_expr = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.value().get());
+        if (dynamic_cast<StringInterpolationNode *>(declaration_node->initializer.value().get())) {
+            generate_expression_allocations(builder, parent, scope, allocations, declaration_node->initializer.value().get());
+        }
     }
     if (call_node_expr != nullptr) {
         generate_call_allocations(builder, parent, scope, allocations, call_node_expr);
@@ -211,6 +212,13 @@ void Generator::Allocation::generate_expression_allocations(          //
         generate_expression_allocations(builder, parent, scope, allocations, type_cast->expr.get());
     } else if (const auto *unary_op = dynamic_cast<const UnaryOpExpression *>(expression)) {
         generate_expression_allocations(builder, parent, scope, allocations, unary_op->operand.get());
+    } else if (const auto *interpol = dynamic_cast<const StringInterpolationNode *>(expression)) {
+        for (const auto &val : interpol->string_content) {
+            if (std::holds_alternative<std::unique_ptr<TypeCastNode>>(val)) {
+                const ExpressionNode *expr = std::get<std::unique_ptr<TypeCastNode>>(val).get();
+                generate_expression_allocations(builder, parent, scope, allocations, expr);
+            }
+        }
     }
 }
 
