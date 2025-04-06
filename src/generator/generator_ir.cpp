@@ -172,3 +172,16 @@ llvm::Value *Generator::IR::generate_pow_instruction( //
 ) {
     return nullptr;
 }
+
+void Generator::IR::generate_debug_print( //
+    llvm::IRBuilder<> *builder,           //
+    llvm::Function *parent,               //
+    const std::string &message            //
+) {
+    if (!DEBUG_MODE) {
+        return;
+    }
+    llvm::Value *msg_str = generate_const_string(*builder, parent, "DEBUG: " + message);
+    llvm::Function *print_fn = print_functions.at("str");
+    builder->CreateCall(print_fn, {msg_str});
+}

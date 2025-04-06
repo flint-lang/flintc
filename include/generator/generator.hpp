@@ -372,6 +372,18 @@ class Generator {
             llvm::Value *lhs,                         //
             llvm::Value *rhs                          //
         );
+
+        /// @function `generate_debug_print`
+        /// @brief Generates a small call to print which prints the given message using printf
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the debug print will be generated in
+        /// @param `message` The message to print
+        static void generate_debug_print( //
+            llvm::IRBuilder<> *builder,   //
+            llvm::Function *parent,       //
+            const std::string &message    //
+        );
     }; // subclass IR
 
     /// @class `Builtin`
