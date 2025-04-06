@@ -222,12 +222,14 @@ class Parser {
     /// This map exists to ensure that in the expression (4 / 2.4) the left side will be implicitely cast to a float, and not the right side
     /// to an int
     static const inline std::unordered_map<std::string_view, unsigned int> type_precedence = {
-        {"f64", 5},
-        {"f32", 4},
-        {"i64", 3},
-        {"i32", 2},
-        {"u64", 1},
-        {"u32", 0},
+        {"str", 7},
+        {"f64", 6},
+        {"f32", 5},
+        {"i64", 4},
+        {"i32", 3},
+        {"u64", 2},
+        {"u32", 1},
+        {"bool", 0},
     };
 
     /// @var `parsed_calls`

@@ -2,6 +2,7 @@
 
 void Generator::TypeCast::generate_helper_functions(llvm::IRBuilder<> *builder, llvm::Module *module) {
     generate_count_digits_function(builder, module);
+    generate_bool_to_str(builder, module);
     generate_i32_to_str(builder, module);
     generate_u32_to_str(builder, module);
     generate_i64_to_str(builder, module);
@@ -92,6 +93,48 @@ void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *buil
 
     // Store the function for later use
     typecast_functions["count_digits"] = count_digits_fn;
+}
+
+void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // C IMPLEMENTATION:
+    // str *bool_to_str(const bool b_value) {
+    //     if (b_value) {
+    //         return init_str("true", 4);
+    //     } else {
+    //         return init_str("false", 5);
+    //     }
+    // }
+    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+
+    llvm::FunctionType *bool_to_str_type = llvm::FunctionType::get( //
+        str_type->getPointerTo(),                                   // Return type: str*
+        {llvm::Type::getInt1Ty(builder->getContext())},             // Argument: i1 b_value
+        false                                                       // No varargs
+    );
+    llvm::Function *bool_to_str_fn = llvm::Function::Create(bool_to_str_type, llvm::Function::ExternalLinkage, "bool_to_str", module);
+
+    llvm::Argument *arg_bvalue = bool_to_str_fn->arg_begin();
+    arg_bvalue->setName("b_value");
+
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", bool_to_str_fn);
+    llvm::BasicBlock *true_block = llvm::BasicBlock::Create(builder->getContext(), "true", bool_to_str_fn);
+    llvm::BasicBlock *false_block = llvm::BasicBlock::Create(builder->getContext(), "false", bool_to_str_fn);
+
+    builder->SetInsertPoint(entry_block);
+    builder->CreateCondBr(arg_bvalue, true_block, false_block);
+
+    builder->SetInsertPoint(true_block);
+    llvm::Value *true_string = IR::generate_const_string(*builder, bool_to_str_fn, "true");
+    llvm::Value *true_str = builder->CreateCall(init_str_fn, {true_string, builder->getInt64(4)}, "true_str");
+    builder->CreateRet(true_str);
+
+    builder->SetInsertPoint(false_block);
+    llvm::Value *false_string = IR::generate_const_string(*builder, bool_to_str_fn, "false");
+    llvm::Value *false_str = builder->CreateCall(init_str_fn, {false_string, builder->getInt64(5)}, "false_str");
+    builder->CreateRet(false_str);
+
+    typecast_functions["bool_to_str"] = bool_to_str_fn;
 }
 
 /******************************************************************************************************************************************

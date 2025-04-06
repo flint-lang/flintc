@@ -5,6 +5,9 @@ def main():
     print("test\n");
     print(val);
     print("\n");
-    str a = str(val) + "\n";
+    str a = str(val) + "\t" + false + "\n";
     print(a);
+    u32 c = true;
+    print(c);
+    print("\n");
     throw 10;

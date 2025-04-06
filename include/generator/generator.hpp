@@ -594,6 +594,7 @@ class Generator {
             {"u64_to_str", nullptr},
             {"f32_to_str", nullptr},
             {"f64_to_str", nullptr},
+            {"bool_to_str", nullptr},
         };
 
         /// @function `generate_helper_functions`
@@ -610,6 +611,13 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the function is generated in
         static void generate_count_digits_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_bool_to_str`
+        /// @brief Function to generate the `bool_to_str` typecast function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the function is generated in
+        static void generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /**************************************************************************************************************************************
          * @region `I32`

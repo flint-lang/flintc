@@ -666,6 +666,10 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         if (to_type == "f32") {
             return TypeCast::f64_to_f32(builder, expr);
         }
+    } else if (from_type == "bool") {
+        if (to_type == "str") {
+            return builder.CreateCall(TypeCast::typecast_functions.at("bool_to_str"), {expr}, "bool_to_str_res");
+        }
     }
     std::cout << "FROM_TYPE: " << from_type << ", TO_TYPE: " << to_type << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);
