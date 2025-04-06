@@ -26,12 +26,12 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     std::vector<std::tuple<std::string, std::string, bool>> parameters;
     std::vector<std::string> return_types;
     std::unique_ptr<Scope> scope;
-    FunctionNode function_node = FunctionNode(false, false, "main", parameters, return_types, scope);
+    FunctionNode function_node = FunctionNode(false, false, "_main", parameters, return_types, scope);
 
     // Create the declaration of the custom main function
     llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(&builder->getContext(), function_node.return_types);
     llvm::FunctionType *custom_main_type = Function::generate_function_type(module->getContext(), &function_node);
-    llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction("main", custom_main_type);
+    llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction(function_node.name, custom_main_type);
 
     llvm::FunctionType *main_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(module->getContext()),        // Return type: int
@@ -41,7 +41,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Function *main_function = llvm::Function::Create( //
         main_type,                                          //
         llvm::Function::ExternalLinkage,                    //
-        "_start",                                           //
+        "main",                                             //
         module                                              //
     );
 

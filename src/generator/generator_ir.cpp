@@ -60,7 +60,7 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
     for (const std::unique_ptr<ASTNode> &node : file_node.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             // Create a forward declaration for the function only if it is not the main function!
-            if (function_node->name != "main") {
+            if (function_node->name != "_main") {
                 llvm::FunctionType *function_type = Function::generate_function_type(module->getContext(), function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 file_function_mangle_ids.at(file_node.file_name).emplace(function_node->name, mangle_id++);

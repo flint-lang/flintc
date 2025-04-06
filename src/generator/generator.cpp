@@ -190,7 +190,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
         Builtin::generate_builtin_test(builder.get(), module.get());
     } else {
         // Connect the call from the main module to the actual main function declared by the user
-        llvm::Function *main_function = module->getFunction("main");
+        llvm::Function *main_function = module->getFunction("_main");
         if (main_function == nullptr) {
             // No main function defined
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -249,7 +249,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             // Create a forward declaration for the function only if it is not the main function!
-            if (function_node->name != "main") {
+            if (function_node->name != "_main") {
                 llvm::FunctionType *function_type = Function::generate_function_type(context, function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 function_mangle_ids[function_node->name] = mangle_id++;
@@ -264,7 +264,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
     // Iterate through all AST Nodes in the file and generate them accordingly (only functions for now!)
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
-            if (is_test && function_node->name == "main") {
+            if (is_test && function_node->name == "_main") {
                 continue;
             }
             Function::generate_function(module.get(), function_node);

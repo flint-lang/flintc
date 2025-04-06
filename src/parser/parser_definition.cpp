@@ -32,6 +32,15 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
+    // Check if the name is reserved
+    if (name == "_start" || name == "_main") {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // If its the main function, change its name
+    if (name == "main") {
+        name = "_main";
+    }
     // Skip the left paren
     tok_iterator++;
     // Parse the parameters only if there are any parameters

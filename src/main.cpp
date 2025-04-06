@@ -193,10 +193,13 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
         llvm::outs() << "-- Machine code generated: " << binary_file.string() << ".o\n\n";
     }
 
-    // Link the object file to create an executable
-    std::string link_command =
-        "ld " + binary_file.string() + ".o -o " + binary_file.string() + " -lc -dynamic-linker /lib64/ld-linux-x86-64.so.2 -e _start";
+    // Link the object file to create an executable using gcc to use the provided c runtime
+    std::string link_command = "gcc " + binary_file.string() + ".o -o " + binary_file.string() + " -lc";
     PROFILE_SCOPE("Creating the binary '" + binary_file.filename().string() + "'");
+
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Link command: " << DEFAULT << "\n" << link_command << "\n" << std::endl;
+    }
     int link_result = std::system(link_command.c_str());
     if (link_result != 0) {
         llvm::errs() << "Linking failed with command: " << link_command << "\n";
@@ -204,7 +207,9 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
     }
 
     // Remove the .o file
-    std::filesystem::remove(std::filesystem::path(binary_file.string() + ".o"));
+    if (!DEBUG_MODE) {
+        std::filesystem::remove(std::filesystem::path(binary_file.string() + ".o"));
+    }
 }
 
 int main(int argc, char *argv[]) {

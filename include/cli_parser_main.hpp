@@ -67,7 +67,7 @@ class CLIParserMain : public CLIParserBase {
                 parallel = true;
             } else if (starts_with(arg, "--compiler=")) {
                 // Erase the '--compiler=' part of the string
-                compile_command = arg.substr(11, arg.length() - 12);
+                compile_command = arg.substr(11, arg.length() - 11);
             } else {
                 print_err("Unknown argument: " + arg);
                 return 1;
