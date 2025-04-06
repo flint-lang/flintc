@@ -296,6 +296,20 @@ namespace Debug {
             std::cout << std::endl;
         }
 
+        void print_string_interpolation(unsigned int indent_lvl, uint2 empty, const StringInterpolationNode &interpol) {
+            Local::print_header(indent_lvl, empty, "Interpol ");
+            std::cout << std::endl;
+            indent_lvl++;
+            empty.second = indent_lvl + 1;
+            for (const auto &var : interpol.string_content) {
+                if (std::holds_alternative<std::unique_ptr<LiteralNode>>(var)) {
+                    print_literal(indent_lvl, empty, *std::get<std::unique_ptr<LiteralNode>>(var));
+                } else {
+                    print_type_cast(indent_lvl, empty, *std::get<std::unique_ptr<TypeCastNode>>(var));
+                }
+            }
+        }
+
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call) {
             Local::print_header(indent_lvl, empty, "Call ");
             std::cout << "'" << call.function_name << "(";
@@ -416,6 +430,8 @@ namespace Debug {
                 print_data_access(indent_lvl, empty, *data_access);
             } else if (const auto *grouped_access = dynamic_cast<const GroupedDataAccessNode *>(expr.get())) {
                 print_grouped_data_access(indent_lvl, empty, *grouped_access);
+            } else if (const auto *interpol = dynamic_cast<const StringInterpolationNode *>(expr.get())) {
+                print_string_interpolation(indent_lvl, empty, *interpol);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;

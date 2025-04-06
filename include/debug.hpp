@@ -21,6 +21,7 @@
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/string_interpolation_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
@@ -99,6 +100,7 @@ namespace Debug {
         void print_variable(unsigned int indent_lvl, uint2 empty, const VariableNode &var);
         void print_unary_op(unsigned int indent_lvl, uint2 empty, const UnaryOpBase &unary);
         void print_literal(unsigned int indent_lvl, uint2 empty, const LiteralNode &lit);
+        void print_string_interpolation(unsigned int indent_lvl, uint2 empty, const StringInterpolationNode &interpol);
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call);
         void print_binary_op(unsigned int indent_lvl, uint2 empty, const BinaryOpNode &bin);
         void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast);

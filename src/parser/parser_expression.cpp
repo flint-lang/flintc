@@ -371,6 +371,53 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
     return std::nullopt;
 }
 
+std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope *scope, const std::string &interpol_string) {
+    // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
+    std::vector<uint2> ranges = Signature::balanced_ranges_vec(interpol_string, "([^\\\\]|)\\{", "[^\\\\]\\}");
+    std::vector<std::variant<std::unique_ptr<TypeCastNode>, std::unique_ptr<LiteralNode>>> interpol_content;
+    // If the ranges are empty, the interpolation does not contain any groups
+    if (ranges.empty()) {
+        interpol_content.emplace_back(std::make_unique<LiteralNode>(interpol_string, "str"));
+        return StringInterpolationNode(interpol_content);
+    }
+    // First, add all the strings from the begin to the first ranges begin to the interpolation content
+    for (auto it = ranges.begin(); it != ranges.end(); ++it) {
+        if (it->second - it->first <= 1) {
+            // Empty expression
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (it == ranges.begin() && it->first > 0) {
+            // Add string thats present before the first { symbol
+            interpol_content.emplace_back(std::make_unique<LiteralNode>(interpol_string.substr(0, it->first + 1), "str"));
+        } else if (it != ranges.begin() && it->first - std::prev(it)->second > 1) {
+            // Add string in between } { symbols
+            interpol_content.emplace_back(                                                                           //
+                std::make_unique<LiteralNode>(                                                                       //
+                    interpol_string.substr(std::prev(it)->second + 2, it->first - std::prev(it)->second - 1), "str") //
+            );
+        }
+        Lexer lexer = (it->first == 0) ? Lexer("string_intepolation", interpol_string.substr(1, it->second))
+                                       : Lexer("string_interpolation", interpol_string.substr(it->first + 2, (it->second - it->first - 1)));
+        const token_list expr_tokens = lexer.scan();
+        std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expr_tokens);
+        if (!expr.has_value()) {
+            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
+            return std::nullopt;
+        }
+        // Cast every expression inside to a str type
+        interpol_content.emplace_back(std::make_unique<TypeCastNode>("str", expr.value()));
+        if (std::next(it) == ranges.end() && it->second + 2 < interpol_string.length()) {
+            // Add string after last } symbol
+            interpol_content.emplace_back(                                                                      //
+                std::make_unique<LiteralNode>(                                                                  //
+                    interpol_string.substr(it->second + 2, (interpol_string.length() - it->second - 1)), "str") //
+            );
+        }
+    }
+    return StringInterpolationNode(interpol_content);
+}
+
 std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>> //
 Parser::create_call_or_initializer_expression(Scope *scope, token_list &tokens) {
     remove_surrounding_paren(tokens);
@@ -590,6 +637,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
+        } else if (Signature::tokens_match(tokens, ESignature::STRING_INTERPOLATION)) {
+            assert(tokens.front().type == TOK_DOLLAR && tokens.back().type == TOK_STR_VALUE);
+            std::optional<StringInterpolationNode> interpol = create_string_interpolation(scope, tokens.back().lexme);
+            if (!interpol.has_value()) {
+                THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
+                return std::nullopt;
+            }
+            return std::make_unique<StringInterpolationNode>(std::move(interpol.value()));
         }
     }
 
@@ -627,7 +682,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
         return std::make_unique<TypeCastNode>(std::move(type_cast.value()));
     } else if (Signature::tokens_match(tokens, ESignature::UNARY_OP_EXPR)) {
-        // For it to be considered an unary operation, either right after the operator needs to come a paren group, or no other binop tokens
+        // For it to be considered an unary operation, either right after the operator needs to come a paren group, or no other binop
+        // tokens
         auto range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
         if (!Signature::tokens_contain(tokens, ESignature::BINARY_OPERATOR) ||
             (range.has_value() && range.value().second == tokens.size())) {
@@ -682,8 +738,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
         }
 
-        // Check if this is a operator and if no operator is to the left of this operator. If there is any operator to the left of this one,
-        // this means that this operator is an unary operator
+        // Check if this is a operator and if no operator is to the left of this operator. If there is any operator to the left of this
+        // one, this means that this operator is an unary operator
         if (token_precedence.find(tokens[i].type) != token_precedence.end() &&
             token_precedence.find(tokens[i - 1].type) == token_precedence.end()) {
             // Update smallest precedence if needed

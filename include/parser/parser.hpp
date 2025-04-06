@@ -19,17 +19,17 @@
 
 #include "ast/statements/assignment_node.hpp"
 #include "ast/statements/call_node_statement.hpp"
+#include "ast/statements/data_field_assignment_node.hpp"
 #include "ast/statements/declaration_node.hpp"
 #include "ast/statements/for_loop_node.hpp"
 #include "ast/statements/group_assignment_node.hpp"
 #include "ast/statements/group_declaration_node.hpp"
+#include "ast/statements/grouped_data_field_assignment_node.hpp"
 #include "ast/statements/if_node.hpp"
 #include "ast/statements/return_node.hpp"
 #include "ast/statements/statement_node.hpp"
+#include "ast/statements/unary_op_statement.hpp"
 #include "ast/statements/while_node.hpp"
-#include "parser/ast/statements/data_field_assignment_node.hpp"
-#include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
-#include "parser/ast/statements/unary_op_statement.hpp"
 
 #include "ast/expressions/binary_op_node.hpp"
 #include "ast/expressions/call_node_expression.hpp"
@@ -39,6 +39,7 @@
 #include "ast/expressions/grouped_data_access_node.hpp"
 #include "ast/expressions/initializer_node.hpp"
 #include "ast/expressions/literal_node.hpp"
+#include "ast/expressions/string_interpolation_node.hpp"
 #include "ast/expressions/type_cast_node.hpp"
 #include "ast/expressions/unary_op_expression.hpp"
 #include "ast/expressions/variable_node.hpp"
@@ -618,6 +619,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the literal
     /// @return `std::optional<LiteralNode>` An optional LiteralNode if creation is successful, nullopt otherwise
     std::optional<LiteralNode> create_literal(const token_list &tokens);
+
+    /// @functon `create_string_interpolation`
+    /// @brief Creates a StringInterpolationNode from the given tokens
+    ///
+    /// @param `scope` The scope the string interpolation takes place in
+    /// @param `interpol_string` The string from which the interpolation is created
+    /// @retun `std::optional<StringInterpolationNode>` An optional StringInterpolationNode if creation was successful, nullopt otherwise
+    std::optional<StringInterpolationNode> create_string_interpolation(Scope *scope, const std::string &interpol_string);
 
     /// @function `create_call_or_initializer_expression`
     /// @brief Creates a CallNodeExpression from the given tokens

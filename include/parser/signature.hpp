@@ -52,6 +52,7 @@ enum class ESignature {
 
     // Expressions
     EXPRESSION,
+    STRING_INTERPOLATION,
     GROUP_EXPRESSION,
     FUNCTION_CALL,
     TYPE_CAST,
@@ -124,6 +125,15 @@ class Signature {
     /// @param `dec` The decrement signature regex string
     /// @return `std::vector<uint2>` A list of all ranges from the balanced ranges
     static std::vector<uint2> balanced_range_extraction_vec(const token_list &tokens, const std::string &inc, const std::string &dec);
+
+    /// @function `balanced_ranges_vec`
+    /// @brief Returns a list of all balanced ranges in which the given increment and decrement is present inside the given string
+    ///
+    /// @param `src` The source string to search through
+    /// @param `inc` The increment signature regex string
+    /// @param `dec` The decrement signature regex string
+    /// @return `std::vector<uint2>` A list of all ranges from the balanced ranges
+    static std::vector<uint2> balanced_ranges_vec(const std::string &src, const std::string &inc, const std::string &dec);
 
     /// @function `match_until_signature`
     /// @brief Creates a new signature where all token matches until inclusive the given signature.
@@ -387,6 +397,7 @@ class Signature {
 
     // --- EXPRESSIONS ---
     static const inline signature expression = combine({{"("}, anytoken, {")*"}});
+    static const inline signature string_interpolation = {TOK_DOLLAR, TOK_STR_VALUE};
     static const inline signature group_expression = combine({{TOK_LEFT_PAREN}, expression, {TOK_COMMA}, expression, {TOK_RIGHT_PAREN}});
     static const inline signature function_call = combine({{TOK_IDENTIFIER, TOK_LEFT_PAREN, "("}, expression, {")?", TOK_RIGHT_PAREN}});
     static const inline signature type_cast = combine({type_prim, {TOK_LEFT_PAREN, "("}, expression, {")", TOK_RIGHT_PAREN}});
@@ -469,6 +480,7 @@ class Signature {
 
         // Expressions
         {ESignature::EXPRESSION, get_regex_string(expression)},
+        {ESignature::STRING_INTERPOLATION, get_regex_string(string_interpolation)},
         {ESignature::GROUP_EXPRESSION, get_regex_string(group_expression)},
         {ESignature::FUNCTION_CALL, get_regex_string(function_call)},
         {ESignature::TYPE_CAST, get_regex_string(type_cast)},

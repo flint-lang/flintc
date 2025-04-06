@@ -1,13 +1,6 @@
+def add(i32 x, i32 y) -> i32:
+    return x + y;
+
 def main():
-    f64 val = 2.353;
-    print("test1\n");
-    val = val + 1.221;
-    print("test\n");
-    print(val);
-    print("\n");
-    str a = str(val) + "\t" + false + "\n";
+    str a = $"{add(1, 3)} = {add(1, 3)}";
     print(a);
-    u32 c = true;
-    print(c);
-    print("\n");
-    throw 10;
