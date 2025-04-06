@@ -45,6 +45,7 @@ enum CFunction {
     FREE,
     MEMCPY,
     REALLOC,
+    SNPRINTF,
 };
 
 /// @typedef `type_list`

@@ -845,6 +845,283 @@ llvm::Value *Generator::TypeCast::f32_to_f64(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateFPExt(float_value, llvm::Type::getDoubleTy(builder.getContext()), "fpext");
 }
 
+void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // C IMPLEMENTATION:
+    // str *f32_to_str(const float f_value) {
+    //     // Handle special cases
+    //     if (f_value != f_value) {
+    //         return init_str("nan", 3); // NaN check
+    //     }
+    //
+    //     // Use a union for type punning (equivalent to bitcast in LLVM IR)
+    //     union {
+    //         float f;
+    //         uint32_t bits;
+    //     } u;
+    //     u.f = f_value;
+    //
+    //     // Infinity check
+    //     if ((u.bits & 0x7FFFFFFF) == 0x7F800000) {
+    //         return (u.bits & 0x80000000) ? init_str("-inf", 4) : init_str("inf", 3);
+    //     }
+    //
+    //     // For now, use a buffer large enough for any float representation
+    //     char buffer[32];
+    //     int len = 0;
+    //     const float f_pow = f_value * f_value;
+    //     if (f_pow < 1e-8f || f_pow > 1e12f) {
+    //         len = snprintf(buffer, sizeof(buffer), "%.6e", f_value);
+    //     } else {
+    //         len = snprintf(buffer, sizeof(buffer), "%.6f", f_value);
+    //     }
+    //
+    //     // Trim trailing zeros after decimal point
+    //     int last_non_zero = len - 1;
+    //     while (last_non_zero > 0 && buffer[last_non_zero] == '0') {
+    //         last_non_zero--;
+    //     }
+    //
+    //     // If we ended up at the decimal point, remove it too
+    //     if (buffer[last_non_zero] == '.') {
+    //         last_non_zero--;
+    //     }
+    //
+    //     return init_str(buffer, last_non_zero + 1);
+    // }
+    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *snprintf_fn = c_functions.at(SNPRINTF);
+
+    llvm::FunctionType *f32_to_str_type = llvm::FunctionType::get( //
+        str_type->getPointerTo(),                                  // Return type: str*
+        {llvm::Type::getFloatTy(builder->getContext())},           // Argument: f32 f_value
+        false                                                      // No varargs
+    );
+    llvm::Function *f32_to_str_fn = llvm::Function::Create(f32_to_str_type, llvm::Function::ExternalLinkage, "f32_to_str", module);
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", f32_to_str_fn);
+    llvm::BasicBlock *nan_block = llvm::BasicBlock::Create(builder->getContext(), "nan_case", f32_to_str_fn);
+    llvm::BasicBlock *nan_merge_block = llvm::BasicBlock::Create(builder->getContext(), "nan_merge", f32_to_str_fn);
+    llvm::BasicBlock *inf_block = llvm::BasicBlock::Create(builder->getContext(), "inf_case", f32_to_str_fn);
+    llvm::BasicBlock *inf_merge_block = llvm::BasicBlock::Create(builder->getContext(), "inf_merge", f32_to_str_fn);
+    llvm::BasicBlock *exponent_block = llvm::BasicBlock::Create(builder->getContext(), "exponent_case", f32_to_str_fn);
+    llvm::BasicBlock *no_exponent_block = llvm::BasicBlock::Create(builder->getContext(), "no_exponent_case", f32_to_str_fn);
+    llvm::BasicBlock *exponent_merge_block = llvm::BasicBlock::Create(builder->getContext(), "exponent_merge", f32_to_str_fn);
+    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(builder->getContext(), "loop", f32_to_str_fn);
+    llvm::BasicBlock *check_char_block = llvm::BasicBlock::Create(builder->getContext(), "check_char", f32_to_str_fn);
+    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(builder->getContext(), "loop_body", f32_to_str_fn);
+    llvm::BasicBlock *loop_merge_block = llvm::BasicBlock::Create(builder->getContext(), "loop_merge", f32_to_str_fn);
+    llvm::BasicBlock *decimal_case_block = llvm::BasicBlock::Create(builder->getContext(), "decimal_case", f32_to_str_fn);
+    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(builder->getContext(), "return", f32_to_str_fn);
+
+    // Set insert point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Get the function parameter
+    llvm::Argument *arg_fvalue = f32_to_str_fn->arg_begin();
+    arg_fvalue->setName("f_value");
+
+    llvm::Value *is_nan_condition = builder->CreateFCmpUNE(arg_fvalue, arg_fvalue, "is_nan_cmp");
+    builder->CreateCondBr(is_nan_condition, nan_block, nan_merge_block);
+
+    // The nan_block
+    {
+        builder->SetInsertPoint(nan_block);
+        llvm::Value *nan_str = IR::generate_const_string(*builder, f32_to_str_fn, "nan");
+        llvm::Value *nan_str_value = builder->CreateCall(                                        //
+            init_str_fn,                                                                         //
+            {nan_str, llvm::ConstantInt::get(llvm::Type::getInt64Ty(builder->getContext()), 3)}, //
+            "nan_str_value"                                                                      //
+        );
+        builder->CreateRet(nan_str_value);
+    }
+
+    // The nan_merge_block
+    builder->SetInsertPoint(nan_merge_block);
+    // First get all the bit values of the floating point number through bitcasting
+    llvm::Value *bits = builder->CreateBitCast(arg_fvalue, builder->getInt32Ty(), "bits");
+
+    // Create the bitmask constants
+    llvm::Value *abs_mask = builder->getInt32(0x7FFFFFFF);    // Mask to clear the sign bit
+    llvm::Value *inf_pattern = builder->getInt32(0x7F800000); // Bit pattern for infinity
+    llvm::Value *sign_mask = builder->getInt32(0x80000000);   // Mask to extract the sign bit
+
+    // Perform bitwise operations
+    llvm::Value *abs_bits = builder->CreateAnd(bits, abs_mask, "abs_bits");       // bits & 0x7FFFFFFF
+    llvm::Value *is_inf = builder->CreateICmpEQ(abs_bits, inf_pattern, "is_inf"); // (bits & 0x7FFFFFFF) == 0x7F800000
+    builder->CreateCondBr(is_inf, inf_block, inf_merge_block);
+
+    // The inf_block
+    {
+        builder->SetInsertPoint(inf_block);
+        // Check if negative infinity
+        llvm::Value *sign_bit = builder->CreateAnd(bits, sign_mask, "sign_bit"); // bits & 0x80000000
+        llvm::Value *is_neg_inf = builder->CreateICmpNE(sign_bit, builder->getInt32(0), "is_neg_inf");
+
+        // Create the two possible strings and select based on sign
+        llvm::Value *neg_inf_str = IR::generate_const_string(*builder, f32_to_str_fn, "-inf");
+        llvm::Value *pos_inf_str = IR::generate_const_string(*builder, f32_to_str_fn, "inf");
+
+        // Create string for negative infinity
+        llvm::Value *neg_inf_value = builder->CreateCall(init_str_fn, {neg_inf_str, builder->getInt64(4)}, "neg_inf_value");
+
+        // Create string for positive infinity
+        llvm::Value *pos_inf_value = builder->CreateCall(init_str_fn, {pos_inf_str, builder->getInt64(3)}, "pos_inf_value");
+
+        // Select the appropriate string based on sign
+        llvm::Value *inf_result = builder->CreateSelect(is_neg_inf, neg_inf_value, pos_inf_value, "inf_result");
+        builder->CreateRet(inf_result);
+    }
+
+    // The inf_merge_block
+    builder->SetInsertPoint(inf_merge_block);
+    // First, create the char buffer[32]
+    llvm::AllocaInst *buffer = builder->CreateAlloca(   //
+        llvm::ArrayType::get(builder->getInt8Ty(), 32), // Type: [32 x i8]
+        nullptr,                                        // No array size (it's fixed)
+        "buffer"                                        //
+    );
+    buffer->setAlignment(llvm::Align(8));
+    llvm::Value *buffer_ptr = builder->CreateBitCast(buffer, builder->getInt8Ty()->getPointerTo(), "buffer_ptr");
+    // Create the len variable
+    llvm::AllocaInst *len_var = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "len_var");
+    llvm::Value *f_pow = builder->CreateFMul(arg_fvalue, arg_fvalue, "f_pow");
+    llvm::Constant *min_pow = llvm::ConstantFP::get(builder->getFloatTy(), static_cast<double>(1.0e-8f));
+    llvm::Constant *max_pow = llvm::ConstantFP::get(builder->getFloatTy(), static_cast<double>(1.0e12f));
+    llvm::Value *is_too_small = builder->CreateFCmpOLT(f_pow, min_pow, "is_too_small");
+    llvm::Value *is_too_large = builder->CreateFCmpOGT(f_pow, max_pow, "is_too_large");
+    llvm::Value *exponent_condition = builder->CreateOr(is_too_small, is_too_large, "exponent_condition");
+    builder->CreateCondBr(exponent_condition, exponent_block, no_exponent_block);
+
+    // The exponent_block
+    {
+        builder->SetInsertPoint(exponent_block);
+        llvm::Value *snprintf_format = IR::generate_const_string(*builder, f32_to_str_fn, "%.6e");
+        llvm::Value *f_value_as_d = f32_to_f64(*builder, arg_fvalue);
+        llvm::CallInst *snprintf_ret = builder->CreateCall(snprintf_fn,
+            {
+                buffer_ptr,                                        //
+                llvm::ConstantInt::get(builder->getInt64Ty(), 32), //
+                snprintf_format,                                   //
+                f_value_as_d                                       //
+            },                                                     //
+            "snprintf_ret_e"                                       //
+        );
+        builder->CreateStore(snprintf_ret, len_var);
+        builder->CreateBr(exponent_merge_block);
+    }
+    // The no_exponent_block
+    {
+        builder->SetInsertPoint(no_exponent_block);
+        llvm::Value *snprintf_format = IR::generate_const_string(*builder, f32_to_str_fn, "%.6f");
+        llvm::Value *f_value_as_d = f32_to_f64(*builder, arg_fvalue);
+        llvm::Value *snprintf_ret = builder->CreateCall(snprintf_fn,
+            {
+                buffer_ptr,                                        //
+                llvm::ConstantInt::get(builder->getInt64Ty(), 32), //
+                snprintf_format,                                   //
+                f_value_as_d                                       //
+            },                                                     //
+            "snprintf_ret_f"                                       //
+        );
+        builder->CreateStore(snprintf_ret, len_var);
+        builder->CreateBr(exponent_merge_block);
+    }
+
+    // The exponent_merge_block
+    builder->SetInsertPoint(exponent_merge_block);
+    llvm::Value *last_non_zero = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "last_non_zero");
+    llvm::Value *len_value = builder->CreateLoad(builder->getInt32Ty(), len_var, "len_val");
+    llvm::Value *len_minus_1 = builder->CreateSub(len_value, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "len_m_1");
+    builder->CreateStore(len_minus_1, last_non_zero);
+    builder->CreateBr(loop_block);
+
+    // The loop_block
+    builder->SetInsertPoint(loop_block);
+    // Load current value of last_non_zero
+    llvm::Value *last_zero_val = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "last_zero_val");
+    // Check if last_non_zero > 0
+    llvm::Value *is_valid_index = builder->CreateICmpSGT( //
+        last_zero_val,                                    //
+        llvm::ConstantInt::get(builder->getInt32Ty(), 0), //
+        "is_valid_index"                                  //
+    );
+    builder->CreateCondBr(is_valid_index, check_char_block, loop_merge_block);
+
+    // The check_char_block
+    {
+        builder->SetInsertPoint(check_char_block);
+        // Get pointer to buffer[last_non_zero]
+        llvm::Value *cur_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, last_zero_val, "cur_char_ptr");
+        // Load the current character
+        llvm::Value *cur_char = builder->CreateLoad(builder->getInt8Ty(), cur_char_ptr, "cur_char");
+        // Check if the current character is '0'
+        llvm::Value *is_zero = builder->CreateICmpEQ(cur_char, llvm::ConstantInt::get(builder->getInt8Ty(), '0'), "is_zero");
+        // Combine conditions: should continue if index > 0 && char == '0'
+        llvm::Value *should_continue = builder->CreateAnd(is_valid_index, is_zero, "should_continue");
+        // Branch to loop body or merge
+        builder->CreateCondBr(should_continue, loop_body_block, loop_merge_block);
+    }
+
+    // The loop_body_block
+    {
+        builder->SetInsertPoint(loop_body_block);
+        // Decrement last_non_zero
+        last_zero_val = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "last_zero_val");
+        llvm::Value *new_last_zero = builder->CreateSub(last_zero_val, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "new_last_zero");
+        builder->CreateStore(new_last_zero, last_non_zero);
+        // Jump back to loop condition
+        builder->CreateBr(loop_block);
+    }
+
+    // The loop_merge_block
+    {
+        builder->SetInsertPoint(loop_merge_block);
+        // Load final value of last_non_zero
+        llvm::Value *final_last_zero = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "final_last_zero");
+        // Get pointer to buffer[last_non_zero]
+        llvm::Value *last_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, final_last_zero, "last_char_ptr");
+        // Load the character
+        llvm::Value *last_char = builder->CreateLoad(builder->getInt8Ty(), last_char_ptr, "last_char");
+        // Check if the character is '.'
+        llvm::Value *is_dot = builder->CreateICmpEQ(last_char, llvm::ConstantInt::get(builder->getInt8Ty(), '.'), "is_dot");
+        // Branch based on whether the character is a decimal point
+        builder->CreateCondBr(is_dot, decimal_case_block, return_block);
+    }
+
+    // The decimal_case_block - handle case where we need to remove decimal point
+    {
+        builder->SetInsertPoint(decimal_case_block);
+        // Decrement last_non_zero one more time
+        llvm::Value *decimal_last_zero = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "decimal_last_zero");
+        llvm::Value *adjusted_last_zero = builder->CreateSub( //
+            decimal_last_zero,                                //
+            llvm::ConstantInt::get(builder->getInt32Ty(), 1), //
+            "adjusted_last_zero"                              //
+        );
+        builder->CreateStore(adjusted_last_zero, last_non_zero);
+        // Branch to return block
+        builder->CreateBr(return_block);
+    }
+
+    // The return_block
+    {
+        builder->SetInsertPoint(return_block);
+        // Calculate final length: last_non_zero + 1
+        llvm::Value *final_last_zero = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "final_last_zero");
+        llvm::Value *final_len = builder->CreateAdd(final_last_zero, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "final_len");
+        // Convert to i64 for init_str
+        llvm::Value *final_len_i64 = builder->CreateZExt(final_len, builder->getInt64Ty(), "final_len_i64");
+        // Call init_str with buffer and calculated length
+        llvm::Value *result = builder->CreateCall(init_str_fn, {buffer_ptr, final_len_i64}, "result");
+        // Return the string
+        builder->CreateRet(result);
+    }
+
+    typecast_functions["f32_to_str"] = f32_to_str_fn;
+}
+
 /******************************************************************************************************************************************
  * @region `F64`
  *****************************************************************************************************************************************/

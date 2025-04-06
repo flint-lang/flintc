@@ -159,6 +159,20 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *realloc_fn = llvm::Function::Create(realloc_type, llvm::Function::ExternalLinkage, "realloc", module);
         c_functions[REALLOC] = realloc_fn;
     }
+    // snprintf
+    {
+        llvm::FunctionType *snprintf_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(module->getContext()),            // Return type: i32
+            {
+                llvm::Type::getInt8Ty(module->getContext())->getPointerTo(), // Argument: char* (buffer)
+                llvm::Type::getInt64Ty(module->getContext()),                // Argument: u64 (max_len)
+                llvm::Type::getInt8Ty(module->getContext())->getPointerTo()  // Argument: char* (format)
+            },                                                               //
+            true                                                             // Varargs
+        );
+        llvm::Function *snprintf_fn = llvm::Function::Create(snprintf_type, llvm::Function::ExternalLinkage, "snprintf", module);
+        c_functions[SNPRINTF] = snprintf_fn;
+    }
 }
 
 void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module) {

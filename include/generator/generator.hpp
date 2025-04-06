@@ -135,6 +135,7 @@ class Generator {
         {CFunction::FREE, nullptr},
         {CFunction::MEMCPY, nullptr},
         {CFunction::REALLOC, nullptr},
+        {CFunction::SNPRINTF, nullptr},
     };
 
     /// @var `print_functions`
@@ -591,6 +592,7 @@ class Generator {
             {"u32_to_str", nullptr},
             {"i64_to_str", nullptr},
             {"u64_to_str", nullptr},
+            {"f32_to_str", nullptr},
         };
 
         /// @function `generate_helper_functions`
@@ -855,6 +857,13 @@ class Generator {
         /// @param `float_value` The f32 value to convert
         /// @return `llvm::Value *` The converted f64 value
         static llvm::Value *f32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *float_value);
+
+        /// @function `generate_f32_to_str`
+        /// @brief Generates the `f32_to_str` function which is used to convert f32 values to str values
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module in which the function is generated in
+        static void generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /**************************************************************************************************************************************
          * @region `F64`
