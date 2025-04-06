@@ -103,8 +103,9 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type_from_str(llvm::LLVMContext
             case TOK_U64:
                 return {llvm::Type::getInt64Ty(context), false};
             case TOK_F32:
-            case TOK_F64:
                 return {llvm::Type::getFloatTy(context), false};
+            case TOK_F64:
+                return {llvm::Type::getDoubleTy(context), false};
             case TOK_FLINT:
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return {nullptr, false};
