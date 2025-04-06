@@ -58,7 +58,10 @@ void Generator::Statement::generate_body(                            //
     for (const auto &statement : scope->body) {
         generate_statement(builder, parent, scope, allocations, statement);
     }
-    generate_end_of_scope(builder, scope, allocations);
+    // Only generate end of scope if the last statement was not a return statement
+    if (!dynamic_cast<const ReturnNode *>(scope->body.back().get()) && !dynamic_cast<const ThrowNode *>(scope->body.back().get())) {
+        generate_end_of_scope(builder, scope, allocations);
+    }
 }
 
 void Generator::Statement::generate_end_of_scope(                    //
@@ -130,6 +133,13 @@ void Generator::Statement::generate_return_statement(                 //
         }
     }
 
+    // Clean up the function's scope before returning
+    const Scope *main_scope = scope;
+    while (scope->parent_scope != nullptr) {
+        scope = scope->parent_scope;
+    }
+    generate_end_of_scope(builder, main_scope, allocations);
+
     // Generate the return instruction with the evaluated value
     llvm::LoadInst *return_struct_val = builder.CreateLoad(return_struct_type, return_struct, "ret_val");
     return_struct_val->setMetadata("comment",
@@ -162,6 +172,13 @@ void Generator::Statement::generate_throw_statement(                  //
         Expression::generate_expression(builder, parent, scope, allocations, throw_node->throw_value.get()).value().at(0);
     // Store the error value in the struct
     builder.CreateStore(err_value, error_ptr);
+
+    // Clean up the function's scope before throwing an error
+    const Scope *main_scope = scope;
+    while (scope->parent_scope != nullptr) {
+        scope = scope->parent_scope;
+    }
+    generate_end_of_scope(builder, main_scope, allocations);
 
     // Generate the throw (return) instruction with the evaluated value
     llvm::LoadInst *throw_struct_val = builder.CreateLoad(throw_struct_type, throw_struct, "throw_val");
