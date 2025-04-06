@@ -312,11 +312,11 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
             }
             case TOK_FLINT_VALUE: {
                 if (front_token == TOK_MINUS) {
-                    std::variant<int, double, std::string, bool, char> value = std::stof(tok->lexme) * -1;
-                    return LiteralNode(value, "f32");
+                    std::variant<int, double, std::string, bool, char> value = std::stod(tok->lexme) * -1;
+                    return LiteralNode(value, "f64");
                 } else {
-                    std::variant<int, double, std::string, bool, char> value = std::stof(tok->lexme);
-                    return LiteralNode(value, "f32");
+                    std::variant<int, double, std::string, bool, char> value = std::stod(tok->lexme);
+                    return LiteralNode(value, "f64");
                 }
             }
             case TOK_STR_VALUE: {
