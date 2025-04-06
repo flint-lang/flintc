@@ -68,10 +68,10 @@ llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder,
             std::get<int>(literal_node->value)            //
         );
     }
-    if (std::holds_alternative<float>(literal_node->value)) {
-        return llvm::ConstantFP::get(                                 //
-            llvm::Type::getFloatTy(parent->getContext()),             //
-            static_cast<double>(std::get<float>(literal_node->value)) //
+    if (std::holds_alternative<double>(literal_node->value)) {
+        return llvm::ConstantFP::get(                      //
+            llvm::Type::getDoubleTy(parent->getContext()), //
+            std::get<double>(literal_node->value)          //
         );
     }
     if (std::holds_alternative<std::string>(literal_node->value)) {
@@ -80,9 +80,9 @@ llvm::Value *Generator::Expression::generate_literal(llvm::IRBuilder<> &builder,
         return IR::generate_const_string(builder, parent, str);
     }
     if (std::holds_alternative<bool>(literal_node->value)) {
-        return llvm::ConstantInt::get(                                 //
-            llvm::Type::getInt1Ty(parent->getContext()),               //
-            static_cast<uint64_t>(std::get<bool>(literal_node->value)) //
+        return llvm::ConstantInt::get(                             //
+            llvm::Type::getInt1Ty(parent->getContext()),           //
+            static_cast<char>(std::get<bool>(literal_node->value)) //
         );
     }
     if (std::holds_alternative<char>(literal_node->value)) {
