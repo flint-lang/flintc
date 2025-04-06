@@ -389,13 +389,14 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
         }
         if (it == ranges.begin() && it->first > 0) {
             // Add string thats present before the first { symbol
-            interpol_content.emplace_back(std::make_unique<LiteralNode>(interpol_string.substr(0, it->first + 1), "str"));
+            std::optional<LiteralNode> lit = create_literal({{TOK_STR_VALUE, interpol_string.substr(0, it->first + 1), 0, 0}});
+            interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         } else if (it != ranges.begin() && it->first - std::prev(it)->second > 1) {
             // Add string in between } { symbols
-            interpol_content.emplace_back(                                                                           //
-                std::make_unique<LiteralNode>(                                                                       //
-                    interpol_string.substr(std::prev(it)->second + 2, it->first - std::prev(it)->second - 1), "str") //
+            std::optional<LiteralNode> lit = create_literal(                                                                      //
+                {{TOK_STR_VALUE, interpol_string.substr(std::prev(it)->second + 2, it->first - std::prev(it)->second - 1), 0, 0}} //
             );
+            interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
         Lexer lexer = (it->first == 0) ? Lexer("string_intepolation", interpol_string.substr(1, it->second))
                                        : Lexer("string_interpolation", interpol_string.substr(it->first + 2, (it->second - it->first - 1)));
@@ -409,10 +410,10 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
         interpol_content.emplace_back(std::make_unique<TypeCastNode>("str", expr.value()));
         if (std::next(it) == ranges.end() && it->second + 2 < interpol_string.length()) {
             // Add string after last } symbol
-            interpol_content.emplace_back(                                                                      //
-                std::make_unique<LiteralNode>(                                                                  //
-                    interpol_string.substr(it->second + 2, (interpol_string.length() - it->second - 1)), "str") //
+            std::optional<LiteralNode> lit = create_literal(                                                                 //
+                {{TOK_STR_VALUE, interpol_string.substr(it->second + 2, (interpol_string.length() - it->second - 1)), 0, 0}} //
             );
+            interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
     }
     return StringInterpolationNode(interpol_content);
