@@ -5,6 +5,6 @@ def main():
     print("test\n");
     print(val);
     print("\n");
-    str a = str(f32(val)) + "\n";
+    str a = str(val) + "\n";
     print(a);
     throw 10;
