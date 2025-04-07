@@ -2,9 +2,17 @@
 
 #include "error/error.hpp"
 #include "error/error_type.hpp"
+#include "globals.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/parser.hpp"
+
+bool PRINT_TOK_STREAM = true;
+bool PRINT_DEP_TREE = true;
+bool PRINT_AST = true;
+bool PRINT_IR = true;
+bool PRINT_PROFILE_RESULTS = true;
+bool HARD_CRASH = false;
 
 #include <cassert>
 #include <cmath>

@@ -1,7 +1,7 @@
 #include "cli_parser_main.hpp"
 #include "debug.hpp"
-#include "error/error.hpp"
 #include "generator/generator.hpp"
+#include "globals.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/parser.hpp"
 #include "profiler.hpp"
@@ -98,7 +98,9 @@ std::optional<std::unique_ptr<llvm::Module>> generate_module( //
         std::cerr << "Error: Failed to create dependency graph" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    Debug::Dep::print_dep_tree(0, dep_graph.value());
+    if (PRINT_DEP_TREE) {
+        Debug::Dep::print_dep_tree(0, dep_graph.value());
+    }
     bool parsed_successful = Parser::parse_all_open_functions(parse_parallel);
     if (!parsed_successful) {
         return std::nullopt;
@@ -110,7 +112,9 @@ std::optional<std::unique_ptr<llvm::Module>> generate_module( //
         }
     }
     Parser::clear_instances();
-    Debug::AST::print_all_files();
+    if (PRINT_AST) {
+        Debug::AST::print_all_files();
+    }
 
     // Generate the whole program
     return Generator::generate_program_ir(is_test ? "test" : "main", context, dep_graph.value(), is_test);
@@ -241,7 +245,9 @@ int main(int argc, char *argv[]) {
 
     Resolver::clear();
     Profiler::end_task("ALL");
-    Profiler::print_results(Profiler::TimeUnit::MICS);
+    if (PRINT_PROFILE_RESULTS) {
+        Profiler::print_results(Profiler::TimeUnit::MICS);
+    }
     program.value()->dropAllReferences();
     program.value().reset();
 

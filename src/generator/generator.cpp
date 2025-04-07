@@ -2,6 +2,7 @@
 
 #include "error/error.hpp"
 #include "error/error_type.hpp"
+#include "globals.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/parser.hpp"
@@ -198,7 +199,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
         main_call_array[0]->getCalledOperandUse().set(main_function);
     }
 
-    if (DEBUG_MODE) {
+    if (DEBUG_MODE && PRINT_IR) {
         std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program\n"
                   << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
     }

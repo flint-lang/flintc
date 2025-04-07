@@ -2,6 +2,7 @@
 
 #include "debug.hpp"
 #include "error/error.hpp"
+#include "globals.hpp"
 #include "lexer/lexer.hpp"
 #include "parallel.hpp"
 #include "profiler.hpp"
@@ -36,7 +37,9 @@ std::optional<FileNode> Parser::parse() {
     PROFILE_SCOPE("Parse file '" + file_name + "'");
     FileNode file_node(file_name);
     token_list tokens = Lexer(file).scan();
-    Debug::print_token_context_vector(tokens, file_name);
+    if (PRINT_TOK_STREAM) {
+        Debug::print_token_context_vector(tokens, file_name);
+    }
     // Consume all tokens and convert them to nodes
     bool had_failure = false;
     while (!tokens.empty()) {

@@ -1,12 +1,7 @@
 #pragma once
 
-#ifdef DEBUG_BUILD
-constexpr inline bool DEBUG_MODE = true;
-#else
-constexpr inline bool DEBUG_MODE = false;
-#endif
-
 #include "error_type.hpp"
+#include "globals.hpp"
 
 // All error types are included here to make using the error header file easier
 #include "error_types/base_error.hpp"
@@ -83,7 +78,9 @@ inline void throw_err(ErrorType error_type, const char *file = __FILE__, const i
     std::cerr << "Custom Error: " << std::to_string(static_cast<int>(error_type));
     if (DEBUG_MODE) {
         std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
-        assert(false); // Hard crash in debug mode
+    }
+    if (HARD_CRASH) {
+        assert(false);
     }
     std::cerr << std::endl;
 }
@@ -112,7 +109,9 @@ throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
     std::cerr << error.to_string();
     if (DEBUG_MODE) {
         std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
-        assert(false); // Hard crash in debug mode
+    }
+    if (HARD_CRASH) {
+        assert(false);
     }
     std::cerr << "\n" << std::endl;
 }
