@@ -2,6 +2,7 @@ use "test_data.ft"
 use "test_error.ft"
 use "test_loops.ft"
 use "test_str.ft"
+use "subdir/test_subdir.ft"
 use "test_tests.ft"
 
 def main():
@@ -9,3 +10,4 @@ def main():
 	test_error();
 	test_loops();
 	test_str();
+	assert(test_subdir(1, 2) == 3);
