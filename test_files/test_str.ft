@@ -8,7 +8,4 @@ def test_str():
     for i32 i = 0; i < 5; i++:
         for i32 j = 0; j < 5; j++:
             i32 res = add(i, j);
-            if res == 5:
-                print(add_str(res, " == 5\n"));
-            else:
-                print($"{res} != 5\n");
+            print(add_str(str(res), $" == 5 -> {res == 5}\n"));
