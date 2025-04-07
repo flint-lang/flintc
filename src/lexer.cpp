@@ -37,6 +37,11 @@ token_list Lexer::scan() {
         scan_token();
     }
 
+    // Special case for when lexing string interpolation expressions: If the token list only contains one entry, early return
+    if (tokens.size() == 1) {
+        return tokens;
+    }
+
     // Remove all empty lines
     bool is_empty_line = true;
     unsigned int line_start_idx = 0;
