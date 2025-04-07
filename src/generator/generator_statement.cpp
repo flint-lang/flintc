@@ -77,6 +77,10 @@ void Generator::Statement::generate_end_of_scope(                    //
         if (std::get<0>(var_info) != "str") {
             continue;
         }
+        // Check if the variable is a function parameter, if it is, dont free it
+        if (std::get<3>(var_info)) {
+            continue;
+        }
         // Get the allocation of the variable
         const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
         llvm::Value *const alloca = allocations.at(alloca_name);
@@ -409,7 +413,8 @@ void Generator::Statement::generate_for_loop(                         //
     // Create then condition block (for the else if blocks)
     for_blocks[0] = llvm::BasicBlock::Create(builder.getContext(), "for_cond", parent);
     for_blocks[1] = llvm::BasicBlock::Create(builder.getContext(), "for_body", parent);
-    for_blocks[2] = llvm::BasicBlock::Create(builder.getContext(), "merge", parent);
+    // Create the merge block but don't add it to the parent function yet
+    for_blocks[2] = llvm::BasicBlock::Create(builder.getContext(), "merge");
 
     // Create the branch instruction in the predecessor block to point to the for_cond block
     builder.SetInsertPoint(pred_block);
@@ -442,6 +447,9 @@ void Generator::Statement::generate_for_loop(                         //
         // Point back to the condition block to create the loop
         builder.CreateBr(for_blocks[0]);
     }
+
+    // Now add the merge block to the end of the function
+    for_blocks[2]->insertInto(parent);
 
     // Finally set the builder to the merge block again
     builder.SetInsertPoint(for_blocks[2]);

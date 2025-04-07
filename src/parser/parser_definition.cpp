@@ -115,7 +115,7 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
-        if (!body_scope->add_variable(std::get<1>(param), std::get<0>(param), body_scope->scope_id, std::get<2>(param))) {
+        if (!body_scope->add_variable(std::get<1>(param), std::get<0>(param), body_scope->scope_id, std::get<2>(param), true)) {
             // Variable already exists in the func definition list
             THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_name, 0, 0, std::get<1>(param));
             return std::nullopt;

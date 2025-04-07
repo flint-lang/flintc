@@ -326,7 +326,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     if (err_var.has_value()) {
-        body_scope->add_variable(err_var.value(), "i32", body_scope->scope_id, false);
+        body_scope->add_variable(err_var.value(), "i32", body_scope->scope_id, false, false);
     }
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {
@@ -472,7 +472,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
     assert(variables.size() == types.size());
     for (unsigned int i = 0; i < variables.size(); i++) {
         variables.at(i).first = types.at(i);
-        if (!scope->add_variable(variables.at(i).second, types.at(i), scope->scope_id, true)) {
+        if (!scope->add_variable(variables.at(i).second, types.at(i), scope->scope_id, true, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, variables.at(i).second);
             return std::nullopt;
@@ -515,7 +515,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                 break;
             }
         }
-        if (!scope->add_variable(name, type, scope->scope_id, true)) {
+        if (!scope->add_variable(name, type, scope->scope_id, true, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.at(0).line, lhs_tokens.at(0).column, name);
             return std::nullopt;
@@ -546,7 +546,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                 break;
             }
         }
-        if (!scope->add_variable(name, std::get<std::string>(expr.value()->type), scope->scope_id, true)) {
+        if (!scope->add_variable(name, std::get<std::string>(expr.value()->type), scope->scope_id, true, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;
@@ -564,7 +564,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                 break;
             }
         }
-        if (!scope->add_variable(name, type, scope->scope_id, true)) {
+        if (!scope->add_variable(name, type, scope->scope_id, true, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;

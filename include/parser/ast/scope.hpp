@@ -47,7 +47,7 @@ class Scope {
     /// @return `bool` Whether the cloning was successful
     bool clone_variables(const Scope *other) {
         for (const auto &[name, type_scope] : other->variables) {
-            if (!add_variable(name, std::get<0>(type_scope), std::get<1>(type_scope), std::get<2>(type_scope))) {
+            if (!add_variable(name, std::get<0>(type_scope), std::get<1>(type_scope), std::get<2>(type_scope), std::get<3>(type_scope))) {
                 // Duplicate definition / shadowing
                 return false;
             }
@@ -62,9 +62,10 @@ class Scope {
     /// @param `type` The type of the added variable
     /// @param `sid` The id of the scope the variable is declared in
     /// @param `is_mutable` Whether the variable is mutable
+    /// @param `is_param` Whether the variable is a function parameter
     /// @return `bool` Whether insertion of the variable type was successful. If not, this means a variable is shadowed
-    bool add_variable(const std::string &var, const std::string &type, const unsigned int sid, const bool is_mutable) {
-        return variables.insert({var, {type, sid, is_mutable}}).second;
+    bool add_variable(const std::string &var, const std::string &type, const unsigned int sid, const bool is_mutable, const bool is_param) {
+        return variables.insert({var, {type, sid, is_mutable, is_param}}).second;
     }
 
     /// @function `get_variable_type`
@@ -84,7 +85,7 @@ class Scope {
     /// for easy handling for variables when they go out of scope
     ///
     /// @return `std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool>>` The variable map thats unique to this scope
-    std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool>> get_unique_variables() const {
+    std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool, bool>> get_unique_variables() const {
         if (parent_scope == nullptr) {
             return variables;
         }
@@ -114,7 +115,8 @@ class Scope {
     ///         1. the type of the variable
     ///         2. the scope it was declared in
     ///         3. if the variable is mutable
-    std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool>> variables;
+    ///         4. if the variable is a parameter of the function
+    std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool, bool>> variables;
 
   private:
     /// @function `get_next_scope_id`
