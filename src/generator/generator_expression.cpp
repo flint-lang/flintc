@@ -78,10 +78,10 @@ llvm::Value *Generator::Expression::generate_literal(                           
             std::get<int>(literal_node->value)            //
         );
     }
-    if (std::holds_alternative<double>(literal_node->value)) {
-        return llvm::ConstantFP::get(                      //
-            llvm::Type::getDoubleTy(parent->getContext()), //
-            std::get<double>(literal_node->value)          //
+    if (std::holds_alternative<float>(literal_node->value)) {
+        return llvm::ConstantFP::get(                                 //
+            llvm::Type::getFloatTy(parent->getContext()),             //
+            static_cast<double>(std::get<float>(literal_node->value)) //
         );
     }
     if (std::holds_alternative<std::string>(literal_node->value)) {

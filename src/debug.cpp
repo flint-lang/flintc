@@ -260,8 +260,8 @@ namespace Debug {
             std::cout << std::get<std::string>(lit.type) << ": ";
             if (std::holds_alternative<int>(lit.value)) {
                 std::cout << std::get<int>(lit.value);
-            } else if (std::holds_alternative<double>(lit.value)) {
-                std::cout << std::get<double>(lit.value);
+            } else if (std::holds_alternative<float>(lit.value)) {
+                std::cout << std::get<float>(lit.value);
             } else if (std::holds_alternative<bool>(lit.value)) {
                 std::cout << (std::get<bool>(lit.value) ? "true" : "false");
             } else if (std::holds_alternative<std::string>(lit.value)) {
