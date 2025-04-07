@@ -109,6 +109,89 @@ void Generator::String::generate_init_str_function(llvm::IRBuilder<> *builder, l
     string_manip_functions["init_str"] = init_str_fn;
 }
 
+void Generator::String::generate_compare_str_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // THE C IMPLEMENTATION:
+    // int32_t compare_str(const str *lhs, const str *rhs) {
+    //     if (lhs->len < rhs->len) {
+    //         return -1;
+    //     } else if (lhs->len > rhs->len) {
+    //         return 1;
+    //     }
+    //     return memcmp(lhs->value, rhs->value, lhs->len);
+    // }
+    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Function *memcmp_fn = c_functions.at(MEMCMP);
+
+    llvm::FunctionType *compare_str_type = llvm::FunctionType::get( //
+        builder->getInt32Ty(),                                      // Return type: i32
+        {
+            str_type->getPointerTo(), // Argument: str* (lhs)
+            str_type->getPointerTo()  // Argument: str* (rhs)
+        },                            //
+        false                         // No varargs
+    );
+    llvm::Function *compare_str_fn = llvm::Function::Create(compare_str_type, llvm::Function::ExternalLinkage, "compare_str", module);
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", compare_str_fn);
+    llvm::BasicBlock *lhs_lt_rhs_block = llvm::BasicBlock::Create(builder->getContext(), "lhs_lt_rhs", compare_str_fn);
+    llvm::BasicBlock *lhs_not_lt_rhs_block = llvm::BasicBlock::Create(builder->getContext(), "lhs_not_lt_rhs", compare_str_fn);
+    llvm::BasicBlock *lhs_gt_rhs_block = llvm::BasicBlock::Create(builder->getContext(), "lhs_gt_rhs", compare_str_fn);
+    llvm::BasicBlock *lhs_eq_rhs_block = llvm::BasicBlock::Create(builder->getContext(), "lhs_eq_rhs", compare_str_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Get the lhs argument
+    llvm::Argument *arg_lhs = compare_str_fn->arg_begin();
+    arg_lhs->setName("lhs");
+
+    // Get the rhs argument
+    llvm::Argument *arg_rhs = compare_str_fn->arg_begin() + 1;
+    arg_rhs->setName("rhs");
+
+    // Get length of lhs: lhs->len
+    llvm::Value *lhs_len_ptr = builder->CreateStructGEP(str_type, arg_lhs, 0, "lhs_len_ptr");
+    llvm::Value *lhs_len = builder->CreateLoad(builder->getInt64Ty(), lhs_len_ptr, "lhs_len");
+
+    // Get length of rhs: rhs->len
+    llvm::Value *rhs_len_ptr = builder->CreateStructGEP(str_type, arg_rhs, 0, "rhs_len_ptr");
+    llvm::Value *rhs_len = builder->CreateLoad(builder->getInt64Ty(), rhs_len_ptr, "rhs_len");
+
+    // Compare lengths: lhs->len < rhs->len
+    llvm::Value *len_lt_cond = builder->CreateICmpULT(lhs_len, rhs_len, "len_lt_cond");
+    builder->CreateCondBr(len_lt_cond, lhs_lt_rhs_block, lhs_not_lt_rhs_block);
+
+    // If lhs->len < rhs->len, return -1
+    builder->SetInsertPoint(lhs_lt_rhs_block);
+    builder->CreateRet(builder->getInt32(-1));
+
+    // If lhs->len >= rhs->len, check if lhs->len > rhs->len
+    builder->SetInsertPoint(lhs_not_lt_rhs_block);
+    llvm::Value *len_gt_cond = builder->CreateICmpUGT(lhs_len, rhs_len, "len_gt_cond");
+    builder->CreateCondBr(len_gt_cond, lhs_gt_rhs_block, lhs_eq_rhs_block);
+
+    // If lhs->len > rhs->len, return 1
+    builder->SetInsertPoint(lhs_gt_rhs_block);
+    builder->CreateRet(builder->getInt32(1));
+
+    // If lengths are equal, compare the contents using memcmp
+    builder->SetInsertPoint(lhs_eq_rhs_block);
+
+    // Get lhs->value
+    llvm::Value *lhs_value = builder->CreateStructGEP(str_type, arg_lhs, 1, "lhs_value_ptr");
+
+    // Get rhs->value
+    llvm::Value *rhs_value = builder->CreateStructGEP(str_type, arg_rhs, 1, "rhs_value_ptr");
+
+    // Call memcmp
+    llvm::Value *memcmp_result = builder->CreateCall(memcmp_fn, {lhs_value, rhs_value, lhs_len}, "memcmp_result");
+
+    // Return the memcmp result
+    builder->CreateRet(memcmp_result);
+
+    // Store the function for later use
+    string_manip_functions["compare_str"] = compare_str_fn;
+}
+
 void Generator::String::generate_assign_str_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // THE C IMPLEMENTATION:
     // void assign_str(str **string, str *value) {
@@ -469,6 +552,7 @@ void Generator::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder
 void Generator::String::generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module) {
     generate_create_str_function(builder, module);
     generate_init_str_function(builder, module);
+    generate_compare_str_function(builder, module);
     generate_assign_str_function(builder, module);
     generate_assign_lit_function(builder, module);
     generate_add_str_str_function(builder, module);

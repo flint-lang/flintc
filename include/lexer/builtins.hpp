@@ -46,6 +46,7 @@ enum CFunction {
     MEMCPY,
     REALLOC,
     SNPRINTF,
+    MEMCMP,
 };
 
 /// @typedef `type_list`

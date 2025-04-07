@@ -173,6 +173,20 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *snprintf_fn = llvm::Function::Create(snprintf_type, llvm::Function::ExternalLinkage, "snprintf", module);
         c_functions[SNPRINTF] = snprintf_fn;
     }
+    // memcmp
+    {
+        llvm::FunctionType *memcmp_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(module->getContext()),          //
+            {
+                llvm::Type::getVoidTy(module->getContext())->getPointerTo(), // Argument: void* (memory address 1)
+                llvm::Type::getVoidTy(module->getContext())->getPointerTo(), // Argument: void* (memory address 2)
+                llvm::Type::getInt64Ty(module->getContext())                 // Argument: u64 (size to compare)
+            },                                                               //
+            false                                                            // No varargs
+        );
+        llvm::Function *memcmp_fn = llvm::Function::Create(memcmp_type, llvm::Function::ExternalLinkage, "memcmp", module);
+        c_functions[MEMCMP] = memcmp_fn;
+    }
 }
 
 void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module) {

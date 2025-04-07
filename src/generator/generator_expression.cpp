@@ -913,6 +913,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                 } else if (type == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
+                } else if (type == "str") {
+                    return_value.emplace_back(Logical::generate_string_cmp_lt(                            //
+                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
+                    );
                 } else {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -928,6 +932,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                 } else if (type == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
+                } else if (type == "str") {
+                    return_value.emplace_back(Logical::generate_string_cmp_gt(                            //
+                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
+                    );
                 } else {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -943,6 +951,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                 } else if (type == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
+                } else if (type == "str") {
+                    return_value.emplace_back(Logical::generate_string_cmp_le(                            //
+                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
+                    );
                 } else {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -958,6 +970,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                 } else if (type == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
+                } else if (type == "str") {
+                    return_value.emplace_back(Logical::generate_string_cmp_ge(                            //
+                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
+                    );
                 } else {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -973,6 +989,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                 } else if (type == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
+                } else if (type == "str") {
+                    return_value.emplace_back(Logical::generate_string_cmp_eq(                            //
+                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
+                    );
                 } else {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -988,6 +1008,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                 } else if (type == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
+                } else if (type == "str") {
+                    return_value.emplace_back(Logical::generate_string_cmp_neq(                           //
+                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
+                    );
                 } else {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;

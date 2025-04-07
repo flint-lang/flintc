@@ -137,6 +137,7 @@ class Generator {
         {CFunction::MEMCPY, nullptr},
         {CFunction::REALLOC, nullptr},
         {CFunction::SNPRINTF, nullptr},
+        {CFunction::MEMCMP, nullptr},
     };
 
     /// @var `print_functions`
@@ -568,6 +569,108 @@ class Generator {
         /// @param `value_to_negate` The value which is inverted
         /// @return `llvm::Value *` The inverted value
         static llvm::Value *generate_not(llvm::IRBuilder<> &builder, llvm::Value *value_to_negate);
+
+        /// @function `generate_string_cmp_lt`
+        /// @brief Generates the less than comparison between two strings
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The LLVM value of the left hand side to generate the string comparison from
+        /// @param `lhs_expr` The lhs expression to check if its a literal
+        /// @param `rhs` The LLVM value of the right hand side to generate the stirng comparison from
+        /// @param `rhs_expr` The rhs expression to check if its a literal
+        /// @return `llvm::Value *` The result of the string comparison
+        static llvm::Value *generate_string_cmp_lt( //
+            llvm::IRBuilder<> &builder,             //
+            llvm::Value *lhs,                       //
+            const ExpressionNode *lhs_expr,         //
+            llvm::Value *rhs,                       //
+            const ExpressionNode *rhs_expr          //
+        );
+
+        /// @function `generate_string_cmp_gt`
+        /// @brief Generates the greater than comparison between two strings
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The LLVM value of the left hand side to generate the string comparison from
+        /// @param `lhs_expr` The lhs expression to check if its a literal
+        /// @param `rhs` The LLVM value of the right hand side to generate the stirng comparison from
+        /// @param `rhs_expr` The rhs expression to check if its a literal
+        /// @return `llvm::Value *` The result of the string comparison
+        static llvm::Value *generate_string_cmp_gt( //
+            llvm::IRBuilder<> &builder,             //
+            llvm::Value *lhs,                       //
+            const ExpressionNode *lhs_expr,         //
+            llvm::Value *rhs,                       //
+            const ExpressionNode *rhs_expr          //
+        );
+
+        /// @function `generate_string_cmp_le`
+        /// @brief Generates the less equal comparison between two strings
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The LLVM value of the left hand side to generate the string comparison from
+        /// @param `lhs_expr` The lhs expression to check if its a literal
+        /// @param `rhs` The LLVM value of the right hand side to generate the stirng comparison from
+        /// @param `rhs_expr` The rhs expression to check if its a literal
+        /// @return `llvm::Value *` The result of the string comparison
+        static llvm::Value *generate_string_cmp_le( //
+            llvm::IRBuilder<> &builder,             //
+            llvm::Value *lhs,                       //
+            const ExpressionNode *lhs_expr,         //
+            llvm::Value *rhs,                       //
+            const ExpressionNode *rhs_expr          //
+        );
+
+        /// @function `generate_string_cmp_ge`
+        /// @brief Generates the greater equal comparison between two strings
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The LLVM value of the left hand side to generate the string comparison from
+        /// @param `lhs_expr` The lhs expression to check if its a literal
+        /// @param `rhs` The LLVM value of the right hand side to generate the stirng comparison from
+        /// @param `rhs_expr` The rhs expression to check if its a literal
+        /// @return `llvm::Value *` The result of the string comparison
+        static llvm::Value *generate_string_cmp_ge( //
+            llvm::IRBuilder<> &builder,             //
+            llvm::Value *lhs,                       //
+            const ExpressionNode *lhs_expr,         //
+            llvm::Value *rhs,                       //
+            const ExpressionNode *rhs_expr          //
+        );
+
+        /// @function `generate_string_cmp_eq`
+        /// @brief Generates the equal comparison between two strings
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The LLVM value of the left hand side to generate the string comparison from
+        /// @param `lhs_expr` The lhs expression to check if its a literal
+        /// @param `rhs` The LLVM value of the right hand side to generate the stirng comparison from
+        /// @param `rhs_expr` The rhs expression to check if its a literal
+        /// @return `llvm::Value *` The result of the string comparison
+        static llvm::Value *generate_string_cmp_eq( //
+            llvm::IRBuilder<> &builder,             //
+            llvm::Value *lhs,                       //
+            const ExpressionNode *lhs_expr,         //
+            llvm::Value *rhs,                       //
+            const ExpressionNode *rhs_expr          //
+        );
+
+        /// @function `generate_string_cmp_neq`
+        /// @brief Generates the not equal comparison between two strings
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `lhs` The LLVM value of the left hand side to generate the string comparison from
+        /// @param `lhs_expr` The lhs expression to check if its a literal
+        /// @param `rhs` The LLVM value of the right hand side to generate the stirng comparison from
+        /// @param `rhs_expr` The rhs expression to check if its a literal
+        /// @return `llvm::Value *` The result of the string comparison
+        static llvm::Value *generate_string_cmp_neq( //
+            llvm::IRBuilder<> &builder,              //
+            llvm::Value *lhs,                        //
+            const ExpressionNode *lhs_expr,          //
+            llvm::Value *rhs,                        //
+            const ExpressionNode *rhs_expr           //
+        );
     };
 
     /// @class `TypeCast`
@@ -1703,6 +1806,13 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `init_str` function will be generated in
         static void generate_init_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_compare_str_function`
+        /// @brief Generates the builtin `compare_str` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `compare_str` function will be generated in
+        static void generate_compare_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /// @function `generate_assign_str_function`
         /// @brief Generates the builtin hidden `assign_str` function
