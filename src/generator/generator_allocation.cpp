@@ -147,7 +147,7 @@ void Generator::Allocation::generate_declaration_allocations(         //
     CallNodeExpression *call_node_expr = nullptr;
     if (declaration_node->initializer.has_value()) {
         call_node_expr = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.value().get());
-        if (dynamic_cast<StringInterpolationNode *>(declaration_node->initializer.value().get())) {
+        if (call_node_expr == nullptr) {
             generate_expression_allocations(builder, parent, scope, allocations, declaration_node->initializer.value().get());
         }
     }
