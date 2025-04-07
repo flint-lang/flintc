@@ -23,3 +23,4 @@ def test_str():
     assert("4" >= "3");
     assert("a" != "b");
     assert(add_str("A", "B") == "AB");
+    assert($"{add(4, 5)}" == "9");
