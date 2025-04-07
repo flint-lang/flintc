@@ -311,7 +311,7 @@ void Lexer::number() {
 
 void Lexer::str() {
     start = current + 1;
-    while (peek_next() != '"' && !is_at_end()) {
+    while ((peek_next() != '"' || (peek() == '\\' && peek_next() == '"')) && !is_at_end()) {
         if (peek() == '\n') {
             line++;
             column = 0;
@@ -383,6 +383,11 @@ char Lexer::advance(bool increment_column) {
 
 void Lexer::add_token(Token token) {
     std::string lexme = source.substr(start, current - start + 1);
+    size_t pos = 0;
+    while ((pos = lexme.find("\\\"", pos)) != std::string::npos) {
+        lexme.replace(pos, 2, "\"");
+        pos += 2;
+    }
     add_token(token, lexme);
 }
 
