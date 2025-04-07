@@ -224,7 +224,12 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        args.emplace_back(expression.value().at(0));
+        llvm::Value *expr_val = expression.value().at(0);
+        if (call_node->function_name != "print" && std::holds_alternative<std::string>(arg.first->type) &&
+            std::get<std::string>(arg.first->type) == "str") {
+            expr_val = String::generate_string_declaration(builder, expr_val, arg.first.get());
+        }
+        args.emplace_back(expr_val);
     }
 
     // Check if it is a builtin function and call it
@@ -272,7 +277,8 @@ Generator::group_mapping Generator::Expression::generate_call(        //
     }
     llvm::Function *func_decl = func_decl_res.value();
     if (func_decl == nullptr) {
-        // Is a builtin function, but the code block above should have been executed in that case, because we are here, something went wrong
+        // Is a builtin function, but the code block above should have been executed in that case, because we are here, something went
+        // wrong
         THROW_BASIC_ERR(ERR_GENERATING);
         return std::nullopt;
     }
