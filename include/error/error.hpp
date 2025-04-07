@@ -71,6 +71,7 @@ constexpr inline bool DEBUG_MODE = false;
 #include "error_types/parsing/variables/err_var_not_declared.hpp"
 #include "error_types/parsing/variables/err_var_redefinition.hpp"
 
+#include <cassert>
 #include <iostream>
 #include <string>
 #include <type_traits>
@@ -82,6 +83,7 @@ inline void throw_err(ErrorType error_type, const char *file = __FILE__, const i
     std::cerr << "Custom Error: " << std::to_string(static_cast<int>(error_type));
     if (DEBUG_MODE) {
         std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
+        assert(false); // Hard crash in debug mode
     }
     std::cerr << std::endl;
 }
@@ -110,6 +112,7 @@ throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
     std::cerr << error.to_string();
     if (DEBUG_MODE) {
         std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
+        assert(false); // Hard crash in debug mode
     }
     std::cerr << "\n" << std::endl;
 }
