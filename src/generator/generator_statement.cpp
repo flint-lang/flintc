@@ -676,7 +676,10 @@ void Generator::Statement::generate_assignment(                       //
     llvm::Value *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
     if (assignment_node->type == "str") {
-        String::generate_string_assignment(builder, lhs, assignment_node, expression);
+        // Only generate the string assignment if its not a shorthand
+        if (!assignment_node->is_shorthand) {
+            String::generate_string_assignment(builder, lhs, assignment_node, expression);
+        }
         return;
     } else {
         llvm::StoreInst *store = builder.CreateStore(expression, lhs);

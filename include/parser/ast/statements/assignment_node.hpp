@@ -11,14 +11,16 @@
 /// @brief Represents assignment statements
 class AssignmentNode : public StatementNode {
   public:
-    AssignmentNode(                                 //
-        const std::string &type,                    //
-        const std::string &name,                    //
-        std::unique_ptr<ExpressionNode> &expression //
+    AssignmentNode(                                  //
+        const std::string &type,                     //
+        const std::string &name,                     //
+        std::unique_ptr<ExpressionNode> &expression, //
+        const bool is_shorthand = false              //
         ) :
         type(type),
         name(name),
-        expression(std::move(expression)) {}
+        expression(std::move(expression)),
+        is_shorthand(is_shorthand) {}
 
     // constructor
     AssignmentNode() = default;
@@ -42,4 +44,8 @@ class AssignmentNode : public StatementNode {
     /// @var `expression`
     /// @brief The expression to assign
     std::unique_ptr<ExpressionNode> expression;
+
+    /// @var `is_shorthand`
+    /// @brief Whether this is a shorthand assignment
+    bool is_shorthand;
 };

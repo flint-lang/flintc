@@ -8,7 +8,6 @@ void Generator::String::generate_create_str_function(llvm::IRBuilder<> *builder,
     // str *create_str(const size_t len) {
     //     str *string = (str *)malloc(sizeof(str) + len);
     //     string->len = len;
-    //     string->value = (char *)(string + 1);
     //     return string;
     // }
     llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
@@ -249,7 +248,6 @@ void Generator::String::generate_assign_lit_function(llvm::IRBuilder<> *builder,
     //     str *new_string = (str *)realloc(*string, sizeof(str) + len);
     //     *string = new_string;
     //     new_string->len = len;
-    //     new_string->value = (char *)(new_string + 1);
     //     memcpy(new_string->value, value, len);
     // }
     llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
@@ -317,6 +315,166 @@ void Generator::String::generate_assign_lit_function(llvm::IRBuilder<> *builder,
 
     // Store the function for later use
     string_manip_functions["assign_lit"] = assign_lit_fn;
+}
+
+void Generator::String::generate_append_str_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // THE C IMPLEMENTATION:
+    // void append_str(str **dest, const str *source) {
+    //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source->len);
+    //     *dest = new_dest;
+    //     memcpy(new_dest->value + new_dest->len, source->value, source->len);
+    //     new_dest->len += source->len;
+    // }
+    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Function *realloc_fn = c_functions.at(REALLOC);
+    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+
+    llvm::FunctionType *append_str_type = llvm::FunctionType::get( //
+        builder->getVoidTy(),                                      // Return Type: void
+        {
+            str_type->getPointerTo()->getPointerTo(), // Argument: str** dest
+            str_type->getPointerTo()                  // Argument: str* source
+        },                                            //
+        false                                         // No varargs
+    );
+    llvm::Function *append_str_fn = llvm::Function::Create(append_str_type, llvm::Function::ExternalLinkage, "append_str", module);
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", append_str_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Get the dest argument
+    llvm::Argument *arg_dest = append_str_fn->arg_begin();
+    arg_dest->setName("dest");
+
+    // Get the source argument
+    llvm::Argument *arg_source = append_str_fn->arg_begin() + 1;
+    arg_source->setName("source");
+
+    // Load the destination string pointer: str* old_dest = *dest
+    llvm::Value *old_dest_ptr = builder->CreateLoad(str_type->getPointerTo(), arg_dest, "old_dest_ptr");
+
+    // Load the destination string length: size_t dest_len = old_dest->len
+    llvm::Value *dest_len_ptr = builder->CreateStructGEP(str_type, old_dest_ptr, 0, "dest_len_ptr");
+    llvm::Value *dest_len = builder->CreateLoad(builder->getInt64Ty(), dest_len_ptr, "dest_len");
+
+    // Load the source string length: size_t source_len = source->len
+    llvm::Value *source_len_ptr = builder->CreateStructGEP(str_type, arg_source, 0, "source_len_ptr");
+    llvm::Value *source_len = builder->CreateLoad(builder->getInt64Ty(), source_len_ptr, "source_len");
+
+    // Calculate new size: sizeof(str) + dest_len + source_len
+    llvm::DataLayout data_layout(module);
+    uint64_t str_size = data_layout.getTypeAllocSize(str_type);
+    llvm::Value *combined_len = builder->CreateAdd(dest_len, source_len, "combined_len");
+    llvm::Value *new_size = builder->CreateAdd(builder->getInt64(str_size), combined_len, "new_size");
+
+    // Call realloc: str* new_dest = realloc(old_dest, new_size)
+    llvm::Value *new_dest_ptr = builder->CreateCall(realloc_fn, {old_dest_ptr, new_size}, "new_dest_ptr");
+
+    // Store the new dest pointer back: *dest = new_dest
+    builder->CreateStore(new_dest_ptr, arg_dest);
+
+    // Get pointer to the value field
+    llvm::Value *value_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 1, "value_ptr");
+
+    // Calculate the offset in the destination where to append: new_dest->value + dest_len
+    llvm::Value *append_pos = builder->CreateGEP(builder->getInt8Ty(), value_ptr, dest_len, "append_pos");
+
+    // Get the source data pointer: source->value
+    llvm::Value *source_value_ptr = builder->CreateStructGEP(str_type, arg_source, 1, "source_value_ptr");
+    llvm::Value *source_data = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), source_value_ptr, "source_data");
+
+    // Call memcpy to append the source string: memcpy(new_dest->value + dest_len, source->value, source_len)
+    builder->CreateCall(memcpy_fn, {append_pos, source_data, source_len}, "memcpy_result");
+
+    // Update the length of the destination string: new_dest->len += source_len
+    llvm::Value *new_len = builder->CreateAdd(dest_len, source_len, "new_len");
+    llvm::Value *new_dest_len_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 0, "new_dest_len_ptr");
+    builder->CreateStore(new_len, new_dest_len_ptr);
+
+    // Return void
+    builder->CreateRetVoid();
+
+    // Store the function for later use
+    string_manip_functions["append_str"] = append_str_fn;
+}
+
+void Generator::String::generate_append_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // THE C IMPLEMENTATION:
+    // void append_lit(str **dest, const char *source, const size_t source_len) {
+    //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source_len);
+    //     *dest = new_dest;
+    //     memcpy(new_dest->value + new_dest->len, source, source_len);
+    //     new_dest->len += source_len;
+    // }
+    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Function *realloc_fn = c_functions.at(REALLOC);
+    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+
+    llvm::FunctionType *append_lit_type = llvm::FunctionType::get( //
+        builder->getVoidTy(),                                      // Return Type: void
+        {
+            str_type->getPointerTo()->getPointerTo(),                    // Argument: str** dest
+            llvm::Type::getInt8Ty(module->getContext())->getPointerTo(), // Argument: char* source
+            llvm::Type::getInt64Ty(module->getContext())                 // Argument: size_t source_len
+        },                                                               //
+        false                                                            // No varargs
+    );
+
+    llvm::Function *append_lit_fn = llvm::Function::Create(append_lit_type, llvm::Function::ExternalLinkage, "append_lit", module);
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", append_lit_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Get the arguments
+    llvm::Argument *arg_dest = append_lit_fn->arg_begin();
+    arg_dest->setName("dest");
+
+    llvm::Argument *arg_source = append_lit_fn->arg_begin() + 1;
+    arg_source->setName("source");
+
+    llvm::Argument *arg_source_len = append_lit_fn->arg_begin() + 2;
+    arg_source_len->setName("source_len");
+
+    // Load the destination string pointer: str* old_dest = *dest
+    llvm::Value *old_dest_ptr = builder->CreateLoad(str_type->getPointerTo(), arg_dest, "old_dest_ptr");
+
+    // Load the destination string length: size_t dest_len = old_dest->len
+    llvm::Value *dest_len_ptr = builder->CreateStructGEP(str_type, old_dest_ptr, 0, "dest_len_ptr");
+    llvm::Value *dest_len = builder->CreateLoad(builder->getInt64Ty(), dest_len_ptr, "dest_len");
+
+    // Calculate new size: sizeof(str) + dest_len + source_len
+    llvm::DataLayout data_layout(module);
+    uint64_t str_size = data_layout.getTypeAllocSize(str_type);
+    llvm::Value *combined_len = builder->CreateAdd(dest_len, arg_source_len, "combined_len");
+    llvm::Value *new_size = builder->CreateAdd(builder->getInt64(str_size), combined_len, "new_size");
+
+    // Call realloc: str* new_dest = realloc(old_dest, new_size)
+    llvm::Value *new_dest_ptr = builder->CreateCall(realloc_fn, {old_dest_ptr, new_size}, "new_dest_ptr");
+
+    // Store the new dest pointer back: *dest = new_dest
+    builder->CreateStore(new_dest_ptr, arg_dest);
+
+    // Get pointer to the value field: new_dest->value
+    llvm::Value *value_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 1, "value_ptr");
+
+    // Calculate the offset in the destination where to append: new_dest->value + dest_len
+    llvm::Value *append_pos = builder->CreateGEP(builder->getInt8Ty(), value_ptr, dest_len, "append_pos");
+
+    // Call memcpy to append the source string: memcpy(new_dest->value + dest_len, source, source_len)
+    builder->CreateCall(memcpy_fn, {append_pos, arg_source, arg_source_len}, "memcpy_result");
+
+    // Update the length of the destination string: new_dest->len += source_len
+    llvm::Value *new_len = builder->CreateAdd(dest_len, arg_source_len, "new_len");
+    llvm::Value *new_dest_len_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 0, "new_dest_len_ptr");
+    builder->CreateStore(new_len, new_dest_len_ptr);
+
+    // Return void
+    builder->CreateRetVoid();
+
+    // Store the function for later use
+    string_manip_functions["append_lit"] = append_lit_fn;
 }
 
 void Generator::String::generate_add_str_str_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -555,6 +713,8 @@ void Generator::String::generate_string_manip_functions(llvm::IRBuilder<> *build
     generate_compare_str_function(builder, module);
     generate_assign_str_function(builder, module);
     generate_assign_lit_function(builder, module);
+    generate_append_str_function(builder, module);
+    generate_append_lit_function(builder, module);
     generate_add_str_str_function(builder, module);
     generate_add_str_lit_function(builder, module);
     generate_add_lit_str_function(builder, module);
@@ -617,28 +777,57 @@ void Generator::String::generate_string_assignment( //
     }
 }
 
-llvm::Value *Generator::String::generate_string_addition( //
-    llvm::IRBuilder<> &builder,                           //
-    llvm::Value *lhs,                                     //
-    const ExpressionNode *lhs_expr,                       //
-    llvm::Value *rhs,                                     //
-    const ExpressionNode *rhs_expr                        //
+llvm::Value *Generator::String::generate_string_addition(                   //
+    llvm::IRBuilder<> &builder,                                             //
+    const Scope *scope,                                                     //
+    const std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    llvm::Value *lhs,                                                       //
+    const ExpressionNode *lhs_expr,                                         //
+    llvm::Value *rhs,                                                       //
+    const ExpressionNode *rhs_expr,                                         //
+    const bool is_append                                                    //
 ) {
     // It highly depends on whether the lhs and / or the rhs are string literals or variables
     const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr);
     const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr);
     if (lhs_lit == nullptr && rhs_lit == nullptr) {
         // Both sides are variables
-        llvm::Function *add_str_str_fn = string_manip_functions.at("add_str_str");
-        return builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
+        if (is_append) {
+            llvm::Function *append_str_fn = string_manip_functions.at("append_str");
+            const VariableNode *str_var = dynamic_cast<const VariableNode *>(lhs_expr);
+            if (str_var == nullptr) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
+            const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(str_var->name));
+            llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + str_var->name);
+            builder.CreateCall(append_str_fn, {variable_alloca, rhs});
+            return lhs;
+        } else {
+            llvm::Function *add_str_str_fn = string_manip_functions.at("add_str_str");
+            return builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
+        }
     } else if (lhs_lit == nullptr && rhs_lit != nullptr) {
         // Only rhs is literal
-        llvm::Function *add_str_lit_fn = string_manip_functions.at("add_str_lit");
-        llvm::Value *rhs_len = llvm::ConstantInt::get(     //
-            llvm::Type::getInt64Ty(builder.getContext()),  //
-            std::get<std::string>(rhs_lit->value).length() //
-        );
-        return builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
+        if (is_append) {
+            llvm::Function *append_lit_fn = string_manip_functions.at("append_lit");
+            const VariableNode *str_var = dynamic_cast<const VariableNode *>(lhs_expr);
+            if (str_var == nullptr) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
+            const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(str_var->name));
+            llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + str_var->name);
+            builder.CreateCall(append_lit_fn, {variable_alloca, rhs, builder.getInt64(std::get<std::string>(rhs_lit->value).length())});
+            return lhs;
+        } else {
+            llvm::Function *add_str_lit_fn = string_manip_functions.at("add_str_lit");
+            llvm::Value *rhs_len = llvm::ConstantInt::get(     //
+                llvm::Type::getInt64Ty(builder.getContext()),  //
+                std::get<std::string>(rhs_lit->value).length() //
+            );
+            return builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
+        }
     } else if (lhs != nullptr && rhs_lit == nullptr) {
         // Only lhs is literal
         llvm::Function *add_lit_str_fn = string_manip_functions.at("add_lit_str");

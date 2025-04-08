@@ -15,12 +15,12 @@ class BinaryOpNode : public ExpressionNode {
         std::unique_ptr<ExpressionNode> &left,                           //
         std::unique_ptr<ExpressionNode> &right,                          //
         const std::variant<std::string, std::vector<std::string>> &type, //
-        bool is_append = false                                           //
+        bool is_shorthand = false                                        //
         ) :
         operator_token(operator_token),
         left(std::move(left)),
         right(std::move(right)),
-        is_append(is_append) {
+        is_shorthand(is_shorthand) {
         this->type = type;
     }
 
@@ -47,7 +47,7 @@ class BinaryOpNode : public ExpressionNode {
     /// @brief The rhs of the binary operation
     std::unique_ptr<ExpressionNode> right;
 
-    /// @var `is_append`
-    /// @brief Whether this binary operation is an append operation on the lhs (for += operations for example)
-    bool is_append;
+    /// @var `is_shorthand`
+    /// @brief Whether this binary operation is a shorthand operation on the lhs (for += operations for example)
+    bool is_shorthand;
 };

@@ -344,7 +344,7 @@ namespace Debug {
         void print_binary_op(unsigned int indent_lvl, uint2 empty, const BinaryOpNode &bin) {
             Local::print_header(indent_lvl, empty, "BinOp ");
             std::cout << get_token_name(bin.operator_token);
-            if (bin.is_append) {
+            if (bin.is_shorthand) {
                 std::cout << " [append]";
             }
             std::cout << std::endl;
@@ -573,7 +573,11 @@ namespace Debug {
 
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign) {
             Local::print_header(indent_lvl, empty, "Assign ");
-            std::cout << "'" << assign.type << " " << assign.name << "' to be";
+            std::cout << "'" << assign.type << " " << assign.name << "'";
+            if (assign.is_shorthand) {
+                std::cout << " [shorthand]";
+            }
+            std::cout << " to be";
             std::cout << std::endl;
 
             empty.first++;

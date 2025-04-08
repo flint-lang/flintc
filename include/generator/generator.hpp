@@ -1788,6 +1788,8 @@ class Generator {
             {"init_str", nullptr},
             {"assign_str", nullptr},
             {"assign_lit", nullptr},
+            {"append_str", nullptr},
+            {"append_lit", nullptr},
             {"add_str_str", nullptr},
             {"add_str_lit", nullptr},
             {"add_lit_str", nullptr},
@@ -1827,6 +1829,20 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `assign_lit` function will be generated in
         static void generate_assign_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_append_str_function`
+        /// @brief Generates the builtin hidden `append_str` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `append_str` function will be generated in
+        static void generate_append_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_append_lit_function`
+        /// @brief Generates the builtin hidden `append_lit` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `append_lit` function will be generated in
+        static void generate_append_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /// @function `generate_add_str_str_functiion`
         /// @brief Generates the builtin hidden `add_str_str` function
@@ -1887,17 +1903,23 @@ class Generator {
         /// @brief Generates the addition instruction of two strings and returns the result of the addition
         ///
         /// @param `builder` The LLVM IRBuilder
+        /// @param `scope` The scope the string addition is placed in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `lhs` The lhs value from llvm
         /// @param `lhs_expr` The lhs expression, to check if it is / was a literal
         /// @param `rhs` The rhs value from llvm
         /// @param `rhs_expr` The rhs expression, to check if it is / was a literal
+        /// @param `is_append` Whether to append the rhs to the lhs
         /// @return `llvm::Value *` The result of the string addition
-        static llvm::Value *generate_string_addition( //
-            llvm::IRBuilder<> &builder,               //
-            llvm::Value *lhs,                         //
-            const ExpressionNode *lhs_expr,           //
-            llvm::Value *rhs,                         //
-            const ExpressionNode *rhs_expr            //
+        static llvm::Value *generate_string_addition(                               //
+            llvm::IRBuilder<> &builder,                                             //
+            const Scope *scope,                                                     //
+            const std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            llvm::Value *lhs,                                                       //
+            const ExpressionNode *lhs_expr,                                         //
+            llvm::Value *rhs,                                                       //
+            const ExpressionNode *rhs_expr,                                         //
+            const bool is_append                                                    //
         );
     }; // subclass String
 };

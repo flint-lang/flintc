@@ -467,7 +467,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand(Scope *scope, 
                 std::unique_ptr<ExpressionNode> bin_op = std::make_unique<BinaryOpNode>( //
                     op, var_node, expression.value(), expected_type, true                //
                 );
-                return AssignmentNode(expected_type, iterator->lexme, bin_op);
+                return AssignmentNode(expected_type, iterator->lexme, bin_op, true);
             } else {
                 THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
