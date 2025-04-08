@@ -1,4 +1,4 @@
 def main():
-    str a = "a";
-    str b = "b";
-    print($"a == b : {a == b}\n");
+    i32 x = 1;
+    x += 2;
+    print($"{x}\n");

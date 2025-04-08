@@ -18,6 +18,7 @@
 #include "ast/definitions/variant_node.hpp"
 
 #include "ast/statements/assignment_node.hpp"
+#include "ast/statements/assignment_shorthand_node.hpp"
 #include "ast/statements/call_node_statement.hpp"
 #include "ast/statements/data_field_assignment_node.hpp"
 #include "ast/statements/declaration_node.hpp"
@@ -804,6 +805,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the assignment
     /// @return `std::optional<std::unique_ptr<AssignmentNode>>` An optional unique pointer to the created AssignmentNode
     std::optional<AssignmentNode> create_assignment(Scope *scope, token_list &tokens);
+
+    /// @function `create_assignment_shorthand`
+    /// @brief Creates an AssignmentShorthandNode from the given list of tokens
+    ///
+    /// @param `scope` The scope in which the assignment shorthand is defined
+    /// @param `tokens` The list of tokens contiaining the assignment shorthand
+    /// @return `std::optional<AssignmentShorthandNode>` The AssignmentShorthandNode, nullopt if creation failed
+    std::optional<AssignmentShorthandNode> create_assignment_shorthand(Scope *scope, token_list &tokens);
 
     /// @function `create_group_declaration`
     /// @brief Creates a GroupDeclarationNode from the given list of tokens

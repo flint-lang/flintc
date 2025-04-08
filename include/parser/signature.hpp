@@ -18,6 +18,7 @@ enum class ESignature {
     TYPE_PRIM_MULT,
     LITERAL,
     TYPE,
+    ASSIGNMENT_OPERATOR,
     // Binary operations
     OPERATIONAL_BINOP,
     RELATIONAL_BINOP,
@@ -69,6 +70,7 @@ enum class ESignature {
     DECLARATION_EXPLICIT,
     DECLARATION_INFERRED,
     ASSIGNMENT,
+    ASSIGNMENT_SHORTHAND,
     GROUP_ASSIGNMENT,
     DATA_FIELD_ASSIGNMENT,
     GROUPED_DATA_ASSIGNMENT,
@@ -345,6 +347,8 @@ class Signature {
         TOK_TRUE, "|", TOK_FALSE, ")"};
     static const inline signature type = combine({//
         {"("}, type_prim, {"|", TOK_IDENTIFIER, "|"}, type_prim_mult, {")"}});
+    static const inline signature assignment_operator = {"(", TOK_PLUS_EQUALS, "|", TOK_MINUS_EQUALS, "|", TOK_MULT_EQUALS, "|",
+        TOK_DIV_EQUALS, ")"};
     static const inline signature operational_binop = {"(", TOK_PLUS, "|", TOK_MINUS, "|", TOK_MULT, "|", TOK_DIV, "|", TOK_POW, ")"};
     static const inline signature relational_binop = {"(", TOK_EQUAL_EQUAL, "|", TOK_NOT_EQUAL, "|", TOK_LESS, "|", TOK_LESS_EQUAL, "|",
         TOK_GREATER, "|", TOK_GREATER_EQUAL, ")"};
@@ -417,6 +421,7 @@ class Signature {
     static const inline signature declaration_explicit = combine({type, {TOK_IDENTIFIER, TOK_EQUAL}});
     static const inline signature declaration_inferred = {TOK_IDENTIFIER, TOK_COLON_EQUAL};
     static const inline signature assignment = {TOK_IDENTIFIER, TOK_EQUAL};
+    static const inline signature assignment_shorthand = combine({{TOK_IDENTIFIER}, assignment_operator});
     static const inline signature group_assignment = combine({{TOK_LEFT_PAREN}, match_until_signature({TOK_RIGHT_PAREN}), {TOK_EQUAL}});
     static const inline signature data_field_assignment = combine({data_access, {TOK_EQUAL}});
     static const inline signature grouped_data_assignment = combine({grouped_data_access, {TOK_EQUAL}});
@@ -446,6 +451,7 @@ class Signature {
         {ESignature::TYPE_PRIM_MULT, get_regex_string(type_prim_mult)},
         {ESignature::LITERAL, get_regex_string(literal)},
         {ESignature::TYPE, get_regex_string(type)},
+        {ESignature::ASSIGNMENT_OPERATOR, get_regex_string(assignment_operator)},
         // Binary operations
         {ESignature::OPERATIONAL_BINOP, get_regex_string(operational_binop)},
         {ESignature::RELATIONAL_BINOP, get_regex_string(relational_binop)},
@@ -497,6 +503,7 @@ class Signature {
         {ESignature::DECLARATION_EXPLICIT, get_regex_string(declaration_explicit)},
         {ESignature::DECLARATION_INFERRED, get_regex_string(declaration_inferred)},
         {ESignature::ASSIGNMENT, get_regex_string(assignment)},
+        {ESignature::ASSIGNMENT_SHORTHAND, get_regex_string(assignment_shorthand)},
         {ESignature::GROUP_ASSIGNMENT, get_regex_string(group_assignment)},
         {ESignature::DATA_FIELD_ASSIGNMENT, get_regex_string(data_field_assignment)},
         {ESignature::GROUPED_DATA_ASSIGNMENT, get_regex_string(grouped_data_assignment)},

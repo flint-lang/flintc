@@ -394,8 +394,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
 }
 
 std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, token_list &tokens) {
-    auto iterator = tokens.begin();
-    while (iterator != tokens.end()) {
+    for (auto iterator = tokens.begin(); iterator != tokens.end(); ++iterator) {
         if (iterator->type == TOK_IDENTIFIER) {
             if ((iterator + 1)->type == TOK_EQUAL && (iterator + 2) != tokens.end()) {
                 if (scope->variables.find(iterator->lexme) == scope->variables.end()) {
@@ -421,7 +420,55 @@ std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, token_list
                 return std::nullopt;
             }
         }
-        ++iterator;
+    }
+    return std::nullopt;
+}
+
+std::optional<AssignmentShorthandNode> Parser::create_assignment_shorthand(Scope *scope, token_list &tokens) {
+    for (auto iterator = tokens.begin(); iterator != tokens.end(); ++iterator) {
+        if (iterator->type == TOK_IDENTIFIER) {
+            if (Signature::tokens_match({*(iterator + 1)}, ESignature::ASSIGNMENT_OPERATOR) && (iterator + 2) != tokens.end()) {
+                if (scope->variables.find(iterator->lexme) == scope->variables.end()) {
+                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, iterator->line, iterator->column, iterator->lexme);
+                    return std::nullopt;
+                }
+                if (!std::get<2>(scope->variables.at(iterator->lexme))) {
+                    // Mutating an immutable variable
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                std::string expected_type = std::get<0>(scope->variables.at(iterator->lexme));
+                // Parse the expression with the expected type passed into it
+                token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
+                std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens, expected_type);
+                if (!expression.has_value()) {
+                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
+                    return std::nullopt;
+                }
+                Token op;
+                switch ((iterator + 1)->type) {
+                    default:
+                        // It should never come here
+                        assert(false);
+                    case TOK_PLUS_EQUALS:
+                        op = TOK_PLUS;
+                        break;
+                    case TOK_MINUS_EQUALS:
+                        op = TOK_MINUS;
+                        break;
+                    case TOK_MULT_EQUALS:
+                        op = TOK_MULT;
+                        break;
+                    case TOK_DIV_EQUALS:
+                        op = TOK_DIV;
+                        break;
+                }
+                return AssignmentShorthandNode(expected_type, iterator->lexme, op, expression.value());
+            } else {
+                THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
+                return std::nullopt;
+            }
+        }
     }
     return std::nullopt;
 }
@@ -719,6 +766,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
             return std::nullopt;
         }
         statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
+    } else if (Signature::tokens_contain(tokens, ESignature::ASSIGNMENT_SHORTHAND)) {
+        std::optional<AssignmentShorthandNode> assign = create_assignment_shorthand(scope, tokens);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<AssignmentShorthandNode>(std::move(assign.value()));
     } else if (Signature::tokens_contain(tokens, ESignature::RETURN_STATEMENT)) {
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
         if (!return_node.has_value()) {
