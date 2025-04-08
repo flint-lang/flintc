@@ -1,17 +1,21 @@
 #pragma once
 
-#include "../expressions/expression_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "statement_node.hpp"
 
 #include <memory>
 #include <string>
 #include <utility>
 
-/// AssignmentNode
-///     Represents assignment statements
+/// @class `AssignmentNode`
+/// @brief Represents assignment statements
 class AssignmentNode : public StatementNode {
   public:
-    AssignmentNode(std::string &type, std::string &name, std::unique_ptr<ExpressionNode> &expression) :
+    AssignmentNode(                                 //
+        const std::string &type,                    //
+        const std::string &name,                    //
+        std::unique_ptr<ExpressionNode> &expression //
+        ) :
         type(type),
         name(name),
         expression(std::move(expression)) {}
@@ -27,13 +31,15 @@ class AssignmentNode : public StatementNode {
     AssignmentNode(AssignmentNode &&) = default;
     AssignmentNode &operator=(AssignmentNode &&) = default;
 
-    /// type
-    ///     The type of the variable
+    /// @var `type`
+    /// @brief The type of the variable
     std::string type;
-    /// name
-    ///     The name of the variable being assigned to
+
+    /// @var `name`
+    /// @brief The name of the variable being assigned to
     std::string name;
-    /// expression
-    ///     The expression to assign
+
+    /// @var `expression`
+    /// @brief The expression to assign
     std::unique_ptr<ExpressionNode> expression;
 };

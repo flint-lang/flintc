@@ -6,15 +6,21 @@
 #include <memory>
 #include <utility>
 
-/// BinaryOpNode
-///     Represents binary operations.
+/// @class `BinaryOpNode`
+/// @brief Represents binary operations.
 class BinaryOpNode : public ExpressionNode {
   public:
-    BinaryOpNode(Token operator_token, std::unique_ptr<ExpressionNode> &left, std::unique_ptr<ExpressionNode> &right,
-        const std::variant<std::string, std::vector<std::string>> &type) :
+    explicit BinaryOpNode(                                               //
+        const Token operator_token,                                      //
+        std::unique_ptr<ExpressionNode> &left,                           //
+        std::unique_ptr<ExpressionNode> &right,                          //
+        const std::variant<std::string, std::vector<std::string>> &type, //
+        bool is_append = false                                           //
+        ) :
         operator_token(operator_token),
         left(std::move(left)),
-        right(std::move(right)) {
+        right(std::move(right)),
+        is_append(is_append) {
         this->type = type;
     }
 
@@ -29,7 +35,19 @@ class BinaryOpNode : public ExpressionNode {
     BinaryOpNode(BinaryOpNode &&) = default;
     BinaryOpNode &operator=(BinaryOpNode &&) = default;
 
+    /// @var `operator_token`
+    /// @brief The operator token of the binary operation
     Token operator_token{};
+
+    /// @var `left`
+    /// @brief The lhs of the binary operation
     std::unique_ptr<ExpressionNode> left;
+
+    /// @var `right`
+    /// @brief The rhs of the binary operation
     std::unique_ptr<ExpressionNode> right;
+
+    /// @var `is_append`
+    /// @brief Whether this binary operation is an append operation on the lhs (for += operations for example)
+    bool is_append;
 };

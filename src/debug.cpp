@@ -344,6 +344,9 @@ namespace Debug {
         void print_binary_op(unsigned int indent_lvl, uint2 empty, const BinaryOpNode &bin) {
             Local::print_header(indent_lvl, empty, "BinOp ");
             std::cout << get_token_name(bin.operator_token);
+            if (bin.is_append) {
+                std::cout << " [append]";
+            }
             std::cout << std::endl;
             Local::print_header(indent_lvl + 1, empty, "LHS ");
             Local::print_type(bin.left->type);
@@ -578,33 +581,6 @@ namespace Debug {
             print_expression(++indent_lvl, empty, assign.expression);
         }
 
-        void print_assignment_shorthand(unsigned int indent_lvl, uint2 empty, const AssignmentShorthandNode &assign) {
-            Local::print_header(indent_lvl, empty, "Assign Shorthand ");
-            std::cout << "'" << assign.type << " " << assign.name << "' ";
-            switch (assign.op) {
-                case TOK_PLUS:
-                    std::cout << "+=";
-                    break;
-                case TOK_MINUS:
-                    std::cout << "-=";
-                    break;
-                case TOK_MULT:
-                    std::cout << "*=";
-                    break;
-                case TOK_DIV:
-                    std::cout << "/=";
-                    break;
-                default:
-                    // This should not happen
-                    assert(false);
-            }
-            std::cout << std::endl;
-
-            empty.first++;
-            empty.second = indent_lvl + 2;
-            print_expression(++indent_lvl, empty, assign.expression);
-        }
-
         void print_group_declaration(unsigned int indent_lvl, uint2 empty, const GroupDeclarationNode &decl) {
             Local::print_header(indent_lvl, empty, "Group Decl ");
             std::cout << "of type (";
@@ -684,8 +660,6 @@ namespace Debug {
                 print_group_assignment(indent_lvl, empty, *group_assignment);
             } else if (const auto *assignment = dynamic_cast<const AssignmentNode *>(statement.get())) {
                 print_assignment(indent_lvl, empty, *assignment);
-            } else if (const auto *assignment_shorthand = dynamic_cast<const AssignmentShorthandNode *>(statement.get())) {
-                print_assignment_shorthand(indent_lvl, empty, *assignment_shorthand);
             } else if (const auto *group_declaration = dynamic_cast<const GroupDeclarationNode *>(statement.get())) {
                 print_group_declaration(indent_lvl, empty, *group_declaration);
             } else if (const auto *declaration = dynamic_cast<const DeclarationNode *>(statement.get())) {

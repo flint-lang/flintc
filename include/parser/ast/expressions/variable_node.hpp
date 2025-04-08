@@ -4,16 +4,16 @@
 
 #include <string>
 
-/// VaraibleNode
-///     Represents variables or identifiers
+/// @class `VaraibleNode`
+/// @brief Represents variables or identifiers
 class VariableNode : public ExpressionNode {
   public:
-    VariableNode(std::string &name, std::string &type) :
+    VariableNode(const std::string &name, const std::string &type) :
         name(name) {
         this->type = type;
     }
 
-    /// name
-    ///     Name of the variable
+    /// @var `name`
+    /// @brief Name of the variable
     std::string name;
 };

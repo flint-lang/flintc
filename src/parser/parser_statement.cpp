@@ -424,7 +424,7 @@ std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, token_list
     return std::nullopt;
 }
 
-std::optional<AssignmentShorthandNode> Parser::create_assignment_shorthand(Scope *scope, token_list &tokens) {
+std::optional<AssignmentNode> Parser::create_assignment_shorthand(Scope *scope, token_list &tokens) {
     for (auto iterator = tokens.begin(); iterator != tokens.end(); ++iterator) {
         if (iterator->type == TOK_IDENTIFIER) {
             if (Signature::tokens_match({*(iterator + 1)}, ESignature::ASSIGNMENT_OPERATOR) && (iterator + 2) != tokens.end()) {
@@ -463,7 +463,11 @@ std::optional<AssignmentShorthandNode> Parser::create_assignment_shorthand(Scope
                         op = TOK_DIV;
                         break;
                 }
-                return AssignmentShorthandNode(expected_type, iterator->lexme, op, expression.value());
+                std::unique_ptr<ExpressionNode> var_node = std::make_unique<VariableNode>(iterator->lexme, expected_type);
+                std::unique_ptr<ExpressionNode> bin_op = std::make_unique<BinaryOpNode>( //
+                    op, var_node, expression.value(), expected_type, true                //
+                );
+                return AssignmentNode(expected_type, iterator->lexme, bin_op);
             } else {
                 THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
@@ -767,12 +771,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         }
         statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
     } else if (Signature::tokens_contain(tokens, ESignature::ASSIGNMENT_SHORTHAND)) {
-        std::optional<AssignmentShorthandNode> assign = create_assignment_shorthand(scope, tokens);
+        std::optional<AssignmentNode> assign = create_assignment_shorthand(scope, tokens);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        statement_node = std::make_unique<AssignmentShorthandNode>(std::move(assign.value()));
+        statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
     } else if (Signature::tokens_contain(tokens, ESignature::RETURN_STATEMENT)) {
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
         if (!return_node.has_value()) {
