@@ -382,7 +382,8 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
     }
     // First, add all the strings from the begin to the first ranges begin to the interpolation content
     for (auto it = ranges.begin(); it != ranges.end(); ++it) {
-        if (it->second - it->first <= 1) {
+        // If its at the very beginning the conditions differs
+        if (it->first > 0 ? (it->second - it->first <= 1) : (it->second == 0)) {
             // Empty expression
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
