@@ -110,7 +110,7 @@ build_llvm_windows() {
     cmake -S vendor/llvm-project/llvm -B "$llvm_build_dir" \
         -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DLLVM_ENABLE_PROJECTS="" \
+        -DLLVM_ENABLE_PROJECTS="lld" \
         -DCMAKE_SYSTEM_NAME=Windows \
         -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
         -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
@@ -181,7 +181,7 @@ build_llvm_linux() {
     cmake -S vendor/llvm-project/llvm -B "$llvm_build_dir" \
         -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DLLVM_ENABLE_PROJECTS="" \
+        -DLLVM_ENABLE_PROJECTS="lld" \
         -DLLVM_TARGET_ARCH=X86 \
         -DLLVM_TARGETS_TO_BUILD=X86 \
         -DLLVM_ENABLE_THREADS=ON \

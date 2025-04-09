@@ -53,12 +53,8 @@ class CLIParserMain : public CLIParserBase {
                 build_exe = false;
                 i++;
             } else if (arg == "--static") {
-                // static const std::string static_flags = "-static -Wl,--start-group -lpthread -ldl -Wl,--end-group";
-                // compile_flags.append(" ").append(static_flags);
-                if (!compile_flags.empty()) {
-                    compile_flags.append(" ");
-                }
-                compile_flags.append("-static");
+                is_static = true;
+                i++;
             } else if (arg == "--test") {
                 test = true;
                 if (out_file_path == "main") {
@@ -106,6 +102,7 @@ class CLIParserMain : public CLIParserBase {
     bool run{false};
     bool test{false};
     bool parallel{false};
+    bool is_static{false};
 
   private:
     void print_help() override {
@@ -120,7 +117,8 @@ class CLIParserMain : public CLIParserBase {
         // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
         std::cout << "  --run                       Run the built binary directly without outputting it\n";
         std::cout << "  --parallel                  Compile in parallel (only recommended for bigger projects)\n";
-        std::cout << "  --flags=\"[flags]\"           The compile flags used to build the executable\n";
+        std::cout << "  --flags=\"[flags]\"           The compile flags added to the external compile command\n";
+        std::cout << "                              HINT: These flags have no effect when not using an external compiler\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code\n";
         std::cout << "                              HINT: The compiler will not create an executable with this flag set\n";
         std::cout << "  --static                    Build the executable as static\n";

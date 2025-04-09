@@ -186,6 +186,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             message(STATUS "Skipping component not available in Windows build: ${COMPONENT}")
         endif()
     endforeach()
+    list(APPEND WINDOWS_COMPONENTS_LIST "lldCommon.a")
+    list(APPEND WINDOWS_COMPONENTS_LIST "lldCOFF.a")
 
     # Use the filtered list for Windows
     set(LLVM_STATIC_LIBS_LIST ${WINDOWS_COMPONENTS_LIST})
@@ -195,6 +197,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 else()
     # For Linux, use the output directly
     string(REPLACE " " ";" LLVM_STATIC_LIBS_LIST "${LINUX_LLVM_LIBS}")
+    list(APPEND LLVM_STATIC_LIBS_LIST "-llldCommon")
+    list(APPEND LLVM_STATIC_LIBS_LIST "-llldELF")
     string(REPLACE " " ";" LLVM_SYSTEM_LIBS_LIST "${LINUX_SYSTEM_LIBS}")
 
     message(STATUS "Linux LLVM libraries: ${LLVM_STATIC_LIBS_LIST}")

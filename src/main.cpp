@@ -2,6 +2,7 @@
 #include "debug.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
+#include "linker_interface.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/parser.hpp"
 #include "profiler.hpp"
@@ -140,7 +141,7 @@ void write_ll_file(const std::filesystem::path &ll_path, const llvm::Module *mod
 ///
 /// @param `binary_file` The path where the built binary should be placed at
 /// @param `module` The program to compile
-void compile_module(const std::filesystem::path &binary_file, llvm::Module *module) {
+void compile_module(const std::filesystem::path &binary_file, llvm::Module *module, const bool is_static) {
     PROFILE_SCOPE("Compile module " + module->getName().str());
     // Initialize LLVM targets (call this once in your compiler)
     static bool initialized = false;
@@ -155,11 +156,19 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
     }
 
     // Get the target triple (architecture, OS, etc.)
-    std::string targetTriple = llvm::sys::getDefaultTargetTriple();
-    module->setTargetTriple(targetTriple);
+#if defined(__WIN32__)
+    std::string target_triple = "x86_64-pc-windows-msvc";
+#else
+    std::string target_triple = llvm::sys::getDefaultTargetTriple();
+#endif
+
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << std::endl;
+    }
+    module->setTargetTriple(target_triple);
 
     std::string error;
-    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
+    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(target_triple, error);
     if (!target) {
         llvm::errs() << "Error: " << error << "\n";
         return;
@@ -167,12 +176,17 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
 
     // Create the target machine
     llvm::TargetOptions opt;
-    auto targetMachine = target->createTargetMachine(targetTriple, llvm::sys::getHostCPUName(), "", opt, llvm::Reloc::PIC_);
-    module->setDataLayout(targetMachine->createDataLayout());
+    auto target_machine = target->createTargetMachine(target_triple, llvm::sys::getHostCPUName(), "", opt, llvm::Reloc::PIC_);
+    module->setDataLayout(target_machine->createDataLayout());
 
     // Create an output file
     std::error_code EC;
-    llvm::raw_fd_ostream dest(binary_file.string() + ".o", EC, llvm::sys::fs::OF_None);
+#if defined(__WIN32__)
+    const std::string obj_file = binary_file.string() + ".obj";
+#else
+    const std::string obj_file = binary_file.string() + ".o";
+#endif
+    llvm::raw_fd_ostream dest(obj_file, EC, llvm::sys::fs::OF_None);
     if (EC) {
         llvm::errs() << "Could not open file: " << EC.message() << "\n";
         return;
@@ -181,7 +195,7 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
     // Set up the pass manager and code generation
     llvm::legacy::PassManager pass;
     llvm::CodeGenFileType fileType = llvm::CodeGenFileType::ObjectFile;
-    if (targetMachine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
+    if (target_machine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
         llvm::errs() << "TargetMachine can't emit a file of this type!\n";
         return;
     }
@@ -194,26 +208,45 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
 
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] Code generation status" << DEFAULT << std::endl;
-        llvm::outs() << "-- Machine code generated: " << binary_file.string() << ".o\n\n";
+        llvm::outs() << "-- Machine code generated: " << obj_file << "\n\n";
     }
 
-    // Link the object file to create an executable using gcc to use the provided c runtime
-    std::string link_command = "gcc " + binary_file.string() + ".o -o " + binary_file.string() + " -lc";
+    // Direct linking with LDD
     PROFILE_SCOPE("Creating the binary '" + binary_file.filename().string() + "'");
 
-    if (DEBUG_MODE) {
-        std::cout << YELLOW << "[Debug Info] Link command: " << DEFAULT << "\n" << link_command << "\n" << std::endl;
-    }
-    int link_result = std::system(link_command.c_str());
-    if (link_result != 0) {
-        llvm::errs() << "Linking failed with command: " << link_command << "\n";
+    bool link_success = LinkerInterface::link(obj_file, // input object file
+        binary_file,                                    // output executable
+        is_static                                       // debug flag
+    );
+
+    if (!link_success) {
+        llvm::errs() << "Linking failed with LLD\n";
         return;
     }
 
-    // Remove the .o file
+    // Clean up object file
     if (!DEBUG_MODE) {
-        std::filesystem::remove(std::filesystem::path(binary_file.string() + ".o"));
+        std::filesystem::remove(std::filesystem::path(obj_file));
     }
+
+    // OLD LINKING STUFF
+    // Link the object file to create an executable using gcc to use the provided c runtime
+    // #if defined(__WIN32__)
+    //     std::string link_command = "link " + binary_file.string() + ".obj /OUT:" + binary_file.string() + ".exe
+    //     /DEFAULTLIB:libcmt.lib";
+    // #else
+    //     std::string link_command = "gcc " + binary_file.string() + ".o -o " + binary_file.string() + " -lc";
+    // #endif
+    //     PROFILE_SCOPE("Creating the binary '" + binary_file.filename().string() + "'");
+
+    //     if (DEBUG_MODE) {
+    //         std::cout << YELLOW << "[Debug Info] Link command: " << DEFAULT << "\n" << link_command << "\n" << std::endl;
+    //     }
+    //     int link_result = std::system(link_command.c_str());
+    //     if (link_result != 0) {
+    //         llvm::errs() << "Linking failed with command: " << link_command << "\n";
+    //         return;
+    //     }
 }
 
 int main(int argc, char *argv[]) {
@@ -240,7 +273,7 @@ int main(int argc, char *argv[]) {
         compile_extern(clp.out_file_path, clp.compile_command, clp.compile_flags, program.value().get());
     } else {
         // Compile the module and output the binary
-        compile_module(clp.out_file_path, program.value().get());
+        compile_module(clp.out_file_path, program.value().get(), clp.is_static);
     }
 
     Resolver::clear();
