@@ -12,6 +12,7 @@ Options:
     -D  --debug             Compile the compiler in debug mode
     -l, --linux             Build the executable for linux
         --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')
+        --rebuild           Forces rebuilding of all source files (both llvm and the compiler)
     -s, --static            Build the executable as static
     -t, --test              Run the tests after compilation
     -v, --verbose           Toggle verbosity on
@@ -81,10 +82,16 @@ build_llvm_windows() {
         llvm_build_dir="$root/build/llvm-mingw-static"
         llvm_install_dir="$root/vendor/llvm-mingw-static"
         echo "-- Building static LLVM for Windows..."
+        if [ "$force_rebuild" = "true" ]; then
+            rm -r "$root/build/llvm-mingw-static"
+        fi
     else
         llvm_build_dir="build/llvm-mingw"
         llvm_install_dir="$root/vendor/llvm-mingw"
         echo "-- Building LLVM for Windows..."
+        if [ "$force_rebuild" = "true" ]; then
+            rm -r "$root/build/llvm-mingw"
+        fi
     fi
 
     # Create directories
@@ -136,10 +143,16 @@ build_llvm_linux() {
         llvm_build_dir="$root/build/llvm-linux-static"
         llvm_install_dir="$root/vendor/llvm-linux-static"
         echo "-- Building static LLVM for Linux..."
+        if [ "$force_rebuild" = "true" ]; then
+            rm -r "$root/build/llvm-linux-static"
+        fi
     else
         llvm_build_dir="$root/build/llvm-linux"
         llvm_install_dir="$root/vendor/llvm-linux"
         echo "-- Building LLVM for Linux..."
+        if [ "$force_rebuild" = "true" ]; then
+            rm -r "$root/build/llvm-linux"
+        fi
     fi
 
     # Create directories
@@ -243,6 +256,10 @@ setup_build_windows() {
         echo "-- Building executable in debug mode..."
     fi
 
+    if [ "$force_rebuild" = "true" ]; then
+        rm -r "$build_dir"
+    fi
+
     mkdir -p "$build_dir"
     cmake -S "$root" -B "$build_dir" \
         -DCMAKE_TOOLCHAIN_FILE="$root/cmake/toolchain-mingw64.cmake" \
@@ -272,6 +289,10 @@ setup_build_linux() {
     if [ "$debug_mode" = "true" ]; then
         debug_flag="-DDEBUG_MODE=ON"
         echo "-- Building executable in debug mode..."
+    fi
+
+    if [ "$force_rebuild" = "true" ]; then
+        rm -r "$build_dir"
     fi
 
     mkdir -p "$build_dir"
@@ -393,6 +414,7 @@ build_dynamic=false
 build_static=false
 build_windows=false
 build_linux=false
+force_rebuild=false
 run_tests=false
 debug_mode=false
 llvm_version="llvmorg-19.1.7"
@@ -434,6 +456,10 @@ while [ "$#" -gt 0 ]; do
         [ "$2" != "" ] || err_exit 1 "Option '$1' requires an argument"
         llvm_version="$2"
         shift 2
+        ;;
+    --rebuild)
+        force_rebuild=true
+        shift
         ;;
     --static)
         build_static=true
