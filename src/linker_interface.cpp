@@ -11,7 +11,7 @@
 
 // #define __WIN32__
 
-#if defined(__WIN32__)
+#ifdef __WIN32__
 LLD_HAS_DRIVER(coff)
 #else
 LLD_HAS_DRIVER(elf)
@@ -19,7 +19,7 @@ LLD_HAS_DRIVER(elf)
 
 bool LinkerInterface::link(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static) {
     std::vector<const char *> args;
-#if defined(__WIN32__)
+#ifdef __WIN32__
     // Windows COFF linking arguments
     std::string output_exe = output_file.string() + ".exe";
     std::string obj_file_str = obj_file.string();

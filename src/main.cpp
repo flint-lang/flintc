@@ -156,7 +156,7 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
     }
 
     // Get the target triple (architecture, OS, etc.)
-#if defined(__WIN32__)
+#ifdef __WIN32__
     std::string target_triple = "x86_64-pc-windows-msvc";
 #else
     std::string target_triple = llvm::sys::getDefaultTargetTriple();
@@ -181,7 +181,7 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
 
     // Create an output file
     std::error_code EC;
-#if defined(__WIN32__)
+#ifdef __WIN32__
     const std::string obj_file = binary_file.string() + ".obj";
 #else
     const std::string obj_file = binary_file.string() + ".o";
@@ -228,25 +228,6 @@ void compile_module(const std::filesystem::path &binary_file, llvm::Module *modu
     if (!DEBUG_MODE) {
         std::filesystem::remove(std::filesystem::path(obj_file));
     }
-
-    // OLD LINKING STUFF
-    // Link the object file to create an executable using gcc to use the provided c runtime
-    // #if defined(__WIN32__)
-    //     std::string link_command = "link " + binary_file.string() + ".obj /OUT:" + binary_file.string() + ".exe
-    //     /DEFAULTLIB:libcmt.lib";
-    // #else
-    //     std::string link_command = "gcc " + binary_file.string() + ".o -o " + binary_file.string() + " -lc";
-    // #endif
-    //     PROFILE_SCOPE("Creating the binary '" + binary_file.filename().string() + "'");
-
-    //     if (DEBUG_MODE) {
-    //         std::cout << YELLOW << "[Debug Info] Link command: " << DEFAULT << "\n" << link_command << "\n" << std::endl;
-    //     }
-    //     int link_result = std::system(link_command.c_str());
-    //     if (link_result != 0) {
-    //         llvm::errs() << "Linking failed with command: " << link_command << "\n";
-    //         return;
-    //     }
 }
 
 int main(int argc, char *argv[]) {
@@ -256,6 +237,11 @@ int main(int argc, char *argv[]) {
     if (result != 0) {
         return result;
     }
+#ifdef __WIN32__
+    // Setting the console output to UTF-8 that the tree characters render correctly
+    SetConsoleOutputCP(CP_UTF8);
+#endif
+
     llvm::LLVMContext context;
     auto program = generate_module(clp.source_file_path, clp.test, clp.parallel, context);
     if (!program.has_value()) {

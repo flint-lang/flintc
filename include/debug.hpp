@@ -47,14 +47,18 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef __WIN32__
+#include <windows.h>
+#endif
+
 namespace Debug {
     enum TreeType { VERT, BRANCH, BRANCH_L, SINGLE, HOR, NONE };
     static const std::unordered_map<TreeType, std::string> tree_characters = {
-        {VERT, "\u2502"},
-        {BRANCH, "\u251C"},
-        {BRANCH_L, "\u2524"},
-        {SINGLE, "\u2514"},
-        {HOR, "\u2500"},
+        {VERT, "\u2502"},     // │
+        {BRANCH, "\u251C"},   // ├
+        {BRANCH_L, "\u2524"}, // ┤
+        {SINGLE, "\u2514"},   // └
+        {HOR, "\u2500"},      // ─
     };
 
     namespace TextFormat {
