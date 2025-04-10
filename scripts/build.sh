@@ -489,6 +489,12 @@ while [ "$#" -gt 0 ]; do
             arg="${arg:1}"   # Remove first character
 
             case "$opt" in
+            a)
+                build_linux=true
+                build_windows=true
+                build_static=true
+                build_dynamic=true
+                ;;
             d)
                 build_dynamic=true
                 ;;
