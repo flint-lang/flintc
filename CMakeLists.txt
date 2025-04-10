@@ -306,9 +306,11 @@ else()
 
         # Set final link libraries for dynamic Windows builds
         set(FINAL_LINK_LIBS
+            -Wl,--start-group
             ${LLVM_STATIC_LIBS_LIST}  # We're still statically linking LLVM
             ${ZLIB_LIBRARY}
             ${WIN_DYNAMIC_LIBS}
+            -Wl,--end-group
         )
     else()
         # For Linux dynamic builds
