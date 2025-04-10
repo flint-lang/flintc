@@ -2,9 +2,14 @@
 #include "colors.hpp"
 #include "globals.hpp"
 
-#include <iostream>
 #include <lld/Common/Driver.h>
 #include <llvm/Support/raw_ostream.h>
+
+#include <cstdlib>
+#include <iostream>
+#include <sstream>
+
+// #define __WIN32__
 
 #if defined(__WIN32__)
 LLD_HAS_DRIVER(coff)
@@ -14,15 +19,87 @@ LLD_HAS_DRIVER(elf)
 
 bool LinkerInterface::link(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static) {
     std::vector<const char *> args;
-#if defined(_WIN32)
+#if defined(__WIN32__)
     // Windows COFF linking arguments
     std::string output_exe = output_file.string() + ".exe";
+    std::string obj_file_str = obj_file.string();
 
     args.push_back("lld-link");
-    args.push_back(obj_file.string().c_str());
+    args.push_back(obj_file_str.c_str());
 
     std::string out_arg = "/OUT:" + output_exe;
     args.push_back(out_arg.c_str());
+
+    // Get the lib environment variable
+    std::vector<std::string> lib_paths;
+    const char *lib_env = std::getenv("LIB");
+
+    if (lib_env != nullptr) {
+        std::string lib_str(lib_env);
+
+        if (DEBUG_MODE) {
+            std::cout << YELLOW << "[Debug Info] " << DEFAULT << "Found LIB environment variable: " << lib_str << std::endl;
+        }
+
+        // Split by semicolons
+        std::stringstream ss(lib_str);
+        std::string path;
+        while (std::getline(ss, path, ';')) {
+            if (!path.empty()) {
+                lib_paths.push_back("/LIBPATH:\"" + path + "\"");
+            }
+        }
+    } else {
+        if (DEBUG_MODE) {
+            std::cout << YELLOW << "[Debug Info] " << DEFAULT << "Lib environment variable not found, trying system call..." << std::endl;
+        }
+
+// Fallback: try to get it via system call
+#ifdef _MSC_VER
+        FILE *pipe = _popen("cmd /c echo %LIB%", "r");
+#else
+        FILE *pipe = popen("cmd /c echo %LIB%", "r");
+#endif
+        if (pipe) {
+            char buffer[4096];
+            if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                std::string lib_str(buffer);
+
+                // Remove trailing newline if present
+                if (!lib_str.empty() && lib_str.back() == '\n') {
+                    lib_str.pop_back();
+                }
+
+                if (DEBUG_MODE) {
+                    std::cout << YELLOW << "[Debug Info] " << DEFAULT << "Got LIB paths via system call: " << lib_str << std::endl;
+                }
+
+                // Split by semicolons
+                std::stringstream ss(lib_str);
+                std::string path;
+                while (std::getline(ss, path, ';')) {
+                    if (!path.empty()) {
+                        lib_paths.push_back(path);
+                    }
+                }
+            }
+#ifdef _MSC_VER
+            _pclose(pipe);
+#else
+            pclose(pipe);
+#endif
+        }
+    }
+
+    // Add all library paths to lld
+    for (const auto &path : lib_paths) {
+        args.push_back(path.c_str());
+    }
+
+    // Universal C Runtime
+    args.push_back("legacy_stdio_definitions.lib");
+    args.push_back("ucrt.lib");
+    args.push_back("vcruntime.lib");
 
     if (is_static) {
         args.push_back("/DEFAULTLIB:libcmt.lib");
@@ -40,7 +117,8 @@ bool LinkerInterface::link(const std::filesystem::path &obj_file, const std::fil
         }
     }
 
-    return lld::coff::link(args, llvm::outs(), llvm::errs(), false, false);
+    bool result = lld::coff::link(args, llvm::outs(), llvm::errs(), false, false);
+    return result;
 #else
     // Unix ELF linking arguments
     args.push_back("ld.lld");

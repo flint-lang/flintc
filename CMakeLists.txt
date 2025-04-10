@@ -186,8 +186,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             message(STATUS "Skipping component not available in Windows build: ${COMPONENT}")
         endif()
     endforeach()
-    list(APPEND WINDOWS_COMPONENTS_LIST "lldCommon.a")
-    list(APPEND WINDOWS_COMPONENTS_LIST "lldCOFF.a")
+    list(APPEND WINDOWS_COMPONENTS_LIST "lldCOFF")
+    list(APPEND WINDOWS_COMPONENTS_LIST "lldCommon")
 
     # Use the filtered list for Windows
     set(LLVM_STATIC_LIBS_LIST ${WINDOWS_COMPONENTS_LIST})
@@ -242,9 +242,11 @@ if(BUILD_STATIC)
 
         # Create the final link libraries list for Windows
         set(FINAL_LINK_LIBS
+            -Wl,--start-group
             ${LLVM_STATIC_LIBS_LIST}
             ${ZLIB_LIBRARY}
             ${WIN_STATIC_LIBS}
+            -Wl,--end-group
         )
     else()
         # Linux static build settings
