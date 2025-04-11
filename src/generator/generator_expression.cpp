@@ -32,7 +32,7 @@ Generator::group_mapping Generator::Expression::generate_expression(  //
         return generate_unary_op_expression(builder, parent, scope, allocations, unary_op_node);
     }
     if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
-        group_map.emplace_back(generate_literal(builder, parent, scope, allocations, literal_node));
+        group_map.emplace_back(generate_literal(builder, parent, literal_node));
         return group_map;
     }
     if (const auto *interpol_node = dynamic_cast<const StringInterpolationNode *>(expression_node)) {
@@ -65,12 +65,10 @@ Generator::group_mapping Generator::Expression::generate_expression(  //
     return std::nullopt;
 }
 
-llvm::Value *Generator::Expression::generate_literal(                                  //
-    llvm::IRBuilder<> &builder,                                                        //
-    llvm::Function *parent,                                                            //
-    [[maybe_unused]] const Scope *scope,                                               //
-    [[maybe_unused]] std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const LiteralNode *literal_node                                                    //
+llvm::Value *Generator::Expression::generate_literal( //
+    llvm::IRBuilder<> &builder,                       //
+    llvm::Function *parent,                           //
+    const LiteralNode *literal_node                   //
 ) {
     if (std::holds_alternative<int>(literal_node->value)) {
         return llvm::ConstantInt::get(                    //

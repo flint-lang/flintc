@@ -1556,16 +1556,12 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The scope the literal is contained in
-        /// @param `scope` The scope the expression is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `literal_node` The literal node to generate
         /// @return `llvm::Value *` The value containing the result of the literal
-        static llvm::Value *generate_literal(                                 //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const LiteralNode *literal_node                                   //
+        static llvm::Value *generate_literal( //
+            llvm::IRBuilder<> &builder,       //
+            llvm::Function *parent,           //
+            const LiteralNode *literal_node   //
         );
 
         /// @function `generate_variable`
