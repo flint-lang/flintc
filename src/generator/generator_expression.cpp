@@ -768,6 +768,7 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                     return std::nullopt;
                 }
                 operand.at(i) = Logical::generate_not(builder, operand.at(i));
+                break;
             case TOK_INCREMENT:
                 if (expression_type == "i32" || expression_type == "i64") {
                     llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
