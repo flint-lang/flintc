@@ -13,3 +13,4 @@ c_test
 scripts/profiling
 main.pdb
 main.o
+test.o

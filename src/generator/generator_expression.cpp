@@ -528,9 +528,15 @@ llvm::Value *Generator::Expression::generate_data_access(             //
     // First, get the alloca instance of the given data variable
     const unsigned int var_decl_scope = std::get<1>(scope->variables.at(data_access->var_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_access->var_name;
-    llvm::Value *const var_alloca = allocations.at(var_name);
+    llvm::Value *var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), data_access->data_type).first;
+    llvm::Type *data_type;
+    if (data_access->data_type == "str" && data_access->field_name == "length") {
+        data_type = IR::get_type_from_str(builder.getContext(), "str_var").first;
+        var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, data_access->var_name + "_str_val");
+    } else {
+        data_type = IR::get_type_from_str(builder.getContext(), data_access->data_type).first;
+    }
 
     llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, data_access->field_id);
     llvm::LoadInst *loaded_value = builder.CreateLoad(                                               //
@@ -850,7 +856,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                     return_value.emplace_back(String::generate_string_addition(builder, scope, allocations, //
                         lhs.at(i), bin_op_node->left.get(),                                                 //
                         rhs.at(i), bin_op_node->right.get(),                                                //
-                        bin_op_node->is_shorthand)                                                             //
+                        bin_op_node->is_shorthand)                                                          //
                     );
                 } else {
                     THROW_BASIC_ERR(ERR_GENERATING);
