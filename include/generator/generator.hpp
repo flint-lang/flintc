@@ -1280,6 +1280,16 @@ class Generator {
             const std::unique_ptr<StatementNode> &statement                   //
         );
 
+        /// @function `clear_garbage`
+        /// @brief Generates all calls for all the garbage to clean (like temporary string variables)
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        static void clear_garbage(                                                                             //
+            llvm::IRBuilder<> &builder,                                                                        //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage //
+        );
+
         /// @function `generate_body`
         /// @brief Generates a whole body
         ///
@@ -1538,17 +1548,21 @@ class Generator {
         /// @param `parent` The function the expression will be generated in
         /// @param `scope` The scope the expression is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `expression_node` The expression node to generate
         /// @param `is_reference` Whether the result of the expression should be a reference. This is only possible for certain expressions
         /// like variables for example, defaults to false
         /// @return `group_mapping` The value(s) containing the result of the expression
-        static group_mapping generate_expression(                             //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const ExpressionNode *expression_node,                            //
-            const bool is_reference = false                                   //
+        static group_mapping generate_expression(                                                               //
+            llvm::IRBuilder<> &builder,                                                                         //
+            llvm::Function *parent,                                                                             //
+            const Scope *scope,                                                                                 //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                      //
+            const ExpressionNode *expression_node,                                                              //
+            const bool is_reference = false                                                                     //
         );
 
         /// @function `generate_literal`
@@ -1590,14 +1604,18 @@ class Generator {
         /// @param `parent` The function the string interpolation is generated in
         /// @param `scope` The scope the string interpolation is defined in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `interpol_node` The string interpolation node to generate
         /// @retrn `llvm::Value *` The result of the string interpolation expression
-        static llvm::Value *generate_string_interpolation(                    //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const StringInterpolationNode *interpol_node                      //
+        static llvm::Value *generate_string_interpolation(                                                      //
+            llvm::IRBuilder<> &builder,                                                                         //
+            llvm::Function *parent,                                                                             //
+            const Scope *scope,                                                                                 //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                      //
+            const StringInterpolationNode *interpol_node                                                        //
         );
 
         /// @function `generate_call`
@@ -1638,14 +1656,18 @@ class Generator {
         /// @param `parent` The function the group expression is generated in
         /// @param `scope` The scope the group expression is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `group_node` The group operation to generate
         /// @return `group_mapping` The value(s) containing the result of the group expression
-        static group_mapping generate_group_expression(                       //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const GroupExpressionNode *group_node                             //
+        static group_mapping generate_group_expression(                                                         //
+            llvm::IRBuilder<> &builder,                                                                         //
+            llvm::Function *parent,                                                                             //
+            const Scope *scope,                                                                                 //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                      //
+            const GroupExpressionNode *group_node                                                               //
         );
 
         /// @function `generate_initializer`
@@ -1655,14 +1677,18 @@ class Generator {
         /// @param `parent` The function the initializer is generated in
         /// @param `scope` The scope the initializer is contained in
         /// @param `allocations´`The map of all alloccations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `initializer` The initializer to generate
         /// @return `group_mapping` The loaded value(s) of the initializer, representing every field of the loaded data
-        static group_mapping generate_initializer(                            //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const InitializerNode *initializer                                //
+        static group_mapping generate_initializer(                                                              //
+            llvm::IRBuilder<> &builder,                                                                         //
+            llvm::Function *parent,                                                                             //
+            const Scope *scope,                                                                                 //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                      //
+            const InitializerNode *initializer                                                                  //
         );
 
         /// @function `generate_data_access`
@@ -1702,14 +1728,18 @@ class Generator {
         /// @param `parent` The function the type cast is generated in
         /// @param `scope` The scope the type cast is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `type_cast_node` The type cast to generate
         /// @return `group_mapping` The value(s) containing the result of the type cast
-        static group_mapping generate_type_cast(                              //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const TypeCastNode *type_cast_node                                //
+        static group_mapping generate_type_cast(                                                                //
+            llvm::IRBuilder<> &builder,                                                                         //
+            llvm::Function *parent,                                                                             //
+            const Scope *scope,                                                                                 //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                      //
+            const TypeCastNode *type_cast_node                                                                  //
         );
 
         /// @function `generate_type_cast`
@@ -1734,14 +1764,18 @@ class Generator {
         /// @param `parent` The function the unary operation is generated in
         /// @param `scope` The scope the binary operation is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `unary_op` The unary operation to generate
         /// @return `group_mapping` The value containing the result of the unary operation
-        static group_mapping generate_unary_op_expression(                    //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const UnaryOpExpression *unary_op                                 //
+        static group_mapping generate_unary_op_expression(                                                      //
+            llvm::IRBuilder<> &builder,                                                                         //
+            llvm::Function *parent,                                                                             //
+            const Scope *scope,                                                                                 //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                      //
+            const UnaryOpExpression *unary_op                                                                   //
         );
 
         /// @function `generate_binary_op`
@@ -1751,14 +1785,18 @@ class Generator {
         /// @param `parent` The function the binary operation is generated in
         /// @param `scope` The scope the binary operation is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `bin_op_node` The binary operation to generate
         /// @return `group_mapping` The value(s) containing the result of the binop
-        static group_mapping generate_binary_op(                              //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const BinaryOpNode *bin_op_node                                   //
+        static group_mapping generate_binary_op(                                                                //
+            llvm::IRBuilder<> &builder,                                                                         //
+            llvm::Function *parent,                                                                             //
+            const Scope *scope,                                                                                 //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                      //
+            const BinaryOpNode *bin_op_node                                                                     //
         );
     }; // subclass Expression
 
@@ -1901,21 +1939,25 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `scope` The scope the string addition is placed in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `lhs` The lhs value from llvm
         /// @param `lhs_expr` The lhs expression, to check if it is / was a literal
         /// @param `rhs` The rhs value from llvm
         /// @param `rhs_expr` The rhs expression, to check if it is / was a literal
         /// @param `is_append` Whether to append the rhs to the lhs
         /// @return `llvm::Value *` The result of the string addition
-        static llvm::Value *generate_string_addition(                               //
-            llvm::IRBuilder<> &builder,                                             //
-            const Scope *scope,                                                     //
-            const std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            llvm::Value *lhs,                                                       //
-            const ExpressionNode *lhs_expr,                                         //
-            llvm::Value *rhs,                                                       //
-            const ExpressionNode *rhs_expr,                                         //
-            const bool is_append                                                    //
+        static llvm::Value *generate_string_addition(                                                           //
+            llvm::IRBuilder<> &builder,                                                                         //
+            const Scope *scope,                                                                                 //
+            const std::unordered_map<std::string, llvm::Value *const> &allocations,                             //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                      //
+            llvm::Value *lhs,                                                                                   //
+            const ExpressionNode *lhs_expr,                                                                     //
+            llvm::Value *rhs,                                                                                   //
+            const ExpressionNode *rhs_expr,                                                                     //
+            const bool is_append                                                                                //
         );
     }; // subclass String
 };

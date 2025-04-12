@@ -777,15 +777,17 @@ void Generator::String::generate_string_assignment( //
     }
 }
 
-llvm::Value *Generator::String::generate_string_addition(                   //
-    llvm::IRBuilder<> &builder,                                             //
-    const Scope *scope,                                                     //
-    const std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    llvm::Value *lhs,                                                       //
-    const ExpressionNode *lhs_expr,                                         //
-    llvm::Value *rhs,                                                       //
-    const ExpressionNode *rhs_expr,                                         //
-    const bool is_append                                                    //
+llvm::Value *Generator::String::generate_string_addition(                                               //
+    llvm::IRBuilder<> &builder,                                                                         //
+    const Scope *scope,                                                                                 //
+    const std::unordered_map<std::string, llvm::Value *const> &allocations,                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                      //
+    llvm::Value *lhs,                                                                                   //
+    const ExpressionNode *lhs_expr,                                                                     //
+    llvm::Value *rhs,                                                                                   //
+    const ExpressionNode *rhs_expr,                                                                     //
+    const bool is_append                                                                                //
 ) {
     // It highly depends on whether the lhs and / or the rhs are string literals or variables
     const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr);
@@ -805,7 +807,13 @@ llvm::Value *Generator::String::generate_string_addition(                   //
             return lhs;
         } else {
             llvm::Function *add_str_str_fn = string_manip_functions.at("add_str_str");
-            return builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
+            llvm::Value *addition_result = builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
+            if (garbage.count(expr_depth) == 0) {
+                garbage[expr_depth].emplace_back("str", addition_result);
+            } else {
+                garbage.at(expr_depth).emplace_back("str", addition_result);
+            }
+            return addition_result;
         }
     } else if (lhs_lit == nullptr && rhs_lit != nullptr) {
         // Only rhs is literal
@@ -826,7 +834,13 @@ llvm::Value *Generator::String::generate_string_addition(                   //
                 llvm::Type::getInt64Ty(builder.getContext()),  //
                 std::get<std::string>(rhs_lit->value).length() //
             );
-            return builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
+            llvm::Value *addition_result = builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
+            if (garbage.count(expr_depth) == 0) {
+                garbage[expr_depth].emplace_back("str", addition_result);
+            } else {
+                garbage.at(expr_depth).emplace_back("str", addition_result);
+            }
+            return addition_result;
         }
     } else if (lhs != nullptr && rhs_lit == nullptr) {
         // Only lhs is literal
@@ -835,7 +849,13 @@ llvm::Value *Generator::String::generate_string_addition(                   //
             llvm::Type::getInt64Ty(builder.getContext()),  //
             std::get<std::string>(lhs_lit->value).length() //
         );
-        return builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
+        llvm::Value *addition_result = builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
+        if (garbage.count(expr_depth) == 0) {
+            garbage[expr_depth].emplace_back("str", addition_result);
+        } else {
+            garbage.at(expr_depth).emplace_back("str", addition_result);
+        }
+        return addition_result;
     }
 
     // Both sides are literals, this shouldnt be possible, as they should have been folded already

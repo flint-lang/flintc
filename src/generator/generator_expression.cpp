@@ -10,13 +10,15 @@
 #include <string>
 #include <variant>
 
-Generator::group_mapping Generator::Expression::generate_expression(  //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const ExpressionNode *expression_node,                            //
-    const bool is_reference                                           //
+Generator::group_mapping Generator::Expression::generate_expression(                                    //
+    llvm::IRBuilder<> &builder,                                                                         //
+    llvm::Function *parent,                                                                             //
+    const Scope *scope,                                                                                 //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                      //
+    const ExpressionNode *expression_node,                                                              //
+    const bool is_reference                                                                             //
 ) {
     std::vector<llvm::Value *> group_map;
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
@@ -29,30 +31,30 @@ Generator::group_mapping Generator::Expression::generate_expression(  //
         return std::nullopt;
     }
     if (const auto *unary_op_node = dynamic_cast<const UnaryOpExpression *>(expression_node)) {
-        return generate_unary_op_expression(builder, parent, scope, allocations, unary_op_node);
+        return generate_unary_op_expression(builder, parent, scope, allocations, garbage, expr_depth, unary_op_node);
     }
     if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
         group_map.emplace_back(generate_literal(builder, parent, literal_node));
         return group_map;
     }
     if (const auto *interpol_node = dynamic_cast<const StringInterpolationNode *>(expression_node)) {
-        group_map.emplace_back(generate_string_interpolation(builder, parent, scope, allocations, interpol_node));
+        group_map.emplace_back(generate_string_interpolation(builder, parent, scope, allocations, garbage, expr_depth, interpol_node));
         return group_map;
     }
     if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expression_node)) {
         return generate_call(builder, parent, scope, allocations, call_node);
     }
     if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
-        return generate_binary_op(builder, parent, scope, allocations, binary_op_node);
+        return generate_binary_op(builder, parent, scope, allocations, garbage, expr_depth, binary_op_node);
     }
     if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expression_node)) {
-        return generate_type_cast(builder, parent, scope, allocations, type_cast_node);
+        return generate_type_cast(builder, parent, scope, allocations, garbage, expr_depth, type_cast_node);
     }
     if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expression_node)) {
-        return generate_group_expression(builder, parent, scope, allocations, group_node);
+        return generate_group_expression(builder, parent, scope, allocations, garbage, expr_depth, group_node);
     }
     if (const auto *initializer = dynamic_cast<const InitializerNode *>(expression_node)) {
-        return generate_initializer(builder, parent, scope, allocations, initializer);
+        return generate_initializer(builder, parent, scope, allocations, garbage, expr_depth, initializer);
     }
     if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expression_node)) {
         group_map.emplace_back(generate_data_access(builder, scope, allocations, data_access));
@@ -155,12 +157,14 @@ llvm::Value *Generator::Expression::generate_variable(                //
     return load;
 }
 
-llvm::Value *Generator::Expression::generate_string_interpolation(    //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const StringInterpolationNode *interpol_node                      //
+llvm::Value *Generator::Expression::generate_string_interpolation(                                      //
+    llvm::IRBuilder<> &builder,                                                                         //
+    llvm::Function *parent,                                                                             //
+    const Scope *scope,                                                                                 //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                      //
+    const StringInterpolationNode *interpol_node                                                        //
 ) {
     assert(!interpol_node->string_content.empty());
     // The string interpolation works by adding all strings from the most left up to the most right one
@@ -174,7 +178,9 @@ llvm::Value *Generator::Expression::generate_string_interpolation(    //
         str_value = builder.CreateCall(init_str_fn, {lit_str, builder.getInt64(lit_string.length())}, "init_str_value");
     } else {
         // Currently only the first output of a group is supported in string interpolation, as there currently is no group printing yet
-        group_mapping res = generate_type_cast(builder, parent, scope, allocations, std::get<std::unique_ptr<TypeCastNode>>(*it).get());
+        group_mapping res = generate_type_cast(                                                                              //
+            builder, parent, scope, allocations, garbage, expr_depth + 1, std::get<std::unique_ptr<TypeCastNode>>(*it).get() //
+        );
         if (!res.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
@@ -191,13 +197,20 @@ llvm::Value *Generator::Expression::generate_string_interpolation(    //
             llvm::Value *lit_str = IR::generate_const_string(builder, parent, lit_string);
             str_value = builder.CreateCall(add_str_lit, {str_value, lit_str, builder.getInt64(lit_string.length())});
         } else {
-            group_mapping res = generate_type_cast(builder, parent, scope, allocations, std::get<std::unique_ptr<TypeCastNode>>(*it).get());
+            group_mapping res = generate_type_cast(                                                                              //
+                builder, parent, scope, allocations, garbage, expr_depth + 1, std::get<std::unique_ptr<TypeCastNode>>(*it).get() //
+            );
             if (!res.has_value()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
             str_value = builder.CreateCall(add_str_str, {str_value, res.value().at(0)});
         }
+    }
+    if (garbage.count(expr_depth) == 0) {
+        garbage[expr_depth].emplace_back("str", str_value);
+    } else {
+        garbage.at(expr_depth).emplace_back("str", str_value);
     }
     return str_value;
 }
@@ -212,8 +225,9 @@ Generator::group_mapping Generator::Expression::generate_call(        //
     // Get the arguments
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
+    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
     for (const auto &arg : call_node->arguments) {
-        group_mapping expression = generate_expression(builder, parent, scope, allocations, arg.first.get(), arg.second);
+        group_mapping expression = generate_expression(builder, parent, scope, allocations, garbage, 0, arg.first.get(), arg.second);
         if (!expression.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
@@ -251,9 +265,11 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             if (std::get<std::string>(call_node->arguments.at(0).first->type) == "str") {
                 if (dynamic_cast<const LiteralNode *>(call_node->arguments.at(0).first.get())) {
                     return_value.emplace_back(builder.CreateCall(print_functions["str"], args));
+                    Statement::clear_garbage(builder, garbage);
                     return return_value;
                 } else {
                     return_value.emplace_back(builder.CreateCall(print_functions["str_var"], args));
+                    Statement::clear_garbage(builder, garbage);
                     return return_value;
                 }
             }
@@ -261,6 +277,7 @@ Generator::group_mapping Generator::Expression::generate_call(        //
                 print_functions[std::get<std::string>(call_node->arguments.at(0).first->type)], //
                 args                                                                            //
                 ));
+            Statement::clear_garbage(builder, garbage);
             return return_value;
         }
         return_value.emplace_back(builder.CreateCall(builtin_function, args));
@@ -365,6 +382,9 @@ Generator::group_mapping Generator::Expression::generate_call(        //
         );
         return_value.emplace_back(elem_value);
     }
+
+    // Finally, clear all garbage
+    Statement::clear_garbage(builder, garbage);
     return return_value;
 }
 
@@ -462,17 +482,20 @@ void Generator::Expression::generate_rethrow(                         //
     builder.SetInsertPoint(merge_block);
 }
 
-Generator::group_mapping Generator::Expression::generate_group_expression( //
-    llvm::IRBuilder<> &builder,                                            //
-    llvm::Function *parent,                                                //
-    const Scope *scope,                                                    //
-    std::unordered_map<std::string, llvm::Value *const> &allocations,      //
-    const GroupExpressionNode *group_node                                  //
+Generator::group_mapping Generator::Expression::generate_group_expression(                              //
+    llvm::IRBuilder<> &builder,                                                                         //
+    llvm::Function *parent,                                                                             //
+    const Scope *scope,                                                                                 //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                      //
+    const GroupExpressionNode *group_node                                                               //
 ) {
     std::vector<llvm::Value *> group_values;
     group_values.reserve(group_node->expressions.size());
     for (const auto &expr : group_node->expressions) {
-        std::vector<llvm::Value *> expr_val = generate_expression(builder, parent, scope, allocations, expr.get()).value();
+        std::vector<llvm::Value *> expr_val =
+            generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, expr.get()).value();
         assert(expr_val.size() == 1); // Nested groups are not allowed
         assert(expr_val.at(0) != nullptr);
         group_values.push_back(expr_val[0]);
@@ -480,12 +503,14 @@ Generator::group_mapping Generator::Expression::generate_group_expression( //
     return group_values;
 }
 
-Generator::group_mapping Generator::Expression::generate_initializer( //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const InitializerNode *initializer                                //
+Generator::group_mapping Generator::Expression::generate_initializer(                                   //
+    llvm::IRBuilder<> &builder,                                                                         //
+    llvm::Function *parent,                                                                             //
+    const Scope *scope,                                                                                 //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                      //
+    const InitializerNode *initializer                                                                  //
 ) {
     // Check if its a data initializer
     if (initializer->is_data) {
@@ -500,7 +525,7 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
         }
         std::vector<llvm::Value *> return_values;
         for (const auto &expression : initializer->args) {
-            auto expr_result = generate_expression(builder, parent, scope, allocations, expression.get());
+            auto expr_result = generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, expression.get());
             if (!expr_result.has_value()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
@@ -574,15 +599,18 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     return return_values;
 }
 
-Generator::group_mapping Generator::Expression::generate_type_cast(   //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const TypeCastNode *type_cast_node                                //
+Generator::group_mapping Generator::Expression::generate_type_cast(                                     //
+    llvm::IRBuilder<> &builder,                                                                         //
+    llvm::Function *parent,                                                                             //
+    const Scope *scope,                                                                                 //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                      //
+    const TypeCastNode *type_cast_node                                                                  //
 ) {
     // First, generate the expression
-    std::vector<llvm::Value *> expr = generate_expression(builder, parent, scope, allocations, type_cast_node->expr.get()).value();
+    std::vector<llvm::Value *> expr =
+        generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, type_cast_node->expr.get()).value();
     // Then, make sure that the expressions types are "normal" strings
     if (std::holds_alternative<std::vector<std::string>>(type_cast_node->expr->type)) {
         std::vector<std::string> &types = std::get<std::vector<std::string>>(type_cast_node->expr->type);
@@ -743,15 +771,18 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     return nullptr;
 }
 
-Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
-    llvm::IRBuilder<> &builder,                                               //
-    llvm::Function *parent,                                                   //
-    const Scope *scope,                                                       //
-    std::unordered_map<std::string, llvm::Value *const> &allocations,         //
-    const UnaryOpExpression *unary_op                                         //
+Generator::group_mapping Generator::Expression::generate_unary_op_expression(                           //
+    llvm::IRBuilder<> &builder,                                                                         //
+    llvm::Function *parent,                                                                             //
+    const Scope *scope,                                                                                 //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                      //
+    const UnaryOpExpression *unary_op                                                                   //
 ) {
     const ExpressionNode *expression = unary_op->operand.get();
-    std::vector<llvm::Value *> operand = generate_expression(builder, parent, scope, allocations, expression).value();
+    std::vector<llvm::Value *> operand =
+        generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, expression).value();
     for (size_t i = 0; i < operand.size(); i++) {
         const std::string &expression_type = std::get<std::string>(expression->type);
         switch (unary_op->operator_token) {
@@ -811,20 +842,22 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
     return operand;
 }
 
-Generator::group_mapping Generator::Expression::generate_binary_op(   //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const BinaryOpNode *bin_op_node                                   //
+Generator::group_mapping Generator::Expression::generate_binary_op(                                     //
+    llvm::IRBuilder<> &builder,                                                                         //
+    llvm::Function *parent,                                                                             //
+    const Scope *scope,                                                                                 //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                      //
+    const BinaryOpNode *bin_op_node                                                                     //
 ) {
-    auto lhs_maybe = generate_expression(builder, parent, scope, allocations, bin_op_node->left.get());
+    auto lhs_maybe = generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, bin_op_node->left.get());
     if (!lhs_maybe.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return std::nullopt;
     }
     std::vector<llvm::Value *> lhs = lhs_maybe.value();
-    auto rhs_maybe = generate_expression(builder, parent, scope, allocations, bin_op_node->right.get());
+    auto rhs_maybe = generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, bin_op_node->right.get());
     if (!rhs_maybe.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return std::nullopt;
@@ -852,10 +885,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op(   //
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
                 } else if (type == "str") {
-                    return_value.emplace_back(String::generate_string_addition(builder, scope, allocations, //
-                        lhs.at(i), bin_op_node->left.get(),                                                 //
-                        rhs.at(i), bin_op_node->right.get(),                                                //
-                        bin_op_node->is_shorthand)                                                          //
+                    return_value.emplace_back(String::generate_string_addition(builder, scope, allocations, garbage, expr_depth + 1, //
+                        lhs.at(i), bin_op_node->left.get(),                                                                          //
+                        rhs.at(i), bin_op_node->right.get(),                                                                         //
+                        bin_op_node->is_shorthand)                                                                                   //
                     );
                 } else {
                     THROW_BASIC_ERR(ERR_GENERATING);
