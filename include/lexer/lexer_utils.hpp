@@ -9,20 +9,20 @@
 static const std::unordered_map<std::string_view, Token> symbols = {
     {"", TOK_EOF}, // -1
     // single character tokens
-    {"(", TOK_LEFT_PAREN},   // -2
-    {")", TOK_RIGHT_PAREN},  // -3
-    {"[", TOK_LEFT_SQUARE},  // -4
-    {"]", TOK_RIGHT_SQUARE}, // -5
-    {"{", TOK_LEFT_BRACE},   // -6
-    {"}", TOK_RIGHT_BRACE},  // -7
-    {",", TOK_COMMA},        // -8
-    {".", TOK_DOT},          // -9
-    {";", TOK_SEMICOLON},    // -10
-    {":", TOK_COLON},        // -11
-    {"?", TOK_QUESTION},     // -12
-    {"_", TOK_UNDERSCORE},   // -13
-    {"#", TOK_FLAG},         // -14
-    {"$", TOK_DOLLAR},       // -15
+    {"(", TOK_LEFT_PAREN},    // -2
+    {")", TOK_RIGHT_PAREN},   // -3
+    {"[", TOK_LEFT_BRACKET},  // -4
+    {"]", TOK_RIGHT_BRACKET}, // -5
+    {"{", TOK_LEFT_BRACE},    // -6
+    {"}", TOK_RIGHT_BRACE},   // -7
+    {",", TOK_COMMA},         // -8
+    {".", TOK_DOT},           // -9
+    {";", TOK_SEMICOLON},     // -10
+    {":", TOK_COLON},         // -11
+    {"?", TOK_QUESTION},      // -12
+    {"_", TOK_UNDERSCORE},    // -13
+    {"#", TOK_FLAG},          // -14
+    {"$", TOK_DOLLAR},        // -15
     // calculational tokens
     {"+", TOK_PLUS},  // -16
     {"-", TOK_MINUS}, // -17

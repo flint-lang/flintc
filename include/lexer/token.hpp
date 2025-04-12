@@ -8,8 +8,8 @@ enum Token {
     // single character tokens
     TOK_LEFT_PAREN = -2,
     TOK_RIGHT_PAREN = -3,
-    TOK_LEFT_SQUARE = -4,
-    TOK_RIGHT_SQUARE = -5,
+    TOK_LEFT_BRACKET = -4,
+    TOK_RIGHT_BRACKET = -5,
     TOK_LEFT_BRACE = -6,
     TOK_RIGHT_BRACE = -7,
     TOK_COMMA = -8,
