@@ -107,10 +107,10 @@ void Lexer::scan_token() {
             add_token(TOK_RIGHT_PAREN);
             break;
         case '[':
-            add_token(TOK_LEFT_PAREN);
+            add_token(TOK_LEFT_BRACKET);
             break;
         case ']':
-            add_token(TOK_RIGHT_SQUARE);
+            add_token(TOK_RIGHT_BRACKET);
             break;
         case '{':
             add_token(TOK_LEFT_BRACE);
