@@ -346,7 +346,8 @@ class Signature {
     static const inline signature literal = {"(", TOK_STR_VALUE, "|", TOK_INT_VALUE, "|", TOK_FLINT_VALUE, "|", TOK_CHAR_VALUE, "|",
         TOK_TRUE, "|", TOK_FALSE, ")"};
     static const inline signature type = combine({//
-        {"("}, type_prim, {"|", TOK_IDENTIFIER, "|"}, type_prim_mult, {")"}});
+        {"("}, type_prim, {"|", TOK_IDENTIFIER, "|", TOK_IDENTIFIER, TOK_LEFT_BRACKET, TOK_RIGHT_BRACKET, "|"}, type_prim,
+        {TOK_LEFT_BRACKET, TOK_RIGHT_BRACKET, "|"}, type_prim_mult, {")"}});
     static const inline signature assignment_operator = {"(", TOK_PLUS_EQUALS, "|", TOK_MINUS_EQUALS, "|", TOK_MULT_EQUALS, "|",
         TOK_DIV_EQUALS, ")"};
     static const inline signature operational_binop = {"(", TOK_PLUS, "|", TOK_MINUS, "|", TOK_MULT, "|", TOK_DIV, "|", TOK_POW, ")"};
