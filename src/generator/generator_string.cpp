@@ -10,7 +10,7 @@ void Generator::String::generate_create_str_function(llvm::IRBuilder<> *builder,
     //     string->len = len;
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *create_str_type = llvm::FunctionType::get( //
@@ -62,7 +62,7 @@ void Generator::String::generate_init_str_function(llvm::IRBuilder<> *builder, l
     //     memcpy(string->value, value, len);
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -118,7 +118,7 @@ void Generator::String::generate_compare_str_function(llvm::IRBuilder<> *builder
     //     }
     //     return memcmp(lhs->value, rhs->value, lhs->len);
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *memcmp_fn = c_functions.at(MEMCMP);
 
     llvm::FunctionType *compare_str_type = llvm::FunctionType::get( //
@@ -197,7 +197,7 @@ void Generator::String::generate_assign_str_function(llvm::IRBuilder<> *builder,
     //     free(*string);
     //     *string = value;
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *free_fn = c_functions.at(FREE);
 
     llvm::FunctionType *assign_str_type = llvm::FunctionType::get( //
@@ -250,7 +250,7 @@ void Generator::String::generate_assign_lit_function(llvm::IRBuilder<> *builder,
     //     new_string->len = len;
     //     memcpy(new_string->value, value, len);
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -325,7 +325,7 @@ void Generator::String::generate_append_str_function(llvm::IRBuilder<> *builder,
     //     memcpy(new_dest->value + new_dest->len, source->value, source->len);
     //     new_dest->len += source->len;
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -407,7 +407,7 @@ void Generator::String::generate_append_lit_function(llvm::IRBuilder<> *builder,
     //     memcpy(new_dest->value + new_dest->len, source, source_len);
     //     new_dest->len += source_len;
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -485,7 +485,7 @@ void Generator::String::generate_add_str_str_function(llvm::IRBuilder<> *builder
     //     memcpy(result->value + lhs->len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -563,7 +563,7 @@ void Generator::String::generate_add_str_lit_function(llvm::IRBuilder<> *builder
     //     memcpy(result->value + lhs->len, rhs, rhs_len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -639,7 +639,7 @@ void Generator::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder
     //     memcpy(result->value + lhs_len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type_from_str(builder->getContext(), "str_var").first;
+    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 

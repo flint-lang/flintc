@@ -4,7 +4,6 @@
 #include "expression_node.hpp"
 
 #include <memory>
-#include <string>
 #include <variant>
 #include <vector>
 
@@ -14,14 +13,14 @@ class GroupExpressionNode : public ExpressionNode {
   public:
     explicit GroupExpressionNode(std::vector<std::unique_ptr<ExpressionNode>> &expressions) :
         expressions(std::move(expressions)) {
-        std::vector<std::string> types;
+        std::vector<std::shared_ptr<Type>> types;
         for (auto it = this->expressions.begin(); it != this->expressions.end(); ++it) {
-            if (std::holds_alternative<std::vector<std::string>>((*it)->type)) {
+            if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>((*it)->type)) {
                 // Nested groups are not allowed
                 THROW_BASIC_ERR(ERR_PARSING);
                 return;
             }
-            types.emplace_back(std::get<std::string>((*it)->type));
+            types.emplace_back(std::get<std::shared_ptr<Type>>((*it)->type));
         }
         this->type = types;
     }
@@ -37,7 +36,7 @@ class GroupExpressionNode : public ExpressionNode {
   private:
     /// @function `get_next_group_id`
     /// @brief Returns the next group id. Ensures that each group gets its own id for the lifetime of the program
-    static unsigned inline int get_next_group_id() {
+    static inline unsigned int get_next_group_id() {
         static unsigned int group_id = 0;
         return group_id++;
     }

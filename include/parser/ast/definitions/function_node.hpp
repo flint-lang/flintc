@@ -2,6 +2,7 @@
 
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/scope.hpp"
+#include "parser/type/type.hpp"
 
 #include <memory>
 #include <string>
@@ -12,13 +13,13 @@
 /// @brief Represents function definitions
 class FunctionNode : public ASTNode {
   public:
-    explicit FunctionNode(                                                   //
-        bool is_aligned,                                                     //
-        bool is_const,                                                       //
-        std::string name,                                                    //
-        std::vector<std::tuple<std::string, std::string, bool>> &parameters, //
-        std::vector<std::string> &return_types,                              //
-        std::unique_ptr<Scope> &scope                                        //
+    explicit FunctionNode(                                                             //
+        bool is_aligned,                                                               //
+        bool is_const,                                                                 //
+        std::string name,                                                              //
+        std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> &parameters, //
+        std::vector<std::shared_ptr<Type>> &return_types,                              //
+        std::unique_ptr<Scope> &scope                                                  //
         ) :
         is_aligned(is_aligned),
         is_const(is_const),
@@ -52,11 +53,11 @@ class FunctionNode : public ASTNode {
 
     /// @var `parameters`
     /// @brief Parameter types, names and whether the parameter variable is mutable
-    std::vector<std::tuple<std::string, std::string, bool>> parameters;
+    std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
 
     /// @var `return_types`
     /// @brief The types of all return values
-    std::vector<std::string> return_types;
+    std::vector<std::shared_ptr<Type>> return_types;
 
     /// @var `scope`
     /// @brief The scope of the function containing all statements

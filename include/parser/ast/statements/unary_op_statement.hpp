@@ -3,8 +3,8 @@
 #include "parser/ast/unary_op_base.hpp"
 #include "statement_node.hpp"
 
-/// UnaryOpStatement
-///     Represents unary operation statements
+/// class `UnaryOpStatement`
+/// @brief Represents unary operation statements
 class UnaryOpStatement : public UnaryOpBase, public StatementNode {
   public:
     using UnaryOpBase::UnaryOpBase;

@@ -10,12 +10,12 @@
 /// @brief Represents binary operations.
 class BinaryOpNode : public ExpressionNode {
   public:
-    explicit BinaryOpNode(                                               //
-        const Token operator_token,                                      //
-        std::unique_ptr<ExpressionNode> &left,                           //
-        std::unique_ptr<ExpressionNode> &right,                          //
-        const std::variant<std::string, std::vector<std::string>> &type, //
-        bool is_shorthand = false                                        //
+    explicit BinaryOpNode(                                                                   //
+        const Token operator_token,                                                          //
+        std::unique_ptr<ExpressionNode> &left,                                               //
+        std::unique_ptr<ExpressionNode> &right,                                              //
+        const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &type, //
+        bool is_shorthand = false                                                            //
         ) :
         operator_token(operator_token),
         left(std::move(left)),

@@ -11,7 +11,7 @@ class LiteralNode : public ExpressionNode {
   public:
     explicit LiteralNode(                                               //
         const std::variant<int, float, std::string, bool, char> &value, //
-        const std::string &type,                                        //
+        const std::shared_ptr<Type> &type,                              //
         const bool is_folded = false                                    //
         ) :
         value(value),

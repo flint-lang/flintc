@@ -6,12 +6,12 @@
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
     llvm::LLVMContext *context,                       //
-    const std::vector<std::string> &types,            //
+    const std::vector<std::shared_ptr<Type>> &types,  //
     const bool is_return_type                         //
 ) {
     std::string types_str = is_return_type ? "ret_" : "";
     for (auto it = types.begin(); it < types.end(); ++it) {
-        types_str.append(*it);
+        types_str.append((*it)->to_string());
         if (std::distance(it, types.end()) > 1) {
             types_str.append("_");
         }
@@ -36,7 +36,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     }
     // Rest of the elements are the return types
     for (const auto &ret_value : types) {
-        auto ret_type = get_type_from_str(*context, ret_value);
+        auto ret_type = get_type(*context, ret_value);
         if (ret_type.second) {
             types_vec.emplace_back(ret_type.first->getPointerTo());
         } else {
@@ -70,9 +70,9 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
     }
 }
 
-std::pair<llvm::Type *, bool> Generator::IR::get_type_from_str(llvm::LLVMContext &context, const std::string &str) {
+std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::LLVMContext &context, const std::shared_ptr<Type> &type) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
-    if (str == "str_var") {
+    if (type->to_string() == "str_var") {
         // A string is a struct of type 'type { i64, [0 x i8] }'
         llvm::StructType *str_type;
         if (type_map.find("type_str") != type_map.end()) {
@@ -91,8 +91,8 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type_from_str(llvm::LLVMContext
         }
         return {str_type, false};
     }
-    if (keywords.find(str) != keywords.end()) {
-        switch (keywords.at(str)) {
+    if (keywords.find(type->to_string()) != keywords.end()) {
+        switch (keywords.at(type->to_string())) {
             default:
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return {nullptr, false};
@@ -120,9 +120,9 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type_from_str(llvm::LLVMContext
         }
     }
     // Check if its a known data type
-    if (data_nodes.find(str) != data_nodes.end()) {
-        const DataNode *const data_node = data_nodes.at(str);
-        std::vector<std::string> types;
+    if (data_nodes.find(type->to_string()) != data_nodes.end()) {
+        const DataNode *const data_node = data_nodes.at(type->to_string());
+        std::vector<std::shared_ptr<Type>> types;
         for (const auto &order_name : data_node->order) {
             types.emplace_back(data_node->fields.at(order_name).first);
         }

@@ -314,10 +314,10 @@ class Generator {
         /// @param `types` The list of types to get or set the struct type from
         /// @param `is_return_type` Whether the StructType is a return type (if it is, it has one return value more, the error return value)
         /// @return `llvm::StructType *` The reference to the StructType, representing the return type of the types map
-        static llvm::StructType *add_and_or_get_type( //
-            llvm::LLVMContext *context,               //
-            const std::vector<std::string> &types,    //
-            const bool is_return_type = true          //
+        static llvm::StructType *add_and_or_get_type(        //
+            llvm::LLVMContext *context,                      //
+            const std::vector<std::shared_ptr<Type>> &types, //
+            const bool is_return_type = true                 //
         );
 
         /// @function `generate_forward_declarations`
@@ -328,16 +328,16 @@ class Generator {
         /// @param `file_node` The FileNode whose construct definitions will be forward-declared in the given module
         static void generate_forward_declarations(llvm::Module *module, const FileNode &file_node);
 
-        /// @function `get_type_from_str`
-        /// @brief Returns the llvm Type from a given string value
+        /// @function `get_type`
+        /// @brief Returns the llvm Type from a given Type
         ///
         /// @param `context` The LLVM context
-        /// @param `str` The string representation of the type which is matched to get the correct type
+        /// @param `type` The type from which to get the llvm type from
         /// @return `std::pair<llvm::Type *, bool>` A pair containing a pointer to the correct llvm Type from the given string and a boolean
         /// value to determine if the given data type is a complex type (data, entity etc)
         ///
-        /// @throws ErrGenerating when the type could not be parsed from the string representation to a real type
-        static std::pair<llvm::Type *, bool> get_type_from_str(llvm::LLVMContext &context, const std::string &str);
+        /// @throws ErrGenerating when the type could not be created from the passed type
+        static std::pair<llvm::Type *, bool> get_type(llvm::LLVMContext &context, const std::shared_ptr<Type> &type);
 
         /// @function `get_default_value_of_type`
         /// @brief Returns the default value associated with a given Type
@@ -1747,14 +1747,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `expr` The llvm value which will be cast
-        /// @param `from_type` The string representation of the type to cast from
-        /// @param `to_type` The string representation of the type to cast to
+        /// @param `from_type` The type to cast from
+        /// @param `to_type` The type to cast to
         /// @return `llvm::Value *` The value containing the result of the type cast
-        static llvm::Value *generate_type_cast( //
-            llvm::IRBuilder<> &builder,         //
-            llvm::Value *expr,                  //
-            const std::string &from_type,       //
-            const std::string &to_type          //
+        static llvm::Value *generate_type_cast(     //
+            llvm::IRBuilder<> &builder,             //
+            llvm::Value *expr,                      //
+            const std::shared_ptr<Type> &from_type, //
+            const std::shared_ptr<Type> &to_type    //
         );
 
         /// @function `generate_unary_op_expression`

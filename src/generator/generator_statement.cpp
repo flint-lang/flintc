@@ -108,7 +108,7 @@ void Generator::Statement::generate_end_of_scope(                    //
     auto variables = scope->get_unique_variables();
     for (const auto &[var_name, var_info] : variables) {
         // Check if the variable is of type str
-        if (std::get<0>(var_info) != "str") {
+        if (std::get<0>(var_info)->to_string() != "str") {
             continue;
         }
         // Check if the variable is a function parameter, if it is, dont free it
@@ -118,7 +118,7 @@ void Generator::Statement::generate_end_of_scope(                    //
         // Get the allocation of the variable
         const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
         llvm::Value *const alloca = allocations.at(alloca_name);
-        llvm::Type *str_type = IR::get_type_from_str(builder.getContext(), "str").first;
+        llvm::Type *str_type = IR::get_type(builder.getContext(), Type::get_simple_type("str_var")).first;
         llvm::Value *str_ptr = builder.CreateLoad(str_type->getPointerTo(), alloca, var_name + "_cleanup");
         builder.CreateCall(c_functions.at(FREE), {str_ptr});
     }
@@ -160,8 +160,8 @@ void Generator::Statement::generate_return_statement(                 //
         }
 
         // If the rhs is of type `str`, delete the last "garbage", as thats the _actual_ return value
-        if (std::holds_alternative<std::string>(return_node->return_value->type) &&
-            std::get<std::string>(return_node->return_value->type) == "str" && garbage.count(0) > 0) {
+        if (std::holds_alternative<std::shared_ptr<Type>>(return_node->return_value->type) &&
+            std::get<std::shared_ptr<Type>>(return_node->return_value->type)->to_string() == "str" && garbage.count(0) > 0) {
             garbage.at(0).clear();
         }
         clear_garbage(builder, garbage);
@@ -658,7 +658,7 @@ void Generator::Statement::generate_declaration(                      //
             }
             // If the rhs is a InitializerNode, it returns all element values from the initializer expression
             // First, get the struct type of the data
-            llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), declaration_node->type).first;
+            llvm::Type *data_type = IR::get_type(builder.getContext(), declaration_node->type).first;
             for (size_t i = 0; i < expr_val.value().size(); i++) {
                 llvm::Value *elem_ptr = builder.CreateStructGEP(              //
                     data_type,                                                //
@@ -676,10 +676,10 @@ void Generator::Statement::generate_declaration(                      //
         }
         expression = expr_val.value().at(0);
     } else {
-        expression = IR::get_default_value_of_type(IR::get_type_from_str(builder.getContext(), declaration_node->type).first);
+        expression = IR::get_default_value_of_type(IR::get_type(builder.getContext(), declaration_node->type).first);
     }
 
-    if (declaration_node->type == "str") {
+    if (declaration_node->type->to_string() == "str") {
         std::optional<const ExpressionNode *> initializer;
         if (declaration_node->initializer.has_value()) {
             initializer = declaration_node->initializer.value().get();
@@ -740,8 +740,8 @@ void Generator::Statement::generate_assignment(                       //
     llvm::Value *expression = expr.value().at(0);
 
     // If the rhs is of type `str`, delete tha last "garbage", as thats the _actual_ value
-    if (std::holds_alternative<std::string>(assignment_node->expression->type) &&
-        std::get<std::string>(assignment_node->expression->type) == "str" && garbage.count(0) > 0) {
+    if (std::holds_alternative<std::shared_ptr<Type>>(assignment_node->expression->type) &&
+        std::get<std::shared_ptr<Type>>(assignment_node->expression->type)->to_string() == "str" && garbage.count(0) > 0) {
         garbage.at(0).clear();
     }
     clear_garbage(builder, garbage);
@@ -755,7 +755,7 @@ void Generator::Statement::generate_assignment(                       //
     const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(assignment_node->name));
     llvm::Value *const lhs = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
-    if (assignment_node->type == "str") {
+    if (assignment_node->type->to_string() == "str") {
         // Only generate the string assignment if its not a shorthand
         if (!assignment_node->is_shorthand) {
             String::generate_string_assignment(builder, lhs, assignment_node, expression);
@@ -795,7 +795,7 @@ void Generator::Statement::generate_data_field_assignment(            //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_field_assignment->var_name;
     llvm::Value *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), data_field_assignment->data_type).first;
+    llvm::Type *data_type = IR::get_type(builder.getContext(), data_field_assignment->data_type).first;
 
     llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, data_field_assignment->field_id);
     llvm::StoreInst *store = builder.CreateStore(expression.value().at(0), field_ptr);
@@ -831,7 +831,7 @@ void Generator::Statement::generate_grouped_data_field_assignment(    //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_field_assignment->var_name;
     llvm::Value *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), grouped_field_assignment->data_type).first;
+    llvm::Type *data_type = IR::get_type(builder.getContext(), grouped_field_assignment->data_type).first;
 
     for (size_t i = 0; i < expression.value().size(); i++) {
         llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_field_assignment->field_ids.at(i));
@@ -861,20 +861,20 @@ void Generator::Statement::generate_unary_op_statement(               //
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
     llvm::Value *const alloca = allocations.at(var_name);
 
-    llvm::LoadInst *var_value = builder.CreateLoad(                                               //
-        IR::get_type_from_str(builder.getContext(), std::get<std::string>(var_node->type)).first, //
-        alloca,                                                                                   //
-        var_node->name + "_val"                                                                   //
+    llvm::LoadInst *var_value = builder.CreateLoad(                                                //
+        IR::get_type(builder.getContext(), std::get<std::shared_ptr<Type>>(var_node->type)).first, //
+        alloca,                                                                                    //
+        var_node->name + "_val"                                                                    //
     );
     var_value->setMetadata("comment",
         llvm::MDNode::get(parent->getContext(), llvm::MDString::get(parent->getContext(), "Load val of var '" + var_node->name + "'")));
     llvm::Value *operation_result = nullptr;
 
-    if (!std::holds_alternative<std::string>(var_node->type)) {
+    if (!std::holds_alternative<std::shared_ptr<Type>>(var_node->type)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return;
     }
-    const std::string &var_type = std::get<std::string>(var_node->type);
+    const std::string var_type = std::get<std::shared_ptr<Type>>(var_node->type)->to_string();
     switch (unary_op->operator_token) {
         default:
             // Unknown unary operator

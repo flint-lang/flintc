@@ -125,7 +125,7 @@ llvm::Value *Generator::Expression::generate_variable(                //
             // If it's a parameter, and its an mutable primitive type, we dont return it directly, toherwise we do
             if (scope->variables.find(arg.getName().str()) != scope->variables.end()) {
                 auto var = scope->variables.at(arg.getName().str());
-                if (keywords.find(std::get<0>(var)) != keywords.end() && std::get<2>(var)) {
+                if (keywords.find(std::get<0>(var)->to_string()) != keywords.end() && std::get<2>(var)) {
                     continue;
                 }
             }
@@ -146,7 +146,7 @@ llvm::Value *Generator::Expression::generate_variable(                //
     }
 
     // Get the type that the pointer points to
-    llvm::Type *value_type = IR::get_type_from_str(parent->getContext(), std::get<std::string>(variable_node->type)).first;
+    llvm::Type *value_type = IR::get_type(parent->getContext(), std::get<std::shared_ptr<Type>>(variable_node->type)).first;
 
     // Load the variable's value if it's a pointer
     llvm::LoadInst *load = builder.CreateLoad(value_type, variable, variable_node->name + "_val");
@@ -237,8 +237,8 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             return std::nullopt;
         }
         llvm::Value *expr_val = expression.value().at(0);
-        if (call_node->function_name != "print" && std::holds_alternative<std::string>(arg.first->type) &&
-            std::get<std::string>(arg.first->type) == "str") {
+        if (call_node->function_name != "print" && std::holds_alternative<std::shared_ptr<Type>>(arg.first->type) &&
+            std::get<std::shared_ptr<Type>>(arg.first->type)->to_string() == "str") {
             expr_val = String::generate_string_declaration(builder, expr_val, arg.first.get());
         }
         args.emplace_back(expr_val);
@@ -253,16 +253,17 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             return std::nullopt;
         }
         // There doesnt exist a builtin print function for any groups
-        if (!std::holds_alternative<std::string>(call_node->arguments.at(0).first->type)) {
+        if (!std::holds_alternative<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
         // Call the builtin function 'print'
         std::vector<llvm::Value *> return_value;
         if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
-            print_functions.find(std::get<std::string>(call_node->arguments.at(0).first->type)) != print_functions.end()) {
+            print_functions.find(std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string()) !=
+                print_functions.end()) {
             // If the argument is of type str we need to differentiate between literals and str variables
-            if (std::get<std::string>(call_node->arguments.at(0).first->type) == "str") {
+            if (std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string() == "str") {
                 if (dynamic_cast<const LiteralNode *>(call_node->arguments.at(0).first.get())) {
                     return_value.emplace_back(builder.CreateCall(print_functions["str"], args));
                     Statement::clear_garbage(builder, garbage);
@@ -273,9 +274,9 @@ Generator::group_mapping Generator::Expression::generate_call(        //
                     return return_value;
                 }
             }
-            return_value.emplace_back(builder.CreateCall(                                       //
-                print_functions[std::get<std::string>(call_node->arguments.at(0).first->type)], //
-                args                                                                            //
+            return_value.emplace_back(builder.CreateCall(                                                              //
+                print_functions[std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string()], //
+                args                                                                                                   //
                 ));
             Statement::clear_garbage(builder, garbage);
             return return_value;
@@ -317,8 +318,9 @@ Generator::group_mapping Generator::Expression::generate_call(        //
     builder.CreateStore(call, res_var);
 
     // Extract and store error value
-    llvm::StructType *return_type = static_cast<llvm::StructType *>(
-        IR::add_and_or_get_type(&builder.getContext(), std::get<std::vector<std::string>>(call_node->type)));
+    llvm::StructType *return_type = static_cast<llvm::StructType *>(                                                  //
+        IR::add_and_or_get_type(&builder.getContext(), std::get<std::vector<std::shared_ptr<Type>>>(call_node->type)) //
+    );
     llvm::Value *err_ptr = builder.CreateStructGEP(                                //
         return_type,                                                               //
         res_var,                                                                   //
@@ -514,12 +516,12 @@ Generator::group_mapping Generator::Expression::generate_initializer(           
 ) {
     // Check if its a data initializer
     if (initializer->is_data) {
-        if (!std::holds_alternative<std::string>(initializer->type)) {
+        if (!std::holds_alternative<std::shared_ptr<Type>>(initializer->type)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
         // Check if the initializer data type is even present
-        if (data_nodes.find(std::get<std::string>(initializer->type)) == data_nodes.end()) {
+        if (data_nodes.find(std::get<std::shared_ptr<Type>>(initializer->type)->to_string()) == data_nodes.end()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
@@ -554,18 +556,18 @@ llvm::Value *Generator::Expression::generate_data_access(             //
     llvm::Value *var_alloca = allocations.at(var_name);
 
     llvm::Type *data_type;
-    if (data_access->data_type == "str" && data_access->field_name == "length") {
-        data_type = IR::get_type_from_str(builder.getContext(), "str_var").first;
+    if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
+        data_type = IR::get_type(builder.getContext(), Type::get_simple_type("str_var")).first;
         var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, data_access->var_name + "_str_val");
     } else {
-        data_type = IR::get_type_from_str(builder.getContext(), data_access->data_type).first;
+        data_type = IR::get_type(builder.getContext(), data_access->data_type).first;
     }
 
     llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, data_access->field_id);
-    llvm::LoadInst *loaded_value = builder.CreateLoad(                                               //
-        IR::get_type_from_str(builder.getContext(), std::get<std::string>(data_access->type)).first, //
-        value_ptr,                                                                                   //
-        data_access->var_name + "_" + data_access->field_name + "_val"                               //
+    llvm::LoadInst *loaded_value = builder.CreateLoad(                                                //
+        IR::get_type(builder.getContext(), std::get<std::shared_ptr<Type>>(data_access->type)).first, //
+        value_ptr,                                                                                    //
+        data_access->var_name + "_" + data_access->field_name + "_val"                                //
     );
     return loaded_value;
 }
@@ -581,16 +583,16 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_data_access->var_name;
     llvm::Value *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type_from_str(builder.getContext(), grouped_data_access->data_type).first;
-    assert(std::holds_alternative<std::vector<std::string>>(grouped_data_access->type));
-    std::vector<std::string> group_types = std::get<std::vector<std::string>>(grouped_data_access->type);
+    llvm::Type *data_type = IR::get_type(builder.getContext(), grouped_data_access->data_type).first;
+    assert(std::holds_alternative<std::vector<std::shared_ptr<Type>>>(grouped_data_access->type));
+    std::vector<std::shared_ptr<Type>> group_types = std::get<std::vector<std::shared_ptr<Type>>>(grouped_data_access->type);
 
     std::vector<llvm::Value *> return_values;
     return_values.reserve(group_types.size());
     for (size_t i = 0; i < grouped_data_access->field_names.size(); i++) {
         llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_data_access->field_ids.at(i));
         llvm::LoadInst *loaded_value = builder.CreateLoad(                                        //
-            IR::get_type_from_str(builder.getContext(), group_types.at(i)).first,                 //
+            IR::get_type(builder.getContext(), group_types.at(i)).first,                          //
             value_ptr,                                                                            //
             grouped_data_access->var_name + "_" + grouped_data_access->field_names.at(i) + "_val" //
         );
@@ -612,25 +614,27 @@ Generator::group_mapping Generator::Expression::generate_type_cast(             
     std::vector<llvm::Value *> expr =
         generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, type_cast_node->expr.get()).value();
     // Then, make sure that the expressions types are "normal" strings
-    if (std::holds_alternative<std::vector<std::string>>(type_cast_node->expr->type)) {
-        std::vector<std::string> &types = std::get<std::vector<std::string>>(type_cast_node->expr->type);
+    if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(type_cast_node->expr->type)) {
+        std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(type_cast_node->expr->type);
         if (types.size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        type_cast_node->expr->type = types.at(0);
+        std::shared_ptr<Type> single_type = types.at(0);
+        types.clear();
+        type_cast_node->expr->type = single_type;
     }
-    const std::string from_type = std::get<std::string>(type_cast_node->expr->type);
-    std::string to_type;
-    if (std::holds_alternative<std::vector<std::string>>(type_cast_node->type)) {
-        const std::vector<std::string> &types = std::get<std::vector<std::string>>(type_cast_node->type);
+    const std::shared_ptr<Type> from_type = std::get<std::shared_ptr<Type>>(type_cast_node->expr->type);
+    std::shared_ptr<Type> to_type;
+    if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(type_cast_node->type)) {
+        const std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(type_cast_node->type);
         if (types.size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
         to_type = types.at(0);
     } else {
-        to_type = std::get<std::string>(type_cast_node->type);
+        to_type = std::get<std::shared_ptr<Type>>(type_cast_node->type);
     }
     // Lastly, check if the expression is castable, and if it is generate the type cast
     for (size_t i = 0; i < expr.size(); i++) {
@@ -642,131 +646,133 @@ Generator::group_mapping Generator::Expression::generate_type_cast(             
 llvm::Value *Generator::Expression::generate_type_cast( //
     llvm::IRBuilder<> &builder,                         //
     llvm::Value *expr,                                  //
-    const std::string &from_type,                       //
-    const std::string &to_type                          //
+    const std::shared_ptr<Type> &from_type,             //
+    const std::shared_ptr<Type> &to_type                //
 ) {
+    const std::string from_type_str = from_type->to_string();
+    const std::string to_type_str = to_type->to_string();
     if (from_type == to_type) {
         return expr;
-    } else if (from_type == "i32") {
-        if (to_type == "str") {
+    } else if (from_type_str == "i32") {
+        if (to_type_str == "str") {
             return builder.CreateCall(TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");
         }
-        if (to_type == "u32") {
+        if (to_type_str == "u32") {
             return TypeCast::i32_to_u32(builder, expr);
         }
-        if (to_type == "i64") {
+        if (to_type_str == "i64") {
             return TypeCast::i32_to_i64(builder, expr);
         }
-        if (to_type == "u64") {
+        if (to_type_str == "u64") {
             return TypeCast::i32_to_u64(builder, expr);
         }
-        if (to_type == "f32") {
+        if (to_type_str == "f32") {
             return TypeCast::i32_to_f32(builder, expr);
         }
-        if (to_type == "f64") {
+        if (to_type_str == "f64") {
             return TypeCast::i32_to_f64(builder, expr);
         }
-    } else if (from_type == "u32") {
-        if (to_type == "str") {
+    } else if (from_type_str == "u32") {
+        if (to_type_str == "str") {
             return builder.CreateCall(TypeCast::typecast_functions.at("u32_to_str"), {expr}, "u32_to_str_res");
         }
-        if (to_type == "i32") {
+        if (to_type_str == "i32") {
             return TypeCast::u32_to_i32(builder, expr);
         }
-        if (to_type == "i64") {
+        if (to_type_str == "i64") {
             return TypeCast::u32_to_i64(builder, expr);
         }
-        if (to_type == "u64") {
+        if (to_type_str == "u64") {
             return TypeCast::u32_to_u64(builder, expr);
         }
-        if (to_type == "f32") {
+        if (to_type_str == "f32") {
             return TypeCast::u32_to_f32(builder, expr);
         }
-        if (to_type == "f64") {
+        if (to_type_str == "f64") {
             return TypeCast::u32_to_f64(builder, expr);
         }
-    } else if (from_type == "i64") {
-        if (to_type == "str") {
+    } else if (from_type_str == "i64") {
+        if (to_type_str == "str") {
             return builder.CreateCall(TypeCast::typecast_functions.at("i64_to_str"), {expr}, "i64_to_str_res");
         }
-        if (to_type == "i32") {
+        if (to_type_str == "i32") {
             return TypeCast::i64_to_i32(builder, expr);
         }
-        if (to_type == "u32") {
+        if (to_type_str == "u32") {
             return TypeCast::i64_to_u32(builder, expr);
         }
-        if (to_type == "u64") {
+        if (to_type_str == "u64") {
             return TypeCast::i64_to_u64(builder, expr);
         }
-        if (to_type == "f32") {
+        if (to_type_str == "f32") {
             return TypeCast::i64_to_f32(builder, expr);
         }
-        if (to_type == "f64") {
+        if (to_type_str == "f64") {
             return TypeCast::i64_to_f64(builder, expr);
         }
-    } else if (from_type == "u64") {
-        if (to_type == "str") {
+    } else if (from_type_str == "u64") {
+        if (to_type_str == "str") {
             return builder.CreateCall(TypeCast::typecast_functions.at("u64_to_str"), {expr}, "u64_to_str_res");
         }
-        if (to_type == "i32") {
+        if (to_type_str == "i32") {
             return TypeCast::u64_to_i32(builder, expr);
         }
-        if (to_type == "u32") {
+        if (to_type_str == "u32") {
             return TypeCast::u64_to_u32(builder, expr);
         }
-        if (to_type == "i64") {
+        if (to_type_str == "i64") {
             return TypeCast::u64_to_i64(builder, expr);
         }
-        if (to_type == "f32") {
+        if (to_type_str == "f32") {
             return TypeCast::u64_to_f32(builder, expr);
         }
-        if (to_type == "f64") {
+        if (to_type_str == "f64") {
             return TypeCast::u64_to_f64(builder, expr);
         }
-    } else if (from_type == "f32") {
-        if (to_type == "str") {
+    } else if (from_type_str == "f32") {
+        if (to_type_str == "str") {
             return builder.CreateCall(TypeCast::typecast_functions.at("f32_to_str"), {expr}, "f32_to_str_res");
         }
-        if (to_type == "i32") {
+        if (to_type_str == "i32") {
             return TypeCast::f32_to_i32(builder, expr);
         }
-        if (to_type == "u32") {
+        if (to_type_str == "u32") {
             return TypeCast::f32_to_u32(builder, expr);
         }
-        if (to_type == "i64") {
+        if (to_type_str == "i64") {
             return TypeCast::f32_to_i64(builder, expr);
         }
-        if (to_type == "u64") {
+        if (to_type_str == "u64") {
             return TypeCast::f32_to_u64(builder, expr);
         }
-        if (to_type == "f64") {
+        if (to_type_str == "f64") {
             return TypeCast::f32_to_f64(builder, expr);
         }
-    } else if (from_type == "f64") {
-        if (to_type == "str") {
+    } else if (from_type_str == "f64") {
+        if (to_type_str == "str") {
             return builder.CreateCall(TypeCast::typecast_functions.at("f64_to_str"), {expr}, "f64_to_str_res");
         }
-        if (to_type == "i32") {
+        if (to_type_str == "i32") {
             return TypeCast::f64_to_i32(builder, expr);
         }
-        if (to_type == "u32") {
+        if (to_type_str == "u32") {
             return TypeCast::f64_to_u32(builder, expr);
         }
-        if (to_type == "i64") {
+        if (to_type_str == "i64") {
             return TypeCast::f64_to_i64(builder, expr);
         }
-        if (to_type == "u64") {
+        if (to_type_str == "u64") {
             return TypeCast::f64_to_u64(builder, expr);
         }
-        if (to_type == "f32") {
+        if (to_type_str == "f32") {
             return TypeCast::f64_to_f32(builder, expr);
         }
-    } else if (from_type == "bool") {
-        if (to_type == "str") {
+    } else if (from_type_str == "bool") {
+        if (to_type_str == "str") {
             return builder.CreateCall(TypeCast::typecast_functions.at("bool_to_str"), {expr}, "bool_to_str_res");
         }
     }
-    std::cout << "FROM_TYPE: " << from_type << ", TO_TYPE: " << to_type << std::endl;
+    std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;
 }
@@ -784,7 +790,7 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression(   
     std::vector<llvm::Value *> operand =
         generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, expression).value();
     for (size_t i = 0; i < operand.size(); i++) {
-        const std::string &expression_type = std::get<std::string>(expression->type);
+        const std::string &expression_type = std::get<std::shared_ptr<Type>>(expression->type)->to_string();
         switch (unary_op->operator_token) {
             default:
                 // Unknown unary operator
@@ -867,9 +873,9 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
     std::vector<llvm::Value *> return_value;
 
     for (size_t i = 0; i < lhs.size(); i++) {
-        const std::string_view type = std::holds_alternative<std::string>(bin_op_node->left->type)
-            ? std::get<std::string>(bin_op_node->left->type)
-            : std::get<std::vector<std::string>>(bin_op_node->left->type).at(i);
+        const std::string type = std::holds_alternative<std::shared_ptr<Type>>(bin_op_node->left->type)
+            ? std::get<std::shared_ptr<Type>>(bin_op_node->left->type)->to_string()
+            : std::get<std::vector<std::shared_ptr<Type>>>(bin_op_node->left->type).at(i)->to_string();
         switch (bin_op_node->operator_token) {
             default:
                 THROW_BASIC_ERR(ERR_GENERATING);

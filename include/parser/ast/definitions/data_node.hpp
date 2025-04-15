@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parser/ast/ast_node.hpp"
+#include "parser/type/type.hpp"
 
 #include <optional>
 #include <string>
@@ -13,13 +14,13 @@
 class DataNode : public ASTNode {
   public:
     DataNode() = default;
-    explicit DataNode(                                                                                     //
-        const bool is_shared,                                                                              //
-        const bool is_immutable,                                                                           //
-        const bool is_aligned,                                                                             //
-        const std::string &name,                                                                           //
-        const std::unordered_map<std::string, std::pair<std::string, std::optional<std::string>>> &fields, //
-        const std::vector<std::string> &order                                                              //
+    explicit DataNode(                                                                                               //
+        const bool is_shared,                                                                                        //
+        const bool is_immutable,                                                                                     //
+        const bool is_aligned,                                                                                       //
+        const std::string &name,                                                                                     //
+        const std::unordered_map<std::string, std::pair<std::shared_ptr<Type>, std::optional<std::string>>> &fields, //
+        const std::vector<std::string> &order                                                                        //
         ) :
         is_shared(is_shared),
         is_immutable(is_immutable),
@@ -50,7 +51,7 @@ class DataNode : public ASTNode {
     /// @details
     ///     - The key is the name of the field
     ///     - The value is the type of the field and optionally its default value
-    std::unordered_map<std::string, std::pair<std::string, std::optional<std::string>>> fields;
+    std::unordered_map<std::string, std::pair<std::shared_ptr<Type>, std::optional<std::string>>> fields;
 
     /// @var `order`
     /// @brief The order of the dada fields in the constructor

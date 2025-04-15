@@ -1,13 +1,13 @@
 #pragma once
 
-#include "../expressions/expression_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "statement_node.hpp"
 
 #include <memory>
 #include <utility>
 
-/// ReturnNode
-///     Represents return statements
+/// class `ReturnNode`
+/// @brief Represents return statements
 class ReturnNode : public StatementNode {
   public:
     explicit ReturnNode(std::unique_ptr<ExpressionNode> &return_value) :
@@ -24,7 +24,7 @@ class ReturnNode : public StatementNode {
     ReturnNode(ReturnNode &&) = default;
     ReturnNode &operator=(ReturnNode &&) = default;
 
-    /// return_value
-    ///     The return values expression
+    /// @var `return_value`
+    /// @brief The return values expression
     std::unique_ptr<ExpressionNode> return_value;
 };

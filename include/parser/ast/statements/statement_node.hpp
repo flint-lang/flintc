@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../ast_node.hpp"
+#include "parser/ast/ast_node.hpp"
 
-/// StatementNode
-///     Base class for all statements
+/// @class `StatementNode`
+/// @brief Base class for all statements
 class StatementNode : public ASTNode {
   protected:
     // constructor

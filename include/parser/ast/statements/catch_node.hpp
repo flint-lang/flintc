@@ -1,14 +1,14 @@
 #pragma once
 
-#include "../statements/statement_node.hpp"
 #include "parser/ast/scope.hpp"
+#include "parser/ast/statements/statement_node.hpp"
 
 #include <memory>
 #include <optional>
 #include <utility>
 
-/// CatchNode
-///     Represents Catch statements
+/// @class `CatchNode`
+/// @brief Represents Catch statements
 class CatchNode : public StatementNode {
   public:
     explicit CatchNode(std::optional<std::string> &var_name, std::unique_ptr<Scope> &scope, unsigned int call_id) :
@@ -27,13 +27,15 @@ class CatchNode : public StatementNode {
     CatchNode(CatchNode &&) = default;
     CatchNode &operator=(CatchNode &&) = default;
 
-    /// var_name
-    ///     The name of the catch variable. Could be none too, then the catch block behaves differently
+    /// @var `var_name`
+    /// @brief The name of the catch variable. Could be none too, then the catch block behaves differently
     std::optional<std::string> var_name;
-    /// scope
-    ///     The scope of the catch block
+
+    /// @var `scope`
+    /// @brief The scope of the catch block
     std::unique_ptr<Scope> scope;
-    /// call_id
-    ///     The id of the call
+
+    /// @var `call_id`
+    /// @brief The id of the call
     unsigned int call_id{0};
 };

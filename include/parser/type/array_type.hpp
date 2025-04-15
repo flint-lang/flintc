@@ -13,6 +13,10 @@ class ArrayType : public Type {
         length(length),
         type(type) {}
 
+    std::string to_string() override {
+        return type->to_string() + "[]";
+    }
+
     /// @var `length`
     /// @brief The length of the array type, nullopt if the length is unknown
     std::optional<size_t> length;

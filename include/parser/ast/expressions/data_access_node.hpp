@@ -8,12 +8,12 @@
 /// @brief Represents the accessing of a single datas value
 class DataAccessNode : public ExpressionNode {
   public:
-    DataAccessNode(                    //
-        const std::string &data_type,  //
-        const std::string &var_name,   //
-        const std::string &field_name, //
-        const unsigned int field_id,   //
-        const std::string &field_type  //
+    DataAccessNode(                             //
+        const std::shared_ptr<Type> &data_type, //
+        const std::string &var_name,            //
+        const std::string &field_name,          //
+        const unsigned int field_id,            //
+        const std::shared_ptr<Type> &field_type //
         ) :
         data_type(data_type),
         var_name(var_name),
@@ -24,7 +24,7 @@ class DataAccessNode : public ExpressionNode {
 
     /// @var `data_type`
     /// @brief The type of the data variable
-    std::string data_type;
+    std::shared_ptr<Type> data_type;
 
     /// @var `var_name`
     /// @brief The name of the data variable

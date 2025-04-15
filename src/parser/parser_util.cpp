@@ -6,6 +6,7 @@
 #include "debug.hpp"
 #include "error/error.hpp"
 #include "parser/signature.hpp"
+#include <algorithm>
 
 bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     token_list definition_tokens = get_definition_tokens(tokens);
@@ -137,7 +138,7 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
 std::optional<std::tuple<                                          //
     std::string,                                                   //
     std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, //
-    std::vector<std::string>,                                      //
+    std::vector<std::shared_ptr<Type>>,                            //
     std::optional<bool>                                            //
     >>
 Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
@@ -202,11 +203,11 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     }
 
     // Get all the argument types
-    std::vector<std::string> argument_types;
+    std::vector<std::shared_ptr<Type>> argument_types;
     argument_types.reserve(arguments.size());
     for (auto &arg : arguments) {
-        assert(std::holds_alternative<std::string>(arg.first->type));
-        argument_types.emplace_back(std::get<std::string>(arg.first->type));
+        assert(std::holds_alternative<std::shared_ptr<Type>>(arg.first->type));
+        argument_types.emplace_back(std::get<std::shared_ptr<Type>>(arg.first->type));
     }
 
     // Check if its a call to a builtin function, if it is, get the return type of said function
@@ -215,14 +216,20 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
         // Check if the function has the same arguments as the function expects
         const auto &function_overloads = builtin_function_types.at(builtin_function->second);
         // Check if any overloaded function exists
-        std::optional<std::pair<std::vector<std::string_view>, std::vector<std::string_view>>> found_function = std::nullopt;
+        std::optional<std::pair<std::vector<std::shared_ptr<Type>>, std::vector<std::shared_ptr<Type>>>> found_function = std::nullopt;
 
-        for (const auto &[param_types, return_types] : function_overloads) {
-            const std::vector<std::string> parameter_types(param_types.begin(), param_types.end());
-            if (arguments.size() != param_types.size() || argument_types != parameter_types) {
+        for (const auto &[param_types_str, return_types_str] : function_overloads) {
+            if (arguments.size() != param_types_str.size()) {
                 continue;
             }
-            auto param_it = parameter_types.begin();
+            std::vector<std::shared_ptr<Type>> param_types(param_types_str.size());
+            std::transform(param_types_str.begin(), param_types_str.end(), param_types.begin(), Type::str_to_type);
+            std::vector<std::shared_ptr<Type>> return_types(return_types_str.size());
+            std::transform(return_types_str.begin(), return_types_str.end(), return_types.begin(), Type::str_to_type);
+            if (argument_types != param_types) {
+                continue;
+            }
+            auto param_it = param_types.begin();
             auto arg_it = argument_types.begin();
             bool is_same = true;
             while (arg_it != argument_types.end()) {
@@ -242,9 +249,9 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
                 function_name, argument_types);
             return std::nullopt;
         }
-        std::vector<std::string> types;
+        std::vector<std::shared_ptr<Type>> types;
         types.reserve(found_function.value().second.size());
-        for (const std::string_view &type : found_function.value().second) {
+        for (const std::shared_ptr<Type> &type : found_function.value().second) {
             types.emplace_back(type);
         }
         return std::make_tuple(function_name, std::move(arguments), types, std::nullopt);
@@ -253,18 +260,18 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     auto function = get_function_from_call(function_name, argument_types);
     if (!function.has_value()) {
         auto data_definition = get_data_definition(file_name, function_name, imported_files, argument_types);
-        if (data_definition.has_value()) {
-            // Its not a function call but actually a data initializer
-            std::vector<std::string> return_type{data_definition.value()->name};
-            return std::make_tuple(            //
-                data_definition.value()->name, //
-                std::move(arguments),          //
-                return_type,                   //
-                true                           //
-            );
+        if (!data_definition.has_value()) {
+            THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name);
+            return std::nullopt;
         }
-        THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name);
-        return std::nullopt;
+        // Its not a function call but actually a data initializer
+        std::vector<std::shared_ptr<Type>> return_type = {Type::get_simple_type(data_definition.value()->name)};
+        return std::make_tuple(            //
+            data_definition.value()->name, //
+            std::move(arguments),          //
+            return_type,                   //
+            true                           //
+        );
     }
     // Check if the argument count does match the parameter count
     const unsigned int param_count = function.value().first->parameters.size();
@@ -277,7 +284,7 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     // Lastly, update the arguments of the call with the information of the function definition, if the arguments should be references
     // Every non-primitive type is always a reference (for now)
     for (auto &arg : arguments) {
-        arg.second = keywords.find(std::get<std::string>(arg.first->type)) == keywords.end();
+        arg.second = keywords.find(std::get<std::shared_ptr<Type>>(arg.first->type)->to_string()) == keywords.end();
     }
 
     return std::make_tuple(function_name, std::move(arguments), function.value().first->return_types, std::nullopt);
@@ -324,9 +331,10 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     return std::make_tuple(operator_token, std::move(expression.value()), is_left);
 }
 
-std::optional<std::tuple<std::string, std::string, std::string, unsigned int, std::string>> Parser::create_field_access_base( //
-    Scope *scope,                                                                                                             //
-    token_list &tokens                                                                                                        //
+std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::string, unsigned int, std::shared_ptr<Type>>>
+Parser::create_field_access_base( //
+    Scope *scope,                 //
+    token_list &tokens            //
 ) {
     remove_leading_garbage(tokens);
 
@@ -345,21 +353,23 @@ std::optional<std::tuple<std::string, std::string, std::string, unsigned int, st
     tokens.erase(tokens.begin());
 
     // Now get the data type from the data variables name
-    const std::optional<std::string> data_type = scope->get_variable_type(var_name);
+    const std::optional<std::shared_ptr<Type>> data_type = scope->get_variable_type(var_name);
     if (!data_type.has_value()) {
         // The variable doesnt exist
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     // If the variable is of type `str`, the only valid access is its `length` variable
-    if (data_type.value() == "str") {
+    if (data_type.value()->to_string() == "str") {
         if (field_name != "length") {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_tuple(data_type.value(), var_name, "length", 0, "u64");
+        return std::make_tuple(data_type.value(), var_name, "length", 0, Type::get_simple_type("u64"));
     }
-    std::optional<DataNode *> data_node = get_data_definition(file_name, data_type.value(), imported_files, std::nullopt, true);
+    std::optional<DataNode *> data_node = get_data_definition(                        //
+        file_name, data_type.value()->to_string(), imported_files, std::nullopt, true //
+    );
     if (!data_node.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -370,7 +380,7 @@ std::optional<std::tuple<std::string, std::string, std::string, unsigned int, st
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::string field_type = data_node.value()->fields.at(field_name).first;
+    const std::shared_ptr<Type> field_type = data_node.value()->fields.at(field_name).first;
     unsigned int field_id = 0;
     for (; field_id < data_node.value()->order.size(); field_id++) {
         if (data_node.value()->order.at(field_id) == field_name) {
@@ -385,9 +395,10 @@ std::optional<std::tuple<std::string, std::string, std::string, unsigned int, st
     return std::make_tuple(data_type.value(), var_name, field_name, field_id, field_type);
 }
 
-std::optional<std::tuple<std::string, std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::string>>>
+std::optional<
+    std::tuple<std::shared_ptr<Type>, std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::shared_ptr<Type>>>>
 Parser::create_grouped_access_base( //
-    [[maybe_unused]] Scope *scope,  //
+    Scope *scope,                   //
     token_list &tokens              //
 ) {
     remove_leading_garbage(tokens);
@@ -424,20 +435,22 @@ Parser::create_grouped_access_base( //
     tokens.erase(tokens.begin());
 
     // Now get the data type from the data variables name
-    const std::optional<std::string> data_type = scope->get_variable_type(var_name);
+    const std::optional<std::shared_ptr<Type>> data_type = scope->get_variable_type(var_name);
     if (!data_type.has_value()) {
         // The variable doesnt exist
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    std::optional<DataNode *> data_node = get_data_definition(file_name, data_type.value(), imported_files, std::nullopt, true);
+    std::optional<DataNode *> data_node = get_data_definition(                        //
+        file_name, data_type.value()->to_string(), imported_files, std::nullopt, true //
+    );
     if (!data_node.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
     // Next, get the field types and field ids from the data node
-    std::vector<std::string> field_types;
+    std::vector<std::shared_ptr<Type>> field_types;
     std::vector<unsigned int> field_ids;
     for (const auto &field_name : field_names) {
         // Now we can check if the given field name exists in the data

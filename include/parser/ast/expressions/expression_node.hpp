@@ -1,13 +1,15 @@
 #pragma once
 
 #include "parser/ast/ast_node.hpp"
+#include "parser/type/type.hpp"
 
-#include <string>
 #include <variant>
 #include <vector>
 
-/// ExpressionNode
-///     Base class for all expressions
+using ExprType = std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>>;
+
+/// @class `ExpressionNode`
+/// @brief Base class for all expressions
 class ExpressionNode : public ASTNode {
   protected:
     // constructor
@@ -27,5 +29,5 @@ class ExpressionNode : public ASTNode {
     /// @brief The type of the expression
     ///
     /// @details The type of an expression can either be a single type, or a list of types for groups
-    std::variant<std::string, std::vector<std::string>> type;
+    ExprType type;
 };

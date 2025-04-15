@@ -1,4 +1,5 @@
 #include "error/error.hpp"
+#include "error/error_type.hpp"
 #include "lexer/builtins.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
@@ -11,17 +12,18 @@
 #include <variant>
 
 bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
-    if (std::holds_alternative<std::string>(lhs->type) && std::holds_alternative<std::string>(rhs->type)) {
+    if (std::holds_alternative<std::shared_ptr<Type>>(lhs->type) && std::holds_alternative<std::shared_ptr<Type>>(rhs->type)) {
         // Both single type
-        const std::string lhs_type = std::get<std::string>(lhs->type);
-        const std::string rhs_type = std::get<std::string>(rhs->type);
-        if (type_precedence.find(lhs_type) == type_precedence.end() || type_precedence.find(rhs_type) == type_precedence.end()) {
+        const std::shared_ptr<Type> lhs_type = std::get<std::shared_ptr<Type>>(lhs->type);
+        const std::shared_ptr<Type> rhs_type = std::get<std::shared_ptr<Type>>(rhs->type);
+        if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
+            type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
             // Not castable, wrong arg types
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        const unsigned int lhs_precedence = type_precedence.at(lhs_type);
-        const unsigned int rhs_precedence = type_precedence.at(rhs_type);
+        const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
+        const unsigned int rhs_precedence = type_precedence.at(rhs_type->to_string());
         if (lhs_precedence > rhs_precedence) {
             // The right type needs to be cast to the left type
             rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
@@ -29,22 +31,23 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
             // The left type needs to be cast to the right type
             lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
         }
-    } else if (!std::holds_alternative<std::string>(lhs->type) && std::holds_alternative<std::string>(rhs->type)) {
+    } else if (!std::holds_alternative<std::shared_ptr<Type>>(lhs->type) && std::holds_alternative<std::shared_ptr<Type>>(rhs->type)) {
         // Left group, right single type
-        if (std::get<std::vector<std::string>>(lhs->type).size() > 1) {
+        if (std::get<std::vector<std::shared_ptr<Type>>>(lhs->type).size() > 1) {
             // Not castable, group and single type mismatch
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        const std::string lhs_type = std::get<std::vector<std::string>>(lhs->type).at(0);
-        const std::string rhs_type = std::get<std::string>(rhs->type);
-        if (type_precedence.find(lhs_type) == type_precedence.end() || type_precedence.find(rhs_type) == type_precedence.end()) {
+        const std::shared_ptr<Type> lhs_type = std::get<std::vector<std::shared_ptr<Type>>>(lhs->type).at(0);
+        const std::shared_ptr<Type> rhs_type = std::get<std::shared_ptr<Type>>(rhs->type);
+        if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
+            type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
             // Not castable, wrong types
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        const unsigned int lhs_precedence = type_precedence.at(lhs_type);
-        const unsigned int rhs_precedence = type_precedence.at(rhs_type);
+        const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
+        const unsigned int rhs_precedence = type_precedence.at(rhs_type->to_string());
         if (lhs_precedence > rhs_precedence) {
             // The right type needs to be cast to the left type
             rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
@@ -54,22 +57,23 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
             // The left type needs to be cast to the right type
             lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
         }
-    } else if (std::holds_alternative<std::string>(lhs->type) && !std::holds_alternative<std::string>(rhs->type)) {
+    } else if (std::holds_alternative<std::shared_ptr<Type>>(lhs->type) && !std::holds_alternative<std::shared_ptr<Type>>(rhs->type)) {
         // Left single type, right group
-        if (std::get<std::vector<std::string>>(rhs->type).size() > 1) {
+        if (std::get<std::vector<std::shared_ptr<Type>>>(rhs->type).size() > 1) {
             // Not castable, group and single type mismatch
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        const std::string lhs_type = std::get<std::string>(lhs->type);
-        const std::string rhs_type = std::get<std::vector<std::string>>(rhs->type).at(0);
-        if (type_precedence.find(lhs_type) == type_precedence.end() || type_precedence.find(rhs_type) == type_precedence.end()) {
+        const std::shared_ptr<Type> lhs_type = std::get<std::shared_ptr<Type>>(lhs->type);
+        const std::shared_ptr<Type> rhs_type = std::get<std::vector<std::shared_ptr<Type>>>(rhs->type).at(0);
+        if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
+            type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
             // Not castable, wrong types
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        const unsigned int lhs_precedence = type_precedence.at(lhs_type);
-        const unsigned int rhs_precedence = type_precedence.at(rhs_type);
+        const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
+        const unsigned int rhs_precedence = type_precedence.at(rhs_type->to_string());
         if (lhs_precedence > rhs_precedence) {
             // The right type needs to be cast to the left type
             rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
@@ -82,6 +86,8 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
     } else {
         // Both group
         // TODO
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return false;
     }
     return true;
 }
@@ -133,22 +139,22 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             if (std::holds_alternative<int>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                      //
                     std::get<int>(lhs->value) + std::get<int>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                 //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true       //
                 );
             } else if (std::holds_alternative<float>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                          //
                     std::get<float>(lhs->value) + std::get<float>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                     //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true           //
                 );
             } else if (std::holds_alternative<std::string>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                                      //
                     std::get<std::string>(lhs->value) + std::get<std::string>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                                 //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true                       //
                 );
             } else if (std::holds_alternative<char>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                        //
                     std::get<char>(lhs->value) + std::get<char>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                   //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true         //
                 );
             }
             break;
@@ -156,17 +162,17 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             if (std::holds_alternative<int>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                      //
                     std::get<int>(lhs->value) - std::get<int>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                 //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true       //
                 );
             } else if (std::holds_alternative<float>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                          //
                     std::get<float>(lhs->value) - std::get<float>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                     //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true           //
                 );
             } else if (std::holds_alternative<char>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                        //
                     std::get<char>(lhs->value) - std::get<char>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                   //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true         //
                 );
             }
             break;
@@ -174,17 +180,17 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             if (std::holds_alternative<int>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                      //
                     std::get<int>(lhs->value) * std::get<int>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                 //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true       //
                 );
             } else if (std::holds_alternative<float>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                          //
                     std::get<float>(lhs->value) * std::get<float>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                     //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true           //
                 );
             } else if (std::holds_alternative<char>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                        //
                     std::get<char>(lhs->value) * std::get<char>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                   //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true         //
                 );
             }
             break;
@@ -192,17 +198,17 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             if (std::holds_alternative<int>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                      //
                     std::get<int>(lhs->value) / std::get<int>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                 //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true       //
                 );
             } else if (std::holds_alternative<float>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                          //
                     std::get<float>(lhs->value) / std::get<float>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                     //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true           //
                 );
             } else if (std::holds_alternative<char>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                        //
                     std::get<char>(lhs->value) / std::get<char>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                   //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true         //
                 );
             }
             break;
@@ -210,17 +216,17 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             if (std::holds_alternative<int>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                                                 //
                     static_cast<int>(std::pow(std::get<int>(lhs->value), std::get<int>(rhs->value))), //
-                    std::get<std::string>(lhs->type), true                                            //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true                                  //
                 );
             } else if (std::holds_alternative<float>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                                                       //
                     static_cast<float>(std::pow(std::get<float>(lhs->value), std::get<float>(rhs->value))), //
-                    std::get<std::string>(lhs->type), true                                                  //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true                                        //
                 );
             } else if (std::holds_alternative<char>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                                                    //
                     static_cast<char>(std::pow(std::get<char>(lhs->value), std::get<char>(rhs->value))), //
-                    std::get<std::string>(lhs->type), true                                               //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true                                     //
                 );
             }
             break;
@@ -228,7 +234,7 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             if (std::holds_alternative<bool>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                         //
                     std::get<bool>(lhs->value) && std::get<bool>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                    //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true          //
                 );
             }
             break;
@@ -236,7 +242,7 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             if (std::holds_alternative<bool>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                         //
                     std::get<bool>(lhs->value) || std::get<bool>(rhs->value), //
-                    std::get<std::string>(lhs->type), true                    //
+                    std::get<std::shared_ptr<Type>>(lhs->type), true          //
                 );
             }
             break;
@@ -304,25 +310,25 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
             case TOK_INT_VALUE: {
                 if (front_token == TOK_MINUS) {
                     std::variant<int, float, std::string, bool, char> value = std::stoi(tok->lexme) * -1;
-                    return LiteralNode(value, "i32");
+                    return LiteralNode(value, Type::get_simple_type("i32"));
                 } else {
                     std::variant<int, float, std::string, bool, char> value = std::stoi(tok->lexme);
-                    return LiteralNode(value, "i32");
+                    return LiteralNode(value, Type::get_simple_type("i32"));
                 }
             }
             case TOK_FLINT_VALUE: {
                 if (front_token == TOK_MINUS) {
                     std::variant<int, float, std::string, bool, char> value = std::stof(tok->lexme) * -1;
-                    return LiteralNode(value, "f32");
+                    return LiteralNode(value, Type::get_simple_type("f32"));
                 } else {
                     std::variant<int, float, std::string, bool, char> value = std::stof(tok->lexme);
-                    return LiteralNode(value, "f32");
+                    return LiteralNode(value, Type::get_simple_type("f32"));
                 }
             }
             case TOK_STR_VALUE: {
                 if (front_token == TOK_DOLLAR) {
                     std::variant<int, float, std::string, bool, char> value = tok->lexme;
-                    return LiteralNode(value, "str");
+                    return LiteralNode(value, Type::get_simple_type("str"));
                 } else {
                     const std::string &str = tok->lexme;
                     std::stringstream processed_str;
@@ -351,20 +357,20 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
                         }
                     }
                     std::variant<int, float, std::string, bool, char> value = processed_str.str();
-                    return LiteralNode(value, "str");
+                    return LiteralNode(value, Type::get_simple_type("str"));
                 }
             }
             case TOK_TRUE: {
                 std::variant<int, float, std::string, bool, char> value = true;
-                return LiteralNode(value, "bool");
+                return LiteralNode(value, Type::get_simple_type("bool"));
             }
             case TOK_FALSE: {
                 std::variant<int, float, std::string, bool, char> value = false;
-                return LiteralNode(value, "bool");
+                return LiteralNode(value, Type::get_simple_type("bool"));
             }
             case TOK_CHAR_VALUE: {
                 std::variant<int, float, std::string, bool, char> value = tok->lexme[0];
-                return LiteralNode(value, "char");
+                return LiteralNode(value, Type::get_simple_type("char"));
             }
         }
     }
@@ -377,7 +383,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
     std::vector<std::variant<std::unique_ptr<TypeCastNode>, std::unique_ptr<LiteralNode>>> interpol_content;
     // If the ranges are empty, the interpolation does not contain any groups
     if (ranges.empty()) {
-        interpol_content.emplace_back(std::make_unique<LiteralNode>(interpol_string, "str"));
+        interpol_content.emplace_back(std::make_unique<LiteralNode>(interpol_string, Type::get_simple_type("str")));
         return StringInterpolationNode(interpol_content);
     }
     // First, add all the strings from the begin to the first ranges begin to the interpolation content
@@ -408,7 +414,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
             return std::nullopt;
         }
         // Cast every expression inside to a str type
-        interpol_content.emplace_back(std::make_unique<TypeCastNode>("str", expr.value()));
+        interpol_content.emplace_back(std::make_unique<TypeCastNode>(Type::get_simple_type("str"), expr.value()));
         if (std::next(it) == ranges.end() && it->second + 2 < interpol_string.length()) {
             // Add string after last } symbol
             std::optional<LiteralNode> lit = create_literal(                                                                 //
@@ -487,9 +493,9 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
         return std::nullopt;
     }
-    if (!std::holds_alternative<std::string>(expression.value()->type)) {
-        if (std::get<std::vector<std::string>>(expression.value()->type).size() == 1) {
-            expression.value()->type = std::get<std::vector<std::string>>(expression.value()->type).at(0);
+    if (!std::holds_alternative<std::shared_ptr<Type>>(expression.value()->type)) {
+        if (std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type).size() == 1) {
+            expression.value()->type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type).at(0);
         } else {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -497,18 +503,21 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
     }
 
     // Check if the type of the expression is castable at all
-    if (primitive_casting_table.find(std::get<std::string>(expression.value()->type)) == primitive_casting_table.end()) {
+    if (primitive_casting_table.find(std::get<std::shared_ptr<Type>>(expression.value()->type)->to_string()) ==
+        primitive_casting_table.end()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::vector<std::string_view> &to_types = primitive_casting_table.at(std::get<std::string>(expression.value()->type));
+    const std::vector<std::string_view> &to_types = primitive_casting_table.at( //
+        std::get<std::shared_ptr<Type>>(expression.value()->type)->to_string()  //
+    );
     if (std::find(to_types.begin(), to_types.end(), type_token.lexme) == to_types.end()) {
         // The given expression type cannot be cast to the wanted type
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
-    return TypeCastNode(type_token.lexme, expression.value());
+    return TypeCastNode(Type::get_simple_type(type_token.lexme), expression.value());
 }
 
 std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope, token_list &tokens) {
@@ -795,15 +804,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 
     // Create the binary operator node
     if (Signature::tokens_contain({{pivot_token, "", 0, 0}}, ESignature::RELATIONAL_BINOP)) {
-        return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), "bool");
+        return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), Type::get_simple_type("bool"));
     }
     return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs.value()->type);
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(                   //
-    Scope *scope,                                                                           //
-    const token_list &tokens,                                                               //
-    const std::optional<std::variant<std::string, std::vector<std::string>>> &expected_type //
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
+    Scope *scope,                                                         //
+    const token_list &tokens,                                             //
+    const std::optional<ExprType> &expected_type                          //
 ) {
     token_list expr_tokens = clone_from_to(0, tokens.size(), tokens);
     remove_trailing_garbage(expr_tokens);
@@ -816,36 +825,43 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression(       
         return std::nullopt;
     }
 
-    // Check if the expressions result is a vector of size 1, if it is make its type into a direct string
-    if (std::holds_alternative<std::vector<std::string>>(expression.value()->type)) {
-        std::vector<std::string> &type = std::get<std::vector<std::string>>(expression.value()->type);
+    // Check if the expressions result is a vector of size 1, if it is make its type into a direct type
+    if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type)) {
+        std::vector<std::shared_ptr<Type>> &type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type);
         if (type.size() == 1) {
-            expression.value()->type = type.at(0);
+            // Use emplace to construct the shared_ptr alternative in-place
+            std::shared_ptr<Type> single_type = type.at(0);
+            type.clear();
+            expression.value()->type = single_type;
         }
     }
 
     // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
     if (expected_type.has_value() && expected_type.value() != expression.value()->type) {
-        if (std::holds_alternative<std::string>(expression.value()->type) && std::holds_alternative<std::string>(expected_type.value())) {
-            const std::string type = std::get<std::string>(expression.value()->type);
-            if (primitive_implicit_casting_table.find(type) != primitive_implicit_casting_table.end()) {
-                const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(type);
-                if (std::find(to_types.begin(), to_types.end(), std::get<std::string>(expected_type.value())) != to_types.end()) {
-                    expression = std::make_unique<TypeCastNode>(std::get<std::string>(expected_type.value()), expression.value());
+        if (std::holds_alternative<std::shared_ptr<Type>>(expression.value()->type) &&
+            std::holds_alternative<std::shared_ptr<Type>>(expected_type.value())) {
+            const std::shared_ptr<Type> type = std::get<std::shared_ptr<Type>>(expression.value()->type);
+            if (primitive_implicit_casting_table.find(type->to_string()) != primitive_implicit_casting_table.end()) {
+                const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(type->to_string());
+                if (std::find(to_types.begin(), to_types.end(), std::get<std::shared_ptr<Type>>(expected_type.value())->to_string()) !=
+                    to_types.end()) {
+                    expression = std::make_unique<TypeCastNode>(std::get<std::shared_ptr<Type>>(expected_type.value()), expression.value());
                 }
             } else {
                 THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
                 return std::nullopt;
             }
-        } else if (std::holds_alternative<std::vector<std::string>>(expression.value()->type) &&
-            std::holds_alternative<std::vector<std::string>>(expected_type.value())) {
+        } else if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type) &&
+            std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expected_type.value())) {
             // TODO
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
         } else {
             // Lastly, check if the expression type is a group of size 1, if it is it could become a single type instead
-            if (std::holds_alternative<std::vector<std::string>>(expression.value()->type)) {
-                auto &expression_type = std::get<std::vector<std::string>>(expression.value()->type);
+            if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type)) {
+                auto &expression_type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type);
                 if (expression_type.size() == 1) {
-                    std::string type = expression_type.at(0);
+                    std::shared_ptr<Type> type = expression_type.at(0);
                     expression.value()->type = type;
                 } else {
                     THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);

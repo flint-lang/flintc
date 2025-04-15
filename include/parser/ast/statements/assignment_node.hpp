@@ -12,7 +12,7 @@
 class AssignmentNode : public StatementNode {
   public:
     AssignmentNode(                                  //
-        const std::string &type,                     //
+        const std::shared_ptr<Type> &type,           //
         const std::string &name,                     //
         std::unique_ptr<ExpressionNode> &expression, //
         const bool is_shorthand = false              //
@@ -35,7 +35,7 @@ class AssignmentNode : public StatementNode {
 
     /// @var `type`
     /// @brief The type of the variable
-    std::string type;
+    std::shared_ptr<Type> type;
 
     /// @var `name`
     /// @brief The name of the variable being assigned to

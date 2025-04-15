@@ -4,18 +4,17 @@
 #include "statement_node.hpp"
 
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-/// GroupDeclarationNode
-///     Represents group declarations of variable or data
+/// @class `GroupDeclarationNode`
+/// @brief Represents group declarations of variable or data
 class GroupDeclarationNode : public StatementNode {
   public:
-    GroupDeclarationNode(                                                  //
-        const std::vector<std::pair<std::string, std::string>> &variables, //
-        std::unique_ptr<ExpressionNode> &initializer                       //
+    GroupDeclarationNode(                                                            //
+        const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &variables, //
+        std::unique_ptr<ExpressionNode> &initializer                                 //
         ) :
         variables(variables),
         initializer(std::move(initializer)) {}
@@ -33,7 +32,7 @@ class GroupDeclarationNode : public StatementNode {
 
     /// @var `variables`
     /// @brief A list containing the types and names of the variables
-    std::vector<std::pair<std::string, std::string>> variables;
+    std::vector<std::pair<std::shared_ptr<Type>, std::string>> variables;
 
     /// @var `initializer`
     /// @brief The expression with which the group will be initialized with

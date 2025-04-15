@@ -9,13 +9,14 @@
 
 /// @class `ForLoopNode`
 /// @brief Represents traditional for loops
-///
-/// @note Takes ownership of all its constructor arguments
+
 class ForLoopNode : public StatementNode {
   public:
-    ForLoopNode(std::unique_ptr<ExpressionNode> &condition, //
-        std::unique_ptr<Scope> &definition_scope,           //
-        std::unique_ptr<Scope> &body                        //
+    /// @note Takes ownership of all its constructor arguments
+    ForLoopNode(                                    //
+        std::unique_ptr<ExpressionNode> &condition, //
+        std::unique_ptr<Scope> &definition_scope,   //
+        std::unique_ptr<Scope> &body                //
         ) :
         condition(std::move(condition)),
         definition_scope(std::move(definition_scope)),

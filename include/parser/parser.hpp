@@ -115,11 +115,11 @@ class Parser {
     /// @brief Stores all the data nodes that have been parsed
     ///
     /// @details The key is the file in which the data definitions are defined in, and the value is a list of all data nodes in that file
-    static std::unordered_map<std::string, std::vector<DataNode *>> parsed_data;
+    static inline std::unordered_map<std::string, std::vector<DataNode *>> parsed_data;
 
     /// @var `parsed_data_mutex`
     /// @brief A mutex for the `parsed_data` variable, which is used to provide thread-safe access to the map
-    static std::mutex parsed_data_mutex;
+    static inline std::mutex parsed_data_mutex;
 
     /// @function `extract_from_to`
     /// @brief Extracts the tokens from a given index up to the given index from the given tokens list
@@ -152,7 +152,7 @@ class Parser {
 
     /// @var `instances`
     /// @brief All Parser instances which are present. Used by the two-pass parsing system
-    static std::vector<Parser> instances;
+    static inline std::vector<Parser> instances;
 
     /// @var `LEFT_PAREN_STR`
     /// @brief The regex string for matching the left paren character
@@ -239,31 +239,31 @@ class Parser {
     /// @details This map exists to keep track of all parsed call nodes. This map is not allowed to be changed to an unordered_map, because
     /// the elements of the map are required to perserve their ordering. Most of times only the last element from this map is searched for,
     /// this is the reason to why the ordering is important.
-    static std::map<unsigned int, CallNodeBase *> parsed_calls;
+    static inline std::map<unsigned int, CallNodeBase *> parsed_calls;
 
     /// @var `parsed_calls_nodes_mutex`
     /// @brief A mutex for the `parsed_calls` variable, which is used to provide thread-safe access to the map
-    static std::mutex parsed_calls_mutex;
+    static inline std::mutex parsed_calls_mutex;
 
     /// @var `parsed_functions`
     /// @brief Stores all the functions that have been parsed
     ///
     /// @details This list exists to keep track of all parsed function nodes
-    static std::vector<std::pair<FunctionNode *, std::string>> parsed_functions;
+    static inline std::vector<std::pair<FunctionNode *, std::string>> parsed_functions;
 
     /// @var `parsed_functions_mutex`
     /// @brief A mutex for the `parsed_functions` variable, which is used to provide thread-safe access to the list
-    static std::mutex parsed_functions_mutex;
+    static inline std::mutex parsed_functions_mutex;
 
     /// @var `parsed_tests`
     /// @brief Stores all the tests that have been parsed
     ///
     /// @details The list exists to keep track of all parsed test nodes
-    static std::vector<std::pair<TestNode *, std::string>> parsed_tests;
+    static inline std::vector<std::pair<TestNode *, std::string>> parsed_tests;
 
     /// @var `parsed_tests_mutex`
     /// @brief A mutex for the `parsed_tests` varible, which is used to provide thread-safe access to the list
-    static std::mutex parsed_tests_mutex;
+    static inline std::mutex parsed_tests_mutex;
 
     /// @var `open_functions_list`
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser
@@ -342,14 +342,15 @@ class Parser {
     /// @function `get_function_from_call`
     /// @brief Looks through all parsed functions for a match for the given function call
     ///
-    /// @param `call_node` The call node the search for the corresponding FunctionNode is done for
+    /// @param `call_name` The name of the called function
+    /// @param `arg_types` A list of the argument types of the function call
     /// @return `std::optional<std::pair<FunctionNode *, std::string>>` A pair of the function node and its file, or nullopt if no match
     /// could be found
     ///
     /// @attention Asserts that the parameter `call_node` is not a nullptr
     static std::optional<std::pair<FunctionNode *, std::string>> get_function_from_call( //
         const std::string &call_name,                                                    //
-        const std::vector<std::string> &arg_types                                        //
+        const std::vector<std::shared_ptr<Type>> &arg_types                              //
     );
 
     /// @function `get_data_definition`
@@ -362,12 +363,12 @@ class Parser {
     /// @param `is_known_data_type` Whether the given data type should be a data type, set this to false if you only want to check _if_ its
     /// a data type but dont want to generate errors if its not
     /// @return `std::optional<DataNode *>` The pointer to the data node, if it exists
-    static std::optional<DataNode *> get_data_definition(         //
-        const std::string &file_name,                             //
-        const std::string &data_name,                             //
-        const std::vector<ImportNode *> &imports,                 //
-        const std::optional<std::vector<std::string>> &arg_types, //
-        const bool is_known_data_type = true                      //
+    static std::optional<DataNode *> get_data_definition(                   //
+        const std::string &file_name,                                       //
+        const std::string &data_name,                                       //
+        const std::vector<ImportNode *> &imports,                           //
+        const std::optional<std::vector<std::shared_ptr<Type>>> &arg_types, //
+        const bool is_known_data_type = true                                //
     );
 
     /// @function `add_open_function`
@@ -501,9 +502,9 @@ class Parser {
     ///     - the first value is the function or initializers name
     ///     - the second value is a list of all expressions (the argument expression) of the call / initializier and if the arg is expected
     ///     to be a reference
-    ///     - the third value is the call's return type, or the initializers type encoded as a string
+    ///     - the third value is the call's return type, or the initializers type
     ///     - the forth value is: true if the expression is a Data initializer, false if an entity initializer, nullopt if its a call
-    std::optional<std::tuple<std::string, std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, std::vector<std::string>,
+    std::optional<std::tuple<std::string, std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, std::vector<std::shared_ptr<Type>>,
         std::optional<bool>>>
     create_call_or_initializer_base(Scope *scope, token_list &tokens);
 
@@ -527,9 +528,10 @@ class Parser {
     ///     - third value is the name of the accessed field
     ///     - fourth value is the id of the field
     ///     - fifth value is the type of the field
-    std::optional<std::tuple<std::string, std::string, std::string, unsigned int, std::string>> create_field_access_base( //
-        Scope *scope,                                                                                                     //
-        token_list &tokens                                                                                                //
+    std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::string, unsigned int, std::shared_ptr<Type>>>
+    create_field_access_base( //
+        Scope *scope,         //
+        token_list &tokens    //
     );
 
     /// @function `create_grouped_access_base`
@@ -543,7 +545,8 @@ class Parser {
     ///     - third value is the list of accessed field names
     ///     - fourth value is the list of accessed field ids
     ///     - fifth value is the list of accessed field types
-    std::optional<std::tuple<std::string, std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::string>>>
+    std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::vector<std::string>, std::vector<unsigned int>,
+        std::vector<std::shared_ptr<Type>>>>
     create_grouped_access_base( //
         Scope *scope,           //
         token_list &tokens      //
@@ -689,10 +692,10 @@ class Parser {
     /// @param `tokens` The list of tokens representing the expression
     /// @param `expected_type` The expected type of the expression. If possible, applies implicit type conversion to get this type
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional unique pointer to the created ExpressionNode
-    std::optional<std::unique_ptr<ExpressionNode>> create_expression(                                          //
-        Scope *scope,                                                                                          //
-        const token_list &tokens,                                                                              //
-        const std::optional<std::variant<std::string, std::vector<std::string>>> &expected_type = std::nullopt //
+    std::optional<std::unique_ptr<ExpressionNode>> create_expression( //
+        Scope *scope,                                                 //
+        const token_list &tokens,                                     //
+        const std::optional<ExprType> &expected_type = std::nullopt   //
     );
 
     /**************************************************************************************************************************************

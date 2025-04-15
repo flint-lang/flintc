@@ -1,13 +1,13 @@
 #pragma once
 
-#include "../expressions/expression_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "statement_node.hpp"
 
 #include <memory>
 #include <utility>
 
-/// ThrowNode
-///     Represents throw statements
+/// @class `ThrowNode`
+/// @brief Represents throw statements
 class ThrowNode : public StatementNode {
   public:
     explicit ThrowNode(std::unique_ptr<ExpressionNode> &throw_value) :
@@ -24,7 +24,7 @@ class ThrowNode : public StatementNode {
     ThrowNode(ThrowNode &&) = default;
     ThrowNode &operator=(ThrowNode &&) = default;
 
-    /// throw_value
-    ///     The error value to throw (Numbers for now, something different down the line)
+    /// @var `throw_value`
+    /// @brief The error value to throw (Numbers for now, something different down the line)
     std::unique_ptr<ExpressionNode> throw_value;
 };

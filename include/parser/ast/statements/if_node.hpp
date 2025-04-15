@@ -9,12 +9,15 @@
 #include <utility>
 #include <variant>
 
-/// IfNode
-///     Represents if statements
+/// @class `IfNode`
+/// @brief Represents if statements
 class IfNode : public StatementNode {
   public:
-    IfNode(std::unique_ptr<ExpressionNode> &condition, std::unique_ptr<Scope> &then_scope,
-        std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> &else_scope) :
+    IfNode(                                                                                      //
+        std::unique_ptr<ExpressionNode> &condition,                                              //
+        std::unique_ptr<Scope> &then_scope,                                                      //
+        std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> &else_scope //
+        ) :
         condition(std::move(condition)),
         then_scope(std::move(then_scope)),
         else_scope(std::move(else_scope)) {}
@@ -30,13 +33,15 @@ class IfNode : public StatementNode {
     IfNode(IfNode &&) = default;
     IfNode &operator=(IfNode &&) = default;
 
-    /// condition
-    ///     The Condition expression
+    /// @var `condition`
+    /// @brief The Condition expression
     std::unique_ptr<ExpressionNode> condition;
-    /// then_branch
-    ///     The statements to execute when the condition evaluates to 'true'
+
+    /// @var `then_branch`
+    /// @brief The statements to execute when the condition evaluates to 'true'
     std::unique_ptr<Scope> then_scope;
-    /// else_branch
-    ///     The statements to execute when the condition evaluates to 'false'
+
+    /// @var `else_branch`
+    /// @brief The statements to execute when the condition evaluates to 'false'
     std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> else_scope;
 };

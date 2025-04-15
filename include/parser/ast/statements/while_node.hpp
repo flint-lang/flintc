@@ -7,8 +7,8 @@
 #include <memory>
 #include <utility>
 
-/// WhileNode
-///     Represents while loops
+/// @class `WhileNode`
+/// @brief Represents while loops
 class WhileNode : public StatementNode {
   public:
     WhileNode(std::unique_ptr<ExpressionNode> &condition, std::unique_ptr<Scope> &scope) :
@@ -26,10 +26,11 @@ class WhileNode : public StatementNode {
     WhileNode(WhileNode &&) = default;
     WhileNode &operator=(WhileNode &&) = default;
 
-    /// condition
-    ///     The condition expression
+    /// @var `condition`
+    /// @brief The condition expression
     std::unique_ptr<ExpressionNode> condition;
-    /// body
-    ///     The body of the while loop
+
+    /// @var `body`
+    /// @brief The body of the while loop
     std::unique_ptr<Scope> scope;
 };

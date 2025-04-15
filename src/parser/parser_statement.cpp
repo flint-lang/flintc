@@ -1,7 +1,6 @@
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
-#include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "parser/signature.hpp"
 #include "types.hpp"
@@ -44,13 +43,14 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, token_list &tokens) 
         }
     }
     token_list expression_tokens = extract_from_to(throw_id + 1, tokens.size(), tokens);
-    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens, "i32");
+    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens, Type::get_simple_type("i32"));
     if (!expr.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
-    if (!std::holds_alternative<std::string>(expr.value()->type) || std::get<std::string>(expr.value()->type) != "i32") {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, "i32", expr.value()->type);
+    if (!std::holds_alternative<std::shared_ptr<Type>>(expr.value()->type) ||
+        std::get<std::shared_ptr<Type>>(expr.value()->type)->to_string() != "i32") {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, Type::get_simple_type("i32"), expr.value()->type);
         return std::nullopt;
     }
     return ThrowNode(expr.value());
@@ -110,14 +110,15 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
     }
 
     // Create the if statements condition and body statements
-    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, this_if_pair.first, "bool");
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, this_if_pair.first, Type::get_simple_type("bool"));
     if (!condition.has_value()) {
         // Invalid expression inside if statement
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, this_if_pair.first);
         return std::nullopt;
     }
-    if (!std::holds_alternative<std::string>(condition.value()->type) || std::get<std::string>(condition.value()->type) != "bool") {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, this_if_pair.first, "bool", condition.value()->type);
+    if (!std::holds_alternative<std::shared_ptr<Type>>(condition.value()->type) ||
+        std::get<std::shared_ptr<Type>>(condition.value()->type)->to_string() != "bool") {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, this_if_pair.first, Type::get_simple_type("bool"), condition.value()->type);
         return std::nullopt;
     }
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
@@ -173,7 +174,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
         condition_tokens.erase(rev_it.base());
     }
 
-    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens, "bool");
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens, Type::get_simple_type("bool"));
     if (!condition.has_value()) {
         // Invalid expression inside while statement
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, condition_tokens);
@@ -326,7 +327,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     if (err_var.has_value()) {
-        body_scope->add_variable(err_var.value(), "i32", body_scope->scope_id, false, false);
+        body_scope->add_variable(err_var.value(), Type::get_simple_type("i32"), body_scope->scope_id, false, false);
     }
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {
@@ -350,7 +351,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
     tokens.erase(tokens.begin());
     // Extract all assignees, we expect assingees to follow the strict pattern of: \( (\W+,)+ \W \)
     // or if you're super correct with the regex it matches this exact pattern: \(\W*(\w+\W*,\W*)+\w+\W*\)
-    std::vector<std::pair<std::string, std::string>> assignees;
+    std::vector<std::pair<std::shared_ptr<Type>, std::string>> assignees;
     unsigned int index = 0;
     for (auto it = tokens.begin(); it != tokens.end(); it += 2) {
         // The next element has to be either a comma or the right paren
@@ -368,7 +369,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const std::string &expected_type = std::get<0>(scope->variables.at(it->lexme));
+        const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it->lexme));
         assignees.emplace_back(expected_type, it->lexme);
         index += 2;
         if (std::next(it)->type == TOK_RIGHT_PAREN) {
@@ -406,7 +407,7 @@ std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, token_list
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                std::string expected_type = std::get<0>(scope->variables.at(iterator->lexme));
+                std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(iterator->lexme));
                 // Parse the expression with the expected type passed into it
                 token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens, expected_type);
@@ -437,7 +438,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand(Scope *scope, 
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                std::string expected_type = std::get<0>(scope->variables.at(iterator->lexme));
+                std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(iterator->lexme));
                 // Parse the expression with the expected type passed into it
                 token_list expression_tokens = extract_from_to(std::distance(tokens.begin(), iterator + 2), tokens.size(), tokens);
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens, expected_type);
@@ -479,7 +480,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand(Scope *scope, 
 
 std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scope, token_list &tokens) {
     std::optional<GroupDeclarationNode> declaration = std::nullopt;
-    std::vector<std::pair<std::string, std::string>> variables;
+    std::vector<std::pair<std::shared_ptr<Type>, std::string>> variables;
 
     static const std::string until_colon_equal = Signature::get_regex_string(Signature::match_until_signature({{TOK_COLON_EQUAL}}));
     std::optional<uint2> lhs_range = Signature::get_next_match_range(tokens, until_colon_equal);
@@ -500,7 +501,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
         if (!var_range.has_value()) {
             // The whole lhs tokens is the last variable
             assert(lhs_tokens.back().type == TOK_IDENTIFIER);
-            variables.emplace_back("", lhs_tokens.back().lexme);
+            variables.emplace_back(nullptr, lhs_tokens.back().lexme);
             break;
         } else {
             token_list var_tokens = extract_from_to(var_range.value().first, var_range.value().second, lhs_tokens);
@@ -509,7 +510,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
             var_tokens.pop_back();
             // The last element is the variable name now
             assert(var_tokens.back().type == TOK_IDENTIFIER);
-            variables.emplace_back("", var_tokens.back().lexme);
+            variables.emplace_back(nullptr, var_tokens.back().lexme);
         }
     }
     // Now parse the expression (rhs)
@@ -518,8 +519,8 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
-    assert(std::holds_alternative<std::vector<std::string>>(expression.value()->type));
-    const std::vector<std::string> &types = std::get<std::vector<std::string>>(expression.value()->type);
+    assert(std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type));
+    const std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type);
     assert(variables.size() == types.size());
     for (unsigned int i = 0; i < variables.size(); i++) {
         variables.at(i).first = types.at(i);
@@ -537,7 +538,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
     assert(!(is_inferred && !has_rhs));
 
     std::optional<DeclarationNode> declaration = std::nullopt;
-    std::string type;
+    std::shared_ptr<Type> type;
     std::string name;
 
     token_list lhs_tokens;
@@ -562,7 +563,13 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                type = Lexer::to_string(clone_from_to(0, dist, lhs_tokens));
+                token_list type_tokens = clone_from_to(0, dist, lhs_tokens);
+                auto type_result = Type::get_type(type_tokens);
+                if (!type_result.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                type = type_result.value();
                 break;
             }
         }
@@ -587,7 +594,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
             THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
-        if (!std::holds_alternative<std::string>(expr.value()->type)) {
+        if (!std::holds_alternative<std::shared_ptr<Type>>(expr.value()->type)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -597,20 +604,25 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
                 break;
             }
         }
-        if (!scope->add_variable(name, std::get<std::string>(expr.value()->type), scope->scope_id, true, false)) {
+        if (!scope->add_variable(name, std::get<std::shared_ptr<Type>>(expr.value()->type), scope->scope_id, true, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);
             return std::nullopt;
         }
-        declaration = DeclarationNode(std::get<std::string>(expr.value()->type), name, expr);
+        declaration = DeclarationNode(std::get<std::shared_ptr<Type>>(expr.value()->type), name, expr);
     } else {
         unsigned int type_begin = 0;
         unsigned int type_end = lhs_tokens.size() - 2;
         for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
             if (std::next(it) != lhs_tokens.end() && std::next(std::next(it)) != lhs_tokens.end() && (it + 1)->type == TOK_IDENTIFIER &&
                 (it + 2)->type == TOK_EQUAL) {
-                const token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
-                type = Lexer::to_string(type_tokens);
+                token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
+                auto type_result = Type::get_type(type_tokens);
+                if (!type_result.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                type = type_result.value();
                 name = it->lexme;
                 break;
             }

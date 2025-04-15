@@ -11,13 +11,13 @@
 /// @brief Represents assignments to a single data field
 class GroupedDataFieldAssignmentNode : public StatementNode {
   public:
-    GroupedDataFieldAssignmentNode(                  //
-        const std::string &data_type,                //
-        const std::string &var_name,                 //
-        const std::vector<std::string> &field_names, //
-        const std::vector<unsigned int> &field_ids,  //
-        const std::vector<std::string> &field_types, //
-        std::unique_ptr<ExpressionNode> &expression  //
+    GroupedDataFieldAssignmentNode(                            //
+        const std::shared_ptr<Type> &data_type,                //
+        const std::string &var_name,                           //
+        const std::vector<std::string> &field_names,           //
+        const std::vector<unsigned int> &field_ids,            //
+        const std::vector<std::shared_ptr<Type>> &field_types, //
+        std::unique_ptr<ExpressionNode> &expression            //
         ) :
         data_type(data_type),
         var_name(var_name),
@@ -39,7 +39,7 @@ class GroupedDataFieldAssignmentNode : public StatementNode {
 
     /// @var `data_type`
     /// @brief The type of the data variable where the values are assigned ti
-    std::string data_type;
+    std::shared_ptr<Type> data_type;
 
     /// @var `var_name`
     /// @brief The variable on which the fields are assigned
@@ -55,7 +55,7 @@ class GroupedDataFieldAssignmentNode : public StatementNode {
 
     /// @var `field_types`
     /// @brief The types of the fields to assign to
-    std::vector<std::string> field_types;
+    std::vector<std::shared_ptr<Type>> field_types;
 
     /// @var `expression`
     /// @brief The expression to assign

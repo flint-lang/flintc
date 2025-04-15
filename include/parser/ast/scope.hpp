@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parser/ast/statements/statement_node.hpp"
+#include "parser/type/type.hpp"
 
 #include <memory>
 #include <optional>
@@ -60,11 +61,17 @@ class Scope {
     ///
     /// @param `var` The name of the added variable
     /// @param `type` The type of the added variable
-    /// @param `sid` The id of the scope the variable is declared in
+    /// @param `scope_id` The id of the scope the variable is declared in
     /// @param `is_mutable` Whether the variable is mutable
     /// @param `is_param` Whether the variable is a function parameter
     /// @return `bool` Whether insertion of the variable type was successful. If not, this means a variable is shadowed
-    bool add_variable(const std::string &var, const std::string &type, const unsigned int sid, const bool is_mutable, const bool is_param) {
+    bool add_variable(                     //
+        const std::string &var,            //
+        const std::shared_ptr<Type> &type, //
+        const unsigned int sid,            //
+        const bool is_mutable,             //
+        const bool is_param                //
+    ) {
         return variables.insert({var, {type, sid, is_mutable, is_param}}).second;
     }
 
@@ -72,8 +79,8 @@ class Scope {
     /// @brief Return the type of the given variable name, if it exists
     ///
     /// @param `var_name` The name of the variable to search for
-    /// @return `std::optional<std::string>` The type of the variable, or nullopt if the variable doesnt exist
-    std::optional<std::string> get_variable_type(const std::string &var_name) {
+    /// @return `std::optional<std::shared_ptr<Type>>` The type of the variable, nullopt if the variable doesnt exist
+    std::optional<std::shared_ptr<Type>> get_variable_type(const std::string &var_name) {
         if (variables.find(var_name) == variables.end()) {
             return std::nullopt;
         }
@@ -85,7 +92,7 @@ class Scope {
     /// for easy handling for variables when they go out of scope
     ///
     /// @return `std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool>>` The variable map thats unique to this scope
-    std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool, bool>> get_unique_variables() const {
+    std::unordered_map<std::string, std::tuple<std::shared_ptr<Type>, unsigned int, bool, bool>> get_unique_variables() const {
         if (parent_scope == nullptr) {
             return variables;
         }
@@ -116,7 +123,7 @@ class Scope {
     ///         2. the scope it was declared in
     ///         3. if the variable is mutable
     ///         4. if the variable is a parameter of the function
-    std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool, bool>> variables;
+    std::unordered_map<std::string, std::tuple<std::shared_ptr<Type>, unsigned int, bool, bool>> variables;
 
   private:
     /// @function `get_next_scope_id`

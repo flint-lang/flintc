@@ -4,15 +4,16 @@
 #include "error/error_types/base_error.hpp"
 #include "lexer/builtins.hpp"
 #include "types.hpp"
+#include <algorithm>
 
 class ErrExprCallWrongArgsBuiltin : public BaseError {
   public:
-    ErrExprCallWrongArgsBuiltin(                  //
-        const ErrorType error_type,               //
-        const std::string &file,                  //
-        const token_list &tokens,                 //
-        const std::string &function_name,         //
-        const std::vector<std::string> &arg_types //
+    ErrExprCallWrongArgsBuiltin(                            //
+        const ErrorType error_type,                         //
+        const std::string &file,                            //
+        const token_list &tokens,                           //
+        const std::string &function_name,                   //
+        const std::vector<std::shared_ptr<Type>> &arg_types //
         ) :
         BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
         tokens(tokens),
@@ -25,9 +26,10 @@ class ErrExprCallWrongArgsBuiltin : public BaseError {
         oss << BaseError::to_string() << "Could not parse function call: '" << YELLOW << get_token_string(tokens, {}) << DEFAULT
             << "'\n -- No variant of the builtin '" << YELLOW << get_function_signature_string(function_name, arg_types) << DEFAULT
             << "' function available.\n -- Available signatures are:";
-        for (const auto &[param_types, return_types] : builtin_function_types.at(builtin_functions.at(function_name))) {
-            const std::vector<std::string> param_types_str(param_types.begin(), param_types.end());
-            oss << "\n    " << GREEN << get_function_signature_string(function_name, param_types_str) << DEFAULT;
+        for (const auto &[param_types_str, return_types_str] : builtin_function_types.at(builtin_functions.at(function_name))) {
+            std::vector<std::shared_ptr<Type>> param_types;
+            std::transform(param_types_str.begin(), param_types_str.end(), param_types.begin(), Type::str_to_type);
+            oss << "\n    " << GREEN << get_function_signature_string(function_name, param_types) << DEFAULT;
         }
         return oss.str();
     }
@@ -35,5 +37,5 @@ class ErrExprCallWrongArgsBuiltin : public BaseError {
   private:
     token_list tokens;
     std::string function_name;
-    std::vector<std::string> arg_types;
+    std::vector<std::shared_ptr<Type>> arg_types;
 };

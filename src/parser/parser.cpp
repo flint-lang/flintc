@@ -18,16 +18,6 @@
 #include <string>
 #include <utility>
 
-std::vector<Parser> Parser::instances;
-std::map<unsigned int, CallNodeBase *> Parser::parsed_calls;
-std::mutex Parser::parsed_calls_mutex;
-std::vector<std::pair<FunctionNode *, std::string>> Parser::parsed_functions;
-std::mutex Parser::parsed_functions_mutex;
-std::vector<std::pair<TestNode *, std::string>> Parser::parsed_tests;
-std::mutex Parser::parsed_tests_mutex;
-std::unordered_map<std::string, std::vector<DataNode *>> Parser::parsed_data;
-std::mutex Parser::parsed_data_mutex;
-
 Parser *Parser::create(const std::filesystem::path &file) {
     instances.emplace_back(Parser(file));
     return &instances.back();
@@ -142,10 +132,10 @@ std::string Parser::get_type_string(const token_list &tokens) {
 
 std::optional<std::pair<FunctionNode *, std::string>> Parser::get_function_from_call( //
     const std::string &call_name,                                                     //
-    const std::vector<std::string> &arg_types                                         //
+    const std::vector<std::shared_ptr<Type>> &arg_types                               //
 ) {
     std::lock_guard<std::mutex> lock(parsed_functions_mutex);
-    std::vector<std::string> fn_arg_types;
+    std::vector<std::shared_ptr<Type>> fn_arg_types;
     for (const auto &[fn, file_name] : parsed_functions) {
         if (fn->name != call_name) {
             continue;
@@ -166,12 +156,12 @@ std::optional<std::pair<FunctionNode *, std::string>> Parser::get_function_from_
     return std::nullopt;
 }
 
-std::optional<DataNode *> Parser::get_data_definition(        //
-    const std::string &file_name,                             //
-    const std::string &data_name,                             //
-    const std::vector<ImportNode *> &imports,                 //
-    const std::optional<std::vector<std::string>> &arg_types, //
-    const bool is_known_data_type                             //
+std::optional<DataNode *> Parser::get_data_definition(                  //
+    const std::string &file_name,                                       //
+    const std::string &data_name,                                       //
+    const std::vector<ImportNode *> &imports,                           //
+    const std::optional<std::vector<std::shared_ptr<Type>>> &arg_types, //
+    const bool is_known_data_type                                       //
 ) {
     std::lock_guard<std::mutex> lock(parsed_data_mutex);
 
@@ -222,7 +212,7 @@ std::optional<DataNode *> Parser::get_data_definition(        //
     DataNode *data_definition = visible_data.front();
     if (arg_types.has_value()) {
         // Check if the initializer types match the arg types
-        std::vector<std::string> initializer_types;
+        std::vector<std::shared_ptr<Type>> initializer_types;
         for (const auto &initializer_name : data_definition->order) {
             initializer_types.emplace_back(data_definition->fields.at(initializer_name).first);
         }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../expressions/expression_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "statement_node.hpp"
 
 #include <memory>
@@ -8,11 +8,14 @@
 #include <utility>
 #include <vector>
 
-/// GroupAssignmentNode
-///     Represents Group assignment statements
+/// @class `GroupAssignmentNode`
+/// @brief Represents Group assignment statements
 class GroupAssignmentNode : public StatementNode {
   public:
-    GroupAssignmentNode(const std::vector<std::pair<std::string, std::string>> &assignees, std::unique_ptr<ExpressionNode> &expression) :
+    GroupAssignmentNode(                                                             //
+        const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &assignees, //
+        std::unique_ptr<ExpressionNode> &expression                                  //
+        ) :
         assignees(assignees),
         expression(std::move(expression)) {}
 
@@ -29,7 +32,7 @@ class GroupAssignmentNode : public StatementNode {
 
     /// @var `assignees`
     /// @brief The types and names of the variables the expression is assigned to
-    std::vector<std::pair<std::string, std::string>> assignees;
+    std::vector<std::pair<std::shared_ptr<Type>, std::string>> assignees;
 
     /// @var `expression`
     /// @brief The expression of the assignment

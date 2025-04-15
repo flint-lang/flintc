@@ -6,8 +6,8 @@
 
 #include <memory>
 
-/// UnaryOpExpression
-///     Represents unary operation expressions
+/// @class `UnaryOpExpression`
+/// @brief Represents unary operation expressions
 class UnaryOpExpression : public UnaryOpBase, public ExpressionNode {
   public:
     explicit UnaryOpExpression(Token operator_token, std::unique_ptr<ExpressionNode> &operand, const bool is_left) :

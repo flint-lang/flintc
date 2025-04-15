@@ -1,7 +1,7 @@
 #pragma once
 
-/// ASTNode
-///     Base class for all AST nodes.
+/// @class `ASTNode`
+/// @brief Base class for all AST nodes.
 class ASTNode {
   protected:
     // private constructor

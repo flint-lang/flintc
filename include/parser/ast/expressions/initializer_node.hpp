@@ -3,14 +3,13 @@
 #include "expression_node.hpp"
 
 #include <memory>
-#include <string>
 #include <vector>
 
 /// @class `InitializerNode`
 /// @brief Represents all initializer expressions
 class InitializerNode : public ExpressionNode {
   public:
-    InitializerNode(const std::string &type, const bool is_data, std::vector<std::unique_ptr<ExpressionNode>> &args) :
+    InitializerNode(const std::shared_ptr<Type> &type, const bool is_data, std::vector<std::unique_ptr<ExpressionNode>> &args) :
         is_data(is_data),
         args(std::move(args)) {
         this->type = type;

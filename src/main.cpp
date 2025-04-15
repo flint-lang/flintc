@@ -89,6 +89,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_module( //
     PROFILE_SCOPE("Generate module");
 
     // Parse the .ft file and resolve all inclusions
+    Type::init_types();
     std::optional<FileNode> file = Parser::create(source_file_path)->parse();
     if (!file.has_value()) {
         std::cerr << "Error: Failed to parse file '" << source_file_path.filename() << "'" << std::endl;

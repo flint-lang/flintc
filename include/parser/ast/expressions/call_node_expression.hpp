@@ -11,10 +11,10 @@
 /// @brief Represents function or method calls
 class CallNodeExpression : public CallNodeBase, public ExpressionNode {
   public:
-    explicit CallNodeExpression(                                                  //
-        std::string &function_name,                                               //
-        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
-        const std::variant<std::string, std::vector<std::string>> &type           //
+    explicit CallNodeExpression(                                                            //
+        std::string &function_name,                                                         //
+        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments,           //
+        const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &type //
         ) :
         CallNodeBase(function_name, std::move(arguments), type) {
         ExpressionNode::type = type;

@@ -9,8 +9,8 @@
 
 std::optional<FunctionNode> Parser::create_function(const token_list &definition) {
     std::string name;
-    std::vector<std::tuple<std::string, std::string, bool>> parameters;
-    std::vector<std::string> return_types;
+    std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
+    std::vector<std::shared_ptr<Type>> return_types;
     bool is_aligned = false;
     bool is_const = false;
 
@@ -60,8 +60,12 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
                     is_mutable = true;
                     type_tokens.erase(type_tokens.begin());
                 }
-                const std::string param_type = get_type_string(type_tokens);
-                parameters.emplace_back(param_type, param_name, is_mutable);
+                const auto param_type = Type::get_type(type_tokens);
+                if (!param_type.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                parameters.emplace_back(param_type.value(), param_name, is_mutable);
                 last_param_begin = std::distance(definition.begin(), tok_iterator) + 2;
             }
             tok_iterator++;
@@ -86,8 +90,13 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
             while (tok_iterator != definition.end() && tok_iterator->type != TOK_COLON) {
                 tok_iterator++;
             }
-            const token_list type_tokens = clone_from_to(begin_idx, std::distance(definition.begin(), tok_iterator), definition);
-            return_types.emplace_back(get_type_string(type_tokens));
+            token_list type_tokens = clone_from_to(begin_idx, std::distance(definition.begin(), tok_iterator), definition);
+            const auto return_type = Type::get_type(type_tokens);
+            if (!return_type.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return_types.emplace_back(return_type.value());
         } else {
             // Skip the left paren
             tok_iterator++;
@@ -102,7 +111,12 @@ std::optional<FunctionNode> Parser::create_function(const token_list &definition
                         std::distance(definition.begin(), tok_iterator) + 1, //
                         definition                                           //
                     );
-                    return_types.emplace_back(get_type_string(type_tokens));
+                    const auto return_type = Type::get_type(type_tokens);
+                    if (!return_type.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    return_types.emplace_back(return_type.value());
                     last_type_begin = std::distance(definition.begin(), tok_iterator) + 2;
                 }
                 tok_iterator++;
@@ -132,7 +146,7 @@ std::optional<DataNode> Parser::create_data(const token_list &definition, const 
     bool is_aligned = false;
     std::string name;
 
-    std::unordered_map<std::string, std::pair<std::string, std::optional<std::string>>> fields;
+    std::unordered_map<std::string, std::pair<std::shared_ptr<Type>, std::optional<std::string>>> fields;
     std::vector<std::string> order;
 
     auto definition_iterator = definition.begin();
@@ -164,7 +178,7 @@ std::optional<DataNode> Parser::create_data(const token_list &definition, const 
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            fields[(body_iterator + 1)->lexme] = {body_iterator->lexme, std::nullopt};
+            fields[(body_iterator + 1)->lexme] = {Type::get_simple_type(body_iterator->lexme), std::nullopt};
             if ((body_iterator + 2)->type == TOK_EQUAL) {
                 fields[(body_iterator + 1)->lexme].second = (body_iterator + 3)->lexme;
             }

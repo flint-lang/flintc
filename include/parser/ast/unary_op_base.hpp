@@ -6,8 +6,8 @@
 #include <memory>
 #include <utility>
 
-/// UnaryOpBase
-///     Represents unary operations
+/// @class `UnaryOpBase`
+/// @brief Represents unary operations
 class UnaryOpBase {
   public:
     UnaryOpBase(Token operator_token, std::unique_ptr<ExpressionNode> &operand, const bool is_left) :
@@ -24,7 +24,15 @@ class UnaryOpBase {
     UnaryOpBase(UnaryOpBase &&) = default;
     UnaryOpBase &operator=(UnaryOpBase &&) = default;
 
+    /// @var `operator_token`
+    /// @brief The token of the unary operation
     Token operator_token{};
+
+    /// @var `operand`
+    /// @brief The operand the unary operation is applied to
     std::unique_ptr<ExpressionNode> operand;
+
+    /// @var `is_left`
+    /// @brief Whether the operator is on the left of the operand
     bool is_left;
 };

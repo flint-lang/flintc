@@ -12,8 +12,8 @@
 #include <utility>
 #include <vector>
 
-/// TestNode
-///     Represents function definitions
+/// @class `TestNode`
+/// @brief Represents function definitions
 class TestNode : public ASTNode {
   public:
     explicit TestNode(const std::string &file_name, const std::string &name, std::unique_ptr<Scope> &scope) :
@@ -35,22 +35,28 @@ class TestNode : public ASTNode {
     TestNode(TestNode &&) = default;
     TestNode &operator=(TestNode &&) = default;
 
-    /// file_name
-    ///     The name of the file the test is contained in
+    /// @var `file_name`
+    /// @brief The name of the file the test is contained in
     std::string file_name;
-    /// name
-    ///     The name of the test
+
+    /// @var `name`
+    /// @brief The name of the test
     std::string name;
-    /// body
-    ///     The body of the function containing all statements
+
+    /// @var `body`
+    /// @brief The body of the function containing all statements
     std::unique_ptr<Scope> scope;
-    /// test_id
-    ///     The ID of the test
+
+    /// @var `test_id`
+    /// @brief The ID of the test
     unsigned int test_id;
 
   private:
-    /// check_test_name
-    ///     Checks if a given test name already exists in the given file
+    /// @function `check_test_name`
+    /// @brief Checks if a given test name already exists in the given file, if it does, this function throws up
+    ///
+    /// @param `file_name` The name of the file to check for the test names
+    /// @param `name` The name of the test to check for
     static void check_test_name(const std::string &file_name, const std::string &name) {
         // This map is only used to check whether the given file already contains a given test name
         static std::unordered_map<std::string, std::vector<std::string>> test_names;
@@ -69,9 +75,11 @@ class TestNode : public ASTNode {
         tests.emplace_back(name);
     }
 
-    /// get_next_test_id
-    ///     Returns the next test id. Ensures that each test gets its own id for the lifetime of the program
-    static unsigned inline int get_next_test_id() {
+    /// @function `get_next_test_id`
+    /// @brief Returns the next test id. Ensures that each test gets its own id for the lifetime of the program
+    ///
+    /// @return `unsigned int` The next unique test id
+    static inline unsigned int get_next_test_id() {
         static unsigned int test_id = 0;
         return test_id++;
     }

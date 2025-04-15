@@ -8,7 +8,7 @@
 /// @brief Represents variables or identifiers
 class VariableNode : public ExpressionNode {
   public:
-    VariableNode(const std::string &name, const std::string &type) :
+    VariableNode(const std::string &name, const std::shared_ptr<Type> &type) :
         name(name) {
         this->type = type;
     }

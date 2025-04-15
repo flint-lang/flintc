@@ -12,11 +12,11 @@
 class DataFieldAssignmentNode : public StatementNode {
   public:
     DataFieldAssignmentNode(                        //
-        const std::string &data_type,               //
+        const std::shared_ptr<Type> &data_type,     //
         const std::string &var_name,                //
         const std::string &field_name,              //
         const unsigned int field_id,                //
-        const std::string &field_type,              //
+        const std::shared_ptr<Type> &field_type,    //
         std::unique_ptr<ExpressionNode> &expression //
         ) :
         data_type(data_type),
@@ -39,7 +39,7 @@ class DataFieldAssignmentNode : public StatementNode {
 
     /// @var `data_type`
     /// @brief The type of the accessed data variable
-    std::string data_type;
+    std::shared_ptr<Type> data_type;
 
     /// @var `var_name`
     /// @brief The variable on which the fields are assigned
@@ -55,7 +55,7 @@ class DataFieldAssignmentNode : public StatementNode {
 
     /// @var `field_type`
     /// @brief The type of the field to assign to
-    std::string field_type;
+    std::shared_ptr<Type> field_type;
 
     /// @var `expression`
     /// @brief The expression to assign

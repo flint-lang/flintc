@@ -2,18 +2,21 @@
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
+#include "parser/type/type.hpp"
 #include "types.hpp"
 
 #include <variant>
 
+/// @class `ErrExprTypeMismatch`
+/// @brief Represents type mismatch errors
 class ErrExprTypeMismatch : public BaseError {
   public:
-    ErrExprTypeMismatch(                                                     //
-        const ErrorType error_type,                                          //
-        const std::string &file,                                             //
-        const token_list &tokens,                                            //
-        const std::variant<std::string, std::vector<std::string>> &expected, //
-        const std::variant<std::string, std::vector<std::string>> &type      //
+    ErrExprTypeMismatch(                                                                         //
+        const ErrorType error_type,                                                              //
+        const std::string &file,                                                                 //
+        const token_list &tokens,                                                                //
+        const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &expected, //
+        const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &type      //
         ) :
         BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
         tokens(tokens),
@@ -30,7 +33,15 @@ class ErrExprTypeMismatch : public BaseError {
     }
 
   private:
+    /// @var `tokens`
+    /// @brief The tokens whose resulting type was wrong
     token_list tokens;
-    std::variant<std::string, std::vector<std::string>> expected;
-    std::variant<std::string, std::vector<std::string>> type;
+
+    /// @var `expected`
+    /// @brief The expected type
+    std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> expected;
+
+    /// @var `type`
+    /// @brief The actual present type
+    std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> type;
 };

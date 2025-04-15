@@ -181,17 +181,17 @@ namespace Debug {
                 std::cout << "> ";
             }
 
-            void print_type(const std::variant<std::string, std::vector<std::string>> &type) {
-                if (std::holds_alternative<std::string>(type)) {
-                    std::cout << std::get<std::string>(type);
+            void print_type(const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &type) {
+                if (std::holds_alternative<std::shared_ptr<Type>>(type)) {
+                    std::cout << std::get<std::shared_ptr<Type>>(type)->to_string();
                 } else {
-                    const std::vector<std::string> &types = std::get<std::vector<std::string>>(type);
+                    const std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(type);
                     std::cout << "(";
                     for (auto it = types.begin(); it != types.end(); ++it) {
                         if (it != types.begin()) {
                             std::cout << ", ";
                         }
-                        std::cout << *it;
+                        std::cout << (*it)->to_string();
                     }
                     std::cout << ")";
                 }
@@ -265,7 +265,8 @@ namespace Debug {
 
         void print_literal(unsigned int indent_lvl, uint2 empty, const LiteralNode &lit) {
             Local::print_header(indent_lvl, empty, "Lit ");
-            std::cout << std::get<std::string>(lit.type) << ": ";
+            Local::print_type(lit.type);
+            std::cout << ": ";
             if (std::holds_alternative<int>(lit.value)) {
                 std::cout << std::get<int>(lit.value);
             } else if (std::holds_alternative<float>(lit.value)) {
@@ -373,8 +374,9 @@ namespace Debug {
 
         void print_initilalizer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer) {
             Local::print_header(indent_lvl, empty, "Initializer ");
-            std::cout << "of " << (initializer.is_data ? "data" : "entity") << " type '" << std::get<std::string>(initializer.type) << "'";
-            std::cout << std::endl;
+            std::cout << "of " << (initializer.is_data ? "data" : "entity") << " type '";
+            Local::print_type(initializer.type);
+            std::cout << "'" << std::endl;
             empty.second = indent_lvl + 1;
             for (auto &expr : initializer.args) {
                 print_expression(indent_lvl + 1, empty, expr);
@@ -561,7 +563,7 @@ namespace Debug {
                 if (it != assign.assignees.begin()) {
                     std::cout << ", ";
                 }
-                std::cout << it->first;
+                std::cout << it->first->to_string();
             }
             std::cout << ") to be";
             std::cout << std::endl;
@@ -573,7 +575,7 @@ namespace Debug {
 
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign) {
             Local::print_header(indent_lvl, empty, "Assign ");
-            std::cout << "'" << assign.type << " " << assign.name << "'";
+            std::cout << "'" << assign.type->to_string() << " " << assign.name << "'";
             if (assign.is_shorthand) {
                 std::cout << " [shorthand]";
             }
@@ -592,7 +594,7 @@ namespace Debug {
                 if (it != decl.variables.begin()) {
                     std::cout << ", ";
                 }
-                std::cout << it->first;
+                std::cout << it->first->to_string();
             }
             std::cout << ") to be" << std::endl;
 
@@ -603,7 +605,7 @@ namespace Debug {
 
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl) {
             Local::print_header(indent_lvl, empty, "Decl ");
-            std::cout << "'" << decl.type << " ";
+            std::cout << "'" << decl.type->to_string() << " ";
             std::cout << decl.name << "' to be";
 
             if (!decl.initializer.has_value()) {
@@ -619,8 +621,8 @@ namespace Debug {
 
         void print_data_field_assignment(unsigned int indent_lvl, uint2 empty, const DataFieldAssignmentNode &assignment) {
             Local::print_header(indent_lvl, empty, "Data Field Assignment ");
-            std::cout << "assign [" << assignment.data_type << "] " << assignment.var_name << "." << assignment.field_name << " at IDs "
-                      << assignment.field_id << " of types " << assignment.field_type << " to be";
+            std::cout << "assign [" << assignment.data_type->to_string() << "] " << assignment.var_name << "." << assignment.field_name
+                      << " at IDs " << assignment.field_id << " of types " << assignment.field_type->to_string() << " to be";
             std::cout << std::endl;
             empty.first++;
             empty.second = indent_lvl + 2;
@@ -727,7 +729,7 @@ namespace Debug {
             for (const auto &[field_name, field_type_default] : data.fields) {
                 empty.second = indent_lvl + 1;
                 Local::print_header(indent_lvl, empty, "Field");
-                std::cout << field_type_default.first << " " << field_name << "\n";
+                std::cout << field_type_default.first->to_string() << " " << field_name << "\n";
                 if (field_type_default.second.has_value()) {
                     // Only print default values if they exist
                     empty.second = indent_lvl + 2;
@@ -774,11 +776,11 @@ namespace Debug {
             }
             std::cout << function.name << "(";
             size_t counter = 0;
-            for (const std::tuple<std::string, std::string, bool> &param : function.parameters) {
-                std::cout << (std::get<2>(param) ? "mut" : "const") << " ";                    // Whether the param is const or mut
-                std::cout << (keywords.find(std::get<0>(param)) == keywords.end() ? "&" : ""); // If its a primitive or complex type
-                std::cout << std::get<0>(param) << " ";                                        // The actual type
-                std::cout << std::get<1>(param);                                               // The parameter name
+            for (const std::tuple<std::shared_ptr<Type>, std::string, bool> &param : function.parameters) {
+                std::cout << (std::get<2>(param) ? "mut" : "const") << " "; // Whether the param is const or mut
+                std::cout << (keywords.find(std::get<0>(param)->to_string()) == keywords.end() ? "&" : ""); // If primitive or complex
+                std::cout << std::get<0>(param)->to_string() << " ";                                        // The actual type
+                std::cout << std::get<1>(param);                                                            // The parameter name
                 if (++counter != function.parameters.size()) {
                     std::cout << ", ";
                 }
@@ -791,8 +793,8 @@ namespace Debug {
                 std::cout << "(";
             }
             counter = 0;
-            for (const std::string &ret : function.return_types) {
-                std::cout << ret;
+            for (const std::shared_ptr<Type> &ret : function.return_types) {
+                std::cout << ret->to_string();
                 if (++counter != function.return_types.size()) {
                     std::cout << ", ";
                 }

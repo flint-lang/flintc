@@ -13,7 +13,8 @@ class StringInterpolationNode : public ExpressionNode {
   public:
     StringInterpolationNode(std::vector<std::variant<std::unique_ptr<TypeCastNode>, std::unique_ptr<LiteralNode>>> &string_content) :
         string_content(std::move(string_content)) {
-        this->type = "str";
+        token_list tokens = {{TOK_IDENTIFIER, "str", 0, 0}};
+        this->type = Type::get_type(tokens).value();
     }
 
     /// @var `string_content`
