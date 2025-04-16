@@ -64,7 +64,6 @@ static inline std::unordered_map<BuiltinFunction, std::vector<std::pair<type_lis
             {{"u64"}, {"void"}},
             {{"f32"}, {"void"}},
             {{"f64"}, {"void"}},
-            {{"flint"}, {"void"}},
             {{"char"}, {"void"}},
             {{"str"}, {"void"}},
             {{"bool"}, {"void"}},
