@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colors.hpp"
 #include "error_type.hpp"
 #include "globals.hpp"
 
@@ -77,7 +78,7 @@
 inline void throw_err(ErrorType error_type, const char *file = __FILE__, const int line = __LINE__) {
     std::cerr << "Custom Error: " << std::to_string(static_cast<int>(error_type));
     if (DEBUG_MODE) {
-        std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
+        std::cerr << YELLOW << "\n[Debug Info]" << DEFAULT << " Called from: " << file << ":" << line;
     }
     if (HARD_CRASH) {
         assert(false);
@@ -108,7 +109,7 @@ throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
     ErrorType error(std::forward<Args>(args)...);
     std::cerr << error.to_string();
     if (DEBUG_MODE) {
-        std::cerr << "\n[Debug Info] Called from: " << file << ":" << line;
+        std::cerr << YELLOW << "\n[Debug Info]" << DEFAULT << " Called from: " << file << ":" << line;
     }
     if (HARD_CRASH) {
         assert(false);
