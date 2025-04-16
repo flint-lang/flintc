@@ -30,6 +30,13 @@ class Type {
     /// @note This function only needs to be called once at the start of the parsing phase
     static void init_types();
 
+    /// @function `add_type`
+    /// @brief Adds the given type to the type list. Returns whether the type was already present
+    ///
+    /// @param `type_to_add` The type to add to the types map
+    /// @return `bool` Whether the type was newly added (true) or already present (false)
+    static bool add_type(const std::shared_ptr<Type> &type_to_add);
+
     /// @function `get_type`
     /// @brief Returns the type of a given token list, adds the type if it doesnt exist yet
     ///

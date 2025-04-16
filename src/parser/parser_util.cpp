@@ -1,11 +1,13 @@
 #include "lexer/builtins.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "parser/parser.hpp"
 
 #include "debug.hpp"
 #include "error/error.hpp"
 #include "parser/signature.hpp"
+#include "parser/type/data_type.hpp"
 #include <algorithm>
 
 bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
@@ -58,6 +60,11 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         }
         DataNode *added_data = file_node.add_data(data_node.value());
         add_parsed_data(added_data, file_name);
+        if (!Type::add_type(std::make_shared<DataType>(added_data))) {
+            // Data type shadowing
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
     } else if (Signature::tokens_contain(definition_tokens, ESignature::FUNC_DEFINITION)) {
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_tokens);
         if (!func_node.has_value()) {
@@ -256,22 +263,47 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
         }
         return std::make_tuple(function_name, std::move(arguments), types, std::nullopt);
     }
+
+    // Check if there exists a type with the name of the "function" call
+    std::optional<std::shared_ptr<Type>> complex_type = Type::get_type_from_str(function_name);
+    if (complex_type.has_value()) {
+        // Its a data, entity or enum type
+        if (const DataType *data_type = dynamic_cast<const DataType *>(complex_type.value().get())) {
+            DataNode *const data_node = data_type->data_node;
+            const auto initializer_fields = data_node->get_initializer_fields();
+            // Now check if the initializer arguments are equal to the expected initializer fields
+            if (initializer_fields.size() != arguments.size()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            for (size_t i = 0; i < arguments.size(); i++) {
+                ExprType arg_type = arguments.at(i).first->type;
+                if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(arg_type)) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                if (std::get<1>(initializer_fields.at(i)) != std::get<std::shared_ptr<Type>>(arg_type)) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            }
+
+            std::vector<std::shared_ptr<Type>> return_type = {complex_type.value()};
+            return std::make_tuple(   //
+                data_node->name,      //
+                std::move(arguments), //
+                return_type,          //
+                true                  //
+            );
+        }
+    }
+
+    // Its definitely not a data type initializer, so it must be a function call
     // Get the acutal function this call targets, and check if it even exists
     auto function = get_function_from_call(function_name, argument_types);
     if (!function.has_value()) {
-        auto data_definition = get_data_definition(file_name, function_name, imported_files, argument_types);
-        if (!data_definition.has_value()) {
-            THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name);
-            return std::nullopt;
-        }
-        // Its not a function call but actually a data initializer
-        std::vector<std::shared_ptr<Type>> return_type = {Type::get_simple_type(data_definition.value()->name)};
-        return std::make_tuple(            //
-            data_definition.value()->name, //
-            std::move(arguments),          //
-            return_type,                   //
-            true                           //
-        );
+        THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name);
+        return std::nullopt;
     }
     // Check if the argument count does match the parameter count
     const unsigned int param_count = function.value().first->parameters.size();

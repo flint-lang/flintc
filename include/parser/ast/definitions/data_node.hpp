@@ -29,6 +29,22 @@ class DataNode : public ASTNode {
         fields(std::move(fields)),
         order(std::move(order)) {}
 
+    /// @function `get_initializer_fields`
+    /// @brief Returns the fields of the initializer fields
+    ///
+    /// @return `std::vector<std::tuple<std::string, std::shared_ptr<Type>, std::optional<std::string>>>` The list of fields where:
+    ///         - `std::string` The name of the initializer field
+    ///         - `std::shared_ptr<Type>` The type of the initializer field
+    ///         - `std::optional<std::string>` The default value of the field
+    const std::vector<std::tuple<std::string, std::shared_ptr<Type>, std::optional<std::string>>> get_initializer_fields() {
+        std::vector<std::tuple<std::string, std::shared_ptr<Type>, std::optional<std::string>>> initializer_fields;
+        for (const std::string &field_name : order) {
+            std::pair<std::shared_ptr<Type>, std::optional<std::string>> &field_values = fields.at(field_name);
+            initializer_fields.emplace_back(field_name, field_values.first, field_values.second);
+        }
+        return initializer_fields;
+    }
+
     /// @var `is_shared`
     /// @brief Determines whether the data is shared between multiple entities
     bool is_shared{false};

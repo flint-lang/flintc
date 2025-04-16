@@ -1,11 +1,10 @@
+data SomeData:
+    i32 x;
+    i32 y;
+    SomeData(x, y);
+
 def main():
-    str a = "A";
-    a += "B";
-    print(a);
-    i64 b = -16;
-    print($"{b}\n");
-    // i64[] arr;
-    // arr = i64[10];
-    // arr[0] = 5;
-    // arr[1] = arr[0] + 1;
-    // arr[2] = arr[1] + arr[0]; 
+    // This now correctly throws an error, because the types dont match
+    // Expected a `i32` but got an `f32` instead
+    SomeData sd = SomeData(1.0, 2);
+    print($"{sd.x}\n");

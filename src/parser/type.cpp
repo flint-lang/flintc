@@ -23,6 +23,11 @@ void Type::init_types() {
     get_simple_type("char");
 }
 
+bool Type::add_type(const std::shared_ptr<Type> &type_to_add) {
+    std::unique_lock<std::shared_mutex> lock(types_mutex);
+    return types.emplace(type_to_add->to_string(), type_to_add).second;
+}
+
 std::optional<std::shared_ptr<Type>> Type::get_type(token_list &tokens, const bool mutex_already_locked) {
     assert(!tokens.empty());
     const std::string type_str = Lexer::to_string(tokens);
