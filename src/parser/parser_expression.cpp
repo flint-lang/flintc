@@ -1,6 +1,7 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "lexer/builtins.hpp"
+#include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
 #include "parser/parser.hpp"
