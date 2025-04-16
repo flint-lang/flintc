@@ -808,24 +808,36 @@ llvm::Value *Generator::String::generate_string_addition(                       
         } else {
             llvm::Function *add_str_str_fn = string_manip_functions.at("add_str_str");
             llvm::Value *addition_result = builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
+            const VariableNode *lhs_var = dynamic_cast<const VariableNode *>(lhs_expr);
+            const VariableNode *rhs_var = dynamic_cast<const VariableNode *>(rhs_expr);
             if (garbage.count(expr_depth) == 0) {
-                garbage[expr_depth].emplace_back("str", addition_result);
+                if (lhs_var == nullptr) {
+                    garbage[expr_depth].emplace_back("str", lhs);
+                }
+                if (rhs_var == nullptr) {
+                    garbage[expr_depth].emplace_back("str", rhs);
+                }
             } else {
-                garbage.at(expr_depth).emplace_back("str", addition_result);
+                if (lhs_var == nullptr) {
+                    garbage.at(expr_depth).emplace_back("str", lhs);
+                }
+                if (rhs_var == nullptr) {
+                    garbage.at(expr_depth).emplace_back("str", rhs);
+                }
             }
             return addition_result;
         }
     } else if (lhs_lit == nullptr && rhs_lit != nullptr) {
         // Only rhs is literal
+        const VariableNode *lhs_var = dynamic_cast<const VariableNode *>(lhs_expr);
         if (is_append) {
             llvm::Function *append_lit_fn = string_manip_functions.at("append_lit");
-            const VariableNode *str_var = dynamic_cast<const VariableNode *>(lhs_expr);
-            if (str_var == nullptr) {
+            if (lhs_var == nullptr) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
-            const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(str_var->name));
-            llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + str_var->name);
+            const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(lhs_var->name));
+            llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + lhs_var->name);
             builder.CreateCall(append_lit_fn, {variable_alloca, rhs, builder.getInt64(std::get<std::string>(rhs_lit->value).length())});
             return lhs;
         } else {
@@ -835,14 +847,16 @@ llvm::Value *Generator::String::generate_string_addition(                       
                 std::get<std::string>(rhs_lit->value).length() //
             );
             llvm::Value *addition_result = builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
-            if (garbage.count(expr_depth) == 0) {
-                garbage[expr_depth].emplace_back("str", addition_result);
-            } else {
-                garbage.at(expr_depth).emplace_back("str", addition_result);
+            if (lhs_var == nullptr) {
+                if (garbage.count(expr_depth) == 0) {
+                    garbage[expr_depth].emplace_back("str", lhs);
+                } else {
+                    garbage.at(expr_depth).emplace_back("str", lhs);
+                }
             }
             return addition_result;
         }
-    } else if (lhs != nullptr && rhs_lit == nullptr) {
+    } else if (lhs_lit != nullptr && rhs_lit == nullptr) {
         // Only lhs is literal
         llvm::Function *add_lit_str_fn = string_manip_functions.at("add_lit_str");
         llvm::Value *lhs_len = llvm::ConstantInt::get(     //
@@ -850,10 +864,12 @@ llvm::Value *Generator::String::generate_string_addition(                       
             std::get<std::string>(lhs_lit->value).length() //
         );
         llvm::Value *addition_result = builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
-        if (garbage.count(expr_depth) == 0) {
-            garbage[expr_depth].emplace_back("str", addition_result);
-        } else {
-            garbage.at(expr_depth).emplace_back("str", addition_result);
+        if (dynamic_cast<const VariableNode *>(rhs_expr) == nullptr) {
+            if (garbage.count(expr_depth) == 0) {
+                garbage[expr_depth].emplace_back("str", rhs);
+            } else {
+                garbage.at(expr_depth).emplace_back("str", rhs);
+            }
         }
         return addition_result;
     }
