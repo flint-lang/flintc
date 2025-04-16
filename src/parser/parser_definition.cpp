@@ -169,8 +169,7 @@ std::optional<DataNode> Parser::create_data(const token_list &definition, const 
     }
 
     auto body_iterator = body.begin();
-    bool parsing_constructor = false;
-    while (body_iterator != body.end()) {
+    for (; body_iterator != body.end(); ++body_iterator) {
         if (Signature::tokens_match({TokenContext{body_iterator->type, "", 0, 0}}, ESignature::TYPE) &&
             (body_iterator + 1)->type == TOK_IDENTIFIER) {
             if (fields.find((body_iterator + 1)->lexme) != fields.end()) {
@@ -185,24 +184,37 @@ std::optional<DataNode> Parser::create_data(const token_list &definition, const 
         }
 
         if (body_iterator->type == TOK_IDENTIFIER && (body_iterator + 1)->type == TOK_LEFT_PAREN) {
-            if (body_iterator->lexme != name) {
-                THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,     //
-                    file_name, body_iterator->line, body_iterator->column, //
-                    name, body_iterator->lexme                             //
-                );
-                return std::nullopt;
-            }
-            parsing_constructor = true;
-            ++body_iterator;
-        }
-        if (parsing_constructor && body_iterator->type == TOK_IDENTIFIER) {
-            order.emplace_back(body_iterator->lexme);
-        }
-        if (body_iterator->type == TOK_RIGHT_PAREN) {
             break;
         }
+    }
+    // Check if the initializer name is correct
+    if (body_iterator->lexme != name) {
+        THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,     //
+            file_name, body_iterator->line, body_iterator->column, //
+            name, body_iterator->lexme                             //
+        );
+        return std::nullopt;
+    }
+    ++body_iterator;
 
-        ++body_iterator;
+    // Skip the left paren
+    ++body_iterator;
+
+    for (; body_iterator != body.end(); ++body_iterator) {
+        if (body_iterator->type == TOK_IDENTIFIER) {
+            if (std::find(order.begin(), order.end(), body_iterator->lexme) != order.end()) {
+                // The same field name is written down twice in the initializer
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            order.emplace_back(body_iterator->lexme);
+        } else if (body_iterator->type == TOK_RIGHT_PAREN) {
+            break;
+        } else if (body_iterator->type != TOK_COMMA) {
+            // Not allowed token in data initializer
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
     }
 
     return DataNode(is_shared, is_immutable, is_aligned, name, fields, order);
