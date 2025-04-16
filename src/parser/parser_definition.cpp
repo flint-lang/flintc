@@ -172,14 +172,15 @@ std::optional<DataNode> Parser::create_data(const token_list &definition, const 
     for (; body_iterator != body.end(); ++body_iterator) {
         if (Signature::tokens_match({TokenContext{body_iterator->type, "", 0, 0}}, ESignature::TYPE) &&
             (body_iterator + 1)->type == TOK_IDENTIFIER) {
-            if (fields.find((body_iterator + 1)->lexme) != fields.end()) {
+            const auto next_it = body_iterator + 1;
+            if (fields.find(next_it->lexme) != fields.end()) {
                 // Field name duplication
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name, next_it->line, next_it->column, next_it->lexme);
                 return std::nullopt;
             }
-            fields[(body_iterator + 1)->lexme] = {Type::get_simple_type(body_iterator->lexme), std::nullopt};
+            fields[next_it->lexme] = {Type::get_simple_type(body_iterator->lexme), std::nullopt};
             if ((body_iterator + 2)->type == TOK_EQUAL) {
-                fields[(body_iterator + 1)->lexme].second = (body_iterator + 3)->lexme;
+                fields[next_it->lexme].second = (body_iterator + 3)->lexme;
             }
         }
 
