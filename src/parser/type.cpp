@@ -19,6 +19,8 @@ void Type::init_types() {
     get_simple_type("f64");
     get_simple_type("bool");
     get_simple_type("str");
+    get_simple_type("void");
+    get_simple_type("char");
 }
 
 std::optional<std::shared_ptr<Type>> Type::get_type(token_list &tokens, const bool mutex_already_locked) {
