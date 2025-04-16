@@ -55,7 +55,9 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     } else if (Signature::tokens_contain(definition_tokens, ESignature::DATA_DEFINITION)) {
         std::optional<DataNode> data_node = create_data(definition_tokens, body_tokens);
         if (!data_node.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrDefDataCreation, ERR_PARSING, file_name, definition_tokens);
+            return false;
+        }
             return false;
         }
         DataNode *added_data = file_node.add_data(data_node.value());
