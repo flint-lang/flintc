@@ -92,12 +92,13 @@ std::optional<std::unique_ptr<llvm::Module>> generate_module( //
     Type::init_types();
     std::optional<FileNode> file = Parser::create(source_file_path)->parse();
     if (!file.has_value()) {
-        std::cerr << "Error: Failed to parse file '" << source_file_path.filename() << "'" << std::endl;
+        std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << source_file_path.filename() << DEFAULT
+                  << std::endl;
         std::exit(EXIT_FAILURE);
     }
     auto dep_graph = Resolver::create_dependency_graph(file.value(), source_file_path.parent_path(), parse_parallel);
     if (!dep_graph.has_value()) {
-        std::cerr << "Error: Failed to create dependency graph" << std::endl;
+        std::cerr << RED << "Error" << DEFAULT << ": Failed to create dependency graph" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (PRINT_DEP_TREE) {
