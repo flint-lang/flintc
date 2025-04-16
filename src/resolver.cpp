@@ -295,6 +295,11 @@ void Resolver::add_path(const std::string &file_name, const std::filesystem::pat
     path_map.emplace(file_name_copy, path_copy);
 }
 
+std::filesystem::path Resolver::get_path(const std::string &file_name) {
+    std::lock_guard<std::mutex> lock(path_map_mutex);
+    return path_map.at(file_name);
+}
+
 /// create_dependency
 ///     Creates a dependency struct from a given ImportNode
 dependency Resolver::create_dependency(const ImportNode &node, const std::filesystem::path &path) {

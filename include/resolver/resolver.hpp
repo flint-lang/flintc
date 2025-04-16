@@ -80,6 +80,7 @@ class Resolver {
     static std::optional<DepNode> add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path);
     static void add_ir(const std::string &file_name, const llvm::Module *module);
     static void add_path(const std::string &file_name, const std::filesystem::path &path);
+    static std::filesystem::path get_path(const std::string &file_name);
 
   private:
     static dependency create_dependency(const ImportNode &node, const std::filesystem::path &path);
