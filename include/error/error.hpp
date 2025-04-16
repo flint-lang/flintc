@@ -23,6 +23,7 @@
 
 #include "error_types/parsing/definitions/data/err_def_data_creation.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
+#include "error_types/parsing/definitions/data/err_def_data_redefinition.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_wrong_constructor_name.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_wrong_constructor_name.hpp"
 #include "error_types/parsing/definitions/err_def_err_only_one_parent.hpp"

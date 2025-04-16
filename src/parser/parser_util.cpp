@@ -58,15 +58,14 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
             THROW_ERR(ErrDefDataCreation, ERR_PARSING, file_name, definition_tokens);
             return false;
         }
+        if (!Type::add_type(std::make_shared<DataType>(&data_node.value()))) {
+            THROW_ERR(ErrDefDataRedefinition, ERR_PARSING, file_name,                                    //
+                definition_tokens.front().line, definition_tokens.front().column, data_node.value().name //
+            );
             return false;
         }
         DataNode *added_data = file_node.add_data(data_node.value());
         add_parsed_data(added_data, file_name);
-        if (!Type::add_type(std::make_shared<DataType>(added_data))) {
-            // Data type shadowing
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
     } else if (Signature::tokens_contain(definition_tokens, ESignature::FUNC_DEFINITION)) {
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_tokens);
         if (!func_node.has_value()) {
