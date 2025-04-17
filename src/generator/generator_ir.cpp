@@ -3,6 +3,10 @@
 #include "generator/generator.hpp"
 
 #include "lexer/lexer_utils.hpp"
+#include "parser/type/array_type.hpp"
+#include "parser/type/data_type.hpp"
+#include "parser/type/simple_type.hpp"
+#include "llvm/IR/Constants.h"
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
     llvm::LLVMContext *context,                       //
@@ -71,62 +75,82 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
 }
 
 std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::LLVMContext &context, const std::shared_ptr<Type> &type) {
-    // Check if its a primitive or not. If it is not a primitive, its just a pointer type
-    if (type->to_string() == "str_var") {
-        // A string is a struct of type 'type { i64, [0 x i8] }'
-        llvm::StructType *str_type;
-        if (type_map.find("type_str") != type_map.end()) {
-            str_type = type_map["type_str"];
-        } else {
-            str_type = llvm::StructType::create( //
-                context,                         //
-                {
-                    llvm::Type::getInt64Ty(context),                        // len of string
-                    llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
-                },                                                          //
-                "type_str",
-                false // is packed
-            );
-            type_map["type_str"] = str_type;
+    if (const SimpleType *simple_type = dynamic_cast<const SimpleType *>(type.get())) {
+        // Check if its a primitive or not. If it is not a primitive, its just a pointer type
+        if (simple_type->type_name == "str_var") {
+            // A string is a struct of type 'type { i64, [0 x i8] }'
+            llvm::StructType *str_type;
+            if (type_map.find("type_str") != type_map.end()) {
+                str_type = type_map["type_str"];
+            } else {
+                str_type = llvm::StructType::create( //
+                    context,                         //
+                    {
+                        llvm::Type::getInt64Ty(context),                        // len of string
+                        llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
+                    },                                                          //
+                    "type_str",
+                    false // is packed
+                );
+                type_map["type_str"] = str_type;
+            }
+            return {str_type, false};
         }
-        return {str_type, false};
-    }
-    if (keywords.find(type->to_string()) != keywords.end()) {
-        switch (keywords.at(type->to_string())) {
-            default:
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return {nullptr, false};
-            case TOK_I32:
-            case TOK_U32:
-                return {llvm::Type::getInt32Ty(context), false};
-            case TOK_I64:
-            case TOK_U64:
-                return {llvm::Type::getInt64Ty(context), false};
-            case TOK_F32:
-                return {llvm::Type::getFloatTy(context), false};
-            case TOK_F64:
-                return {llvm::Type::getDoubleTy(context), false};
-            case TOK_FLINT:
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return {nullptr, false};
-            case TOK_CHAR:
-                return {llvm::Type::getInt8Ty(context), false};
-            case TOK_STR:
-                return {llvm::Type::getInt8Ty(context)->getPointerTo(), false};
-            case TOK_BOOL:
-                return {llvm::Type::getInt1Ty(context), false};
-            case TOK_VOID:
-                return {llvm::Type::getVoidTy(context), false};
+        if (keywords.find(simple_type->type_name) != keywords.end()) {
+            switch (keywords.at(simple_type->type_name)) {
+                default:
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return {nullptr, false};
+                case TOK_I32:
+                case TOK_U32:
+                    return {llvm::Type::getInt32Ty(context), false};
+                case TOK_I64:
+                case TOK_U64:
+                    return {llvm::Type::getInt64Ty(context), false};
+                case TOK_F32:
+                    return {llvm::Type::getFloatTy(context), false};
+                case TOK_F64:
+                    return {llvm::Type::getDoubleTy(context), false};
+                case TOK_FLINT:
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return {nullptr, false};
+                case TOK_CHAR:
+                    return {llvm::Type::getInt8Ty(context), false};
+                case TOK_STR:
+                    return {llvm::Type::getInt8Ty(context)->getPointerTo(), false};
+                case TOK_BOOL:
+                    return {llvm::Type::getInt1Ty(context), false};
+                case TOK_VOID:
+                    return {llvm::Type::getVoidTy(context), false};
+            }
         }
-    }
-    // Check if its a known data type
-    if (data_nodes.find(type->to_string()) != data_nodes.end()) {
-        const DataNode *const data_node = data_nodes.at(type->to_string());
+    } else if (const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
+        // Check if its a known data type
         std::vector<std::shared_ptr<Type>> types;
-        for (const auto &order_name : data_node->order) {
-            types.emplace_back(data_node->fields.at(order_name).first);
+        for (const auto &order_name : data_type->data_node->order) {
+            types.emplace_back(data_type->data_node->fields.at(order_name).first);
         }
         return {add_and_or_get_type(&context, types, false), true};
+    } else if (ArrayType *array_type = dynamic_cast<ArrayType *>(type.get())) {
+        // First, get the content type of the array
+        std::pair<llvm::Type *, bool> arr_val_type = get_type(context, array_type->type);
+        llvm::StructType *arr_type;
+        const std::string arr_type_name = "type_" + array_type->to_string();
+        if (type_map.find(arr_type_name) != type_map.end()) {
+            arr_type = type_map[arr_type_name];
+        } else {
+            arr_type = llvm::StructType::create( //
+                context,                         //
+                {
+                    llvm::Type::getInt64Ty(context),            // len of array
+                    llvm::ArrayType::get(arr_val_type.first, 0) // the data type of the array
+                },                                              //
+                arr_type_name,                                  //
+                false                                           // is packed
+            );
+            type_map[arr_type_name] = arr_type;
+        }
+        return {arr_type, false};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
@@ -142,6 +166,9 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     }
     if (type->isPointerTy()) {
         return llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(type));
+    }
+    if (type->isStructTy()) {
+        return llvm::ConstantStruct::get(llvm::cast<llvm::StructType>(type));
     }
     // No conversion available
     THROW_BASIC_ERR(ERR_GENERATING);
