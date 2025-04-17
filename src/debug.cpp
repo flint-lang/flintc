@@ -397,8 +397,8 @@ namespace Debug {
 
         void print_data_access(unsigned int indent_lvl, uint2 empty, const DataAccessNode &access) {
             Local::print_header(indent_lvl, empty, "Data Access ");
-            std::cout << "[" << access.data_type << "]: " << access.var_name << "." << access.field_name << " at ID " << access.field_id
-                      << " with type ";
+            std::cout << "[" << access.data_type->to_string() << "]: " << access.var_name << "." << access.field_name << " at ID "
+                      << access.field_id << " with type ";
             Local::print_type(access.type);
             std::cout << std::endl;
         }

@@ -267,7 +267,6 @@ void Lexer::scan_token() {
                 identifier();
             } else {
                 THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, std::to_string(character));
-                return;
             }
             break;
     }
@@ -288,7 +287,7 @@ void Lexer::identifier() {
 }
 
 void Lexer::number() {
-    while (is_digit(peek_next())) {
+    while (is_digit(peek_next()) || peek_next() == '_') {
         advance(false);
     }
 
@@ -300,7 +299,7 @@ void Lexer::number() {
             return;
         }
 
-        while (is_digit(peek_next())) {
+        while (is_digit(peek_next()) || peek_next() == '_') {
             advance(false);
         }
         add_token(TOK_FLINT_VALUE);
@@ -383,6 +382,10 @@ char Lexer::advance(bool increment_column) {
 
 void Lexer::add_token(Token token) {
     std::string lexme = source.substr(start, current - start + 1);
+    if (token == TOK_FLINT_VALUE || token == TOK_INT_VALUE) {
+        // Erase all '_' characters from the literal
+        lexme.erase(std::remove(lexme.begin(), lexme.end(), '_'), lexme.end());
+    }
     size_t pos = 0;
     while ((pos = lexme.find("\\\"", pos)) != std::string::npos) {
         lexme.replace(pos, 2, "\"");

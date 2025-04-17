@@ -1,11 +1,11 @@
 data SomeData:
     i32 x;
-    // Redefinition error
-    i32 x;
+    // Duplicate data field error
+    f32 y;
     SomeData(x, y);
 
 def main():
     // This now correctly throws an error, because the types dont match
     // Expected a `i32` but got an `f32` instead
-    SomeData sd = SomeData(1, 2);
+    SomeData sd = SomeData(1_000, 2.0_015);
     print($"{sd.x}\n");
