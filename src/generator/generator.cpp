@@ -34,18 +34,6 @@
 #include <utility>
 #include <variant>
 
-std::unordered_map<std::string, llvm::StructType *> Generator::type_map;
-std::unordered_map<std::string, std::vector<llvm::CallInst *>> Generator::unresolved_functions;
-std::unordered_map<std::string, std::unordered_map<std::string, std::vector<llvm::CallInst *>>> Generator::file_unresolved_functions;
-std::unordered_map<std::string, unsigned int> Generator::function_mangle_ids;
-std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> Generator::file_function_mangle_ids;
-std::unordered_map<std::string, std::vector<std::string>> Generator::file_function_names;
-std::vector<std::string> Generator::function_names;
-std::array<llvm::CallInst *, 1> Generator::main_call_array;
-std::array<llvm::Module *, 1> Generator::main_module;
-std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> Generator::tests;
-std::unordered_map<std::string, const DataNode *const> Generator::data_nodes;
-
 void Generator::get_data_nodes() {
     std::lock_guard<std::mutex> lock(Parser::parsed_data_mutex);
     for (const auto &file : Parser::parsed_data) {

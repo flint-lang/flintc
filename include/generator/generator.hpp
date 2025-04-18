@@ -175,7 +175,7 @@ class Generator {
     /// @details
     /// - **Key** `std::string` - The return type of the function, encoded as a string (for example 'int' or 'str' for single returns)
     /// - **Value** `llvm::StructType *` - The reference to the already existent StructType definition
-    static std::unordered_map<std::string, llvm::StructType *> type_map;
+    static inline std::unordered_map<std::string, llvm::StructType *> type_map;
 
     /// @var `unresolved_functions`
     /// @brief Stores unresolved function calls within a module.
@@ -191,7 +191,7 @@ class Generator {
     /// @note This map is static and persists throughout the module's lifecycle.
     /// @attention Ensure that all entries in this map are processed and resolved
     /// before completing the module generation.
-    static std::unordered_map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
+    static inline std::unordered_map<std::string, std::vector<llvm::CallInst *>> unresolved_functions;
 
     /// @var `file_unresolved_functions`
     /// @brief Stores all unresolved function calls towards a different file
@@ -209,7 +209,7 @@ class Generator {
     /// - - **Value** `std::vector<llvm::CallInst *>` - The list of all calls targeting this function
     ///
     /// @note This map is static and persists throughout the module's lifecyle
-    static std::unordered_map<std::string, std::unordered_map<std::string, std::vector<llvm::CallInst *>>> file_unresolved_functions;
+    static inline std::unordered_map<std::string, std::unordered_map<std::string, std::vector<llvm::CallInst *>>> file_unresolved_functions;
 
     /// @var `function_mangle_ids`
     /// @brief Stores all mangle IDs for all functions in the module currently being generated
@@ -223,7 +223,7 @@ class Generator {
     /// - **Value** `unsigned int` - Manlge ID of the function
     ///
     /// @note This map is being cleared at the end of every file module generation pass
-    static std::unordered_map<std::string, unsigned int> function_mangle_ids;
+    static inline std::unordered_map<std::string, unsigned int> function_mangle_ids;
 
     /// @var `file_function_mangle_ids`
     /// @brief Stores all mangle ids for all functions from all files
@@ -236,7 +236,7 @@ class Generator {
     /// - **Value** `std::unordered_map<std::string, unsigned int>` - The function mangle id map containing all ids of all functions
     ///
     /// @attention This map is never cleared so it is considered unsafe generating multiple programs within one lifetime of the program
-    static std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> file_function_mangle_ids;
+    static inline std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> file_function_mangle_ids;
 
     /// @var `function_names`
     /// @brief A vector of all function names within the current file
@@ -248,7 +248,7 @@ class Generator {
     /// @note This list of function names is cleared ad the end of every file module generation pass
     /// @todo Implement a more sophisticated system to detect extern calls which combines the functions name as well as its type when
     /// checking if the call is file-internal or external
-    static std::vector<std::string> function_names;
+    static inline std::vector<std::string> function_names;
 
     /// @var `file_function_names`
     /// @brief Stores all the lists of function names from every file
@@ -263,7 +263,7 @@ class Generator {
     /// @attention This map is never cleared so it is considered unsafe generating multiple programs within one lifetime of the program
     /// @todo Implement a more sophisticated system to detect which extern function the call references by embedding the whole signature of
     /// the function the call references, not only its name
-    static std::unordered_map<std::string, std::vector<std::string>> file_function_names;
+    static inline std::unordered_map<std::string, std::vector<std::string>> file_function_names;
 
     /// @var `main_call_array`
     /// @brief Holds a reference to the call of the user-defined main function from within the builtin main function
@@ -273,7 +273,7 @@ class Generator {
     /// its pointing to. This is the reason the pointer, the value of this static construct, is being wrapped in an array of size 1. It
     /// introduces minimal overhead and only acts as a static "container" in this case, to store the pointer to the call instruction calling
     /// the user-defined main function from within the builtin main function.
-    static std::array<llvm::CallInst *, 1> main_call_array;
+    static inline std::array<llvm::CallInst *, 1> main_call_array;
 
     /// @var `main_module`
     /// @brief Holds a static reference to the main module
@@ -282,17 +282,17 @@ class Generator {
     /// module, which means that every function can reference the main module if needed without the main module needed to explicitely be
     /// passed around through many functions which dont use it annyways. It is actually much more efficient to have this reference inside an
     /// static array than to pass it around unnecessarily.
-    static std::array<llvm::Module *, 1> main_module;
+    static inline std::array<llvm::Module *, 1> main_module;
 
     /// @var `tests`
     /// @brief A list of all generated test functions across all files together with the file names, and the name of the test and the exact
     /// name of the function, because a `llvm::Function *` type would become invalid after combining multiple llvm modules
-    static std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> tests;
+    static inline std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> tests;
 
     /// @var `data_nodes`
     /// @brief A list of all available data nodes across all parsed files. If a file has access to a given set of data is determined in the
     /// parsing steps, so we can assume that all usages of data types are valid when generating the IR code.
-    static std::unordered_map<std::string, const DataNode *const> data_nodes;
+    static inline std::unordered_map<std::string, const DataNode *const> data_nodes;
 
     /// @function `get_data_nodes`
     /// @brief This function collects all data nodes from the parser and puts them into the `data_nodes` map in the generator
