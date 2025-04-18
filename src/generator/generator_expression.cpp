@@ -805,24 +805,52 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression(   
                 operand.at(i) = Logical::generate_not(builder, operand.at(i));
                 break;
             case TOK_INCREMENT:
-                if (expression_type == "i32" || expression_type == "i64") {
-                    llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
-                    operand.at(i) = Arithmetic::int_safe_add(builder, operand.at(i), one);
-                } else if (expression_type == "u32" || expression_type == "u64") {
-                    llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
-                    operand.at(i) = Arithmetic::uint_safe_add(builder, operand.at(i), one);
+                if (expression_type == "i32") {
+                    llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
+                    operand.at(i) = builder.CreateCall(                                                           //
+                        Arithmetic::arithmetic_functions.at("i32_safe_add"), {operand.at(i), one}, "safe_add_res" //
+                    );
+                } else if (expression_type == "i64") {
+                    llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
+                    operand.at(i) = builder.CreateCall(                                                           //
+                        Arithmetic::arithmetic_functions.at("i64_safe_add"), {operand.at(i), one}, "safe_add_res" //
+                    );
+                } else if (expression_type == "u32") {
+                    llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
+                    operand.at(i) = builder.CreateCall(                                                           //
+                        Arithmetic::arithmetic_functions.at("u32_safe_add"), {operand.at(0), one}, "safe_add_res" //
+                    );
+                } else if (expression_type == "u64") {
+                    llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
+                    operand.at(i) = builder.CreateCall(                                                           //
+                        Arithmetic::arithmetic_functions.at("u64_safe_add"), {operand.at(0), one}, "safe_add_res" //
+                    );
                 } else if (expression_type == "f32" || expression_type == "f64") {
                     llvm::Value *one = llvm::ConstantFP::get(operand.at(i)->getType(), 1.0);
                     operand.at(i) = builder.CreateFAdd(operand.at(i), one);
                 }
                 break;
             case TOK_DECREMENT:
-                if (expression_type == "i32" || expression_type == "i64") {
-                    llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
-                    operand.at(i) = Arithmetic::int_safe_sub(builder, operand.at(i), one);
-                } else if (expression_type == "u32" || expression_type == "u64") {
-                    llvm::Value *one = llvm::ConstantInt::get(operand.at(i)->getType(), 1);
-                    operand.at(i) = Arithmetic::uint_safe_sub(builder, operand.at(i), one);
+                if (expression_type == "i32") {
+                    llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
+                    operand.at(i) = builder.CreateCall(                                                           //
+                        Arithmetic::arithmetic_functions.at("i32_safe_sub"), {operand.at(i), one}, "safe_sub_res" //
+                    );
+                } else if (expression_type == "i64") {
+                    llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
+                    operand.at(i) = builder.CreateCall(                                                           //
+                        Arithmetic::arithmetic_functions.at("i64_safe_sub"), {operand.at(i), one}, "safe_sub_res" //
+                    );
+                } else if (expression_type == "u32") {
+                    llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
+                    operand.at(i) = builder.CreateCall(                                                           //
+                        Arithmetic::arithmetic_functions.at("u32_safe_sub"), {operand.at(0), one}, "safe_sub_res" //
+                    );
+                } else if (expression_type == "u64") {
+                    llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
+                    operand.at(i) = builder.CreateCall(                                                           //
+                        Arithmetic::arithmetic_functions.at("u64_safe_sub"), {operand.at(0), one}, "safe_sub_res" //
+                    );
                 } else if (expression_type == "f32" || expression_type == "f64") {
                     llvm::Value *one = llvm::ConstantFP::get(operand.at(i)->getType(), 1.0);
                     operand.at(i) = builder.CreateFSub(operand.at(i), one);
@@ -881,10 +909,22 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             case TOK_PLUS:
-                if (type == "i32" || type == "i64") {
-                    return_value.emplace_back(Arithmetic::int_safe_add(builder, lhs.at(i), rhs.at(i)));
-                } else if (type == "u32" || type == "u64") {
-                    return_value.emplace_back(Arithmetic::uint_safe_add(builder, lhs.at(i), rhs.at(i)));
+                if (type == "i32") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
+                    );
+                } else if (type == "i64") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
+                    );
+                } else if (type == "u32") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
+                    );
+                } else if (type == "u64") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
+                    );
                 } else if (type == "f32" || type == "f64") {
                     return_value.emplace_back(builder.CreateFAdd(lhs.at(i), rhs.at(i), "faddtmp"));
                 } else if (type == "flint") {
@@ -902,10 +942,22 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_MINUS:
-                if (type == "i32" || type == "i64") {
-                    return_value.emplace_back(Arithmetic::int_safe_sub(builder, lhs.at(i), rhs.at(i)));
-                } else if (type == "u32" || type == "u64") {
-                    return_value.emplace_back(Arithmetic::uint_safe_sub(builder, lhs.at(i), rhs.at(i)));
+                if (type == "i32") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
+                    );
+                } else if (type == "i64") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
+                    );
+                } else if (type == "u32") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
+                    );
+                } else if (type == "u64") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
+                    );
                 } else if (type == "f32" || type == "f64") {
                     return_value.emplace_back(builder.CreateFSub(lhs.at(i), rhs.at(i), "fsubtmp"));
                 } else if (type == "flint") {
@@ -917,10 +969,22 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_MULT:
-                if (type == "i32" || type == "i64") {
-                    return_value.emplace_back(Arithmetic::int_safe_mul(builder, lhs.at(i), rhs.at(i)));
-                } else if (type == "u32" || type == "u64") {
-                    return_value.emplace_back(Arithmetic::uint_safe_mul(builder, lhs.at(i), rhs.at(i)));
+                if (type == "i32") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
+                    );
+                } else if (type == "i64") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
+                    );
+                } else if (type == "u32") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
+                    );
+                } else if (type == "u64") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
+                    );
                 } else if (type == "f32" || type == "f64") {
                     return_value.emplace_back(builder.CreateFMul(lhs.at(i), rhs.at(i), "fmultmp"));
                 } else if (type == "flint") {
@@ -932,10 +996,22 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_DIV:
-                if (type == "i32" || type == "i64") {
-                    return_value.emplace_back(Arithmetic::int_safe_div(builder, lhs.at(i), rhs.at(i)));
-                } else if (type == "u32" || type == "u64") {
-                    return_value.emplace_back(Arithmetic::uint_safe_div(builder, lhs.at(i), rhs.at(i)));
+                if (type == "i32") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_div_res") //
+                    );
+                } else if (type == "i64") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_div_res") //
+                    );
+                } else if (type == "u32") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_div_res") //
+                    );
+                } else if (type == "u64") {
+                    return_value.emplace_back(                                                                                          //
+                        builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_div_res") //
+                    );
                 } else if (type == "f32" || type == "f64") {
                     return_value.emplace_back(builder.CreateFDiv(lhs.at(i), rhs.at(i), "fdivtmp"));
                 } else if (type == "flint") {

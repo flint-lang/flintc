@@ -481,77 +481,108 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Arithmetic() = delete;
 
-        /// @function `int_safe_add`
-        /// @brief Creates a safe addition of two signed integer types
+        /// @var `arithmetic_functions`
+        /// @brief Map containing references to all safe arithmetic functions
+        ///
+        /// @details
+        /// - **Key** `std::string_view` - The name of the function
+        /// - **Value** `llvm::Function *` - The reference to the genereated function
+        ///
+        /// @attention The functions are nullpointers until the `generate_arithmetic_functions` function is called
+        /// @attention The map is not being cleared after the program module has been generated
+        static inline std::unordered_map<std::string_view, llvm::Function *> arithmetic_functions = {
+            {"i32_safe_add", nullptr},
+            {"i32_safe_sub", nullptr},
+            {"i32_safe_mul", nullptr},
+            {"i32_safe_div", nullptr},
+            {"i64_safe_add", nullptr},
+            {"i64_safe_sub", nullptr},
+            {"i64_safe_mul", nullptr},
+            {"i64_safe_div", nullptr},
+            {"u32_safe_add", nullptr},
+            {"u32_safe_sub", nullptr},
+            {"u32_safe_mul", nullptr},
+            {"u32_safe_div", nullptr},
+            {"u64_safe_add", nullptr},
+            {"u64_safe_sub", nullptr},
+            {"u64_safe_mul", nullptr},
+            {"u64_safe_div", nullptr},
+        };
+
+        /// @function `generate_arithmetic_functions`
+        static void generate_arithmetic_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_int_safe_add`
+        /// @brief Creates a safe addition of two int types
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `lhs` The lhs value of the safe addition
-        /// @param `rhs` The rhs value of the safe addition
-        /// @return `llvm::Value *` The result of the safe signed addition
-        static llvm::Value *int_safe_add(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+        /// @param `module` The LLVM Module the `iX_safe_add` function will be generated in
+        /// @param `int_type` The integer type to generate the function for
+        /// @param `name` The name of the generated function, is `i32` or `i64` at the moment
+        static void generate_int_safe_add(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
 
-        /// @function `int_safe_sub`
+        /// @function `generate_int_safe_sub`
         /// @brief Creates a safe subtraction of two signed integer types
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `lhs` The lhs value of the safe subtraction
-        /// @param `rhs` The rhs value of the safe subtraction
-        /// @return `llvm::Value *` The result of the safe signed subtraction
-        static llvm::Value *int_safe_sub(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+        /// @param `module` The LLVM Module the `iX_safe_sub` function will be generated in
+        /// @param `int_type` The integer type to generate the function for
+        /// @param `name` The name of the generated function, is `i32` or `i64` at the moment
+        static void generate_int_safe_sub(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
 
-        /// @function `int_safe_mul`
+        /// @function `generate_int_safe_mul`
         /// @brief Creates a safe multiplication of two signed integer types
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `lhs` The lhs value of the safe multiplication
-        /// @param `rhs` The rhs value of the safe multiplication
-        /// @return `llvm::Value *` The result of the safe signed multiplication
-        static llvm::Value *int_safe_mul(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+        /// @param `module` The LLVM Module the `iX_safe_mul` function will be generated in
+        /// @param `int_type` The integer type to generate the function for
+        /// @param `name` The name of the generated function, is `i32` or `i64` at the moment
+        static void generate_int_safe_mul(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
 
-        /// @function `int_safe_div`
+        /// @function `generate_int_safe_div`
         /// @brief Creates a safe division of two signed integer types
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `lhs` The lhs value of the safe division
-        /// @param `rhs` The rhs value of the safe division
-        /// @return `llvm::Value *` The result of the safe signed division
-        static llvm::Value *int_safe_div(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+        /// @param `module` The LLVM Module the `iX_safe_div` function will be generated in
+        /// @param `int_type` The integer type to generate the function for
+        /// @param `name` The name of the generated function, is `i32` or `i64` at the moment
+        static void generate_int_safe_div(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
 
-        /// @function `uint_safe_add`
+        /// @function `generate_uint_safe_add`
         /// @brief Creates a safe addition of two unsigned integer types
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `lhs` The lhs value of the safe addition
-        /// @param `rhs` The rhs value of the safe addition
-        /// @return `llvm::Value *` The result of the safe unsigned addition
-        static llvm::Value *uint_safe_add(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+        /// @param `module` The LLVM Module the `uX_safe_add` function will be generated in
+        /// @param `int_type` The integer type to generate the function for
+        /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
+        static void generate_uint_safe_add(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
 
-        /// @function `int_safe_sub`
+        /// @function `generate_uint_safe_sub`
         /// @brief Creates a safe subtraction of two unsigned integer types
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `lhs` The lhs value of the safe subtraction
-        /// @param `rhs` The rhs value of the safe subtraction
-        /// @return `llvm::Value *` The result of the safe unsigned subtraction
-        static llvm::Value *uint_safe_sub(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+        /// @param `module` The LLVM Module the `uX_safe_sub` function will be generated in
+        /// @param `int_type` The integer type to generate the function for
+        /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
+        static void generate_uint_safe_sub(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
 
-        /// @function `int_safe_mul`
+        /// @function `generate_uint_safe_mul`
         /// @brief Creates a safe multiplication of two unsigned integer types
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `lhs` The lhs value of the safe multiplication
-        /// @param `rhs` The rhs value of the safe multiplication
-        /// @return `llvm::Value *` The result of the safe unsigned multiplication
-        static llvm::Value *uint_safe_mul(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+        /// @param `module` The LLVM Module the `uX_safe_mul` function will be generated in
+        /// @param `int_type` The integer type to generate the function for
+        /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
+        static void generate_uint_safe_mul(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
 
-        /// @function `int_safe_div`
+        /// @function `generate_uint_safe_div`
         /// @brief Creates a safe division of two unsigned integer types
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `lhs` The lhs value of the safe division
-        /// @param `rhs` The rhs value of the safe division
-        /// @return `llvm::Value *` The result of the safe unsigned division
-        static llvm::Value *uint_safe_div(llvm::IRBuilder<> &builder, llvm::Value *lhs, llvm::Value *rhs);
+        /// @param `module` The LLVM Module the `uX_safe_mul` function will be generated in
+        /// @param `int_type` The integer type to generate the function for
+        /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
+        static void generate_uint_safe_div(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
     }; // subclass Arithmetic
 
     /// @class `Logical`

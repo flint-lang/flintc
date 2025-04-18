@@ -491,7 +491,9 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             );
             // Increment the fail counter only if the test has failed
             llvm::LoadInst *counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(module->getContext()), counter, "counter_val");
-            llvm::Value *new_counter_value = Arithmetic::int_safe_add(*builder, counter_value, one);
+            llvm::Value *new_counter_value = builder->CreateCall(                                            //
+                Arithmetic::arithmetic_functions.at("i32_safe_add"), {counter_value, one}, "new_counter_val" //
+            );
             builder->CreateStore(new_counter_value, counter);
             builder->CreateBr(merge_block);
 

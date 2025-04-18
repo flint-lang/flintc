@@ -881,12 +881,26 @@ void Generator::Statement::generate_unary_op_statement(               //
             THROW_BASIC_ERR(ERR_GENERATING);
             return;
         case TOK_INCREMENT:
-            if (var_type == "i32" || var_type == "i64") {
-                llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
-                operation_result = Arithmetic::int_safe_add(builder, var_value, one);
-            } else if (var_type == "u32" || var_type == "u64") {
-                llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
-                operation_result = Arithmetic::uint_safe_add(builder, var_value, one);
+            if (var_type == "i32") {
+                llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
+                operation_result = builder.CreateCall(                                                    //
+                    Arithmetic::arithmetic_functions.at("i32_safe_add"), {var_value, one}, "safe_add_res" //
+                );
+            } else if (var_type == "i64") {
+                llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
+                operation_result = builder.CreateCall(                                                    //
+                    Arithmetic::arithmetic_functions.at("i64_safe_add"), {var_value, one}, "safe_add_res" //
+                );
+            } else if (var_type == "u32") {
+                llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
+                operation_result = builder.CreateCall(                                                    //
+                    Arithmetic::arithmetic_functions.at("u32_safe_add"), {var_value, one}, "safe_add_res" //
+                );
+            } else if (var_type == "u64") {
+                llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
+                operation_result = builder.CreateCall(                                                    //
+                    Arithmetic::arithmetic_functions.at("u64_safe_add"), {var_value, one}, "safe_add_res" //
+                );
             } else if (var_type == "f32" || var_type == "f64") {
                 llvm::Value *one = llvm::ConstantFP::get(var_value->getType(), 1.0);
                 operation_result = builder.CreateFAdd(var_value, one);
@@ -897,12 +911,26 @@ void Generator::Statement::generate_unary_op_statement(               //
             }
             break;
         case TOK_DECREMENT:
-            if (var_type == "i32" || var_type == "i64") {
-                llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
-                operation_result = Arithmetic::int_safe_sub(builder, var_value, one);
-            } else if (var_type == "u32" || var_type == "u64") {
-                llvm::Value *one = llvm::ConstantInt::get(var_value->getType(), 1);
-                operation_result = Arithmetic::uint_safe_sub(builder, var_value, one);
+            if (var_type == "i32") {
+                llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
+                operation_result = builder.CreateCall(                                                    //
+                    Arithmetic::arithmetic_functions.at("i32_safe_sub"), {var_value, one}, "safe_sub_res" //
+                );
+            } else if (var_type == "i64") {
+                llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
+                operation_result = builder.CreateCall(                                                    //
+                    Arithmetic::arithmetic_functions.at("i64_safe_sub"), {var_value, one}, "safe_sub_res" //
+                );
+            } else if (var_type == "u32") {
+                llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
+                operation_result = builder.CreateCall(                                                    //
+                    Arithmetic::arithmetic_functions.at("u32_safe_sub"), {var_value, one}, "safe_sub_res" //
+                );
+            } else if (var_type == "u64") {
+                llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
+                operation_result = builder.CreateCall(                                                    //
+                    Arithmetic::arithmetic_functions.at("u64_safe_sub"), {var_value, one}, "safe_sub_res" //
+                );
             } else if (var_type == "f32" || var_type == "f64") {
                 llvm::Value *one = llvm::ConstantFP::get(var_value->getType(), 1.0);
                 operation_result = builder.CreateFSub(var_value, one);

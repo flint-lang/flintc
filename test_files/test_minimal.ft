@@ -1,2 +1,5 @@
 def main():
-    i32[] arr;
+    i32 x = 1;
+    x++;
+    x = x - 5;
+    print($"{x}\n");
