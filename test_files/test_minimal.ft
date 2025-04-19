@@ -3,3 +3,13 @@ def main():
     for i64 i = 0; i < 64; i++:
         x *= i64(2);
     print($"{x}\n");
+
+def assert(bool condition):
+    if not condition:
+        throw 10;
+
+test "overflow-protection":
+    i64 x = 1;
+    for i64 i = 0; i < 64; i++:
+        x *= i64(2);
+    assert(str(x) == "9223372036854775807");

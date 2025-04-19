@@ -396,7 +396,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     llvm::Function *main_function = llvm::Function::Create( //
         main_type,                                          //
         llvm::Function::ExternalLinkage,                    //
-        "_start",                                           //
+        "main",                                             //
         module                                              //
     );
 
@@ -410,7 +410,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 
     // Handle the case that there are no tests to run
     if (tests.empty()) {
-        llvm::Value *msg = builder->CreateGlobalStringPtr("There are no tests to run!\n", "no_tests_msg", 0, module);
+        llvm::Value *msg = builder->CreateGlobalStringPtr("There are no tests to run\n", "no_tests_msg", 0, module);
         builder->CreateCall(builtins[PRINT], {msg});
         builder->CreateCall(c_functions.at(EXIT), {zero});
         builder->CreateUnreachable();
