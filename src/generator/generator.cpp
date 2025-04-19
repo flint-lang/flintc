@@ -49,7 +49,6 @@ void Generator::get_data_nodes() {
 
 std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     const std::string &program_name,                          //
-    llvm::LLVMContext &context,                               //
     const std::shared_ptr<DepNode> &dep_graph,                //
     const bool is_test                                        //
 ) {
@@ -143,7 +142,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
 
             // Generate the IR code from the given FileNode
             const FileNode *file = &Resolver::file_map.at(shared_tip->file_name);
-            std::unique_ptr<llvm::Module> file_module = generate_file_ir(context, shared_tip, *file, is_test);
+            std::unique_ptr<llvm::Module> file_module = generate_file_ir(shared_tip, *file, is_test);
 
             // Store the generated module in the resolver
             Resolver::add_ir(shared_tip->file_name, file_module.get());
@@ -201,7 +200,6 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
 }
 
 std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
-    llvm::LLVMContext &context,                            //
     const std::shared_ptr<DepNode> &dep_node,              //
     const FileNode &file,                                  //
     const bool is_test                                     //
@@ -242,7 +240,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             // Create a forward declaration for the function only if it is not the main function!
             if (function_node->name != "_main") {
-                llvm::FunctionType *function_type = Function::generate_function_type(context, function_node);
+                llvm::FunctionType *function_type = Function::generate_function_type(function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 function_mangle_ids[function_node->name] = mangle_id++;
                 file_function_names.at(file.file_name).emplace_back(function_node->name);

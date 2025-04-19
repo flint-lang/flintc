@@ -35,7 +35,7 @@ Generator::group_mapping Generator::Expression::generate_expression(            
         return generate_unary_op_expression(builder, parent, scope, allocations, garbage, expr_depth, unary_op_node);
     }
     if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
-        group_map.emplace_back(generate_literal(builder, parent, literal_node));
+        group_map.emplace_back(generate_literal(builder, literal_node));
         return group_map;
     }
     if (const auto *interpol_node = dynamic_cast<const StringInterpolationNode *>(expression_node)) {
@@ -70,36 +70,35 @@ Generator::group_mapping Generator::Expression::generate_expression(            
 
 llvm::Value *Generator::Expression::generate_literal( //
     llvm::IRBuilder<> &builder,                       //
-    llvm::Function *parent,                           //
     const LiteralNode *literal_node                   //
 ) {
     if (std::holds_alternative<int>(literal_node->value)) {
-        return llvm::ConstantInt::get(                    //
-            llvm::Type::getInt32Ty(parent->getContext()), //
-            std::get<int>(literal_node->value)            //
+        return llvm::ConstantInt::get(         //
+            llvm::Type::getInt32Ty(context),   //
+            std::get<int>(literal_node->value) //
         );
     }
     if (std::holds_alternative<float>(literal_node->value)) {
         return llvm::ConstantFP::get(                                 //
-            llvm::Type::getFloatTy(parent->getContext()),             //
+            llvm::Type::getFloatTy(context),                          //
             static_cast<double>(std::get<float>(literal_node->value)) //
         );
     }
     if (std::holds_alternative<std::string>(literal_node->value)) {
         // Get the constant string value
         std::string str = std::get<std::string>(literal_node->value);
-        return IR::generate_const_string(builder, parent, str);
+        return IR::generate_const_string(builder, str);
     }
     if (std::holds_alternative<bool>(literal_node->value)) {
         return llvm::ConstantInt::get(                             //
-            llvm::Type::getInt1Ty(parent->getContext()),           //
+            llvm::Type::getInt1Ty(context),                        //
             static_cast<char>(std::get<bool>(literal_node->value)) //
         );
     }
     if (std::holds_alternative<char>(literal_node->value)) {
-        return llvm::ConstantInt::get(                   //
-            llvm::Type::getInt8Ty(parent->getContext()), //
-            std::get<char>(literal_node->value)          //
+        return llvm::ConstantInt::get(          //
+            llvm::Type::getInt8Ty(context),     //
+            std::get<char>(literal_node->value) //
         );
     }
     THROW_BASIC_ERR(ERR_PARSING);
@@ -147,13 +146,11 @@ llvm::Value *Generator::Expression::generate_variable(                //
     }
 
     // Get the type that the pointer points to
-    llvm::Type *value_type = IR::get_type(parent->getContext(), std::get<std::shared_ptr<Type>>(variable_node->type)).first;
+    llvm::Type *value_type = IR::get_type(std::get<std::shared_ptr<Type>>(variable_node->type)).first;
 
     // Load the variable's value if it's a pointer
     llvm::LoadInst *load = builder.CreateLoad(value_type, variable, variable_node->name + "_val");
-    load->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Load val of var '" + variable_node->name + "'")));
+    load->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + variable_node->name + "'")));
 
     return load;
 }
@@ -175,7 +172,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation(              
     if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
         llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
         const std::string lit_string = std::get<std::string>(std::get<std::unique_ptr<LiteralNode>>(*it)->value);
-        llvm::Value *lit_str = IR::generate_const_string(builder, parent, lit_string);
+        llvm::Value *lit_str = IR::generate_const_string(builder, lit_string);
         str_value = builder.CreateCall(init_str_fn, {lit_str, builder.getInt64(lit_string.length())}, "init_str_value");
     } else {
         // Currently only the first output of a group is supported in string interpolation, as there currently is no group printing yet
@@ -195,7 +192,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation(              
     for (; it != interpol_node->string_content.end(); ++it) {
         if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
             const std::string lit_string = std::get<std::string>(std::get<std::unique_ptr<LiteralNode>>(*it)->value);
-            llvm::Value *lit_str = IR::generate_const_string(builder, parent, lit_string);
+            llvm::Value *lit_str = IR::generate_const_string(builder, lit_string);
             str_value = builder.CreateCall(add_str_lit, {str_value, lit_str, builder.getInt64(lit_string.length())});
         } else {
             group_mapping res = generate_type_cast(                                                                              //
@@ -307,8 +304,7 @@ Generator::group_mapping Generator::Expression::generate_call(        //
         call_node->function_name + std::to_string(call_node->call_id) + "_call" //
     );
     call->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Call of function '" + call_node->function_name + "'")));
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + call_node->function_name + "'")));
 
     // Store results immideately after call
     const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
@@ -319,8 +315,8 @@ Generator::group_mapping Generator::Expression::generate_call(        //
     builder.CreateStore(call, res_var);
 
     // Extract and store error value
-    llvm::StructType *return_type = static_cast<llvm::StructType *>(                                                  //
-        IR::add_and_or_get_type(&builder.getContext(), std::get<std::vector<std::shared_ptr<Type>>>(call_node->type)) //
+    llvm::StructType *return_type = static_cast<llvm::StructType *>(                           //
+        IR::add_and_or_get_type(std::get<std::vector<std::shared_ptr<Type>>>(call_node->type)) //
     );
     llvm::Value *err_ptr = builder.CreateStructGEP(                                //
         return_type,                                                               //
@@ -329,7 +325,7 @@ Generator::group_mapping Generator::Expression::generate_call(        //
         call_node->function_name + std::to_string(call_node->call_id) + "_err_ptr" //
     );
     llvm::Value *err_val = builder.CreateLoad(                                     //
-        llvm::Type::getInt32Ty(builder.getContext()),                              //
+        llvm::Type::getInt32Ty(context),                                           //
         err_ptr,                                                                   //
         call_node->function_name + std::to_string(call_node->call_id) + "_err_val" //
     );
@@ -402,13 +398,13 @@ void Generator::Expression::generate_rethrow(                         //
 
     // Load error value
     llvm::LoadInst *err_val = builder.CreateLoad(                                    //
-        llvm::Type::getInt32Ty(builder.getContext()),                                //
+        llvm::Type::getInt32Ty(context),                                             //
         err_var,                                                                     //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_val" //
     );
     err_val->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(),
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
                 "Load err val of call '" + call_node->function_name + "::" + std::to_string(call_node->call_id) + "'")));
 
     llvm::BasicBlock *last_block = &parent->back();
@@ -421,13 +417,13 @@ void Generator::Expression::generate_rethrow(                         //
     llvm::BasicBlock *insert_before = will_insert_after ? (current_block->getNextNode()) : current_block;
 
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                           //
-        builder.getContext(),                                                           //
+        context,                                                                        //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_catch", //
         parent,                                                                         //
         insert_before                                                                   //
     );
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                           //
-        builder.getContext(),                                                           //
+        context,                                                                        //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_merge", //
         parent,                                                                         //
         insert_before                                                                   //
@@ -435,7 +431,7 @@ void Generator::Expression::generate_rethrow(                         //
     builder.SetInsertPoint(current_block);
 
     // Create the if check and compare the err value to 0
-    llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(builder.getContext()), 0);
+    llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
     llvm::Value *err_condition = builder.CreateICmpNE( //
         err_val,                                       //
         zero,                                          //
@@ -445,8 +441,8 @@ void Generator::Expression::generate_rethrow(                         //
     // Create the branching operation
     builder.CreateCondBr(err_condition, catch_block, merge_block)
         ->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(),
+            llvm::MDNode::get(context,
+                llvm::MDString::get(context,
                     "Branch to '" + catch_block->getName().str() + "' if '" + call_node->function_name + "' returned error")));
 
     // Generate the body of the catch block, it only contains re-throwing the error
@@ -459,8 +455,8 @@ void Generator::Expression::generate_rethrow(                         //
         // Allocate the struct and set all of its values to their respective default values
         llvm::AllocaInst *throw_struct = Allocation::generate_default_struct(builder, throw_struct_type, "throw_ret", true);
         throw_struct->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(),
+            llvm::MDNode::get(context,
+                llvm::MDString::get(context,
                     "Create default struct of type '" + throw_struct_type->getName().str() + "' except first value")));
 
         // Create the pointer to the error value (the 0th index of the struct)
@@ -471,9 +467,8 @@ void Generator::Expression::generate_rethrow(                         //
         // Generate the throw (return) instruction with the evaluated value
         llvm::LoadInst *throw_struct_val = builder.CreateLoad(throw_struct_type, throw_struct, "throw_val");
         throw_struct_val->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(),
-                    "Load allocated throw struct of type '" + throw_struct_type->getName().str() + "'")));
+            llvm::MDNode::get(context,
+                llvm::MDString::get(context, "Load allocated throw struct of type '" + throw_struct_type->getName().str() + "'")));
         builder.CreateRet(throw_struct_val);
     }
 
@@ -558,17 +553,17 @@ llvm::Value *Generator::Expression::generate_data_access(             //
 
     llvm::Type *data_type;
     if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
-        data_type = IR::get_type(builder.getContext(), Type::get_simple_type("str_var")).first;
+        data_type = IR::get_type(Type::get_simple_type("str_var")).first;
         var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, data_access->var_name + "_str_val");
     } else {
-        data_type = IR::get_type(builder.getContext(), data_access->data_type).first;
+        data_type = IR::get_type(data_access->data_type).first;
     }
 
     llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, data_access->field_id);
-    llvm::LoadInst *loaded_value = builder.CreateLoad(                                                //
-        IR::get_type(builder.getContext(), std::get<std::shared_ptr<Type>>(data_access->type)).first, //
-        value_ptr,                                                                                    //
-        data_access->var_name + "_" + data_access->field_name + "_val"                                //
+    llvm::LoadInst *loaded_value = builder.CreateLoad(                          //
+        IR::get_type(std::get<std::shared_ptr<Type>>(data_access->type)).first, //
+        value_ptr,                                                              //
+        data_access->var_name + "_" + data_access->field_name + "_val"          //
     );
     return loaded_value;
 }
@@ -584,7 +579,7 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_data_access->var_name;
     llvm::Value *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type(builder.getContext(), grouped_data_access->data_type).first;
+    llvm::Type *data_type = IR::get_type(grouped_data_access->data_type).first;
     assert(std::holds_alternative<std::vector<std::shared_ptr<Type>>>(grouped_data_access->type));
     std::vector<std::shared_ptr<Type>> group_types = std::get<std::vector<std::shared_ptr<Type>>>(grouped_data_access->type);
 
@@ -593,7 +588,7 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     for (size_t i = 0; i < grouped_data_access->field_names.size(); i++) {
         llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_data_access->field_ids.at(i));
         llvm::LoadInst *loaded_value = builder.CreateLoad(                                        //
-            IR::get_type(builder.getContext(), group_types.at(i)).first,                          //
+            IR::get_type(group_types.at(i)).first,                                                //
             value_ptr,                                                                            //
             grouped_data_access->var_name + "_" + grouped_data_access->field_names.at(i) + "_val" //
         );

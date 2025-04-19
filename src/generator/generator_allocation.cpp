@@ -109,7 +109,7 @@ void Generator::Allocation::generate_call_allocations(                //
     // Create the error return valua allocation
     const std::string err_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
     generate_allocation(builder, allocations, err_alloca_name,                         //
-        llvm::Type::getInt32Ty(parent->getContext()),                                  //
+        llvm::Type::getInt32Ty(context),                                               //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "__ERR", //
         "Create alloc of err ret var '" + err_alloca_name + "'"                        //
     );
@@ -156,18 +156,18 @@ void Generator::Allocation::generate_declaration_allocations(         //
 
         // Create the actual variable allocation with the declared type
         const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
-        generate_allocation(builder, allocations, var_alloca_name,            //
-            IR::get_type(parent->getContext(), declaration_node->type).first, //
-            declaration_node->name + "__VAL_1",                               //
-            "Create alloc of 1st ret var '" + var_alloca_name + "'"           //
+        generate_allocation(builder, allocations, var_alloca_name,  //
+            IR::get_type(declaration_node->type).first,             //
+            declaration_node->name + "__VAL_1",                     //
+            "Create alloc of 1st ret var '" + var_alloca_name + "'" //
         );
     } else {
         // A "normal" allocation
         const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
-        generate_allocation(builder, allocations, alloca_name,                //
-            IR::get_type(parent->getContext(), declaration_node->type).first, //
-            declaration_node->name + "__VAR",                                 //
-            "Create alloc of var '" + alloca_name + "'"                       //
+        generate_allocation(builder, allocations, alloca_name, //
+            IR::get_type(declaration_node->type).first,        //
+            declaration_node->name + "__VAR",                  //
+            "Create alloc of var '" + alloca_name + "'"        //
         );
     }
 }
@@ -184,10 +184,10 @@ void Generator::Allocation::generate_group_declaration_allocations(   //
     // Allocating the actual variable values from the LHS
     for (const auto &variable : group_declaration_node->variables) {
         const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
-        generate_allocation(builder, allocations, alloca_name,        //
-            IR::get_type(parent->getContext(), variable.first).first, //
-            variable.second + "__VAR",                                //
-            "Create alloc of var '" + alloca_name + "'"               //
+        generate_allocation(builder, allocations, alloca_name, //
+            IR::get_type(variable.first).first,                //
+            variable.second + "__VAR",                         //
+            "Create alloc of var '" + alloca_name + "'"        //
         );
     }
 }
@@ -235,7 +235,7 @@ void Generator::Allocation::generate_allocation(                      //
         nullptr,                                     //
         ir_name                                      //
     );
-    alloca->setMetadata("comment", llvm::MDNode::get(builder.getContext(), llvm::MDString::get(builder.getContext(), ir_comment)));
+    alloca->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, ir_comment)));
     if (allocations.find(alloca_name) != allocations.end()) {
         // Variable allocation was already made somewhere else
         THROW_BASIC_ERR(ERR_GENERATING);

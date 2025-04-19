@@ -41,7 +41,7 @@ void Generator::Statement::generate_statement(                        //
     } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
         generate_catch_statement(builder, parent, allocations, catch_node);
     } else if (const auto *unary_node = dynamic_cast<const UnaryOpStatement *>(statement.get())) {
-        generate_unary_op_statement(builder, parent, scope, allocations, unary_node);
+        generate_unary_op_statement(builder, scope, allocations, unary_node);
     } else if (const auto *field_assignment_node = dynamic_cast<const DataFieldAssignmentNode *>(statement.get())) {
         generate_data_field_assignment(builder, parent, scope, allocations, field_assignment_node);
     } else if (const auto *grouped_assignment_node = dynamic_cast<const GroupedDataFieldAssignmentNode *>(statement.get())) {
@@ -73,8 +73,7 @@ void Generator::Statement::clear_garbage(                                       
                 llvm::Function *free_fn = c_functions.at(FREE);
                 llvm::CallInst *free_call = builder.CreateCall(free_fn, {llvm_val});
                 free_call->setMetadata("comment",
-                    llvm::MDNode::get(builder.getContext(),
-                        llvm::MDString ::get(builder.getContext(), "Clear garbage of type 'str', depth " + std::to_string(key))));
+                    llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear garbage of type 'str', depth " + std::to_string(key))));
             } else {
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return;
@@ -118,7 +117,7 @@ void Generator::Statement::generate_end_of_scope(                    //
         // Get the allocation of the variable
         const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
         llvm::Value *const alloca = allocations.at(alloca_name);
-        llvm::Type *str_type = IR::get_type(builder.getContext(), Type::get_simple_type("str_var")).first;
+        llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
         llvm::Value *str_ptr = builder.CreateLoad(str_type->getPointerTo(), alloca, var_name + "_cleanup");
         builder.CreateCall(c_functions.at(FREE), {str_ptr});
     }
@@ -137,13 +136,13 @@ void Generator::Statement::generate_return_statement(                 //
     // Allocate space for the function's return type (should be a struct type)
     llvm::AllocaInst *return_struct = builder.CreateAlloca(return_struct_type, nullptr, "ret_struct");
     return_struct->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(),
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
                 "Create ret struct '" + return_struct->getName().str() + "' of type '" + return_struct_type->getName().str() + "'")));
 
     // First, always store the error code (0 for no error)
     llvm::Value *error_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 0, "err_ptr");
-    builder.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(builder.getContext()), 0), error_ptr);
+    builder.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0), error_ptr);
 
     // If we have a return value, store it in the struct
     if (return_node != nullptr && return_node->return_value != nullptr) {
@@ -176,8 +175,8 @@ void Generator::Statement::generate_return_statement(                 //
             );
             llvm::StoreInst *value_store = builder.CreateStore(return_value.value().at(i), value_ptr);
             value_store->setMetadata("comment",
-                llvm::MDNode::get(parent->getContext(),
-                    llvm::MDString::get(parent->getContext(),
+                llvm::MDNode::get(context,
+                    llvm::MDString::get(context,
                         "Store result " + std::to_string(i) + " in return '" + return_struct->getName().str() + "'")));
         }
     }
@@ -192,8 +191,8 @@ void Generator::Statement::generate_return_statement(                 //
     // Generate the return instruction with the evaluated value
     llvm::LoadInst *return_struct_val = builder.CreateLoad(return_struct_type, return_struct, "ret_val");
     return_struct_val->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Load allocated ret struct of type '" + return_struct_type->getName().str() + "'")));
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context, "Load allocated ret struct of type '" + return_struct_type->getName().str() + "'")));
     builder.CreateRet(return_struct_val);
 }
 
@@ -210,9 +209,8 @@ void Generator::Statement::generate_throw_statement(                  //
     // Allocate the struct and set all of its values to their respective default values
     llvm::AllocaInst *throw_struct = Allocation::generate_default_struct(builder, throw_struct_type, "throw_ret", true);
     throw_struct->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(),
-                "Create default struct of type '" + throw_struct_type->getName().str() + "' except first value")));
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context, "Create default struct of type '" + throw_struct_type->getName().str() + "' except first value")));
 
     // Create the pointer to the error value (the 0th index of the struct)
     llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
@@ -234,8 +232,8 @@ void Generator::Statement::generate_throw_statement(                  //
     // Generate the throw (return) instruction with the evaluated value
     llvm::LoadInst *throw_struct_val = builder.CreateLoad(throw_struct_type, throw_struct, "throw_val");
     throw_struct_val->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Load allocated throw struct of type '" + throw_struct_type->getName().str() + "'")));
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context, "Load allocated throw struct of type '" + throw_struct_type->getName().str() + "'")));
     builder.CreateRet(throw_struct_val);
 }
 
@@ -247,7 +245,6 @@ void Generator::Statement::generate_if_blocks( //
     // Count total number of branches and create blocks
     const IfNode *current = if_node;
     unsigned int branch_count = 0;
-    llvm::LLVMContext &context = parent->getContext();
 
     while (current != nullptr) {
         if (branch_count != 0) {
@@ -347,8 +344,8 @@ void Generator::Statement::generate_if_statement(                     //
         blocks[next_idx]                             //
     );
     branch->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(),
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
                 "Branch between '" + blocks[then_idx]->getName().str() + "' and '" + blocks[next_idx]->getName().str() +
                     "' based on condition '" + condition->getName().str() + "'")));
 
@@ -406,16 +403,15 @@ void Generator::Statement::generate_while_loop(                       //
     // Create the basic blocks for the condition check, the while body and the merge block
     std::array<llvm::BasicBlock *, 3> while_blocks{};
     // Create then condition block (for the else if blocks)
-    while_blocks[0] = llvm::BasicBlock::Create(builder.getContext(), "while_cond", parent);
-    while_blocks[1] = llvm::BasicBlock::Create(builder.getContext(), "while_body", parent);
-    while_blocks[2] = llvm::BasicBlock::Create(builder.getContext(), "merge", parent);
+    while_blocks[0] = llvm::BasicBlock::Create(context, "while_cond", parent);
+    while_blocks[1] = llvm::BasicBlock::Create(context, "while_body", parent);
+    while_blocks[2] = llvm::BasicBlock::Create(context, "merge", parent);
 
     // Create the branch instruction in the predecessor block to point to the while_cond block
     builder.SetInsertPoint(pred_block);
     llvm::BranchInst *init_while_br = builder.CreateBr(while_blocks[0]);
     init_while_br->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Start while loop in '" + while_blocks[0]->getName().str() + "'")));
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Start while loop in '" + while_blocks[0]->getName().str() + "'")));
 
     // Create the condition block's content
     builder.SetInsertPoint(while_blocks[0]);
@@ -430,8 +426,8 @@ void Generator::Statement::generate_while_loop(                       //
     clear_garbage(builder, garbage);
     llvm::BranchInst *branch = builder.CreateCondBr(expression, while_blocks[1], while_blocks[2]);
     branch->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(),
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
                 "Continue loop in '" + while_blocks[1]->getName().str() + "' based on cond '" + expression->getName().str() + "'")));
 
     // Create the while block's body
@@ -461,18 +457,17 @@ void Generator::Statement::generate_for_loop(                         //
     // Create the basic blocks for the condition check, the while body and the merge block
     std::array<llvm::BasicBlock *, 3> for_blocks{};
     // Create then condition block (for the else if blocks)
-    for_blocks[0] = llvm::BasicBlock::Create(builder.getContext(), "for_cond", parent);
-    for_blocks[1] = llvm::BasicBlock::Create(builder.getContext(), "for_body", parent);
+    for_blocks[0] = llvm::BasicBlock::Create(context, "for_cond", parent);
+    for_blocks[1] = llvm::BasicBlock::Create(context, "for_body", parent);
     // Create the merge block but don't add it to the parent function yet
-    for_blocks[2] = llvm::BasicBlock::Create(builder.getContext(), "merge");
+    for_blocks[2] = llvm::BasicBlock::Create(context, "merge");
 
     // Create the branch instruction in the predecessor block to point to the for_cond block
     builder.SetInsertPoint(pred_block);
     generate_body(builder, parent, for_node->definition_scope.get(), allocations);
     llvm::BranchInst *init_for_br = builder.CreateBr(for_blocks[0]);
     init_for_br->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Start for loop in '" + for_blocks[0]->getName().str() + "'")));
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Start for loop in '" + for_blocks[0]->getName().str() + "'")));
 
     // Create the condition block's content
     builder.SetInsertPoint(for_blocks[0]);
@@ -487,8 +482,8 @@ void Generator::Statement::generate_for_loop(                         //
     clear_garbage(builder, garbage);
     llvm::BranchInst *branch = builder.CreateCondBr(expression, for_blocks[1], for_blocks[2]);
     branch->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(),
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
                 "Continue loop in '" + for_blocks[1]->getName().str() + "' based on cond '" + expression->getName().str() + "'")));
 
     // Create the while block's body
@@ -525,13 +520,13 @@ void Generator::Statement::generate_catch_statement(                  //
 
     // Load the error value
     llvm::LoadInst *err_val = builder.CreateLoad(                                                    //
-        llvm::Type::getInt32Ty(builder.getContext()),                                                //
+        llvm::Type::getInt32Ty(context),                                                             //
         err_var,                                                                                     //
         call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_err" //
     );
     err_val->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(),
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
                 "Load err val of call '" + call_node.value()->function_name + "::" + std::to_string(call_node.value()->call_id) + "'")));
 
     llvm::BasicBlock *last_block = &parent->back();
@@ -544,13 +539,13 @@ void Generator::Statement::generate_catch_statement(                  //
     llvm::BasicBlock *insert_before = will_insert_after ? (current_block->getNextNode()) : current_block;
 
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                                           //
-        builder.getContext(),                                                                           //
+        context,                                                                                        //
         call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_catch", //
         parent,                                                                                         //
         insert_before                                                                                   //
     );
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                                           //
-        builder.getContext(),                                                                           //
+        context,                                                                                        //
         call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_merge", //
         parent,                                                                                         //
         insert_before                                                                                   //
@@ -558,7 +553,7 @@ void Generator::Statement::generate_catch_statement(                  //
     builder.SetInsertPoint(current_block);
 
     // Create the if check and compare the err value to 0
-    llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(builder.getContext()), 0);
+    llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
     llvm::Value *err_condition = builder.CreateICmpNE( //
         err_val,                                       //
         zero,                                          //
@@ -568,8 +563,8 @@ void Generator::Statement::generate_catch_statement(                  //
     // Create the branching operation
     builder.CreateCondBr(err_condition, catch_block, merge_block)
         ->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(),
+            llvm::MDNode::get(context,
+                llvm::MDString::get(context,
                     "Branch to '" + catch_block->getName().str() + "' if '" + call_node.value()->function_name + "' returned error")));
 
     // Add the error variable to the list of allocations (temporarily)
@@ -658,7 +653,7 @@ void Generator::Statement::generate_declaration(                      //
             }
             // If the rhs is a InitializerNode, it returns all element values from the initializer expression
             // First, get the struct type of the data
-            llvm::Type *data_type = IR::get_type(builder.getContext(), declaration_node->type).first;
+            llvm::Type *data_type = IR::get_type(declaration_node->type).first;
             for (size_t i = 0; i < expr_val.value().size(); i++) {
                 llvm::Value *elem_ptr = builder.CreateStructGEP(              //
                     data_type,                                                //
@@ -668,15 +663,15 @@ void Generator::Statement::generate_declaration(                      //
                 );
                 llvm::StoreInst *store = builder.CreateStore(expr_val.value().at(i), elem_ptr);
                 store->setMetadata("comment",
-                    llvm::MDNode::get(parent->getContext(),
-                        llvm::MDString::get(parent->getContext(),
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context,
                             "Store the actual val of '" + declaration_node->name + "_" + std::to_string(i) + "'")));
             }
             return;
         }
         expression = expr_val.value().at(0);
     } else {
-        expression = IR::get_default_value_of_type(IR::get_type(builder.getContext(), declaration_node->type).first);
+        expression = IR::get_default_value_of_type(IR::get_type(declaration_node->type).first);
     }
 
     if (declaration_node->type->to_string() == "str") {
@@ -690,8 +685,7 @@ void Generator::Statement::generate_declaration(                      //
     }
     llvm::StoreInst *store = builder.CreateStore(expression, alloca);
     store->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Store the actual val of '" + declaration_node->name + "'")));
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Store the actual val of '" + declaration_node->name + "'")));
 }
 
 void Generator::Statement::generate_group_assignment(                 //
@@ -764,8 +758,7 @@ void Generator::Statement::generate_assignment(                       //
     } else {
         llvm::StoreInst *store = builder.CreateStore(expression, lhs);
         store->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(), "Store result of expr in var '" + assignment_node->name + "'")));
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
     }
 }
 
@@ -795,13 +788,13 @@ void Generator::Statement::generate_data_field_assignment(            //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_field_assignment->var_name;
     llvm::Value *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type(builder.getContext(), data_field_assignment->data_type).first;
+    llvm::Type *data_type = IR::get_type(data_field_assignment->data_type).first;
 
     llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, data_field_assignment->field_id);
     llvm::StoreInst *store = builder.CreateStore(expression.value().at(0), field_ptr);
     store->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(),
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
                 "Store result of expr in field '" + data_field_assignment->var_name + "." + data_field_assignment->field_name + "'")));
 }
 
@@ -831,14 +824,14 @@ void Generator::Statement::generate_grouped_data_field_assignment(    //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_field_assignment->var_name;
     llvm::Value *const var_alloca = allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type(builder.getContext(), grouped_field_assignment->data_type).first;
+    llvm::Type *data_type = IR::get_type(grouped_field_assignment->data_type).first;
 
     for (size_t i = 0; i < expression.value().size(); i++) {
         llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_field_assignment->field_ids.at(i));
         llvm::StoreInst *store = builder.CreateStore(expression.value().at(i), field_ptr);
         store->setMetadata("comment",
-            llvm::MDNode::get(parent->getContext(),
-                llvm::MDString::get(parent->getContext(),
+            llvm::MDNode::get(context,
+                llvm::MDString::get(context,
                     "Store result of expr in field '" + grouped_field_assignment->var_name + "." +
                         grouped_field_assignment->field_names.at(i) + "'")));
     }
@@ -846,7 +839,6 @@ void Generator::Statement::generate_grouped_data_field_assignment(    //
 
 void Generator::Statement::generate_unary_op_statement(               //
     llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
     const Scope *scope,                                               //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
     const UnaryOpStatement *unary_op                                  //
@@ -861,13 +853,12 @@ void Generator::Statement::generate_unary_op_statement(               //
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
     llvm::Value *const alloca = allocations.at(var_name);
 
-    llvm::LoadInst *var_value = builder.CreateLoad(                                                //
-        IR::get_type(builder.getContext(), std::get<std::shared_ptr<Type>>(var_node->type)).first, //
-        alloca,                                                                                    //
-        var_node->name + "_val"                                                                    //
+    llvm::LoadInst *var_value = builder.CreateLoad(                          //
+        IR::get_type(std::get<std::shared_ptr<Type>>(var_node->type)).first, //
+        alloca,                                                              //
+        var_node->name + "_val"                                              //
     );
-    var_value->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(), llvm::MDString::get(parent->getContext(), "Load val of var '" + var_node->name + "'")));
+    var_value->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + var_node->name + "'")));
     llvm::Value *operation_result = nullptr;
 
     if (!std::holds_alternative<std::shared_ptr<Type>>(var_node->type)) {
@@ -959,6 +950,5 @@ void Generator::Statement::generate_unary_op_statement(               //
     }
     llvm::StoreInst *operation_store = builder.CreateStore(operation_result, alloca);
     operation_store->setMetadata("comment",
-        llvm::MDNode::get(parent->getContext(),
-            llvm::MDString::get(parent->getContext(), "Store result of unary operation on '" + var_node->name + "'")));
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of unary operation on '" + var_node->name + "'")));
 }

@@ -52,7 +52,6 @@ class Generator {
     /// @brief Generates the llvm IR code for a complete program
     ///
     /// @param `program_name` The name the program (the module) will have
-    /// @param `context` The context used for generation
     /// @param `dep_graph` The root DepNode of the dependency graph
     /// @param `is_test` Whether the program is built in test mode
     /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated program module
@@ -61,7 +60,6 @@ class Generator {
     /// a segmentation fault if you were to forget that!
     static std::unique_ptr<llvm::Module> generate_program_ir( //
         const std::string &program_name,                      //
-        llvm::LLVMContext &context,                           //
         const std::shared_ptr<DepNode> &dep_graph,            //
         const bool is_test                                    //
     );
@@ -69,13 +67,11 @@ class Generator {
     /// @function `generate_file_ir`
     /// @brief Generates the llvm IR code for a single file and saves it into a llvm module
     ///
-    /// @param `context` The LLVM context
     /// @param `dep_node` The dependency graph node of the file (used for circular dependencies)
     /// @param `file` The file node to generate
     /// @param `is_test` Whether the program is built in test mode
     /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated file module
     static std::unique_ptr<llvm::Module> generate_file_ir( //
-        llvm::LLVMContext &context,                        //
         const std::shared_ptr<DepNode> &dep_node,          //
         const FileNode &file,                              //
         const bool is_test                                 //
@@ -96,6 +92,10 @@ class Generator {
     static std::string resolve_ir_comments(const std::string &ir_string);
 
   private:
+    /// @var `context`
+    /// @brief The global llvm context used for code generation
+    static inline llvm::LLVMContext context;
+
     /// @alias `group_mapping`
     /// @brief This type represents all values of the group. Everything is considered a group, if one single value is returned, its a group
     /// of size 1. This makes direct-group mappings much easier
@@ -312,12 +312,10 @@ class Generator {
         /// @brief Checks if a given return type of a given types list already exists. If it exists, it returns a reference to it, if it
         /// does not exist it creates it and then returns a reference to the created StructType
         ///
-        /// @param `context` The LLVM context
         /// @param `types` The list of types to get or set the struct type from
         /// @param `is_return_type` Whether the StructType is a return type (if it is, it has one return value more, the error return value)
         /// @return `llvm::StructType *` The reference to the StructType, representing the return type of the types map
         static llvm::StructType *add_and_or_get_type(        //
-            llvm::LLVMContext *context,                      //
             const std::vector<std::shared_ptr<Type>> &types, //
             const bool is_return_type = true                 //
         );
@@ -333,13 +331,12 @@ class Generator {
         /// @function `get_type`
         /// @brief Returns the llvm Type from a given Type
         ///
-        /// @param `context` The LLVM context
         /// @param `type` The type from which to get the llvm type from
         /// @return `std::pair<llvm::Type *, bool>` A pair containing a pointer to the correct llvm Type from the given string and a boolean
         /// value to determine if the given data type is a complex type (data, entity etc)
         ///
         /// @throws ErrGenerating when the type could not be created from the passed type
-        static std::pair<llvm::Type *, bool> get_type(llvm::LLVMContext &context, const std::shared_ptr<Type> &type);
+        static std::pair<llvm::Type *, bool> get_type(const std::shared_ptr<Type> &type);
 
         /// @function `get_default_value_of_type`
         /// @brief Returns the default value associated with a given Type
@@ -358,7 +355,7 @@ class Generator {
         /// @param `parent` The function the constant string will be contained in
         /// @param `str` The value of the string
         /// @return `llvm::Value *` The generated static string value
-        static llvm::Value *generate_const_string(llvm::IRBuilder<> &builder, llvm::Function *parent, const std::string &str);
+        static llvm::Value *generate_const_string(llvm::IRBuilder<> &builder, const std::string &str);
 
         /// @function `generate_pow_instruction`
         /// @brief Generates a pow instruction from the given llvm values
@@ -382,11 +379,9 @@ class Generator {
         /// @brief Generates a small call to print which prints the given message using printf
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the debug print will be generated in
         /// @param `message` The message to print
         static void generate_debug_print( //
             llvm::IRBuilder<> *builder,   //
-            llvm::Function *parent,       //
             const std::string &message    //
         );
     }; // subclass IR
@@ -1233,10 +1228,9 @@ class Generator {
         /// @function `generate_function_type`
         /// @brief Generates the type information of a given FunctionNode
         ///
-        /// @param `context` The LLVM context the type is generated in
         /// @param `function_node` The FunctionNode used to generate the type
         /// @return `llvm::FunctionType *` A pointer to the generated FuntionType
-        static llvm::FunctionType *generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node);
+        static llvm::FunctionType *generate_function_type(FunctionNode *function_node);
 
         /// @function `generate_function`
         /// @brief Generates a function from a given FunctionNode
@@ -1541,13 +1535,11 @@ class Generator {
         /// @brief Generates the unary operation value from the given UnaryOpStatement
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the unary operation is generated in
         /// @param `scope` The scope the binary operation is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `unary_op` The unary operation to generate
         static void generate_unary_op_statement(                              //
             llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
             const Scope *scope,                                               //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
             const UnaryOpStatement *unary_op                                  //
@@ -1590,12 +1582,10 @@ class Generator {
         /// @brief Generates the literal value from the given LiteralNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The scope the literal is contained in
         /// @param `literal_node` The literal node to generate
         /// @return `llvm::Value *` The value containing the result of the literal
         static llvm::Value *generate_literal( //
             llvm::IRBuilder<> &builder,       //
-            llvm::Function *parent,           //
             const LiteralNode *literal_node   //
         );
 

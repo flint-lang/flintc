@@ -1,14 +1,14 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
 
-llvm::FunctionType *Generator::Function::generate_function_type(llvm::LLVMContext &context, FunctionNode *function_node) {
-    llvm::Type *return_types = IR::add_and_or_get_type(&context, function_node->return_types);
+llvm::FunctionType *Generator::Function::generate_function_type(FunctionNode *function_node) {
+    llvm::Type *return_types = IR::add_and_or_get_type(function_node->return_types);
 
     // Get the parameter types
     std::vector<llvm::Type *> param_types_vec;
     param_types_vec.reserve(function_node->parameters.size());
     for (const auto &param : function_node->parameters) {
-        auto param_type = IR::get_type(context, std::get<0>(param));
+        auto param_type = IR::get_type(std::get<0>(param));
         if (param_type.second) {
             // Complex type, passed by reference
             param_types_vec.emplace_back(param_type.first->getPointerTo());
@@ -29,7 +29,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::LLVMContex
 }
 
 llvm::Function *Generator::Function::generate_function(llvm::Module *module, FunctionNode *function_node) {
-    llvm::FunctionType *function_type = generate_function_type(module->getContext(), function_node);
+    llvm::FunctionType *function_type = generate_function_type(function_node);
 
     // Creating the function itself
     llvm::Function *function = llvm::Function::Create( //
@@ -48,7 +48,7 @@ llvm::Function *Generator::Function::generate_function(llvm::Module *module, Fun
 
     // Create the functions entry block
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
-        module->getContext(),                                 //
+        context,                                              //
         "entry",                                              //
         function                                              //
     );

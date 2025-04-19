@@ -10,12 +10,12 @@ void Generator::String::generate_create_str_function(llvm::IRBuilder<> *builder,
     //     string->len = len;
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *create_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                  // Return type: str*
-        {llvm::Type::getInt64Ty(builder->getContext())},           // Argument size_t len
+        {llvm::Type::getInt64Ty(context)},                         // Argument size_t len
         false                                                      // No varargs
     );
     llvm::Function *create_str_fn = llvm::Function::Create( //
@@ -26,7 +26,7 @@ void Generator::String::generate_create_str_function(llvm::IRBuilder<> *builder,
     );
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", create_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", create_str_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the parameter (len)
@@ -62,17 +62,17 @@ void Generator::String::generate_init_str_function(llvm::IRBuilder<> *builder, l
     //     memcpy(string->value, value, len);
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *init_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                // Return type str*
         {
-            llvm::Type::getInt8Ty(builder->getContext())->getPointerTo(), // Argument char* value
-            llvm::Type::getInt64Ty(builder->getContext())                 // Argument size_t len
-        },                                                                //
-        false                                                             // No varargs
+            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument char* value
+            llvm::Type::getInt64Ty(context)                 // Argument size_t len
+        },                                                  //
+        false                                               // No varargs
     );
     llvm::Function *init_str_fn = llvm::Function::Create( //
         init_str_type,                                    //
@@ -82,7 +82,7 @@ void Generator::String::generate_init_str_function(llvm::IRBuilder<> *builder, l
     );
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", init_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", init_str_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the parameter (len)
@@ -118,7 +118,7 @@ void Generator::String::generate_compare_str_function(llvm::IRBuilder<> *builder
     //     }
     //     return memcmp(lhs->value, rhs->value, lhs->len);
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *memcmp_fn = c_functions.at(MEMCMP);
 
     llvm::FunctionType *compare_str_type = llvm::FunctionType::get( //
@@ -132,11 +132,11 @@ void Generator::String::generate_compare_str_function(llvm::IRBuilder<> *builder
     llvm::Function *compare_str_fn = llvm::Function::Create(compare_str_type, llvm::Function::ExternalLinkage, "compare_str", module);
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", compare_str_fn);
-    llvm::BasicBlock *lhs_lt_rhs_block = llvm::BasicBlock::Create(builder->getContext(), "lhs_lt_rhs", compare_str_fn);
-    llvm::BasicBlock *lhs_not_lt_rhs_block = llvm::BasicBlock::Create(builder->getContext(), "lhs_not_lt_rhs", compare_str_fn);
-    llvm::BasicBlock *lhs_gt_rhs_block = llvm::BasicBlock::Create(builder->getContext(), "lhs_gt_rhs", compare_str_fn);
-    llvm::BasicBlock *lhs_eq_rhs_block = llvm::BasicBlock::Create(builder->getContext(), "lhs_eq_rhs", compare_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", compare_str_fn);
+    llvm::BasicBlock *lhs_lt_rhs_block = llvm::BasicBlock::Create(context, "lhs_lt_rhs", compare_str_fn);
+    llvm::BasicBlock *lhs_not_lt_rhs_block = llvm::BasicBlock::Create(context, "lhs_not_lt_rhs", compare_str_fn);
+    llvm::BasicBlock *lhs_gt_rhs_block = llvm::BasicBlock::Create(context, "lhs_gt_rhs", compare_str_fn);
+    llvm::BasicBlock *lhs_eq_rhs_block = llvm::BasicBlock::Create(context, "lhs_eq_rhs", compare_str_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the lhs argument
@@ -197,11 +197,11 @@ void Generator::String::generate_assign_str_function(llvm::IRBuilder<> *builder,
     //     free(*string);
     //     *string = value;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *free_fn = c_functions.at(FREE);
 
     llvm::FunctionType *assign_str_type = llvm::FunctionType::get( //
-        llvm::Type::getVoidTy(builder->getContext()),              //
+        llvm::Type::getVoidTy(context),                            //
         {
             str_type->getPointerTo()->getPointerTo(), // str**
             str_type->getPointerTo()                  // str*
@@ -216,7 +216,7 @@ void Generator::String::generate_assign_str_function(llvm::IRBuilder<> *builder,
     );
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", assign_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", assign_str_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the string argument
@@ -250,18 +250,18 @@ void Generator::String::generate_assign_lit_function(llvm::IRBuilder<> *builder,
     //     new_string->len = len;
     //     memcpy(new_string->value, value, len);
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *assign_lit_type = llvm::FunctionType::get( //
-        llvm::Type::getVoidTy(builder->getContext()),              //
+        llvm::Type::getVoidTy(context),                            //
         {
-            str_type->getPointerTo()->getPointerTo(),                    // Argument: str** string
-            llvm::Type::getInt8Ty(module->getContext())->getPointerTo(), // Argument: char* value
-            llvm::Type::getInt64Ty(module->getContext())                 // Argument: u64 len
-        },                                                               //
-        false                                                            // No varargs
+            str_type->getPointerTo()->getPointerTo(),       // Argument: str** string
+            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* value
+            llvm::Type::getInt64Ty(context)                 // Argument: u64 len
+        },                                                  //
+        false                                               // No varargs
     );
     llvm::Function *assign_lit_fn = llvm::Function::Create( //
         assign_lit_type,                                    //
@@ -271,7 +271,7 @@ void Generator::String::generate_assign_lit_function(llvm::IRBuilder<> *builder,
     );
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", assign_lit_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", assign_lit_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the string argument
@@ -325,7 +325,7 @@ void Generator::String::generate_append_str_function(llvm::IRBuilder<> *builder,
     //     memcpy(new_dest->value + new_dest->len, source->value, source->len);
     //     new_dest->len += source->len;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -340,7 +340,7 @@ void Generator::String::generate_append_str_function(llvm::IRBuilder<> *builder,
     llvm::Function *append_str_fn = llvm::Function::Create(append_str_type, llvm::Function::ExternalLinkage, "append_str", module);
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", append_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", append_str_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the dest argument
@@ -407,24 +407,23 @@ void Generator::String::generate_append_lit_function(llvm::IRBuilder<> *builder,
     //     memcpy(new_dest->value + new_dest->len, source, source_len);
     //     new_dest->len += source_len;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *append_lit_type = llvm::FunctionType::get( //
         builder->getVoidTy(),                                      // Return Type: void
         {
-            str_type->getPointerTo()->getPointerTo(),                    // Argument: str** dest
-            llvm::Type::getInt8Ty(module->getContext())->getPointerTo(), // Argument: char* source
-            llvm::Type::getInt64Ty(module->getContext())                 // Argument: size_t source_len
-        },                                                               //
-        false                                                            // No varargs
+            str_type->getPointerTo()->getPointerTo(),       // Argument: str** dest
+            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* source
+            llvm::Type::getInt64Ty(context)                 // Argument: size_t source_len
+        },                                                  //
+        false                                               // No varargs
     );
-
     llvm::Function *append_lit_fn = llvm::Function::Create(append_lit_type, llvm::Function::ExternalLinkage, "append_lit", module);
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", append_lit_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", append_lit_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the arguments
@@ -485,7 +484,7 @@ void Generator::String::generate_add_str_str_function(llvm::IRBuilder<> *builder
     //     memcpy(result->value + lhs->len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -505,7 +504,7 @@ void Generator::String::generate_add_str_str_function(llvm::IRBuilder<> *builder
     );
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", add_str_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", add_str_str_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the lhs argument
@@ -563,18 +562,18 @@ void Generator::String::generate_add_str_lit_function(llvm::IRBuilder<> *builder
     //     memcpy(result->value + lhs->len, rhs, rhs_len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
     llvm::FunctionType *add_str_lit_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                   // Return Type: str*
         {
-            str_type->getPointerTo(),                                     // Argument: str* lhs
-            llvm::Type::getInt8Ty(builder->getContext())->getPointerTo(), // Argument: char* rhs
-            llvm::Type::getInt64Ty(builder->getContext())                 // Argument: u64 rhs_len
-        },                                                                //
-        false                                                             // No varargs
+            str_type->getPointerTo(),                       // Argument: str* lhs
+            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* rhs
+            llvm::Type::getInt64Ty(context)                 // Argument: u64 rhs_len
+        },                                                  //
+        false                                               // No varargs
     );
     llvm::Function *add_str_lit_fn = llvm::Function::Create( //
         add_str_lit_type,                                    //
@@ -584,7 +583,7 @@ void Generator::String::generate_add_str_lit_function(llvm::IRBuilder<> *builder
     );
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", add_str_lit_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", add_str_lit_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the lhs argument
@@ -639,18 +638,18 @@ void Generator::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder
     //     memcpy(result->value + lhs_len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
     llvm::FunctionType *add_lit_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                   // Return Type: str*
         {
-            llvm::Type::getInt8Ty(builder->getContext())->getPointerTo(), // Argument: char* lhs
-            llvm::Type::getInt64Ty(builder->getContext()),                // Argument: u64 lhs_len
-            str_type->getPointerTo()                                      // Argument: str* rhs
-        },                                                                //
-        false                                                             // No varargs
+            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* lhs
+            llvm::Type::getInt64Ty(context),                // Argument: u64 lhs_len
+            str_type->getPointerTo()                        // Argument: str* rhs
+        },                                                  //
+        false                                               // No varargs
     );
     llvm::Function *add_lit_str_fn = llvm::Function::Create( //
         add_lit_str_type,                                    //
@@ -660,7 +659,7 @@ void Generator::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder
     );
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", add_lit_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", add_lit_str_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the lhs argument
@@ -843,7 +842,7 @@ llvm::Value *Generator::String::generate_string_addition(                       
         } else {
             llvm::Function *add_str_lit_fn = string_manip_functions.at("add_str_lit");
             llvm::Value *rhs_len = llvm::ConstantInt::get(     //
-                llvm::Type::getInt64Ty(builder.getContext()),  //
+                llvm::Type::getInt64Ty(context),               //
                 std::get<std::string>(rhs_lit->value).length() //
             );
             llvm::Value *addition_result = builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
@@ -860,7 +859,7 @@ llvm::Value *Generator::String::generate_string_addition(                       
         // Only lhs is literal
         llvm::Function *add_lit_str_fn = string_manip_functions.at("add_lit_str");
         llvm::Value *lhs_len = llvm::ConstantInt::get(     //
-            llvm::Type::getInt64Ty(builder.getContext()),  //
+            llvm::Type::getInt64Ty(context),               //
             std::get<std::string>(lhs_lit->value).length() //
         );
         llvm::Value *addition_result = builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");

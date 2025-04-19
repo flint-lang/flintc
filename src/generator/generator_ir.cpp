@@ -9,7 +9,6 @@
 #include "llvm/IR/Constants.h"
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
-    llvm::LLVMContext *context,                       //
     const std::vector<std::shared_ptr<Type>> &types,  //
     const bool is_return_type                         //
 ) {
@@ -34,13 +33,13 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     if (is_return_type) {
         types_vec.reserve(types.size() + 1);
         // First element is always the error code (i32)
-        types_vec.push_back(llvm::Type::getInt32Ty(*context));
+        types_vec.push_back(llvm::Type::getInt32Ty(context));
     } else {
         types_vec.reserve(types.size());
     }
     // Rest of the elements are the return types
     for (const auto &ret_value : types) {
-        auto ret_type = get_type(*context, ret_value);
+        auto ret_type = get_type(ret_value);
         if (ret_type.second) {
             types_vec.emplace_back(ret_type.first->getPointerTo());
         } else {
@@ -49,7 +48,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     }
     llvm::ArrayRef<llvm::Type *> return_types_arr(types_vec);
     type_map[types_str] = llvm::StructType::create( //
-        *context,                                   //
+        context,                                    //
         return_types_arr,                           //
         "type_" + types_str,                        //
         true                                        //
@@ -65,7 +64,7 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             // Create a forward declaration for the function only if it is not the main function!
             if (function_node->name != "_main") {
-                llvm::FunctionType *function_type = Function::generate_function_type(module->getContext(), function_node);
+                llvm::FunctionType *function_type = Function::generate_function_type(function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 file_function_mangle_ids.at(file_node.file_name).emplace(function_node->name, mangle_id++);
                 file_function_names.at(file_node.file_name).emplace_back(function_node->name);
@@ -74,7 +73,7 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
     }
 }
 
-std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::LLVMContext &context, const std::shared_ptr<Type> &type) {
+std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type> &type) {
     if (const SimpleType *simple_type = dynamic_cast<const SimpleType *>(type.get())) {
         // Check if its a primitive or not. If it is not a primitive, its just a pointer type
         if (simple_type->type_name == "str_var") {
@@ -130,10 +129,10 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::LLVMContext &context
         for (const auto &order_name : data_type->data_node->order) {
             types.emplace_back(data_type->data_node->fields.at(order_name).first);
         }
-        return {add_and_or_get_type(&context, types, false), true};
+        return {add_and_or_get_type(types, false), true};
     } else if (ArrayType *array_type = dynamic_cast<ArrayType *>(type.get())) {
         // First, get the content type of the array
-        std::pair<llvm::Type *, bool> arr_val_type = get_type(context, array_type->type);
+        std::pair<llvm::Type *, bool> arr_val_type = get_type(array_type->type);
         llvm::StructType *arr_type;
         const std::string arr_type_name = "type_" + array_type->to_string();
         if (type_map.find(arr_type_name) != type_map.end()) {
@@ -175,7 +174,7 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     return nullptr;
 }
 
-llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, llvm::Function *parent, const std::string &str) {
+llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, const std::string &str) {
     // Create array type for the string (including null terminator)
     llvm::ArrayType *str_type = llvm::ArrayType::get( //
         builder.getInt8Ty(),                          //
@@ -184,7 +183,7 @@ llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, ll
     // Allocate space for the string data on the stack
     llvm::AllocaInst *str_buf = builder.CreateAlloca(str_type, nullptr, "str_buf");
     // Create the constant string data
-    llvm::Constant *str_constant = llvm::ConstantDataArray::getString(parent->getContext(), str);
+    llvm::Constant *str_constant = llvm::ConstantDataArray::getString(context, str);
     // Store the string data in the buffer
     builder.CreateStore(str_constant, str_buf);
     // Return the buffer pointer
@@ -202,13 +201,12 @@ llvm::Value *Generator::IR::generate_pow_instruction( //
 
 void Generator::IR::generate_debug_print( //
     llvm::IRBuilder<> *builder,           //
-    llvm::Function *parent,               //
     const std::string &message            //
 ) {
     if (!DEBUG_MODE) {
         return;
     }
-    llvm::Value *msg_str = generate_const_string(*builder, parent, "DEBUG: " + message);
+    llvm::Value *msg_str = generate_const_string(*builder, "DEBUG: " + message);
     llvm::Function *print_fn = print_functions.at("str");
     builder->CreateCall(print_fn, {msg_str});
 }

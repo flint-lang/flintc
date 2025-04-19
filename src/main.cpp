@@ -72,19 +72,18 @@ void compile_extern(                          //
     std::cout << "Build successful" << std::endl;
 }
 
-/// @function `generate_module`
-/// @brief Generates the whole module from a given source file
+/// @function `generate_program`
+/// @brief Generates the whole program from a given source file
 ///
 /// @param `source_file_path` The source file to generate the module from
 /// @param `is_test` Whether the program has to be generated in test-mode
 /// @param `parse_parallel` Whether to parse the program in parallel
 /// @param `context` The LLVMContext in which to generate the module in
 /// @return `std::optional<std::unique_ptr<llvm::Module>>` The generated module, nullopt if generation failed
-std::optional<std::unique_ptr<llvm::Module>> generate_module( //
-    const std::filesystem::path &source_file_path,            //
-    const bool is_test,                                       //
-    const bool parse_parallel,                                //
-    llvm::LLVMContext &context                                //
+std::optional<std::unique_ptr<llvm::Module>> generate_program( //
+    const std::filesystem::path &source_file_path,             //
+    const bool is_test,                                        //
+    const bool parse_parallel                                  //
 ) {
     PROFILE_SCOPE("Generate module");
 
@@ -121,7 +120,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_module( //
     }
 
     // Generate the whole program
-    return Generator::generate_program_ir(is_test ? "test" : "main", context, dep_graph.value(), is_test);
+    return Generator::generate_program_ir(is_test ? "test" : "main", dep_graph.value(), is_test);
 }
 
 /// @function `write_ll_file`
@@ -245,8 +244,7 @@ int main(int argc, char *argv[]) {
     SetConsoleOutputCP(CP_UTF8);
 #endif
 
-    llvm::LLVMContext context;
-    auto program = generate_module(clp.source_file_path, clp.test, clp.parallel, context);
+    auto program = generate_program(clp.source_file_path, clp.test, clp.parallel);
     if (!program.has_value()) {
         return 1;
     }

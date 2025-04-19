@@ -26,11 +26,10 @@ void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *buil
     // }
 
     // Create function type: size_t (size_t)
-    llvm::FunctionType *count_digits_type =
-        llvm::FunctionType::get(llvm::Type::getInt64Ty(builder->getContext()), // Return type: size_t (i64)
-            {llvm::Type::getInt64Ty(builder->getContext())},                   // Parameter: size_t (i64)
-            false                                                              // Not varargs
-        );
+    llvm::FunctionType *count_digits_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(context), // Return type: size_t (i64)
+        {llvm::Type::getInt64Ty(context)},                                                           // Parameter: size_t (i64)
+        false                                                                                        // Not varargs
+    );
 
     // Create the function
     llvm::Function *count_digits_fn = llvm::Function::Create(count_digits_type, llvm::Function::ExternalLinkage, "count_digits", module);
@@ -40,24 +39,24 @@ void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *buil
     n_arg->setName("n");
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", count_digits_fn);
-    llvm::BasicBlock *check_zero_block = llvm::BasicBlock::Create(builder->getContext(), "check_zero", count_digits_fn);
-    llvm::BasicBlock *return_one_block = llvm::BasicBlock::Create(builder->getContext(), "return_one", count_digits_fn);
-    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(builder->getContext(), "loop", count_digits_fn);
-    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(builder->getContext(), "loop_body", count_digits_fn);
-    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(builder->getContext(), "exit", count_digits_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", count_digits_fn);
+    llvm::BasicBlock *check_zero_block = llvm::BasicBlock::Create(context, "check_zero", count_digits_fn);
+    llvm::BasicBlock *return_one_block = llvm::BasicBlock::Create(context, "return_one", count_digits_fn);
+    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(context, "loop", count_digits_fn);
+    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(context, "loop_body", count_digits_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", count_digits_fn);
 
     // Entry block: Allocate variables and check if n is 0
     builder->SetInsertPoint(entry_block);
-    llvm::Value *n = builder->CreateAlloca(llvm::Type::getInt64Ty(builder->getContext()), nullptr, "n_var");
-    llvm::Value *count = builder->CreateAlloca(llvm::Type::getInt64Ty(builder->getContext()), nullptr, "count_var");
+    llvm::Value *n = builder->CreateAlloca(llvm::Type::getInt64Ty(context), nullptr, "n_var");
+    llvm::Value *count = builder->CreateAlloca(llvm::Type::getInt64Ty(context), nullptr, "count_var");
     builder->CreateStore(n_arg, n);
     builder->CreateStore(builder->getInt64(0), count);
     builder->CreateBr(check_zero_block);
 
     // Check if n is 0
     builder->SetInsertPoint(check_zero_block);
-    llvm::Value *n_value = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), n, "n_val");
+    llvm::Value *n_value = builder->CreateLoad(llvm::Type::getInt64Ty(context), n, "n_val");
     llvm::Value *is_zero = builder->CreateICmpEQ(n_value, builder->getInt64(0), "is_zero");
     builder->CreateCondBr(is_zero, return_one_block, loop_block);
 
@@ -67,19 +66,19 @@ void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *buil
 
     // Loop header - check condition
     builder->SetInsertPoint(loop_block);
-    llvm::Value *loop_n = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), n, "loop_n");
+    llvm::Value *loop_n = builder->CreateLoad(llvm::Type::getInt64Ty(context), n, "loop_n");
     llvm::Value *loop_condition = builder->CreateICmpUGT(loop_n, builder->getInt64(0), "loop_condition");
     builder->CreateCondBr(loop_condition, loop_body_block, exit_block);
 
     // Loop body
     builder->SetInsertPoint(loop_body_block);
     // n = n / 10
-    llvm::Value *n_val = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), n, "n_val");
+    llvm::Value *n_val = builder->CreateLoad(llvm::Type::getInt64Ty(context), n, "n_val");
     llvm::Value *new_n = builder->CreateUDiv(n_val, builder->getInt64(10), "new_n");
     builder->CreateStore(new_n, n);
 
     // count++
-    llvm::Value *count_val = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), count, "count_val");
+    llvm::Value *count_val = builder->CreateLoad(llvm::Type::getInt64Ty(context), count, "count_val");
     llvm::Value *new_count = builder->CreateAdd(count_val, builder->getInt64(1), "new_count");
     builder->CreateStore(new_count, count);
 
@@ -88,7 +87,7 @@ void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *buil
 
     // Exit block - return count
     builder->SetInsertPoint(exit_block);
-    llvm::Value *result = builder->CreateLoad(llvm::Type::getInt64Ty(builder->getContext()), count, "result");
+    llvm::Value *result = builder->CreateLoad(llvm::Type::getInt64Ty(context), count, "result");
     builder->CreateRet(result);
 
     // Store the function for later use
@@ -104,12 +103,12 @@ void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm:
     //         return init_str("false", 5);
     //     }
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
 
     llvm::FunctionType *bool_to_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                   // Return type: str*
-        {llvm::Type::getInt1Ty(builder->getContext())},             // Argument: i1 b_value
+        {llvm::Type::getInt1Ty(context)},                           // Argument: i1 b_value
         false                                                       // No varargs
     );
     llvm::Function *bool_to_str_fn = llvm::Function::Create(bool_to_str_type, llvm::Function::ExternalLinkage, "bool_to_str", module);
@@ -117,20 +116,20 @@ void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm:
     llvm::Argument *arg_bvalue = bool_to_str_fn->arg_begin();
     arg_bvalue->setName("b_value");
 
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", bool_to_str_fn);
-    llvm::BasicBlock *true_block = llvm::BasicBlock::Create(builder->getContext(), "true", bool_to_str_fn);
-    llvm::BasicBlock *false_block = llvm::BasicBlock::Create(builder->getContext(), "false", bool_to_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", bool_to_str_fn);
+    llvm::BasicBlock *true_block = llvm::BasicBlock::Create(context, "true", bool_to_str_fn);
+    llvm::BasicBlock *false_block = llvm::BasicBlock::Create(context, "false", bool_to_str_fn);
 
     builder->SetInsertPoint(entry_block);
     builder->CreateCondBr(arg_bvalue, true_block, false_block);
 
     builder->SetInsertPoint(true_block);
-    llvm::Value *true_string = IR::generate_const_string(*builder, bool_to_str_fn, "true");
+    llvm::Value *true_string = IR::generate_const_string(*builder, "true");
     llvm::Value *true_str = builder->CreateCall(init_str_fn, {true_string, builder->getInt64(4)}, "true_str");
     builder->CreateRet(true_str);
 
     builder->SetInsertPoint(false_block);
-    llvm::Value *false_string = IR::generate_const_string(*builder, bool_to_str_fn, "false");
+    llvm::Value *false_string = IR::generate_const_string(*builder, "false");
     llvm::Value *false_str = builder->CreateCall(init_str_fn, {false_string, builder->getInt64(5)}, "false_str");
     builder->CreateRet(false_str);
 
@@ -151,7 +150,7 @@ llvm::Value *Generator::TypeCast::i32_to_u32(llvm::IRBuilder<> &builder, llvm::V
 }
 
 llvm::Value *Generator::TypeCast::i32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateSExt(int_value, llvm::Type::getInt64Ty(builder.getContext()), "sext");
+    return builder.CreateSExt(int_value, llvm::Type::getInt64Ty(context), "sext");
 }
 
 llvm::Value *Generator::TypeCast::i32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
@@ -160,7 +159,7 @@ llvm::Value *Generator::TypeCast::i32_to_u64(llvm::IRBuilder<> &builder, llvm::V
     auto is_negative = builder.CreateICmpSLT(int_value, zero32, "is_neg");
 
     // Zero-extend the value (for positive numbers)
-    auto extended = builder.CreateZExt(int_value, llvm::Type::getInt64Ty(builder.getContext()), "zext");
+    auto extended = builder.CreateZExt(int_value, llvm::Type::getInt64Ty(context), "zext");
     auto zero64 = llvm::ConstantInt::get(extended->getType(), 0);
 
     // Select between 0 and the extended value
@@ -168,11 +167,11 @@ llvm::Value *Generator::TypeCast::i32_to_u64(llvm::IRBuilder<> &builder, llvm::V
 }
 
 llvm::Value *Generator::TypeCast::i32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateSIToFP(int_value, llvm::Type::getFloatTy(builder.getContext()), "sitofp");
+    return builder.CreateSIToFP(int_value, llvm::Type::getFloatTy(context), "sitofp");
 }
 
 llvm::Value *Generator::TypeCast::i32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(builder.getContext()), "sitofp");
+    return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(context), "sitofp");
 }
 
 void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -209,26 +208,26 @@ void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
     llvm::FunctionType *i32_to_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                  // Return type: str*
-        {llvm::Type::getInt32Ty(builder->getContext())},           // Argument: i32 n
+        {llvm::Type::getInt32Ty(context)},                         // Argument: i32 n
         false                                                      // No varargs
     );
     llvm::Function *i32_to_str_fn = llvm::Function::Create(i32_to_str_type, llvm::Function::ExternalLinkage, "i32_to_str", module);
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", i32_to_str_fn);
-    llvm::BasicBlock *min_value_block = llvm::BasicBlock::Create(builder->getContext(), "min_value", i32_to_str_fn);
-    llvm::BasicBlock *regular_case_block = llvm::BasicBlock::Create(builder->getContext(), "regular_case", i32_to_str_fn);
-    llvm::BasicBlock *digit_loop_block = llvm::BasicBlock::Create(builder->getContext(), "digit_loop", i32_to_str_fn);
-    llvm::BasicBlock *negative_sign_block = llvm::BasicBlock::Create(builder->getContext(), "negative_sign", i32_to_str_fn);
-    llvm::BasicBlock *add_sign_block = llvm::BasicBlock::Create(builder->getContext(), "add_sign", i32_to_str_fn);
-    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(builder->getContext(), "return", i32_to_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", i32_to_str_fn);
+    llvm::BasicBlock *min_value_block = llvm::BasicBlock::Create(context, "min_value", i32_to_str_fn);
+    llvm::BasicBlock *regular_case_block = llvm::BasicBlock::Create(context, "regular_case", i32_to_str_fn);
+    llvm::BasicBlock *digit_loop_block = llvm::BasicBlock::Create(context, "digit_loop", i32_to_str_fn);
+    llvm::BasicBlock *negative_sign_block = llvm::BasicBlock::Create(context, "negative_sign", i32_to_str_fn);
+    llvm::BasicBlock *add_sign_block = llvm::BasicBlock::Create(context, "add_sign", i32_to_str_fn);
+    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(context, "return", i32_to_str_fn);
 
     // Set insert point to entry block
     builder->SetInsertPoint(entry_block);
@@ -343,19 +342,19 @@ llvm::Value *Generator::TypeCast::u32_to_i32(llvm::IRBuilder<> &builder, llvm::V
 }
 
 llvm::Value *Generator::TypeCast::u32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateZExt(int_value, llvm::Type::getInt64Ty(builder.getContext()), "zext");
+    return builder.CreateZExt(int_value, llvm::Type::getInt64Ty(context), "zext");
 }
 
 llvm::Value *Generator::TypeCast::u32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateZExt(int_value, llvm::Type::getInt64Ty(builder.getContext()), "zext");
+    return builder.CreateZExt(int_value, llvm::Type::getInt64Ty(context), "zext");
 }
 
 llvm::Value *Generator::TypeCast::u32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateUIToFP(int_value, llvm::Type::getFloatTy(builder.getContext()), "uitofp");
+    return builder.CreateUIToFP(int_value, llvm::Type::getFloatTy(context), "uitofp");
 }
 
 llvm::Value *Generator::TypeCast::u32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateUIToFP(int_value, llvm::Type::getDoubleTy(builder.getContext()), "uitofp");
+    return builder.CreateUIToFP(int_value, llvm::Type::getDoubleTy(context), "uitofp");
 }
 
 void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -384,23 +383,23 @@ void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
     llvm::FunctionType *u32_to_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                  // Return type: str*
-        {llvm::Type::getInt32Ty(builder->getContext())},           // Argument: u32 n
+        {llvm::Type::getInt32Ty(context)},                         // Argument: u32 n
         false                                                      // No varargs
     );
     llvm::Function *u32_to_str_fn = llvm::Function::Create(u32_to_str_type, llvm::Function::ExternalLinkage, "u32_to_str", module);
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", u32_to_str_fn);
-    llvm::BasicBlock *zero_case_block = llvm::BasicBlock::Create(builder->getContext(), "zero_case", u32_to_str_fn);
-    llvm::BasicBlock *nonzero_case_block = llvm::BasicBlock::Create(builder->getContext(), "nonzero_case", u32_to_str_fn);
-    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(builder->getContext(), "loop", u32_to_str_fn);
-    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(builder->getContext(), "exit", u32_to_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", u32_to_str_fn);
+    llvm::BasicBlock *zero_case_block = llvm::BasicBlock::Create(context, "zero_case", u32_to_str_fn);
+    llvm::BasicBlock *nonzero_case_block = llvm::BasicBlock::Create(context, "nonzero_case", u32_to_str_fn);
+    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(context, "loop", u32_to_str_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", u32_to_str_fn);
 
     // Set insert point to entry block
     builder->SetInsertPoint(entry_block);
@@ -502,7 +501,7 @@ void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::
  *****************************************************************************************************************************************/
 
 llvm::Value *Generator::TypeCast::i64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateTrunc(int_value, llvm::Type::getInt32Ty(builder.getContext()), "trunc");
+    return builder.CreateTrunc(int_value, llvm::Type::getInt32Ty(context), "trunc");
 }
 
 llvm::Value *Generator::TypeCast::i64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
@@ -518,7 +517,7 @@ llvm::Value *Generator::TypeCast::i64_to_u32(llvm::IRBuilder<> &builder, llvm::V
     auto clamped = builder.CreateSelect(is_too_large, uint32_max_64, clamped_negative);
 
     // Finally truncate to 32 bits
-    return builder.CreateTrunc(clamped, llvm::Type::getInt32Ty(builder.getContext()));
+    return builder.CreateTrunc(clamped, llvm::Type::getInt32Ty(context));
 }
 
 llvm::Value *Generator::TypeCast::i64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
@@ -528,11 +527,11 @@ llvm::Value *Generator::TypeCast::i64_to_u64(llvm::IRBuilder<> &builder, llvm::V
 }
 
 llvm::Value *Generator::TypeCast::i64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateSIToFP(int_value, llvm::Type::getFloatTy(builder.getContext()), "sitofp");
+    return builder.CreateSIToFP(int_value, llvm::Type::getFloatTy(context), "sitofp");
 }
 
 llvm::Value *Generator::TypeCast::i64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(builder.getContext()), "sitofp");
+    return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(context), "sitofp");
 }
 
 void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -569,26 +568,26 @@ void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
     llvm::FunctionType *i64_to_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                  // Return type: str*
-        {llvm::Type::getInt64Ty(builder->getContext())},           // Argument: i64 i_value
+        {llvm::Type::getInt64Ty(context)},                         // Argument: i64 i_value
         false                                                      // No varargs
     );
     llvm::Function *i64_to_str_fn = llvm::Function::Create(i64_to_str_type, llvm::Function::ExternalLinkage, "i64_to_str", module);
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", i64_to_str_fn);
-    llvm::BasicBlock *min_value_block = llvm::BasicBlock::Create(builder->getContext(), "min_value", i64_to_str_fn);
-    llvm::BasicBlock *regular_case_block = llvm::BasicBlock::Create(builder->getContext(), "regular_case", i64_to_str_fn);
-    llvm::BasicBlock *digit_loop_block = llvm::BasicBlock::Create(builder->getContext(), "digit_loop", i64_to_str_fn);
-    llvm::BasicBlock *negative_sign_block = llvm::BasicBlock::Create(builder->getContext(), "negative_sign", i64_to_str_fn);
-    llvm::BasicBlock *add_sign_block = llvm::BasicBlock::Create(builder->getContext(), "add_sign", i64_to_str_fn);
-    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(builder->getContext(), "return", i64_to_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", i64_to_str_fn);
+    llvm::BasicBlock *min_value_block = llvm::BasicBlock::Create(context, "min_value", i64_to_str_fn);
+    llvm::BasicBlock *regular_case_block = llvm::BasicBlock::Create(context, "regular_case", i64_to_str_fn);
+    llvm::BasicBlock *digit_loop_block = llvm::BasicBlock::Create(context, "digit_loop", i64_to_str_fn);
+    llvm::BasicBlock *negative_sign_block = llvm::BasicBlock::Create(context, "negative_sign", i64_to_str_fn);
+    llvm::BasicBlock *add_sign_block = llvm::BasicBlock::Create(context, "add_sign", i64_to_str_fn);
+    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(context, "return", i64_to_str_fn);
 
     // Set insert point to entry block
     builder->SetInsertPoint(entry_block);
@@ -703,14 +702,14 @@ llvm::Value *Generator::TypeCast::u64_to_i32(llvm::IRBuilder<> &builder, llvm::V
     auto int32_max_64 = llvm::ConstantInt::get(int_value->getType(), 0x7FFFFFFF);
     auto too_large = builder.CreateICmpUGT(int_value, int32_max_64);
     auto clamped = builder.CreateSelect(too_large, int32_max_64, int_value);
-    return builder.CreateTrunc(clamped, llvm::Type::getInt32Ty(builder.getContext()));
+    return builder.CreateTrunc(clamped, llvm::Type::getInt32Ty(context));
 }
 
 llvm::Value *Generator::TypeCast::u64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     auto uint32_max_64 = llvm::ConstantInt::get(int_value->getType(), 0xFFFFFFFFULL);
     auto too_large = builder.CreateICmpUGT(int_value, uint32_max_64);
     auto clamped = builder.CreateSelect(too_large, uint32_max_64, int_value);
-    return builder.CreateTrunc(clamped, llvm::Type::getInt32Ty(builder.getContext()));
+    return builder.CreateTrunc(clamped, llvm::Type::getInt32Ty(context));
 }
 
 llvm::Value *Generator::TypeCast::u64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
@@ -720,11 +719,11 @@ llvm::Value *Generator::TypeCast::u64_to_i64(llvm::IRBuilder<> &builder, llvm::V
 }
 
 llvm::Value *Generator::TypeCast::u64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateUIToFP(int_value, llvm::Type::getFloatTy(builder.getContext()), "uitofp");
+    return builder.CreateUIToFP(int_value, llvm::Type::getFloatTy(context), "uitofp");
 }
 
 llvm::Value *Generator::TypeCast::u64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
-    return builder.CreateUIToFP(int_value, llvm::Type::getDoubleTy(builder.getContext()), "uitofp");
+    return builder.CreateUIToFP(int_value, llvm::Type::getDoubleTy(context), "uitofp");
 }
 
 void Generator::TypeCast::generate_u64_to_str([[maybe_unused]] llvm::IRBuilder<> *builder, [[maybe_unused]] llvm::Module *module) {
@@ -752,23 +751,23 @@ void Generator::TypeCast::generate_u64_to_str([[maybe_unused]] llvm::IRBuilder<>
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
     llvm::FunctionType *u64_to_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                  // Return type: str*
-        {llvm::Type::getInt64Ty(builder->getContext())},           // Argument: u64 u_value
+        {llvm::Type::getInt64Ty(context)},                         // Argument: u64 u_value
         false                                                      // No varargs
     );
     llvm::Function *u64_to_str_fn = llvm::Function::Create(u64_to_str_type, llvm::Function::ExternalLinkage, "u64_to_str", module);
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", u64_to_str_fn);
-    llvm::BasicBlock *zero_case_block = llvm::BasicBlock::Create(builder->getContext(), "zero_case", u64_to_str_fn);
-    llvm::BasicBlock *nonzero_case_block = llvm::BasicBlock::Create(builder->getContext(), "nonzero_case", u64_to_str_fn);
-    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(builder->getContext(), "loop", u64_to_str_fn);
-    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(builder->getContext(), "exit", u64_to_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", u64_to_str_fn);
+    llvm::BasicBlock *zero_case_block = llvm::BasicBlock::Create(context, "zero_case", u64_to_str_fn);
+    llvm::BasicBlock *nonzero_case_block = llvm::BasicBlock::Create(context, "nonzero_case", u64_to_str_fn);
+    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(context, "loop", u64_to_str_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", u64_to_str_fn);
 
     // Set insert point to entry block
     builder->SetInsertPoint(entry_block);
@@ -869,23 +868,23 @@ void Generator::TypeCast::generate_u64_to_str([[maybe_unused]] llvm::IRBuilder<>
  *****************************************************************************************************************************************/
 
 llvm::Value *Generator::TypeCast::f32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
-    return builder.CreateFPToSI(float_value, llvm::Type::getInt32Ty(builder.getContext()), "fptosi");
+    return builder.CreateFPToSI(float_value, llvm::Type::getInt32Ty(context), "fptosi");
 }
 
 llvm::Value *Generator::TypeCast::f32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
-    return builder.CreateFPToUI(float_value, llvm::Type::getInt32Ty(builder.getContext()), "fptoui");
+    return builder.CreateFPToUI(float_value, llvm::Type::getInt32Ty(context), "fptoui");
 }
 
 llvm::Value *Generator::TypeCast::f32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
-    return builder.CreateFPToSI(float_value, llvm::Type::getInt64Ty(builder.getContext()), "fptosi");
+    return builder.CreateFPToSI(float_value, llvm::Type::getInt64Ty(context), "fptosi");
 }
 
 llvm::Value *Generator::TypeCast::f32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
-    return builder.CreateFPToUI(float_value, llvm::Type::getInt64Ty(builder.getContext()), "fptoui");
+    return builder.CreateFPToUI(float_value, llvm::Type::getInt64Ty(context), "fptoui");
 }
 
 llvm::Value *Generator::TypeCast::f32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
-    return builder.CreateFPExt(float_value, llvm::Type::getDoubleTy(builder.getContext()), "fpext");
+    return builder.CreateFPExt(float_value, llvm::Type::getDoubleTy(context), "fpext");
 }
 
 void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -931,32 +930,32 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
     //
     //     return init_str(buffer, last_non_zero + 1);
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *snprintf_fn = c_functions.at(SNPRINTF);
 
     llvm::FunctionType *f32_to_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                  // Return type: str*
-        {llvm::Type::getFloatTy(builder->getContext())},           // Argument: f32 f_value
+        {llvm::Type::getFloatTy(context)},                         // Argument: f32 f_value
         false                                                      // No varargs
     );
     llvm::Function *f32_to_str_fn = llvm::Function::Create(f32_to_str_type, llvm::Function::ExternalLinkage, "f32_to_str", module);
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", f32_to_str_fn);
-    llvm::BasicBlock *nan_block = llvm::BasicBlock::Create(builder->getContext(), "nan_case", f32_to_str_fn);
-    llvm::BasicBlock *nan_merge_block = llvm::BasicBlock::Create(builder->getContext(), "nan_merge", f32_to_str_fn);
-    llvm::BasicBlock *inf_block = llvm::BasicBlock::Create(builder->getContext(), "inf_case", f32_to_str_fn);
-    llvm::BasicBlock *inf_merge_block = llvm::BasicBlock::Create(builder->getContext(), "inf_merge", f32_to_str_fn);
-    llvm::BasicBlock *exponent_block = llvm::BasicBlock::Create(builder->getContext(), "exponent_case", f32_to_str_fn);
-    llvm::BasicBlock *no_exponent_block = llvm::BasicBlock::Create(builder->getContext(), "no_exponent_case", f32_to_str_fn);
-    llvm::BasicBlock *exponent_merge_block = llvm::BasicBlock::Create(builder->getContext(), "exponent_merge", f32_to_str_fn);
-    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(builder->getContext(), "loop", f32_to_str_fn);
-    llvm::BasicBlock *check_char_block = llvm::BasicBlock::Create(builder->getContext(), "check_char", f32_to_str_fn);
-    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(builder->getContext(), "loop_body", f32_to_str_fn);
-    llvm::BasicBlock *loop_merge_block = llvm::BasicBlock::Create(builder->getContext(), "loop_merge", f32_to_str_fn);
-    llvm::BasicBlock *decimal_case_block = llvm::BasicBlock::Create(builder->getContext(), "decimal_case", f32_to_str_fn);
-    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(builder->getContext(), "return", f32_to_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", f32_to_str_fn);
+    llvm::BasicBlock *nan_block = llvm::BasicBlock::Create(context, "nan_case", f32_to_str_fn);
+    llvm::BasicBlock *nan_merge_block = llvm::BasicBlock::Create(context, "nan_merge", f32_to_str_fn);
+    llvm::BasicBlock *inf_block = llvm::BasicBlock::Create(context, "inf_case", f32_to_str_fn);
+    llvm::BasicBlock *inf_merge_block = llvm::BasicBlock::Create(context, "inf_merge", f32_to_str_fn);
+    llvm::BasicBlock *exponent_block = llvm::BasicBlock::Create(context, "exponent_case", f32_to_str_fn);
+    llvm::BasicBlock *no_exponent_block = llvm::BasicBlock::Create(context, "no_exponent_case", f32_to_str_fn);
+    llvm::BasicBlock *exponent_merge_block = llvm::BasicBlock::Create(context, "exponent_merge", f32_to_str_fn);
+    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(context, "loop", f32_to_str_fn);
+    llvm::BasicBlock *check_char_block = llvm::BasicBlock::Create(context, "check_char", f32_to_str_fn);
+    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(context, "loop_body", f32_to_str_fn);
+    llvm::BasicBlock *loop_merge_block = llvm::BasicBlock::Create(context, "loop_merge", f32_to_str_fn);
+    llvm::BasicBlock *decimal_case_block = llvm::BasicBlock::Create(context, "decimal_case", f32_to_str_fn);
+    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(context, "return", f32_to_str_fn);
 
     // Set insert point to entry block
     builder->SetInsertPoint(entry_block);
@@ -971,11 +970,11 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
     // The nan_block
     {
         builder->SetInsertPoint(nan_block);
-        llvm::Value *nan_str = IR::generate_const_string(*builder, f32_to_str_fn, "nan");
-        llvm::Value *nan_str_value = builder->CreateCall(                                        //
-            init_str_fn,                                                                         //
-            {nan_str, llvm::ConstantInt::get(llvm::Type::getInt64Ty(builder->getContext()), 3)}, //
-            "nan_str_value"                                                                      //
+        llvm::Value *nan_str = IR::generate_const_string(*builder, "nan");
+        llvm::Value *nan_str_value = builder->CreateCall(                          //
+            init_str_fn,                                                           //
+            {nan_str, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 3)}, //
+            "nan_str_value"                                                        //
         );
         builder->CreateRet(nan_str_value);
     }
@@ -1003,8 +1002,8 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
         llvm::Value *is_neg_inf = builder->CreateICmpNE(sign_bit, builder->getInt32(0), "is_neg_inf");
 
         // Create the two possible strings and select based on sign
-        llvm::Value *neg_inf_str = IR::generate_const_string(*builder, f32_to_str_fn, "-inf");
-        llvm::Value *pos_inf_str = IR::generate_const_string(*builder, f32_to_str_fn, "inf");
+        llvm::Value *neg_inf_str = IR::generate_const_string(*builder, "-inf");
+        llvm::Value *pos_inf_str = IR::generate_const_string(*builder, "inf");
 
         // Create string for negative infinity
         llvm::Value *neg_inf_value = builder->CreateCall(init_str_fn, {neg_inf_str, builder->getInt64(4)}, "neg_inf_value");
@@ -1040,7 +1039,7 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
     // The exponent_block
     {
         builder->SetInsertPoint(exponent_block);
-        llvm::Value *snprintf_format = IR::generate_const_string(*builder, f32_to_str_fn, "%.6e");
+        llvm::Value *snprintf_format = IR::generate_const_string(*builder, "%.6e");
         llvm::Value *f_value_as_d = f32_to_f64(*builder, arg_fvalue);
         llvm::CallInst *snprintf_ret = builder->CreateCall(snprintf_fn,
             {
@@ -1057,7 +1056,7 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
     // The no_exponent_block
     {
         builder->SetInsertPoint(no_exponent_block);
-        llvm::Value *snprintf_format = IR::generate_const_string(*builder, f32_to_str_fn, "%.6f");
+        llvm::Value *snprintf_format = IR::generate_const_string(*builder, "%.6f");
         llvm::Value *f_value_as_d = f32_to_f64(*builder, arg_fvalue);
         llvm::Value *snprintf_ret = builder->CreateCall(snprintf_fn,
             {
@@ -1170,23 +1169,23 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
  *****************************************************************************************************************************************/
 
 llvm::Value *Generator::TypeCast::f64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
-    return builder.CreateFPToSI(double_value, llvm::Type::getInt32Ty(builder.getContext()), "fptosi");
+    return builder.CreateFPToSI(double_value, llvm::Type::getInt32Ty(context), "fptosi");
 }
 
 llvm::Value *Generator::TypeCast::f64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
-    return builder.CreateFPToUI(double_value, llvm::Type::getInt32Ty(builder.getContext()), "fptoui");
+    return builder.CreateFPToUI(double_value, llvm::Type::getInt32Ty(context), "fptoui");
 }
 
 llvm::Value *Generator::TypeCast::f64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
-    return builder.CreateFPToSI(double_value, llvm::Type::getInt64Ty(builder.getContext()), "fptosi");
+    return builder.CreateFPToSI(double_value, llvm::Type::getInt64Ty(context), "fptosi");
 }
 
 llvm::Value *Generator::TypeCast::f64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
-    return builder.CreateFPToUI(double_value, llvm::Type::getInt64Ty(builder.getContext()), "fptoui");
+    return builder.CreateFPToUI(double_value, llvm::Type::getInt64Ty(context), "fptoui");
 }
 
 llvm::Value *Generator::TypeCast::f64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
-    return builder.CreateFPTrunc(double_value, llvm::Type::getFloatTy(builder.getContext()), "fptrunc");
+    return builder.CreateFPTrunc(double_value, llvm::Type::getFloatTy(context), "fptrunc");
 }
 
 void Generator::TypeCast::generate_f64_to_str([[maybe_unused]] llvm::IRBuilder<> *builder, [[maybe_unused]] llvm::Module *module) {
@@ -1232,32 +1231,32 @@ void Generator::TypeCast::generate_f64_to_str([[maybe_unused]] llvm::IRBuilder<>
     //
     //     return init_str(buffer, last_non_zero + 1);
     // }
-    llvm::Type *str_type = IR::get_type(builder->getContext(), Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *snprintf_fn = c_functions.at(SNPRINTF);
 
     llvm::FunctionType *f64_to_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                  // Return type: str*
-        {llvm::Type::getDoubleTy(builder->getContext())},          // Argument: f64 d_value
+        {llvm::Type::getDoubleTy(context)},                        // Argument: f64 d_value
         false                                                      // No varargs
     );
     llvm::Function *f64_to_str_fn = llvm::Function::Create(f64_to_str_type, llvm::Function::ExternalLinkage, "f64_to_str", module);
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", f64_to_str_fn);
-    llvm::BasicBlock *nan_block = llvm::BasicBlock::Create(builder->getContext(), "nan_case", f64_to_str_fn);
-    llvm::BasicBlock *nan_merge_block = llvm::BasicBlock::Create(builder->getContext(), "nan_merge", f64_to_str_fn);
-    llvm::BasicBlock *inf_block = llvm::BasicBlock::Create(builder->getContext(), "inf_case", f64_to_str_fn);
-    llvm::BasicBlock *inf_merge_block = llvm::BasicBlock::Create(builder->getContext(), "inf_merge", f64_to_str_fn);
-    llvm::BasicBlock *exponent_block = llvm::BasicBlock::Create(builder->getContext(), "exponent_case", f64_to_str_fn);
-    llvm::BasicBlock *no_exponent_block = llvm::BasicBlock::Create(builder->getContext(), "no_exponent_case", f64_to_str_fn);
-    llvm::BasicBlock *exponent_merge_block = llvm::BasicBlock::Create(builder->getContext(), "exponent_merge", f64_to_str_fn);
-    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(builder->getContext(), "loop", f64_to_str_fn);
-    llvm::BasicBlock *check_char_block = llvm::BasicBlock::Create(builder->getContext(), "check_char", f64_to_str_fn);
-    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(builder->getContext(), "loop_body", f64_to_str_fn);
-    llvm::BasicBlock *loop_merge_block = llvm::BasicBlock::Create(builder->getContext(), "loop_merge", f64_to_str_fn);
-    llvm::BasicBlock *decimal_case_block = llvm::BasicBlock::Create(builder->getContext(), "decimal_case", f64_to_str_fn);
-    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(builder->getContext(), "return", f64_to_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", f64_to_str_fn);
+    llvm::BasicBlock *nan_block = llvm::BasicBlock::Create(context, "nan_case", f64_to_str_fn);
+    llvm::BasicBlock *nan_merge_block = llvm::BasicBlock::Create(context, "nan_merge", f64_to_str_fn);
+    llvm::BasicBlock *inf_block = llvm::BasicBlock::Create(context, "inf_case", f64_to_str_fn);
+    llvm::BasicBlock *inf_merge_block = llvm::BasicBlock::Create(context, "inf_merge", f64_to_str_fn);
+    llvm::BasicBlock *exponent_block = llvm::BasicBlock::Create(context, "exponent_case", f64_to_str_fn);
+    llvm::BasicBlock *no_exponent_block = llvm::BasicBlock::Create(context, "no_exponent_case", f64_to_str_fn);
+    llvm::BasicBlock *exponent_merge_block = llvm::BasicBlock::Create(context, "exponent_merge", f64_to_str_fn);
+    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(context, "loop", f64_to_str_fn);
+    llvm::BasicBlock *check_char_block = llvm::BasicBlock::Create(context, "check_char", f64_to_str_fn);
+    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(context, "loop_body", f64_to_str_fn);
+    llvm::BasicBlock *loop_merge_block = llvm::BasicBlock::Create(context, "loop_merge", f64_to_str_fn);
+    llvm::BasicBlock *decimal_case_block = llvm::BasicBlock::Create(context, "decimal_case", f64_to_str_fn);
+    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(context, "return", f64_to_str_fn);
 
     // Set insert point to entry block
     builder->SetInsertPoint(entry_block);
@@ -1272,11 +1271,11 @@ void Generator::TypeCast::generate_f64_to_str([[maybe_unused]] llvm::IRBuilder<>
     // The nan_block
     {
         builder->SetInsertPoint(nan_block);
-        llvm::Value *nan_str = IR::generate_const_string(*builder, f64_to_str_fn, "nan");
-        llvm::Value *nan_str_value = builder->CreateCall(                                        //
-            init_str_fn,                                                                         //
-            {nan_str, llvm::ConstantInt::get(llvm::Type::getInt64Ty(builder->getContext()), 3)}, //
-            "nan_str_value"                                                                      //
+        llvm::Value *nan_str = IR::generate_const_string(*builder, "nan");
+        llvm::Value *nan_str_value = builder->CreateCall(                          //
+            init_str_fn,                                                           //
+            {nan_str, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 3)}, //
+            "nan_str_value"                                                        //
         );
         builder->CreateRet(nan_str_value);
     }
@@ -1304,8 +1303,8 @@ void Generator::TypeCast::generate_f64_to_str([[maybe_unused]] llvm::IRBuilder<>
         llvm::Value *is_neg_inf = builder->CreateICmpNE(sign_bit, builder->getInt64(0), "is_neg_inf");
 
         // Create the two possible strings and select based on sign
-        llvm::Value *neg_inf_str = IR::generate_const_string(*builder, f64_to_str_fn, "-inf");
-        llvm::Value *pos_inf_str = IR::generate_const_string(*builder, f64_to_str_fn, "inf");
+        llvm::Value *neg_inf_str = IR::generate_const_string(*builder, "-inf");
+        llvm::Value *pos_inf_str = IR::generate_const_string(*builder, "inf");
 
         // Create string for negative infinity
         llvm::Value *neg_inf_value = builder->CreateCall(init_str_fn, {neg_inf_str, builder->getInt64(4)}, "neg_inf_value");
@@ -1341,7 +1340,7 @@ void Generator::TypeCast::generate_f64_to_str([[maybe_unused]] llvm::IRBuilder<>
     // The exponent_block
     {
         builder->SetInsertPoint(exponent_block);
-        llvm::Value *snprintf_format = IR::generate_const_string(*builder, f64_to_str_fn, "%.15e");
+        llvm::Value *snprintf_format = IR::generate_const_string(*builder, "%.15e");
         llvm::CallInst *snprintf_ret = builder->CreateCall(snprintf_fn,
             {
                 buffer_ptr,                                        //
@@ -1357,7 +1356,7 @@ void Generator::TypeCast::generate_f64_to_str([[maybe_unused]] llvm::IRBuilder<>
     // The no_exponent_block
     {
         builder->SetInsertPoint(no_exponent_block);
-        llvm::Value *snprintf_format = IR::generate_const_string(*builder, f64_to_str_fn, "%.15f");
+        llvm::Value *snprintf_format = IR::generate_const_string(*builder, "%.15f");
         llvm::Value *snprintf_ret = builder->CreateCall(snprintf_fn,
             {
                 buffer_ptr,                                        //
