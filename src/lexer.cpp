@@ -178,6 +178,7 @@ void Lexer::scan_token() {
         case '/':
             if (peek_next() == '=') {
                 add_token(TOK_DIV_EQUALS);
+                advance();
             } else if (peek_next() == '/') {
                 // traverse until the end of the line
                 while (peek() != '\n' && peek_next() != '\n' && !is_at_end()) {
