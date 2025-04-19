@@ -59,15 +59,15 @@ void Generator::Statement::clear_garbage(                                       
         return;
     }
     if (DEBUG_MODE) {
-        std::cout << YELLOW << "[Debug Info] " << DEFAULT << "GARBAGE:" << std::endl;
+        std::cout << YELLOW << "[Debug Info] Garbage information:\n" << DEFAULT;
     }
     for (auto &[key, value] : garbage) {
         if (DEBUG_MODE) {
-            std::cout << "-- Level " << key << " garbage:" << std::endl;
+            std::cout << "-- Level " << key << " garbage:\n";
         }
         for (auto [type, llvm_val] : value) {
             if (DEBUG_MODE) {
-                std::cout << "  -- Type '" << type << "' val addr: " << llvm_val << std::endl;
+                std::cout << "  -- Type '" << type << "' val addr: " << llvm_val << "\n";
             }
             if (type == "str") {
                 llvm::Function *free_fn = c_functions.at(FREE);
@@ -79,6 +79,9 @@ void Generator::Statement::clear_garbage(                                       
                 return;
             }
         }
+    }
+    if (DEBUG_MODE) {
+        std::cout << std::endl;
     }
 }
 

@@ -64,7 +64,6 @@ bool Generator::generate_builtin_modules() {
 
     // TODO: This bool needs to be swapped out eventually for all modules with their correct bool variant from the CLI parser, but that
     // comes later
-    const bool print_module = true;
     std::unique_ptr<llvm::IRBuilder<>> builder = nullptr;
     std::unique_ptr<llvm::Module> module = nullptr;
     // module 'print'
@@ -76,7 +75,7 @@ bool Generator::generate_builtin_modules() {
         Builtin::generate_builtin_prints(builder.get(), module.get(), false);
 
         // Print the module, if requested
-        if (DEBUG_MODE && print_module) {
+        if (DEBUG_MODE && PRINT_IR_PRINT_O) {
             std::cout << YELLOW << "[Debug Info] Generated module: 'print':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
@@ -98,7 +97,7 @@ bool Generator::generate_builtin_modules() {
         String::generate_string_manip_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
-        if (DEBUG_MODE && print_module) {
+        if (DEBUG_MODE && PRINT_IR_STR_O) {
             std::cout << YELLOW << "[Debug Info] Generated module: 'str':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
@@ -122,7 +121,7 @@ bool Generator::generate_builtin_modules() {
         TypeCast::generate_helper_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
-        if (DEBUG_MODE && print_module) {
+        if (DEBUG_MODE && PRINT_IR_CAST_O) {
             std::cout << YELLOW << "[Debug Info] Generated module: 'cast':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
@@ -145,7 +144,7 @@ bool Generator::generate_builtin_modules() {
         Arithmetic::generate_arithmetic_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
-        if (DEBUG_MODE && print_module) {
+        if (DEBUG_MODE && PRINT_IR_ARITHMETIC_O) {
             std::cout << YELLOW << "[Debug Info] Generated module: 'arithmetic':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
@@ -441,7 +440,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
         main_call_array[0]->getCalledOperandUse().set(main_function);
     }
 
-    if (DEBUG_MODE && PRINT_IR) {
+    if (DEBUG_MODE && PRINT_IR_PROGRAM) {
         std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program\n"
                   << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
     }

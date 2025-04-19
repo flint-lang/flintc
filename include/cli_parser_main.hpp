@@ -88,11 +88,19 @@ class CLIParserMain : public CLIParserBase {
             } else if (arg == "--no-ast") {
                 PRINT_AST = false;
             } else if (arg == "--no-ir") {
-                PRINT_IR = false;
+                PRINT_IR_PROGRAM = false;
             } else if (arg == "--no-profile") {
                 PRINT_PROFILE_RESULTS = false;
             } else if (arg == "--hard-crash") {
                 HARD_CRASH = true;
+            } else if (arg == "--print-ir-print") {
+                PRINT_IR_PRINT_O = true;
+            } else if (arg == "--print-ir-str") {
+                PRINT_IR_STR_O = true;
+            } else if (arg == "--print-ir-cast") {
+                PRINT_IR_CAST_O = true;
+            } else if (arg == "--print-ir-arithmetic") {
+                PRINT_IR_ARITHMETIC_O = true;
 #endif
             } else {
                 print_err("Unknown argument: " + arg);
@@ -148,9 +156,15 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --no-token-stream           Disables the debug printing of the lexed Token stream\n";
         std::cout << "  --no-dep-tree               Disables the debug printing of the dependency tree\n";
         std::cout << "  --no-ast                    Disables the debug printing of the parsed AST tree\n";
-        std::cout << "  --no-ir                     Disables the debug printing of the generated IR code\n";
+        std::cout << "  --no-ir                     Disables the debug printing of the generated program IR code\n";
         std::cout << "  --no-profile                Disables the debug printing of the profiling results\n";
-        std::cout << "  --hard-crash                Enables the option to hard crash the program in the case of a thrown error";
+        std::cout << "  --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
+        std::cout << "IR printing Options:\n";
+        std::cout << "  --print-ir-print            Enables printing of the IR code for the print.o library\n";
+        std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library\n";
+        std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
+        std::cout << "  --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
+        std::cout << "                              HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used.";
         std::cout << std::endl;
 #endif
     }

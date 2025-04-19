@@ -10,9 +10,14 @@
 bool PRINT_TOK_STREAM = true;
 bool PRINT_DEP_TREE = true;
 bool PRINT_AST = true;
-bool PRINT_IR = true;
+bool PRINT_IR_PROGRAM = true;
 bool PRINT_PROFILE_RESULTS = true;
 bool HARD_CRASH = false;
+
+bool PRINT_IR_PRINT_O = false;
+bool PRINT_IR_STR_O = false;
+bool PRINT_IR_CAST_O = false;
+bool PRINT_IR_ARITHMETIC_O = false;
 
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
 
