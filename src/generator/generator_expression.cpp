@@ -263,18 +263,18 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             // If the argument is of type str we need to differentiate between literals and str variables
             if (std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string() == "str") {
                 if (dynamic_cast<const LiteralNode *>(call_node->arguments.at(0).first.get())) {
-                    return_value.emplace_back(builder.CreateCall(print_functions["str"], args));
+                    return_value.emplace_back(builder.CreateCall(print_functions.at("str"), args));
                     Statement::clear_garbage(builder, garbage);
                     return return_value;
                 } else {
-                    return_value.emplace_back(builder.CreateCall(print_functions["str_var"], args));
+                    return_value.emplace_back(builder.CreateCall(print_functions.at("str_var"), args));
                     Statement::clear_garbage(builder, garbage);
                     return return_value;
                 }
             }
-            return_value.emplace_back(builder.CreateCall(                                                              //
-                print_functions[std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string()], //
-                args                                                                                                   //
+            return_value.emplace_back(builder.CreateCall(                                                                 //
+                print_functions.at(std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string()), //
+                args                                                                                                      //
                 ));
             Statement::clear_garbage(builder, garbage);
             return return_value;

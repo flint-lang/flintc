@@ -11,17 +11,7 @@
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
-
-#include <llvm/IR/LegacyPassManager.h>
-#include <llvm/MC/TargetRegistry.h>
-#include <llvm/Support/CodeGen.h>
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/Target/TargetMachine.h>
-#include <llvm/Target/TargetOptions.h>
-#include <llvm/TargetParser/Host.h>
-#include <llvm/TargetParser/Triple.h>
 
 #include <cstdlib>
 #include <filesystem>
@@ -138,83 +128,26 @@ void write_ll_file(const std::filesystem::path &ll_path, const llvm::Module *mod
     }
 }
 
-/// @function `compile_module`
-/// @brief Compiles the given module down to a binary
+/// @function `compile_program`
+/// @brief Compiles the given program module down to a binary
 ///
 /// @param `binary_file` The path where the built binary should be placed at
 /// @param `module` The program to compile
-void compile_module(const std::filesystem::path &binary_file, llvm::Module *module, const bool is_static) {
-    PROFILE_SCOPE("Compile module " + module->getName().str());
-    // Initialize LLVM targets (call this once in your compiler)
-    static bool initialized = false;
-    if (!initialized) {
-        PROFILE_SCOPE("Initialize LLVM");
-        LLVMInitializeX86TargetInfo();
-        LLVMInitializeX86Target();
-        LLVMInitializeX86TargetMC();
-        LLVMInitializeX86AsmParser();
-        LLVMInitializeX86AsmPrinter();
-        initialized = true;
-    }
+void compile_program(const std::filesystem::path &binary_file, llvm::Module *module, const bool is_static) {
+    PROFILE_SCOPE("Compile program " + module->getName().str());
 
-    // Get the target triple (architecture, OS, etc.)
-#ifdef __WIN32__
-    std::string target_triple = "x86_64-pc-windows-msvc";
-#else
-    std::string target_triple = llvm::sys::getDefaultTargetTriple();
-#endif
-
-    if (DEBUG_MODE) {
-        std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << std::endl;
-    }
-    module->setTargetTriple(target_triple);
-
-    std::string error;
-    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(target_triple, error);
-    if (!target) {
-        llvm::errs() << "Error: " << error << "\n";
+    // Direct linking with LDD
+    PROFILE_SCOPE("Creating the binary '" + binary_file.filename().string() + "'");
+    if (!Generator::compile_module(module, binary_file)) {
+        llvm::errs() << "Compilation of program '" << binary_file.string() << "' failed\n";
         return;
     }
 
-    // Create the target machine
-    llvm::TargetOptions opt;
-    auto target_machine = target->createTargetMachine(target_triple, llvm::sys::getHostCPUName(), "", opt, llvm::Reloc::PIC_);
-    module->setDataLayout(target_machine->createDataLayout());
-
-    // Create an output file
-    std::error_code EC;
 #ifdef __WIN32__
     const std::string obj_file = binary_file.string() + ".obj";
 #else
     const std::string obj_file = binary_file.string() + ".o";
 #endif
-    llvm::raw_fd_ostream dest(obj_file, EC, llvm::sys::fs::OF_None);
-    if (EC) {
-        llvm::errs() << "Could not open file: " << EC.message() << "\n";
-        return;
-    }
-
-    // Set up the pass manager and code generation
-    llvm::legacy::PassManager pass;
-    llvm::CodeGenFileType fileType = llvm::CodeGenFileType::ObjectFile;
-    if (target_machine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
-        llvm::errs() << "TargetMachine can't emit a file of this type!\n";
-        return;
-    }
-
-    // Run the passes to generate machine code
-    Profiler::start_task("Generate machine code");
-    pass.run(*module);
-    dest.flush(); // Ensure the file is written
-    Profiler::end_task("Generate machine code");
-
-    if (DEBUG_MODE) {
-        std::cout << YELLOW << "[Debug Info] Code generation status" << DEFAULT << std::endl;
-        llvm::outs() << "-- Machine code generated: " << obj_file << "\n\n";
-    }
-
-    // Direct linking with LDD
-    PROFILE_SCOPE("Creating the binary '" + binary_file.filename().string() + "'");
 
     bool link_success = LinkerInterface::link(obj_file, // input object file
         binary_file,                                    // output executable
@@ -259,8 +192,8 @@ int main(int argc, char *argv[]) {
         // Compile the module with the correct compiler
         compile_extern(clp.out_file_path, clp.compile_command, clp.compile_flags, program.value().get());
     } else {
-        // Compile the module and output the binary
-        compile_module(clp.out_file_path, program.value().get(), clp.is_static);
+        // Compile the program and output the binary
+        compile_program(clp.out_file_path, program.value().get(), clp.is_static);
     }
 
     Resolver::clear();

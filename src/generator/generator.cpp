@@ -3,6 +3,7 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "globals.hpp"
+#include "linker_interface.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/parser.hpp"
@@ -16,15 +17,26 @@
 #include <llvm/IR/IRBuilder.h> // Utility to generate instructions
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h> // Manages types and global states
-#include <llvm/IR/Module.h>      // Container for the IR code
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Module.h> // Container for the IR code
 #include <llvm/IR/Type.h>
 #include <llvm/IR/ValueSymbolTable.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
+#include <llvm/MC/TargetRegistry.h>
+#include <llvm/Support/CodeGen.h>
 #include <llvm/Support/Error.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Target/TargetOptions.h>
+#include <llvm/TargetParser/Host.h>
+#include <llvm/TargetParser/Triple.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -47,11 +59,251 @@ void Generator::get_data_nodes() {
     }
 }
 
+bool Generator::generate_builtin_modules() {
+    std::filesystem::path cache_path = get_flintc_cache_path();
+
+    // TODO: This bool needs to be swapped out eventually for all modules with their correct bool variant from the CLI parser, but that
+    // comes later
+    const bool print_module = true;
+    std::unique_ptr<llvm::IRBuilder<>> builder = nullptr;
+    std::unique_ptr<llvm::Module> module = nullptr;
+    // module 'print'
+    {
+        PROFILE_SCOPE("Generating module 'print'");
+        builder = std::make_unique<llvm::IRBuilder<>>(context);
+        module = std::make_unique<llvm::Module>("print", context);
+        Builtin::generate_c_functions(module.get());
+        Builtin::generate_builtin_prints(builder.get(), module.get(), false);
+
+        // Print the module, if requested
+        if (DEBUG_MODE && print_module) {
+            std::cout << YELLOW << "[Debug Info] Generated module: 'print':\n"
+                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+        }
+        // Save the generated module at the module_path
+        bool compilation_successful = compile_module(module.get(), cache_path / "print");
+        module.reset();
+        builder.reset();
+        if (!compilation_successful) {
+            std::cerr << "Error: Failed to generate builtin module 'print'" << std::endl;
+            return false;
+        }
+    }
+    // module 'str'
+    {
+        PROFILE_SCOPE("Generating module 'str'");
+        builder = std::make_unique<llvm::IRBuilder<>>(context);
+        module = std::make_unique<llvm::Module>("str", context);
+        Builtin::generate_c_functions(module.get());
+        String::generate_string_manip_functions(builder.get(), module.get(), false);
+
+        // Print the module, if requested
+        if (DEBUG_MODE && print_module) {
+            std::cout << YELLOW << "[Debug Info] Generated module: 'str':\n"
+                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+        }
+        // Save the generated module at the module_path
+        bool compilation_successful = compile_module(module.get(), cache_path / "str");
+        module.reset();
+        builder.reset();
+        if (!compilation_successful) {
+            std::cerr << "Error: Failed to generate builtin module 'str'" << std::endl;
+            return false;
+        }
+    }
+    // module 'cast'
+    {
+        PROFILE_SCOPE("Generating module 'cast'");
+        builder = std::make_unique<llvm::IRBuilder<>>(context);
+        module = std::make_unique<llvm::Module>("cast", context);
+        Builtin::generate_c_functions(module.get());
+        // The typecast functions depend on the string manipulation functions, so we provide the declarations for them
+        String::generate_string_manip_functions(builder.get(), module.get(), true);
+        TypeCast::generate_helper_functions(builder.get(), module.get(), false);
+
+        // Print the module, if requested
+        if (DEBUG_MODE && print_module) {
+            std::cout << YELLOW << "[Debug Info] Generated module: 'cast':\n"
+                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+        }
+        // Save the generated module at the module_path
+        bool compilation_successful = compile_module(module.get(), cache_path / "cast");
+        module.reset();
+        builder.reset();
+        if (!compilation_successful) {
+            std::cerr << "Error: Failed to generate builtin module 'cast'" << std::endl;
+            return false;
+        }
+    }
+    // module 'arithmetic'
+    if (overflow_mode != ArithmeticOverflowMode::UNSAFE) {
+        PROFILE_SCOPE("Generating module 'arithmetic'");
+        builder = std::make_unique<llvm::IRBuilder<>>(context);
+        module = std::make_unique<llvm::Module>("arithmetic", context);
+        Builtin::generate_c_functions(module.get());
+        Builtin::generate_builtin_prints(builder.get(), module.get(), true);
+        Arithmetic::generate_arithmetic_functions(builder.get(), module.get(), false);
+
+        // Print the module, if requested
+        if (DEBUG_MODE && print_module) {
+            std::cout << YELLOW << "[Debug Info] Generated module: 'arithmetic':\n"
+                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+        }
+        // Save the generated module at the module_path
+        bool compilation_successful = compile_module(module.get(), cache_path / "arithmetic");
+        module.reset();
+        builder.reset();
+        if (!compilation_successful) {
+            std::cerr << "Error: Failed to generate builtin module 'arithmetic'" << std::endl;
+            return false;
+        }
+    }
+
+// Now, merge together all object files into one single .o / .obj file
+#ifdef __WIN32__
+    const std::string file_ending = ".obj";
+#else
+    const std::string file_ending = ".o";
+#endif
+    std::vector<std::filesystem::path> libs;
+    libs.emplace_back(cache_path / ("print" + file_ending));
+    libs.emplace_back(cache_path / ("str" + file_ending));
+    libs.emplace_back(cache_path / ("cast" + file_ending));
+    if (overflow_mode != ArithmeticOverflowMode::UNSAFE) {
+        libs.emplace_back(cache_path / ("arithmetic" + file_ending));
+    }
+
+    // Delete the old `builtins.` o / obj file before creating a new one
+    std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
+    if (std::filesystem::exists(builtins_path)) {
+        std::filesystem::remove(builtins_path);
+    }
+
+    // Create the static .a file from all `.o` files
+    bool merge_success = LinkerInterface::create_static_library(libs, cache_path / "libbuiltins.a");
+
+    return merge_success;
+}
+
+std::filesystem::path Generator::get_flintc_cache_path() {
+#ifdef __WIN32__
+    const char *program_files = std::getenv("ProgramFiles");
+    if (program_files == nullptr) {
+        return std::filesystem::path();
+    }
+    std::filesystem::path cache_path = std::filesystem::path(program_files) / "Flint" / "Cache" / "flintc";
+#else
+    const char *home = std::getenv("HOME");
+    if (home == nullptr) {
+        return std::filesystem::path();
+    }
+    std::filesystem::path home_path = std::filesystem::path(home);
+    std::filesystem::path cache_path = home_path / ".cache" / "flintc";
+#endif
+    // Check if the cache path exists, if not create directories, like `mkdir -p`
+    try {
+        if (!std::filesystem::exists(cache_path)) {
+            std::filesystem::create_directories(cache_path);
+        }
+        return cache_path;
+    } catch (const std::filesystem::filesystem_error &e) {
+        std::cerr << "Error: Could not create cace path: '" << cache_path.string() << "'" << std::endl;
+        return std::filesystem::path();
+    }
+}
+
+bool Generator::compile_module(llvm::Module *module, const std::filesystem::path &module_path) {
+    PROFILE_SCOPE("Compile module " + module->getName().str());
+    // Initialize LLVM targets (should only be called once in the compiler)
+    static bool initialized = false;
+    if (!initialized) {
+        PROFILE_SCOPE("Initialize LLVM");
+        LLVMInitializeX86TargetInfo();
+        LLVMInitializeX86Target();
+        LLVMInitializeX86TargetMC();
+        LLVMInitializeX86AsmParser();
+        LLVMInitializeX86AsmPrinter();
+        initialized = true;
+    }
+
+    // Get the target triple (architecture, OS, etc.)
+#ifdef __WIN32__
+    std::string target_triple = "x86_64-pc-windows-msvc";
+#else
+    std::string target_triple = llvm::sys::getDefaultTargetTriple();
+#endif
+
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << std::endl;
+    }
+    module->setTargetTriple(target_triple);
+
+    std::string error;
+    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(target_triple, error);
+    if (!target) {
+        llvm::errs() << "Error: " << error << "\n";
+        return false;
+    }
+
+    // Create the target machine
+    llvm::TargetOptions opt;
+    auto target_machine = target->createTargetMachine( //
+        target_triple,                                 //
+        llvm::sys::getHostCPUName(),                   //
+        "",                                            //
+        opt,                                           //
+        llvm::Reloc::Static                            //
+    );
+    // Disable individual sections for functions and data
+    target_machine->Options.FunctionSections = false;
+    target_machine->Options.DataSections = false;
+    module->setDataLayout(target_machine->createDataLayout());
+
+    // Create an output file
+    std::error_code EC;
+#ifdef __WIN32__
+    const std::string obj_file = module_path.string() + ".obj";
+#else
+    const std::string obj_file = module_path.string() + ".o";
+#endif
+    llvm::raw_fd_ostream dest(obj_file, EC, llvm::sys::fs::OF_None);
+    if (EC) {
+        llvm::errs() << "Could not open file: " << EC.message() << "\n";
+        return false;
+    }
+
+    // Set up the pass manager and code generation
+    llvm::legacy::PassManager pass;
+    llvm::CodeGenFileType fileType = llvm::CodeGenFileType::ObjectFile;
+    if (target_machine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
+        llvm::errs() << "TargetMachine can't emit a file of this type!\n";
+        return false;
+    }
+
+    // Run the passes to generate machine code
+    Profiler::start_task("Generate machine code");
+    pass.run(*module);
+    dest.flush(); // Ensure the file is written
+    Profiler::end_task("Generate machine code");
+
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Code generation status" << DEFAULT << std::endl;
+        std::cout << "-- Machine code generated: " << obj_file << "\n" << std::endl;
+    }
+    return true;
+}
+
 std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     const std::string &program_name,                          //
     const std::shared_ptr<DepNode> &dep_graph,                //
     const bool is_test                                        //
 ) {
+    PROFILE_SCOPE("Generate builtin libraries");
+    if (!generate_builtin_modules()) {
+        std::cerr << "Error: Failed to generate builtin modules. aborting..." << std::endl;
+        abort();
+    }
+
     PROFILE_SCOPE("Generate program '" + program_name + "'");
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
     auto module = std::make_unique<llvm::Module>(program_name, context);

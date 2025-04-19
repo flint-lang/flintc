@@ -13,5 +13,5 @@ extern bool PRINT_IR;
 extern bool PRINT_PROFILE_RESULTS;
 extern bool HARD_CRASH;
 
-enum class ArithmeticOverflowMode { PRINT, SILENT, CRASH, UNSAFE };
+enum class ArithmeticOverflowMode : unsigned int { PRINT = 0, SILENT = 1, CRASH = 2, UNSAFE = 3 };
 extern ArithmeticOverflowMode overflow_mode;

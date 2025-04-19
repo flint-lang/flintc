@@ -90,10 +90,6 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 }
 
 void Generator::Builtin::generate_c_functions(llvm::Module *module) {
-    if (c_functions[MALLOC] != nullptr) {
-        return;
-    }
-
     // malloc
     {
         llvm::FunctionType *malloc_type = llvm::FunctionType::get( //
@@ -188,10 +184,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     }
 }
 
-void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    if (builtins[PRINT] != nullptr) {
-        return;
-    }
+void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     llvm::FunctionType *printf_type = llvm::FunctionType::get(        //
         llvm::Type::getInt32Ty(context),                              // Return type: int
         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(context)), // Takes char*
@@ -204,28 +197,25 @@ void Generator::Builtin::generate_builtin_prints(llvm::IRBuilder<> *builder, llv
         module                                            //
     );
     builtins[PRINT] = printf_func;
-    generate_builtin_print(builder, module, "i32", "%d");
-    generate_builtin_print(builder, module, "i64", "%ld");
-    generate_builtin_print(builder, module, "u32", "%u");
-    generate_builtin_print(builder, module, "u64", "%lu");
-    generate_builtin_print(builder, module, "f32", "%f");
-    generate_builtin_print(builder, module, "f64", "%lf");
-    generate_builtin_print(builder, module, "char", "%c");
-    generate_builtin_print(builder, module, "str", "%s");
-    generate_builtin_print_str_var(builder, module);
-    generate_builtin_print_bool(builder, module);
+    generate_builtin_print(builder, module, only_declarations, "i32", "%d");
+    generate_builtin_print(builder, module, only_declarations, "i64", "%ld");
+    generate_builtin_print(builder, module, only_declarations, "u32", "%u");
+    generate_builtin_print(builder, module, only_declarations, "u64", "%lu");
+    generate_builtin_print(builder, module, only_declarations, "f32", "%f");
+    generate_builtin_print(builder, module, only_declarations, "f64", "%lf");
+    generate_builtin_print(builder, module, only_declarations, "char", "%c");
+    generate_builtin_print(builder, module, only_declarations, "str", "%s");
+    generate_builtin_print_str_var(builder, module, only_declarations);
+    generate_builtin_print_bool(builder, module, only_declarations);
 }
 
 void Generator::Builtin::generate_builtin_print( //
     llvm::IRBuilder<> *builder,                  //
     llvm::Module *module,                        //
+    const bool only_declarations,                //
     const std::string &type,                     //
     const std::string &format                    //
 ) {
-    if (print_functions.at(type) != nullptr) {
-        return;
-    }
-
     // Create print function type
     llvm::FunctionType *print_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                       // return void
@@ -239,6 +229,11 @@ void Generator::Builtin::generate_builtin_print( //
         "print_" + type,                                     //
         module                                               //
     );
+    print_functions[type] = print_function;
+    if (only_declarations) {
+        return;
+    }
+
     llvm::BasicBlock *block = llvm::BasicBlock::Create( //
         context,                                        //
         "entry",                                        //
@@ -265,14 +260,9 @@ void Generator::Builtin::generate_builtin_print( //
     );
 
     builder->CreateRetVoid();
-    print_functions[type] = print_function;
 }
 
-void Generator::Builtin::generate_builtin_print_str_var(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    if (print_functions.at("str_var") != nullptr) {
-        return;
-    }
-
+void Generator::Builtin::generate_builtin_print_str_var(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
 
     // Create print function type
@@ -288,6 +278,11 @@ void Generator::Builtin::generate_builtin_print_str_var(llvm::IRBuilder<> *build
         "print_str_var",                                         //
         module                                                   //
     );
+    print_functions["str_var"] = print_str_function;
+    if (only_declarations) {
+        return;
+    }
+
     llvm::BasicBlock *block = llvm::BasicBlock::Create( //
         context,                                        //
         "entry",                                        //
@@ -314,14 +309,9 @@ void Generator::Builtin::generate_builtin_print_str_var(llvm::IRBuilder<> *build
     );
 
     builder->CreateRetVoid();
-    print_functions["str_var"] = print_str_function;
 }
 
-void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    if (print_functions.at("bool") != nullptr) {
-        return;
-    }
-
+void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // Create print function type
     llvm::FunctionType *print_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                       // return void
@@ -335,6 +325,11 @@ void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder,
         "print_bool",                                        //
         module                                               //
     );
+    print_functions["bool"] = print_function;
+    if (only_declarations) {
+        return;
+    }
+
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
         context,                                              //
         "entry",                                              //
@@ -380,8 +375,6 @@ void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder,
     // Merge block
     builder->SetInsertPoint(merge_block);
     builder->CreateRetVoid();
-
-    print_functions["bool"] = print_function;
 }
 
 void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {

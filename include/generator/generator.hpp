@@ -48,6 +48,19 @@ class Generator {
   public:
     Generator() = delete;
 
+    /// @function `get_flintc_cache_path`
+    /// @brief Returns the path to the `flntc` cache directory in `$HOME/.cache/` or in `C:\\Program Files\\Flint\\Cache\\`
+    ///
+    /// @return `std::filesystem::path` The path to the flint cache directory
+    static std::filesystem::path get_flintc_cache_path();
+
+    /// @function `compile_module`
+    /// @brief Compiles a given module and saves the .o / .obj file at the given path
+    ///
+    /// @param `module` The module to compile
+    /// @param `module_path` The path
+    static bool compile_module(llvm::Module *module, const std::filesystem::path &module_path);
+
     /// @function `generate_program_ir`
     /// @brief Generates the llvm IR code for a complete program
     ///
@@ -300,6 +313,10 @@ class Generator {
     /// @brief This function collects all data nodes from the parser and puts them into the `data_nodes` map in the generator
     static void get_data_nodes();
 
+    /// @function `generate_builtin_modules`
+    /// @brief This function generates all builtin modules and compiles them to their .o files
+    static bool generate_builtin_modules();
+
     /// @class `IR`
     /// @brief The class which is responsible for the utility functions for the IR generation
     /// @note This class cannot be initialized and all functions within this class are static
@@ -412,18 +429,21 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the print functions definitions will be generated in
-        static void generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+        static void generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
         /// @function `generate_builtin_print`
         /// @brief Helper function to generate the builtin print function for the specified type
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the print function definition will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         /// @param `type` The type of variable this print function expects
         /// @param `format` The C format string for the specified type (%i or %d for example)
         static void generate_builtin_print( //
             llvm::IRBuilder<> *builder,     //
             llvm::Module *module,           //
+            const bool only_declarations,   //
             const std::string &type,        //
             const std::string &format       //
         );
@@ -433,14 +453,16 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the print function definition will be generated in
-        static void generate_builtin_print_str_var(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_builtin_print_str_var(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_builtin_print_bool`
         /// @brief Generates the builtin print_bool function which prints 'true' or 'false' depending on the bool value
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the print function definition will be generated in
-        static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_builtin_test`
         /// @brief Generates the entry point of the program when compiled with the `--test` flag enabled
@@ -495,79 +517,140 @@ class Generator {
         };
 
         /// @function `generate_arithmetic_functions`
-        static void generate_arithmetic_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @brief Generates all arithmetic functions
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the arithmetic functions will be generated in (or in which the declarations are added)
+        /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+        static void generate_arithmetic_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
         /// @function `generate_int_safe_add`
         /// @brief Creates a safe addition of two int types
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `iX_safe_add` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         /// @param `int_type` The integer type to generate the function for
         /// @param `name` The name of the generated function, is `i32` or `i64` at the moment
-        static void generate_int_safe_add(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
+        static void generate_int_safe_add( //
+            llvm::IRBuilder<> *builder,    //
+            llvm::Module *module,          //
+            const bool only_declarations,  //
+            llvm::Type *int_type,          //
+            const std::string &name        //
+        );
 
         /// @function `generate_int_safe_sub`
         /// @brief Creates a safe subtraction of two signed integer types
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `iX_safe_sub` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         /// @param `int_type` The integer type to generate the function for
         /// @param `name` The name of the generated function, is `i32` or `i64` at the moment
-        static void generate_int_safe_sub(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
+        static void generate_int_safe_sub( //
+            llvm::IRBuilder<> *builder,    //
+            llvm::Module *module,          //
+            const bool only_declarations,  //
+            llvm::Type *int_type,          //
+            const std::string &name        //
+        );
 
         /// @function `generate_int_safe_mul`
         /// @brief Creates a safe multiplication of two signed integer types
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `iX_safe_mul` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         /// @param `int_type` The integer type to generate the function for
         /// @param `name` The name of the generated function, is `i32` or `i64` at the moment
-        static void generate_int_safe_mul(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
+        static void generate_int_safe_mul( //
+            llvm::IRBuilder<> *builder,    //
+            llvm::Module *module,          //
+            const bool only_declarations,  //
+            llvm::Type *int_type,          //
+            const std::string &name        //
+        );
 
         /// @function `generate_int_safe_div`
         /// @brief Creates a safe division of two signed integer types
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `iX_safe_div` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         /// @param `int_type` The integer type to generate the function for
         /// @param `name` The name of the generated function, is `i32` or `i64` at the moment
-        static void generate_int_safe_div(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
+        static void generate_int_safe_div( //
+            llvm::IRBuilder<> *builder,    //
+            llvm::Module *module,          //
+            const bool only_declarations,  //
+            llvm::Type *int_type,          //
+            const std::string &name        //
+        );
 
         /// @function `generate_uint_safe_add`
         /// @brief Creates a safe addition of two unsigned integer types
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `uX_safe_add` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         /// @param `int_type` The integer type to generate the function for
         /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
-        static void generate_uint_safe_add(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
+        static void generate_uint_safe_add( //
+            llvm::IRBuilder<> *builder,     //
+            llvm::Module *module,           //
+            const bool only_declarations,   //
+            llvm::Type *int_type,           //
+            const std::string &name         //
+        );
 
         /// @function `generate_uint_safe_sub`
         /// @brief Creates a safe subtraction of two unsigned integer types
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `uX_safe_sub` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         /// @param `int_type` The integer type to generate the function for
         /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
-        static void generate_uint_safe_sub(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
+        static void generate_uint_safe_sub( //
+            llvm::IRBuilder<> *builder,     //
+            llvm::Module *module,           //
+            const bool only_declarations,   //
+            llvm::Type *int_type,           //
+            const std::string &name         //
+        );
 
         /// @function `generate_uint_safe_mul`
         /// @brief Creates a safe multiplication of two unsigned integer types
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `uX_safe_mul` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         /// @param `int_type` The integer type to generate the function for
         /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
-        static void generate_uint_safe_mul(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
+        static void generate_uint_safe_mul( //
+            llvm::IRBuilder<> *builder,     //
+            llvm::Module *module,           //
+            const bool only_declarations,   //
+            llvm::Type *int_type,           //
+            const std::string &name         //
+        );
 
         /// @function `generate_uint_safe_div`
         /// @brief Creates a safe division of two unsigned integer types
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `uX_safe_mul` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         /// @param `int_type` The integer type to generate the function for
         /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
-        static void generate_uint_safe_div(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Type *int_type, const std::string &name);
+        static void generate_uint_safe_div( //
+            llvm::IRBuilder<> *builder,     //
+            llvm::Module *module,           //
+            const bool only_declarations,   //
+            llvm::Type *int_type,           //
+            const std::string &name         //
+        );
     }; // subclass Arithmetic
 
     /// @class `Logical`
@@ -723,7 +806,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the function is generated in
-        static void generate_helper_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+        static void generate_helper_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
         /// @function `generate_count_digits_function`
         /// @brief Function to generate the `count_digits` helper function, used for to-string casting
@@ -737,7 +821,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the function is generated in
-        static void generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /**************************************************************************************************************************************
          * @region `I32`
@@ -788,7 +873,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module in which the function is generated in
-        static void generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /**************************************************************************************************************************************
          * @region `U32`
@@ -839,7 +925,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module in which the function is generated in
-        static void generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /**************************************************************************************************************************************
          * @region `I64`
@@ -890,7 +977,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module in which the function is generated in
-        static void generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /**************************************************************************************************************************************
          * @region `U64`
@@ -941,7 +1029,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module in which the function is generated in
-        static void generate_u64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_u64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /**************************************************************************************************************************************
          * @region `F32`
@@ -992,7 +1081,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module in which the function is generated in
-        static void generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /**************************************************************************************************************************************
          * @region `F64`
@@ -1043,7 +1133,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module in which the function is generated in
-        static void generate_f64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_f64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
     }; // subclass TypeCast
 
     /// @class `Allocation`
@@ -1845,77 +1936,88 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `create_str` function will be generated in
-        static void generate_create_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_create_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_init_str_function`
         /// @brief Generates the builtin hidden `init_str` function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `init_str` function will be generated in
-        static void generate_init_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_init_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_compare_str_function`
         /// @brief Generates the builtin `compare_str` function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `compare_str` function will be generated in
-        static void generate_compare_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_compare_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_assign_str_function`
         /// @brief Generates the builtin hidden `assign_str` function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `assign_str` function will be generated in
-        static void generate_assign_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_assign_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_assign_lit_function`
         /// @brief Generates the builtin hidden `assign_lit` function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `assign_lit` function will be generated in
-        static void generate_assign_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_assign_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_append_str_function`
         /// @brief Generates the builtin hidden `append_str` function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `append_str` function will be generated in
-        static void generate_append_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_append_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_append_lit_function`
         /// @brief Generates the builtin hidden `append_lit` function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `append_lit` function will be generated in
-        static void generate_append_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_append_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_add_str_str_functiion`
         /// @brief Generates the builtin hidden `add_str_str` function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `add_str_str` function will be generated in
-        static void generate_add_str_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_add_str_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_add_str_lit_function`
         /// @brief Generates the builtin hidden `add_str_lit` function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `add_str_lit` function will be generated in
-        static void generate_add_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_add_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_add_lit_str_function`
         /// @brief Generates the builtin hidden `add_lit_str` function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `add_lit_str` function will be generated in
-        static void generate_add_lit_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_add_lit_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_string_manip_functions`
         /// @brief Generates all the builtin hidden string manipulation functions
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the string manipulation functions will be generated in
-        static void generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+        static void generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
         /// @function `generate_string_declaration`
         /// @brief Generates the declaration of a string variable

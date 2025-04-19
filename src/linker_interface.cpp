@@ -1,8 +1,11 @@
 #include "linker_interface.hpp"
 #include "colors.hpp"
+#include "generator/generator.hpp"
 #include "globals.hpp"
 
 #include <lld/Common/Driver.h>
+#include <llvm/Object/ArchiveWriter.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <cstdlib>
@@ -25,6 +28,9 @@ bool LinkerInterface::link(const std::filesystem::path &obj_file, const std::fil
     std::string obj_file_str = obj_file.string();
 
     args.push_back("lld-link");
+    const std::string builtins_link_flag = "-L" + (Generator::get_flintc_cache_path()).string();
+    args.push_back(builtins_link_flag.c_str());
+    args.push_back("-lbuiltins");
     args.push_back(obj_file_str.c_str());
 
     std::string out_arg = "/OUT:" + output_exe;
@@ -175,9 +181,15 @@ bool LinkerInterface::link(const std::filesystem::path &obj_file, const std::fil
         }
     } else {
         // For dynamic builds, use regular glibc
+        args.push_back("--allow-multiple-definition");
+        args.push_back("--no-gc-sections"); // Prevent removal of unused sections
+        args.push_back("--no-relax");       // Disable relocation relaxation
         args.push_back("/usr/lib/crt1.o");
         args.push_back("/usr/lib/crti.o");
         args.push_back(obj_file.string().c_str());
+        args_vec.push_back("-L" + Generator::get_flintc_cache_path().string());
+        args.push_back(args_vec.back().c_str());
+        args.push_back("-lbuiltins");
         args.push_back("-L/usr/lib");
         args.push_back("-L/usr/lib/x86_64-linux-gnu");
         args.push_back("-lc");
@@ -199,4 +211,35 @@ bool LinkerInterface::link(const std::filesystem::path &obj_file, const std::fil
 
     return lld::elf::link(args, llvm::outs(), llvm::errs(), false, false);
 #endif
+}
+
+bool LinkerInterface::create_static_library(const std::vector<std::filesystem::path> &obj_files, const std::filesystem::path &output_file) {
+    // Create archive members from object files
+    std::vector<llvm::NewArchiveMember> newMembers;
+
+    for (const auto &obj_file : obj_files) {
+        // Create archive member from file
+        auto memberOrErr = llvm::NewArchiveMember::getFile(obj_file.string(), /*Deterministic=*/true);
+
+        if (!memberOrErr) {
+            std::cerr << "Error: Unable to create archive member from " << obj_file << llvm::toString(memberOrErr.takeError()) << std::endl;
+            return false;
+        }
+
+        newMembers.push_back(std::move(*memberOrErr));
+    }
+
+    // Write the archive file
+    llvm::Error err = llvm::writeArchive(output_file.string(), newMembers,
+        /*WriteSymtab=*/llvm::SymtabWritingMode::NormalSymtab,
+        /*Kind=*/llvm::object::Archive::K_GNU,
+        /*Deterministic=*/true,
+        /*Thin=*/false, /*OldArchiveBuf=*/nullptr);
+
+    if (err) {
+        std::cerr << "Error: Failed to write archive: " << llvm::toString(std::move(err)) << std::endl;
+        return false;
+    }
+
+    return true;
 }

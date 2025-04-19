@@ -1,14 +1,16 @@
 #include "generator/generator.hpp"
 
-void Generator::TypeCast::generate_helper_functions(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    generate_count_digits_function(builder, module);
-    generate_bool_to_str(builder, module);
-    generate_i32_to_str(builder, module);
-    generate_u32_to_str(builder, module);
-    generate_i64_to_str(builder, module);
-    generate_u64_to_str(builder, module);
-    generate_f32_to_str(builder, module);
-    generate_f64_to_str(builder, module);
+void Generator::TypeCast::generate_helper_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    if (!only_declarations) {
+        generate_count_digits_function(builder, module);
+    }
+    generate_bool_to_str(builder, module, only_declarations);
+    generate_i32_to_str(builder, module, only_declarations);
+    generate_u32_to_str(builder, module, only_declarations);
+    generate_i64_to_str(builder, module, only_declarations);
+    generate_u64_to_str(builder, module, only_declarations);
+    generate_f32_to_str(builder, module, only_declarations);
+    generate_f64_to_str(builder, module, only_declarations);
 }
 
 void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -94,7 +96,7 @@ void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *buil
     typecast_functions["count_digits"] = count_digits_fn;
 }
 
-void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
+void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *bool_to_str(const bool b_value) {
     //     if (b_value) {
@@ -112,6 +114,10 @@ void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm:
         false                                                       // No varargs
     );
     llvm::Function *bool_to_str_fn = llvm::Function::Create(bool_to_str_type, llvm::Function::ExternalLinkage, "bool_to_str", module);
+    typecast_functions["bool_to_str"] = bool_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
 
     llvm::Argument *arg_bvalue = bool_to_str_fn->arg_begin();
     arg_bvalue->setName("b_value");
@@ -132,8 +138,6 @@ void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm:
     llvm::Value *false_string = IR::generate_const_string(*builder, "false");
     llvm::Value *false_str = builder->CreateCall(init_str_fn, {false_string, builder->getInt64(5)}, "false_str");
     builder->CreateRet(false_str);
-
-    typecast_functions["bool_to_str"] = bool_to_str_fn;
 }
 
 /******************************************************************************************************************************************
@@ -174,7 +178,7 @@ llvm::Value *Generator::TypeCast::i32_to_f64(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(context), "sitofp");
 }
 
-void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
+void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *i32_to_str(const int32_t i_value) {
     //     // Handle special case of minimum value (can't be negated safely)
@@ -219,6 +223,10 @@ void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::
         false                                                      // No varargs
     );
     llvm::Function *i32_to_str_fn = llvm::Function::Create(i32_to_str_type, llvm::Function::ExternalLinkage, "i32_to_str", module);
+    typecast_functions["i32_to_str"] = i32_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
 
     // Create basic blocks
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", i32_to_str_fn);
@@ -326,9 +334,6 @@ void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::
     // Return the result of the function
     builder->SetInsertPoint(return_block);
     builder->CreateRet(result);
-
-    // Store function for later use
-    typecast_functions["i32_to_str"] = i32_to_str_fn;
 }
 
 /******************************************************************************************************************************************
@@ -357,7 +362,7 @@ llvm::Value *Generator::TypeCast::u32_to_f64(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateUIToFP(int_value, llvm::Type::getDoubleTy(context), "uitofp");
 }
 
-void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
+void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *u32_to_str(const uint32_t u_value) {
     //     // Count digits
@@ -393,6 +398,10 @@ void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::
         false                                                      // No varargs
     );
     llvm::Function *u32_to_str_fn = llvm::Function::Create(u32_to_str_type, llvm::Function::ExternalLinkage, "u32_to_str", module);
+    typecast_functions["u32_to_str"] = u32_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
 
     // Create basic blocks
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", u32_to_str_fn);
@@ -491,9 +500,6 @@ void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::
     // Exit block
     builder->SetInsertPoint(exit_block);
     builder->CreateRet(result);
-
-    // Register the function
-    typecast_functions["u32_to_str"] = u32_to_str_fn;
 }
 
 /******************************************************************************************************************************************
@@ -534,7 +540,7 @@ llvm::Value *Generator::TypeCast::i64_to_f64(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(context), "sitofp");
 }
 
-void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
+void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *i64_to_str(const int64_t i_value) {
     //     // Handle special case of minimum value
@@ -579,6 +585,10 @@ void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::
         false                                                      // No varargs
     );
     llvm::Function *i64_to_str_fn = llvm::Function::Create(i64_to_str_type, llvm::Function::ExternalLinkage, "i64_to_str", module);
+    typecast_functions["i64_to_str"] = i64_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
 
     // Create basic blocks
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", i64_to_str_fn);
@@ -689,9 +699,6 @@ void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::
     // Return the result of the function
     builder->SetInsertPoint(return_block);
     builder->CreateRet(result);
-
-    // Store function for later use
-    typecast_functions["i64_to_str"] = i64_to_str_fn;
 }
 
 /******************************************************************************************************************************************
@@ -726,7 +733,7 @@ llvm::Value *Generator::TypeCast::u64_to_f64(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateUIToFP(int_value, llvm::Type::getDoubleTy(context), "uitofp");
 }
 
-void Generator::TypeCast::generate_u64_to_str([[maybe_unused]] llvm::IRBuilder<> *builder, [[maybe_unused]] llvm::Module *module) {
+void Generator::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *u64_to_str(const uint64_t u_value) {
     //     // Count digits
@@ -761,6 +768,10 @@ void Generator::TypeCast::generate_u64_to_str([[maybe_unused]] llvm::IRBuilder<>
         false                                                      // No varargs
     );
     llvm::Function *u64_to_str_fn = llvm::Function::Create(u64_to_str_type, llvm::Function::ExternalLinkage, "u64_to_str", module);
+    typecast_functions["u64_to_str"] = u64_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
 
     // Create basic blocks
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", u64_to_str_fn);
@@ -858,9 +869,6 @@ void Generator::TypeCast::generate_u64_to_str([[maybe_unused]] llvm::IRBuilder<>
     // Exit block
     builder->SetInsertPoint(exit_block);
     builder->CreateRet(result);
-
-    // Register the function
-    typecast_functions["u64_to_str"] = u64_to_str_fn;
 }
 
 /******************************************************************************************************************************************
@@ -887,7 +895,7 @@ llvm::Value *Generator::TypeCast::f32_to_f64(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateFPExt(float_value, llvm::Type::getDoubleTy(context), "fpext");
 }
 
-void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module) {
+void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *f32_to_str(const float f_value) {
     //     // Handle special cases
@@ -940,6 +948,10 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
         false                                                      // No varargs
     );
     llvm::Function *f32_to_str_fn = llvm::Function::Create(f32_to_str_type, llvm::Function::ExternalLinkage, "f32_to_str", module);
+    typecast_functions["f32_to_str"] = f32_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
 
     // Create basic blocks
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", f32_to_str_fn);
@@ -1160,8 +1172,6 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
         // Return the string
         builder->CreateRet(result);
     }
-
-    typecast_functions["f32_to_str"] = f32_to_str_fn;
 }
 
 /******************************************************************************************************************************************
@@ -1188,7 +1198,7 @@ llvm::Value *Generator::TypeCast::f64_to_f32(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateFPTrunc(double_value, llvm::Type::getFloatTy(context), "fptrunc");
 }
 
-void Generator::TypeCast::generate_f64_to_str([[maybe_unused]] llvm::IRBuilder<> *builder, [[maybe_unused]] llvm::Module *module) {
+void Generator::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *f64_to_str(const double d_value) {
     //     // Handle special cases
@@ -1241,6 +1251,10 @@ void Generator::TypeCast::generate_f64_to_str([[maybe_unused]] llvm::IRBuilder<>
         false                                                      // No varargs
     );
     llvm::Function *f64_to_str_fn = llvm::Function::Create(f64_to_str_type, llvm::Function::ExternalLinkage, "f64_to_str", module);
+    typecast_functions["f64_to_str"] = f64_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
 
     // Create basic blocks
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", f64_to_str_fn);
@@ -1459,6 +1473,4 @@ void Generator::TypeCast::generate_f64_to_str([[maybe_unused]] llvm::IRBuilder<>
         // Return the string
         builder->CreateRet(result);
     }
-
-    typecast_functions["f64_to_str"] = f64_to_str_fn;
 }
