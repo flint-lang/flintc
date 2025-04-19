@@ -308,6 +308,11 @@ std::string Generator::get_module_ir_string(const llvm::Module *module) {
 
 std::string Generator::resolve_ir_comments(const std::string &ir_string) {
     PROFILE_SCOPE("Resolving IR comments");
+    // Check if the whole ir_string even contains a single comment at all. If it doesnt, we return the ir_string as is
+    if (ir_string.find(", !comment !") == std::string::npos) {
+        return ir_string;
+    }
+
     // LLVM's automatic comments tart at the 50th character, so we will start 10 characters later
     static const unsigned int COMMENT_OFFSET = 60;
 
