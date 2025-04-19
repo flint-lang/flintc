@@ -1,25 +1,6 @@
 #include "generator/generator.hpp"
 #include "lexer/builtins.hpp"
 
-void Generator::Builtin::generate_exit(llvm::IRBuilder<> *builder, llvm::Module *module, llvm::Value *exit_value) {
-    // Create the exit call (calling the C exit() function)
-    llvm::FunctionType *exit_type = llvm::FunctionType::get( //
-        llvm::Type::getVoidTy(module->getContext()),         // return void
-        llvm::Type::getInt32Ty(module->getContext()),        // takes i32
-        false                                                // no vararg
-    );
-    llvm::Function *exit_function = llvm::Function::Create( //
-        exit_type,                                          //
-        llvm::Function::ExternalLinkage,                    //
-        "exit",                                             //
-        module                                              //
-    );
-    builder->CreateCall(exit_function, {exit_value});
-
-    // Making the end unreachable that llvm doesnt optimize it
-    builder->CreateUnreachable();
-}
-
 void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
@@ -104,7 +85,8 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     builder->CreateBr(merge_block);
     builder->SetInsertPoint(merge_block);
-    generate_exit(builder, module, err_val);
+    builder->CreateCall(c_functions.at(EXIT), {err_val});
+    builder->CreateUnreachable();
 }
 
 void Generator::Builtin::generate_c_functions(llvm::Module *module) {
@@ -186,6 +168,23 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         );
         llvm::Function *memcmp_fn = llvm::Function::Create(memcmp_type, llvm::Function::ExternalLinkage, "memcmp", module);
         c_functions[MEMCMP] = memcmp_fn;
+    }
+    // exit
+    {
+        // Create the exit call (calling the C exit() function)
+        llvm::FunctionType *exit_type = llvm::FunctionType::get( //
+            llvm::Type::getVoidTy(module->getContext()),         // return void
+            llvm::Type::getInt32Ty(module->getContext()),        // takes i32
+            false                                                // no vararg
+        );
+        llvm::Function *exit_fn = llvm::Function::Create(exit_type, llvm::Function::ExternalLinkage, "exit", module);
+        c_functions[EXIT] = exit_fn;
+    }
+    // abort
+    {
+        llvm::FunctionType *abort_type = llvm::FunctionType::get(llvm::Type::getVoidTy(module->getContext()), false);
+        llvm::Function *abort_fn = llvm::Function::Create(abort_type, llvm::Function::ExternalLinkage, "abort", module);
+        c_functions[ABORT] = abort_fn;
     }
 }
 
@@ -413,7 +412,8 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     if (tests.empty()) {
         llvm::Value *msg = builder->CreateGlobalStringPtr("There are no tests to run!\n", "no_tests_msg", 0, module);
         builder->CreateCall(builtins[PRINT], {msg});
-        generate_exit(builder, module, zero);
+        builder->CreateCall(c_functions.at(EXIT), {zero});
+        builder->CreateUnreachable();
         return;
     }
 
@@ -531,7 +531,8 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     // Merge block and exit
     builder->SetInsertPoint(merge_block);
     counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(module->getContext()), counter);
-    generate_exit(builder, module, counter_value);
+    builder->CreateCall(c_functions.at(EXIT), {counter_value});
+    builder->CreateUnreachable();
 }
 
 llvm::Function *Generator::Builtin::generate_test_function(llvm::Module *module, const TestNode *test_node) {

@@ -1,5 +1,5 @@
 def main():
-    i32 x = 1;
-    x++;
-    x = x - 5;
+    i64 x = 1;
+    for i64 i = 0; i < 64; i++:
+        x *= i64(2);
     print($"{x}\n");

@@ -1,6 +1,11 @@
 #include "generator/generator.hpp"
+#include "globals.hpp"
 
 void Generator::Arithmetic::generate_arithmetic_functions(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
+        // Generate no arithmetic functions for the unsafe mode, as they are never called in unsafe mode annyway
+        return;
+    }
     generate_int_safe_add(builder, module, builder->getInt32Ty(), "i32");
     generate_int_safe_add(builder, module, builder->getInt64Ty(), "i64");
     generate_int_safe_sub(builder, module, builder->getInt32Ty(), "i32");
@@ -34,6 +39,12 @@ void Generator::Arithmetic::generate_int_safe_add( //
     );
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", int_safe_add_fn);
+    llvm::BasicBlock *overflow_block;
+    llvm::BasicBlock *no_overflow_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        overflow_block = llvm::BasicBlock::Create(builder->getContext(), "overflow", int_safe_add_fn);
+        no_overflow_block = llvm::BasicBlock::Create(builder->getContext(), "no_overflow", int_safe_add_fn);
+    }
     builder->SetInsertPoint(entry_block);
 
     // Get the parameters
@@ -67,11 +78,46 @@ void Generator::Arithmetic::generate_int_safe_add( //
     // Select appropriate result
     llvm::Value *use_max = pos_overflow;
     llvm::Value *use_min = neg_overflow;
-    builder->CreateNot(builder->CreateOr(pos_overflow, neg_overflow));
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *temp = builder->CreateSelect(use_max, int_max, add);
+        llvm::Value *selection = builder->CreateSelect(use_min, int_min, temp);
+        builder->CreateRet(selection);
+    } else {
+        // Check if any overflow occurred
+        llvm::Value *overflow_happened = builder->CreateOr(pos_overflow, neg_overflow);
+        // Change branch prediction, as no overflow is much more likely to happen than an overflow
+        llvm::MDNode *branch_weights = llvm::MDNode::get(builder->getContext(),
+            {
+                llvm::MDString::get(builder->getContext(), "branch_weights"),                     //
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
+            });
+        builder->CreateCondBr(overflow_happened, overflow_block, no_overflow_block, branch_weights);
 
-    llvm::Value *temp = builder->CreateSelect(use_max, int_max, add);
-    llvm::Value *selection = builder->CreateSelect(use_min, int_min, temp);
-    builder->CreateRet(selection);
+        builder->SetInsertPoint(overflow_block);
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, int_safe_add_fn, name + " add overflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(*builder, int_safe_add_fn, name + " add underflow caught\n");
+        llvm::Value *message = builder->CreateSelect(overflow_happened, overflow_message, underflow_message);
+        builder->CreateCall(builtins.at(PRINT), {message});
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_int_safe_add'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                llvm::Value *temp = builder->CreateSelect(use_max, int_max, add);
+                llvm::Value *selection = builder->CreateSelect(use_min, int_min, temp);
+                builder->CreateRet(selection);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_overflow_block);
+        builder->CreateRet(add);
+    }
 
     arithmetic_functions[name + "_safe_add"] = int_safe_add_fn;
 }
@@ -91,6 +137,12 @@ void Generator::Arithmetic::generate_int_safe_sub( //
     );
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", int_safe_sub_fn);
+    llvm::BasicBlock *overflow_block;
+    llvm::BasicBlock *no_overflow_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        overflow_block = llvm::BasicBlock::Create(builder->getContext(), "overflow", int_safe_sub_fn);
+        no_overflow_block = llvm::BasicBlock::Create(builder->getContext(), "no_overflow", int_safe_sub_fn);
+    }
     builder->SetInsertPoint(entry_block);
 
     // Get the parameters
@@ -124,11 +176,46 @@ void Generator::Arithmetic::generate_int_safe_sub( //
     // Select appropriate result
     llvm::Value *use_max = pos_overflow;
     llvm::Value *use_min = neg_overflow;
-    builder->CreateNot(builder->CreateOr(use_max, use_min));
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *temp = builder->CreateSelect(use_max, int_max, sub);
+        llvm::Value *selection = builder->CreateSelect(use_min, int_min, temp);
+        builder->CreateRet(selection);
+    } else {
+        // Check if any overflow occurred
+        llvm::Value *overflow_happened = builder->CreateOr(pos_overflow, neg_overflow);
+        // Change branch prediction, as no overflow is much more likely to happen than an overflow
+        llvm::MDNode *branch_weights = llvm::MDNode::get(builder->getContext(),
+            {
+                llvm::MDString::get(builder->getContext(), "branch_weights"),                     //
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
+            });
+        builder->CreateCondBr(overflow_happened, overflow_block, no_overflow_block, branch_weights);
 
-    llvm::Value *temp = builder->CreateSelect(use_max, int_max, sub);
-    llvm::Value *result = builder->CreateSelect(use_min, int_min, temp);
-    builder->CreateRet(result);
+        builder->SetInsertPoint(overflow_block);
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, int_safe_sub_fn, name + " sub overflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(*builder, int_safe_sub_fn, name + " sub underflow caught\n");
+        llvm::Value *message = builder->CreateSelect(overflow_happened, overflow_message, underflow_message);
+        builder->CreateCall(builtins.at(PRINT), {message});
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_int_safe_sub'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                llvm::Value *temp = builder->CreateSelect(use_max, int_max, sub);
+                llvm::Value *selection = builder->CreateSelect(use_min, int_min, temp);
+                builder->CreateRet(selection);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_overflow_block);
+        builder->CreateRet(sub);
+    }
 
     arithmetic_functions[name + "_safe_sub"] = int_safe_sub_fn;
 }
@@ -148,6 +235,12 @@ void Generator::Arithmetic::generate_int_safe_mul( //
     );
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", int_safe_mul_fn);
+    llvm::BasicBlock *overflow_block;
+    llvm::BasicBlock *no_overflow_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        overflow_block = llvm::BasicBlock::Create(builder->getContext(), "overflow", int_safe_mul_fn);
+        no_overflow_block = llvm::BasicBlock::Create(builder->getContext(), "no_overflow", int_safe_mul_fn);
+    }
     builder->SetInsertPoint(entry_block);
 
     // Get the parameters
@@ -175,10 +268,44 @@ void Generator::Arithmetic::generate_int_safe_mul( //
     // Select appropriate result
     llvm::Value *use_max = builder->CreateAnd(wrong_sign, result_should_be_pos);
     llvm::Value *use_min = builder->CreateAnd(wrong_sign, builder->CreateNot(result_should_be_pos));
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *temp = builder->CreateSelect(use_max, int_max, mult);
+        llvm::Value *result = builder->CreateSelect(use_min, int_min, temp);
+        builder->CreateRet(result);
+    } else {
+        // Change branch prediction, as no overflow is much more likely to happen than an overflow
+        llvm::MDNode *branch_weights = llvm::MDNode::get(builder->getContext(),
+            {
+                llvm::MDString::get(builder->getContext(), "branch_weights"),                     //
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
+            });
+        builder->CreateCondBr(wrong_sign, overflow_block, no_overflow_block, branch_weights);
 
-    llvm::Value *temp = builder->CreateSelect(use_max, int_max, mult);
-    llvm::Value *result = builder->CreateSelect(use_min, int_min, temp);
-    builder->CreateRet(result);
+        builder->SetInsertPoint(overflow_block);
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, int_safe_mul_fn, name + " mul overflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(*builder, int_safe_mul_fn, name + " mul underflow caught\n");
+        llvm::Value *message = builder->CreateSelect(use_max, overflow_message, underflow_message);
+        builder->CreateCall(builtins.at(PRINT), {message});
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_int_safe_mul'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                llvm::Value *temp = builder->CreateSelect(use_max, int_max, mult);
+                llvm::Value *selection = builder->CreateSelect(use_min, int_min, temp);
+                builder->CreateRet(selection);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_overflow_block);
+        builder->CreateRet(mult);
+    }
 
     arithmetic_functions[name + "_safe_mul"] = int_safe_mul_fn;
 }
@@ -198,6 +325,12 @@ void Generator::Arithmetic::generate_int_safe_div( //
     );
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", int_safe_div_fn);
+    llvm::BasicBlock *error_block;
+    llvm::BasicBlock *no_error_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        error_block = llvm::BasicBlock::Create(builder->getContext(), "error", int_safe_div_fn);
+        no_error_block = llvm::BasicBlock::Create(builder->getContext(), "no_error", int_safe_div_fn);
+    }
     builder->SetInsertPoint(entry_block);
 
     // Get the parameters
@@ -216,12 +349,45 @@ void Generator::Arithmetic::generate_int_safe_div( //
     llvm::Value *div_by_minus_one = builder->CreateICmpEQ(arg_rhs, minus_one);
     llvm::Value *would_overflow = builder->CreateAnd(is_min_int, div_by_minus_one);
 
+    // Combine error conditions
+    llvm::Value *error_happened = builder->CreateOr(div_by_zero, would_overflow);
     llvm::Value *div = builder->CreateSDiv(arg_lhs, arg_rhs, "idivtmp");
 
-    // Create phi node or basic blocks for proper error handling
-    // This is simplified - you might want to add proper error handling
-    llvm::Value *result = builder->CreateSelect(builder->CreateOr(div_by_zero, would_overflow), arg_lhs, div);
-    builder->CreateRet(result);
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *result = builder->CreateSelect(builder->CreateOr(div_by_zero, would_overflow), arg_lhs, div);
+        builder->CreateRet(result);
+    } else {
+        // Change branch prediction, as errors are much less likely to happen
+        llvm::MDNode *branch_weights = llvm::MDNode::get(builder->getContext(),
+            {
+                llvm::MDString::get(builder->getContext(), "branch_weights"),                     //
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of error
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no error
+            });
+        builder->CreateCondBr(error_happened, error_block, no_error_block, branch_weights);
+
+        builder->SetInsertPoint(error_block);
+        llvm::Value *div_zero_message = IR::generate_const_string(*builder, int_safe_div_fn, name + " division by zero caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, int_safe_div_fn, name + " division overflow caught\n");
+        llvm::Value *message = builder->CreateSelect(div_by_zero, div_zero_message, overflow_message);
+        builder->CreateCall(builtins.at(PRINT), {message});
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_int_safe_div'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                builder->CreateRet(arg_lhs);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_error_block);
+        builder->CreateRet(div);
+    }
 
     arithmetic_functions[name + "_safe_div"] = int_safe_div_fn;
 }
@@ -241,6 +407,12 @@ void Generator::Arithmetic::generate_uint_safe_add( //
     );
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", uint_safe_add_fn);
+    llvm::BasicBlock *overflow_block;
+    llvm::BasicBlock *no_overflow_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        overflow_block = llvm::BasicBlock::Create(builder->getContext(), "overflow", uint_safe_add_fn);
+        no_overflow_block = llvm::BasicBlock::Create(builder->getContext(), "no_overflow", uint_safe_add_fn);
+    }
     builder->SetInsertPoint(entry_block);
 
     // Get the parameters
@@ -254,8 +426,40 @@ void Generator::Arithmetic::generate_uint_safe_add( //
     auto diff = builder->CreateSub(max, arg_lhs, "diff");
     auto would_overflow = builder->CreateICmpUGT(arg_rhs, diff, "overflow_check");
     auto sum = builder->CreateAdd(arg_lhs, arg_rhs, "uaddtmp");
-    llvm::Value *result = builder->CreateSelect(would_overflow, max, sum, "safe_uaddtmp");
-    builder->CreateRet(result);
+
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *result = builder->CreateSelect(would_overflow, max, sum, "safe_uaddtmp");
+        builder->CreateRet(result);
+    } else {
+        // Change branch prediction, as no overflow is much more likely to happen than an overflow
+        llvm::MDNode *branch_weights = llvm::MDNode::get(builder->getContext(),
+            {
+                llvm::MDString::get(builder->getContext(), "branch_weights"),                     //
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
+            });
+        builder->CreateCondBr(would_overflow, overflow_block, no_overflow_block, branch_weights);
+
+        builder->SetInsertPoint(overflow_block);
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, uint_safe_add_fn, name + " add overflow caught\n");
+        builder->CreateCall(builtins.at(PRINT), {overflow_message});
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_uint_safe_add'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                builder->CreateRet(max);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_overflow_block);
+        builder->CreateRet(sum);
+    }
 
     arithmetic_functions[name + "_safe_add"] = uint_safe_add_fn;
 }
@@ -275,6 +479,12 @@ void Generator::Arithmetic::generate_uint_safe_sub( //
     );
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", uint_safe_sub_fn);
+    llvm::BasicBlock *underflow_block;
+    llvm::BasicBlock *no_underflow_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        underflow_block = llvm::BasicBlock::Create(builder->getContext(), "underflow", uint_safe_sub_fn);
+        no_underflow_block = llvm::BasicBlock::Create(builder->getContext(), "no_underflow", uint_safe_sub_fn);
+    }
     builder->SetInsertPoint(entry_block);
 
     // Get the parameters
@@ -289,8 +499,40 @@ void Generator::Arithmetic::generate_uint_safe_sub( //
     llvm::Value *sub = builder->CreateSub(arg_lhs, arg_rhs, "usubtmp");
     // Select between 0 and subtraction result based on comparison
     llvm::Value *zero = llvm::ConstantInt::get(int_type, 0);
-    llvm::Value *result = builder->CreateSelect(cmp, sub, zero, "safe_usubtmp");
-    builder->CreateRet(result);
+
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *result = builder->CreateSelect(cmp, sub, zero, "safe_usubtmp");
+        builder->CreateRet(result);
+    } else {
+        // Change branch prediction, as no underflow is much more likely to happen than an underflow
+        llvm::MDNode *branch_weights = llvm::MDNode::get(builder->getContext(),
+            {
+                llvm::MDString::get(builder->getContext(), "branch_weights"),                     //
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of underflow
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no underflow
+            });
+        builder->CreateCondBr(cmp, no_underflow_block, underflow_block, branch_weights);
+
+        builder->SetInsertPoint(underflow_block);
+        llvm::Value *underflow_message = IR::generate_const_string(*builder, uint_safe_sub_fn, name + " sub underflow caught\n");
+        builder->CreateCall(builtins.at(PRINT), {underflow_message});
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_uint_safe_sub'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                builder->CreateRet(zero);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_underflow_block);
+        builder->CreateRet(sub);
+    }
 
     arithmetic_functions[name + "_safe_sub"] = uint_safe_sub_fn;
 }
@@ -310,6 +552,12 @@ void Generator::Arithmetic::generate_uint_safe_mul( //
     );
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", uint_safe_mul_fn);
+    llvm::BasicBlock *overflow_block;
+    llvm::BasicBlock *no_overflow_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        overflow_block = llvm::BasicBlock::Create(builder->getContext(), "overflow", uint_safe_mul_fn);
+        no_overflow_block = llvm::BasicBlock::Create(builder->getContext(), "no_overflow", uint_safe_mul_fn);
+    }
     builder->SetInsertPoint(entry_block);
 
     // Get the parameters
@@ -329,10 +577,41 @@ void Generator::Arithmetic::generate_uint_safe_mul( //
 
     // Combine checks
     llvm::Value *use_max = builder->CreateAnd(builder->CreateNot(is_zero), would_overflow);
-
     llvm::Value *mult = builder->CreateMul(arg_lhs, arg_rhs, "umultmp");
-    llvm::Value *result = builder->CreateSelect(use_max, max, mult, "safe_umultmp");
-    builder->CreateRet(result);
+
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *result = builder->CreateSelect(use_max, max, mult, "safe_umultmp");
+        builder->CreateRet(result);
+    } else {
+        // Change branch prediction, as no overflow is much more likely to happen than an overflow
+        llvm::MDNode *branch_weights = llvm::MDNode::get(builder->getContext(),
+            {
+                llvm::MDString::get(builder->getContext(), "branch_weights"),                     //
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
+            });
+        builder->CreateCondBr(use_max, overflow_block, no_overflow_block, branch_weights);
+
+        builder->SetInsertPoint(overflow_block);
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, uint_safe_mul_fn, name + " mul overflow caught\n");
+        builder->CreateCall(builtins.at(PRINT), {overflow_message});
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_uint_safe_mul'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                builder->CreateRet(max);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_overflow_block);
+        builder->CreateRet(mult);
+    }
 
     arithmetic_functions[name + "_safe_mul"] = uint_safe_mul_fn;
 }
@@ -352,6 +631,12 @@ void Generator::Arithmetic::generate_uint_safe_div( //
     );
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(builder->getContext(), "entry", uint_safe_div_fn);
+    llvm::BasicBlock *error_block;
+    llvm::BasicBlock *no_error_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        error_block = llvm::BasicBlock::Create(builder->getContext(), "error", uint_safe_div_fn);
+        no_error_block = llvm::BasicBlock::Create(builder->getContext(), "no_error", uint_safe_div_fn);
+    }
     builder->SetInsertPoint(entry_block);
 
     // Get the parameters
@@ -367,8 +652,39 @@ void Generator::Arithmetic::generate_uint_safe_div( //
     llvm::Value *div = builder->CreateUDiv(arg_lhs, arg_rhs, "udivtmp");
     llvm::Value *max = llvm::ConstantInt::get(int_type, -1);
 
-    llvm::Value *result = builder->CreateSelect(div_by_zero, max, div, "safe_udivtmp");
-    builder->CreateRet(result);
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *result = builder->CreateSelect(div_by_zero, max, div, "safe_udivtmp");
+        builder->CreateRet(result);
+    } else {
+        // Change branch prediction, as no error is much more likely to happen than an error
+        llvm::MDNode *branch_weights = llvm::MDNode::get(builder->getContext(),
+            {
+                llvm::MDString::get(builder->getContext(), "branch_weights"),                     //
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of error
+                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no error
+            });
+        builder->CreateCondBr(div_by_zero, error_block, no_error_block, branch_weights);
+
+        builder->SetInsertPoint(error_block);
+        llvm::Value *div_zero_message = IR::generate_const_string(*builder, uint_safe_div_fn, name + " division by zero caught\n");
+        builder->CreateCall(builtins.at(PRINT), {div_zero_message});
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_uint_safe_div'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                builder->CreateRet(max);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_error_block);
+        builder->CreateRet(div);
+    }
 
     arithmetic_functions[name + "_safe_div"] = uint_safe_div_fn;
 }

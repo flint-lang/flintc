@@ -1,9 +1,7 @@
 #pragma once
 
 #include "cli_parser_base.hpp"
-#ifdef DEBUG_BUILD
 #include "globals.hpp"
-#endif
 
 #include <filesystem>
 #include <iostream>
@@ -67,6 +65,21 @@ class CLIParserMain : public CLIParserBase {
             } else if (starts_with(arg, "--compiler=")) {
                 // Erase the '--compiler=' part of the string
                 compile_command = arg.substr(11, arg.length() - 11);
+            } else if (starts_with(arg, "--arithmetic-")) {
+                // Erase the '--arithmetic-' part of the string
+                const std::string arithmetic_overflow_behaviour = arg.substr(13, arg.length() - 13);
+                if (arithmetic_overflow_behaviour == "print") {
+                    overflow_mode = ArithmeticOverflowMode::PRINT;
+                } else if (arithmetic_overflow_behaviour == "silent") {
+                    overflow_mode = ArithmeticOverflowMode::SILENT;
+                } else if (arithmetic_overflow_behaviour == "crash") {
+                    overflow_mode = ArithmeticOverflowMode::CRASH;
+                } else if (arithmetic_overflow_behaviour == "unsafe") {
+                    overflow_mode = ArithmeticOverflowMode::UNSAFE;
+                } else {
+                    print_err("Unknown argument: " + arg);
+                    return 1;
+                }
 #ifdef DEBUG_BUILD
             } else if (arg == "--no-token-stream") {
                 PRINT_TOK_STREAM = false;
@@ -123,6 +136,12 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "                              HINT: The compiler will not create an executable with this flag set\n";
         std::cout << "  --static                    Build the executable as static\n";
         std::cout << "  --compiler=\"[command]\"      The external compiler command to use for code generation";
+        std::cout << std::endl;
+        std::cout << "\nArithmetic Options:\n";
+        std::cout << "  --arithmetic-print          [Default] Prints a small message to the console whenever an overflow occurred\n";
+        std::cout << "  --arithmetic-silent         Disables the debug printing when an overflow or underflow happened\n";
+        std::cout << "  --arithmetic-crash          Hard crashes when an overflow / underflow occurred\n";
+        std::cout << "  --arithmetic-unsafe         Disables all overflow and underflow checks to make arithmetic operations faster";
         std::cout << std::endl;
 #ifdef DEBUG_BUILD
         std::cout << "\nDebug Options:\n";

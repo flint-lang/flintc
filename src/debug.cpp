@@ -14,6 +14,8 @@ bool PRINT_IR = true;
 bool PRINT_PROFILE_RESULTS = true;
 bool HARD_CRASH = false;
 
+ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
+
 #include <cassert>
 #include <cmath>
 #include <cstddef>
