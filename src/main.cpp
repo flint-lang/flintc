@@ -5,6 +5,7 @@
 #include "linker_interface.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/parser.hpp"
+#include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
 

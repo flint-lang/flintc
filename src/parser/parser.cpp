@@ -4,7 +4,7 @@
 #include "error/error.hpp"
 #include "globals.hpp"
 #include "lexer/lexer.hpp"
-#include "parallel.hpp"
+#include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
 
 #include <algorithm>
@@ -54,71 +54,87 @@ std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
 
 bool Parser::parse_all_open_functions(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Functions");
-    // Create a function object type that matches what reduce_on_all expects
-    auto process_parser = [](Parser &parser) -> bool {
-        auto next = parser.get_next_open_function();
-        while (next.has_value()) {
-            auto &[function, tokens] = next.value();
-            // Create the body and add the body statements to the created scope
-            auto body_statements = parser.create_body(function->scope.get(), tokens);
-            if (!body_statements.has_value()) {
-                THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, tokens);
-                return false;
-            }
-            function->scope.get()->body = std::move(body_statements.value());
-            next = parser.get_next_open_function();
+
+    // Define a task to process a single function
+    auto process_function = [](Parser &parser, FunctionNode *function, token_list tokens) -> bool {
+        // Create the body and add the body statements to the created scope
+        auto body_statements = parser.create_body(function->scope.get(), tokens);
+        if (!body_statements.has_value()) {
+            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, tokens);
+            return false;
         }
+        function->scope.get()->body = std::move(body_statements.value());
         return true;
     };
 
     bool result = true;
     if (parse_parallel) {
-        // Create explicit reducer and initializer functions
-        auto reducer = [](bool a, bool b) -> bool { return a && b; };
-        auto initializer = []() -> bool { return true; };
-        // Call reduce_on_all with explicit template parameters if needed
-        result = Parallel::reduce_on_all(process_parser, instances.begin(), instances.end(), reducer, initializer);
-    } else {
+        // Enqueue tasks in the global thread pool
+        std::vector<std::future<bool>> futures;
+        // Iterate through all parsers and their open functions
         for (auto &parser : Parser::instances) {
-            result = result && process_parser(parser);
+            while (auto next = parser.get_next_open_function()) {
+                auto &[function, tokens] = next.value();
+                // Enqueue a task for each function
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), function, std::move(tokens)));
+            }
+        }
+        // Collect results from all tasks
+        for (auto &future : futures) {
+            result = result && future.get(); // Combine results using logical AND
+        }
+    } else {
+        // Process functions sequentially
+        for (auto &parser : Parser::instances) {
+            while (auto next = parser.get_next_open_function()) {
+                auto &[function, tokens] = next.value();
+                result = result && process_function(parser, function, std::move(tokens));
+            }
         }
     }
-
     return result;
 }
 
 bool Parser::parse_all_open_tests(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Tests");
-    // Create a function object type that matches what reduce_on_all expects
-    auto process_parser = [](Parser &parser) -> bool {
-        auto next = parser.get_next_open_test();
-        while (next.has_value()) {
-            auto &[test, tokens] = next.value();
-            // Create the body and add the body statements to the created scope
-            auto body_statements = parser.create_body(test->scope.get(), tokens);
-            if (!body_statements.has_value()) {
-                THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, tokens);
-                return false;
-            }
-            test->scope.get()->body = std::move(body_statements.value());
-            next = parser.get_next_open_test();
+
+    // Define a task to process a single test
+    auto process_test = [](Parser &parser, TestNode *test, token_list tokens) -> bool {
+        // Create the body and add the body statements to the created scope
+        auto body_statements = parser.create_body(test->scope.get(), tokens);
+        if (!body_statements.has_value()) {
+            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, tokens);
+            return false;
         }
+        test->scope.get()->body = std::move(body_statements.value());
         return true;
     };
 
     bool result = true;
     if (parse_parallel) {
-        // Create explicit reducer and initializer functions
-        auto reducer = [](bool a, bool b) -> bool { return a && b; };
-        auto initializer = []() -> bool { return true; };
-        // Call reduce_on_all with explicit template parameters if needed
-        result = Parallel::reduce_on_all(process_parser, instances.begin(), instances.end(), reducer, initializer);
-    } else {
+        // Enqueue tasks in the global thread pool
+        std::vector<std::future<bool>> futures;
+        // Iterate through all parsers and their open functions
         for (auto &parser : Parser::instances) {
-            result = result && process_parser(parser);
+            while (auto next = parser.get_next_open_test()) {
+                auto &[test, tokens] = next.value();
+                // Enqueue a task for each function
+                futures.emplace_back(thread_pool.enqueue(process_test, std::ref(parser), test, std::move(tokens)));
+            }
+        }
+        // Collect results from all tasks
+        for (auto &future : futures) {
+            result = result && future.get(); // Combine results using logical AND
+        }
+    } else {
+        // Process functions sequentially
+        for (auto &parser : Parser::instances) {
+            while (auto next = parser.get_next_open_test()) {
+                auto &[test, tokens] = next.value();
+                result = result && process_test(parser, test, std::move(tokens));
+            }
         }
     }
-
     return result;
 }
 

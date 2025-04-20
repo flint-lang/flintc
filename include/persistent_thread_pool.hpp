@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <future>
@@ -10,20 +11,20 @@
 #include <type_traits>
 #include <vector>
 
-/// @brief A thread pool implementation that manages a collection of worker threads
+/// @brief A thread pool implementation that manages a collection of persistent worker threads
 /// @details This class provides a simple interface for parallel task execution by maintaining
-///          a pool of worker threads that process tasks from a shared queue. Tasks can be
-///          submitted from any thread and their results retrieved asynchronously.
-class ThreadPool {
+///          a pool of persistent worker threads that process tasks from a shared queue. Tasks
+///          can be submitted from any thread, and their results retrieved asynchronously.
+class PersistentThreadPool {
   public:
-    /// @brief Constructs a ThreadPool with the specified number of threads
+    /// @brief Constructs a PersistentThreadPool with the specified number of threads
     /// @param num_threads The number of worker threads to create (defaults to hardware thread count)
-    explicit ThreadPool(unsigned int num_threads = std::thread::hardware_concurrency()) {
+    explicit PersistentThreadPool(unsigned int num_threads = std::thread::hardware_concurrency()) {
         start(num_threads);
     }
 
     /// @brief Destructor that ensures all threads are properly stopped and joined
-    ~ThreadPool() {
+    ~PersistentThreadPool() {
         stop();
     }
 
@@ -46,9 +47,17 @@ class ThreadPool {
         {
             std::lock_guard<std::mutex> lock(_mutex);
             _tasks.emplace([task]() { (*task)(); });
+            ++_pendingTasks;
         }
         _condition.notify_one();
         return result;
+    }
+
+    /// @function `waitForAllTasks`
+    /// @brief Blocks until all tasks in the queue have been completed
+    void waitForAllTasks() {
+        std::unique_lock<std::mutex> lock(_mutex);
+        _allTasksDone.wait(lock, [this]() { return _pendingTasks == 0 && _tasks.empty(); });
     }
 
   private:
@@ -56,7 +65,9 @@ class ThreadPool {
     std::queue<std::function<void()>> _tasks; ///< Queue of pending tasks
     std::mutex _mutex;                        ///< Mutex for thread synchronization
     std::condition_variable _condition;       ///< Condition variable for thread synchronization
+    std::condition_variable _allTasksDone;    ///< Condition variable for task completion notification
     std::atomic<bool> _stop{false};           ///< Flag indicating whether the pool should stop
+    std::atomic<size_t> _pendingTasks{0};     ///< Counter for pending tasks
 
     /// @function `start`
     /// @brief Starts the thread pool with the specified number of threads
@@ -75,7 +86,15 @@ class ThreadPool {
                         task = std::move(_tasks.front());
                         _tasks.pop();
                     }
+                    // Execute the task
                     task();
+                    {
+                        std::lock_guard<std::mutex> lock(_mutex);
+                        --_pendingTasks;
+                        if (_pendingTasks == 0 && _tasks.empty()) {
+                            _allTasksDone.notify_all();
+                        }
+                    }
                 }
             });
         }
@@ -94,3 +113,7 @@ class ThreadPool {
         }
     }
 };
+
+/// @var `thread_pool`
+/// @brief The single thread pool which can be used within the whole program globally
+extern PersistentThreadPool thread_pool;

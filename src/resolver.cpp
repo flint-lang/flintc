@@ -4,6 +4,7 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/parser.hpp"
+#include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
 #include "resolver/resource_lock.hpp"
 
@@ -139,14 +140,12 @@ bool Resolver::process_dependencies_parallel(                          //
     // For all files in the open dependencies map
     for (const auto &[open_dep_name, deps] : open_dependencies) {
         // For all the dependencies of said file
-        futures.push_back(                  //
-            std::async(std::launch::async,  //
-                process_dependency_file,    //
-                open_dep_name,              //
-                deps,                       //
-                std::ref(next_dependencies) //
-                )                           //
-        );
+        futures.push_back(thread_pool.enqueue( //
+            process_dependency_file,           //
+            open_dep_name,                     //
+            deps,                              //
+            std::ref(next_dependencies)        //
+            ));
     }
     // Check results from all threads
     bool any_failed = false;

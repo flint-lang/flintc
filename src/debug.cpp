@@ -6,6 +6,7 @@
 #include "lexer/lexer_utils.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/parser.hpp"
+#include "persistent_thread_pool.hpp"
 
 bool PRINT_TOK_STREAM = true;
 bool PRINT_DEP_TREE = true;
@@ -15,8 +16,9 @@ bool PRINT_PROFILE_RESULTS = true;
 bool HARD_CRASH = false;
 
 unsigned int BUILTIN_LIBS_TO_PRINT = 0;
-
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
+
+PersistentThreadPool thread_pool;
 
 #include <cassert>
 #include <cmath>
