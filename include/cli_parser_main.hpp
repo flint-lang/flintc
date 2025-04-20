@@ -94,13 +94,13 @@ class CLIParserMain : public CLIParserBase {
             } else if (arg == "--hard-crash") {
                 HARD_CRASH = true;
             } else if (arg == "--print-ir-print") {
-                PRINT_IR_PRINT_O = true;
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PRINT);
             } else if (arg == "--print-ir-str") {
-                PRINT_IR_STR_O = true;
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::STR);
             } else if (arg == "--print-ir-cast") {
-                PRINT_IR_CAST_O = true;
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::CAST);
             } else if (arg == "--print-ir-arithmetic") {
-                PRINT_IR_ARITHMETIC_O = true;
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);

@@ -75,7 +75,7 @@ bool Generator::generate_builtin_modules() {
         Builtin::generate_builtin_prints(builder.get(), module.get(), false);
 
         // Print the module, if requested
-        if (DEBUG_MODE && PRINT_IR_PRINT_O) {
+        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::PRINT))) {
             std::cout << YELLOW << "[Debug Info] Generated module: 'print':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
@@ -97,7 +97,7 @@ bool Generator::generate_builtin_modules() {
         String::generate_string_manip_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
-        if (DEBUG_MODE && PRINT_IR_STR_O) {
+        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::STR))) {
             std::cout << YELLOW << "[Debug Info] Generated module: 'str':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
@@ -121,7 +121,7 @@ bool Generator::generate_builtin_modules() {
         TypeCast::generate_helper_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
-        if (DEBUG_MODE && PRINT_IR_CAST_O) {
+        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::CAST))) {
             std::cout << YELLOW << "[Debug Info] Generated module: 'cast':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
@@ -144,7 +144,7 @@ bool Generator::generate_builtin_modules() {
         Arithmetic::generate_arithmetic_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
-        if (DEBUG_MODE && PRINT_IR_ARITHMETIC_O) {
+        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC))) {
             std::cout << YELLOW << "[Debug Info] Generated module: 'arithmetic':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
