@@ -10,6 +10,8 @@
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
 
+#include <json/parser.hpp>
+
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
@@ -37,6 +39,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -62,12 +65,17 @@ void Generator::get_data_nodes() {
 bool Generator::generate_builtin_modules() {
     std::filesystem::path cache_path = get_flintc_cache_path();
 
-    // TODO: This bool needs to be swapped out eventually for all modules with their correct bool variant from the CLI parser, but that
-    // comes later
+    // Check if the files need to be rebuilt at all
+    const unsigned int which_need_rebuilding = which_builtin_modules_to_rebuild();
+    // If no files need to be rebuilt, we can directly return true
+    if (which_need_rebuilding == 0) {
+        return true;
+    }
+
     std::unique_ptr<llvm::IRBuilder<>> builder = nullptr;
     std::unique_ptr<llvm::Module> module = nullptr;
     // module 'print'
-    {
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::PRINT)) {
         PROFILE_SCOPE("Generating module 'print'");
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("print", context);
@@ -89,7 +97,7 @@ bool Generator::generate_builtin_modules() {
         }
     }
     // module 'str'
-    {
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::STR)) {
         PROFILE_SCOPE("Generating module 'str'");
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("str", context);
@@ -111,7 +119,7 @@ bool Generator::generate_builtin_modules() {
         }
     }
     // module 'cast'
-    {
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::CAST)) {
         PROFILE_SCOPE("Generating module 'cast'");
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("cast", context);
@@ -135,7 +143,8 @@ bool Generator::generate_builtin_modules() {
         }
     }
     // module 'arithmetic'
-    if (overflow_mode != ArithmeticOverflowMode::UNSAFE) {
+    if (overflow_mode != ArithmeticOverflowMode::UNSAFE &&
+        (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC))) {
         PROFILE_SCOPE("Generating module 'arithmetic'");
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("arithmetic", context);
@@ -157,8 +166,10 @@ bool Generator::generate_builtin_modules() {
             return false;
         }
     }
+    // Then, save the new metadata file
+    save_metadata_json_file(static_cast<int>(overflow_mode));
 
-// Now, merge together all object files into one single .o / .obj file
+    // Now, merge together all object files into one single .o / .obj file
 #ifdef __WIN32__
     const std::string file_ending = ".obj";
 #else
@@ -179,9 +190,92 @@ bool Generator::generate_builtin_modules() {
     }
 
     // Create the static .a file from all `.o` files
+    Profiler::start_task("Creating static library libbuiltins.a");
     bool merge_success = LinkerInterface::create_static_library(libs, cache_path / "libbuiltins.a");
-
+    Profiler::end_task("Creating static library libbuiltins.a");
     return merge_success;
+}
+
+unsigned int Generator::which_builtin_modules_to_rebuild() {
+    // First, all modules need to be rebuilt which are requested to be printed
+    unsigned int needed_rebuilds = BUILTIN_LIBS_TO_PRINT;
+
+    // Then, we parse the metadata.json file in the cache directory, or if it doesnt exist, create it
+    const std::filesystem::path metadata_file = get_flintc_cache_path() / "metadata.json";
+    if (!std::filesystem::exists(metadata_file)) {
+        // If no metadata file existed, we need to re-build everything as we cannot be sure with which settings the .o files were built the
+        // last time
+        if (DEBUG_MODE) {
+            std::cout << YELLOW << "[Debug Info] Rebuilding all library files because no metadata.json file was found\n" << DEFAULT;
+            std::cout << "-- overflow_mode: " << static_cast<unsigned int>(overflow_mode) << "\n" << std::endl;
+        }
+        save_metadata_json_file(static_cast<int>(overflow_mode));
+        return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+    }
+
+    std::vector<JsonToken> tokens = JsonLexer::scan(metadata_file);
+    std::optional<std::unique_ptr<JsonObject>> metadata = JsonParser::parse(tokens);
+    if (!metadata.has_value()) {
+        // Failed to parse the metadata, so we create a default metadata json file
+        save_metadata_json_file(0);
+        // We dont know if the last overflow_mode was different, so we need to always rebuild the arithmetic.o file
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
+    } else {
+        const auto main_group = dynamic_cast<const JsonGroup *>(metadata.value().get());
+        if (main_group == nullptr || main_group->name != "__ROOT__") {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            // Set all bits to 1, e.g. rebuild everything
+            return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+        }
+        for (const auto &group : main_group->fields) {
+            const auto group_value = dynamic_cast<const JsonGroup *>(group.get());
+            if (group_value == nullptr) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                // Set all bits to 1, e.g. rebuild everything
+                return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+            }
+            if (group_value->name == "arithmetic") {
+                // For now, we can assume that it contains a single value
+                const auto metadata_overflow_mode = dynamic_cast<const JsonNumber *>(group_value->fields.at(0).get());
+                if (metadata_overflow_mode == nullptr) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    // Set all bits to 1, e.g. rebuild everything
+                    return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+                }
+                if (metadata_overflow_mode->number != static_cast<int>(overflow_mode)) {
+                    // We need to rebuild the arithmetic.o file if the overflow modes dont match up
+                    needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
+                }
+            }
+        }
+    }
+    return needed_rebuilds;
+}
+
+void Generator::save_metadata_json_file(int overflow_mode_value) {
+    std::unique_ptr<JsonObject> overflow_mode_object = std::make_unique<JsonNumber>("overflow_mode", overflow_mode_value);
+
+    std::vector<std::unique_ptr<JsonObject>> arithmetic_group_content;
+    arithmetic_group_content.emplace_back(std::move(overflow_mode_object));
+    std::unique_ptr<JsonObject> arithmetic_group = std::make_unique<JsonGroup>("arithmetic", arithmetic_group_content);
+
+    std::vector<std::unique_ptr<JsonObject>> main_object_content;
+    main_object_content.emplace_back(std::move(arithmetic_group));
+    std::unique_ptr<JsonObject> main_object = std::make_unique<JsonGroup>("__ROOT__", main_object_content);
+
+    std::string main_object_string = JsonParser::to_string(main_object.get());
+    main_object.reset();
+
+    const std::filesystem::path metadata_file = get_flintc_cache_path() / "metadata.json";
+    if (std::filesystem::exists(metadata_file)) {
+        std::filesystem::remove(metadata_file);
+    }
+
+    // Save the main_object_string to the file
+    std::ofstream file_stream(metadata_file);
+    file_stream << main_object_string;
+    file_stream.flush();
+    file_stream.close();
 }
 
 std::filesystem::path Generator::get_flintc_cache_path() {
@@ -297,11 +391,12 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     const std::shared_ptr<DepNode> &dep_graph,                //
     const bool is_test                                        //
 ) {
-    PROFILE_SCOPE("Generate builtin libraries");
+    Profiler::start_task("Generate builtin libraries");
     if (!generate_builtin_modules()) {
         std::cerr << "Error: Failed to generate builtin modules. aborting..." << std::endl;
         abort();
     }
+    Profiler::end_task("Generate builtin libraries");
 
     PROFILE_SCOPE("Generate program '" + program_name + "'");
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);

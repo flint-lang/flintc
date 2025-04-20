@@ -234,6 +234,21 @@ build_llvm() {
     fi
 }
 
+fetch_json_mini() {
+    if [ ! -d "$root/vendor/json-mini" ]; then
+        echo "-- Fetching json-mini from GtiHub..."
+        cd "$root/vendor"
+        git clone "https://github.com/flint-lang/json-mini.git"
+        cd "$root"
+    else
+        echo "-- Updating json-mini repository..."
+        cd "$root/vendor/json-mini"
+        git fetch
+        git pull
+        cd "$root"
+    fi
+}
+
 # Sets up the cmake build directory for windows
 # $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of llvm
 setup_build_windows() {
@@ -549,6 +564,9 @@ fetch_llvm
 
 echo "-- Building all required llvm versions..."
 build_llvm
+
+echo "-- Making sure json-mini is up to date..."
+fetch_json_mini
 
 echo "-- Starting CMake configuration phase..."
 setup_builds

@@ -115,6 +115,9 @@ else()  # Linux
     endif()
 endif()
 
+# Include the vendor stuff (json-mini)
+include_directories(${CMAKE_SOURCE_DIR}/vendor/json-mini/include)
+
 # Always add this definition to prevent LLVM from using zstd
 add_definitions(-DLLVM_DISABLE_ZLIB_SYMBOLS -DLLVM_ENABLE_ZSTD=0)
 

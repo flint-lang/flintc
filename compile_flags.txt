@@ -1,4 +1,5 @@
 -Ivendor/llvm-project/llvm/include
+-Ivendor/json-mini/include
 -Iinclude
 -Itests
 -std=c++17

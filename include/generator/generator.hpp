@@ -315,7 +315,21 @@ class Generator {
 
     /// @function `generate_builtin_modules`
     /// @brief This function generates all builtin modules and compiles them to their .o files
+    ///
+    /// @return `bool` Whether everything worked out as expected, false if any errors occurred
     static bool generate_builtin_modules();
+
+    /// @function `which_builtin_modules_to_rebuild`
+    /// @brief Checks which builtin modules to rebuild
+    ///
+    /// @return `unsigned int` The bitfield of which modules to rebuild
+    static unsigned int which_builtin_modules_to_rebuild();
+
+    /// @function `save_metadata_json_file`
+    /// @brief Saves the metadata json file from the given arguments
+    ///
+    /// @param `overflow_mode_value` The overflow mode value to save
+    static void save_metadata_json_file(int overflow_mode_value);
 
     /// @class `IR`
     /// @brief The class which is responsible for the utility functions for the IR generation
