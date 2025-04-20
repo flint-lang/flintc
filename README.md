@@ -1,6 +1,6 @@
 # flintc
 
-This project contains the custom **Flint Compiler** built in C++. Flint is a statically typed, conpiled and fully deterministic lanfuage which has code clarity, ease of use and performance at its very top. 
+This project contains the custom **Flint Compiler** built in C++. Flint is a statically typed, conpiled and fully deterministic lanfuage which has code clarity, ease of use and performance at its very top.
 
 The Compiler is not done yet, as many planned features are still missing. The whole compiler pipeline is fully working and the core of the Flint compiler is getting closer to its finished state, but we are not there yet. You can look at the Wiki page to get a grasp of Flint's syntax but some parts of the wiki are already deprecated, as the design of Flint became more clear.
 
@@ -11,7 +11,7 @@ The Compiler is not done yet, as many planned features are still missing. The wh
 - [x] IR Generation (Generator)
 - [ ] Comprehensive Compile Error output (Error)
 - [ ] Semantics Checking Stage (Checker / Linter)
-- [ ] Linking of IR Files (Linker)
+- [x] Linking of Files (Linker)
 - [ ] Fetching libraries from FlintHub (Fetcher)
 - [x] Creation and Management of dependencies (Resolver)
 - [x] Compilation of IR code to a binary (Compiler)

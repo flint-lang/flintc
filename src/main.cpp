@@ -2,10 +2,9 @@
 #include "debug.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
-#include "linker_interface.hpp"
+#include "linker/linker.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/parser.hpp"
-#include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
 
@@ -150,9 +149,9 @@ void compile_program(const std::filesystem::path &binary_file, llvm::Module *mod
     const std::string obj_file = binary_file.string() + ".o";
 #endif
 
-    bool link_success = LinkerInterface::link(obj_file, // input object file
-        binary_file,                                    // output executable
-        is_static                                       // debug flag
+    bool link_success = Linker::link(obj_file, // input object file
+        binary_file,                           // output executable
+        is_static                              // debug flag
     );
 
     if (!link_success) {

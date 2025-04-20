@@ -3,7 +3,7 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "globals.hpp"
-#include "linker_interface.hpp"
+#include "linker/linker.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/parser.hpp"
@@ -191,7 +191,7 @@ bool Generator::generate_builtin_modules() {
 
     // Create the static .a file from all `.o` files
     Profiler::start_task("Creating static library libbuiltins.a");
-    bool merge_success = LinkerInterface::create_static_library(libs, cache_path / "libbuiltins.a");
+    bool merge_success = Linker::create_static_library(libs, cache_path / "libbuiltins.a");
     Profiler::end_task("Creating static library libbuiltins.a");
     return merge_success;
 }
