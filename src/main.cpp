@@ -79,7 +79,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
 
     // Parse the .ft file and resolve all inclusions
     Type::init_types();
-    Resolver::add_path(source_file_path.filename(), source_file_path.parent_path());
+    Resolver::add_path(source_file_path.filename().string(), source_file_path.parent_path());
     std::optional<FileNode> file = Parser::create(source_file_path)->parse();
     if (!file.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << source_file_path.filename() << DEFAULT
