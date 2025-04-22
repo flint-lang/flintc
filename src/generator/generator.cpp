@@ -225,7 +225,8 @@ unsigned int Generator::which_builtin_modules_to_rebuild() {
     unsigned int needed_rebuilds = BUILTIN_LIBS_TO_PRINT;
 
     // Then, we parse the metadata.json file in the cache directory, or if it doesnt exist, create it
-    const std::filesystem::path metadata_file = get_flintc_cache_path() / "metadata.json";
+    const std::filesystem::path cache_path = get_flintc_cache_path();
+    const std::filesystem::path metadata_file = cache_path / "metadata.json";
     if (!std::filesystem::exists(metadata_file)) {
         // If no metadata file existed, we need to re-build everything as we cannot be sure with which settings the .o files were built the
         // last time
@@ -244,43 +245,44 @@ unsigned int Generator::which_builtin_modules_to_rebuild() {
         save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
         // We dont know the settings of the old metadata.json file, so we rebuild everything
         return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
-    } else {
-        const auto main_group = dynamic_cast<const JsonGroup *>(metadata.value().get());
-        if (main_group == nullptr || main_group->name != "__ROOT__") {
+    }
+
+    // Read all the values from the metadata
+    const auto main_group = dynamic_cast<const JsonGroup *>(metadata.value().get());
+    if (main_group == nullptr || main_group->name != "__ROOT__") {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        // Set all bits to 1, e.g. rebuild everything
+        return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+    }
+    for (const auto &group : main_group->fields) {
+        const auto group_value = dynamic_cast<const JsonGroup *>(group.get());
+        if (group_value == nullptr) {
             THROW_BASIC_ERR(ERR_GENERATING);
             // Set all bits to 1, e.g. rebuild everything
             return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
         }
-        for (const auto &group : main_group->fields) {
-            const auto group_value = dynamic_cast<const JsonGroup *>(group.get());
-            if (group_value == nullptr) {
+        if (group_value->name == "arithmetic") {
+            // For now, we can assume that it contains a single value
+            const auto metadata_overflow_mode = dynamic_cast<const JsonNumber *>(group_value->fields.at(0).get());
+            if (metadata_overflow_mode == nullptr) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 // Set all bits to 1, e.g. rebuild everything
                 return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
             }
-            if (group_value->name == "arithmetic") {
-                // For now, we can assume that it contains a single value
-                const auto metadata_overflow_mode = dynamic_cast<const JsonNumber *>(group_value->fields.at(0).get());
-                if (metadata_overflow_mode == nullptr) {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    // Set all bits to 1, e.g. rebuild everything
-                    return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
-                }
-                if (metadata_overflow_mode->number != static_cast<int>(overflow_mode)) {
-                    // We need to rebuild the arithmetic.o file if the overflow modes dont match up
-                    needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
-                }
-            } else if (group_value->name == "array") {
-                const auto metadata_oob_mode = dynamic_cast<const JsonNumber *>(group_value->fields.at(0).get());
-                if (metadata_oob_mode == nullptr) {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    // Set all bits to 1, e.g. rebuild everything
-                    return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
-                }
-                if (metadata_oob_mode->number != static_cast<int>(oob_mode)) {
-                    // We need to rebuild the arithmetic.o file if the overflow modes dont match up
-                    needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
-                }
+            if (metadata_overflow_mode->number != static_cast<int>(overflow_mode)) {
+                // We need to rebuild the arithmetic.o file if the overflow modes dont match up
+                needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
+            }
+        } else if (group_value->name == "array") {
+            const auto metadata_oob_mode = dynamic_cast<const JsonNumber *>(group_value->fields.at(0).get());
+            if (metadata_oob_mode == nullptr) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                // Set all bits to 1, e.g. rebuild everything
+                return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+            }
+            if (metadata_oob_mode->number != static_cast<int>(oob_mode)) {
+                // We need to rebuild the arithmetic.o file if the overflow modes dont match up
+                needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
             }
         }
     }
