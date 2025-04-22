@@ -106,6 +106,9 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
     args.push_back("legacy_stdio_definitions.lib");
     args.push_back("ucrt.lib");
     args.push_back("vcruntime.lib");
+    std::string link_dir = "-L" + Generator::get_flintc_cache_path().string();
+    args.push_back(link_dir);
+    args.push_back("-lbuiltins");
 
     if (is_static) {
         args.push_back("/DEFAULTLIB:libcmt.lib");
