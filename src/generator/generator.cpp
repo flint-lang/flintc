@@ -421,6 +421,9 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     // Generate all the "hidden" arithmetic helper functions
     Arithmetic::generate_arithmetic_functions(builder.get(), module.get());
 
+    // Gneerate all the "hidden" array helper functions
+    Array::generate_array_manip_functions(builder.get(), module.get());
+
     if (!is_test) {
         // Generate main function in the main module
         Builtin::generate_builtin_main(builder.get(), module.get());

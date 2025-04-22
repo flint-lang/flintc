@@ -1931,8 +1931,7 @@ class Generator {
         /// - **Key** `std::string_view` - The name of the function
         /// - **Value** `llvm::Function *` - The reference to the genereated function
         ///
-        /// @attention The functions are nullpointers until the `generate_builtin_prints` function is called
-        /// @attention The map is not being cleared after the program module has been generated
+        /// @attention The functions are nullpointers until the `generate_string_manip_functions` function is called
         static inline std::unordered_map<std::string_view, llvm::Function *> string_manip_functions = {
             {"create_str", nullptr},
             {"init_str", nullptr},
@@ -2087,4 +2086,59 @@ class Generator {
             const bool is_append                                                                                //
         );
     }; // subclass String
+
+    /// @class `Array`
+    /// @brief The class which is responsible for generating everything related to arrays
+    /// @note This class cannot be initlaized and all functions within this class are static
+    class Array {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        Array() = delete;
+
+        /// @var `array_manip_functions`
+        /// @brief Map containing references to all array manipulation functions, to make array handling easier
+        ///
+        /// @details
+        /// - **Key** `std::string_view` - The name of the function
+        /// - **Value** `llvm::Function *` - The reference to the genereated function
+        ///
+        /// @attention The functions are nullpointers until the `generate_array_manip_functions` function is called
+        static inline std::unordered_map<std::string_view, llvm::Function *> array_manip_functions = {
+            {"create_arr", nullptr},
+            {"fill_arr", nullptr},
+            {"access_arr", nullptr},
+        };
+
+        /// @function `generate_create_arr_function`
+        /// @brief Generates the builtin hidden `create_arr` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `create_arr` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_create_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+        /// @function `generate_fill_arr_function`
+        /// @brief Generates the builtin hidden `fill_arr` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `fill_arr` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_fill_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+        /// @function `generate_access_arr_function`
+        /// @brief Generates the builtin hidden `access_arr` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `access_arr` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_access_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+        /// @function `generate_array_manip_functions`
+        /// @brief Generates all the builtin hidden array manipulation functions
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the array manipulation functions will be generated in
+        /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+        static void generate_array_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+    }; // subclass Array
 };
