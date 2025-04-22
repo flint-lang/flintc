@@ -2,6 +2,9 @@
 
 #include "cli_parser_base.hpp"
 #include "globals.hpp"
+#ifdef DEBUG_BUILD
+#include "colors.hpp"
+#endif
 
 #include <filesystem>
 #include <iostream>
@@ -80,6 +83,21 @@ class CLIParserMain : public CLIParserBase {
                     print_err("Unknown argument: " + arg);
                     return 1;
                 }
+            } else if (starts_with(arg, "--array-")) {
+                // Erase the '--arithmetic-' part of the string
+                const std::string arithmetic_overflow_behaviour = arg.substr(8, arg.length() - 8);
+                if (arithmetic_overflow_behaviour == "print") {
+                    oob_mode = ArrayOutOfBoundsMode::PRINT;
+                } else if (arithmetic_overflow_behaviour == "silent") {
+                    oob_mode = ArrayOutOfBoundsMode::SILENT;
+                } else if (arithmetic_overflow_behaviour == "crash") {
+                    oob_mode = ArrayOutOfBoundsMode::CRASH;
+                } else if (arithmetic_overflow_behaviour == "unsafe") {
+                    oob_mode = ArrayOutOfBoundsMode::UNSAFE;
+                } else {
+                    print_err("Unknown argument: " + arg);
+                    return 1;
+                }
 #ifdef DEBUG_BUILD
             } else if (arg == "--no-token-stream") {
                 PRINT_TOK_STREAM = false;
@@ -101,6 +119,8 @@ class CLIParserMain : public CLIParserBase {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::CAST);
             } else if (arg == "--print-ir-arithmetic") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
+            } else if (arg == "--print-ir-array") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);
@@ -151,19 +171,27 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --arithmetic-crash          Hard crashes when an overflow / underflow occurred\n";
         std::cout << "  --arithmetic-unsafe         Disables all overflow and underflow checks to make arithmetic operations faster";
         std::cout << std::endl;
+        std::cout << "\nArray Options:\n";
+        std::cout << "  --array-print               [Default] Prints a small message to the console whenever accessing an array OOB\n";
+        std::cout << "  --array-silent              Disables the debug printing when OOB access happens\n";
+        std::cout << "  --array-crash               Hard crashes when an OOB access happens\n";
+        std::cout << "  --array-unsafe              Disables all bounds checks for array accesses";
+        std::cout << std::endl;
 #ifdef DEBUG_BUILD
-        std::cout << "\nDebug Options:\n";
+        std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";
         std::cout << "  --no-token-stream           Disables the debug printing of the lexed Token stream\n";
         std::cout << "  --no-dep-tree               Disables the debug printing of the dependency tree\n";
         std::cout << "  --no-ast                    Disables the debug printing of the parsed AST tree\n";
         std::cout << "  --no-ir                     Disables the debug printing of the generated program IR code\n";
         std::cout << "  --no-profile                Disables the debug printing of the profiling results\n";
-        std::cout << "  --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
-        std::cout << "IR printing Options:\n";
+        std::cout << "  --hard-crash                Enables the option to hard crash the program in the case of a thrown error";
+        std::cout << std::endl;
+        std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
         std::cout << "  --print-ir-print            Enables printing of the IR code for the print.o library\n";
         std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library\n";
         std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
         std::cout << "  --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
+        std::cout << "  --print-ir-array            Enables printing of the IR code for the array.o library\n";
         std::cout << "                              HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used.";
         std::cout << std::endl;
 #endif

@@ -17,6 +17,7 @@ bool HARD_CRASH = false;
 
 unsigned int BUILTIN_LIBS_TO_PRINT = 0;
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
+ArrayOutOfBoundsMode oob_mode = ArrayOutOfBoundsMode::PRINT;
 
 PersistentThreadPool thread_pool;
 

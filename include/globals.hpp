@@ -13,8 +13,11 @@ extern bool PRINT_IR_PROGRAM;
 extern bool PRINT_PROFILE_RESULTS;
 extern bool HARD_CRASH;
 
-enum class BuiltinLibrary : unsigned int { PRINT = 1, STR = 2, CAST = 4, ARITHMETIC = 8 };
+enum class BuiltinLibrary : unsigned int { PRINT = 1, STR = 2, CAST = 4, ARITHMETIC = 8, ARRAY = 16 };
 extern unsigned int BUILTIN_LIBS_TO_PRINT;
 
 enum class ArithmeticOverflowMode : unsigned int { PRINT = 0, SILENT = 1, CRASH = 2, UNSAFE = 3 };
 extern ArithmeticOverflowMode overflow_mode;
+
+enum class ArrayOutOfBoundsMode : unsigned int { PRINT = 0, SILENT = 1, CRASH = 2, UNSAFE = 3 };
+extern ArrayOutOfBoundsMode oob_mode;
