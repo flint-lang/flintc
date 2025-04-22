@@ -84,7 +84,7 @@ bool Generator::generate_builtin_modules() {
 
         // Print the module, if requested
         if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::PRINT))) {
-            std::cout << YELLOW << "[Debug Info] Generated module: 'print':\n"
+            std::cout << YELLOW << "[Debug Info] Generated module 'print':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
         // Save the generated module at the module_path
@@ -106,7 +106,7 @@ bool Generator::generate_builtin_modules() {
 
         // Print the module, if requested
         if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::STR))) {
-            std::cout << YELLOW << "[Debug Info] Generated module: 'str':\n"
+            std::cout << YELLOW << "[Debug Info] Generated module 'str':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
         // Save the generated module at the module_path
@@ -130,7 +130,7 @@ bool Generator::generate_builtin_modules() {
 
         // Print the module, if requested
         if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::CAST))) {
-            std::cout << YELLOW << "[Debug Info] Generated module: 'cast':\n"
+            std::cout << YELLOW << "[Debug Info] Generated module 'cast':\n"
                       << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
         }
         // Save the generated module at the module_path
@@ -166,6 +166,29 @@ bool Generator::generate_builtin_modules() {
             return false;
         }
     }
+    // module 'array'
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ARRAY)) {
+        PROFILE_SCOPE("Generating module 'array'");
+        builder = std::make_unique<llvm::IRBuilder<>>(context);
+        module = std::make_unique<llvm::Module>("array", context);
+        Builtin::generate_c_functions(module.get());
+        Builtin::generate_builtin_prints(builder.get(), module.get(), true);
+        Array::generate_array_manip_functions(builder.get(), module.get(), false);
+
+        // Print the module, if requested
+        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::ARRAY))) {
+            std::cout << YELLOW << "[Debug Info] Generated Module 'array':\n"
+                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+        }
+        // Save the generated module at the module path
+        bool compilation_successful = compile_module(module.get(), cache_path / "array");
+        module.reset();
+        builder.reset();
+        if (!compilation_successful) {
+            std::cerr << "Error: Failed to generate builtin module 'array'" << std::endl;
+            return false;
+        }
+    }
     // Then, save the new metadata file
     save_metadata_json_file(static_cast<int>(overflow_mode));
 
@@ -182,6 +205,7 @@ bool Generator::generate_builtin_modules() {
     if (overflow_mode != ArithmeticOverflowMode::UNSAFE) {
         libs.emplace_back(cache_path / ("arithmetic" + file_ending));
     }
+    libs.emplace_back(cache_path / ("array" + file_ending));
 
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
