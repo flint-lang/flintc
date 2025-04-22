@@ -226,7 +226,7 @@ void Generator::Builtin::generate_builtin_print( //
     llvm::Function *print_function = llvm::Function::Create( //
         print_type,                                          //
         llvm::Function::ExternalLinkage,                     //
-        "print_" + type,                                     //
+        "__flint_print_" + type,                             //
         module                                               //
     );
     print_functions[type] = print_function;
@@ -275,7 +275,7 @@ void Generator::Builtin::generate_builtin_print_str_var(llvm::IRBuilder<> *build
     llvm::Function *print_str_function = llvm::Function::Create( //
         print_str_type,                                          //
         llvm::Function::ExternalLinkage,                         //
-        "print_str_var",                                         //
+        "__flint_print_str_var",                                 //
         module                                                   //
     );
     print_functions["str_var"] = print_str_function;
@@ -322,7 +322,7 @@ void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder,
     llvm::Function *print_function = llvm::Function::Create( //
         print_type,                                          //
         llvm::Function::ExternalLinkage,                     //
-        "print_bool",                                        //
+        "__flint_print_bool",                                //
         module                                               //
     );
     print_functions["bool"] = print_function;

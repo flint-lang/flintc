@@ -35,7 +35,7 @@ void Generator::Arithmetic::generate_int_safe_add( //
     llvm::Function *int_safe_add_fn = llvm::Function::Create( //
         int_safe_add_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        name + "_safe_add",                                   //
+        "__flint_" + name + "_safe_add",                      //
         module                                                //
     );
     arithmetic_functions[name + "_safe_add"] = int_safe_add_fn;
@@ -137,7 +137,7 @@ void Generator::Arithmetic::generate_int_safe_sub( //
     llvm::Function *int_safe_sub_fn = llvm::Function::Create( //
         int_safe_sub_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        name + "_safe_sub",                                   //
+        "__flint_" + name + "_safe_sub",                      //
         module                                                //
     );
     arithmetic_functions[name + "_safe_sub"] = int_safe_sub_fn;
@@ -239,7 +239,7 @@ void Generator::Arithmetic::generate_int_safe_mul( //
     llvm::Function *int_safe_mul_fn = llvm::Function::Create( //
         int_safe_mul_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        name + "_safe_mul",                                   //
+        "__flint_" + name + "_safe_mul",                      //
         module                                                //
     );
     arithmetic_functions[name + "_safe_mul"] = int_safe_mul_fn;
@@ -333,7 +333,7 @@ void Generator::Arithmetic::generate_int_safe_div( //
     llvm::Function *int_safe_div_fn = llvm::Function::Create( //
         int_safe_div_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        name + "_safe_div",                                   //
+        "__flint_" + name + "_safe_div",                      //
         module                                                //
     );
     arithmetic_functions[name + "_safe_div"] = int_safe_div_fn;
@@ -419,7 +419,7 @@ void Generator::Arithmetic::generate_uint_safe_add( //
     llvm::Function *uint_safe_add_fn = llvm::Function::Create( //
         uint_safe_add_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        name + "_safe_add",                                    //
+        "__flint_" + name + "_safe_add",                       //
         module                                                 //
     );
     arithmetic_functions[name + "_safe_add"] = uint_safe_add_fn;
@@ -495,7 +495,7 @@ void Generator::Arithmetic::generate_uint_safe_sub( //
     llvm::Function *uint_safe_sub_fn = llvm::Function::Create( //
         uint_safe_sub_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        name + "_safe_sub",                                    //
+        "__flint_" + name + "_safe_sub",                       //
         module                                                 //
     );
     arithmetic_functions[name + "_safe_sub"] = uint_safe_sub_fn;
@@ -572,7 +572,7 @@ void Generator::Arithmetic::generate_uint_safe_mul( //
     llvm::Function *uint_safe_mul_fn = llvm::Function::Create( //
         uint_safe_mul_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        name + "_safe_mul",                                    //
+        "__flint_" + name + "_safe_mul",                       //
         module                                                 //
     );
     arithmetic_functions[name + "_safe_mul"] = uint_safe_mul_fn;
@@ -655,7 +655,7 @@ void Generator::Arithmetic::generate_uint_safe_div( //
     llvm::Function *uint_safe_div_fn = llvm::Function::Create( //
         uint_safe_div_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        name + "_safe_div",                                    //
+        "__flint_" + name + "_safe_div",                       //
         module                                                 //
     );
     arithmetic_functions[name + "_safe_div"] = uint_safe_div_fn;

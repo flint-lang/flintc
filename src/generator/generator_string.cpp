@@ -21,7 +21,7 @@ void Generator::String::generate_create_str_function(llvm::IRBuilder<> *builder,
     llvm::Function *create_str_fn = llvm::Function::Create( //
         create_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "create_str",                                       //
+        "__flint_create_str",                               //
         module                                              //
     );
     string_manip_functions["create_str"] = create_str_fn;
@@ -79,7 +79,7 @@ void Generator::String::generate_init_str_function(llvm::IRBuilder<> *builder, l
     llvm::Function *init_str_fn = llvm::Function::Create( //
         init_str_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        "init_str",                                       //
+        "__flint_init_str",                               //
         module                                            //
     );
     string_manip_functions["init_str"] = init_str_fn;
@@ -133,7 +133,12 @@ void Generator::String::generate_compare_str_function(llvm::IRBuilder<> *builder
         },                            //
         false                         // No varargs
     );
-    llvm::Function *compare_str_fn = llvm::Function::Create(compare_str_type, llvm::Function::ExternalLinkage, "compare_str", module);
+    llvm::Function *compare_str_fn = llvm::Function::Create( //
+        compare_str_type,                                    //
+        llvm::Function::ExternalLinkage,                     //
+        "__flint_compare_str",                               //
+        module                                               //
+    );
     string_manip_functions["compare_str"] = compare_str_fn;
     if (only_declarations) {
         return;
@@ -216,7 +221,7 @@ void Generator::String::generate_assign_str_function(llvm::IRBuilder<> *builder,
     llvm::Function *assign_str_fn = llvm::Function::Create( //
         assign_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "assign_str",                                       //
+        "__flint_assign_str",                               //
         module                                              //
     );
     string_manip_functions["assign_str"] = assign_str_fn;
@@ -273,7 +278,7 @@ void Generator::String::generate_assign_lit_function(llvm::IRBuilder<> *builder,
     llvm::Function *assign_lit_fn = llvm::Function::Create( //
         assign_lit_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "assign_lit",                                       //
+        "__flint_assign_lit",                               //
         module                                              //
     );
     string_manip_functions["assign_lit"] = assign_lit_fn;
@@ -345,7 +350,7 @@ void Generator::String::generate_append_str_function(llvm::IRBuilder<> *builder,
         },                                            //
         false                                         // No varargs
     );
-    llvm::Function *append_str_fn = llvm::Function::Create(append_str_type, llvm::Function::ExternalLinkage, "append_str", module);
+    llvm::Function *append_str_fn = llvm::Function::Create(append_str_type, llvm::Function::ExternalLinkage, "__flint_append_str", module);
     string_manip_functions["append_str"] = append_str_fn;
     if (only_declarations) {
         return;
@@ -429,7 +434,7 @@ void Generator::String::generate_append_lit_function(llvm::IRBuilder<> *builder,
         },                                                  //
         false                                               // No varargs
     );
-    llvm::Function *append_lit_fn = llvm::Function::Create(append_lit_type, llvm::Function::ExternalLinkage, "append_lit", module);
+    llvm::Function *append_lit_fn = llvm::Function::Create(append_lit_type, llvm::Function::ExternalLinkage, "__flint_append_lit", module);
     string_manip_functions["append_lit"] = append_lit_fn;
     if (only_declarations) {
         return;
@@ -509,7 +514,7 @@ void Generator::String::generate_add_str_str_function(llvm::IRBuilder<> *builder
     llvm::Function *add_str_str_fn = llvm::Function::Create( //
         add_str_str_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "add_str_str",                                       //
+        "__flint_add_str_str",                               //
         module                                               //
     );
     string_manip_functions["add_str_str"] = add_str_str_fn;
@@ -589,7 +594,7 @@ void Generator::String::generate_add_str_lit_function(llvm::IRBuilder<> *builder
     llvm::Function *add_str_lit_fn = llvm::Function::Create( //
         add_str_lit_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "add_str_lit",                                       //
+        "__flint_add_str_lit",                               //
         module                                               //
     );
     string_manip_functions["add_str_lit"] = add_str_lit_fn;
@@ -666,7 +671,7 @@ void Generator::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder
     llvm::Function *add_lit_str_fn = llvm::Function::Create( //
         add_lit_str_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "add_lit_str",                                       //
+        "__flint_add_lit_str",                               //
         module                                               //
     );
     string_manip_functions["add_lit_str"] = add_lit_str_fn;

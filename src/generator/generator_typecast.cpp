@@ -34,7 +34,12 @@ void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *buil
     );
 
     // Create the function
-    llvm::Function *count_digits_fn = llvm::Function::Create(count_digits_type, llvm::Function::ExternalLinkage, "count_digits", module);
+    llvm::Function *count_digits_fn = llvm::Function::Create( //
+        count_digits_type,                                    //
+        llvm::Function::ExternalLinkage,                      //
+        "__flint_count_digits",                               //
+        module                                                //
+    );
 
     // Set parameter name
     llvm::Argument *n_arg = count_digits_fn->arg_begin();
@@ -113,7 +118,12 @@ void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm:
         {llvm::Type::getInt1Ty(context)},                           // Argument: i1 b_value
         false                                                       // No varargs
     );
-    llvm::Function *bool_to_str_fn = llvm::Function::Create(bool_to_str_type, llvm::Function::ExternalLinkage, "bool_to_str", module);
+    llvm::Function *bool_to_str_fn = llvm::Function::Create( //
+        bool_to_str_type,                                    //
+        llvm::Function::ExternalLinkage,                     //
+        "__flint_bool_to_str",                               //
+        module                                               //
+    );
     typecast_functions["bool_to_str"] = bool_to_str_fn;
     if (only_declarations) {
         return;
@@ -222,7 +232,12 @@ void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::
         {llvm::Type::getInt32Ty(context)},                         // Argument: i32 n
         false                                                      // No varargs
     );
-    llvm::Function *i32_to_str_fn = llvm::Function::Create(i32_to_str_type, llvm::Function::ExternalLinkage, "i32_to_str", module);
+    llvm::Function *i32_to_str_fn = llvm::Function::Create( //
+        i32_to_str_type,                                    //
+        llvm::Function::ExternalLinkage,                    //
+        "__flint_i32_to_str",                               //
+        module                                              //
+    );
     typecast_functions["i32_to_str"] = i32_to_str_fn;
     if (only_declarations) {
         return;
@@ -397,7 +412,12 @@ void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::
         {llvm::Type::getInt32Ty(context)},                         // Argument: u32 n
         false                                                      // No varargs
     );
-    llvm::Function *u32_to_str_fn = llvm::Function::Create(u32_to_str_type, llvm::Function::ExternalLinkage, "u32_to_str", module);
+    llvm::Function *u32_to_str_fn = llvm::Function::Create( //
+        u32_to_str_type,                                    //
+        llvm::Function::ExternalLinkage,                    //
+        "__flint_u32_to_str",                               //
+        module                                              //
+    );
     typecast_functions["u32_to_str"] = u32_to_str_fn;
     if (only_declarations) {
         return;
@@ -584,7 +604,12 @@ void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::
         {llvm::Type::getInt64Ty(context)},                         // Argument: i64 i_value
         false                                                      // No varargs
     );
-    llvm::Function *i64_to_str_fn = llvm::Function::Create(i64_to_str_type, llvm::Function::ExternalLinkage, "i64_to_str", module);
+    llvm::Function *i64_to_str_fn = llvm::Function::Create( //
+        i64_to_str_type,                                    //
+        llvm::Function::ExternalLinkage,                    //
+        "__flint_i64_to_str",                               //
+        module                                              //
+    );
     typecast_functions["i64_to_str"] = i64_to_str_fn;
     if (only_declarations) {
         return;
@@ -767,7 +792,12 @@ void Generator::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder, llvm::
         {llvm::Type::getInt64Ty(context)},                         // Argument: u64 u_value
         false                                                      // No varargs
     );
-    llvm::Function *u64_to_str_fn = llvm::Function::Create(u64_to_str_type, llvm::Function::ExternalLinkage, "u64_to_str", module);
+    llvm::Function *u64_to_str_fn = llvm::Function::Create( //
+        u64_to_str_type,                                    //
+        llvm::Function::ExternalLinkage,                    //
+        "__flint_u64_to_str",                               //
+        module                                              //
+    );
     typecast_functions["u64_to_str"] = u64_to_str_fn;
     if (only_declarations) {
         return;
@@ -947,7 +977,12 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
         {llvm::Type::getFloatTy(context)},                         // Argument: f32 f_value
         false                                                      // No varargs
     );
-    llvm::Function *f32_to_str_fn = llvm::Function::Create(f32_to_str_type, llvm::Function::ExternalLinkage, "f32_to_str", module);
+    llvm::Function *f32_to_str_fn = llvm::Function::Create( //
+        f32_to_str_type,                                    //
+        llvm::Function::ExternalLinkage,                    //
+        "__flint_f32_to_str",                               //
+        module                                              //
+    );
     typecast_functions["f32_to_str"] = f32_to_str_fn;
     if (only_declarations) {
         return;
@@ -1250,7 +1285,12 @@ void Generator::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder, llvm::
         {llvm::Type::getDoubleTy(context)},                        // Argument: f64 d_value
         false                                                      // No varargs
     );
-    llvm::Function *f64_to_str_fn = llvm::Function::Create(f64_to_str_type, llvm::Function::ExternalLinkage, "f64_to_str", module);
+    llvm::Function *f64_to_str_fn = llvm::Function::Create( //
+        f64_to_str_type,                                    //
+        llvm::Function::ExternalLinkage,                    //
+        "__flint_f64_to_str",                               //
+        module                                              //
+    );
     typecast_functions["f64_to_str"] = f64_to_str_fn;
     if (only_declarations) {
         return;

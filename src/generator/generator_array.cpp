@@ -37,7 +37,7 @@ void Generator::Array::generate_create_arr_function(llvm::IRBuilder<> *builder, 
     llvm::Function *create_arr_fn = llvm::Function::Create( //
         create_arr_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "create_arr",                                       //
+        "__flint_create_arr",                               //
         module                                              //
     );
     array_manip_functions["create_arr"] = create_arr_fn;
@@ -175,7 +175,7 @@ void Generator::Array::generate_fill_arr_function(llvm::IRBuilder<> *builder, ll
     llvm::Function *fill_arr_fn = llvm::Function::Create( //
         fill_arr_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        "fill_arr",                                       //
+        "__flint_fill_arr",                               //
         module                                            //
     );
     array_manip_functions["fill_arr"] = fill_arr_fn;
@@ -395,7 +395,7 @@ void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, 
     llvm::Function *access_arr_fn = llvm::Function::Create( //
         access_arr_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "access_arr",                                       //
+        "__flint_access_arr",                               //
         module                                              //
     );
     array_manip_functions["access_arr"] = access_arr_fn;
