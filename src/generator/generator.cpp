@@ -273,6 +273,28 @@ unsigned int Generator::which_builtin_modules_to_rebuild() {
             }
         }
     }
+
+    // Check which object files exist. If any does not exist, it needs to be rebuilt
+#ifdef __WIN32__
+    const std::string file_ending = ".obj";
+#else
+    const std::string file_ending = ".o";
+#endif
+    if (!std::filesystem::exists(cache_path / ("print" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::PRINT);
+    }
+    if (!std::filesystem::exists(cache_path / ("str" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::STR);
+    }
+    if (!std::filesystem::exists(cache_path / ("cast" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::CAST);
+    }
+    if (!std::filesystem::exists(cache_path / ("arithmetic" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
+    }
+    if (!std::filesystem::exists(cache_path / ("array" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
+    }
     return needed_rebuilds;
 }
 
