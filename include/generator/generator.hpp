@@ -329,7 +329,8 @@ class Generator {
     /// @brief Saves the metadata json file from the given arguments
     ///
     /// @param `overflow_mode_value` The overflow mode value to save
-    static void save_metadata_json_file(int overflow_mode_value);
+    /// @param `oob_mode_value` The out of bounds mode value to save
+    static void save_metadata_json_file(int overflow_mode_value, int oob_mode_value);
 
     /// @class `IR`
     /// @brief The class which is responsible for the utility functions for the IR generation

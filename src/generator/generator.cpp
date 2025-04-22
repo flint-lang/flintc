@@ -190,7 +190,7 @@ bool Generator::generate_builtin_modules() {
         }
     }
     // Then, save the new metadata file
-    save_metadata_json_file(static_cast<int>(overflow_mode));
+    save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
 
     // Now, merge together all object files into one single .o / .obj file
 #ifdef __WIN32__
@@ -233,17 +233,17 @@ unsigned int Generator::which_builtin_modules_to_rebuild() {
             std::cout << YELLOW << "[Debug Info] Rebuilding all library files because no metadata.json file was found\n" << DEFAULT;
             std::cout << "-- overflow_mode: " << static_cast<unsigned int>(overflow_mode) << "\n" << std::endl;
         }
-        save_metadata_json_file(static_cast<int>(overflow_mode));
+        save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
         return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
     }
 
     std::vector<JsonToken> tokens = JsonLexer::scan(metadata_file);
     std::optional<std::unique_ptr<JsonObject>> metadata = JsonParser::parse(tokens);
     if (!metadata.has_value()) {
-        // Failed to parse the metadata, so we create a default metadata json file
-        save_metadata_json_file(0);
-        // We dont know if the last overflow_mode was different, so we need to always rebuild the arithmetic.o file
-        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
+        // Failed to parse the metadata, so we create the current metadata json file
+        save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
+        // We dont know the settings of the old metadata.json file, so we rebuild everything
+        return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
     } else {
         const auto main_group = dynamic_cast<const JsonGroup *>(metadata.value().get());
         if (main_group == nullptr || main_group->name != "__ROOT__") {
@@ -276,15 +276,20 @@ unsigned int Generator::which_builtin_modules_to_rebuild() {
     return needed_rebuilds;
 }
 
-void Generator::save_metadata_json_file(int overflow_mode_value) {
+void Generator::save_metadata_json_file(int overflow_mode_value, int oob_mode_value) {
     std::unique_ptr<JsonObject> overflow_mode_object = std::make_unique<JsonNumber>("overflow_mode", overflow_mode_value);
-
     std::vector<std::unique_ptr<JsonObject>> arithmetic_group_content;
     arithmetic_group_content.emplace_back(std::move(overflow_mode_object));
     std::unique_ptr<JsonObject> arithmetic_group = std::make_unique<JsonGroup>("arithmetic", arithmetic_group_content);
 
+    std::unique_ptr<JsonObject> oob_mode_object = std::make_unique<JsonNumber>("oob_mode", oob_mode_value);
+    std::vector<std::unique_ptr<JsonObject>> array_group_content;
+    array_group_content.emplace_back(std::move(oob_mode_object));
+    std::unique_ptr<JsonObject> array_group = std::make_unique<JsonGroup>("array", array_group_content);
+
     std::vector<std::unique_ptr<JsonObject>> main_object_content;
     main_object_content.emplace_back(std::move(arithmetic_group));
+    main_object_content.emplace_back(std::move(array_group));
     std::unique_ptr<JsonObject> main_object = std::make_unique<JsonGroup>("__ROOT__", main_object_content);
 
     std::string main_object_string = JsonParser::to_string(main_object.get());
