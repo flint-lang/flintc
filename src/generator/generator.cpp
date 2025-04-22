@@ -270,6 +270,17 @@ unsigned int Generator::which_builtin_modules_to_rebuild() {
                     // We need to rebuild the arithmetic.o file if the overflow modes dont match up
                     needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
                 }
+            } else if (group_value->name == "array") {
+                const auto metadata_oob_mode = dynamic_cast<const JsonNumber *>(group_value->fields.at(0).get());
+                if (metadata_oob_mode == nullptr) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    // Set all bits to 1, e.g. rebuild everything
+                    return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+                }
+                if (metadata_oob_mode->number != static_cast<int>(oob_mode)) {
+                    // We need to rebuild the arithmetic.o file if the overflow modes dont match up
+                    needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
+                }
             }
         }
     }
