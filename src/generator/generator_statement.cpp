@@ -5,6 +5,8 @@
 
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/type/array_type.hpp"
+#include "parser/type/simple_type.hpp"
 
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Metadata.h>
@@ -69,14 +71,25 @@ void Generator::Statement::clear_garbage(                                       
             if (DEBUG_MODE) {
                 std::cout << "  -- Type '" << type->to_string() << "' val addr: " << llvm_val << "\n";
             }
-            if (type->to_string() == "str") {
-                llvm::Function *free_fn = c_functions.at(FREE);
-                llvm::CallInst *free_call = builder.CreateCall(free_fn, {llvm_val});
+            if (const auto simple_type = dynamic_cast<const SimpleType *>(type.get())) {
+                if (simple_type->type_name == "str") {
+                    llvm::Function *free_fn = c_functions.at(FREE);
+                    llvm::CallInst *free_call = builder.CreateCall(free_fn, {llvm_val});
+                    free_call->setMetadata("comment",
+                        llvm::MDNode::get(context,
+                            llvm::MDString ::get(context, "Clear garbage of type 'str', depth " + std::to_string(key))));
+                } else {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return;
+                }
+            } else if (auto array_type = dynamic_cast<ArrayType *>(type.get())) {
+                // For now, we dont allow jagged arrays. If we would add jagged arrays we would need a recursive tip-to-root freeing system
+                // here, but for now we keep it simple
+                llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {llvm_val});
                 free_call->setMetadata("comment",
-                    llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear garbage of type 'str', depth " + std::to_string(key))));
-            } else {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return;
+                    llvm::MDNode::get(context,
+                        llvm::MDString ::get(context,
+                            "Clear garbage of type '" + array_type->to_string() + "', depth " + std::to_string(key))));
             }
         }
     }
