@@ -137,7 +137,6 @@ void compile_program(const std::filesystem::path &binary_file, llvm::Module *mod
     PROFILE_SCOPE("Compile program " + module->getName().str());
 
     // Direct linking with LDD
-    PROFILE_SCOPE("Creating the binary '" + binary_file.filename().string() + "'");
     if (!Generator::compile_module(module, binary_file)) {
         llvm::errs() << "Compilation of program '" << binary_file.string() << "' failed\n";
         return;
@@ -149,10 +148,12 @@ void compile_program(const std::filesystem::path &binary_file, llvm::Module *mod
     const std::string obj_file = binary_file.string() + ".o";
 #endif
 
+    Profiler::start_task("Linking " + obj_file + " to a binary");
     bool link_success = Linker::link(obj_file, // input object file
         binary_file,                           // output executable
         is_static                              // debug flag
     );
+    Profiler::end_task("Linking " + obj_file + " to a binary");
 
     if (!link_success) {
         llvm::errs() << "Linking failed with LLD\n";
