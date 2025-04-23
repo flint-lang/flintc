@@ -2126,6 +2126,14 @@ class Generator {
         /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         static void generate_fill_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
+        /// @function `generate_fill_arr_val_function`
+        /// @brief Generates the builtin hidden `fill_arr_val` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `fill_arr_val` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the generation for it
+        static void generate_fill_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
         /// @function `generate_access_arr_function`
         /// @brief Generates the builtin hidden `access_arr` function
         ///

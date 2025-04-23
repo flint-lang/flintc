@@ -359,6 +359,233 @@ void Generator::Array::generate_fill_arr_function(llvm::IRBuilder<> *builder, ll
     builder->CreateRetVoid();
 }
 
+void Generator::Array::generate_fill_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // void fill_arr_val(str *arr, const size_t element_size, const size_t value) {
+    //     const size_t dimensionality = arr->len;
+    //     size_t *dim_lengths = (size_t *)arr->value;
+    //     size_t total_elements = 1;
+    //     for (size_t i = 0; i < dimensionality; i++) {
+    //         total_elements *= dim_lengths[i];
+    //     }
+    //     char *data_start = (char *)(dim_lengths + dimensionality);
+    //     memcpy(data_start, &value, element_size);
+    //     // Use exponential approach for small elements or sequential for large elements
+    //     if (element_size < 128) { // Threshold based on benchmarks
+    //         // Exponential fill
+    //         size_t filled = 1;
+    //         while (filled < total_elements) {
+    //             size_t to_copy = (filled <= total_elements - filled) ? filled : total_elements - filled;
+    //             memcpy(data_start + (filled * element_size), data_start, to_copy * element_size);
+    //             filled += to_copy;
+    //         }
+    //         return;
+    //     }
+    //     // Sequential fill
+    //     for (size_t i = 1; i < total_elements; i++) {
+    //         memcpy(data_start + (i * element_size), data_start + ((i - 1) * element_size), element_size);
+    //     }
+    // }
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+
+    llvm::FunctionType *fill_arr_val_type = llvm::FunctionType::get( //
+        builder->getVoidTy(),                                        // Return type: void
+        {
+            str_type->getPointerTo(), // Argument str* arr
+            builder->getInt64Ty(),    // Argument size_t element_size
+            builder->getInt64Ty()     // Argument size_t value
+        },
+        false // No vaargs
+    );
+    llvm::Function *fill_arr_val_fn = llvm::Function::Create( //
+        fill_arr_val_type,                                    //
+        llvm::Function::ExternalLinkage,                      //
+        "__flint_fill_arr_val",                               //
+        module                                                //
+    );
+    array_manip_functions["fill_arr_val"] = fill_arr_val_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the parameter (dimensionality)
+    llvm::Argument *arg_arr = fill_arr_val_fn->arg_begin();
+    arg_arr->setName("arr");
+    // Get the parameter (element_size)
+    llvm::Argument *arg_element_size = fill_arr_val_fn->arg_begin() + 1;
+    arg_element_size->setName("element_size");
+    // Get the parameter (lengths)
+    llvm::Argument *arg_value = fill_arr_val_fn->arg_begin() + 2;
+    arg_value->setName("value");
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", fill_arr_val_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Get dimensionality = arr->len
+    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_arr, 0, "len_ptr");
+    llvm::Value *dimensionality = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "dimensionality");
+
+    // Get dim_lengths = (size_t *)arr->value
+    llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
+    llvm::Value *dim_lengths = builder->CreateBitCast(value_ptr, builder->getInt64Ty()->getPointerTo(), "dim_lengths");
+
+    // Initialize total_elements = 1
+    llvm::Value *total_elements_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "total_elements_ptr");
+    builder->CreateStore(builder->getInt64(1), total_elements_ptr);
+
+    // Create loop for calculating total_elements
+    llvm::BasicBlock *loop1_entry = llvm::BasicBlock::Create(context, "loop1_entry", fill_arr_val_fn);
+    llvm::BasicBlock *loop1_body = llvm::BasicBlock::Create(context, "loop1_body", fill_arr_val_fn);
+    llvm::BasicBlock *loop1_exit = llvm::BasicBlock::Create(context, "loop1_exit", fill_arr_val_fn);
+
+    // Create loop counter
+    llvm::Value *counter1 = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
+    builder->CreateStore(builder->getInt64(0), counter1);
+
+    // Branch to loop condition check
+    builder->CreateBr(loop1_entry);
+
+    // Loop entry (condition check)
+    builder->SetInsertPoint(loop1_entry);
+    llvm::Value *current_counter1 = builder->CreateLoad(builder->getInt64Ty(), counter1, "current_counter");
+    llvm::Value *cond1 = builder->CreateICmpULT(current_counter1, dimensionality, "loop1_cond");
+    builder->CreateCondBr(cond1, loop1_body, loop1_exit);
+
+    // Loop body
+    builder->SetInsertPoint(loop1_body);
+
+    // Load the current dimension length: dim_lengths[i]
+    llvm::Value *length_ptr = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, current_counter1, "length_ptr");
+    llvm::Value *current_length = builder->CreateLoad(builder->getInt64Ty(), length_ptr, "current_length");
+
+    // total_elements *= dim_lengths[i]
+    llvm::Value *current_total = builder->CreateLoad(builder->getInt64Ty(), total_elements_ptr, "current_total");
+    llvm::Value *new_total = builder->CreateMul(current_total, current_length, "new_total");
+    builder->CreateStore(new_total, total_elements_ptr);
+
+    // Increment counter
+    llvm::Value *next_counter1 = builder->CreateAdd(current_counter1, builder->getInt64(1), "next_counter");
+    builder->CreateStore(next_counter1, counter1);
+
+    // Jump back to condition check
+    builder->CreateBr(loop1_entry);
+
+    // Loop1 exit
+    builder->SetInsertPoint(loop1_exit);
+
+    // Load the final total_elements value
+    llvm::Value *total_elements = builder->CreateLoad(builder->getInt64Ty(), total_elements_ptr, "total_elements");
+
+    // Calculate data_start = (char *)(dim_lengths + dimensionality)
+    // This means moving past the dimension lengths to get to the actual array data
+    llvm::Value *dim_lengths_offset = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, dimensionality, "dim_lengths_offset");
+    llvm::Value *data_start = builder->CreateBitCast(dim_lengths_offset, builder->getInt8Ty()->getPointerTo(), "data_start");
+
+    // memcpy(data_start, &value, element_size) - copy the initial value to the first element
+    llvm::Value *value_alloca = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "value_temp");
+    builder->CreateStore(arg_value, value_alloca);
+    builder->CreateCall(memcpy_fn, {data_start, value_alloca, arg_element_size});
+
+    // Create if-else for choosing exponential or sequential fill
+    llvm::Value *size_cond = builder->CreateICmpULT(arg_element_size, builder->getInt64(128), "size_cond");
+
+    llvm::BasicBlock *exp_fill_block = llvm::BasicBlock::Create(context, "exp_fill", fill_arr_val_fn);
+    llvm::BasicBlock *seq_fill_block = llvm::BasicBlock::Create(context, "seq_fill", fill_arr_val_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", fill_arr_val_fn);
+
+    builder->CreateCondBr(size_cond, exp_fill_block, seq_fill_block);
+
+    // Exponential fill block
+    builder->SetInsertPoint(exp_fill_block);
+
+    // size_t filled = 1
+    llvm::Value *filled_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "filled_ptr");
+    builder->CreateStore(builder->getInt64(1), filled_ptr);
+
+    llvm::BasicBlock *exp_loop_entry = llvm::BasicBlock::Create(context, "exp_loop_entry", fill_arr_val_fn);
+    llvm::BasicBlock *exp_loop_body = llvm::BasicBlock::Create(context, "exp_loop_body", fill_arr_val_fn);
+
+    builder->CreateBr(exp_loop_entry);
+
+    // Exponential fill loop condition
+    builder->SetInsertPoint(exp_loop_entry);
+    llvm::Value *current_filled = builder->CreateLoad(builder->getInt64Ty(), filled_ptr, "current_filled");
+    llvm::Value *exp_cond = builder->CreateICmpULT(current_filled, total_elements, "exp_cond");
+    builder->CreateCondBr(exp_cond, exp_loop_body, exit_block);
+
+    // Exponential fill loop body
+    builder->SetInsertPoint(exp_loop_body);
+
+    // Calculate to_copy = (filled <= total_elements - filled) ? filled : total_elements - filled
+    llvm::Value *remaining = builder->CreateSub(total_elements, current_filled, "remaining");
+    llvm::Value *cmp_filled_remaining = builder->CreateICmpULE(current_filled, remaining, "cmp_filled_remaining");
+    llvm::Value *to_copy = builder->CreateSelect(cmp_filled_remaining, current_filled, remaining, "to_copy");
+
+    // Calculate destination: data_start + (filled * element_size)
+    llvm::Value *dest_offset = builder->CreateMul(current_filled, arg_element_size, "dest_offset");
+    llvm::Value *dest_ptr = builder->CreateGEP(builder->getInt8Ty(), data_start, dest_offset, "dest_ptr");
+
+    // Calculate copy size: to_copy * element_size
+    llvm::Value *copy_size = builder->CreateMul(to_copy, arg_element_size, "copy_size");
+
+    // memcpy(data_start + (filled * element_size), data_start, to_copy * element_size)
+    builder->CreateCall(memcpy_fn, {dest_ptr, data_start, copy_size});
+
+    // filled += to_copy
+    llvm::Value *new_filled = builder->CreateAdd(current_filled, to_copy, "new_filled");
+    builder->CreateStore(new_filled, filled_ptr);
+
+    // Jump back to loop condition
+    builder->CreateBr(exp_loop_entry);
+
+    // Sequential fill block
+    builder->SetInsertPoint(seq_fill_block);
+
+    // Create loop for sequential fill
+    llvm::BasicBlock *seq_loop_entry = llvm::BasicBlock::Create(context, "seq_loop_entry", fill_arr_val_fn);
+    llvm::BasicBlock *seq_loop_body = llvm::BasicBlock::Create(context, "seq_loop_body", fill_arr_val_fn);
+
+    // Initialize i = 1
+    llvm::Value *seq_counter = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "seq_i");
+    builder->CreateStore(builder->getInt64(1), seq_counter);
+
+    builder->CreateBr(seq_loop_entry);
+
+    // Sequential fill loop condition
+    builder->SetInsertPoint(seq_loop_entry);
+    llvm::Value *current_seq_counter = builder->CreateLoad(builder->getInt64Ty(), seq_counter, "current_seq_counter");
+    llvm::Value *seq_cond = builder->CreateICmpULT(current_seq_counter, total_elements, "seq_cond");
+    builder->CreateCondBr(seq_cond, seq_loop_body, exit_block);
+
+    // Sequential fill loop body
+    builder->SetInsertPoint(seq_loop_body);
+
+    // Calculate src: data_start + ((i - 1) * element_size)
+    llvm::Value *prev_index = builder->CreateSub(current_seq_counter, builder->getInt64(1), "prev_index");
+    llvm::Value *src_offset = builder->CreateMul(prev_index, arg_element_size, "src_offset");
+    llvm::Value *src_ptr = builder->CreateGEP(builder->getInt8Ty(), data_start, src_offset, "src_ptr");
+
+    // Calculate dest: data_start + (i * element_size)
+    llvm::Value *curr_offset = builder->CreateMul(current_seq_counter, arg_element_size, "curr_offset");
+    llvm::Value *curr_ptr = builder->CreateGEP(builder->getInt8Ty(), data_start, curr_offset, "curr_ptr");
+
+    // memcpy(data_start + (i * element_size), data_start + ((i - 1) * element_size), element_size)
+    builder->CreateCall(memcpy_fn, {curr_ptr, src_ptr, arg_element_size});
+
+    // Increment counter
+    llvm::Value *next_seq_counter = builder->CreateAdd(current_seq_counter, builder->getInt64(1), "next_seq_counter");
+    builder->CreateStore(next_seq_counter, seq_counter);
+
+    // Jump back to loop condition
+    builder->CreateBr(seq_loop_entry);
+
+    // Exit block
+    builder->SetInsertPoint(exit_block);
+    builder->CreateRetVoid();
+}
+
 void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // char *access_arr(str *arr, const size_t element_size, const size_t *indices) {
@@ -544,5 +771,6 @@ void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, 
 void Generator::Array::generate_array_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declaration) {
     generate_create_arr_function(builder, module, only_declaration);
     generate_fill_arr_function(builder, module, only_declaration);
+    generate_fill_arr_val_function(builder, module, only_declaration);
     generate_access_arr_function(builder, module, only_declaration);
 }
