@@ -78,12 +78,9 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
         // Check if its a primitive or not. If it is not a primitive, its just a pointer type
         if (simple_type->type_name == "str_var") {
             // A string is a struct of type 'type { i64, [0 x i8] }'
-            llvm::StructType *str_type;
-            if (type_map.find("type_str") != type_map.end()) {
-                str_type = type_map["type_str"];
-            } else {
-                str_type = llvm::StructType::create( //
-                    context,                         //
+            if (type_map.find("type_str") == type_map.end()) {
+                llvm::StructType *str_type = llvm::StructType::create( //
+                    context,                                           //
                     {
                         llvm::Type::getInt64Ty(context),                        // len of string
                         llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
@@ -93,7 +90,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
                 );
                 type_map["type_str"] = str_type;
             }
-            return {str_type, false};
+            return {type_map.at("type_str"), false};
         }
         if (keywords.find(simple_type->type_name) != keywords.end()) {
             switch (keywords.at(simple_type->type_name)) {
@@ -130,26 +127,21 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
             types.emplace_back(data_type->data_node->fields.at(order_name).first);
         }
         return {add_and_or_get_type(types, false), true};
-    } else if (ArrayType *array_type = dynamic_cast<ArrayType *>(type.get())) {
-        // First, get the content type of the array
-        std::pair<llvm::Type *, bool> arr_val_type = get_type(array_type->type);
-        llvm::StructType *arr_type;
-        const std::string arr_type_name = "type_" + array_type->to_string();
-        if (type_map.find(arr_type_name) != type_map.end()) {
-            arr_type = type_map[arr_type_name];
-        } else {
-            arr_type = llvm::StructType::create( //
-                context,                         //
+    } else if (dynamic_cast<ArrayType *>(type.get())) {
+        // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
+        if (type_map.find("type_str") == type_map.end()) {
+            llvm::StructType *str_type = llvm::StructType::create( //
+                context,                                           //
                 {
-                    llvm::Type::getInt64Ty(context),            // len of array
-                    llvm::ArrayType::get(arr_val_type.first, 0) // the data type of the array
-                },                                              //
-                arr_type_name,                                  //
-                false                                           // is packed
+                    llvm::Type::getInt64Ty(context),                        // the dimensionality
+                    llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data (the lenghts followed by the row-major array)
+                },                                                          //
+                "type_str",
+                false // is packed
             );
-            type_map[arr_type_name] = arr_type;
+            type_map["type_str"] = str_type;
         }
-        return {arr_type, false};
+        return {type_map.at("type_str"), false};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
