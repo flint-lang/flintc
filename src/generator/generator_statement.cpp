@@ -122,20 +122,29 @@ void Generator::Statement::generate_end_of_scope(                    //
     // First, get all variables of this scope that went out of scope
     auto variables = scope->get_unique_variables();
     for (const auto &[var_name, var_info] : variables) {
-        // Check if the variable is of type str
-        if (std::get<0>(var_info)->to_string() != "str") {
-            continue;
-        }
         // Check if the variable is a function parameter, if it is, dont free it
         if (std::get<3>(var_info)) {
             continue;
         }
-        // Get the allocation of the variable
-        const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
-        llvm::Value *const alloca = allocations.at(alloca_name);
-        llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
-        llvm::Value *str_ptr = builder.CreateLoad(str_type->getPointerTo(), alloca, var_name + "_cleanup");
-        builder.CreateCall(c_functions.at(FREE), {str_ptr});
+        // Check if the variable is of type str
+        std::shared_ptr<Type> var_type = std::get<0>(var_info);
+        if (const auto simple_type = dynamic_cast<const SimpleType *>(var_type.get())) {
+            if (simple_type->type_name != "str") {
+                continue;
+            }
+            // Get the allocation of the variable
+            const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+            llvm::Value *const alloca = allocations.at(alloca_name);
+            llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+            llvm::Value *str_ptr = builder.CreateLoad(str_type->getPointerTo(), alloca, var_name + "_cleanup");
+            builder.CreateCall(c_functions.at(FREE), {str_ptr});
+        } else if (dynamic_cast<ArrayType *>(var_type.get())) {
+            const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+            llvm::Value *const alloca = allocations.at(alloca_name);
+            llvm::Type *arr_type = IR::get_type(Type::get_simple_type("str_var")).first;
+            llvm::Value *arr_ptr = builder.CreateLoad(arr_type->getPointerTo(), alloca, var_name + "_cleanup");
+            builder.CreateCall(c_functions.at(FREE), {arr_ptr});
+        }
     }
 }
 
