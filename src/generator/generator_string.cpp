@@ -794,17 +794,17 @@ void Generator::String::generate_string_assignment( //
     }
 }
 
-llvm::Value *Generator::String::generate_string_addition(                                               //
-    llvm::IRBuilder<> &builder,                                                                         //
-    const Scope *scope,                                                                                 //
-    const std::unordered_map<std::string, llvm::Value *const> &allocations,                             //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
-    const unsigned int expr_depth,                                                                      //
-    llvm::Value *lhs,                                                                                   //
-    const ExpressionNode *lhs_expr,                                                                     //
-    llvm::Value *rhs,                                                                                   //
-    const ExpressionNode *rhs_expr,                                                                     //
-    const bool is_append                                                                                //
+llvm::Value *Generator::String::generate_string_addition(                                                         //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    const Scope *scope,                                                                                           //
+    const std::unordered_map<std::string, llvm::Value *const> &allocations,                                       //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    llvm::Value *lhs,                                                                                             //
+    const ExpressionNode *lhs_expr,                                                                               //
+    llvm::Value *rhs,                                                                                             //
+    const ExpressionNode *rhs_expr,                                                                               //
+    const bool is_append                                                                                          //
 ) {
     // It highly depends on whether the lhs and / or the rhs are string literals or variables
     const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr);
@@ -829,17 +829,17 @@ llvm::Value *Generator::String::generate_string_addition(                       
             const VariableNode *rhs_var = dynamic_cast<const VariableNode *>(rhs_expr);
             if (garbage.count(expr_depth) == 0) {
                 if (lhs_var == nullptr) {
-                    garbage[expr_depth].emplace_back("str", lhs);
+                    garbage[expr_depth].emplace_back(Type::get_simple_type("str"), lhs);
                 }
                 if (rhs_var == nullptr) {
-                    garbage[expr_depth].emplace_back("str", rhs);
+                    garbage[expr_depth].emplace_back(Type::get_simple_type("str"), rhs);
                 }
             } else {
                 if (lhs_var == nullptr) {
-                    garbage.at(expr_depth).emplace_back("str", lhs);
+                    garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), lhs);
                 }
                 if (rhs_var == nullptr) {
-                    garbage.at(expr_depth).emplace_back("str", rhs);
+                    garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), rhs);
                 }
             }
             return addition_result;
@@ -866,9 +866,9 @@ llvm::Value *Generator::String::generate_string_addition(                       
             llvm::Value *addition_result = builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
             if (lhs_var == nullptr) {
                 if (garbage.count(expr_depth) == 0) {
-                    garbage[expr_depth].emplace_back("str", lhs);
+                    garbage[expr_depth].emplace_back(Type::get_simple_type("str"), lhs);
                 } else {
-                    garbage.at(expr_depth).emplace_back("str", lhs);
+                    garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), lhs);
                 }
             }
             return addition_result;
@@ -883,9 +883,9 @@ llvm::Value *Generator::String::generate_string_addition(                       
         llvm::Value *addition_result = builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
         if (dynamic_cast<const VariableNode *>(rhs_expr) == nullptr) {
             if (garbage.count(expr_depth) == 0) {
-                garbage[expr_depth].emplace_back("str", rhs);
+                garbage[expr_depth].emplace_back(Type::get_simple_type("str"), rhs);
             } else {
-                garbage.at(expr_depth).emplace_back("str", rhs);
+                garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), rhs);
             }
         }
         return addition_result;

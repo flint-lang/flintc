@@ -11,15 +11,15 @@
 #include <string>
 #include <variant>
 
-Generator::group_mapping Generator::Expression::generate_expression(                                    //
-    llvm::IRBuilder<> &builder,                                                                         //
-    llvm::Function *parent,                                                                             //
-    const Scope *scope,                                                                                 //
-    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
-    const unsigned int expr_depth,                                                                      //
-    const ExpressionNode *expression_node,                                                              //
-    const bool is_reference                                                                             //
+Generator::group_mapping Generator::Expression::generate_expression(                                              //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const ExpressionNode *expression_node,                                                                        //
+    const bool is_reference                                                                                       //
 ) {
     std::vector<llvm::Value *> group_map;
     if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
@@ -155,14 +155,14 @@ llvm::Value *Generator::Expression::generate_variable(                //
     return load;
 }
 
-llvm::Value *Generator::Expression::generate_string_interpolation(                                      //
-    llvm::IRBuilder<> &builder,                                                                         //
-    llvm::Function *parent,                                                                             //
-    const Scope *scope,                                                                                 //
-    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
-    const unsigned int expr_depth,                                                                      //
-    const StringInterpolationNode *interpol_node                                                        //
+llvm::Value *Generator::Expression::generate_string_interpolation(                                                //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const StringInterpolationNode *interpol_node                                                                  //
 ) {
     assert(!interpol_node->string_content.empty());
     // The string interpolation works by adding all strings from the most left up to the most right one
@@ -206,9 +206,9 @@ llvm::Value *Generator::Expression::generate_string_interpolation(              
         }
     }
     if (garbage.count(expr_depth) == 0) {
-        garbage[expr_depth].emplace_back("str", str_value);
+        garbage[expr_depth].emplace_back(Type::get_simple_type("str"), str_value);
     } else {
-        garbage.at(expr_depth).emplace_back("str", str_value);
+        garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), str_value);
     }
     return str_value;
 }
@@ -223,7 +223,7 @@ Generator::group_mapping Generator::Expression::generate_call(        //
     // Get the arguments
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     for (const auto &arg : call_node->arguments) {
         group_mapping expression = generate_expression(builder, parent, scope, allocations, garbage, 0, arg.first.get(), arg.second);
         if (!expression.has_value()) {
@@ -480,14 +480,14 @@ void Generator::Expression::generate_rethrow(                         //
     builder.SetInsertPoint(merge_block);
 }
 
-Generator::group_mapping Generator::Expression::generate_group_expression(                              //
-    llvm::IRBuilder<> &builder,                                                                         //
-    llvm::Function *parent,                                                                             //
-    const Scope *scope,                                                                                 //
-    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
-    const unsigned int expr_depth,                                                                      //
-    const GroupExpressionNode *group_node                                                               //
+Generator::group_mapping Generator::Expression::generate_group_expression(                                        //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const GroupExpressionNode *group_node                                                                         //
 ) {
     std::vector<llvm::Value *> group_values;
     group_values.reserve(group_node->expressions.size());
@@ -501,14 +501,14 @@ Generator::group_mapping Generator::Expression::generate_group_expression(      
     return group_values;
 }
 
-Generator::group_mapping Generator::Expression::generate_initializer(                                   //
-    llvm::IRBuilder<> &builder,                                                                         //
-    llvm::Function *parent,                                                                             //
-    const Scope *scope,                                                                                 //
-    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
-    const unsigned int expr_depth,                                                                      //
-    const InitializerNode *initializer                                                                  //
+Generator::group_mapping Generator::Expression::generate_initializer(                                             //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const InitializerNode *initializer                                                                            //
 ) {
     // Check if its a data initializer
     if (initializer->is_data) {
@@ -597,14 +597,14 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     return return_values;
 }
 
-Generator::group_mapping Generator::Expression::generate_type_cast(                                     //
-    llvm::IRBuilder<> &builder,                                                                         //
-    llvm::Function *parent,                                                                             //
-    const Scope *scope,                                                                                 //
-    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
-    const unsigned int expr_depth,                                                                      //
-    const TypeCastNode *type_cast_node                                                                  //
+Generator::group_mapping Generator::Expression::generate_type_cast(                                               //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const TypeCastNode *type_cast_node                                                                            //
 ) {
     // First, generate the expression
     std::vector<llvm::Value *> expr =
@@ -773,14 +773,14 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     return nullptr;
 }
 
-Generator::group_mapping Generator::Expression::generate_unary_op_expression(                           //
-    llvm::IRBuilder<> &builder,                                                                         //
-    llvm::Function *parent,                                                                             //
-    const Scope *scope,                                                                                 //
-    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
-    const unsigned int expr_depth,                                                                      //
-    const UnaryOpExpression *unary_op                                                                   //
+Generator::group_mapping Generator::Expression::generate_unary_op_expression(                                     //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const UnaryOpExpression *unary_op                                                                             //
 ) {
     const ExpressionNode *expression = unary_op->operand.get();
     std::vector<llvm::Value *> operand =
@@ -888,14 +888,14 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression(   
     return operand;
 }
 
-Generator::group_mapping Generator::Expression::generate_binary_op(                                     //
-    llvm::IRBuilder<> &builder,                                                                         //
-    llvm::Function *parent,                                                                             //
-    const Scope *scope,                                                                                 //
-    std::unordered_map<std::string, llvm::Value *const> &allocations,                                   //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage, //
-    const unsigned int expr_depth,                                                                      //
-    const BinaryOpNode *bin_op_node                                                                     //
+Generator::group_mapping Generator::Expression::generate_binary_op(                                               //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const BinaryOpNode *bin_op_node                                                                               //
 ) {
     auto lhs_maybe = generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, bin_op_node->left.get());
     if (!lhs_maybe.has_value()) {

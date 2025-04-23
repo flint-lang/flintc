@@ -51,9 +51,9 @@ void Generator::Statement::generate_statement(                        //
     }
 }
 
-void Generator::Statement::clear_garbage(                                                              //
-    llvm::IRBuilder<> &builder,                                                                        //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> &garbage //
+void Generator::Statement::clear_garbage(                                                                        //
+    llvm::IRBuilder<> &builder,                                                                                  //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage //
 ) {
     if (garbage.empty()) {
         return;
@@ -67,9 +67,9 @@ void Generator::Statement::clear_garbage(                                       
         }
         for (auto [type, llvm_val] : value) {
             if (DEBUG_MODE) {
-                std::cout << "  -- Type '" << type << "' val addr: " << llvm_val << "\n";
+                std::cout << "  -- Type '" << type->to_string() << "' val addr: " << llvm_val << "\n";
             }
-            if (type == "str") {
+            if (type->to_string() == "str") {
                 llvm::Function *free_fn = c_functions.at(FREE);
                 llvm::CallInst *free_call = builder.CreateCall(free_fn, {llvm_val});
                 free_call->setMetadata("comment",
@@ -150,7 +150,7 @@ void Generator::Statement::generate_return_statement(                 //
     // If we have a return value, store it in the struct
     if (return_node != nullptr && return_node->return_value != nullptr) {
         // Generate the expression for the return value
-        std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+        std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
         auto return_value = Expression::generate_expression(                                 //
             builder, parent, scope, allocations, garbage, 0, return_node->return_value.get() //
         );
@@ -218,7 +218,7 @@ void Generator::Statement::generate_throw_statement(                  //
     // Create the pointer to the error value (the 0th index of the struct)
     llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
     // Generate the expression right of the throw statement, it has to be of type int
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     llvm::Value *err_value =
         Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, throw_node->throw_value.get()).value().at(0);
     // Store the error value in the struct
@@ -323,7 +323,7 @@ void Generator::Statement::generate_if_statement(                     //
     unsigned int next_idx = then_idx + 1;
 
     // Generate the condition
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     std::optional<std::vector<llvm::Value *>> condition_arr = Expression::generate_expression( //
         builder, parent,                                                                       //
         if_node->then_scope->parent_scope,                                                     //
@@ -418,7 +418,7 @@ void Generator::Statement::generate_while_loop(                       //
 
     // Create the condition block's content
     builder.SetInsertPoint(while_blocks[0]);
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     std::optional<std::vector<llvm::Value *>> expression_arr = Expression::generate_expression( //
         builder, parent,                                                                        //
         while_node->scope->get_parent(),                                                        //
@@ -474,7 +474,7 @@ void Generator::Statement::generate_for_loop(                         //
 
     // Create the condition block's content
     builder.SetInsertPoint(for_blocks[0]);
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     std::optional<std::vector<llvm::Value *>> expression_arr = Expression::generate_expression( //
         builder, parent,                                                                        //
         for_node->definition_scope.get(),                                                       //
@@ -600,7 +600,7 @@ void Generator::Statement::generate_group_declaration(                //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
     const GroupDeclarationNode *declaration_node                      //
 ) {
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     auto expression = Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, declaration_node->initializer.get());
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -637,7 +637,7 @@ void Generator::Statement::generate_declaration(                      //
 
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
-        std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+        std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
         auto expr_val = Expression::generate_expression( //
             builder, parent, scope, allocations, garbage, 0, declaration_node->initializer.value().get());
         if (!expr_val.has_value()) {
@@ -698,7 +698,7 @@ void Generator::Statement::generate_group_assignment(                 //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
     const GroupAssignmentNode *group_assignment                       //
 ) {
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     auto expression = Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, group_assignment->expression.get());
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -728,7 +728,7 @@ void Generator::Statement::generate_assignment(                       //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
     const AssignmentNode *assignment_node                             //
 ) {
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     auto expr = Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, assignment_node->expression.get());
     if (!expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -773,7 +773,7 @@ void Generator::Statement::generate_data_field_assignment(            //
     const DataFieldAssignmentNode *data_field_assignment              //
 ) {
     // Just save the result of the expression in the field of the data
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     group_mapping expression = Expression::generate_expression( //
         builder, parent, scope, allocations, garbage, 0,        //
         data_field_assignment->expression.get()                 //
@@ -809,7 +809,7 @@ void Generator::Statement::generate_grouped_data_field_assignment(    //
     const GroupedDataFieldAssignmentNode *grouped_field_assignment    //
 ) {
     // Just save the result of the expression in the field of the data
-    std::unordered_map<unsigned int, std::vector<std::pair<std::string, llvm::Value *const>>> garbage;
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
     group_mapping expression = Expression::generate_expression( //
         builder, parent, scope, allocations, garbage, 0,        //
         grouped_field_assignment->expression.get()              //
