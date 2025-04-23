@@ -6,7 +6,11 @@
 #include "lexer/token_context.hpp"
 #include "parser/parser.hpp"
 
+#include "parser/ast/expressions/array_initializer_node.hpp"
+#include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/signature.hpp"
+#include "parser/type/array_type.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -600,6 +604,68 @@ std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, token_lis
     );
 }
 
+std::optional<ArrayInitializerNode> Parser::create_array_initializer([[maybe_unused]] Scope *scope, token_list &tokens) {
+    std::optional<uint2> length_expression_range = Signature::balanced_range_extraction( //
+        tokens,                                                                          //
+        Signature::get_regex_string({TOK_LEFT_BRACKET}),                                 //
+        Signature::get_regex_string({TOK_RIGHT_BRACKET})                                 //
+    );
+    if (!length_expression_range.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Get the initializer tokens (...) and remove the surrounding parenthesis
+    token_list initializer_tokens = extract_from_to(length_expression_range.value().second, tokens.size(), tokens);
+    remove_surrounding_paren(initializer_tokens);
+    // Now we can create the initializer expression
+    std::optional<std::unique_ptr<ExpressionNode>> initializer = create_expression(scope, initializer_tokens);
+    if (!initializer.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, initializer_tokens);
+        return std::nullopt;
+    }
+
+    // Get the element type of the array
+    token_list type_tokens = extract_from_to(0, length_expression_range.value().first, tokens);
+    std::optional<std::shared_ptr<Type>> element_type = Type::get_type(type_tokens);
+    if (!element_type.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // TODO Find out the dimensionality of the array length expressions, but for now we only care about 1D arrays
+    // Now, everything left in the `tokens` vector should be the [...]
+    // The first token in the tokens list should be a left bracket
+    assert(tokens.begin()->type == TOK_LEFT_BRACKET);
+    // The last token in the tokens list should be a right bracket
+    assert(std::prev(tokens.end())->type == TOK_RIGHT_BRACKET);
+    // Remove the open and closing brackets
+    tokens.erase(tokens.begin());
+    tokens.pop_back();
+    std::optional<std::unique_ptr<ExpressionNode>> length_expression = create_expression(scope, tokens);
+    if (!length_expression.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+    std::vector<std::unique_ptr<ExpressionNode>> length_expressions;
+    length_expressions.emplace_back(std::move(length_expression.value()));
+
+    std::optional<std::shared_ptr<Type>> actual_array_type = Type::get_type_from_str(element_type.value()->to_string() + "[]");
+    if (!actual_array_type.has_value()) {
+        // This type does not yet exist, so we need to create it
+        if (const LiteralNode *lit = dynamic_cast<const LiteralNode *>(length_expressions.front().get())) {
+            actual_array_type = std::make_shared<ArrayType>(std::get<int>(lit->value), element_type.value());
+        } else {
+            actual_array_type = std::make_shared<ArrayType>(std::nullopt, element_type.value());
+        }
+        Type::add_type(actual_array_type.value());
+    }
+    return ArrayInitializerNode(   //
+        actual_array_type.value(), //
+        length_expressions,        //
+        initializer.value()        //
+    );
+}
+
 std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *scope, token_list &tokens) {
     auto grouped_field_access_base = create_grouped_access_base(scope, tokens);
     if (!grouped_field_access_base.has_value()) {
@@ -725,6 +791,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
         }
+    } else if (Signature::tokens_match(tokens, ESignature::ARRAY_INITIALIZER)) {
+        std::optional<ArrayInitializerNode> initializer = create_array_initializer(scope, tokens);
+        if (!initializer.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
     }
 
     // Find the highest precedence operator

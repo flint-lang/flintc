@@ -402,6 +402,27 @@ namespace Debug {
             }
         }
 
+        void print_array_initializer(unsigned int indent_lvl, uint2 empty, const ArrayInitializerNode &init) {
+            Local::print_header(indent_lvl, empty, "Array Initializer ");
+            Local::print_type(init.type);
+            std::cout << std::endl;
+
+            for (size_t i = 0; i < init.length_expressions.size(); i++) {
+                empty.second = indent_lvl + 1;
+                Local::print_header(indent_lvl + 1, empty, "Len Init " + std::to_string(i) + " ");
+                Local::print_type(init.length_expressions[i]->type);
+                std::cout << std::endl;
+                empty.second = indent_lvl + 3;
+                print_expression(indent_lvl + 2, empty, init.length_expressions[i]);
+            }
+            empty.second = indent_lvl + 2;
+            Local::print_header(indent_lvl + 1, empty, "Initializer ");
+            Local::print_type(init.initializer_value->type);
+            std::cout << std::endl;
+            empty.second = indent_lvl + 3;
+            print_expression(indent_lvl + 2, empty, init.initializer_value);
+        }
+
         void print_data_access(unsigned int indent_lvl, uint2 empty, const DataAccessNode &access) {
             Local::print_header(indent_lvl, empty, "Data Access ");
             std::cout << "[" << access.data_type->to_string() << "]: " << access.var_name << "." << access.field_name << " at ID "
@@ -454,6 +475,8 @@ namespace Debug {
                 print_grouped_data_access(indent_lvl, empty, *grouped_access);
             } else if (const auto *interpol = dynamic_cast<const StringInterpolationNode *>(expr.get())) {
                 print_string_interpolation(indent_lvl, empty, *interpol);
+            } else if (const auto *array_init = dynamic_cast<const ArrayInitializerNode *>(expr.get())) {
+                print_array_initializer(indent_lvl, empty, *array_init);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;

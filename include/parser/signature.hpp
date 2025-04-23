@@ -63,6 +63,7 @@ enum class ESignature {
     VARIABLE_EXPR,
     DATA_ACCESS,
     GROUPED_DATA_ACCESS,
+    ARRAY_INITIALIZER,
 
     // Statements
     GROUP_DECLARATION_INFERRED,
@@ -414,6 +415,8 @@ class Signature {
     static const inline signature variable_expr = {TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
     static const inline signature data_access = {TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, "(?!", TOK_LEFT_PAREN, ")"};
     static const inline signature grouped_data_access = combine({{TOK_IDENTIFIER, TOK_DOT}, group_expression});
+    static const inline signature array_initializer = combine({//
+        type, {TOK_LEFT_BRACKET, TOK_INT_VALUE, TOK_RIGHT_BRACKET, TOK_LEFT_PAREN}, expression, {TOK_RIGHT_PAREN}});
 
     // --- STATEMENTS ---
     static const inline signature group_declaration_inferred = combine({//
@@ -497,6 +500,7 @@ class Signature {
         {ESignature::VARIABLE_EXPR, get_regex_string(variable_expr)},
         {ESignature::DATA_ACCESS, get_regex_string(data_access)},
         {ESignature::GROUPED_DATA_ACCESS, get_regex_string(grouped_data_access)},
+        {ESignature::ARRAY_INITIALIZER, get_regex_string(array_initializer)},
 
         // Statements
         {ESignature::GROUP_DECLARATION_INFERRED, get_regex_string(group_declaration_inferred)},

@@ -2,6 +2,7 @@
 
 #include "error/error.hpp"
 #include "lexer/token.hpp"
+#include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/signature.hpp"
 #include "types.hpp"
 

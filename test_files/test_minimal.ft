@@ -1,15 +1,4 @@
 def main():
-    i64 x = 1;
-    for i64 i = 0; i < 64; i++:
-        x *= i64(2);
-    print($"{x}\n");
-
-def assert(bool condition):
-    if not condition:
-        throw 10;
-
-test "overflow-protection":
-    i64 x = 1;
-    for i64 i = 0; i < 64; i++:
-        x *= i64(2);
-    assert(str(x) == "9223372036854775807");
+    i32[] arr = i32[10](0);
+    str hello_world_msg = "Hello, World!\n";
+    print(hello_world_msg);

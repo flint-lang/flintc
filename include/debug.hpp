@@ -14,6 +14,7 @@
 #include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
 
+#include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
@@ -110,6 +111,7 @@ namespace Debug {
         void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast);
         void print_initilalizer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer);
         void print_group_expression(unsigned int indent_lvl, uint2 empty, const GroupExpressionNode &group);
+        void print_array_initializer(unsigned int indent_lvl, uint2 empty, const ArrayInitializerNode &init);
         void print_data_access(unsigned int indent_lvl, uint2 empty, const DataAccessNode &access);
         void print_grouped_data_access(unsigned int indent_lvl, uint2 empty, const GroupedDataAccessNode &access);
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr);
