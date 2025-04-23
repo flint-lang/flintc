@@ -614,20 +614,14 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
     } else {
         unsigned int type_begin = 0;
         unsigned int type_end = lhs_tokens.size() - 2;
-        for (auto it = lhs_tokens.begin(); it != lhs_tokens.end(); ++it) {
-            if (std::next(it) != lhs_tokens.end() && std::next(std::next(it)) != lhs_tokens.end() && (it + 1)->type == TOK_IDENTIFIER &&
-                (it + 2)->type == TOK_EQUAL) {
-                token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
-                auto type_result = Type::get_type(type_tokens);
-                if (!type_result.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                type = type_result.value();
-                name = it->lexme;
-                break;
-            }
+        token_list type_tokens = extract_from_to(type_begin, type_end, lhs_tokens);
+        auto type_result = Type::get_type(type_tokens);
+        if (!type_result.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
+        type = type_result.value();
+        name = lhs_tokens.front().lexme;
         if (!scope->add_variable(name, type, scope->scope_id, true, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens.at(0).line, tokens.at(0).column, name);

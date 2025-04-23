@@ -1,4 +1,2 @@
 def main():
     i32[] arr = i32[10](0);
-    str hello_world_msg = "Hello, World!\n";
-    print(hello_world_msg);
