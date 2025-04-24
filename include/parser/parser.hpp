@@ -31,6 +31,7 @@
 #include "ast/statements/unary_op_statement.hpp"
 #include "ast/statements/while_node.hpp"
 
+#include "ast/expressions/array_access_node.hpp"
 #include "ast/expressions/array_initializer_node.hpp"
 #include "ast/expressions/call_node_expression.hpp"
 #include "ast/expressions/data_access_node.hpp"
@@ -680,6 +681,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the array initializer
     /// @return `std::optional<ArrayInitializerNode>` An array initializer node, nullopt if its creation failed
     std::optional<ArrayInitializerNode> create_array_initializer(Scope *scope, token_list &tokens);
+
+    /// @function `create_array_access`
+    /// @brief Creates an ArrayAccessNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the array initializer is defined
+    /// @param `tokens` The list of tokens representing the array access
+    /// @return `std::optional<ArrayAccessNode>` An array access node, nullopt if its creation failed
+    std::optional<ArrayAccessNode> create_array_access(Scope *scope, token_list &tokens);
 
     /// @function `create_pivot_expression`
     /// @brief Creates a expression based on token precedences, where the token with the highest precedence is the "pivot point" of the

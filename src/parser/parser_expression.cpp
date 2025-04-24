@@ -4,6 +4,7 @@
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
+#include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/expressions/array_initializer_node.hpp"
@@ -604,7 +605,7 @@ std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, token_lis
     );
 }
 
-std::optional<ArrayInitializerNode> Parser::create_array_initializer([[maybe_unused]] Scope *scope, token_list &tokens) {
+std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scope, token_list &tokens) {
     std::optional<uint2> length_expression_range = Signature::balanced_range_extraction( //
         tokens,                                                                          //
         Signature::get_regex_string({TOK_LEFT_BRACKET}),                                 //
@@ -664,6 +665,40 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer([[maybe_unu
         length_expressions,        //
         initializer.value()        //
     );
+}
+
+std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, token_list &tokens) {
+    // The tokens should begin with an identifier, otherwise we have done something wrong somewhere
+    assert(tokens.front().type == TOK_IDENTIFIER);
+    const std::string variable_name = tokens.front().lexme;
+    std::optional<std::shared_ptr<Type>> variable_type = scope->get_variable_type(variable_name);
+    if (!variable_type.has_value()) {
+        THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tokens.front().line, tokens.front().column, variable_name);
+        return std::nullopt;
+    }
+    const ArrayType *array_variable_type = dynamic_cast<const ArrayType *>(variable_type.value().get());
+    if (array_variable_type == nullptr) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    std::shared_ptr<Type> result_type = array_variable_type->type;
+    tokens.erase(tokens.begin());
+
+    // Now the tokens should begin with a left bracket and end with a right bracket, otherwise we did something wrong elsewhere
+    assert(tokens.front().type == TOK_LEFT_BRACKET);
+    tokens.erase(tokens.begin());
+    assert(tokens.back().type == TOK_RIGHT_BRACKET);
+    tokens.pop_back();
+    // For now, we assume that in between the [..] there only is a single expression.
+    // TODO: For multi-dimensional arrays we would need to parse them separately
+    std::optional<std::unique_ptr<ExpressionNode>> index_expression = create_expression(scope, tokens);
+    if (!index_expression.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+    std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
+    indexing_expressions.emplace_back(std::move(index_expression.value()));
+    return ArrayAccessNode(result_type, variable_name, variable_type.value(), indexing_expressions);
 }
 
 std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *scope, token_list &tokens) {
@@ -798,6 +833,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::nullopt;
         }
         return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
+    } else if (Signature::tokens_match(tokens, ESignature::ARRAY_ACCESS)) {
+        std::optional<ArrayAccessNode> access = create_array_access(scope, tokens);
+        if (!access.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_unique<ArrayAccessNode>(std::move(access.value()));
     }
 
     // Find the highest precedence operator

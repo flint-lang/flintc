@@ -423,6 +423,21 @@ namespace Debug {
             print_expression(indent_lvl + 2, empty, init.initializer_value);
         }
 
+        void print_array_access(unsigned int indent_lvl, uint2 empty, const ArrayAccessNode &access) {
+            Local::print_header(indent_lvl, empty, "Array Access ");
+            std::cout << access.variable_type->to_string() << " " << access.variable_name << " -> ";
+            Local::print_type(access.type);
+            std::cout << std::endl;
+            for (size_t i = 0; i < access.indexing_expressions.size(); i++) {
+                empty.second = indent_lvl + 1;
+                Local::print_header(indent_lvl + 1, empty, "ID " + std::to_string(i) + " ");
+                Local::print_type(access.indexing_expressions[i]->type);
+                std::cout << std::endl;
+                empty.second = indent_lvl + 3;
+                print_expression(indent_lvl + 2, empty, access.indexing_expressions[i]);
+            }
+        }
+
         void print_data_access(unsigned int indent_lvl, uint2 empty, const DataAccessNode &access) {
             Local::print_header(indent_lvl, empty, "Data Access ");
             std::cout << "[" << access.data_type->to_string() << "]: " << access.var_name << "." << access.field_name << " at ID "
@@ -477,6 +492,8 @@ namespace Debug {
                 print_string_interpolation(indent_lvl, empty, *interpol);
             } else if (const auto *array_init = dynamic_cast<const ArrayInitializerNode *>(expr.get())) {
                 print_array_initializer(indent_lvl, empty, *array_init);
+            } else if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expr.get())) {
+                print_array_access(indent_lvl, empty, *array_access);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;
