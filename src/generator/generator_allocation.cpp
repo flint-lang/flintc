@@ -192,6 +192,22 @@ void Generator::Allocation::generate_group_declaration_allocations(   //
     }
 }
 
+void Generator::Allocation::generate_array_indexing_allocation(       //
+    llvm::IRBuilder<> &builder,                                       //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const size_t dimensionality                                       //
+) {
+    const std::string alloca_name = "arr::idx::" + std::to_string(dimensionality);
+    if (allocations.find(alloca_name) != allocations.end()) {
+        return;
+    }
+    // Create a i64 array with the length of the dimensions
+    llvm::Type *length_array_type = llvm::ArrayType::get(builder.getInt64Ty(), dimensionality);
+    generate_allocation(builder, allocations, alloca_name, length_array_type, "__arr_idx_" + std::to_string(dimensionality) + "d", //
+        "Shared " + std::to_string(dimensionality) + "D indexing array"                                                            //
+    );
+}
+
 void Generator::Allocation::generate_expression_allocations(          //
     llvm::IRBuilder<> &builder,                                       //
     llvm::Function *parent,                                           //
@@ -219,6 +235,8 @@ void Generator::Allocation::generate_expression_allocations(          //
                 generate_expression_allocations(builder, parent, scope, allocations, expr);
             }
         }
+    } else if (const auto *array_initializer = dynamic_cast<const ArrayInitializerNode *>(expression)) {
+        generate_array_indexing_allocation(builder, allocations, array_initializer->length_expressions.size());
     }
 }
 

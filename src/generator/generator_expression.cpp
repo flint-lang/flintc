@@ -578,9 +578,7 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
         THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }
-    // Create a i64 array with the length of the dimensions
-    llvm::Type *length_array_type = llvm::ArrayType::get(builder.getInt64Ty(), length_expressions.size());
-    llvm::Value *length_array = builder.CreateAlloca(length_array_type, nullptr, "length_array");
+    llvm::Value *const length_array = allocations.at("arr::idx::" + std::to_string(length_expressions.size()));
     for (size_t i = 0; i < length_expressions.size(); i++) {
         llvm::Value *array_element_ptr = builder.CreateGEP(builder.getInt64Ty(), length_array, builder.getInt64(i));
         builder.CreateStore(length_expressions.at(i), array_element_ptr);

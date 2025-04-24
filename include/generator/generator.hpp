@@ -1268,6 +1268,19 @@ class Generator {
             const GroupDeclarationNode *group_declaration_node                //
         );
 
+        /// @function `generate_array_indexing_allocation`
+        /// @brief Generates the allocation for a simple i64 array of size `dimensionality` which is re-used for all array indexing of that
+        /// dimensionality within this function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `dimensionality` The dimensionality of the array
+        static void generate_array_indexing_allocation(                       //
+            llvm::IRBuilder<> &builder,                                       //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const size_t dimensionality                                       //
+        );
+
         /// @function `generate_expression_allocations`
         /// @brief Goes throught all expressions and searches for all calls to allocate them
         ///
