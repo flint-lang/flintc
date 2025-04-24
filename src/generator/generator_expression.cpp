@@ -64,6 +64,10 @@ Generator::group_mapping Generator::Expression::generate_expression(            
     if (const auto *grouped_data_access = dynamic_cast<const GroupedDataAccessNode *>(expression_node)) {
         return generate_grouped_data_access(builder, scope, allocations, grouped_data_access);
     }
+    if (const auto *array_initializer = dynamic_cast<const ArrayInitializerNode *>(expression_node)) {
+        group_map.emplace_back(generate_array_initializer(builder, parent, scope, allocations, garbage, expr_depth, array_initializer));
+        return group_map;
+    }
     THROW_BASIC_ERR(ERR_GENERATING);
     return std::nullopt;
 }
@@ -538,6 +542,73 @@ Generator::group_mapping Generator::Expression::generate_initializer(           
         return return_values;
     }
     return std::nullopt;
+}
+
+llvm::Value *Generator::Expression::generate_array_initializer(                                                   //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const ArrayInitializerNode *initializer                                                                       //
+) {
+    // First, generate all initializer expressions
+    std::vector<llvm::Value *> length_expressions;
+    for (auto &expr : initializer->length_expressions) {
+        group_mapping result = generate_expression(builder, parent, scope, allocations, garbage, expr_depth, expr.get());
+        if (!result.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        if (result.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        length_expressions.emplace_back(result.value().at(0));
+    }
+    group_mapping initializer_expression = generate_expression(                                        //
+        builder, parent, scope, allocations, garbage, expr_depth, initializer->initializer_value.get() //
+    );
+    if (!initializer_expression.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return nullptr;
+    }
+    if (initializer_expression.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return nullptr;
+    }
+    // Create a i64 array with the length of the dimensions
+    llvm::Type *length_array_type = llvm::ArrayType::get(builder.getInt64Ty(), length_expressions.size());
+    llvm::Value *length_array = builder.CreateAlloca(length_array_type, nullptr, "length_array");
+    for (size_t i = 0; i < length_expressions.size(); i++) {
+        llvm::Value *array_element_ptr = builder.CreateGEP(builder.getInt64Ty(), length_array, builder.getInt64(i));
+        builder.CreateStore(length_expressions.at(i), array_element_ptr);
+    }
+    const llvm::DataLayout &data_layout = parent->getParent()->getDataLayout();
+    llvm::Type *element_type = IR::get_type(initializer->element_type).first;
+    size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
+    llvm::CallInst *created_array = builder.CreateCall( //
+        Array::array_manip_functions.at("create_arr"),  //
+        {
+            builder.getInt64(length_expressions.size()), // dimensionality
+            builder.getInt64(element_size_in_bytes),     // element_size
+            length_array                                 // lengths array
+        },                                               //
+        "created_array"                                  //
+    );
+    created_array->setMetadata("comment",
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
+                "Create an array of type " + initializer->element_type->to_string() + "[" +
+                    std::string(length_expressions.size() - 1, ',') + "]")));
+    llvm::Value *value_container = builder.CreateBitCast(initializer_expression.value().at(0), builder.getInt64Ty());
+    llvm::CallInst *fill_call = builder.CreateCall(                               //
+        Array::array_manip_functions.at("fill_arr_val"),                          //
+        {created_array, builder.getInt64(element_size_in_bytes), value_container} //
+    );
+    fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
+    return created_array;
 }
 
 llvm::Value *Generator::Expression::generate_data_access(             //

@@ -3,6 +3,7 @@
 #include "lexer/builtins.hpp"
 #include "parser/ast/call_node_base.hpp"
 #include "parser/ast/definitions/function_node.hpp"
+#include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
@@ -1806,6 +1807,27 @@ class Generator {
             std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
             const unsigned int expr_depth,                                                                                //
             const InitializerNode *initializer                                                                            //
+        );
+
+        /// @function `generate_array_initializer`
+        /// @brief Generates an array initialization from a given ArrayInitializerNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the array initializer is generated in
+        /// @param `scope` The scope the initializer is contained in
+        /// @param `allocations´`The map of all alloccations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `initializer` The array initializer to generate
+        /// @return `llvm::Value *` The initialized array
+        static llvm::Value *generate_array_initializer(                                                                   //
+            llvm::IRBuilder<> &builder,                                                                                   //
+            llvm::Function *parent,                                                                                       //
+            const Scope *scope,                                                                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                                //
+            const ArrayInitializerNode *initializer                                                                       //
         );
 
         /// @function `generate_data_access`
