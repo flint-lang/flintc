@@ -141,7 +141,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
             );
             type_map["type_str"] = str_type;
         }
-        return {type_map.at("type_str"), false};
+        return {type_map.at("type_str")->getPointerTo(), false};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
