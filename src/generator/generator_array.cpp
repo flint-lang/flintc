@@ -124,7 +124,8 @@ void Generator::Array::generate_create_arr_function(llvm::IRBuilder<> *builder, 
 
     // Set the dimensionality (len field): arr->len = dimensionality
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arr, 0, "len_ptr");
-    builder->CreateStore(arg_dimensionality, len_ptr);
+    llvm::StoreInst *dim_store = builder->CreateStore(arg_dimensionality, len_ptr);
+    dim_store->setAlignment(llvm::Align(8));
 
     // Store the lengths of each dimension in the value array
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arr, 1, "value_ptr");
@@ -409,13 +410,13 @@ void Generator::Array::generate_fill_arr_val_function(llvm::IRBuilder<> *builder
         return;
     }
 
-    // Get the parameter (dimensionality)
+    // Get the parameter (arr)
     llvm::Argument *arg_arr = fill_arr_val_fn->arg_begin();
     arg_arr->setName("arr");
     // Get the parameter (element_size)
     llvm::Argument *arg_element_size = fill_arr_val_fn->arg_begin() + 1;
     arg_element_size->setName("element_size");
-    // Get the parameter (lengths)
+    // Get the parameter (value)
     llvm::Argument *arg_value = fill_arr_val_fn->arg_begin() + 2;
     arg_value->setName("value");
 
@@ -643,8 +644,12 @@ void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", access_arr_fn);
     llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(context, "loop", access_arr_fn);
-    llvm::BasicBlock *bounds_check_block = llvm::BasicBlock::Create(context, "bounds_check", access_arr_fn);
-    llvm::BasicBlock *out_of_bounds_block = llvm::BasicBlock::Create(context, "out_of_bounds", access_arr_fn);
+    llvm::BasicBlock *bounds_check_block = nullptr;
+    llvm::BasicBlock *out_of_bounds_block = nullptr;
+    if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
+        bounds_check_block = llvm::BasicBlock::Create(context, "bounds_check", access_arr_fn);
+        out_of_bounds_block = llvm::BasicBlock::Create(context, "out_of_bounds", access_arr_fn);
+    }
     llvm::BasicBlock *in_bounds_block = llvm::BasicBlock::Create(context, "in_bounds", access_arr_fn);
     llvm::BasicBlock *continue_block = llvm::BasicBlock::Create(context, "continue", access_arr_fn);
     llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", access_arr_fn);
