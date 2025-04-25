@@ -68,6 +68,10 @@ Generator::group_mapping Generator::Expression::generate_expression(            
         group_map.emplace_back(generate_array_initializer(builder, parent, scope, allocations, garbage, expr_depth, array_initializer));
         return group_map;
     }
+    if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expression_node)) {
+        group_map.emplace_back(generate_array_access(builder, parent, scope, allocations, garbage, expr_depth, array_access));
+        return group_map;
+    }
     THROW_BASIC_ERR(ERR_GENERATING);
     return std::nullopt;
 }
@@ -565,7 +569,13 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        length_expressions.emplace_back(result.value().at(0));
+        llvm::Value *index_i64 = generate_type_cast(     //
+            builder,                                     //
+            result.value().at(0),                        //
+            std::get<std::shared_ptr<Type>>(expr->type), //
+            Type::get_simple_type("u64")                 //
+        );
+        length_expressions.emplace_back(index_i64);
     }
     group_mapping initializer_expression = generate_expression(                                        //
         builder, parent, scope, allocations, garbage, expr_depth, initializer->initializer_value.get() //
@@ -600,13 +610,81 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
             llvm::MDString::get(context,
                 "Create an array of type " + initializer->element_type->to_string() + "[" +
                     std::string(length_expressions.size() - 1, ',') + "]")));
-    llvm::Value *value_container = builder.CreateBitCast(initializer_expression.value().at(0), builder.getInt64Ty());
+    llvm::Type *from_type = IR::get_type(std::get<std::shared_ptr<Type>>(initializer->initializer_value->type)).first;
+    llvm::Value *value_container = IR::generate_bitwidth_change( //
+        builder,                                                 //
+        initializer_expression.value().at(0),                    //
+        from_type->getIntegerBitWidth(),                         //
+        64,                                                      //
+        IR::get_type(Type::get_simple_type("i64")).first         //
+    );
     llvm::CallInst *fill_call = builder.CreateCall(                               //
         Array::array_manip_functions.at("fill_arr_val"),                          //
         {created_array, builder.getInt64(element_size_in_bytes), value_container} //
     );
     fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
     return created_array;
+}
+
+llvm::Value *Generator::Expression::generate_array_access(                                                        //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const ArrayAccessNode *access                                                                                 //
+) {
+    // First, generate the index expressions
+    std::vector<llvm::Value *> index_expressions;
+    for (auto &index_expression : access->indexing_expressions) {
+        group_mapping index = generate_expression(builder, parent, scope, allocations, garbage, expr_depth, index_expression.get());
+        if (!index.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        if (index.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        llvm::Value *index_expr = index.value().at(0);
+        if (!std::holds_alternative<std::shared_ptr<Type>>(index_expression->type)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        std::shared_ptr<Type> from_type = std::get<std::shared_ptr<Type>>(index_expression->type);
+        std::shared_ptr<Type> to_type = Type::get_simple_type("u64");
+        if (from_type != to_type) {
+            index_expr = generate_type_cast(builder, index_expr, from_type, to_type);
+        }
+        index_expressions.emplace_back(index_expr);
+    }
+    const unsigned int var_decl_scope = std::get<1>(scope->variables.at(access->variable_name));
+    const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + access->variable_name;
+    llvm::Value *const array_alloca = allocations.at(var_name);
+    llvm::Value *const temp_array_indices = allocations.at("arr::idx::" + std::to_string(index_expressions.size()));
+    // Save all the indices in the temp array
+    for (size_t i = 0; i < index_expressions.size(); i++) {
+        llvm::Value *index_ptr = builder.CreateGEP(                                                            //
+            builder.getInt64Ty(), temp_array_indices, builder.getInt64(i), "idx_" + std::to_string(i) + "_ptr" //
+        );
+        llvm::StoreInst *index_store = builder.CreateStore(index_expressions[i], index_ptr);
+        index_store->setMetadata("comment",                                                                       //
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i))) //
+        );
+    }
+    const llvm::DataLayout &data_layout = parent->getParent()->getDataLayout();
+    llvm::Type *element_type = IR::get_type(std::get<std::shared_ptr<Type>>(access->type)).first;
+    size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
+    llvm::Value *array_ptr = builder.CreateLoad(IR::get_type(access->variable_type).first, array_alloca, "array_ptr");
+    llvm::Value *result = builder.CreateCall(Array::array_manip_functions.at("access_arr_val"), //
+        {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                //
+    );
+    // return builder.CreateBitCast(result, IR::get_type(std::get<std::shared_ptr<Type>>(access->type)).first);
+    // return generate_type_cast(builder, result, Type::get_simple_type("u64"), std::get<std::shared_ptr<Type>>(access->type));
+    std::shared_ptr<Type> to_type = std::get<std::shared_ptr<Type>>(access->type);
+    llvm::Type *to_type_value = IR::get_type(to_type).first;
+    return IR::generate_bitwidth_change(builder, result, 64, to_type_value->getIntegerBitWidth(), to_type_value);
 }
 
 llvm::Value *Generator::Expression::generate_data_access(             //

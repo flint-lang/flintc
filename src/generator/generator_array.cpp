@@ -682,13 +682,15 @@ void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, 
     builder->SetInsertPoint(loop_block);
     llvm::Value *current_counter = builder->CreateLoad(builder->getInt64Ty(), counter_ptr, "i");
     llvm::Value *loop_cond = builder->CreateICmpULT(current_counter, dimensionality, "loop_cond");
-    llvm::Value *current_index = nullptr;
-    llvm::Value *current_dim_length = nullptr;
+
+    // size_t index = indices[i] - Now use our local copy
+    llvm::Value *index_ptr = builder->CreateGEP(builder->getInt64Ty(), arg_indices, current_counter, "index_ptr");
+    llvm::Value *current_index = builder->CreateLoad(builder->getInt64Ty(), index_ptr, "index");
+    llvm::Value *dim_length_ptr = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, current_counter, "dim_length_ptr");
+    llvm::Value *current_dim_length = builder->CreateLoad(builder->getInt64Ty(), dim_length_ptr, "dim_length");
+
     if (oob_mode == ArrayOutOfBoundsMode::UNSAFE) {
-        // Just jump to the "in bounds" block as we dont include a bounds check, and the `bounds_check_block` and `out_of_bounds_block` can
-        // be removed entirely
-        bounds_check_block->eraseFromParent();
-        out_of_bounds_block->eraseFromParent();
+        // Just jump to the "in bounds" block as we don't include a bounds check
         builder->CreateCondBr(loop_cond, in_bounds_block, exit_block);
     } else {
         builder->CreateCondBr(loop_cond, bounds_check_block, exit_block);
@@ -696,13 +698,7 @@ void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, 
         // Get current index and check bounds
         builder->SetInsertPoint(bounds_check_block);
 
-        // size_t index = indices[i];
-        llvm::Value *index_ptr = builder->CreateGEP(builder->getInt64Ty(), arg_indices, current_counter, "index_ptr");
-        current_index = builder->CreateLoad(builder->getInt64Ty(), index_ptr, "index");
-
         // if (index >= dim_lengths[i]) return NULL;
-        llvm::Value *dim_length_ptr = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, current_counter, "dim_length_ptr");
-        current_dim_length = builder->CreateLoad(builder->getInt64Ty(), dim_length_ptr, "dim_length");
         llvm::Value *bounds_cond = builder->CreateICmpUGE(current_index, current_dim_length, "bounds_cond");
         builder->CreateCondBr(bounds_cond, out_of_bounds_block, in_bounds_block);
 
@@ -710,16 +706,16 @@ void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, 
         builder->SetInsertPoint(out_of_bounds_block);
         // Print to the console that an OOB happened
         if (oob_mode == ArrayOutOfBoundsMode::PRINT || oob_mode == ArrayOutOfBoundsMode::CRASH) {
-            llvm::Value *format_str = IR::generate_const_string(*builder, "Out Of Bounds access occured: Arr Len: %ul, Index: %ul\n");
+            llvm::Value *format_str = IR::generate_const_string(*builder, "Out Of Bounds access occured: Arr Len: %lu, Index: %lu\n");
             builder->CreateCall(builtins.at(PRINT), {format_str, current_dim_length, current_index});
         }
         switch (oob_mode) {
             case ArrayOutOfBoundsMode::PRINT:
                 [[fallthrough]];
             case ArrayOutOfBoundsMode::SILENT: {
-                // Apply index clamping and overwrite the index value at indices[i]
+                // Apply index clamping and update our LOCAL copy
                 llvm::Value *clamped_index = builder->CreateSub(current_dim_length, builder->getInt64(1), "clamped_index");
-                builder->CreateStore(clamped_index, index_ptr);
+                builder->CreateStore(clamped_index, index_ptr); // Update our local copy
                 builder->CreateBr(in_bounds_block);
                 break;
             }
@@ -732,15 +728,19 @@ void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, 
                 break;
         }
     }
+
     // In bounds - update offset and stride
     builder->SetInsertPoint(in_bounds_block);
+
+    // Reload the potentially updated index from our local copy
+    llvm::Value *index_to_use = builder->CreateLoad(builder->getInt64Ty(), index_ptr, "index_after_bounds_check");
 
     // load stride
     llvm::Value *current_stride = builder->CreateLoad(builder->getInt64Ty(), stride_ptr, "stride");
 
     // offset += index * stride;
     llvm::Value *current_offset = builder->CreateLoad(builder->getInt64Ty(), offset_ptr, "offset");
-    llvm::Value *index_times_stride = builder->CreateMul(current_index, current_stride, "index_times_stride");
+    llvm::Value *index_times_stride = builder->CreateMul(index_to_use, current_stride, "index_times_stride");
     llvm::Value *new_offset = builder->CreateAdd(current_offset, index_times_stride, "new_offset");
     builder->CreateStore(new_offset, offset_ptr);
 

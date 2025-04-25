@@ -56,6 +56,41 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     return type_map[types_str];
 }
 
+llvm::Value *Generator::IR::generate_bitwidth_change( //
+    llvm::IRBuilder<> &builder,                       //
+    llvm::Value *value,                               //
+    const unsigned int from_bitwidth,                 //
+    const unsigned int to_bitwidth,                   //
+    llvm::Type *to_type                               //
+) {
+    llvm::Value *correct_bitwidth_value = value;
+    if (from_bitwidth != to_bitwidth) {
+        llvm::Type *from_type = value->getType();
+
+        llvm::Value *int_value = value;
+        if (!from_type->isIntegerTy()) {
+            llvm::Type *int_from_type = builder.getIntNTy(from_bitwidth);
+            int_value = builder.CreateBitCast(value, int_from_type);
+        }
+        if (from_bitwidth < to_bitwidth) {
+            // Need to extend
+            llvm::Type *target_int_type = builder.getIntNTy(to_bitwidth);
+            // Zero-extended (fill with zeroes) - assuming unsigned interpretation
+            correct_bitwidth_value = builder.CreateZExt(int_value, target_int_type);
+        } else {
+            // Need to truncate
+            llvm::Type *target_int_type = builder.getIntNTy(to_bitwidth);
+            correct_bitwidth_value = builder.CreateTrunc(int_value, target_int_type);
+        }
+
+        // Finally, bitcast to the target type if different from what we have
+        if (correct_bitwidth_value->getType() != to_type) {
+            return builder.CreateBitCast(correct_bitwidth_value, to_type);
+        }
+    }
+    return correct_bitwidth_value;
+}
+
 void Generator::IR::generate_forward_declarations(llvm::Module *module, const FileNode &file_node) {
     unsigned int mangle_id = 1;
     file_function_mangle_ids[file_node.file_name] = {};
