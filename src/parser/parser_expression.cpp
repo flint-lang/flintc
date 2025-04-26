@@ -606,11 +606,7 @@ std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, token_lis
 }
 
 std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scope, token_list &tokens) {
-    std::optional<uint2> length_expression_range = Signature::balanced_range_extraction( //
-        tokens,                                                                          //
-        Signature::get_regex_string({TOK_LEFT_BRACKET}),                                 //
-        Signature::get_regex_string({TOK_RIGHT_BRACKET})                                 //
-    );
+    std::optional<uint2> length_expression_range = Signature::balanced_range_extraction(tokens, LEFT_BRACKET_STR, RIGHT_BRACKET_STR);
     if (!length_expression_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;

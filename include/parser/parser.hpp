@@ -17,6 +17,7 @@
 #include "ast/definitions/test_node.hpp"
 #include "ast/definitions/variant_node.hpp"
 
+#include "ast/statements/array_assignment_node.hpp"
 #include "ast/statements/assignment_node.hpp"
 #include "ast/statements/call_node_statement.hpp"
 #include "ast/statements/data_field_assignment_node.hpp"
@@ -166,6 +167,14 @@ class Parser {
     /// @var `COMMA_STR`
     /// @brief The regex string for matching the comma character
     static inline const std::string COMMA_STR = Signature::get_regex_string({{TOK_COMMA}});
+
+    /// @var `LEFT_BRACKET_STR`
+    /// @brief The regex string for matching the left bracket character
+    static inline const std::string LEFT_BRACKET_STR = Signature::get_regex_string({{TOK_LEFT_BRACKET}});
+
+    /// @var `RIGHT_BRACKET_STR`
+    /// @brief The regex string for matching the right bracket character
+    static inline const std::string RIGHT_BRACKET_STR = Signature::get_regex_string({{TOK_RIGHT_BRACKET}});
 
     /// @var `token_precedence`
     /// @brief
@@ -876,6 +885,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the grouped data field assignment
     /// @return `std::optional<GroupedDataFieldAssignmentNode>` The created GroupedDataFieldAssignmentNode, nullopt if its creation failed
     std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment(Scope *scope, token_list &tokens);
+
+    /// @function `create_array_assignment`
+    /// @brief Creates an ArrayAssignmentNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the grouped array assignment is defined
+    /// @param `tokens` The list of tokens representing the array assignment
+    /// @return `std::optional<ArrayAssignmentNode>` The created ArrayAssignmentNode, nullopt if its creation failed
+    std::optional<ArrayAssignmentNode> create_array_assignment(Scope *scope, token_list &tokens);
 
     /// @function `create_statement`
     /// @brief Creates a StatementNode from the given list of tokens

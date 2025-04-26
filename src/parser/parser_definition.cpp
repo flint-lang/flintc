@@ -555,7 +555,7 @@ ImportNode Parser::create_import(const token_list &tokens) {
             }
         }
     } else {
-        const std::string reference = Signature::get_regex_string(                             //
+        static const std::string reference = Signature::get_regex_string(                      //
             {"((", TOK_FLINT, ")|(", TOK_IDENTIFIER, "))", "(", TOK_DOT, TOK_IDENTIFIER, ")*"} //
         );
         const auto matches = Signature::get_match_ranges(tokens, reference).at(0);

@@ -634,6 +634,20 @@ namespace Debug {
             print_expression(++indent_lvl, empty, assign.expression);
         }
 
+        void print_array_assignment(unsigned int indent_lvl, uint2 empty, const ArrayAssignmentNode &assign) {
+            Local::print_header(indent_lvl, empty, "Array Assign ");
+            std::cout << assign.array_type->to_string() << " " << assign.variable_name;
+            std::cout << std::endl;
+            for (size_t i = 0; i < assign.indexing_expressions.size(); i++) {
+                empty.second = indent_lvl + 1;
+                Local::print_header(indent_lvl + 1, empty, "ID " + std::to_string(i) + " ");
+                Local::print_type(assign.indexing_expressions[i]->type);
+                std::cout << std::endl;
+                empty.second = indent_lvl + 3;
+                print_expression(indent_lvl + 2, empty, assign.indexing_expressions[i]);
+            }
+        }
+
         void print_group_declaration(unsigned int indent_lvl, uint2 empty, const GroupDeclarationNode &decl) {
             Local::print_header(indent_lvl, empty, "Group Decl ");
             std::cout << "of type (";
@@ -729,6 +743,8 @@ namespace Debug {
                 print_data_field_assignment(indent_lvl, empty, *data_assignment);
             } else if (const auto *grouped_data_assignment = dynamic_cast<const GroupedDataFieldAssignmentNode *>(statement.get())) {
                 print_grouped_data_field_assignment(indent_lvl, empty, *grouped_data_assignment);
+            } else if (const auto *array_assignment = dynamic_cast<const ArrayAssignmentNode *>(statement.get())) {
+                print_array_assignment(indent_lvl, empty, *array_assignment);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;

@@ -684,8 +684,10 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment(Scop
     );
 }
 
-std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_assignment([[maybe_unused]] Scope *scope,
-    [[maybe_unused]] token_list &tokens) {
+std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_assignment( //
+    Scope *scope,                                                                           //
+    token_list &tokens                                                                      //
+) {
     auto grouped_field_access_base = create_grouped_access_base(scope, tokens);
     if (!grouped_field_access_base.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -716,6 +718,55 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         std::get<4>(grouped_field_access_base.value()), // field_types
         expression.value()                              //
     );
+}
+
+std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope, token_list &tokens) {
+    remove_leading_garbage(tokens);
+    // Now the first token should be the array identifier
+    assert(tokens.front().type == TOK_IDENTIFIER);
+    const std::string variable_name = tokens.front().lexme;
+    std::optional<std::shared_ptr<Type>> var_type = scope->get_variable_type(variable_name);
+    if (!var_type.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const ArrayType *array_type = dynamic_cast<const ArrayType *>(var_type.value().get());
+    if (array_type == nullptr) {
+        // Accessed variable not of array type
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    tokens.erase(tokens.begin());
+    // The next token should be a [ symbol
+    std::optional<uint2> bracket_range = Signature::balanced_range_extraction(tokens, LEFT_BRACKET_STR, RIGHT_BRACKET_STR);
+    if (!bracket_range.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    token_list indexing_tokens = extract_from_to(bracket_range.value().first, bracket_range.value().second, tokens);
+    // Now the first two tokens should be the [ and ]
+    assert(indexing_tokens.front().type == TOK_LEFT_BRACKET);
+    indexing_tokens.erase(indexing_tokens.begin());
+    assert(indexing_tokens.back().type == TOK_RIGHT_BRACKET);
+    indexing_tokens.pop_back();
+    std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(scope, indexing_tokens);
+    if (!indexing_expression.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, indexing_tokens);
+        return std::nullopt;
+    }
+    std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
+    indexing_expressions.emplace_back(std::move(indexing_expression.value()));
+    // Now the next token should be a = sign
+    assert(tokens.front().type == TOK_EQUAL);
+    tokens.erase(tokens.begin());
+
+    // Parse the rhs expression
+    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, tokens);
+    if (!expression.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        return std::nullopt;
+    }
+    return ArrayAssignmentNode(variable_name, var_type.value(), array_type->type, indexing_expressions, expression.value());
 }
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, token_list &tokens) {
@@ -770,6 +821,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupAssignmentNode>(std::move(assign.value()));
+    } else if (Signature::tokens_contain(tokens, ESignature::ARRAY_ASSIGNMENT)) {
+        std::optional<ArrayAssignmentNode> assign = create_array_assignment(scope, tokens);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<ArrayAssignmentNode>(std::move(assign.value()));
     } else if (Signature::tokens_contain(tokens, ESignature::ASSIGNMENT)) {
         std::optional<AssignmentNode> assign = create_assignment(scope, tokens);
         if (!assign.has_value()) {

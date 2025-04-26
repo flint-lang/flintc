@@ -27,6 +27,7 @@
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
+#include "parser/ast/statements/array_assignment_node.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
@@ -127,6 +128,7 @@ namespace Debug {
         void print_catch(unsigned int indent_lvl, uint2 empty, const CatchNode &catch_node);
         void print_group_assignment(unsigned int indent_lvl, uint2 empty, const GroupAssignmentNode &assign);
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign);
+        void print_array_assignment(unsigned int indent_lvl, uint2 empty, const ArrayAssignmentNode &assign);
         void print_group_declaration(unsigned int indent_lvl, uint2 empty, const GroupDeclarationNode &decl);
         void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl);
         void print_data_field_assignment(unsigned int indent_lvl, uint2 empty, const DataFieldAssignmentNode &assignment);

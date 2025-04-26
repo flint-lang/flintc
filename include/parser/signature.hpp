@@ -76,6 +76,7 @@ enum class ESignature {
     GROUP_ASSIGNMENT,
     DATA_FIELD_ASSIGNMENT,
     GROUPED_DATA_ASSIGNMENT,
+    ARRAY_ASSIGNMENT,
     FOR_LOOP,
     ENHANCED_FOR_LOOP,
     PAR_FOR_LOOP,
@@ -431,6 +432,7 @@ class Signature {
     static const inline signature group_assignment = combine({{TOK_LEFT_PAREN}, match_until_signature({TOK_RIGHT_PAREN}), {TOK_EQUAL}});
     static const inline signature data_field_assignment = combine({data_access, {TOK_EQUAL}});
     static const inline signature grouped_data_assignment = combine({grouped_data_access, {TOK_EQUAL}});
+    static const inline signature array_assignment = combine({array_access, {TOK_EQUAL}});
     static const inline signature for_loop = combine({//
         {TOK_FOR}, match_until_signature({TOK_SEMICOLON}), match_until_signature({TOK_SEMICOLON}), match_until_signature({TOK_COLON})});
     static const inline signature enhanced_for_loop = combine({//
@@ -515,6 +517,7 @@ class Signature {
         {ESignature::GROUP_ASSIGNMENT, get_regex_string(group_assignment)},
         {ESignature::DATA_FIELD_ASSIGNMENT, get_regex_string(data_field_assignment)},
         {ESignature::GROUPED_DATA_ASSIGNMENT, get_regex_string(grouped_data_assignment)},
+        {ESignature::ARRAY_ASSIGNMENT, get_regex_string(array_assignment)},
         {ESignature::FOR_LOOP, get_regex_string(for_loop)},
         {ESignature::ENHANCED_FOR_LOOP, get_regex_string(enhanced_for_loop)},
         {ESignature::PAR_FOR_LOOP, get_regex_string(par_for_loop)},
