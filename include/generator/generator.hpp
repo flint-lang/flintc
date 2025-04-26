@@ -18,6 +18,7 @@
 #include "parser/ast/expressions/variable_node.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
+#include "parser/ast/statements/array_assignment_node.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
@@ -1669,6 +1670,22 @@ class Generator {
             const GroupedDataFieldAssignmentNode *grouped_field_assignment    //
         );
 
+        /// @function `generate_array_assignment`
+        /// @brief Generates the array assignment from the given ArrayAssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the array assignment will be generated in
+        /// @param `scope` The scope the the array assignment is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `array_assignment` The array assignment to generate
+        static void generate_array_assignment(                                //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const ArrayAssignmentNode *array_assignment                       //
+        );
+
         /// @function `generate_unary_op_statement`
         /// @brief Generates the unary operation value from the given UnaryOpStatement
         ///
@@ -2223,6 +2240,26 @@ class Generator {
         /// @param `module` The LLVM Module the `access_arr_val` function will be generated in
         /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         static void generate_access_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+        /// @function `generate_assign_arr_at_function`
+        /// @brief Generates the builtin hidden `assign_arr_at` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `assign_arr_at` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_assign_arr_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+        /// @function `generate_assign_arr_val_at_function`
+        /// @brief Generates the builtin hidden `assign_arr_val_at` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `assign_arr_val_at` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_assign_arr_val_at_function( //
+            llvm::IRBuilder<> *builder,                  //
+            llvm::Module *module,                        //
+            const bool only_declarations = true          //
+        );
 
         /// @function `generate_array_manip_functions`
         /// @brief Generates all the builtin hidden array manipulation functions

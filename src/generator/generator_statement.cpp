@@ -48,6 +48,8 @@ void Generator::Statement::generate_statement(                        //
         generate_data_field_assignment(builder, parent, scope, allocations, field_assignment_node);
     } else if (const auto *grouped_assignment_node = dynamic_cast<const GroupedDataFieldAssignmentNode *>(statement.get())) {
         generate_grouped_data_field_assignment(builder, parent, scope, allocations, grouped_assignment_node);
+    } else if (const auto *array_assignment_node = dynamic_cast<const ArrayAssignmentNode *>(statement.get())) {
+        generate_array_assignment(builder, parent, scope, allocations, array_assignment_node);
     } else {
         THROW_BASIC_ERR(ERR_GENERATING);
     }
@@ -860,6 +862,64 @@ void Generator::Statement::generate_grouped_data_field_assignment(    //
                     "Store result of expr in field '" + grouped_field_assignment->var_name + "." +
                         grouped_field_assignment->field_names.at(i) + "'")));
     }
+}
+
+void Generator::Statement::generate_array_assignment(                 //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const ArrayAssignmentNode *array_assignment                       //
+) {
+    // Generate the main expression
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
+    group_mapping expression_result = Expression::generate_expression(                      //
+        builder, parent, scope, allocations, garbage, 0, array_assignment->expression.get() //
+    );
+    if (!expression_result.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return;
+    }
+    if (expression_result.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return;
+    }
+    llvm::Value *expression = expression_result.value().at(0);
+    // Generate all the indexing expressions
+    std::vector<llvm::Value *> idx_expressions;
+    for (auto &idx_expression : array_assignment->indexing_expressions) {
+        group_mapping idx_expr = Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, idx_expression.get());
+        if (!idx_expr.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return;
+        }
+        if (idx_expr.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return;
+        }
+        idx_expressions.emplace_back(idx_expr.value().at(0));
+    }
+    // Store all the results of the index expressions in the indices array
+    llvm::Value *const indices = allocations.at("arr::idx::" + std::to_string(array_assignment->indexing_expressions.size()));
+    for (size_t i = 0; i < idx_expressions.size(); i++) {
+        llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
+        builder.CreateStore(idx_expressions[i], idx_ptr);
+    }
+    // Store the main expression result in an 8 byte container
+    llvm::Type *to_type = IR::get_type(Type::get_simple_type("i64")).first;
+    const unsigned int expr_bitwidth = expression->getType()->getIntegerBitWidth();
+    expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
+    // Get the array value
+    const unsigned int var_decl_scope = std::get<1>(scope->variables.at(array_assignment->variable_name));
+    const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + array_assignment->variable_name;
+    llvm::Value *const array_alloca = allocations.at(var_name);
+    llvm::Type *arr_type = IR::get_type(Type::get_simple_type("str_var")).first->getPointerTo();
+    llvm::Value *array_ptr = builder.CreateLoad(arr_type, array_alloca, "array_ptr");
+    // Call the `assign_at_val` function
+    builder.CreateCall(                                                       //
+        Array::array_manip_functions.at("assign_arr_val_at"),                 //
+        {array_ptr, builder.getInt64(expr_bitwidth / 8), indices, expression} //
+    );
 }
 
 void Generator::Statement::generate_unary_op_statement(               //

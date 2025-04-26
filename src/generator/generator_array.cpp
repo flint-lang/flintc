@@ -825,10 +825,124 @@ void Generator::Array::generate_access_arr_val_function(llvm::IRBuilder<> *build
     builder->CreateRet(loaded_value);
 }
 
+void Generator::Array::generate_assign_arr_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // void assign_arr_at(str *arr, const size_t element_size, const size_t *indices, const void *value) {
+    //     char *element = access_arr(arr, element_size, indices);
+    //     memcpy(element, value, element_size);
+    // }
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Function *access_arr_fn = array_manip_functions.at("access_arr");
+    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+
+    llvm::FunctionType *assign_arr_at_type = llvm::FunctionType::get( //
+        builder->getVoidTy(),                                         // Return type: void
+        {
+            str_type->getPointerTo(),              // Argument str* arr
+            builder->getInt64Ty(),                 // Argument size_t element_size
+            builder->getInt64Ty()->getPointerTo(), // Argument size_t* indices
+            builder->getVoidTy()->getPointerTo()   // Argument: void* value
+        },
+        false // No vaargs
+    );
+    llvm::Function *assign_arr_at_fn = llvm::Function::Create( //
+        assign_arr_at_type,                                    //
+        llvm::Function::ExternalLinkage,                       //
+        "__flint_assign_arr_at",                               //
+        module                                                 //
+    );
+    array_manip_functions["assign_arr_at"] = assign_arr_at_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the parameter (arr)
+    llvm::Argument *arg_arr = assign_arr_at_fn->arg_begin();
+    arg_arr->setName("arr");
+    // Get the parameter (element_size)
+    llvm::Argument *arg_element_size = assign_arr_at_fn->arg_begin() + 1;
+    arg_element_size->setName("element_size");
+    // Get the parameter (indices)
+    llvm::Argument *arg_indices = assign_arr_at_fn->arg_begin() + 2;
+    arg_indices->setName("indices");
+    // Get the parameter (value)
+    llvm::Argument *arg_value = assign_arr_at_fn->arg_begin() + 3;
+    arg_value->setName("value");
+
+    llvm::BasicBlock *entry = llvm::BasicBlock::Create(context, "entry", assign_arr_at_fn);
+    builder->SetInsertPoint(entry);
+
+    llvm::Value *access_result = builder->CreateCall(access_arr_fn, {arg_arr, arg_element_size, arg_indices}, "element");
+    builder->CreateCall(memcpy_fn, {access_result, arg_value, arg_element_size});
+
+    builder->CreateRetVoid();
+}
+
+void Generator::Array::generate_assign_arr_val_at_function( //
+    llvm::IRBuilder<> *builder,                             //
+    llvm::Module *module,                                   //
+    const bool only_declarations                            //
+) {
+    // THE C IMPLEMENTATION:
+    // void assign_arr_val_at(str *arr, const size_t element_size, const size_t *indices, const size_t value) {
+    //     char *element = access_arr(arr, element_size, indices);
+    //     memcpy(element, &value, element_size);
+    // }
+    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Function *access_arr_fn = array_manip_functions.at("access_arr");
+    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+
+    llvm::FunctionType *assign_arr_val_at_type = llvm::FunctionType::get( //
+        builder->getVoidTy(),                                             // Return type: void
+        {
+            str_type->getPointerTo(),              // Argument str* arr
+            builder->getInt64Ty(),                 // Argument size_t element_size
+            builder->getInt64Ty()->getPointerTo(), // Argument size_t* indices
+            builder->getInt64Ty()                  // Argument: size_t value
+        },
+        false // No vaargs
+    );
+    llvm::Function *assign_arr_val_at_fn = llvm::Function::Create( //
+        assign_arr_val_at_type,                                    //
+        llvm::Function::ExternalLinkage,                           //
+        "__flint_assign_val_arr_at",                               //
+        module                                                     //
+    );
+    array_manip_functions["assign_arr_val_at"] = assign_arr_val_at_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the parameter (arr)
+    llvm::Argument *arg_arr = assign_arr_val_at_fn->arg_begin();
+    arg_arr->setName("arr");
+    // Get the parameter (element_size)
+    llvm::Argument *arg_element_size = assign_arr_val_at_fn->arg_begin() + 1;
+    arg_element_size->setName("element_size");
+    // Get the parameter (indices)
+    llvm::Argument *arg_indices = assign_arr_val_at_fn->arg_begin() + 2;
+    arg_indices->setName("indices");
+    // Get the parameter (value)
+    llvm::Argument *arg_value = assign_arr_val_at_fn->arg_begin() + 3;
+    arg_value->setName("value");
+
+    llvm::BasicBlock *entry = llvm::BasicBlock::Create(context, "entry", assign_arr_val_at_fn);
+    builder->SetInsertPoint(entry);
+
+    llvm::Value *access_result = builder->CreateCall(access_arr_fn, {arg_arr, arg_element_size, arg_indices}, "element");
+    llvm::Value *val = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "val");
+    builder->CreateStore(arg_value, val);
+    builder->CreateCall(memcpy_fn, {access_result, val, arg_element_size});
+
+    builder->CreateRetVoid();
+}
+
 void Generator::Array::generate_array_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declaration) {
     generate_create_arr_function(builder, module, only_declaration);
     generate_fill_arr_function(builder, module, only_declaration);
     generate_fill_arr_val_function(builder, module, only_declaration);
     generate_access_arr_function(builder, module, only_declaration);
     generate_access_arr_val_function(builder, module, only_declaration);
+    generate_assign_arr_at_function(builder, module, only_declaration);
+    generate_assign_arr_val_at_function(builder, module, only_declaration);
 }
