@@ -1,7 +1,7 @@
 def main():
     i32[] arr = i32[10](-10);
-    for i32 i = 0; i < 10; i++:
+    for i32 i = 0; i < arr.length; i++:
         arr[i] = i;
     arr[0] = 5;
-    for i32 i = 0; i <= 10; i++:
+    for i32 i = 0; i <= arr.length; i++:
         print($"arr[{i}] = {arr[i]}\n");

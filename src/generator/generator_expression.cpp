@@ -702,6 +702,12 @@ llvm::Value *Generator::Expression::generate_data_access(             //
     if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
         data_type = IR::get_type(Type::get_simple_type("str_var")).first;
         var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, data_access->var_name + "_str_val");
+    } else if (dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
+        llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+        llvm::Value *arr_val = builder.CreateLoad(str_type->getPointerTo(), var_alloca, "arr_val");
+        llvm::Value *length_ptr = builder.CreateStructGEP(str_type, arr_val, 1);
+        llvm::Value *length_value = builder.CreateLoad(builder.getInt64Ty(), length_ptr, "length_value");
+        return length_value;
     } else {
         data_type = IR::get_type(data_access->data_type).first;
     }

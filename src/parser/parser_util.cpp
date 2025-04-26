@@ -399,6 +399,12 @@ Parser::create_field_access_base( //
             return std::nullopt;
         }
         return std::make_tuple(data_type.value(), var_name, "length", 0, Type::get_simple_type("u64"));
+    } else if (dynamic_cast<const ArrayType *>(data_type.value().get())) {
+        if (field_name != "length") {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_tuple(data_type.value(), var_name, "length", 1, Type::get_simple_type("u64"));
     }
     std::optional<DataNode *> data_node = get_data_definition(                        //
         file_name, data_type.value()->to_string(), imported_files, std::nullopt, true //
