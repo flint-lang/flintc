@@ -1,0 +1,9 @@
+use "assert.ft"
+
+def test_array():
+    // Fill array of size 10 with value 2
+    i32[] arr = i32[10](2);
+    i32 sum = 0;
+    for u32 i = 0; i < arr.length; i++:
+        sum += arr[i];
+    assert(sum == 20);
