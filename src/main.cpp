@@ -75,7 +75,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     const bool is_test,                                        //
     const bool parse_parallel                                  //
 ) {
-    PROFILE_SCOPE("Generate module");
+    ScopeProfiler sp("Generate module");
 
     // Parse the .ft file and resolve all inclusions
     Type::init_types();
@@ -107,6 +107,14 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     Parser::clear_instances();
     if (PRINT_AST) {
         Debug::AST::print_all_files();
+    }
+    if (DEBUG_MODE && NO_GENERATION) {
+        sp.~ScopeProfiler();
+        Profiler::end_task("ALL");
+        if (PRINT_PROFILE_RESULTS) {
+            Profiler::print_results(Profiler::TimeUnit::MICS);
+        }
+        exit(0);
     }
 
     // Generate the whole program

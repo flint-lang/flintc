@@ -111,6 +111,8 @@ class CLIParserMain : public CLIParserBase {
                 PRINT_PROFILE_RESULTS = false;
             } else if (arg == "--hard-crash") {
                 HARD_CRASH = true;
+            } else if (arg == "--no-generation") {
+                NO_GENERATION = true;
             } else if (arg == "--print-ir-print") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PRINT);
             } else if (arg == "--print-ir-str") {
@@ -184,7 +186,8 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --no-ast                    Disables the debug printing of the parsed AST tree\n";
         std::cout << "  --no-ir                     Disables the debug printing of the generated program IR code\n";
         std::cout << "  --no-profile                Disables the debug printing of the profiling results\n";
-        std::cout << "  --hard-crash                Enables the option to hard crash the program in the case of a thrown error";
+        std::cout << "  --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
+        std::cout << "  --no-generation             Disables code generation entirely, the program exits after the parsing phase";
         std::cout << std::endl;
         std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
         std::cout << "  --print-ir-print            Enables printing of the IR code for the print.o library\n";

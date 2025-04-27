@@ -14,6 +14,7 @@ bool PRINT_AST = true;
 bool PRINT_IR_PROGRAM = true;
 bool PRINT_PROFILE_RESULTS = true;
 bool HARD_CRASH = false;
+bool NO_GENERATION = false;
 
 unsigned int BUILTIN_LIBS_TO_PRINT = 0;
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;

@@ -12,6 +12,7 @@ extern bool PRINT_AST;
 extern bool PRINT_IR_PROGRAM;
 extern bool PRINT_PROFILE_RESULTS;
 extern bool HARD_CRASH;
+extern bool NO_GENERATION;
 
 enum class BuiltinLibrary : unsigned int { PRINT = 1, STR = 2, CAST = 4, ARITHMETIC = 8, ARRAY = 16 };
 extern unsigned int BUILTIN_LIBS_TO_PRINT;
