@@ -78,6 +78,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     ScopeProfiler sp("Generate module");
 
     // Parse the .ft file and resolve all inclusions
+    Profiler::start_task("Parsing the program");
     Type::init_types();
     Resolver::add_path(source_file_path.filename().string(), source_file_path.parent_path());
     std::optional<FileNode> file = Parser::create(source_file_path)->parse();
@@ -104,6 +105,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
             return std::nullopt;
         }
     }
+    Profiler::end_task("Parsing the program");
     Parser::clear_instances();
     if (PRINT_AST) {
         Debug::AST::print_all_files();
