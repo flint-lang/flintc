@@ -107,7 +107,7 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
     args.push_back("ucrt.lib");
     args.push_back("vcruntime.lib");
     std::string link_dir = "-L" + Generator::get_flintc_cache_path().string();
-    args.push_back(link_dir);
+    args.push_back(link_dir.c_str());
     args.push_back("-lbuiltins");
 
     if (is_static) {
@@ -132,10 +132,11 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
     // Unix ELF linking arguments
     args.push_back("ld.lld");
 
-    std::vector<std::string> args_vec;
+    std::array<std::string, 30> args_buffer;
+    unsigned int args_id = 0;
     if (is_static) {
         // For static builds with musl
-        args_vec.push_back("-static");
+        args_buffer[args_id++] = "-static";
 
         // Find musl libc.a - check multiple possible locations
         std::vector<std::string> possible_musl_paths = {
@@ -167,20 +168,20 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         std::string musl_crt1 = musl_dir + "/crt1.o";
 
         if (std::filesystem::exists(musl_crt1)) {
-            args_vec.push_back(std::string(musl_crt1).c_str());
+            args_buffer[args_id++] = musl_crt1;
         } else {
             // Fall back to system crt1.o
-            args_vec.push_back("/usr/lib/crt1.o");
+            args_buffer[args_id++] = "/usr/lib/crt1.o";
         }
 
         // Add object file
-        args_vec.push_back(obj_file.string().c_str());
+        args_buffer[args_id++] = obj_file.string();
 
         // Use musl libc.a directly by path (not with -l flag)
-        args_vec.push_back(std::string(musl_libc_path).c_str());
+        args_buffer[args_id++] = std::string(musl_libc_path);
 
-        for (auto &arg : args_vec) {
-            args.emplace_back(arg.c_str());
+        for (unsigned int i = 0; i < args_id; i++) {
+            args.emplace_back(args_buffer[i].c_str());
         }
     } else {
         // For dynamic builds, use regular glibc
@@ -189,9 +190,10 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         args.push_back("--no-relax");       // Disable relocation relaxation
         args.push_back("/usr/lib/crt1.o");
         args.push_back("/usr/lib/crti.o");
-        args.push_back(obj_file.string().c_str());
-        args_vec.push_back("-L" + Generator::get_flintc_cache_path().string());
-        args.push_back(args_vec.back().c_str());
+        args_buffer[args_id] = obj_file.string();
+        args.push_back(args_buffer[args_id++].c_str());
+        args_buffer[args_id] = std::string("-L" + Generator::get_flintc_cache_path().string());
+        args.push_back(args_buffer[args_id++].c_str());
         args.push_back("-lbuiltins");
         args.push_back("-L/usr/lib");
         args.push_back("-L/usr/lib/x86_64-linux-gnu");
@@ -202,7 +204,8 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
 
     // Output file
     args.push_back("-o");
-    args.push_back(output_file.string().c_str());
+    args_buffer[args_id] = output_file.string();
+    args.push_back(args_buffer[args_id++].c_str());
 
     if (DEBUG_MODE) {
         std::cout << "-- " << (is_static ? "Static (musl) " : "Dynamic ") << "ELF linking with arguments:" << std::endl;
