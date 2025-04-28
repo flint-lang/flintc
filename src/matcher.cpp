@@ -2,6 +2,7 @@
 #include "parser/parser.hpp"
 
 #include <cassert>
+#include <regex>
 
 std::optional<uint2> Matcher::balanced_range_extraction( //
     const token_list &tokens,                            //
@@ -85,6 +86,52 @@ std::vector<uint2> Matcher::balanced_range_extraction_vec( //
     }
 
     return ranges;
+}
+
+std::vector<uint2> Matcher::balanced_ranges_vec(const std::string &src, const std::string &inc, const std::string &dec) {
+    std::vector<uint2> result;
+    std::regex inc_regex(inc), dec_regex(dec);
+
+    // Keep track of positions of opening increments
+    std::stack<size_t> stack;
+
+    // Scan through the string looking for matches
+    std::sregex_iterator end;
+
+    // Find all increment and decrement positions
+    std::vector<std::pair<size_t, bool>> positions; // position and isIncrement flag
+
+    // Collect increment positions
+    for (std::sregex_iterator it(src.begin(), src.end(), inc_regex); it != end; ++it) {
+        positions.push_back({it->position(), true});
+    }
+
+    // Collect decrement positions
+    for (std::sregex_iterator it(src.begin(), src.end(), dec_regex); it != end; ++it) {
+        positions.push_back({it->position(), false});
+    }
+
+    // Sort positions by their location in the string
+    std::sort(positions.begin(), positions.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
+
+    // Process positions in order
+    for (const auto &[pos, isIncrement] : positions) {
+        if (isIncrement) {
+            // Push the position of increment onto stack
+            stack.push(pos);
+        } else if (!stack.empty()) {
+            // Found matching decrement, create a balanced range
+            size_t start = stack.top();
+            stack.pop();
+
+            // Add the start and end positions as a balanced range
+            // Assuming uint2 is a pair-like structure for two unsigned integers
+            result.push_back({static_cast<unsigned int>(start), static_cast<unsigned int>(pos)});
+        }
+        // Ignore decrements with no matching increment
+    }
+
+    return result;
 }
 
 bool Matcher::tokens_contain(const token_list &tokens, const PatternPtr &pattern) {

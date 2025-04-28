@@ -3,7 +3,6 @@
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
-#include "parser/signature.hpp"
 
 #include <algorithm>
 #include <optional>

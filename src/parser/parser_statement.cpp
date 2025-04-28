@@ -4,7 +4,6 @@
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/signature.hpp"
 #include "types.hpp"
 
 #include <iterator>

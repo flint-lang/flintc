@@ -10,7 +10,6 @@
 #include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/signature.hpp"
 #include "parser/type/array_type.hpp"
 
 #include <algorithm>
@@ -386,7 +385,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
 
 std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope *scope, const std::string &interpol_string) {
     // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
-    std::vector<uint2> ranges = Signature::balanced_ranges_vec(interpol_string, "([^\\\\]|)\\{", "[^\\\\]\\}");
+    std::vector<uint2> ranges = Matcher::balanced_ranges_vec(interpol_string, "([^\\\\]|)\\{", "[^\\\\]\\}");
     std::vector<std::variant<std::unique_ptr<TypeCastNode>, std::unique_ptr<LiteralNode>>> interpol_content;
     // If the ranges are empty, the interpolation does not contain any groups
     if (ranges.empty()) {

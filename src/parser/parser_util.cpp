@@ -7,7 +7,6 @@
 
 #include "debug.hpp"
 #include "error/error.hpp"
-#include "parser/signature.hpp"
 #include "parser/type/data_type.hpp"
 #include <algorithm>
 

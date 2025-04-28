@@ -1,7 +1,6 @@
 #pragma once
 
 #include "colors.hpp"
-#include "parser/signature.hpp"
 
 #include <codecvt>
 #include <locale>

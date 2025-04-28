@@ -1,6 +1,5 @@
 #pragma once
 
-#include "parser/signature.hpp"
 #include "types.hpp"
 
 #include "ast/call_node_base.hpp"
@@ -155,26 +154,6 @@ class Parser {
     /// @var `instances`
     /// @brief All Parser instances which are present. Used by the two-pass parsing system
     static inline std::vector<Parser> instances;
-
-    /// @var `LEFT_PAREN_STR`
-    /// @brief The regex string for matching the left paren character
-    static inline const std::string LEFT_PAREN_STR = Signature::get_regex_string({{TOK_LEFT_PAREN}});
-
-    /// @var `RIGHT_PAREN_STR`
-    /// @brief The regex string for matching the right paren character
-    static inline const std::string RIGHT_PAREN_STR = Signature::get_regex_string({{TOK_RIGHT_PAREN}});
-
-    /// @var `COMMA_STR`
-    /// @brief The regex string for matching the comma character
-    static inline const std::string COMMA_STR = Signature::get_regex_string({{TOK_COMMA}});
-
-    /// @var `LEFT_BRACKET_STR`
-    /// @brief The regex string for matching the left bracket character
-    static inline const std::string LEFT_BRACKET_STR = Signature::get_regex_string({{TOK_LEFT_BRACKET}});
-
-    /// @var `RIGHT_BRACKET_STR`
-    /// @brief The regex string for matching the right bracket character
-    static inline const std::string RIGHT_BRACKET_STR = Signature::get_regex_string({{TOK_RIGHT_BRACKET}});
 
     /// @var `token_precedence`
     /// @brief

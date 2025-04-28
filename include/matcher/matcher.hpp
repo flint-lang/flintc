@@ -48,6 +48,15 @@ class Matcher {
         const PatternPtr &dec_pattern                        //
     );
 
+    /// @function `balanced_ranges_vec`
+    /// @brief Returns a list of all balanced ranges in which the given increment and decrement is present inside the given string
+    ///
+    /// @param `src` The source string to search through
+    /// @param `inc` The increment signature regex string
+    /// @param `dec` The decrement signature regex string
+    /// @return `std::vector<uint2>` A list of all ranges from the balanced ranges
+    static std::vector<uint2> balanced_ranges_vec(const std::string &src, const std::string &inc, const std::string &dec);
+
     /// @function `tokens_contain`
     /// @brief Checks if a given vector of TokenContext contains a given pattern
     ///
