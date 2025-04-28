@@ -1,7 +1,7 @@
 #pragma once
 
 #include "debug.hpp"
-#include "parser/signature.hpp"
+#include "matcher/matcher.hpp"
 #include "test_utils.hpp"
 
 #include <string>
@@ -24,7 +24,7 @@ namespace {
         test_result.append_test_name("test_match_use_statement_string", false);
         token_list tokens = create_token_vector({//
             TOK_USE, TOK_STR_VALUE});
-        bool result = Signature::tokens_match(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -38,7 +38,7 @@ namespace {
         test_result.append_test_name("test_match_use_statement_package_single", false);
         token_list tokens = create_token_vector({//
             TOK_USE, TOK_IDENTIFIER});
-        bool result = Signature::tokens_match(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -52,7 +52,7 @@ namespace {
         test_result.append_test_name("test_match_use_statement_package_dual", false);
         token_list tokens = create_token_vector({//
             TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER});
-        bool result = Signature::tokens_match(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -66,7 +66,7 @@ namespace {
         test_result.append_test_name("test_match_use_statement_package_multiple", false);
         token_list tokens = create_token_vector({//
             TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER});
-        bool result = Signature::tokens_match(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -80,7 +80,7 @@ namespace {
         test_result.append_test_name("test_match_use_statement_flint_package_single", false);
         token_list tokens = create_token_vector({//
             TOK_USE, TOK_FLINT});
-        bool result = Signature::tokens_match(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -94,7 +94,7 @@ namespace {
         test_result.append_test_name("test_match_use_statement_flint_package_dual", false);
         token_list tokens = create_token_vector({//
             TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER});
-        bool result = Signature::tokens_match(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -108,7 +108,7 @@ namespace {
         test_result.append_test_name("test_match_use_statement_flint_package_multiple", false);
         token_list tokens = create_token_vector({//
             TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER});
-        bool result = Signature::tokens_match(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -131,7 +131,7 @@ namespace {
         test_result.append_test_name("test_contain_use_statement_string", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_STR_VALUE, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -145,7 +145,7 @@ namespace {
         test_result.append_test_name("test_contain_use_statement_package_single", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -159,7 +159,7 @@ namespace {
         test_result.append_test_name("test_contain_use_statement_package_dual", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -173,7 +173,7 @@ namespace {
         test_result.append_test_name("test_contain_use_statement_package_multiple", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -187,7 +187,7 @@ namespace {
         test_result.append_test_name("test_contain_use_statement_flint_package_single", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -201,7 +201,7 @@ namespace {
         test_result.append_test_name("test_contain_use_statement_flint_package_dual", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -215,7 +215,7 @@ namespace {
         test_result.append_test_name("test_contain_use_statement_flint_package_multiple", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::USE_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -238,7 +238,7 @@ namespace {
         test_result.append_test_name("test_extract_use_statement_string", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_STR_VALUE, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::USE_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::use_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
         test_result.ok_or_not(result);
         if (!result) {
@@ -253,7 +253,7 @@ namespace {
         test_result.append_test_name("test_extract_use_statement_package_single", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::USE_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::use_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
         test_result.ok_or_not(result);
         if (!result) {
@@ -268,7 +268,7 @@ namespace {
         test_result.append_test_name("test_extract_use_statement_package_dual", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::USE_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::use_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         test_result.ok_or_not(result);
         if (!result) {
@@ -283,7 +283,7 @@ namespace {
         test_result.append_test_name("test_extract_use_statement_package_multiple", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::USE_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::use_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         test_result.ok_or_not(result);
         if (!result) {
@@ -298,7 +298,7 @@ namespace {
         test_result.append_test_name("test_extract_use_statement_flint_package_single", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::USE_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::use_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
         test_result.ok_or_not(result);
         if (!result) {
@@ -313,7 +313,7 @@ namespace {
         test_result.append_test_name("test_extract_use_statement_flint_package_dual", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::USE_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::use_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         test_result.ok_or_not(result);
         if (!result) {
@@ -328,7 +328,7 @@ namespace {
         test_result.append_test_name("test_extract_use_statement_flint_package_multiple", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::USE_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::use_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         test_result.ok_or_not(result);
         if (!result) {

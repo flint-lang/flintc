@@ -1,6 +1,7 @@
 #include "lexer/builtins.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
+#include "matcher/matcher.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/parser.hpp"
 
@@ -23,7 +24,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         }
     }
 
-    if (Signature::tokens_contain(definition_tokens, ESignature::USE_STATEMENT)) {
+    if (Matcher::tokens_contain(definition_tokens, Matcher::use_statement)) {
         if (definition_indentation > 0) {
             THROW_ERR(ErrUseStatementNotAtTopLevel, ERR_PARSING, file_name, definition_tokens);
             return false;
@@ -42,7 +43,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     }
 
     token_list body_tokens = get_body_tokens(definition_indentation, tokens);
-    if (Signature::tokens_contain(definition_tokens, ESignature::FUNCTION_DEFINITION)) {
+    if (Matcher::tokens_contain(definition_tokens, Matcher::function_definition)) {
         // Dont actually parse the function body, only its definition
         std::optional<FunctionNode> function_node = create_function(definition_tokens);
         if (!function_node.has_value()) {
@@ -52,7 +53,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         FunctionNode *added_function = file_node.add_function(function_node.value());
         add_open_function({added_function, body_tokens});
         add_parsed_function(added_function, file_name);
-    } else if (Signature::tokens_contain(definition_tokens, ESignature::DATA_DEFINITION)) {
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::data_definition)) {
         std::optional<DataNode> data_node = create_data(definition_tokens, body_tokens);
         if (!data_node.has_value()) {
             THROW_ERR(ErrDefDataCreation, ERR_PARSING, file_name, definition_tokens);
@@ -66,14 +67,14 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
             );
             return false;
         }
-    } else if (Signature::tokens_contain(definition_tokens, ESignature::FUNC_DEFINITION)) {
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_tokens);
         if (!func_node.has_value()) {
             THROW_ERR(ErrDefFuncCreation, ERR_PARSING, file_name, definition_tokens);
             return false;
         }
         file_node.add_func(func_node.value());
-    } else if (Signature::tokens_contain(definition_tokens, ESignature::ENTITY_DEFINITION)) {
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::entity_definition)) {
         create_entity_type entity_creation = create_entity(definition_tokens, body_tokens);
         file_node.add_entity(entity_creation.first);
         if (entity_creation.second.has_value()) {
@@ -82,16 +83,16 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
             file_node.add_data(*data_node_ptr);
             file_node.add_func(*func_node_ptr);
         }
-    } else if (Signature::tokens_contain(definition_tokens, ESignature::ENUM_DEFINITION)) {
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::enum_definition)) {
         EnumNode enum_node = create_enum(definition_tokens, body_tokens);
         file_node.add_enum(enum_node);
-    } else if (Signature::tokens_contain(definition_tokens, ESignature::ERROR_DEFINITION)) {
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::error_definition)) {
         ErrorNode error_node = create_error(definition_tokens, body_tokens);
         file_node.add_error(error_node);
-    } else if (Signature::tokens_contain(definition_tokens, ESignature::VARIANT_DEFINITION)) {
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::variant_definition)) {
         VariantNode variant_node = create_variant(definition_tokens, body_tokens);
         file_node.add_variant(variant_node);
-    } else if (Signature::tokens_contain(definition_tokens, ESignature::TEST_DEFINITION)) {
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::test_definition)) {
         std::optional<TestNode> test_node = create_test(definition_tokens);
         if (!test_node.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -128,7 +129,7 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         if (it->line != current_line || it == tokens.begin()) {
             current_line = it->line;
-            std::optional<unsigned int> indents_maybe = Signature::get_leading_indents(tokens, current_line);
+            std::optional<unsigned int> indents_maybe = Matcher::get_leading_indents(tokens, current_line);
             if (indents_maybe.has_value() && indents_maybe.value() <= definition_indentation) {
                 break;
             }
@@ -150,7 +151,9 @@ std::optional<std::tuple<                                          //
     std::optional<bool>                                            //
     >>
 Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
-    std::optional<uint2> arg_range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
+    std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
+        tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+    );
     if (!arg_range.has_value()) {
         // Function call does not have opening and closing brackets ()
         return std::nullopt;
@@ -174,29 +177,27 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     if (arg_range.value().first < arg_range.value().second) {
         // if the args contain at least one comma, it is known that multiple arguments are passed. If not, only one is
         // passed. But the comma must be present at the top-level and not within one of the balanced range groups
-        if (Signature::tokens_contain_in_range_outside_group(tokens, COMMA_STR, arg_range.value(), LEFT_PAREN_STR, RIGHT_PAREN_STR)) {
-            const auto match_ranges = Signature::get_match_ranges_in_range_outside_group( //
-                tokens, COMMA_STR, arg_range.value(), LEFT_PAREN_STR, RIGHT_PAREN_STR     //
-            );
-            if (!match_ranges.empty()) {
-                for (auto match = match_ranges.begin();; ++match) {
-                    token_list argument_tokens;
-                    if (match == match_ranges.begin()) {
-                        argument_tokens = clone_from_to(arg_range.value().first, match->first, tokens);
-                    } else if (match == match_ranges.end()) {
-                        argument_tokens = clone_from_to((match - 1)->second, arg_range.value().second, tokens);
-                    } else {
-                        argument_tokens = clone_from_to((match - 1)->second, match->first, tokens);
-                    }
-                    auto expression = create_expression(scope, argument_tokens);
-                    if (!expression.has_value()) {
-                        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
-                        return std::nullopt;
-                    }
-                    arguments.emplace_back(std::move(expression.value()), false);
-                    if (match == match_ranges.end()) {
-                        break;
-                    }
+        const auto match_ranges = Matcher::get_match_ranges_in_range_outside_group(                                               //
+            tokens, Matcher::token(TOK_COMMA), arg_range.value(), Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+        );
+        if (!match_ranges.empty()) {
+            for (auto match = match_ranges.begin();; ++match) {
+                token_list argument_tokens;
+                if (match == match_ranges.begin()) {
+                    argument_tokens = clone_from_to(arg_range.value().first, match->first, tokens);
+                } else if (match == match_ranges.end()) {
+                    argument_tokens = clone_from_to((match - 1)->second, arg_range.value().second, tokens);
+                } else {
+                    argument_tokens = clone_from_to((match - 1)->second, match->first, tokens);
+                }
+                auto expression = create_expression(scope, argument_tokens);
+                if (!expression.has_value()) {
+                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
+                    return std::nullopt;
+                }
+                arguments.emplace_back(std::move(expression.value()), false);
+                if (match == match_ranges.end()) {
+                    break;
                 }
             }
         } else {
@@ -336,9 +337,9 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     bool is_left;
     const uint2 left_range = {0, 1};
     const uint2 right_range = {tokens.size() - 1, tokens.size()};
-    if (Signature::tokens_contain_in_range(tokens, ESignature::UNARY_OPERATOR, left_range)) {
+    if (Matcher::tokens_contain_in_range(tokens, Matcher::unary_operator, left_range)) {
         is_left = true;
-    } else if (Signature::tokens_contain_in_range(tokens, ESignature::UNARY_OPERATOR, right_range)) {
+    } else if (Matcher::tokens_contain_in_range(tokens, Matcher::unary_operator, right_range)) {
         is_left = false;
     } else {
         THROW_BASIC_ERR(ERR_PARSING);

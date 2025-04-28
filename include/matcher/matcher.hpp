@@ -114,6 +114,26 @@ class Matcher {
     /// @return `std::optional<unsigned int>` The number of indents in the given line, nullopt if the line doesnt exist
     static std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line);
 
+    /// @function `get_match_ranges_in_range_outside_group`
+    /// @brief Returns all matches of the given pattern within the given range thats not within any group defined by the inc and dec
+    /// patterns for the balanced range extraction
+    ///
+    /// @details This function is primarily used to help in the extraction of arguments or types
+    ///
+    /// @param `tokens` The list of tokens to check
+    /// @param `pattern` The pattern to search for
+    /// @param `range` The total range in which to search for the pattern
+    /// @param `inc` The increase pattern of possible balanced ranges inside the list of tokens to skip
+    /// @param `dec` The decrease pattern of possible balanced ranges inside the list of tokens to skip
+    /// @return `std::vector<uint2>` All the match ranges that are inside the given range but not inside any group
+    static std::vector<uint2> get_match_ranges_in_range_outside_group( //
+        const token_list &tokens,                                      //
+        const PatternPtr &pattern,                                     //
+        const uint2 &range,                                            //
+        const PatternPtr &inc,                                         //
+        const PatternPtr &dec                                          //
+    );
+
     /// @function `token`
     /// @brief Returns the pattern to match a single token
     ///

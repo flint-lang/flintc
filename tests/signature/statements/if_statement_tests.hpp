@@ -2,7 +2,7 @@
 
 #include "debug.hpp"
 #include "lexer/token.hpp"
-#include "parser/signature.hpp"
+#include "matcher/matcher.hpp"
 #include "test_utils.hpp"
 
 #include <string>
@@ -26,7 +26,7 @@ namespace {
         // if true:
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_TRUE, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -41,7 +41,7 @@ namespace {
         // if false:
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_FALSE, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -56,7 +56,7 @@ namespace {
         // if x < 4:
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_IDENTIFIER, TOK_LESS, TOK_INT_VALUE, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -71,7 +71,7 @@ namespace {
         // if x > 10:
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_IDENTIFIER, TOK_GREATER, TOK_INT_VALUE, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -86,7 +86,7 @@ namespace {
         // if x <= 3:
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_IDENTIFIER, TOK_LESS_EQUAL, TOK_INT_VALUE, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -101,7 +101,7 @@ namespace {
         // if x >= 7:
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_IDENTIFIER, TOK_GREATER_EQUAL, TOK_INT_VALUE, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -116,7 +116,7 @@ namespace {
         // if x == 4:
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_IDENTIFIER, TOK_EQUAL_EQUAL, TOK_INT_VALUE, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -131,7 +131,7 @@ namespace {
         // if x != 5:
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_IDENTIFIER, TOK_NOT_EQUAL, TOK_INT_VALUE, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -146,7 +146,7 @@ namespace {
         // if x == func():
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_IDENTIFIER, TOK_EQUAL_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -161,7 +161,7 @@ namespace {
         // if func():
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -176,7 +176,7 @@ namespace {
         // if not func():
         token_list tokens = create_token_vector({//
             TOK_IF, TOK_NOT, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_match(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -199,7 +199,7 @@ namespace {
         test_result.append_test_name("test_contain_if_true", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_TRUE, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -213,7 +213,7 @@ namespace {
         test_result.append_test_name("test_contain_if_false", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_FALSE, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -227,7 +227,7 @@ namespace {
         test_result.append_test_name("test_contain_if_var_less_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_LESS, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -241,7 +241,7 @@ namespace {
         test_result.append_test_name("test_contain_if_var_greater_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_GREATER, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -255,7 +255,7 @@ namespace {
         test_result.append_test_name("test_contain_if_var_less_eq_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_LESS_EQUAL, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -269,7 +269,7 @@ namespace {
         test_result.append_test_name("test_contain_if_var_greater_eq_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_GREATER_EQUAL, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -283,7 +283,7 @@ namespace {
         test_result.append_test_name("test_contain_if_var_eq_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_EQUAL_EQUAL, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -297,7 +297,7 @@ namespace {
         test_result.append_test_name("test_contain_if_var_neq_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_NOT_EQUAL, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -311,7 +311,7 @@ namespace {
         test_result.append_test_name("test_contain_if_var_eq_fn", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_EQUAL_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -325,7 +325,7 @@ namespace {
         test_result.append_test_name("test_contain_if_fn", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -339,7 +339,7 @@ namespace {
         test_result.append_test_name("test_contain_if_not_fn", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_NOT, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::IF_STATEMENT);
+        bool result = Matcher::tokens_contain(tokens, Matcher::if_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -362,7 +362,7 @@ namespace {
         test_result.append_test_name("test_extract_if_true", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_TRUE, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         test_result.ok_or_not(result);
         if (!result) {
@@ -377,7 +377,7 @@ namespace {
         test_result.append_test_name("test_extract_if_false", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_FALSE, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         test_result.ok_or_not(result);
         if (!result) {
@@ -392,7 +392,7 @@ namespace {
         test_result.append_test_name("test_extract_if_var_less_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_LESS, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         test_result.ok_or_not(result);
         if (!result) {
@@ -407,7 +407,7 @@ namespace {
         test_result.append_test_name("test_extract_if_var_greater_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_GREATER, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         test_result.ok_or_not(result);
         if (!result) {
@@ -422,7 +422,7 @@ namespace {
         test_result.append_test_name("test_extract_if_var_less_eq_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_LESS_EQUAL, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         test_result.ok_or_not(result);
         if (!result) {
@@ -437,7 +437,7 @@ namespace {
         test_result.append_test_name("test_extract_if_var_greater_eq_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_EQUAL_EQUAL, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         test_result.ok_or_not(result);
         if (!result) {
@@ -452,7 +452,7 @@ namespace {
         test_result.append_test_name("test_extract_if_var_eq_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_EQUAL_EQUAL, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         test_result.ok_or_not(result);
         if (!result) {
@@ -467,7 +467,7 @@ namespace {
         test_result.append_test_name("test_extract_if_var_neq_int", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_NOT_EQUAL, TOK_INT_VALUE, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         test_result.ok_or_not(result);
         if (!result) {
@@ -482,7 +482,7 @@ namespace {
         test_result.append_test_name("test_extract_if_var_eq_fn", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_EQUAL_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 8;
         test_result.ok_or_not(result);
         if (!result) {
@@ -497,7 +497,7 @@ namespace {
         test_result.append_test_name("test_extract_if_fn", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 6;
         test_result.ok_or_not(result);
         if (!result) {
@@ -512,7 +512,7 @@ namespace {
         test_result.append_test_name("test_extract_if_not_fn", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_IF, TOK_NOT, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::IF_STATEMENT);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::if_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         test_result.ok_or_not(result);
         if (!result) {

@@ -4,9 +4,10 @@
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
-#include "parser/ast/expressions/array_access_node.hpp"
+#include "matcher/matcher.hpp"
 #include "parser/parser.hpp"
 
+#include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/signature.hpp"
@@ -114,8 +115,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
         return std::nullopt;
     }
     // Const folding can only be applied if the binary operator is an arithmetic operation
-    if (!Signature::tokens_match({{operation, "", 0, 0}}, ESignature::OPERATIONAL_BINOP) &&
-        !Signature::tokens_match({{operation, "", 0, 0}}, ESignature::BOOLEAN_BINOP)) {
+    if (!Matcher::tokens_match({{operation, "", 0, 0}}, Matcher::operational_binop) &&
+        !Matcher::tokens_match({{operation, "", 0, 0}}, Matcher::boolean_binop)) {
         return std::nullopt;
     }
 
@@ -307,7 +308,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
         tok = &tokens.at(0);
     }
 
-    if (Signature::tokens_match({*tok}, ESignature::LITERAL)) {
+    if (Matcher::tokens_match({*tok}, Matcher::literal)) {
         switch (tok->type) {
             default:
                 THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, tok->lexme);
@@ -468,7 +469,8 @@ Parser::create_call_or_initializer_expression(Scope *scope, token_list &tokens) 
 
 std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &tokens) {
     remove_surrounding_paren(tokens);
-    std::optional<uint2> expr_range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
+    std::optional<uint2> expr_range =
+        Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
     if (!expr_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -481,7 +483,7 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
     // Get the type the expression needs to be converted to
     TokenContext type_token = TokenContext{TOK_EOF, "", 0, 0};
     for (auto iterator = tokens.begin(); iterator != tokens.end(); ++iterator) {
-        if (Signature::tokens_match({*iterator}, ESignature::TYPE_PRIM) && std::next(iterator) != tokens.end() &&
+        if (Matcher::tokens_match({*iterator}, Matcher::type_prim) && std::next(iterator) != tokens.end() &&
             std::next(iterator)->type == TOK_LEFT_PAREN) {
             type_token = *iterator;
             break;
@@ -537,12 +539,11 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
     tokens.erase(tokens.begin());
     tokens.pop_back();
     std::vector<std::unique_ptr<ExpressionNode>> expressions;
-    static const std::string until_comma = Signature::get_regex_string(Signature::match_until_signature({{TOK_COMMA}}));
     while (!tokens.empty()) {
         // Check if the tokens contain any opening / closing parenthesis. If it doesnt, the group parsing can be simplified a lot
-        if (!Signature::tokens_contain(tokens, TOK_LEFT_PAREN)) {
+        if (!Matcher::tokens_contain(tokens, Matcher::token(TOK_LEFT_PAREN))) {
             // Extract all tokens until the comma if it contains a comma. If it does not contain a comma, we are at the end of the group
-            if (!Signature::tokens_contain(tokens, TOK_COMMA)) {
+            if (!Matcher::tokens_contain(tokens, Matcher::token(TOK_COMMA))) {
                 auto expr = create_expression(scope, tokens);
                 if (!expr.has_value()) {
                     THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
@@ -551,7 +552,7 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
                 expressions.emplace_back(std::move(expr.value()));
                 break;
             } else {
-                std::optional<uint2> expr_range = Signature::get_next_match_range(tokens, until_comma);
+                std::optional<uint2> expr_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
                 if (!expr_range.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -568,8 +569,8 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
                 }
                 expressions.emplace_back(std::move(expr.value()));
             }
-        } else if (Signature::tokens_contain(tokens, TOK_COMMA)) {
-            std::optional<uint2> expr_range = Signature::get_next_match_range(tokens, until_comma);
+        } else if (Matcher::tokens_contain(tokens, Matcher::token(TOK_COMMA))) {
+            std::optional<uint2> expr_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
             if (!expr_range.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -606,7 +607,9 @@ std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, token_lis
 }
 
 std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scope, token_list &tokens) {
-    std::optional<uint2> length_expression_range = Signature::balanced_range_extraction(tokens, LEFT_BRACKET_STR, RIGHT_BRACKET_STR);
+    std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction( //
+        tokens, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET)    //
+    );
     if (!length_expression_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -717,20 +720,20 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     Scope *scope,                                                               //
     token_list &tokens                                                          //
 ) {
-    if (!Signature::tokens_match(tokens, ESignature::GROUP_EXPRESSION)) {
+    if (!Matcher::tokens_match(tokens, Matcher::group_expression)) {
         remove_surrounding_paren(tokens);
     }
 
     // Try to parse primary expressions first (literal, variables)
     if (tokens.size() == 1) {
-        if (Signature::tokens_match(tokens, ESignature::LITERAL)) {
+        if (Matcher::tokens_match(tokens, Matcher::literal)) {
             std::optional<LiteralNode> lit = create_literal(tokens);
             if (!lit.has_value()) {
                 THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
-        } else if (Signature::tokens_match(tokens, ESignature::VARIABLE_EXPR)) {
+        } else if (Matcher::tokens_match(tokens, Matcher::variable_expr)) {
             std::optional<VariableNode> variable = create_variable(scope, tokens);
             if (!variable.has_value()) {
                 THROW_ERR(ErrExprVariableCreationFailed, ERR_PARSING, file_name, tokens);
@@ -739,14 +742,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<VariableNode>(std::move(variable.value()));
         }
     } else if (tokens.size() == 2) {
-        if (Signature::tokens_match(tokens, ESignature::LITERAL_EXPR)) {
+        if (Matcher::tokens_match(tokens, Matcher::literal_expr)) {
             std::optional<LiteralNode> lit = create_literal(tokens);
             if (!lit.has_value()) {
                 THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
-        } else if (Signature::tokens_match(tokens, ESignature::STRING_INTERPOLATION)) {
+        } else if (Matcher::tokens_match(tokens, Matcher::string_interpolation)) {
             assert(tokens.front().type == TOK_DOLLAR && tokens.back().type == TOK_STR_VALUE);
             std::optional<StringInterpolationNode> interpol = create_string_interpolation(scope, tokens.back().lexme);
             if (!interpol.has_value()) {
@@ -757,8 +760,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
     }
 
-    if (Signature::tokens_match(tokens, ESignature::FUNCTION_CALL)) {
-        auto range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
+    if (Matcher::tokens_match(tokens, Matcher::function_call)) {
+        auto range = Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
         if (range.has_value() && range.value().second == tokens.size()) {
             // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
             // located on the right of the call still
@@ -773,8 +776,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::move(std::get<std::unique_ptr<InitializerNode>>(call_or_initializer_expression.value()));
             }
         }
-    } else if (Signature::tokens_match(tokens, ESignature::GROUP_EXPRESSION)) {
-        auto range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
+    }
+    if (Matcher::tokens_match(tokens, Matcher::group_expression)) {
+        auto range = Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
         if (range.has_value() && range.value().first == 0 && range.value().second == tokens.size()) {
             std::optional<GroupExpressionNode> group = create_group_expression(scope, tokens);
             if (!group.has_value()) {
@@ -783,19 +787,20 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<GroupExpressionNode>(std::move(group.value()));
         }
-    } else if (Signature::tokens_match(tokens, ESignature::TYPE_CAST)) {
+    }
+    if (Matcher::tokens_match(tokens, Matcher::type_cast)) {
         std::optional<TypeCastNode> type_cast = create_type_cast(scope, tokens);
         if (!type_cast.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::make_unique<TypeCastNode>(std::move(type_cast.value()));
-    } else if (Signature::tokens_match(tokens, ESignature::UNARY_OP_EXPR)) {
+    }
+    if (Matcher::tokens_match(tokens, Matcher::unary_op_expr)) {
         // For it to be considered an unary operation, either right after the operator needs to come a paren group, or no other binop
         // tokens
-        auto range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
-        if (!Signature::tokens_contain(tokens, ESignature::BINARY_OPERATOR) ||
-            (range.has_value() && range.value().second == tokens.size())) {
+        auto range = Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
+        if (!Matcher::tokens_contain(tokens, Matcher::binary_operator) || (range.has_value() && range.value().second == tokens.size())) {
             std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, tokens);
             if (!unary_op.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
@@ -803,7 +808,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
         }
-    } else if (Signature::tokens_match(tokens, ESignature::DATA_ACCESS)) {
+    }
+    if (Matcher::tokens_match(tokens, Matcher::data_access)) {
         if (tokens.size() == 3) {
             std::optional<DataAccessNode> data_access = create_data_access(scope, tokens);
             if (!data_access.has_value()) {
@@ -812,8 +818,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<DataAccessNode>(std::move(data_access.value()));
         }
-    } else if (Signature::tokens_match(tokens, ESignature::GROUPED_DATA_ACCESS)) {
-        auto range = Signature::balanced_range_extraction(tokens, LEFT_PAREN_STR, RIGHT_PAREN_STR);
+    }
+    if (Matcher::tokens_match(tokens, Matcher::grouped_data_access)) {
+        auto range = Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
         if (range.has_value() && range.value().first == 2 && range.value().second == tokens.size()) {
             std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(scope, tokens);
             if (!group_access.has_value()) {
@@ -822,14 +829,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
         }
-    } else if (Signature::tokens_match(tokens, ESignature::ARRAY_INITIALIZER)) {
+    }
+    if (Matcher::tokens_match(tokens, Matcher::array_initializer)) {
         std::optional<ArrayInitializerNode> initializer = create_array_initializer(scope, tokens);
         if (!initializer.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
-    } else if (Signature::tokens_match(tokens, ESignature::ARRAY_ACCESS)) {
+    } else if (Matcher::tokens_match(tokens, Matcher::array_access)) {
         std::optional<ArrayAccessNode> access = create_array_access(scope, tokens);
         if (!access.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -915,7 +923,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     // Create the binary operator node
-    if (Signature::tokens_contain({{pivot_token, "", 0, 0}}, ESignature::RELATIONAL_BINOP)) {
+    if (Matcher::tokens_contain({{pivot_token, "", 0, 0}}, Matcher::relational_binop)) {
         return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), Type::get_simple_type("bool"));
     }
     return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs.value()->type);

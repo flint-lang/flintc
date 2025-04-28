@@ -63,14 +63,6 @@ class TestResult {
         }
     }
 
-    void print_token_stringified(const std::vector<TokenContext> &tokens) {
-        append(Signature::stringify(tokens) + "\n");
-    }
-
-    void print_regex_string(const Signature::signature &signature) {
-        append(Signature::get_regex_string(signature) + "\n");
-    }
-
     void print_debug(const std::string &str) {
         append("\t" + str + "\t...");
     }

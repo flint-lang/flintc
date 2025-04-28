@@ -1,4 +1,5 @@
 #include "lexer/token.hpp"
+#include "matcher/matcher.hpp"
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
@@ -175,7 +176,7 @@ std::optional<DataNode> Parser::create_data(const token_list &definition, const 
 
     auto body_iterator = body.begin();
     for (; body_iterator != body.end(); ++body_iterator) {
-        if (Signature::tokens_match({TokenContext{body_iterator->type, "", 0, 0}}, ESignature::TYPE) &&
+        if (Matcher::tokens_match({TokenContext{body_iterator->type, "", 0, 0}}, Matcher::type) &&
             (body_iterator + 1)->type == TOK_IDENTIFIER) {
             const auto next_it = body_iterator + 1;
             if (fields.find(next_it->lexme) != fields.end()) {
@@ -256,10 +257,10 @@ std::optional<FuncNode> Parser::create_func(const token_list &definition, token_
         }
         current_line = body_iterator->line;
 
-        uint2 definition_ids = Signature::get_tokens_line_range(body, current_line).value();
+        uint2 definition_ids = Matcher::get_tokens_line_range(body, current_line).value();
         token_list function_definition = extract_from_to(definition_ids.first, definition_ids.second, body);
 
-        unsigned int leading_indents = Signature::get_leading_indents(function_definition, current_line).value();
+        unsigned int leading_indents = Matcher::get_leading_indents(function_definition, current_line).value();
         token_list function_body = get_body_tokens(leading_indents, body);
 
         std::optional<FunctionNode> function = create_function(function_definition);
@@ -276,7 +277,7 @@ std::optional<FuncNode> Parser::create_func(const token_list &definition, token_
 }
 
 Parser::create_entity_type Parser::create_entity(const token_list &definition, token_list &body) {
-    bool is_modular = Signature::tokens_match(body, ESignature::ENTITY_BODY);
+    bool is_modular = Matcher::tokens_match(body, Matcher::entity_body);
     std::string name;
     std::vector<std::string> data_modules;
     std::vector<std::string> func_modules;
@@ -311,7 +312,7 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
             } else if (body_iterator->type == TOK_FUNC) {
                 extracting_func = true;
             } else if (body_iterator->type == TOK_LINK) {
-                unsigned int link_indentation = Signature::get_leading_indents(body, body_iterator->line).value();
+                unsigned int link_indentation = Matcher::get_leading_indents(body, body_iterator->line).value();
                 // copy all tokens from the body after the link declaration
                 token_list tokens_after_link;
                 tokens_after_link.reserve(body.size() - std::distance(body.begin(), body_iterator + 2));
@@ -344,13 +345,13 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
         while (body_iterator != body.end()) {
             if (body_iterator->type == TOK_DATA) {
                 // TODO: Add a generic constructor for the data module
-                unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
+                unsigned int leading_indents = Matcher::get_leading_indents(body, body_iterator->line).value();
                 token_list data_body = get_body_tokens(leading_indents, body);
                 token_list data_definition = {TokenContext{TOK_DATA, "", 0, 0}, TokenContext{TOK_IDENTIFIER, name + "__D", 0, 0}};
                 data_node = create_data(data_definition, data_body).value();
                 data_modules.emplace_back(name + "__D");
             } else if (body_iterator->type == TOK_FUNC) {
-                unsigned int leading_indents = Signature::get_leading_indents(body, body_iterator->line).value();
+                unsigned int leading_indents = Matcher::get_leading_indents(body, body_iterator->line).value();
                 token_list func_body = get_body_tokens(leading_indents, body);
                 token_list func_definition = {TokenContext{TOK_FUNC, "", 0, 0}, TokenContext{TOK_IDENTIFIER, name + "__F", 0, 0},
                     TokenContext{TOK_REQUIRES, "", 0, 0}, TokenContext{TOK_LEFT_PAREN, "", 0, 0},
@@ -369,7 +370,7 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
         }
     }
 
-    uint2 constructor_token_ids = Signature::get_match_ranges(body, ESignature::ENTITY_BODY_CONSTRUCTOR).at(0);
+    uint2 constructor_token_ids = Matcher::get_match_ranges(body, Matcher::entity_body_constructor).at(0);
     for (auto it = body.begin() + constructor_token_ids.first; it != body.begin() + constructor_token_ids.second; it++) {
         if (it->type == TOK_IDENTIFIER) {
             if (std::next(it)->type == TOK_LEFT_PAREN && it->lexme != name) {
@@ -389,7 +390,7 @@ Parser::create_entity_type Parser::create_entity(const token_list &definition, t
 std::vector<std::unique_ptr<LinkNode>> Parser::create_links(token_list &body) {
     std::vector<std::unique_ptr<LinkNode>> links;
 
-    std::vector<uint2> link_matches = Signature::get_match_ranges(body, ESignature::ENTITY_BODY_LINK);
+    std::vector<uint2> link_matches = Matcher::get_match_ranges(body, Matcher::entity_body_link);
     links.reserve(link_matches.size());
     for (size_t i = 0; i < link_matches.size(); i++) {
         links.emplace_back(std::make_unique<LinkNode>(create_link(body)));
@@ -402,7 +403,7 @@ LinkNode Parser::create_link(const token_list &tokens) {
     std::vector<std::string> from_references;
     std::vector<std::string> to_references;
 
-    std::vector<uint2> references = Signature::get_match_ranges(tokens, ESignature::REFERENCE);
+    std::vector<uint2> references = Matcher::get_match_ranges(tokens, Matcher::reference);
 
     for (unsigned int i = references.at(0).first; i < references.at(0).second; i++) {
         if (tokens.at(i).type == TOK_IDENTIFIER) {
@@ -547,7 +548,7 @@ std::optional<TestNode> Parser::create_test(const token_list &definition) {
 ImportNode Parser::create_import(const token_list &tokens) {
     std::variant<std::string, std::vector<std::string>> import_path;
 
-    if (Signature::tokens_contain(tokens, TOK_STR_VALUE)) {
+    if (Matcher::tokens_contain(tokens, Matcher::token(TOK_STR_VALUE))) {
         for (const auto &tok : tokens) {
             if (tok.type == TOK_STR_VALUE) {
                 import_path = tok.lexme;
@@ -555,10 +556,7 @@ ImportNode Parser::create_import(const token_list &tokens) {
             }
         }
     } else {
-        static const std::string reference = Signature::get_regex_string(                      //
-            {"((", TOK_FLINT, ")|(", TOK_IDENTIFIER, "))", "(", TOK_DOT, TOK_IDENTIFIER, ")*"} //
-        );
-        const auto matches = Signature::get_match_ranges(tokens, reference).at(0);
+        const auto matches = Matcher::get_match_ranges(tokens, Matcher::use_reference).at(0);
         std::vector<std::string> path;
         if (tokens.at(matches.first).type == TOK_FLINT) {
             path.emplace_back("flint");

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "debug.hpp"
-#include "parser/signature.hpp"
+#include "matcher/matcher.hpp"
 #include "test_utils.hpp"
 
 #include <string>
@@ -24,7 +24,7 @@ namespace {
         test_result.append_test_name("test_match_func_definition_normal", false);
         token_list tokens = create_token_vector({//
             TOK_FUNC, TOK_IDENTIFIER, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::FUNC_DEFINITION);
+        bool result = Matcher::tokens_match(tokens, Matcher::func_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -38,7 +38,7 @@ namespace {
         test_result.append_test_name("test_match_func_definition_requires_single", false);
         token_list tokens = create_token_vector(
             {TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::FUNC_DEFINITION);
+        bool result = Matcher::tokens_match(tokens, Matcher::func_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -53,7 +53,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER,
             TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
-        bool result = Signature::tokens_match(tokens, ESignature::FUNC_DEFINITION);
+        bool result = Matcher::tokens_match(tokens, Matcher::func_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -76,7 +76,7 @@ namespace {
         test_result.append_test_name("test_contain_func_definition_normal", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::FUNC_DEFINITION);
+        bool result = Matcher::tokens_contain(tokens, Matcher::func_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -91,7 +91,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON,
             TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::FUNC_DEFINITION);
+        bool result = Matcher::tokens_contain(tokens, Matcher::func_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -106,7 +106,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER,
             TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        bool result = Signature::tokens_contain(tokens, ESignature::FUNC_DEFINITION);
+        bool result = Matcher::tokens_contain(tokens, Matcher::func_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -129,7 +129,7 @@ namespace {
         test_result.append_test_name("test_extract_func_definition_normal", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::FUNC_DEFINITION);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::func_definition);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         test_result.ok_or_not(result);
         if (!result) {
@@ -145,7 +145,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON,
             TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::FUNC_DEFINITION);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::func_definition);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 9;
         test_result.ok_or_not(result);
         if (!result) {
@@ -161,7 +161,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_FUNC, TOK_IDENTIFIER, TOK_REQUIRES, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_IDENTIFIER, TOK_COMMA, TOK_IDENTIFIER,
             TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::FUNC_DEFINITION);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::func_definition);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 12;
         test_result.ok_or_not(result);
         if (!result) {

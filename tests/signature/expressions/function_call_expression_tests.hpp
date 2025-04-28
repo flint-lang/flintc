@@ -1,7 +1,7 @@
 #pragma once
 
 #include "debug.hpp"
-#include "parser/signature.hpp"
+#include "matcher/matcher.hpp"
 #include "test_utils.hpp"
 
 #include <string>
@@ -24,7 +24,7 @@ namespace {
         test_result.append_test_name("test_match_function_call_0arg", false);
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN});
-        bool result = Signature::tokens_match(tokens, ESignature::FUNCTION_CALL);
+        bool result = Matcher::tokens_match(tokens, Matcher::function_call);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -38,7 +38,7 @@ namespace {
         test_result.append_test_name("test_match_function_call_1arg_identifier", false);
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN});
-        bool result = Signature::tokens_match(tokens, ESignature::FUNCTION_CALL);
+        bool result = Matcher::tokens_match(tokens, Matcher::function_call);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -52,7 +52,7 @@ namespace {
         test_result.append_test_name("test_match_function_call_1arg_function_0arg", false);
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN});
-        bool result = Signature::tokens_match(tokens, ESignature::FUNCTION_CALL);
+        bool result = Matcher::tokens_match(tokens, Matcher::function_call);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -75,7 +75,7 @@ namespace {
         test_result.append_test_name("test_contain_function_call_0arg", false);
         token_list tokens = create_token_vector({//
             TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::FUNCTION_CALL);
+        bool result = Matcher::tokens_contain(tokens, Matcher::function_call);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -89,7 +89,7 @@ namespace {
         test_result.append_test_name("test_contain_function_call_1arg_identifier", false);
         token_list tokens = create_token_vector({//
             TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::FUNCTION_CALL);
+        bool result = Matcher::tokens_contain(tokens, Matcher::function_call);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -103,7 +103,7 @@ namespace {
         test_result.append_test_name("test_contain_function_call_1arg_function_0arg", false);
         token_list tokens = create_token_vector(
             {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        bool result = Signature::tokens_contain(tokens, ESignature::FUNCTION_CALL);
+        bool result = Matcher::tokens_contain(tokens, Matcher::function_call);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -126,7 +126,7 @@ namespace {
         test_result.append_test_name("test_extract_function_call_0arg", false);
         token_list tokens = create_token_vector({//
             TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::FUNCTION_CALL);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::function_call);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         test_result.ok_or_not(result);
         if (!result) {
@@ -141,7 +141,7 @@ namespace {
         test_result.append_test_name("test_extract_function_call_1arg_identifier", false);
         token_list tokens = create_token_vector({//
             TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::FUNCTION_CALL);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::function_call);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
         test_result.ok_or_not(result);
         if (!result) {
@@ -156,7 +156,7 @@ namespace {
         test_result.append_test_name("test_extract_function_call_1arg_function_0arg", false);
         token_list tokens = create_token_vector(
             {TOK_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Signature::get_match_ranges(tokens, ESignature::FUNCTION_CALL);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::function_call);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         test_result.ok_or_not(result);
         if (!result) {

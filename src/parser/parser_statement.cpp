@@ -2,6 +2,7 @@
 
 #include "error/error.hpp"
 #include "lexer/token.hpp"
+#include "matcher/matcher.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/signature.hpp"
 #include "types.hpp"
@@ -133,7 +134,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
 
     // Check if the chain contains any values (more if blocks in the chain) and parse them accordingly
     if (!if_chain.empty()) {
-        if (Signature::tokens_contain(if_chain.at(0).first, TOK_IF)) {
+        if (Matcher::tokens_contain(if_chain.at(0).first, Matcher::token(TOK_IF))) {
             // 'else if'
             else_scope = create_if(scope, if_chain);
         } else {
@@ -203,16 +204,16 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     std::optional<std::unique_ptr<StatementNode>> looparound;
 
     // Get the content of the for loop
-    static const std::string until_colon = Signature::get_regex_string(Signature::match_until_signature({{TOK_COLON}}));
-    std::optional<uint2> expressions_range = Signature::get_next_match_range(definition, until_colon);
+    std::optional<uint2> expressions_range = Matcher::get_next_match_range(definition, Matcher::until_colon);
     if (!expressions_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
     // Get the actual expressions inside the for loops definition
-    static const std::string until_semicolon = Signature::get_regex_string(Signature::match_until_signature({{TOK_SEMICOLON}}));
-    std::vector<uint2> expression_ranges = Signature::get_match_ranges_in_range(definition, until_semicolon, expressions_range.value());
+    std::vector<uint2> expression_ranges = Matcher::get_match_ranges_in_range( //
+        definition, Matcher::until_semicolon, expressions_range.value()        //
+    );
     if (expression_ranges.size() < 2) {
         // Too less expressions in the for loop definition
         THROW_BASIC_ERR(ERR_PARSING);
@@ -429,7 +430,7 @@ std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, token_list
 std::optional<AssignmentNode> Parser::create_assignment_shorthand(Scope *scope, token_list &tokens) {
     for (auto iterator = tokens.begin(); iterator != tokens.end(); ++iterator) {
         if (iterator->type == TOK_IDENTIFIER) {
-            if (Signature::tokens_match({*(iterator + 1)}, ESignature::ASSIGNMENT_OPERATOR) && (iterator + 2) != tokens.end()) {
+            if (Matcher::tokens_match({*(iterator + 1)}, Matcher::assignment_operator) && (iterator + 2) != tokens.end()) {
                 if (scope->variables.find(iterator->lexme) == scope->variables.end()) {
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, iterator->line, iterator->column, iterator->lexme);
                     return std::nullopt;
@@ -483,8 +484,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
     std::optional<GroupDeclarationNode> declaration = std::nullopt;
     std::vector<std::pair<std::shared_ptr<Type>, std::string>> variables;
 
-    static const std::string until_colon_equal = Signature::get_regex_string(Signature::match_until_signature({{TOK_COLON_EQUAL}}));
-    std::optional<uint2> lhs_range = Signature::get_next_match_range(tokens, until_colon_equal);
+    std::optional<uint2> lhs_range = Matcher::get_next_match_range(tokens, Matcher::until_colon_equal);
     if (!lhs_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -497,8 +497,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
     lhs_tokens.pop_back();
     remove_surrounding_paren(lhs_tokens);
     while (!lhs_tokens.empty()) {
-        static const std::string until_comma = Signature::get_regex_string(Signature::match_until_signature({{TOK_COMMA}}));
-        std::optional<uint2> var_range = Signature::get_next_match_range(lhs_tokens, until_comma);
+        std::optional<uint2> var_range = Matcher::get_next_match_range(lhs_tokens, Matcher::until_comma);
         if (!var_range.has_value()) {
             // The whole lhs tokens is the last variable
             assert(lhs_tokens.back().type == TOK_IDENTIFIER);
@@ -544,8 +543,7 @@ std::optional<DeclarationNode> Parser::create_declaration(Scope *scope, token_li
 
     token_list lhs_tokens;
     if (has_rhs) {
-        static const auto lhs = Signature::get_regex_string(Signature::match_until_signature({"(", TOK_EQUAL, "|", TOK_COLON_EQUAL, ")"}));
-        uint2 lhs_range = Signature::get_next_match_range(tokens, lhs).value();
+        uint2 lhs_range = Matcher::get_next_match_range(tokens, Matcher::until_eq_or_colon_equal).value();
         lhs_tokens = extract_from_to(lhs_range.first, lhs_range.second, tokens);
     } else {
         lhs_tokens = tokens;
@@ -738,7 +736,9 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
     }
     tokens.erase(tokens.begin());
     // The next token should be a [ symbol
-    std::optional<uint2> bracket_range = Signature::balanced_range_extraction(tokens, LEFT_BRACKET_STR, RIGHT_BRACKET_STR);
+    std::optional<uint2> bracket_range = Matcher::balanced_range_extraction(        //
+        tokens, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //
+    );
     if (!bracket_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -772,93 +772,93 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, token_list &tokens) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
-    if (Signature::tokens_contain(tokens, ESignature::GROUP_DECLARATION_INFERRED)) {
+    if (Matcher::tokens_contain(tokens, Matcher::group_declaration_inferred)) {
         std::optional<GroupDeclarationNode> group_decl = create_group_declaration(scope, tokens);
         if (!group_decl.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupDeclarationNode>(std::move(group_decl.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::DECLARATION_EXPLICIT)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::declaration_explicit)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false, true);
         if (!decl.has_value()) {
             THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::DECLARATION_INFERRED)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::declaration_inferred)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, true, true);
         if (!decl.has_value()) {
             THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::DECLARATION_WITHOUT_INITIALIZER)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::declaration_without_initializer)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false, false);
         if (!decl.has_value()) {
             THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::DATA_FIELD_ASSIGNMENT)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::data_field_assignment)) {
         std::optional<DataFieldAssignmentNode> assign = create_data_field_assignment(scope, tokens);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<DataFieldAssignmentNode>(std::move(assign.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::GROUPED_DATA_ASSIGNMENT)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::grouped_data_assignment)) {
         std::optional<GroupedDataFieldAssignmentNode> assign = create_grouped_data_field_assignment(scope, tokens);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupedDataFieldAssignmentNode>(std::move(assign.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::GROUP_ASSIGNMENT)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::group_assignment)) {
         std::optional<GroupAssignmentNode> assign = create_group_assignment(scope, tokens);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupAssignmentNode>(std::move(assign.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::ARRAY_ASSIGNMENT)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::array_assignment)) {
         std::optional<ArrayAssignmentNode> assign = create_array_assignment(scope, tokens);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<ArrayAssignmentNode>(std::move(assign.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::ASSIGNMENT)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::assignment)) {
         std::optional<AssignmentNode> assign = create_assignment(scope, tokens);
         if (!assign.has_value()) {
             THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::ASSIGNMENT_SHORTHAND)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::assignment_shorthand)) {
         std::optional<AssignmentNode> assign = create_assignment_shorthand(scope, tokens);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::RETURN_STATEMENT)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::return_statement)) {
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
         if (!return_node.has_value()) {
             THROW_ERR(ErrStmtReturnCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::THROW_STATEMENT)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::throw_statement)) {
         std::optional<ThrowNode> throw_node = create_throw(scope, tokens);
         if (!throw_node.has_value()) {
             THROW_ERR(ErrStmtThrowCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
-    } else if (Signature::tokens_contain(tokens, ESignature::FUNCTION_CALL)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::function_call)) {
         statement_node = create_call_statement(scope, tokens);
-    } else if (Signature::tokens_contain(tokens, ESignature::UNARY_OP_EXPR)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::unary_op_expr)) {
         std::optional<UnaryOpStatement> unary_op = create_unary_op_statement(scope, tokens);
         if (!unary_op.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -881,7 +881,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
 ) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
-    std::optional<unsigned int> indent_lvl_maybe = Signature::get_leading_indents(       //
+    std::optional<unsigned int> indent_lvl_maybe = Matcher::get_leading_indents(         //
         definition,                                                                      //
         definition.at(0).type == TOK_EOL ? definition.at(1).line : definition.at(0).line //
     );
@@ -891,12 +891,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     }
     token_list scoped_body = get_body_tokens(indent_lvl_maybe.value(), body);
 
-    if (Signature::tokens_contain(definition, ESignature::IF_STATEMENT) ||
-        Signature::tokens_contain(definition, ESignature::ELSE_IF_STATEMENT) ||
-        Signature::tokens_contain(definition, ESignature::ELSE_STATEMENT)) {
+    if (Matcher::tokens_contain(definition, Matcher::if_statement) || Matcher::tokens_contain(definition, Matcher::else_if_statement) ||
+        Matcher::tokens_contain(definition, Matcher::else_statement)) {
         std::vector<std::pair<token_list, token_list>> if_chain;
         if_chain.emplace_back(definition, scoped_body);
-        if (Signature::tokens_contain(definition, TOK_ELSE)) {
+        if (Matcher::tokens_contain(definition, Matcher::token(TOK_ELSE))) {
             // else or else if at top of if chain
             THROW_ERR(ErrStmtIfChainMissingIf, ERR_PARSING, file_name, definition);
             return std::nullopt;
@@ -911,14 +910,14 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
                 body.erase(body.begin());
             }
             // Get the next indices of the next definition
-            std::optional<uint2> next_line_range = Signature::get_tokens_line_range(body, body.at(0).line);
+            std::optional<uint2> next_line_range = Matcher::get_tokens_line_range(body, body.at(0).line);
             if (!next_line_range.has_value()) {
                 break;
             }
             // Check if the definition contains a 'else if' or 'else' statement. It cannot only contain a 'if' statement, as this then
             // will be part of its own IfNode and not part of this if-chain! This can be simplified to just check if the definition
             // contains a 'else' statement
-            if (!Signature::tokens_contain_in_range(body, TOK_ELSE, next_line_range.value())) {
+            if (!Matcher::tokens_contain_in_range(body, Matcher::token(TOK_ELSE), next_line_range.value())) {
                 break;
             }
 
@@ -933,36 +932,36 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             return std::nullopt;
         }
         statement_node = std::move(if_node.value());
-    } else if (Signature::tokens_contain(definition, ESignature::FOR_LOOP)) {
+    } else if (Matcher::tokens_contain(definition, Matcher::for_loop)) {
         std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, definition, scoped_body);
         if (!for_loop.has_value()) {
             THROW_ERR(ErrStmtForCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(for_loop.value());
-    } else if (Signature::tokens_contain(definition, ESignature::PAR_FOR_LOOP) ||
-        Signature::tokens_contain(definition, ESignature::ENHANCED_FOR_LOOP)) {
+    } else if (Matcher::tokens_contain(definition, Matcher::par_for_loop) ||
+        Matcher::tokens_contain(definition, Matcher::enhanced_for_loop)) {
         std::optional<std::unique_ptr<ForLoopNode>> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body);
         if (!enh_for_loop.has_value()) {
             THROW_ERR(ErrStmtForCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(enh_for_loop.value());
-    } else if (Signature::tokens_contain(definition, ESignature::WHILE_LOOP)) {
+    } else if (Matcher::tokens_contain(definition, Matcher::while_loop)) {
         std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, definition, scoped_body);
         if (!while_loop.has_value()) {
             THROW_ERR(ErrStmtWhileCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(while_loop.value());
-    } else if (Signature::tokens_contain(definition, ESignature::CATCH_STATEMENT)) {
+    } else if (Matcher::tokens_contain(definition, Matcher::catch_statement)) {
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body, statements);
         if (!catch_node.has_value()) {
             THROW_ERR(ErrStmtCatchCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(catch_node.value());
-    } else if (Signature::tokens_contain(definition, ESignature::FUNCTION_CALL)) {
+    } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {
         statement_node = create_call_statement(scope, definition);
     } else {
         THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, definition);
@@ -974,22 +973,19 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
 
 std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(Scope *scope, token_list &body) {
     std::vector<std::unique_ptr<StatementNode>> body_statements;
-    static const std::string statement_signature = Signature::get_regex_string(Signature::match_until_signature( //
-        {"((", TOK_SEMICOLON, ")|(", TOK_COLON, "))"})                                                           //
-    );
 
     std::optional<uint2> for_match;
     std::optional<token_list> for_definition_tokens;
-    while (auto next_match = Signature::get_next_match_range(body, statement_signature)) {
+    while (auto next_match = Matcher::get_next_match_range(body, Matcher::until_col_or_semicolon)) {
         token_list statement_tokens = extract_from_to(next_match.value().first, next_match.value().second, body);
-        if (Signature::tokens_contain(statement_tokens, TOK_FOR)) {
+        if (Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_FOR))) {
             for_match = next_match;
             for_definition_tokens = std::move(statement_tokens);
             continue;
         } else if (for_match.has_value()) {
             for_match.value().second = next_match.value().second;
             std::copy(statement_tokens.begin(), statement_tokens.end(), std::back_inserter(for_definition_tokens.value()));
-            if (!Signature::tokens_contain(statement_tokens, TOK_COLON)) {
+            if (!Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_COLON))) {
                 continue;
             } else {
                 next_match = for_match.value();
@@ -997,7 +993,7 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
             }
         }
         std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
-        if (Signature::tokens_contain(statement_tokens, TOK_COLON)) {
+        if (Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_COLON))) {
             // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
             next_statement = create_scoped_statement(scope, statement_tokens, body, body_statements);
         } else {
