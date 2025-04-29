@@ -6,8 +6,8 @@
 
 class ErrExprCallCreationFailed : public BaseError {
   public:
-    ErrExprCallCreationFailed(const ErrorType error_type, const std::string &file, const token_list &tokens) :
-        BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
+    ErrExprCallCreationFailed(const ErrorType error_type, const std::string &file, const token_slice &tokens) :
+        BaseError(error_type, file, tokens.first->line, tokens.first->column),
         tokens(tokens) {}
 
     [[nodiscard]]
@@ -18,5 +18,5 @@ class ErrExprCallCreationFailed : public BaseError {
     }
 
   private:
-    token_list tokens;
+    token_slice tokens;
 };

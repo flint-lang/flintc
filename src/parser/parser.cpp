@@ -27,13 +27,14 @@ std::optional<FileNode> Parser::parse() {
     PROFILE_SCOPE("Parse file '" + file_name + "'");
     FileNode file_node(file_name);
     token_list tokens = Lexer(file).scan();
+    token_slice token_slice = {tokens.begin(), tokens.end()};
     if (PRINT_TOK_STREAM) {
-        Debug::print_token_context_vector(tokens, file_name);
+        Debug::print_token_context_vector(token_slice, file_name);
     }
     // Consume all tokens and convert them to nodes
     bool had_failure = false;
-    while (!tokens.empty()) {
-        if (!add_next_main_node(file_node, tokens)) {
+    while (token_slice.first != token_slice.second) {
+        if (!add_next_main_node(file_node, token_slice)) {
             had_failure = true;
         }
     }
@@ -58,9 +59,10 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
     // Define a task to process a single function
     auto process_function = [](Parser &parser, FunctionNode *function, token_list tokens) -> bool {
         // Create the body and add the body statements to the created scope
-        auto body_statements = parser.create_body(function->scope.get(), tokens);
+        token_slice ts = {tokens.begin(), tokens.end()};
+        auto body_statements = parser.create_body(function->scope.get(), ts);
         if (!body_statements.has_value()) {
-            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, tokens);
+            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, ts);
             return false;
         }
         function->scope.get()->body = std::move(body_statements.value());
@@ -101,9 +103,10 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
     // Define a task to process a single test
     auto process_test = [](Parser &parser, TestNode *test, token_list tokens) -> bool {
         // Create the body and add the body statements to the created scope
-        auto body_statements = parser.create_body(test->scope.get(), tokens);
+        token_slice ts = {tokens.begin(), tokens.end()};
+        auto body_statements = parser.create_body(test->scope.get(), ts);
         if (!body_statements.has_value()) {
-            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, tokens);
+            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, ts);
             return false;
         }
         test->scope.get()->body = std::move(body_statements.value());
@@ -261,5 +264,14 @@ token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token
     }
     extraction.reserve(to - from);
     std::copy(tokens.begin() + from, tokens.begin() + to, std::back_inserter(extraction));
+    return extraction;
+}
+
+token_list Parser::clone_from_slice(const token_slice &slice) {
+    assert(slice.second - slice.first > 0);
+    assert(slice.first != slice.second);
+    token_list extraction;
+    extraction.reserve(std::distance(slice.first, slice.second));
+    std::copy(slice.first, slice.second, std::back_inserter(extraction));
     return extraction;
 }

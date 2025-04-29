@@ -37,7 +37,7 @@ class Lexer {
     ///
     /// @param `tokens` The list of tokens to "convert"
     /// @return `std::string` The stream of characters from the given list of tokens
-    static std::string to_string(const token_list &tokens);
+    static std::string to_string(const token_slice &tokens);
 
   public:
     /// @var `TAB_SIZE`

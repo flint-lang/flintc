@@ -12,12 +12,13 @@ class BalancedMatcher : public TokenPatternMatcher {
         increment_pattern(increment_pattern),
         decrement_pattern(decrement_pattern) {}
 
-    MatchResult match(const token_list &tokens, size_t start_pos) const override {
+    MatchResult match(const token_slice &tokens, size_t start_pos) const override {
         size_t pos = start_pos;
+        size_t tokens_size = std::distance(tokens.first, tokens.second);
         unsigned int depth = 0;
 
         // Find the ending pattern
-        while (pos < tokens.size()) {
+        while (pos < tokens_size) {
             MatchResult result = increment_pattern->match(tokens, pos);
             if (result.has_value()) {
                 depth++;

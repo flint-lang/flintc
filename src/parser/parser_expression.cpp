@@ -114,8 +114,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
         return std::nullopt;
     }
     // Const folding can only be applied if the binary operator is an arithmetic operation
-    if (!Matcher::tokens_match({{operation, "", 0, 0}}, Matcher::operational_binop) &&
-        !Matcher::tokens_match({{operation, "", 0, 0}}, Matcher::boolean_binop)) {
+    if (!Matcher::token_match(operation, Matcher::operational_binop) && !Matcher::token_match(operation, Matcher::boolean_binop)) {
         return std::nullopt;
     }
 
@@ -256,13 +255,13 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
     return std::nullopt;
 }
 
-std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_list &tokens) {
+std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_slice &tokens) {
     std::optional<VariableNode> var = std::nullopt;
-    for (const auto &tok : tokens) {
-        if (tok.type == TOK_IDENTIFIER) {
-            std::string name = tok.lexme;
+    for (auto tok = tokens.first; tok != tokens.second; tok++) {
+        if (tok->type == TOK_IDENTIFIER) {
+            std::string name = tok->lexme;
             if (scope->variables.find(name) == scope->variables.end()) {
-                THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tok.line, tok.column, name);
+                THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tok->line, tok->column, name);
                 return std::nullopt;
             }
             return VariableNode(name, std::get<0>(scope->variables.at(name)));
@@ -271,9 +270,10 @@ std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_li
     return var;
 }
 
-std::optional<UnaryOpExpression> Parser::create_unary_op_expression(Scope *scope, token_list &tokens) {
-    remove_surrounding_paren(tokens);
-    auto unary_op_values = create_unary_op_base(scope, tokens);
+std::optional<UnaryOpExpression> Parser::create_unary_op_expression(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
+    remove_surrounding_paren(tokens_mut);
+    auto unary_op_values = create_unary_op_base(scope, tokens_mut);
     if (!unary_op_values.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -285,29 +285,29 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression(Scope *scope
     );
 }
 
-std::optional<LiteralNode> Parser::create_literal(const token_list &tokens) {
+std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     // Literals can have a size of at most 2 tokens
-    if (tokens.size() > 2) {
+    if (get_slice_size(tokens) > 2) {
         return std::nullopt;
     }
     // If the tokens are 2 long we have a literal expression
     Token front_token = TOK_EOF;
-    const TokenContext *tok = nullptr;
-    if (tokens.size() == 2) {
+    token_list::iterator tok;
+    if (get_slice_size(tokens) == 2) {
         // Currently the only literal experssion is a minus sign in front of the literal, or a $ sign in front of the string
-        if (tokens.at(0).type == TOK_MINUS) {
+        if (tokens.first->type == TOK_MINUS) {
             front_token = TOK_MINUS;
-            tok = &tokens.at(1);
-        } else if (tokens.at(0).type == TOK_DOLLAR) {
+            tok = (tokens.first + 1);
+        } else if (tokens.first->type == TOK_DOLLAR) {
             front_token = TOK_DOLLAR;
         } else {
             THROW_BASIC_ERR(ERR_PARSING);
         }
     } else {
-        tok = &tokens.at(0);
+        tok = tokens.first;
     }
 
-    if (Matcher::tokens_match({*tok}, Matcher::literal)) {
+    if (Matcher::tokens_match({tok, tok + 1}, Matcher::literal)) {
         switch (tok->type) {
             default:
                 THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, tok->lexme);
@@ -402,30 +402,34 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
         }
         if (it == ranges.begin() && it->first > 0) {
             // Add string thats present before the first { symbol
-            std::optional<LiteralNode> lit = create_literal({{TOK_STR_VALUE, interpol_string.substr(0, it->first + 1), 0, 0}});
+            token_list lit_toks = {{TOK_STR_VALUE, interpol_string.substr(0, it->first + 1), 0, 0}};
+            std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         } else if (it != ranges.begin() && it->first - std::prev(it)->second > 1) {
             // Add string in between } { symbols
-            std::optional<LiteralNode> lit = create_literal(                                                                      //
-                {{TOK_STR_VALUE, interpol_string.substr(std::prev(it)->second + 2, it->first - std::prev(it)->second - 1), 0, 0}} //
-            );
+            token_list lit_toks = {
+                {TOK_STR_VALUE, interpol_string.substr(std::prev(it)->second + 2, it->first - std::prev(it)->second - 1), 0, 0} //
+            };
+            std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
         Lexer lexer = (it->first == 0) ? Lexer("string_intepolation", interpol_string.substr(1, it->second))
                                        : Lexer("string_interpolation", interpol_string.substr(it->first + 2, (it->second - it->first - 1)));
-        const token_list expr_tokens = lexer.scan();
-        std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expr_tokens);
+        token_list expr_tokens = lexer.scan();
+        token_slice expr_tokens_slice = {expr_tokens.begin(), expr_tokens.end()};
+        std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expr_tokens_slice);
         if (!expr.has_value()) {
-            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
+            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens_slice);
             return std::nullopt;
         }
         // Cast every expression inside to a str type
         interpol_content.emplace_back(std::make_unique<TypeCastNode>(Type::get_simple_type("str"), expr.value()));
         if (std::next(it) == ranges.end() && it->second + 2 < interpol_string.length()) {
             // Add string after last } symbol
-            std::optional<LiteralNode> lit = create_literal(                                                                 //
-                {{TOK_STR_VALUE, interpol_string.substr(it->second + 2, (interpol_string.length() - it->second - 1)), 0, 0}} //
-            );
+            token_list lit_toks = {
+                {TOK_STR_VALUE, interpol_string.substr(it->second + 2, (interpol_string.length() - it->second - 1)), 0, 0} //
+            };
+            std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
     }
@@ -433,11 +437,12 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
 }
 
 std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>> //
-Parser::create_call_or_initializer_expression(Scope *scope, token_list &tokens) {
-    remove_surrounding_paren(tokens);
-    auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens);
+Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
+    remove_surrounding_paren(tokens_mut);
+    auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut);
     if (!call_or_init_node_args.has_value()) {
-        THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens);
+        THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     // Now, check if its a initializer or a call
@@ -466,10 +471,11 @@ Parser::create_call_or_initializer_expression(Scope *scope, token_list &tokens) 
     }
 }
 
-std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &tokens) {
-    remove_surrounding_paren(tokens);
+std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
+    remove_surrounding_paren(tokens_mut);
     std::optional<uint2> expr_range =
-        Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
+        Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
     if (!expr_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -481,8 +487,8 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
 
     // Get the type the expression needs to be converted to
     TokenContext type_token = TokenContext{TOK_EOF, "", 0, 0};
-    for (auto iterator = tokens.begin(); iterator != tokens.end(); ++iterator) {
-        if (Matcher::tokens_match({*iterator}, Matcher::type_prim) && std::next(iterator) != tokens.end() &&
+    for (auto iterator = tokens_mut.first; iterator != tokens_mut.second; ++iterator) {
+        if (Matcher::tokens_match({iterator, iterator + 1}, Matcher::type_prim) && std::next(iterator) != tokens_mut.second &&
             std::next(iterator)->type == TOK_LEFT_PAREN) {
             type_token = *iterator;
             break;
@@ -494,7 +500,7 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
     }
 
     // Create the expression
-    token_list expr_tokens = clone_from_to(expr_range.value().first, expr_range.value().second, tokens);
+    token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
     std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expr_tokens);
     if (!expression.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
@@ -527,39 +533,41 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, token_list &t
     return TypeCastNode(Type::get_simple_type(type_token.lexme), expression.value());
 }
 
-std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope, token_list &tokens) {
+std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
     // First, remove all leading and trailing garbage from the expression tokens
-    remove_leading_garbage(tokens);
-    remove_trailing_garbage(tokens);
+    remove_leading_garbage(tokens_mut);
+    remove_trailing_garbage(tokens_mut);
     // Now, the first and the last token must be open and closing parenthesis respectively
-    assert(tokens.begin()->type == TOK_LEFT_PAREN);
-    assert(std::prev(tokens.end())->type == TOK_RIGHT_PAREN);
+    assert(tokens_mut.first->type == TOK_LEFT_PAREN);
+    assert(std::prev(tokens_mut.second)->type == TOK_RIGHT_PAREN);
     // Remove the open and closing parenthesis
-    tokens.erase(tokens.begin());
-    tokens.pop_back();
+    tokens_mut.first++;
+    tokens_mut.second--;
     std::vector<std::unique_ptr<ExpressionNode>> expressions;
-    while (!tokens.empty()) {
+    while (tokens_mut.first != tokens_mut.second) {
         // Check if the tokens contain any opening / closing parenthesis. If it doesnt, the group parsing can be simplified a lot
-        if (!Matcher::tokens_contain(tokens, Matcher::token(TOK_LEFT_PAREN))) {
+        if (!Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_LEFT_PAREN))) {
             // Extract all tokens until the comma if it contains a comma. If it does not contain a comma, we are at the end of the group
-            if (!Matcher::tokens_contain(tokens, Matcher::token(TOK_COMMA))) {
-                auto expr = create_expression(scope, tokens);
+            if (!Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_COMMA))) {
+                auto expr = create_expression(scope, tokens_mut);
                 if (!expr.has_value()) {
-                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
                     return std::nullopt;
                 }
                 expressions.emplace_back(std::move(expr.value()));
                 break;
             } else {
-                std::optional<uint2> expr_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
+                std::optional<uint2> expr_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_comma);
                 if (!expr_range.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                token_list expr_tokens = extract_from_to(expr_range.value().first, expr_range.value().second, tokens);
+                token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
+                tokens_mut.first += expr_range.value().second;
                 // If the last token is a comma, it is removed
-                if (expr_tokens.back().type == TOK_COMMA) {
-                    expr_tokens.pop_back();
+                if (std::prev(expr_tokens.second)->type == TOK_COMMA) {
+                    expr_tokens.second--;
                 }
                 auto expr = create_expression(scope, expr_tokens);
                 if (!expr.has_value()) {
@@ -568,13 +576,14 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
                 }
                 expressions.emplace_back(std::move(expr.value()));
             }
-        } else if (Matcher::tokens_contain(tokens, Matcher::token(TOK_COMMA))) {
-            std::optional<uint2> expr_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
+        } else if (Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_COMMA))) {
+            std::optional<uint2> expr_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_comma);
             if (!expr_range.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            token_list expr_tokens = extract_from_to(expr_range.value().first, expr_range.value().second, tokens);
+            token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
+            tokens_mut.first += expr_range.value().second;
             auto expr = create_expression(scope, expr_tokens);
             if (!expr.has_value()) {
                 THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
@@ -589,8 +598,9 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
     return GroupExpressionNode(expressions);
 }
 
-std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, token_list &tokens) {
-    auto field_access_base = create_field_access_base(scope, tokens);
+std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
+    auto field_access_base = create_field_access_base(scope, tokens_mut);
     if (!field_access_base.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -605,16 +615,18 @@ std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, token_lis
     );
 }
 
-std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scope, token_list &tokens) {
-    std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction( //
-        tokens, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET)    //
+std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
+    std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction(  //
+        tokens_mut, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //
     );
     if (!length_expression_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     // Get the initializer tokens (...) and remove the surrounding parenthesis
-    token_list initializer_tokens = extract_from_to(length_expression_range.value().second, tokens.size(), tokens);
+    token_slice initializer_tokens = {tokens_mut.first + length_expression_range.value().second, tokens_mut.second};
+    tokens_mut.second = tokens_mut.first + length_expression_range.value().second;
     remove_surrounding_paren(initializer_tokens);
     // Now we can create the initializer expression
     std::optional<std::unique_ptr<ExpressionNode>> initializer = create_expression(scope, initializer_tokens);
@@ -624,7 +636,8 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     }
 
     // Get the element type of the array
-    token_list type_tokens = extract_from_to(0, length_expression_range.value().first, tokens);
+    token_slice type_tokens = {tokens_mut.first, tokens_mut.first + length_expression_range.value().first};
+    tokens_mut.first += length_expression_range.value().first;
     std::optional<std::shared_ptr<Type>> element_type = Type::get_type(type_tokens);
     if (!element_type.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -634,15 +647,15 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     // TODO Find out the dimensionality of the array length expressions, but for now we only care about 1D arrays
     // Now, everything left in the `tokens` vector should be the [...]
     // The first token in the tokens list should be a left bracket
-    assert(tokens.begin()->type == TOK_LEFT_BRACKET);
+    assert(tokens_mut.first->type == TOK_LEFT_BRACKET);
     // The last token in the tokens list should be a right bracket
-    assert(std::prev(tokens.end())->type == TOK_RIGHT_BRACKET);
+    assert(std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET);
     // Remove the open and closing brackets
-    tokens.erase(tokens.begin());
-    tokens.pop_back();
-    std::optional<std::unique_ptr<ExpressionNode>> length_expression = create_expression(scope, tokens);
+    tokens_mut.first++;
+    tokens_mut.second--;
+    std::optional<std::unique_ptr<ExpressionNode>> length_expression = create_expression(scope, tokens_mut);
     if (!length_expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     std::vector<std::unique_ptr<ExpressionNode>> length_expressions;
@@ -665,13 +678,14 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     );
 }
 
-std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, token_list &tokens) {
+std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
     // The tokens should begin with an identifier, otherwise we have done something wrong somewhere
-    assert(tokens.front().type == TOK_IDENTIFIER);
-    const std::string variable_name = tokens.front().lexme;
+    assert(tokens_mut.first->type == TOK_IDENTIFIER);
+    const std::string variable_name = tokens_mut.first->lexme;
     std::optional<std::shared_ptr<Type>> variable_type = scope->get_variable_type(variable_name);
     if (!variable_type.has_value()) {
-        THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tokens.front().line, tokens.front().column, variable_name);
+        THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tokens_mut.first->line, tokens_mut.first->column, variable_name);
         return std::nullopt;
     }
     const ArrayType *array_variable_type = dynamic_cast<const ArrayType *>(variable_type.value().get());
@@ -680,18 +694,18 @@ std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, token_l
         return std::nullopt;
     }
     std::shared_ptr<Type> result_type = array_variable_type->type;
-    tokens.erase(tokens.begin());
+    tokens_mut.first++;
 
     // Now the tokens should begin with a left bracket and end with a right bracket, otherwise we did something wrong elsewhere
-    assert(tokens.front().type == TOK_LEFT_BRACKET);
-    tokens.erase(tokens.begin());
-    assert(tokens.back().type == TOK_RIGHT_BRACKET);
-    tokens.pop_back();
+    assert(tokens_mut.first->type == TOK_LEFT_BRACKET);
+    tokens_mut.first++;
+    assert(std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET);
+    tokens_mut.second--;
     // For now, we assume that in between the [..] there only is a single expression.
     // TODO: For multi-dimensional arrays we would need to parse them separately
-    std::optional<std::unique_ptr<ExpressionNode>> index_expression = create_expression(scope, tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> index_expression = create_expression(scope, tokens_mut);
     if (!index_expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
@@ -699,8 +713,9 @@ std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, token_l
     return ArrayAccessNode(result_type, variable_name, variable_type.value(), indexing_expressions);
 }
 
-std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *scope, token_list &tokens) {
-    auto grouped_field_access_base = create_grouped_access_base(scope, tokens);
+std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
+    auto grouped_field_access_base = create_grouped_access_base(scope, tokens_mut);
     if (!grouped_field_access_base.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -715,42 +730,42 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *s
     );
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( //
-    Scope *scope,                                                               //
-    token_list &tokens                                                          //
-) {
-    if (!Matcher::tokens_match(tokens, Matcher::group_expression)) {
-        remove_surrounding_paren(tokens);
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
+    assert(tokens_mut.first != tokens_mut.second); // Assert that tokens is not empty
+    if (!Matcher::tokens_match(tokens_mut, Matcher::group_expression)) {
+        remove_surrounding_paren(tokens_mut);
     }
 
     // Try to parse primary expressions first (literal, variables)
-    if (tokens.size() == 1) {
-        if (Matcher::tokens_match(tokens, Matcher::literal)) {
-            std::optional<LiteralNode> lit = create_literal(tokens);
+    size_t token_size = get_slice_size(tokens_mut);
+    if (token_size == 1) {
+        if (Matcher::tokens_match(tokens_mut, Matcher::literal)) {
+            std::optional<LiteralNode> lit = create_literal(tokens_mut);
             if (!lit.has_value()) {
                 THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
-        } else if (Matcher::tokens_match(tokens, Matcher::variable_expr)) {
-            std::optional<VariableNode> variable = create_variable(scope, tokens);
+        } else if (Matcher::tokens_match(tokens_mut, Matcher::variable_expr)) {
+            std::optional<VariableNode> variable = create_variable(scope, tokens_mut);
             if (!variable.has_value()) {
                 THROW_ERR(ErrExprVariableCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return std::make_unique<VariableNode>(std::move(variable.value()));
         }
-    } else if (tokens.size() == 2) {
-        if (Matcher::tokens_match(tokens, Matcher::literal_expr)) {
-            std::optional<LiteralNode> lit = create_literal(tokens);
+    } else if (token_size == 2) {
+        if (Matcher::tokens_match(tokens_mut, Matcher::literal_expr)) {
+            std::optional<LiteralNode> lit = create_literal(tokens_mut);
             if (!lit.has_value()) {
                 THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
-        } else if (Matcher::tokens_match(tokens, Matcher::string_interpolation)) {
-            assert(tokens.front().type == TOK_DOLLAR && tokens.back().type == TOK_STR_VALUE);
-            std::optional<StringInterpolationNode> interpol = create_string_interpolation(scope, tokens.back().lexme);
+        } else if (Matcher::tokens_match(tokens_mut, Matcher::string_interpolation)) {
+            assert(tokens_mut.first->type == TOK_DOLLAR && std::prev(tokens_mut.second)->type == TOK_STR_VALUE);
+            std::optional<StringInterpolationNode> interpol = create_string_interpolation(scope, std::prev(tokens_mut.second)->lexme);
             if (!interpol.has_value()) {
                 THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
@@ -759,12 +774,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
     }
 
-    if (Matcher::tokens_match(tokens, Matcher::function_call)) {
-        auto range = Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (range.has_value() && range.value().second == tokens.size()) {
+    if (Matcher::tokens_match(tokens_mut, Matcher::function_call)) {
+        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
+        if (range.has_value() && range.value().second == token_size) {
             // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
             // located on the right of the call still
-            auto call_or_initializer_expression = create_call_or_initializer_expression(scope, tokens);
+            auto call_or_initializer_expression = create_call_or_initializer_expression(scope, tokens_mut);
             if (!call_or_initializer_expression.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -776,10 +791,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
         }
     }
-    if (Matcher::tokens_match(tokens, Matcher::group_expression)) {
-        auto range = Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (range.has_value() && range.value().first == 0 && range.value().second == tokens.size()) {
-            std::optional<GroupExpressionNode> group = create_group_expression(scope, tokens);
+    if (Matcher::tokens_match(tokens_mut, Matcher::group_expression)) {
+        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
+        if (range.has_value() && range.value().first == 0 && range.value().second == token_size) {
+            std::optional<GroupExpressionNode> group = create_group_expression(scope, tokens_mut);
             if (!group.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -787,20 +802,20 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<GroupExpressionNode>(std::move(group.value()));
         }
     }
-    if (Matcher::tokens_match(tokens, Matcher::type_cast)) {
-        std::optional<TypeCastNode> type_cast = create_type_cast(scope, tokens);
+    if (Matcher::tokens_match(tokens_mut, Matcher::type_cast)) {
+        std::optional<TypeCastNode> type_cast = create_type_cast(scope, tokens_mut);
         if (!type_cast.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::make_unique<TypeCastNode>(std::move(type_cast.value()));
     }
-    if (Matcher::tokens_match(tokens, Matcher::unary_op_expr)) {
+    if (Matcher::tokens_match(tokens_mut, Matcher::unary_op_expr)) {
         // For it to be considered an unary operation, either right after the operator needs to come a paren group, or no other binop
         // tokens
-        auto range = Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (!Matcher::tokens_contain(tokens, Matcher::binary_operator) || (range.has_value() && range.value().second == tokens.size())) {
-            std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, tokens);
+        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
+        if (!Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) || (range.has_value() && range.value().second == token_size)) {
+            std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, tokens_mut);
             if (!unary_op.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -808,9 +823,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
         }
     }
-    if (Matcher::tokens_match(tokens, Matcher::data_access)) {
-        if (tokens.size() == 3) {
-            std::optional<DataAccessNode> data_access = create_data_access(scope, tokens);
+    if (Matcher::tokens_match(tokens_mut, Matcher::data_access)) {
+        if (token_size == 3) {
+            std::optional<DataAccessNode> data_access = create_data_access(scope, tokens_mut);
             if (!data_access.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -818,10 +833,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<DataAccessNode>(std::move(data_access.value()));
         }
     }
-    if (Matcher::tokens_match(tokens, Matcher::grouped_data_access)) {
-        auto range = Matcher::balanced_range_extraction(tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (range.has_value() && range.value().first == 2 && range.value().second == tokens.size()) {
-            std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(scope, tokens);
+    if (Matcher::tokens_match(tokens_mut, Matcher::grouped_data_access)) {
+        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
+        if (range.has_value() && range.value().first == 2 && range.value().second == token_size) {
+            std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(scope, tokens_mut);
             if (!group_access.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -829,15 +844,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
         }
     }
-    if (Matcher::tokens_match(tokens, Matcher::array_initializer)) {
-        std::optional<ArrayInitializerNode> initializer = create_array_initializer(scope, tokens);
+    if (Matcher::tokens_match(tokens_mut, Matcher::array_initializer)) {
+        std::optional<ArrayInitializerNode> initializer = create_array_initializer(scope, tokens_mut);
         if (!initializer.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
-    } else if (Matcher::tokens_match(tokens, Matcher::array_access)) {
-        std::optional<ArrayAccessNode> access = create_array_access(scope, tokens);
+    } else if (Matcher::tokens_match(tokens_mut, Matcher::array_access)) {
+        std::optional<ArrayAccessNode> access = create_array_access(scope, tokens_mut);
         if (!access.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -852,34 +867,34 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 
     // Find all possible binary operators at the root level
     // Start at the first index because the first token is never a unary operator
-    for (size_t i = 1; i < tokens.size(); i++) {
+    for (auto it = std::next(tokens_mut.first); it != tokens_mut.second; ++it) {
         // Skip tokens inside parentheses or function calls
-        if (tokens[i].type == TOK_LEFT_PAREN) {
+        if (it->type == TOK_LEFT_PAREN) {
             int paren_depth = 1;
-            while (++i < tokens.size() && paren_depth > 0) {
-                if (tokens[i].type == TOK_LEFT_PAREN) {
+            while (++it != tokens_mut.second && paren_depth > 0) {
+                if (it->type == TOK_LEFT_PAREN) {
                     paren_depth++;
-                } else if (tokens[i].type == TOK_RIGHT_PAREN) {
+                } else if (it->type == TOK_RIGHT_PAREN) {
                     paren_depth--;
                 }
             }
-            if (i >= tokens.size()) {
+            if (it == tokens_mut.second) {
                 break;
             }
         }
 
         // Check if this is a operator and if no operator is to the left of this operator. If there is any operator to the left of this
         // one, this means that this operator is an unary operator
-        if (token_precedence.find(tokens[i].type) != token_precedence.end() &&
-            token_precedence.find(tokens[i - 1].type) == token_precedence.end()) {
+        if (token_precedence.find(it->type) != token_precedence.end() &&
+            token_precedence.find(std::prev(it)->type) == token_precedence.end()) {
             // Update smallest precedence if needed
-            const unsigned int precedence = token_precedence.at(tokens[i].type);
-            const Associativity associativity = token_associativity.at(tokens[i].type);
+            const unsigned int precedence = token_precedence.at(it->type);
+            const Associativity associativity = token_associativity.at(it->type);
             if ((precedence <= smallest_precedence && associativity == Associativity::LEFT) ||
                 (precedence < smallest_precedence && associativity == Associativity::RIGHT)) {
                 smallest_precedence = precedence;
-                pivot_pos = i;
-                pivot_token = tokens[i].type;
+                pivot_pos = std::distance(tokens_mut.first, it);
+                pivot_token = it->type;
             }
         }
     }
@@ -891,8 +906,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     // Extract the left and right parts of the expression
-    token_list lhs_tokens = clone_from_to(0, pivot_pos, tokens);
-    token_list rhs_tokens = clone_from_to(pivot_pos + 1, tokens.size(), tokens);
+    token_slice lhs_tokens = {tokens_mut.first, tokens_mut.first + pivot_pos};
+    token_slice rhs_tokens = {tokens_mut.first + pivot_pos + 1, tokens_mut.second};
 
     // Recursively parse both sides
     auto lhs = create_pivot_expression(scope, lhs_tokens);
@@ -922,7 +937,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     // Create the binary operator node
-    if (Matcher::tokens_contain({{pivot_token, "", 0, 0}}, Matcher::relational_binop)) {
+    if (Matcher::token_match(pivot_token, Matcher::relational_binop)) {
         return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), Type::get_simple_type("bool"));
     }
     return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs.value()->type);
@@ -930,17 +945,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     Scope *scope,                                                         //
-    const token_list &tokens,                                             //
+    const token_slice &tokens,                                            //
     const std::optional<ExprType> &expected_type                          //
 ) {
-    token_list expr_tokens = clone_from_to(0, tokens.size(), tokens);
+    token_slice expr_tokens = tokens;
     remove_trailing_garbage(expr_tokens);
 
     // Parse expression using precedence levels
     auto expression = create_pivot_expression(scope, expr_tokens);
 
     if (!expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
 

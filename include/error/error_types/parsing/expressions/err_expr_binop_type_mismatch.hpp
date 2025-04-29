@@ -7,16 +7,16 @@
 
 class ErrExprBinopTypeMismatch : public BaseError {
   public:
-    ErrExprBinopTypeMismatch(         //
-        const ErrorType error_type,   //
-        const std::string &file,      //
-        const token_list &lhs_tokens, //
-        const token_list &rhs_tokens, //
-        const Token &operator_token,  //
-        const std::string &lhs_type,  //
-        const std::string &rhs_type   //
+    ErrExprBinopTypeMismatch(          //
+        const ErrorType error_type,    //
+        const std::string &file,       //
+        const token_slice &lhs_tokens, //
+        const token_slice &rhs_tokens, //
+        const Token &operator_token,   //
+        const std::string &lhs_type,   //
+        const std::string &rhs_type    //
         ) :
-        BaseError(error_type, file, lhs_tokens.at(0).line, lhs_tokens.at(0).column),
+        BaseError(error_type, file, lhs_tokens.first->line, lhs_tokens.first->column),
         lhs_tokens(lhs_tokens),
         rhs_tokens(rhs_tokens),
         operator_token(operator_token),
@@ -34,8 +34,8 @@ class ErrExprBinopTypeMismatch : public BaseError {
     }
 
   private:
-    token_list lhs_tokens;
-    token_list rhs_tokens;
+    token_slice lhs_tokens;
+    token_slice rhs_tokens;
     Token operator_token;
     std::string lhs_type;
     std::string rhs_type;

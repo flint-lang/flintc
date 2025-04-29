@@ -11,11 +11,11 @@ class ErrExprCallWrongArgsBuiltin : public BaseError {
     ErrExprCallWrongArgsBuiltin(                            //
         const ErrorType error_type,                         //
         const std::string &file,                            //
-        const token_list &tokens,                           //
+        const token_slice &tokens,                          //
         const std::string &function_name,                   //
         const std::vector<std::shared_ptr<Type>> &arg_types //
         ) :
-        BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
+        BaseError(error_type, file, tokens.first->line, tokens.first->column),
         tokens(tokens),
         function_name(function_name),
         arg_types(arg_types) {}
@@ -35,7 +35,7 @@ class ErrExprCallWrongArgsBuiltin : public BaseError {
     }
 
   private:
-    token_list tokens;
+    token_slice tokens;
     std::string function_name;
     std::vector<std::shared_ptr<Type>> arg_types;
 };

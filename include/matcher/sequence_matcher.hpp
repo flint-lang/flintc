@@ -11,7 +11,7 @@ class SequenceMatcher : public TokenPatternMatcher {
     explicit SequenceMatcher(std::vector<PatternPtr> sequence) :
         sequence(std::move(sequence)) {}
 
-    MatchResult match(const token_list &tokens, size_t start_pos) const override {
+    MatchResult match(const token_slice &tokens, size_t start_pos) const override {
         size_t current_pos = start_pos;
         for (const auto &pattern : sequence) {
             MatchResult result = pattern->match(tokens, current_pos);

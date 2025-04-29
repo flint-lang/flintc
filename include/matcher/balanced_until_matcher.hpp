@@ -21,8 +21,9 @@ class BalancedUntilMatcher : public TokenPatternMatcher {
         decrement_pattern(decrement_pattern),
         start_depth(start_depth) {}
 
-    MatchResult match(const token_list &tokens, size_t start_pos) const override {
+    MatchResult match(const token_slice &tokens, size_t start_pos) const override {
         size_t pos = start_pos;
+        size_t tokens_size = std::distance(tokens.first, tokens.second);
 
         unsigned int depth = start_depth;
         bool decrement_pattern_provided = decrement_pattern.has_value();
@@ -30,7 +31,7 @@ class BalancedUntilMatcher : public TokenPatternMatcher {
         PatternPtr local_decrement_pattern = decrement_pattern_provided ? decrement_pattern.value() : until_pattern;
 
         // Find the ending pattern
-        while (pos < tokens.size()) {
+        while (pos < tokens_size) {
             MatchResult result = increment_pattern->match(tokens, pos);
             if (result.has_value()) {
                 depth++;

@@ -43,7 +43,7 @@ class Type {
     /// @param `tokens` The list of all tokens that represent the type
     /// @param `mutex_already_locked` For recursive calls of `get_type` to prevent deadlocks
     /// @return `std::optional<std::shared_ptr<Type>>` The shared pointer to the Type, nullopt if the creation of the type faied
-    static std::optional<std::shared_ptr<Type>> get_type(token_list &tokens, const bool mutex_already_locked = false);
+    static std::optional<std::shared_ptr<Type>> get_type(const token_slice &tokens, const bool mutex_already_locked = false);
 
     /// @function get_simple_type`
     /// @brief Returns the simple type of a given string type, adds the type if it doesnt exist yet
@@ -81,5 +81,5 @@ class Type {
     /// @param `tokens` The list of tokens to create the type from
     /// @param `mutex_already_locked` Whether the types mutex is already locked
     /// @return `std::optional<Type>` The created type, nullopt if creation failed
-    static std::optional<std::shared_ptr<Type>> create_type(token_list &tokens, const bool mutex_already_locked = false);
+    static std::optional<std::shared_ptr<Type>> create_type(const token_slice &tokens, const bool mutex_already_locked = false);
 };

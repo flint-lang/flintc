@@ -6,9 +6,9 @@
 
 class ErrExprCallOfUndefinedFunction : public BaseError {
   public:
-    ErrExprCallOfUndefinedFunction(const ErrorType error_type, const std::string &file, const token_list &tokens,
+    ErrExprCallOfUndefinedFunction(const ErrorType error_type, const std::string &file, const token_slice &tokens,
         const std::string &function_name) :
-        BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
+        BaseError(error_type, file, tokens.first->line, tokens.first->column),
         tokens(tokens),
         function_name(function_name) {}
 
@@ -21,6 +21,6 @@ class ErrExprCallOfUndefinedFunction : public BaseError {
     }
 
   private:
-    token_list tokens;
+    token_slice tokens;
     std::string function_name;
 };

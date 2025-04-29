@@ -10,13 +10,14 @@
 #include "parser/type/data_type.hpp"
 #include <algorithm>
 
-bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
-    token_list definition_tokens = get_definition_tokens(tokens);
+bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
+    token_slice definition_tokens = get_definition_tokens(tokens);
+    tokens.first = definition_tokens.second;
 
     // Find the indentation of the definition
     int definition_indentation = 0;
-    for (const TokenContext &tok : definition_tokens) {
-        if (tok.type == TOK_INDENT) {
+    for (auto tok = definition_tokens.first; tok != definition_tokens.second; ++tok) {
+        if (tok->type == TOK_INDENT) {
             definition_indentation++;
         } else {
             break;
@@ -41,7 +42,8 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         return true;
     }
 
-    token_list body_tokens = get_body_tokens(definition_indentation, tokens);
+    token_slice body_tokens = get_body_tokens(definition_indentation, tokens);
+    tokens.first = body_tokens.second;
     if (Matcher::tokens_contain(definition_tokens, Matcher::function_definition)) {
         // Dont actually parse the function body, only its definition
         std::optional<FunctionNode> function_node = create_function(definition_tokens);
@@ -50,7 +52,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
             return false;
         }
         FunctionNode *added_function = file_node.add_function(function_node.value());
-        add_open_function({added_function, body_tokens});
+        add_open_function({added_function, clone_from_slice(body_tokens)});
         add_parsed_function(added_function, file_name);
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::data_definition)) {
         std::optional<DataNode> data_node = create_data(definition_tokens, body_tokens);
@@ -61,8 +63,8 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
         DataNode *added_data = file_node.add_data(data_node.value());
         add_parsed_data(added_data, file_name);
         if (!Type::add_type(std::make_shared<DataType>(added_data))) {
-            THROW_ERR(ErrDefDataRedefinition, ERR_PARSING, file_name,                                    //
-                definition_tokens.front().line, definition_tokens.front().column, data_node.value().name //
+            THROW_ERR(ErrDefDataRedefinition, ERR_PARSING, file_name,                                  //
+                definition_tokens.first->line, definition_tokens.first->column, data_node.value().name //
             );
             return false;
         }
@@ -98,7 +100,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
             return false;
         }
         TestNode *added_test = file_node.add_test(test_node.value());
-        add_open_test({added_test, body_tokens});
+        add_open_test({added_test, clone_from_slice(body_tokens)});
         add_parsed_test(added_test, file_name);
     } else {
         Debug::print_token_context_vector(definition_tokens, file_name);
@@ -108,25 +110,25 @@ bool Parser::add_next_main_node(FileNode &file_node, token_list &tokens) {
     return true;
 }
 
-token_list Parser::get_definition_tokens(token_list &tokens) {
+token_slice Parser::get_definition_tokens(const token_slice &tokens) {
     // Scan through all the tokens and first extract all tokens from this line
     int end_index = 0;
-    unsigned int start_line = tokens.at(0).line;
-    for (const TokenContext &tok : tokens) {
-        if (tok.line == start_line) {
+    unsigned int start_line = tokens.first->line;
+    for (auto tok = tokens.first; tok != tokens.second; ++tok) {
+        if (tok->line == start_line) {
             end_index++;
         } else {
             break;
         }
     }
-    return extract_from_to(0, end_index, tokens);
+    return {tokens.first, tokens.first + end_index};
 }
 
-token_list Parser::get_body_tokens(unsigned int definition_indentation, token_list &tokens) {
+token_slice Parser::get_body_tokens(unsigned int definition_indentation, const token_slice &tokens) {
     int end_idx = 0;
-    unsigned int current_line = tokens.at(0).line;
-    for (auto it = tokens.begin(); it != tokens.end(); ++it) {
-        if (it->line != current_line || it == tokens.begin()) {
+    unsigned int current_line = tokens.first->line;
+    for (auto it = tokens.first; it != tokens.second; ++it) {
+        if (it->line != current_line || it == tokens.first) {
             current_line = it->line;
             std::optional<unsigned int> indents_maybe = Matcher::get_leading_indents(tokens, current_line);
             if (indents_maybe.has_value() && indents_maybe.value() <= definition_indentation) {
@@ -140,7 +142,7 @@ token_list Parser::get_body_tokens(unsigned int definition_indentation, token_li
         std::exit(EXIT_FAILURE);
     }
 
-    return extract_from_to(0, end_idx, tokens);
+    return {tokens.first, tokens.first + end_idx};
 }
 
 std::optional<std::tuple<                                          //
@@ -149,7 +151,7 @@ std::optional<std::tuple<                                          //
     std::vector<std::shared_ptr<Type>>,                            //
     std::optional<bool>                                            //
     >>
-Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
+Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens) {
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
         tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
     );
@@ -164,11 +166,15 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     std::string function_name;
     std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments;
 
-    for (const auto &tok : tokens) {
+    for (auto tok = tokens.first; tok != tokens.second; ++tok) {
         // Get the function name
-        if (tok.type == TOK_IDENTIFIER) {
-            function_name = tok.lexme;
+        if (tok->type == TOK_IDENTIFIER) {
+            function_name = tok->lexme;
             break;
+        } else if (std::distance(tokens.first, tok) == arg_range.value().first) {
+            // Function with no name
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
     }
 
@@ -181,13 +187,13 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
         );
         if (!match_ranges.empty()) {
             for (auto match = match_ranges.begin();; ++match) {
-                token_list argument_tokens;
+                token_slice argument_tokens;
                 if (match == match_ranges.begin()) {
-                    argument_tokens = clone_from_to(arg_range.value().first, match->first, tokens);
+                    argument_tokens = {tokens.first + arg_range.value().first, tokens.first + match->first};
                 } else if (match == match_ranges.end()) {
-                    argument_tokens = clone_from_to((match - 1)->second, arg_range.value().second, tokens);
+                    argument_tokens = {tokens.first + (match - 1)->second, tokens.first + arg_range.value().second};
                 } else {
-                    argument_tokens = clone_from_to((match - 1)->second, match->first, tokens);
+                    argument_tokens = {tokens.first + (match - 1)->second, tokens.first + match->first};
                 }
                 auto expression = create_expression(scope, argument_tokens);
                 if (!expression.has_value()) {
@@ -200,7 +206,7 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
                 }
             }
         } else {
-            token_list argument_tokens = extract_from_to(arg_range.value().first, arg_range.value().second, tokens);
+            token_slice argument_tokens = {tokens.first + arg_range.value().first, tokens.first + arg_range.value().second};
             auto expression = create_expression(scope, argument_tokens);
             if (!expression.has_value()) {
                 THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
@@ -252,9 +258,8 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
             }
         }
         if (!found_function.has_value()) {
-            THROW_ERR(ErrExprCallWrongArgsBuiltin, ERR_PARSING, file_name,                        //
-                clone_from_to(arg_range.value().first - 2, arg_range.value().second + 1, tokens), //
-                function_name, argument_types);
+            token_slice err_tokens = {tokens.first + arg_range.value().first - 2, tokens.first + arg_range.value().second + 1};
+            THROW_ERR(ErrExprCallWrongArgsBuiltin, ERR_PARSING, file_name, err_tokens, function_name, argument_types);
             return std::nullopt;
         }
         std::vector<std::shared_ptr<Type>> types;
@@ -323,11 +328,16 @@ Parser::create_call_or_initializer_base(Scope *scope, token_list &tokens) {
     return std::make_tuple(function_name, std::move(arguments), function.value().first->return_types, std::nullopt);
 }
 
-std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base(Scope *scope, token_list &tokens) {
-    remove_leading_garbage(tokens);
-    remove_trailing_garbage(tokens);
+std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base( //
+    Scope *scope,                                                                                     //
+    const token_slice &tokens                                                                         //
+) {
+    token_slice tokens_mut = tokens;
+    remove_leading_garbage(tokens_mut);
+    remove_trailing_garbage(tokens_mut);
     // For an unary operator to work, the tokens now must have at least two tokens
-    if (tokens.size() < 2) {
+    size_t tokens_size = get_slice_size(tokens_mut);
+    if (tokens_size < 2) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -335,10 +345,10 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     // Check if the unary operator is defined to the left of the expression or the right of it
     bool is_left;
     const uint2 left_range = {0, 1};
-    const uint2 right_range = {tokens.size() - 1, tokens.size()};
-    if (Matcher::tokens_contain_in_range(tokens, Matcher::unary_operator, left_range)) {
+    const uint2 right_range = {tokens_size - 1, tokens_size};
+    if (Matcher::tokens_contain_in_range(tokens_mut, Matcher::unary_operator, left_range)) {
         is_left = true;
-    } else if (Matcher::tokens_contain_in_range(tokens, Matcher::unary_operator, right_range)) {
+    } else if (Matcher::tokens_contain_in_range(tokens_mut, Matcher::unary_operator, right_range)) {
         is_left = false;
     } else {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -346,18 +356,21 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     }
 
     // Extract the operator token
-    token_list operator_tokens = extract_from_to(         //
-        is_left ? left_range.first : right_range.first,   //
-        is_left ? left_range.second : right_range.second, //
-        tokens                                            //
-    );
-    assert(operator_tokens.size() == 1);
-    Token operator_token = operator_tokens.at(0).type;
+    token_slice operator_tokens;
+    if (is_left) {
+        operator_tokens = {tokens_mut.first + left_range.first, tokens_mut.first + left_range.second};
+        tokens_mut.first = operator_tokens.second;
+    } else {
+        operator_tokens = {tokens_mut.first + right_range.first, tokens_mut.first + right_range.second};
+        tokens_mut.second = operator_tokens.first;
+    }
+    assert(std::next(operator_tokens.first) == operator_tokens.second); // Assert operator_tokens.size() == 1
+    Token operator_token = operator_tokens.first->type;
 
     // All other tokens now are the expression
-    auto expression = create_expression(scope, tokens);
+    auto expression = create_expression(scope, tokens_mut);
     if (!expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
 
@@ -367,23 +380,23 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
 std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::string, unsigned int, std::shared_ptr<Type>>>
 Parser::create_field_access_base( //
     Scope *scope,                 //
-    token_list &tokens            //
+    token_slice &tokens           //
 ) {
     remove_leading_garbage(tokens);
 
     // The first token is the accessed variable name
-    assert(tokens.front().type == TOK_IDENTIFIER);
-    const std::string var_name = tokens.front().lexme;
-    tokens.erase(tokens.begin());
+    assert(tokens.first->type == TOK_IDENTIFIER);
+    const std::string var_name = tokens.first->lexme;
+    tokens.first++;
 
     // The next token should be a dot, skip it
-    assert(tokens.front().type == TOK_DOT);
-    tokens.erase(tokens.begin());
+    assert(tokens.first->type == TOK_DOT);
+    tokens.first++;
 
     // Then there should be the name of the field to access
-    assert(tokens.front().type == TOK_IDENTIFIER);
-    const std::string field_name = tokens.front().lexme;
-    tokens.erase(tokens.begin());
+    assert(tokens.first->type == TOK_IDENTIFIER);
+    const std::string field_name = tokens.first->lexme;
+    tokens.first++;
 
     // Now get the data type from the data variables name
     const std::optional<std::shared_ptr<Type>> data_type = scope->get_variable_type(var_name);
@@ -438,30 +451,30 @@ std::optional<
     std::tuple<std::shared_ptr<Type>, std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::shared_ptr<Type>>>>
 Parser::create_grouped_access_base( //
     Scope *scope,                   //
-    token_list &tokens              //
+    token_slice &tokens             //
 ) {
     remove_leading_garbage(tokens);
 
     // The first token is the accessed variable name
-    assert(tokens.front().type == TOK_IDENTIFIER);
-    const std::string var_name = tokens.front().lexme;
-    tokens.erase(tokens.begin());
+    assert(tokens.first->type == TOK_IDENTIFIER);
+    const std::string var_name = tokens.first->lexme;
+    tokens.first++;
 
     // The next token should be a dot, skip it
-    assert(tokens.front().type == TOK_DOT);
-    tokens.erase(tokens.begin());
+    assert(tokens.first->type == TOK_DOT);
+    tokens.first++;
 
     // Then there should be an opening parenthesis the name of the field to access
-    assert(tokens.front().type == TOK_LEFT_PAREN);
-    tokens.erase(tokens.begin());
+    assert(tokens.first->type == TOK_LEFT_PAREN);
+    tokens.first++;
 
     // Now, extract the names of all accessed fields
     std::vector<std::string> field_names;
-    while (!tokens.empty() && tokens.front().type != TOK_RIGHT_PAREN) {
-        if (tokens.front().type == TOK_IDENTIFIER) {
-            field_names.emplace_back(tokens.front().lexme);
+    while (tokens.first != tokens.second && tokens.first->type != TOK_RIGHT_PAREN) {
+        if (tokens.first->type == TOK_IDENTIFIER) {
+            field_names.emplace_back(tokens.first->lexme);
         }
-        tokens.erase(tokens.begin());
+        tokens.first++;
     }
     if (field_names.empty()) {
         // Empty group access
@@ -470,8 +483,8 @@ Parser::create_grouped_access_base( //
     }
 
     // Now remove the right paren
-    assert(tokens.front().type == TOK_RIGHT_PAREN);
-    tokens.erase(tokens.begin());
+    assert(tokens.first->type == TOK_RIGHT_PAREN);
+    tokens.first++;
 
     // Now get the data type from the data variables name
     const std::optional<std::shared_ptr<Type>> data_type = scope->get_variable_type(var_name);

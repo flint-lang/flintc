@@ -6,8 +6,8 @@
 
 class ErrDefErrOnlyOneParent : public BaseError {
   public:
-    ErrDefErrOnlyOneParent(const ErrorType error_type, const std::string &file, const token_list &tokens) :
-        BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
+    ErrDefErrOnlyOneParent(const ErrorType error_type, const std::string &file, const token_slice &tokens) :
+        BaseError(error_type, file, tokens.first->line, tokens.first->column),
         tokens(tokens) {}
 
     [[nodiscard]]
@@ -19,5 +19,5 @@ class ErrDefErrOnlyOneParent : public BaseError {
     }
 
   private:
-    token_list tokens;
+    token_slice tokens;
 };

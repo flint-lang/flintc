@@ -1,11 +1,11 @@
 #include "matcher/matcher.hpp"
-#include "parser/parser.hpp"
 
 #include <cassert>
+#include <mutex>
 #include <regex>
 
 std::optional<uint2> Matcher::balanced_range_extraction( //
-    const token_list &tokens,                            //
+    const token_slice &tokens,                           //
     const PatternPtr &inc_pattern,                       //
     const PatternPtr &dec_pattern                        //
 ) {
@@ -57,17 +57,17 @@ std::optional<uint2> Matcher::balanced_range_extraction( //
 }
 
 std::vector<uint2> Matcher::balanced_range_extraction_vec( //
-    const token_list &tokens,                              //
+    const token_slice &tokens,                             //
     const PatternPtr &inc_pattern,                         //
     const PatternPtr &dec_pattern                          //
 ) {
     std::vector<uint2> ranges;
 
     // Create a copy of tokens to modify during extraction
-    token_list tokens_mut = tokens;
+    token_slice tokens_mut = tokens;
     unsigned int removed_tokens = 0;
 
-    while (!tokens_mut.empty()) {
+    while (tokens_mut.first != tokens_mut.second) {
         const std::optional<uint2> next_range = balanced_range_extraction(tokens_mut, inc_pattern, dec_pattern);
         if (!next_range.has_value()) {
             break;
@@ -79,7 +79,7 @@ std::vector<uint2> Matcher::balanced_range_extraction_vec( //
 
         // Remove everything up to and including the current balanced range
         const unsigned int erase_end = next_range.value().second;
-        tokens_mut.erase(tokens_mut.begin(), tokens_mut.begin() + erase_end);
+        tokens_mut.first += erase_end;
 
         // Update removed tokens counter
         removed_tokens += erase_end;
@@ -134,8 +134,9 @@ std::vector<uint2> Matcher::balanced_ranges_vec(const std::string &src, const st
     return result;
 }
 
-bool Matcher::tokens_contain(const token_list &tokens, const PatternPtr &pattern) {
-    for (size_t i = 0; i < tokens.size(); i++) {
+bool Matcher::tokens_contain(const token_slice &tokens, const PatternPtr &pattern) {
+    size_t tokens_size = std::distance(tokens.first, tokens.second);
+    for (size_t i = 0; i < tokens_size; i++) {
         auto result = pattern->match(tokens, i);
         if (result.has_value()) {
             return true;
@@ -144,13 +145,23 @@ bool Matcher::tokens_contain(const token_list &tokens, const PatternPtr &pattern
     return false;
 }
 
-bool Matcher::tokens_match(const token_list &tokens, const PatternPtr &pattern) {
+bool Matcher::tokens_match(const token_slice &tokens, const PatternPtr &pattern) {
+    size_t tokens_size = std::distance(tokens.first, tokens.second);
     auto result = pattern->match(tokens, 0);
-    return result.has_value() && *result == tokens.size();
+    return result.has_value() && *result == tokens_size;
 }
 
-bool Matcher::tokens_contain_in_range(const token_list &tokens, const PatternPtr &pattern, const uint2 &range) {
-    assert(range.second <= tokens.size());
+bool Matcher::token_match(const Token token, const PatternPtr &pattern) {
+    static std::mutex match_mutex;
+    static token_list match_list(1);
+    std::lock_guard<std::mutex> lock(match_mutex);
+    match_list[0] = {token, "", 0, 0};
+    return tokens_match({match_list.begin(), match_list.end()}, pattern);
+}
+
+bool Matcher::tokens_contain_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
+    size_t tokens_size = std::distance(tokens.first, tokens.second);
+    assert(range.second <= tokens_size);
     assert(range.first <= range.second);
 
     for (size_t i = range.first; i < range.second; i++) {
@@ -162,35 +173,37 @@ bool Matcher::tokens_contain_in_range(const token_list &tokens, const PatternPtr
     return false;
 }
 
-std::optional<uint2> Matcher::get_tokens_line_range(const token_list &tokens, unsigned int line) {
-    if (tokens.empty()) {
+std::optional<uint2> Matcher::get_tokens_line_range(const token_slice &tokens, unsigned int line) {
+    if (tokens.first == tokens.second) {
         return std::nullopt;
     }
 
     // Find start index
     size_t start_index = 0;
-    while (start_index < tokens.size() && tokens[start_index].line < line) {
+    size_t tokens_size = std::distance(tokens.first, tokens.second);
+    while (start_index < tokens_size && (tokens.first + start_index)->line < line) {
         start_index++;
     }
 
     // If we reached the end or found a line past our target, line doesn't exist
-    if (start_index >= tokens.size() || tokens[start_index].line > line) {
+    if (start_index >= tokens_size || (tokens.first + start_index)->line > line) {
         return std::nullopt;
     }
 
     // Find end index (last token of the line)
     size_t end_index = start_index;
-    while (end_index + 1 < tokens.size() && tokens[end_index + 1].line == line) {
+    while (end_index + 1 < tokens_size && (tokens.first + end_index + 1)->line == line) {
         end_index++;
     }
 
     return std::make_optional<uint2>(start_index, end_index);
 }
 
-std::vector<uint2> Matcher::get_match_ranges(const token_list &tokens, const PatternPtr &pattern) {
+std::vector<uint2> Matcher::get_match_ranges(const token_slice &tokens, const PatternPtr &pattern) {
     std::vector<uint2> results;
+    size_t tokens_size = std::distance(tokens.first, tokens.second);
 
-    for (size_t i = 0; i < tokens.size(); i++) {
+    for (size_t i = 0; i < tokens_size; i++) {
         auto match_end = pattern->match(tokens, i);
         if (match_end.has_value()) {
             results.emplace_back(i, *match_end);
@@ -199,8 +212,9 @@ std::vector<uint2> Matcher::get_match_ranges(const token_list &tokens, const Pat
     return results;
 }
 
-std::vector<uint2> Matcher::get_match_ranges_in_range(const token_list &tokens, const PatternPtr &pattern, const uint2 &range) {
-    assert(range.second <= tokens.size());
+std::vector<uint2> Matcher::get_match_ranges_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
+    size_t tokens_size = std::distance(tokens.first, tokens.second);
+    assert(range.second <= tokens_size);
     assert(range.first <= range.second);
 
     std::vector<uint2> results;
@@ -214,8 +228,9 @@ std::vector<uint2> Matcher::get_match_ranges_in_range(const token_list &tokens, 
     return results;
 }
 
-std::optional<uint2> Matcher::get_next_match_range(const token_list &tokens, const PatternPtr &pattern) {
-    for (size_t i = 0; i < tokens.size(); ++i) {
+std::optional<uint2> Matcher::get_next_match_range(const token_slice &tokens, const PatternPtr &pattern) {
+    size_t tokens_size = std::distance(tokens.first, tokens.second);
+    for (size_t i = 0; i < tokens_size; ++i) {
         auto match_end = pattern->match(tokens, i);
         if (match_end) {
             return std::make_optional<uint2>(i, *match_end);
@@ -224,17 +239,18 @@ std::optional<uint2> Matcher::get_next_match_range(const token_list &tokens, con
     return std::nullopt;
 }
 
-std::optional<unsigned int> Matcher::get_leading_indents(const token_list &tokens, unsigned int line) {
+std::optional<unsigned int> Matcher::get_leading_indents(const token_slice &tokens, unsigned int line) {
     unsigned int leading_indents = 0;
     int start_index = -1;
-    for (size_t i = 0; i < tokens.size(); i++) {
-        if (start_index == -1 && tokens.at(i).line == line) {
+    size_t tokens_size = std::distance(tokens.first, tokens.second);
+    for (size_t i = 0; i < tokens_size; i++) {
+        if (start_index == -1 && (tokens.first + i)->line == line) {
             start_index = i;
-            if (tokens.at(i).type == TOK_INDENT) {
+            if ((tokens.first + i)->type == TOK_INDENT) {
                 ++leading_indents;
             }
         } else if (start_index != -1) {
-            if (tokens.at(i).type == TOK_INDENT) {
+            if ((tokens.first + i)->type == TOK_INDENT) {
                 ++leading_indents;
             } else {
                 break;
@@ -248,7 +264,7 @@ std::optional<unsigned int> Matcher::get_leading_indents(const token_list &token
 }
 
 std::vector<uint2> Matcher::get_match_ranges_in_range_outside_group( //
-    const token_list &tokens,                                        //
+    const token_slice &tokens,                                       //
     const PatternPtr &pattern,                                       //
     const uint2 &range,                                              //
     const PatternPtr &inc,                                           //
@@ -258,7 +274,8 @@ std::vector<uint2> Matcher::get_match_ranges_in_range_outside_group( //
     if (!tokens_contain_in_range(tokens, pattern, range)) {
         return {};
     }
-    std::vector<uint2> balanced_ranges = balanced_range_extraction_vec(Parser::clone_from_to(range.first, range.second, tokens), inc, dec);
+    token_slice in_range_tokens = {tokens.first + range.first, tokens.first + range.second};
+    std::vector<uint2> balanced_ranges = balanced_range_extraction_vec(in_range_tokens, inc, dec);
     // Correct all indices of the balanced ranges, range.first now should be added to them
     for (auto &balanced : balanced_ranges) {
         balanced.first += range.first;

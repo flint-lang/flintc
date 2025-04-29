@@ -10,7 +10,7 @@ class NegativeLookaheadMatcher : public TokenPatternMatcher {
     explicit NegativeLookaheadMatcher(PatternPtr &pattern) :
         pattern(pattern) {}
 
-    MatchResult match(const token_list &tokens, size_t start_pos) const override {
+    MatchResult match(const token_slice &tokens, size_t start_pos) const override {
         MatchResult result = pattern->match(tokens, start_pos);
         if (!result.has_value()) {
             return start_pos;

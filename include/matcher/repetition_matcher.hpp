@@ -14,11 +14,12 @@ class RepetitionMatcher : public TokenPatternMatcher {
         min_matches(min_matches),
         max_matches(max_matches) {}
 
-    MatchResult match(const token_list &tokens, const size_t start_pos) const override {
+    MatchResult match(const token_slice &tokens, const size_t start_pos) const override {
         size_t current_pos = start_pos;
         size_t match_count = 0;
+        size_t tokens_size = std::distance(tokens.first, tokens.second);
 
-        while (match_count < max_matches && current_pos < tokens.size()) {
+        while (match_count < max_matches && current_pos < tokens_size) {
             MatchResult result = pattern->match(tokens, current_pos);
             if (!result.has_value()) {
                 break;

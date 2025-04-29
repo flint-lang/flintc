@@ -19,8 +19,6 @@
 #include "error_types/lexing/unexpected/err_unexpected_token_number.hpp"
 #include "error_types/lexing/unexpected/err_unexpected_token_pipe.hpp"
 
-#include "error_types/parsing/err_parsing.hpp"
-
 #include "error_types/parsing/definitions/data/err_def_data_creation.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_redefinition.hpp"

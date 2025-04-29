@@ -23,8 +23,8 @@ namespace {
         // x := func()
         token_list tokens = create_token_vector({//
             TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::vector<uint2> ranges = Matcher::balanced_range_extraction_vec(         //
-            tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+        std::vector<uint2> ranges = Matcher::balanced_range_extraction_vec(                                 //
+            {tokens.begin(), tokens.end()}, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
         );
         bool result = ranges.size() == 1 && ranges.at(0).first == 3 && ranges.at(0).second == 5;
         test_result.ok_or_not(result);
@@ -43,8 +43,8 @@ namespace {
             TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER,
             TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_RIGHT_PAREN, TOK_MINUS, TOK_IDENTIFIER, TOK_LEFT_PAREN,
             TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::vector<uint2> ranges = Matcher::balanced_range_extraction_vec(         //
-            tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+        std::vector<uint2> ranges = Matcher::balanced_range_extraction_vec(                                 //
+            {tokens.begin(), tokens.end()}, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
         );
         bool result = ranges.size() == 1 && ranges.at(0).first == 3 && ranges.at(0).second == 18;
         test_result.ok_or_not(result);
@@ -63,8 +63,8 @@ namespace {
             TOK_IDENTIFIER, TOK_COLON_EQUAL, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_MULT, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_INT_VALUE,
             TOK_RIGHT_PAREN, TOK_RIGHT_PAREN, TOK_POW, TOK_LEFT_PAREN, TOK_INT_VALUE, TOK_MINUS, TOK_INT_VALUE, TOK_MULT, TOK_INT_VALUE,
             TOK_RIGHT_PAREN, TOK_SEMICOLON});
-        std::vector<uint2> ranges = Matcher::balanced_range_extraction_vec(         //
-            tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+        std::vector<uint2> ranges = Matcher::balanced_range_extraction_vec(                                 //
+            {tokens.begin(), tokens.end()}, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
         );
         bool result = ranges.size() == 2 && ranges.at(0).first == 2 && ranges.at(0).second == 10 && ranges.at(1).first == 11 &&
             ranges.at(1).second == 18;

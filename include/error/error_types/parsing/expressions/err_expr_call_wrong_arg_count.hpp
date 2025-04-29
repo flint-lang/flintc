@@ -9,12 +9,12 @@ class ErrExprCallWrongArgCount : public BaseError {
     ErrExprCallWrongArgCount(               //
         const ErrorType error_type,         //
         const std::string &file,            //
-        const token_list &tokens,           //
+        const token_slice &tokens,          //
         const std::string &function_name,   //
         const unsigned int parameter_count, //
         const unsigned int arg_count        //
         ) :
-        BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
+        BaseError(error_type, file, tokens.first->line, tokens.first->column),
         tokens(tokens),
         function_name(function_name),
         parameter_count(parameter_count),
@@ -30,7 +30,7 @@ class ErrExprCallWrongArgCount : public BaseError {
     }
 
   private:
-    token_list tokens;
+    token_slice tokens;
     std::string function_name;
     unsigned int parameter_count;
     unsigned int arg_count;

@@ -28,8 +28,8 @@ bool Type::add_type(const std::shared_ptr<Type> &type_to_add) {
     return types.emplace(type_to_add->to_string(), type_to_add).second;
 }
 
-std::optional<std::shared_ptr<Type>> Type::get_type(token_list &tokens, const bool mutex_already_locked) {
-    assert(!tokens.empty());
+std::optional<std::shared_ptr<Type>> Type::get_type(const token_slice &tokens, const bool mutex_already_locked) {
+    assert(tokens.first != tokens.second);
     const std::string type_str = Lexer::to_string(tokens);
     // Check if the map already contains the given key with a shared lock
     {
@@ -105,30 +105,30 @@ std::shared_ptr<Type> Type::str_to_type(const std::string_view &str) {
     return result.value();
 };
 
-std::optional<std::shared_ptr<Type>> Type::create_type(token_list &tokens, const bool mutex_already_locked) {
+std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens, const bool mutex_already_locked) {
+    token_slice tokens_mut = tokens;
     // If the size of the token type list is 1, its definitely a simple type
-    if (tokens.size() == 1) {
-        return std::make_shared<SimpleType>(tokens.begin()->lexme);
+    if (std::next(tokens_mut.first) == tokens_mut.second) {
+        return std::make_shared<SimpleType>(tokens_mut.first->lexme);
     }
-    assert(tokens.size() > 1);
     // If the type list ends with a ], its definitely an array type
-    if (tokens.back().type == TOK_RIGHT_BRACKET) {
-        tokens.pop_back(); // Remove the ]
+    if (std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET) {
+        tokens_mut.second--; // Remove the ]
         // Now, check if the last element is either a literal or a [ token
-        if (tokens.back().type == TOK_LEFT_BRACKET) {
-            tokens.pop_back(); // Remove the [
-            std::optional<std::shared_ptr<Type>> arr_type = get_type(tokens, mutex_already_locked);
+        if (std::prev(tokens_mut.second)->type == TOK_LEFT_BRACKET) {
+            tokens_mut.second--; // Remove the [
+            std::optional<std::shared_ptr<Type>> arr_type = get_type(tokens_mut, mutex_already_locked);
             if (!arr_type.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return std::make_shared<ArrayType>(std::nullopt, arr_type.value());
-        } else if (tokens.back().type == TOK_INT_VALUE) {
-            const size_t length = std::stoul(tokens.back().lexme);
-            tokens.pop_back(); // Remove the int value
-            assert(tokens.back().type == TOK_LEFT_BRACKET);
-            tokens.pop_back(); // Remove the [
-            std::optional<std::shared_ptr<Type>> arr_type = get_type(tokens, mutex_already_locked);
+        } else if (std::prev(tokens_mut.second)->type == TOK_INT_VALUE) {
+            const size_t length = std::stoul(std::prev(tokens_mut.second)->lexme);
+            tokens_mut.second--; // Remove the int value
+            assert(std::prev(tokens_mut.second)->type == TOK_LEFT_BRACKET);
+            tokens_mut.second--; // Remove the [
+            std::optional<std::shared_ptr<Type>> arr_type = get_type(tokens_mut, mutex_already_locked);
             if (!arr_type.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;

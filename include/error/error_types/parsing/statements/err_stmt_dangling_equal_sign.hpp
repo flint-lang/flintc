@@ -6,8 +6,8 @@
 
 class ErrStmtDanglingEqualSign : public BaseError {
   public:
-    ErrStmtDanglingEqualSign(const ErrorType error_type, const std::string &file, const token_list &tokens) :
-        BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
+    ErrStmtDanglingEqualSign(const ErrorType error_type, const std::string &file, const token_slice &tokens) :
+        BaseError(error_type, file, tokens.first->line, tokens.first->column),
         tokens(tokens) {}
 
     [[nodiscard]]
@@ -19,5 +19,5 @@ class ErrStmtDanglingEqualSign : public BaseError {
     }
 
   private:
-    token_list tokens;
+    token_slice tokens;
 };

@@ -50,9 +50,9 @@ std::string BaseError::get_type_string(const std::variant<std::shared_ptr<Type>,
     }
 }
 
-[[nodiscard]] std::string BaseError::get_token_string(const token_list &tokens, const std::vector<Token> &ignore_tokens) const {
+[[nodiscard]] std::string BaseError::get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens) const {
     std::stringstream token_str;
-    for (auto it = tokens.begin(); it != tokens.end(); it++) {
+    for (auto it = tokens.first; it != tokens.second; it++) {
         if (std::find(ignore_tokens.begin(), ignore_tokens.end(), it->type) != ignore_tokens.end()) {
             continue;
         }
@@ -103,9 +103,9 @@ std::string BaseError::get_function_signature_string(   //
 }
 
 bool BaseError::space_needed(                  //
-    const token_list &tokens,                  //
+    const token_slice &tokens,                 //
     const token_list::const_iterator iterator, //
     const std::vector<Token> &ignores          //
 ) const {
-    return iterator != std::prev(tokens.end()) && std::find(ignores.begin(), ignores.end(), std::next(iterator)->type) == ignores.end();
+    return iterator != std::prev(tokens.second) && std::find(ignores.begin(), ignores.end(), std::next(iterator)->type) == ignores.end();
 }

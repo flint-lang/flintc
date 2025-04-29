@@ -7,8 +7,8 @@
 class ErrStmtIfCreationFailed : public BaseError {
   public:
     ErrStmtIfCreationFailed(const ErrorType error_type, const std::string &file,
-        const std::vector<std::pair<token_list, token_list>> &if_chain) :
-        BaseError(error_type, file, if_chain.at(0).first.at(0).line, if_chain.at(0).first.at(0).column),
+        const std::vector<std::pair<token_slice, token_slice>> &if_chain) :
+        BaseError(error_type, file, if_chain.at(0).first.first->line, if_chain.at(0).first.first->column),
         if_chain(if_chain) {}
 
     [[nodiscard]]
@@ -16,13 +16,14 @@ class ErrStmtIfCreationFailed : public BaseError {
         std::ostringstream oss;
         token_list tokens;
         for (const auto &[if_def, if_body] : if_chain) {
-            std::copy(if_def.begin(), if_def.end(), tokens.end());
-            std::copy(if_body.begin(), if_body.end(), tokens.end());
+            std::copy(if_def.first, if_def.second, tokens.end());
+            std::copy(if_body.first, if_body.second, tokens.end());
         }
-        oss << BaseError::to_string() << "Failed to parse if chain: \n" << YELLOW << get_token_string(tokens, {}) << DEFAULT;
+        oss << BaseError::to_string() << "Failed to parse if chain: \n"
+            << YELLOW << get_token_string({tokens.begin(), tokens.end()}, {}) << DEFAULT;
         return oss.str();
     }
 
   private:
-    std::vector<std::pair<token_list, token_list>> if_chain;
+    std::vector<std::pair<token_slice, token_slice>> if_chain;
 };

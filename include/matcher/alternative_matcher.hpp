@@ -11,7 +11,7 @@ class AlternativeMatcher : public TokenPatternMatcher {
     explicit AlternativeMatcher(std::vector<PatternPtr> alternatives) :
         alternatives(std::move(alternatives)) {}
 
-    MatchResult match(const token_list &tokens, size_t start_pos) const override {
+    MatchResult match(const token_slice &tokens, size_t start_pos) const override {
         for (const auto &alternative : alternatives) {
             MatchResult result = alternative->match(tokens, start_pos);
             if (result.has_value()) {

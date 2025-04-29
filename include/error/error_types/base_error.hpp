@@ -74,7 +74,7 @@ class BaseError {
     /// @param `tokens` The list of tokens whose string representation will be returned
     /// @param `ignore_tokens` The list of token types to ignore
     /// @return `std::string` The formatted string representation of the tokens
-    [[nodiscard]] std::string get_token_string(const token_list &tokens, const std::vector<Token> &ignore_tokens) const;
+    [[nodiscard]] std::string get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens) const;
 
     /// @function `get_function_signature_string`
     /// @brief Returns the string that represents the signature of a given function. Used to check if function signatures match
@@ -95,7 +95,7 @@ class BaseError {
     /// @param `ignores` The token types for which the iterator does not need a space after it
     /// @return `bool` whether the given iterator in the token list needs a space after it
     [[nodiscard]] bool space_needed(               //
-        const token_list &tokens,                  //
+        const token_slice &tokens,                 //
         const token_list::const_iterator iterator, //
         const std::vector<Token> &ignores          //
     ) const;

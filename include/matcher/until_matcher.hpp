@@ -10,11 +10,12 @@ class UntilMatcher : public TokenPatternMatcher {
     explicit UntilMatcher(PatternPtr &until_pattern) :
         until_pattern(until_pattern) {}
 
-    MatchResult match(const token_list &tokens, size_t start_pos) const override {
+    MatchResult match(const token_slice &tokens, size_t start_pos) const override {
         size_t pos = start_pos;
+        size_t token_size = std::distance(tokens.first, tokens.second);
 
         // Find the ending pattern
-        while (pos < tokens.size()) {
+        while (pos < token_size) {
             MatchResult result = until_pattern->match(tokens, pos);
             if (result.has_value()) {
                 // We found the ending pattern

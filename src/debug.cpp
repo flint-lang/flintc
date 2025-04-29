@@ -62,18 +62,18 @@ namespace Debug {
 
     /// print_token_context_vector
     ///     Prints all the TokenContext elements of the vector to the console
-    void print_token_context_vector(const token_list &tokens, const std::string &file_name) {
+    void print_token_context_vector(const token_slice &tokens, const std::string &file_name) {
         if (!DEBUG_MODE) {
             return;
         }
         std::cout << YELLOW << "[Debug Info] Printing token vector of file '" << file_name << "'" << DEFAULT << std::endl;
-        for (const TokenContext &tc : tokens) {
-            std::string name = get_token_name(tc.type);
+        for (auto tc = tokens.first; tc != tokens.second; ++tc) {
+            std::string name = get_token_name(tc->type);
 
-            std::string type = " | Type: '" + name + "' => " + std::to_string(static_cast<int>(tc.type));
+            std::string type = " | Type: '" + name + "' => " + std::to_string(static_cast<int>(tc->type));
             std::string type_container = get_string_container(30, type);
 
-            std::cout << "Line: " << tc.line << " | Column: " << tc.column << type_container << " | Lexme: " << tc.lexme << "\n";
+            std::cout << "Line: " << tc->line << " | Column: " << tc->column << type_container << " | Lexme: " << tc->lexme << "\n";
         }
     }
 

@@ -24,7 +24,7 @@ namespace {
         test_result.append_test_name("test_match_args_single", false);
         token_list tokens = create_token_vector({//
             TOK_I32, TOK_IDENTIFIER});
-        bool result = Matcher::tokens_match(tokens, Matcher::args);
+        bool result = Matcher::tokens_match({tokens.begin(), tokens.end()}, Matcher::args);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -38,7 +38,7 @@ namespace {
         test_result.append_test_name("test_match_args_multiple", false);
         token_list tokens = create_token_vector({//
             TOK_I32, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER});
-        bool result = Matcher::tokens_match(tokens, Matcher::args);
+        bool result = Matcher::tokens_match({tokens.begin(), tokens.end()}, Matcher::args);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -61,7 +61,7 @@ namespace {
         test_result.append_test_name("test_contain_args_single", false);
         token_list tokens = create_token_vector({//
             TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_I32, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
-        bool result = Matcher::tokens_contain(tokens, Matcher::args);
+        bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::args);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -76,7 +76,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_I32, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN,
             TOK_COLON});
-        bool result = Matcher::tokens_contain(tokens, Matcher::args);
+        bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::args);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -99,7 +99,7 @@ namespace {
         test_result.append_test_name("test_extract_args_single", false);
         token_list tokens = create_token_vector({//
             TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_I32, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
-        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::args);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges({tokens.begin(), tokens.end()}, Matcher::args);
         bool result = !result_vec.empty() && result_vec.at(0).first == 3 && result_vec.at(0).second == 5;
         test_result.ok_or_not(result);
         if (!result) {
@@ -115,7 +115,7 @@ namespace {
         token_list tokens = create_token_vector({//
             TOK_DEF, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_I32, TOK_IDENTIFIER, TOK_COMMA, TOK_FLINT, TOK_IDENTIFIER, TOK_RIGHT_PAREN,
             TOK_COLON});
-        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::args);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges({tokens.begin(), tokens.end()}, Matcher::args);
         bool result = !result_vec.empty() && result_vec.at(0).first == 3 && result_vec.at(0).second == 8;
         test_result.ok_or_not(result);
         if (!result) {

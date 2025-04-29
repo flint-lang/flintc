@@ -6,8 +6,8 @@ class TokenTypeAnytoken : public TokenPatternMatcher {
   public:
     explicit TokenTypeAnytoken() {}
 
-    MatchResult match(const token_list &tokens, size_t start_pos) const override {
-        if (tokens.empty()) {
+    MatchResult match(const token_slice &tokens, size_t start_pos) const override {
+        if (tokens.first == tokens.second) {
             return std::nullopt;
         }
         return start_pos;

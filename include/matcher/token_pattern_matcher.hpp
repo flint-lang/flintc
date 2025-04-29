@@ -10,7 +10,7 @@ class TokenPatternMatcher {
     using MatchResult = std::optional<size_t>;
 
     virtual ~TokenPatternMatcher() = default;
-    virtual MatchResult match(const token_list &tokens, size_t start_pos) const = 0;
+    virtual MatchResult match(const token_slice &tokens, size_t start_pos) const = 0;
     virtual std::string to_string() const = 0;
 };
 

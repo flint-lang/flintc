@@ -19,7 +19,7 @@ namespace {
         // if true:
         token_list tokens = create_token_vector({//
             TOK_ELSE, TOK_COLON});
-        bool result = Matcher::tokens_match(tokens, Matcher::else_statement);
+        bool result = Matcher::tokens_match({tokens.begin(), tokens.end()}, Matcher::else_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -35,7 +35,7 @@ namespace {
         test_result.append_test_name("test_contain_else", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_ELSE, TOK_COLON, TOK_EOL});
-        bool result = Matcher::tokens_contain(tokens, Matcher::else_statement);
+        bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::else_statement);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -51,7 +51,7 @@ namespace {
         test_result.append_test_name("test_extract_else", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_ELSE, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::else_statement);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges({tokens.begin(), tokens.end()}, Matcher::else_statement);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
         test_result.ok_or_not(result);
         if (!result) {

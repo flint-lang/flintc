@@ -24,7 +24,7 @@ namespace {
         test_result.append_test_name("test_match_error_definition_normal", false);
         token_list tokens = create_token_vector({//
             TOK_ERROR, TOK_IDENTIFIER, TOK_COLON});
-        bool result = Matcher::tokens_match(tokens, Matcher::error_definition);
+        bool result = Matcher::tokens_match({tokens.begin(), tokens.end()}, Matcher::error_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -38,7 +38,7 @@ namespace {
         test_result.append_test_name("test_match_error_definition_extending", false);
         token_list tokens = create_token_vector({//
             TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON});
-        bool result = Matcher::tokens_match(tokens, Matcher::error_definition);
+        bool result = Matcher::tokens_match({tokens.begin(), tokens.end()}, Matcher::error_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -61,7 +61,7 @@ namespace {
         test_result.append_test_name("test_contain_error_definition_normal", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
-        bool result = Matcher::tokens_contain(tokens, Matcher::error_definition);
+        bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::error_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -75,7 +75,7 @@ namespace {
         test_result.append_test_name("test_contain_error_definition_extending", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        bool result = Matcher::tokens_contain(tokens, Matcher::error_definition);
+        bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::error_definition);
         test_result.ok_or_not(result);
         if (!result) {
             test_result.increment();
@@ -98,7 +98,7 @@ namespace {
         test_result.append_test_name("test_extract_error_definition_normal", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::error_definition);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges({tokens.begin(), tokens.end()}, Matcher::error_definition);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 4;
         test_result.ok_or_not(result);
         if (!result) {
@@ -113,7 +113,7 @@ namespace {
         test_result.append_test_name("test_extract_error_definition_extending", false);
         token_list tokens = create_token_vector(
             {TOK_INDENT, TOK_ERROR, TOK_IDENTIFIER, TOK_LEFT_PAREN, TOK_IDENTIFIER, TOK_RIGHT_PAREN, TOK_COLON, TOK_EOL});
-        std::vector<uint2> result_vec = Matcher::get_match_ranges(tokens, Matcher::error_definition);
+        std::vector<uint2> result_vec = Matcher::get_match_ranges({tokens.begin(), tokens.end()}, Matcher::error_definition);
         bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
         test_result.ok_or_not(result);
         if (!result) {

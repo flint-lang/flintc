@@ -30,7 +30,7 @@ class Matcher {
     /// @param `dec_pattern` The decrement pattern
     /// @return `std::optional<uint2>` The range of the balanced range, nullopt if the tokens do not contain the patterns
     static std::optional<uint2> balanced_range_extraction( //
-        const token_list &tokens,                          //
+        const token_slice &tokens,                         //
         const PatternPtr &inc_pattern,                     //
         const PatternPtr &dec_pattern                      //
     );
@@ -43,7 +43,7 @@ class Matcher {
     /// @param `dec_pattern` The decrement pattern
     /// @return `std::vector<uint2>` A list of all ranges from the balanced ranges
     static std::vector<uint2> balanced_range_extraction_vec( //
-        const token_list &tokens,                            //
+        const token_slice &tokens,                           //
         const PatternPtr &inc_pattern,                       //
         const PatternPtr &dec_pattern                        //
     );
@@ -63,7 +63,7 @@ class Matcher {
     /// @param `tokens` The tokens to check if they contain the given pattern
     /// @param `pattern` The pattern to check
     /// @return `bool` Whether the given token list contains the given pattern
-    static bool tokens_contain(const token_list &tokens, const PatternPtr &pattern);
+    static bool tokens_contain(const token_slice &tokens, const PatternPtr &pattern);
 
     /// @function `tokens_match`
     /// @brief Checks if a given vector of TokenContext matches a given pattern
@@ -71,7 +71,15 @@ class Matcher {
     /// @param `tokens` The list of tokens to check
     /// @param `pattern` The pattern to check for
     /// @return `bool` Whether the given token list matches the given pattern
-    static bool tokens_match(const token_list &tokens, const PatternPtr &pattern);
+    static bool tokens_match(const token_slice &tokens, const PatternPtr &pattern);
+
+    /// @function `token_match`
+    /// @brief Checks if a given token matches with the given pattern
+    ///
+    /// @param `token` The token to check
+    /// @param `pattern` The pattern to check for
+    /// @return `bool` Whether the given token matches the given pattern
+    static bool token_match(const Token token, const PatternPtr &pattern);
 
     /// @function `tokens_contain_in_range`
     /// @brief Checks if a given vector of tokens contains a given pattern within a given range
@@ -80,7 +88,7 @@ class Matcher {
     /// @param `pattern` The pattern to search for
     /// @param `range` The range in which to search for the given pattern
     /// @return `bool` Whether the given token list contains the given pattern in the given range
-    static bool tokens_contain_in_range(const token_list &tokens, const PatternPtr &pattern, const uint2 &range);
+    static bool tokens_contain_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range);
 
     /// @function `get_tokens_line_range`
     /// @brief Returns the range of a given line within the tokens_list
@@ -88,7 +96,7 @@ class Matcher {
     /// @param `tokens` The list of tokens to scan
     /// @param `line` The line from which to get the token range from
     /// @return `std::optional<uint2>` The range of all tokens in the given line, nullopt if no tokens exist in the given line
-    static std::optional<uint2> get_tokens_line_range(const token_list &tokens, unsigned int line);
+    static std::optional<uint2> get_tokens_line_range(const token_slice &tokens, unsigned int line);
 
     /// @function `get_match_ranges`
     /// @brief Returns a list of all match ranges of the given pattern in the given token list
@@ -96,7 +104,7 @@ class Matcher {
     /// @param `tokens` The list of tokens to scan
     /// @param `pattern` The pattern to search for
     /// @return `std::vector<uint2>` A list of all matches of the given pattern
-    static std::vector<uint2> get_match_ranges(const token_list &tokens, const PatternPtr &pattern);
+    static std::vector<uint2> get_match_ranges(const token_slice &tokens, const PatternPtr &pattern);
 
     /// @function `get_match_ranges_in_range`
     /// @brief Returns a list of all match ranges of the given pattern in the given token list that also are within a given range
@@ -105,15 +113,15 @@ class Matcher {
     /// @param `pattern` The pattern to search for
     /// @param `range` The range in which to search for matches
     /// @return `std::vector<uint2>` A list of all matches within the given range of the given pattern
-    static std::vector<uint2> get_match_ranges_in_range(const token_list &tokens, const PatternPtr &pattern, const uint2 &range);
+    static std::vector<uint2> get_match_ranges_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range);
 
     /// @function `get_next_match_range`
-    /// @brief Returns the next match range, if the token_list contains the specified pattern
+    /// @brief Returns the next match range, if the token_slice contains the specified pattern
     ///
     /// @param `tokens` The list of tokens to scan
     /// @param `signature` The pattern to get the next match for
     /// @return `std::optional<uint2>` The next match range, nullopt if the token list doesn't contain the given pattern
-    static std::optional<uint2> get_next_match_range(const token_list &tokens, const PatternPtr &pattern);
+    static std::optional<uint2> get_next_match_range(const token_slice &tokens, const PatternPtr &pattern);
 
     /// @function `get_leading_indents`
     /// @brief Returns the number of leading indents in the given line in the given list of tokens
@@ -121,7 +129,7 @@ class Matcher {
     /// @param `tokens` The list of tokens to scan
     /// @param `line` The line in which to check for all indents
     /// @return `std::optional<unsigned int>` The number of indents in the given line, nullopt if the line doesnt exist
-    static std::optional<unsigned int> get_leading_indents(const token_list &tokens, unsigned int line);
+    static std::optional<unsigned int> get_leading_indents(const token_slice &tokens, unsigned int line);
 
     /// @function `get_match_ranges_in_range_outside_group`
     /// @brief Returns all matches of the given pattern within the given range thats not within any group defined by the inc and dec
@@ -136,7 +144,7 @@ class Matcher {
     /// @param `dec` The decrease pattern of possible balanced ranges inside the list of tokens to skip
     /// @return `std::vector<uint2>` All the match ranges that are inside the given range but not inside any group
     static std::vector<uint2> get_match_ranges_in_range_outside_group( //
-        const token_list &tokens,                                      //
+        const token_slice &tokens,                                     //
         const PatternPtr &pattern,                                     //
         const uint2 &range,                                            //
         const PatternPtr &inc,                                         //

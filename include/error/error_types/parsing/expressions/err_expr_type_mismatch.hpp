@@ -14,11 +14,11 @@ class ErrExprTypeMismatch : public BaseError {
     ErrExprTypeMismatch(                                                                         //
         const ErrorType error_type,                                                              //
         const std::string &file,                                                                 //
-        const token_list &tokens,                                                                //
+        const token_slice &tokens,                                                               //
         const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &expected, //
         const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &type      //
         ) :
-        BaseError(error_type, file, tokens.at(0).line, tokens.at(0).column),
+        BaseError(error_type, file, tokens.first->line, tokens.first->column),
         tokens(tokens),
         expected(expected),
         type(type) {}
@@ -35,7 +35,7 @@ class ErrExprTypeMismatch : public BaseError {
   private:
     /// @var `tokens`
     /// @brief The tokens whose resulting type was wrong
-    token_list tokens;
+    token_slice tokens;
 
     /// @var `expected`
     /// @brief The expected type

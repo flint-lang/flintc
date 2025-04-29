@@ -82,10 +82,10 @@ token_list Lexer::scan() {
     return tokens;
 }
 
-std::string Lexer::to_string(const token_list &tokens) {
+std::string Lexer::to_string(const token_slice &tokens) {
     std::stringstream token_stream;
-    for (const TokenContext &tok : tokens) {
-        token_stream << tok.lexme;
+    for (auto tok = tokens.first; tok != tokens.second; ++tok) {
+        token_stream << tok->lexme;
     }
     return token_stream.str();
 }
