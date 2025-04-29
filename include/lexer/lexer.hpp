@@ -3,6 +3,7 @@
 #include "token.hpp"
 #include "types.hpp"
 
+#include <atomic>
 #include <filesystem>
 #include <map>
 #include <stdexcept>
@@ -44,6 +45,10 @@ class Lexer {
     ///
     /// @details This variable is used to correctly set the column for indents and to interpret multiple spaces as tabs
     static constexpr unsigned int TAB_SIZE = 4;
+
+    /// @var `total_token_count`
+    /// @brief This variable tracks how many tokens have been lexed across all files
+    static inline std::atomic_uint total_token_count;
 
   private:
     /// @var `tokens`

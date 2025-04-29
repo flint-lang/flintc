@@ -2,6 +2,7 @@
 #include "debug.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
+#include "lexer/lexer.hpp"
 #include "linker/linker.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/parser.hpp"
@@ -78,7 +79,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     ScopeProfiler sp("Generate module");
 
     // Parse the .ft file and resolve all inclusions
-    Profiler::start_task("Parsing the program");
+    Profiler::start_task("Parsing the program", true);
     Type::init_types();
     Resolver::add_path(source_file_path.filename().string(), source_file_path.parent_path());
     std::optional<FileNode> file = Parser::create(source_file_path)->parse();
@@ -109,6 +110,16 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     Parser::clear_instances();
     if (PRINT_AST) {
         Debug::AST::print_all_files();
+    }
+    if (DEBUG_MODE) {
+        const unsigned int token_count = Lexer::total_token_count;
+        const ProfileNode *const parse_node = Profiler::profiling_durations.at("Parsing the program");
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(parse_node->end - parse_node->start);
+        std::cout << YELLOW << "[Debug Info] Token parsing performance\n"
+                  << DEFAULT << "-- Total token count: " << token_count << "\n"
+                  << "-- Total parsing time: " << std::to_string(duration.count()) << " µs\n"
+                  << "-- Tokens per second parsing speed: " << ((token_count * 1000000) / duration.count()) << " kTok/s\n"
+                  << std::endl;
     }
     if (DEBUG_MODE && NO_GENERATION) {
         sp.~ScopeProfiler();

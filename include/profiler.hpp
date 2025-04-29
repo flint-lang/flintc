@@ -65,7 +65,7 @@ class Profiler {
 
     /// @brief Starts timing a named task.
     /// @param task Name of the task to start.
-    static void start_task(const std::string &task);
+    static void start_task(const std::string &task, const bool track_task = false);
 
     /// @brief Ends timing a named task.
     /// @param task Name of the task to end.
@@ -74,6 +74,10 @@ class Profiler {
     /// @brief Prints profiling results.
     /// @param unit Time unit for output (default: milliseconds).
     static void print_results(TimeUnit unit = TimeUnit::MILLIS);
+
+    /// @var `profiling_durations`
+    /// @brief A map contiaining the profiling names and the node containing the actual durations
+    static inline std::unordered_map<std::string, const ProfileNode *const> profiling_durations;
 
     /// @brief Formats a numeric value with a separator for readability.
     /// @tparam T Type of the value (e.g., integer, floating-point).

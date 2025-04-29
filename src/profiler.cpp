@@ -9,7 +9,7 @@ ScopeProfiler Profiler::start_scope(const std::string &task_name) {
     return scope_profiler;
 }
 
-void Profiler::start_task(const std::string &task) {
+void Profiler::start_task(const std::string &task, const bool special_task) {
     // Ensure the task was not already started
     if (active_tasks.find(task) != active_tasks.end()) {
         std::cerr << "Error: Task \"" << task << "\" was already started.\n";
@@ -19,6 +19,10 @@ void Profiler::start_task(const std::string &task) {
     // Create a new profile node
     auto node = std::make_shared<ProfileNode>(task);
     active_tasks[task] = node;
+
+    if (special_task) {
+        profiling_durations.emplace(task, node.get());
+    }
 
     // Add to parent if we have one
     auto current = current_node();

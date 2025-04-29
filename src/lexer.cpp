@@ -78,6 +78,7 @@ token_list Lexer::scan() {
         }
     }
 
+    total_token_count += tokens.size();
     return tokens;
 }
 
