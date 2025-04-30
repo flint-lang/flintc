@@ -26,3 +26,17 @@ def main():
     arr4[0] = 4;
     for i32 i = 0; i < arr4.length; i++:
         print($"arr4[{i}] = {arr4[i]}\n");
+
+    print("\n");
+
+    f32[] arr5 = f32[10](3.3);
+    arr5[0] = 4.1;
+    for i32 i = 0; i < arr5.length; i++:
+        print($"arr5[{i}] = {arr5[i]}\n");#
+    
+    print("\n");
+
+    f64[] arr6 = f64[10](2.456);
+    arr6[0] = 6.325;
+    for i32 i = 0; i < arr6.length; i++:
+        print($"arr6[{i}] = {arr6[i]}\n");

@@ -1,9 +1,44 @@
 use "assert.ft"
 
 def test_array():
-    // Fill array of size 10 with value 2
-    i32[] arr = i32[10](2);
-    i32 sum = 0;
-    for u32 i = 0; i < arr.length; i++:
-        sum += arr[i];
-    assert(sum == 20);
+    i32[] arr_i32 = i32[10](-2);
+    arr_i32[0] = 3;
+    i32 sum_i32 = 0;
+    for u32 i = 0; i < arr_i32.length; i++:
+        sum_i32 += arr_i32[i];
+    assert(sum_i32 == -15);
+
+    u32[] arr_u32 = u32[10](5);
+    arr_u32[0] = 7;
+    u32 sum_u32 = 0;
+    for i32 i = 0; i < arr_u32.length; i++:
+        sum_u32 += arr_u32[i];
+    assert(sum_u32 == 52);
+
+    i64[] arr_i64 = i64[10](-4);
+    arr_i64[0] = 6;
+    i64 sum_i64 = 0;
+    for i32 i = 0; i < arr_i64.length; i++:
+        sum_i64 += arr_i64[i];
+    assert(sum_i64 == -30);
+
+    u64[] arr_u64 = u64[10](10);
+    arr_u64[0] = 4;
+    u64 sum_u64 = 0;
+    for i32 i = 0; i < arr_u64.length; i++:
+        sum_u64 += arr_u64[i];
+    assert(sum_u64 == 94);
+
+    f32[] arr_f32 = f32[10](3.3);
+    arr_f32[0] = 4.3;
+    f32 sum_f32 = 0.0; 
+    for i32 i = 0; i < arr_f32.length; i++:
+        sum_f32 += arr_f32[i];
+    assert(i32(sum_f32 - 34) == 0);
+    
+    f64[] arr_f64 = f64[10](4.250);
+    arr_f64[0] = 6.750;
+    f64 sum_f64 = 0.0;
+    for i32 i = 0; i < arr_f64.length; i++:
+        sum_f64 += arr_f64[i];
+    assert(i32(sum_f64 - 45) == 0);

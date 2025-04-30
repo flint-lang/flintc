@@ -619,7 +619,7 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
     llvm::Value *value_container = IR::generate_bitwidth_change( //
         builder,                                                 //
         initializer_expression,                                  //
-        from_type->getIntegerBitWidth(),                         //
+        from_type->getPrimitiveSizeInBits(),                     //
         64,                                                      //
         IR::get_type(Type::get_simple_type("i64")).first         //
     );
@@ -689,7 +689,7 @@ llvm::Value *Generator::Expression::generate_array_access(                      
     // return generate_type_cast(builder, result, Type::get_simple_type("u64"), std::get<std::shared_ptr<Type>>(access->type));
     std::shared_ptr<Type> to_type = std::get<std::shared_ptr<Type>>(access->type);
     llvm::Type *to_type_value = IR::get_type(to_type).first;
-    return IR::generate_bitwidth_change(builder, result, 64, to_type_value->getIntegerBitWidth(), to_type_value);
+    return IR::generate_bitwidth_change(builder, result, 64, to_type_value->getPrimitiveSizeInBits(), to_type_value);
 }
 
 llvm::Value *Generator::Expression::generate_data_access(             //

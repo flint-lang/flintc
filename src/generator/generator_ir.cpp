@@ -82,11 +82,10 @@ llvm::Value *Generator::IR::generate_bitwidth_change( //
             llvm::Type *target_int_type = builder.getIntNTy(to_bitwidth);
             correct_bitwidth_value = builder.CreateTrunc(int_value, target_int_type);
         }
-
-        // Finally, bitcast to the target type if different from what we have
-        if (correct_bitwidth_value->getType() != to_type) {
-            return builder.CreateBitCast(correct_bitwidth_value, to_type);
-        }
+    }
+    // Finally, bitcast to the target type if different from what we have
+    if (correct_bitwidth_value->getType() != to_type) {
+        return builder.CreateBitCast(correct_bitwidth_value, to_type);
     }
     return correct_bitwidth_value;
 }

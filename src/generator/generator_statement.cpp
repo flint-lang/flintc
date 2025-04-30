@@ -911,7 +911,7 @@ void Generator::Statement::generate_array_assignment(                 //
     }
     // Store the main expression result in an 8 byte container
     llvm::Type *to_type = IR::get_type(Type::get_simple_type("i64")).first;
-    const unsigned int expr_bitwidth = expression->getType()->getIntegerBitWidth();
+    const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
     expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
     // Get the array value
     const unsigned int var_decl_scope = std::get<1>(scope->variables.at(array_assignment->variable_name));
