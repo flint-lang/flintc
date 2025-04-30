@@ -2,6 +2,27 @@ def main():
     i32[] arr = i32[10](-10);
     for i32 i = 0; i < arr.length; i++:
         arr[i] = i;
-    arr[0] = 5;
+    arr[0] = -5;
     for i32 i = 0; i <= arr.length; i++:
         print($"arr[{i}] = {arr[i]}\n");
+    
+    print("\n");
+
+    u32[] arr2 = u32[10](5);
+    arr2[0] = 7;
+    for i32 i = 0; i < arr2.length; i++:
+        print($"arr2[{i}] = {arr2[i]}\n");
+
+    print("\n");
+
+    i64[] arr3 = i64[10](-4);
+    arr3[0] = 8;
+    for i32 i = 0; i < arr3.length; i++:
+        print($"arr3[{i}] = {arr3[i]}\n");
+    
+    print("\n");
+
+    u64[] arr4 = u64[10](10);
+    arr4[0] = 4;
+    for i32 i = 0; i < arr4.length; i++:
+        print($"arr4[{i}] = {arr4[i]}\n");

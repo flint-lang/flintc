@@ -577,16 +577,21 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
         );
         length_expressions.emplace_back(index_i64);
     }
-    group_mapping initializer_expression = generate_expression(                                        //
+    group_mapping initializer_mapping = generate_expression(                                           //
         builder, parent, scope, allocations, garbage, expr_depth, initializer->initializer_value.get() //
     );
-    if (!initializer_expression.has_value()) {
+    if (!initializer_mapping.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }
-    if (initializer_expression.value().size() > 1) {
+    if (initializer_mapping.value().size() > 1) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
+    }
+    llvm::Value *initializer_expression = initializer_mapping.value().at(0);
+    std::shared_ptr<Type> init_expr_type = std::get<std::shared_ptr<Type>>(initializer->initializer_value->type);
+    if (init_expr_type != initializer->element_type) {
+        initializer_expression = generate_type_cast(builder, initializer_expression, init_expr_type, initializer->element_type);
     }
     llvm::Value *const length_array = allocations.at("arr::idx::" + std::to_string(length_expressions.size()));
     for (size_t i = 0; i < length_expressions.size(); i++) {
@@ -613,7 +618,7 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
     llvm::Type *from_type = IR::get_type(std::get<std::shared_ptr<Type>>(initializer->initializer_value->type)).first;
     llvm::Value *value_container = IR::generate_bitwidth_change( //
         builder,                                                 //
-        initializer_expression.value().at(0),                    //
+        initializer_expression,                                  //
         from_type->getIntegerBitWidth(),                         //
         64,                                                      //
         IR::get_type(Type::get_simple_type("i64")).first         //

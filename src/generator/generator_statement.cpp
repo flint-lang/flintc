@@ -885,6 +885,10 @@ void Generator::Statement::generate_array_assignment(                 //
         return;
     }
     llvm::Value *expression = expression_result.value().at(0);
+    std::shared_ptr<Type> expr_type = std::get<std::shared_ptr<Type>>(array_assignment->expression->type);
+    if (expr_type != array_assignment->value_type) {
+        expression = Expression::generate_type_cast(builder, expression, expr_type, array_assignment->value_type);
+    }
     // Generate all the indexing expressions
     std::vector<llvm::Value *> idx_expressions;
     for (auto &idx_expression : array_assignment->indexing_expressions) {
