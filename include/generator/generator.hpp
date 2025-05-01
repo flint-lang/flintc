@@ -70,14 +70,14 @@ class Generator {
     /// @param `program_name` The name the program (the module) will have
     /// @param `dep_graph` The root DepNode of the dependency graph
     /// @param `is_test` Whether the program is built in test mode
-    /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated program module
+    /// @return `std::optional<std::unique_ptr<llvm::Module>>` A pointer containing the generated program module, nullopt if anything failed
     ///
     /// @attention Do not forget to call `Resolver::clear()` before the module returned from this function goes out of scope! You would get
     /// a segmentation fault if you were to forget that!
-    static std::unique_ptr<llvm::Module> generate_program_ir( //
-        const std::string &program_name,                      //
-        const std::shared_ptr<DepNode> &dep_graph,            //
-        const bool is_test                                    //
+    static std::optional<std::unique_ptr<llvm::Module>> generate_program_ir( //
+        const std::string &program_name,                                     //
+        const std::shared_ptr<DepNode> &dep_graph,                           //
+        const bool is_test                                                   //
     );
 
     /// @function `generate_file_ir`
@@ -86,11 +86,11 @@ class Generator {
     /// @param `dep_node` The dependency graph node of the file (used for circular dependencies)
     /// @param `file` The file node to generate
     /// @param `is_test` Whether the program is built in test mode
-    /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated file module
-    static std::unique_ptr<llvm::Module> generate_file_ir( //
-        const std::shared_ptr<DepNode> &dep_node,          //
-        const FileNode &file,                              //
-        const bool is_test                                 //
+    /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated file module, nullopt if code generation failed
+    static std::optional<std::unique_ptr<llvm::Module>> generate_file_ir( //
+        const std::shared_ptr<DepNode> &dep_node,                         //
+        const FileNode &file,                                             //
+        const bool is_test                                                //
     );
 
     /// @function `get_module_ir_string`
@@ -511,8 +511,8 @@ class Generator {
         ///
         /// @param `module` The LLVM Module in which the test will be generated in
         /// @param `test_node` The TestNode to generate
-        /// @return `llvm::Function *` The generated test function
-        static llvm::Function *generate_test_function(llvm::Module *module, const TestNode *test_node);
+        /// @return `std::optional<llvm::Function *>` The generated test function, nullopt if generation failed
+        [[nodiscard]] static std::optional<llvm::Function *> generate_test_function(llvm::Module *module, const TestNode *test_node);
     }; // subclass Builtin
 
     /// @class `Arithmetic`
@@ -1376,8 +1376,8 @@ class Generator {
         ///
         /// @param `module` The LLVM Module the function will be generated in
         /// @param `function_node` The FunctionNode used to generate the function
-        /// @return `llvm::Function *` A pointer to the generated Function
-        static llvm::Function *generate_function(llvm::Module *module, FunctionNode *function_node);
+        /// @return `bool` Whether the code generation of the function was successful
+        [[nodiscard]] static bool generate_function(llvm::Module *module, FunctionNode *function_node);
 
         /// @function `get_function_definition`
         /// @brief Returns the function definition from the given CallNode or other values based on a few conditions
@@ -1426,7 +1426,8 @@ class Generator {
         /// @param `scope` The scope the statement is being generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `statement` The statement which will be generated
-        static void generate_statement(                                       //
+        /// @return `bool` Whether the generation of the statment was successful
+        [[nodiscard]] static bool generate_statement(                         //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1439,7 +1440,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
-        static void clear_garbage(                                                                                       //
+        /// @return `bool` Whether the code generation of the garbage cleanup was successful
+        [[nodiscard]] static bool clear_garbage(                                                                         //
             llvm::IRBuilder<> &builder,                                                                                  //
             std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage //
         );
@@ -1451,7 +1453,8 @@ class Generator {
         /// @param `parent` The function the body will be generated in
         /// @param `scope` The scope containing the body which will be generated
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        static void generate_body(                                           //
+        /// @return `bool` Whether the generation of the whole body was successful
+        [[nodiscard]] static bool generate_body(                             //
             llvm::IRBuilder<> &builder,                                      //
             llvm::Function *parent,                                          //
             const Scope *scope,                                              //
@@ -1464,7 +1467,8 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `scope` The scope that ends
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        static void generate_end_of_scope(                                   //
+        /// @return `bool` Whether the code generation of the end of scope was successful
+        [[nodiscard]] static bool generate_end_of_scope(                     //
             llvm::IRBuilder<> &builder,                                      //
             const Scope *scope,                                              //
             std::unordered_map<std::string, llvm::Value *const> &allocations //
@@ -1478,7 +1482,8 @@ class Generator {
         /// @param `scope` The scope the return statement will be generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `return_node` The return node to generated
-        static void generate_return_statement(                                //
+        /// @return `bool` Whether the code generation of the return statement was successful
+        [[nodiscard]] static bool generate_return_statement(                  //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1494,7 +1499,8 @@ class Generator {
         /// @param `scope` The scope the throw statement will be generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `throw_node` The throw node to generate
-        static void generate_throw_statement(                                 //
+        /// @return `bool` Whether the code generation of the throw statement was successful
+        [[nodiscard]] static bool generate_throw_statement(                   //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1523,7 +1529,8 @@ class Generator {
         /// @param `blocks` The list of all basic blocks the if bodies are contained in
         /// @param `nesting_level` The nesting level determines how "deep" one is inside the if-chain
         /// @param `if_node` The if node to generate
-        static void generate_if_statement(                                    //
+        /// @return `bool` Whether the code generation was successful
+        [[nodiscard]] static bool generate_if_statement(                      //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
@@ -1539,7 +1546,8 @@ class Generator {
         /// @param `parent` The function the while loop will be generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `while_node` The while node to generate
-        static void generate_while_loop(                                      //
+        /// @return `bool` Whether the code generation of the while loop was successful
+        [[nodiscard]] static bool generate_while_loop(                        //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
@@ -1553,7 +1561,8 @@ class Generator {
         /// @param `parent` The function the for loop will be generated in
         /// @param `allocations` The map of all allocations (from the preallcation system) to track the AllocaInst instructions
         /// @param `for_node` The for loop node to generate
-        static void generate_for_loop(                                        //
+        /// @return `bool` Whether the code generation for the for loop was successful
+        [[nodiscard]] static bool generate_for_loop(                          //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
@@ -1567,7 +1576,8 @@ class Generator {
         /// @param `parent` The function the catch statement will be generated in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `catch_node` The catch node to generate
-        static void generate_catch_statement(                                 //
+        /// @return `bool` Whether the code generation of the catch statement was successful
+        [[nodiscard]] static bool generate_catch_statement(                   //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
@@ -1582,7 +1592,8 @@ class Generator {
         /// @param `scope` The scope the group declaration is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `declaration_node` The group declaration node to generate
-        static void generate_group_declaration(                               //
+        /// @return `bool` Whether the code generation of the group declaration was successful
+        [[nodiscard]] static bool generate_group_declaration(                 //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1598,7 +1609,8 @@ class Generator {
         /// @param `scope` The scope the declaration is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `declaration_node` The declaration node to generate
-        static void generate_declaration(                                     //
+        /// @return `bool` Whether the code generation of the declaration was successful
+        [[nodiscard]] static bool generate_declaration(                       //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1614,7 +1626,8 @@ class Generator {
         /// @param `scope` The scope the assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `assignment_node` The assignment node to generate
-        static void generate_assignment(                                      //
+        /// @return `bool` Whether the code generation of the assignment was successful
+        [[nodiscard]] static bool generate_assignment(                        //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1630,7 +1643,8 @@ class Generator {
         /// @param `scope` The scope the group assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `group_assignment` The group assignemnt node to generate
-        static void generate_group_assignment(                                //
+        /// @return `bool` Whether the code generation for the group assignment was successful
+        [[nodiscard]] static bool generate_group_assignment(                  //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1646,7 +1660,8 @@ class Generator {
         /// @param `scope` The scope the data field assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `data_field_assignment` The data field assignment to generate
-        static void generate_data_field_assignment(                           //
+        /// @return `bool` Whether the code generation of the data field assignment was successful
+        [[nodiscard]] static bool generate_data_field_assignment(             //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1662,7 +1677,8 @@ class Generator {
         /// @param `scope` The scope the grouped data field assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `grouped_field_assignment` The grouped data field assignment to generate
-        static void generate_grouped_data_field_assignment(                   //
+        /// @return `bool` Whether the code generation of the grouped data field assingment was successful
+        [[nodiscard]] static bool generate_grouped_data_field_assignment(     //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1678,7 +1694,8 @@ class Generator {
         /// @param `scope` The scope the the array assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `array_assignment` The array assignment to generate
-        static void generate_array_assignment(                                //
+        /// @return `bool` Whether the code genration of the array assignment was successful
+        [[nodiscard]] static bool generate_array_assignment(                  //
             llvm::IRBuilder<> &builder,                                       //
             llvm::Function *parent,                                           //
             const Scope *scope,                                               //
@@ -1693,7 +1710,8 @@ class Generator {
         /// @param `scope` The scope the binary operation is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `unary_op` The unary operation to generate
-        static void generate_unary_op_statement(                              //
+        /// @return `bool` Whether the code generation of the unary operator statement was successful
+        [[nodiscard]] static bool generate_unary_op_statement(                //
             llvm::IRBuilder<> &builder,                                       //
             const Scope *scope,                                               //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //

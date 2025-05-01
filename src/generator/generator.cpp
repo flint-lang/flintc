@@ -450,10 +450,10 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     return true;
 }
 
-std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
-    const std::string &program_name,                          //
-    const std::shared_ptr<DepNode> &dep_graph,                //
-    const bool is_test                                        //
+std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
+    const std::string &program_name,                                         //
+    const std::shared_ptr<DepNode> &dep_graph,                               //
+    const bool is_test                                                       //
 ) {
     Profiler::start_task("Generate builtin libraries");
     if (!generate_builtin_modules()) {
@@ -519,6 +519,7 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
             if (!shared_tip) {
                 // DepNode somehow does not exist any more
                 THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
             }
             PROFILE_SCOPE("Processing tip '" + shared_tip.get()->file_name + "'");
 
@@ -555,7 +556,11 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
 
             // Generate the IR code from the given FileNode
             const FileNode &file = Resolver::get_file_from_name(shared_tip->file_name);
-            std::unique_ptr<llvm::Module> file_module = generate_file_ir(shared_tip, file, is_test);
+            std::optional<std::unique_ptr<llvm::Module>> file_module = generate_file_ir(shared_tip, file, is_test);
+            if (!file_module.has_value()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
 
             // Store that this file is now finished with its generation
             Resolver::file_generation_finished(shared_tip->file_name);
@@ -566,8 +571,9 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
             // llvm::verifyModule(*file_module, &llvm::errs());
 
             // Link the generated module in the main module
-            if (linker.linkInModule(std::move(file_module))) {
+            if (linker.linkInModule(std::move(file_module.value()))) {
                 THROW_BASIC_ERR(ERR_LINKING);
+                return std::nullopt;
             }
         }
 
@@ -612,10 +618,10 @@ std::unique_ptr<llvm::Module> Generator::generate_program_ir( //
     return module;
 }
 
-std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
-    const std::shared_ptr<DepNode> &dep_node,              //
-    const FileNode &file,                                  //
-    const bool is_test                                     //
+std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
+    const std::shared_ptr<DepNode> &dep_node,                             //
+    const FileNode &file,                                                 //
+    const bool is_test                                                    //
 ) {
     PROFILE_SCOPE("Generate IR for '" + file.file_name + "'");
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(dep_node->file_name, context);
@@ -670,7 +676,9 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
             if (is_test && function_node->name == "_main") {
                 continue;
             }
-            Function::generate_function(module.get(), function_node);
+            if (!Function::generate_function(module.get(), function_node)) {
+                return std::nullopt;
+            }
             // No return statement found despite the signature requires return OR
             // Rerutn statement found but the signature has no return type defined (basically a simple xnor between the two booleans)
 
@@ -684,11 +692,15 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
             if (!is_test) {
                 continue;
             }
-            llvm::Function *test_function = Builtin::generate_test_function(module.get(), test_node);
+            std::optional<llvm::Function *> test_function = Builtin::generate_test_function(module.get(), test_node);
+            if (!test_function.has_value()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
             if (tests.count(test_node->file_name) == 0) {
-                tests[test_node->file_name].emplace_back(test_node->name, test_function->getName().str());
+                tests[test_node->file_name].emplace_back(test_node->name, test_function.value()->getName().str());
             } else {
-                tests.at(test_node->file_name).emplace_back(test_node->name, test_function->getName().str());
+                tests.at(test_node->file_name).emplace_back(test_node->name, test_function.value()->getName().str());
             }
         }
     }
@@ -700,6 +712,7 @@ std::unique_ptr<llvm::Module> Generator::generate_file_ir( //
             llvm::Function *actual_function = module->getFunction(fn_name + "." + std::to_string(function_mangle_ids[fn_name]));
             if (actual_function == nullptr) {
                 THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
             }
             call->getCalledOperandUse().set(actual_function);
         }

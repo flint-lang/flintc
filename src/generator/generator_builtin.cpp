@@ -527,7 +527,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     builder->CreateUnreachable();
 }
 
-llvm::Function *Generator::Builtin::generate_test_function(llvm::Module *module, const TestNode *test_node) {
+std::optional<llvm::Function *> Generator::Builtin::generate_test_function(llvm::Module *module, const TestNode *test_node) {
     llvm::StructType *void_type = IR::add_and_or_get_type({});
 
     // Create the function type
@@ -556,11 +556,15 @@ llvm::Function *Generator::Builtin::generate_test_function(llvm::Module *module,
     std::unordered_map<std::string, llvm::Value *const> allocations;
     Allocation::generate_allocations(builder, test_function, test_node->scope.get(), allocations);
     // Normally generate the tests body
-    Statement::generate_body(builder, test_function, test_node->scope.get(), allocations);
+    if (!Statement::generate_body(builder, test_function, test_node->scope.get(), allocations)) {
+        return std::nullopt;
+    }
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (!test_function->empty() && test_function->back().getTerminator() == nullptr) {
-        Statement::generate_return_statement(builder, test_function, test_node->scope.get(), allocations, {});
+        if (!Statement::generate_return_statement(builder, test_function, test_node->scope.get(), allocations, {})) {
+            return std::nullopt;
+        }
     }
 
     return test_function;

@@ -28,7 +28,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(FunctionNode *fu
     return function_type;
 }
 
-llvm::Function *Generator::Function::generate_function(llvm::Module *module, FunctionNode *function_node) {
+bool Generator::Function::generate_function(llvm::Module *module, FunctionNode *function_node) {
     llvm::FunctionType *function_type = generate_function_type(function_node);
 
     // Creating the function itself
@@ -61,14 +61,18 @@ llvm::Function *Generator::Function::generate_function(llvm::Module *module, Fun
     Allocation::generate_allocations(builder, function, function_node->scope.get(), allocations);
 
     // Generate all instructions of the functions body
-    Statement::generate_body(builder, function, function_node->scope.get(), allocations);
+    if (!Statement::generate_body(builder, function, function_node->scope.get(), allocations)) {
+        return false;
+    }
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (!function->empty() && function->back().getTerminator() == nullptr) {
-        Statement::generate_return_statement(builder, function, function_node->scope.get(), allocations, {});
+        if (!Statement::generate_return_statement(builder, function, function_node->scope.get(), allocations, {})) {
+            return false;
+        }
     }
 
-    return function;
+    return true;
 }
 
 std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_function_definition( //

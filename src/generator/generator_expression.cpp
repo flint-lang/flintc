@@ -272,11 +272,15 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             if (std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string() == "str") {
                 if (dynamic_cast<const LiteralNode *>(call_node->arguments.at(0).first.get())) {
                     return_value.emplace_back(builder.CreateCall(print_functions.at("str"), args));
-                    Statement::clear_garbage(builder, garbage);
+                    if (!Statement::clear_garbage(builder, garbage)) {
+                        return std::nullopt;
+                    }
                     return return_value;
                 } else {
                     return_value.emplace_back(builder.CreateCall(print_functions.at("str_var"), args));
-                    Statement::clear_garbage(builder, garbage);
+                    if (!Statement::clear_garbage(builder, garbage)) {
+                        return std::nullopt;
+                    }
                     return return_value;
                 }
             }
@@ -284,7 +288,9 @@ Generator::group_mapping Generator::Expression::generate_call(        //
                 print_functions.at(std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string()), //
                 args                                                                                                      //
                 ));
-            Statement::clear_garbage(builder, garbage);
+            if (!Statement::clear_garbage(builder, garbage)) {
+                return std::nullopt;
+            }
             return return_value;
         }
         return_value.emplace_back(builder.CreateCall(builtin_function, args));
@@ -391,7 +397,9 @@ Generator::group_mapping Generator::Expression::generate_call(        //
     }
 
     // Finally, clear all garbage
-    Statement::clear_garbage(builder, garbage);
+    if (!Statement::clear_garbage(builder, garbage)) {
+        return std::nullopt;
+    }
     return return_value;
 }
 
