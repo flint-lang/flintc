@@ -759,30 +759,10 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
     assert(std::prev(indexing_tokens.second)->type == TOK_RIGHT_BRACKET);
     indexing_tokens.second--;
 
-    std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
-    while (indexing_tokens.first != indexing_tokens.second) {
-        std::optional<uint2> next_expr_range = Matcher::get_next_match_range(indexing_tokens, Matcher::until_comma);
-        if (!next_expr_range.has_value()) {
-            // The last expression
-            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(scope, indexing_tokens);
-            indexing_tokens.first = indexing_tokens.second;
-            if (!indexing_expression.has_value()) {
-                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, indexing_tokens);
-                return std::nullopt;
-            }
-            indexing_expressions.emplace_back(std::move(indexing_expression.value()));
-        } else {
-            // Not the last expression
-            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(        //
-                scope, {indexing_tokens.first, indexing_tokens.first + next_expr_range.value().second - 1} //
-            );
-            indexing_tokens.first += next_expr_range.value().second;
-            if (!indexing_expression.has_value()) {
-                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, indexing_tokens);
-                return std::nullopt;
-            }
-            indexing_expressions.emplace_back(std::move(indexing_expression.value()));
-        }
+    auto indexing_expressions = create_group_expressions(scope, indexing_tokens);
+    if (!indexing_expressions.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
     }
     // Now the next token should be a = sign
     assert(tokens_mut.first->type == TOK_EQUAL);
@@ -794,7 +774,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
-    return ArrayAssignmentNode(variable_name, var_type.value(), array_type->type, indexing_expressions, expression.value());
+    return ArrayAssignmentNode(variable_name, var_type.value(), array_type->type, indexing_expressions.value(), expression.value());
 }
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, const token_slice &tokens) {

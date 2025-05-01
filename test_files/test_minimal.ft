@@ -2,3 +2,4 @@ def main():
     i32[,] arr;
     arr = i32[10, 10](5);
     arr[0, 0] = 8;
+    print($"arr[0, 0] = {arr[0, 0]}\n");

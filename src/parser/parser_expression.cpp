@@ -501,6 +501,35 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
     return GroupExpressionNode(expressions);
 }
 
+std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions(Scope *scope, token_slice &tokens) {
+    std::vector<std::unique_ptr<ExpressionNode>> expressions;
+    while (tokens.first != tokens.second) {
+        std::optional<uint2> next_expr_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
+        if (!next_expr_range.has_value()) {
+            // The last expression
+            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(scope, tokens);
+            tokens.first = tokens.second;
+            if (!indexing_expression.has_value()) {
+                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+                return std::nullopt;
+            }
+            expressions.emplace_back(std::move(indexing_expression.value()));
+        } else {
+            // Not the last expression
+            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression( //
+                scope, {tokens.first, tokens.first + next_expr_range.value().second - 1}            //
+            );
+            tokens.first += next_expr_range.value().second;
+            if (!indexing_expression.has_value()) {
+                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
+                return std::nullopt;
+            }
+            expressions.emplace_back(std::move(indexing_expression.value()));
+        }
+    }
+    return expressions;
+}
+
 std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     auto field_access_base = create_field_access_base(scope, tokens_mut);
@@ -551,48 +580,28 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     // Now, everything left in the `tokens` vector should be the [...]
     // The first token in the tokens list should be a left bracket
     assert(tokens_mut.first->type == TOK_LEFT_BRACKET);
+    tokens_mut.first++;
     // The last token in the tokens list should be a right bracket
     assert(std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET);
-    // Remove the open and closing brackets
-    tokens_mut.first++;
     tokens_mut.second--;
-    std::vector<std::unique_ptr<ExpressionNode>> length_expressions;
-    while (tokens_mut.first != tokens_mut.second) {
-        std::optional<uint2> next_expr_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_comma);
-        if (!next_expr_range.has_value()) {
-            // The last expression
-            std::optional<std::unique_ptr<ExpressionNode>> length_expression = create_expression(scope, tokens_mut);
-            tokens_mut.first = tokens_mut.second;
-            if (!length_expression.has_value()) {
-                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
-                return std::nullopt;
-            }
-            length_expressions.emplace_back(std::move(length_expression.value()));
-        } else {
-            // Not the last expression
-            std::optional<std::unique_ptr<ExpressionNode>> length_expression = create_expression( //
-                scope, {tokens_mut.first, tokens_mut.first + next_expr_range.value().second - 1}  //
-            );
-            tokens_mut.first += next_expr_range.value().second;
-            if (!length_expression.has_value()) {
-                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
-                return std::nullopt;
-            }
-            length_expressions.emplace_back(std::move(length_expression.value()));
-        }
+
+    auto length_expressions = create_group_expressions(scope, tokens_mut);
+    if (!length_expressions.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
     }
 
-    std::string actual_type_str = element_type.value()->to_string() + "[" + std::string(length_expressions.size() - 1, ',') + "]";
+    std::string actual_type_str = element_type.value()->to_string() + "[" + std::string(length_expressions.value().size() - 1, ',') + "]";
     std::optional<std::shared_ptr<Type>> actual_array_type = Type::get_type_from_str(actual_type_str);
     if (!actual_array_type.has_value()) {
         // This type does not yet exist, so we need to create it
-        actual_array_type = std::make_shared<ArrayType>(length_expressions.size(), element_type.value());
+        actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value());
         Type::add_type(actual_array_type.value());
     }
-    return ArrayInitializerNode(   //
-        actual_array_type.value(), //
-        length_expressions,        //
-        initializer.value()        //
+    return ArrayInitializerNode(    //
+        actual_array_type.value(),  //
+        length_expressions.value(), //
+        initializer.value()         //
     );
 }
 
@@ -619,16 +628,12 @@ std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, const t
     tokens_mut.first++;
     assert(std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET);
     tokens_mut.second--;
-    // For now, we assume that in between the [..] there only is a single expression.
-    // TODO: For multi-dimensional arrays we would need to parse them separately
-    std::optional<std::unique_ptr<ExpressionNode>> index_expression = create_expression(scope, tokens_mut);
-    if (!index_expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
+    std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(scope, tokens_mut);
+    if (!indexing_expressions.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
-    indexing_expressions.emplace_back(std::move(index_expression.value()));
-    return ArrayAccessNode(result_type, variable_name, variable_type.value(), indexing_expressions);
+    return ArrayAccessNode(result_type, variable_name, variable_type.value(), indexing_expressions.value());
 }
 
 std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *scope, const token_slice &tokens) {

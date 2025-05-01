@@ -668,6 +668,14 @@ class Parser {
     /// @return `std::optional<GroupExpressionNode>` An optional grouped expression, nullopt if its creation failed
     std::optional<GroupExpressionNode> create_group_expression(Scope *scope, const token_slice &tokens);
 
+    /// @function `create_group_expressions`
+    /// @brief Creates a bunch of comma-separated group expressions
+    ///
+    /// @param `scope` The scope in which the expressions are defined
+    /// @param `tokens` The list of tokens representing all expressions separated by commas
+    /// @return `std::optional<std::vector<std::unique_ptr<ExpressionNode>>>` The list of expressions in the group
+    std::optional<std::vector<std::unique_ptr<ExpressionNode>>> create_group_expressions(Scope *scope, token_slice &tokens);
+
     /// @function `create_data_access`
     /// @brief Creates a DataAccessNode from the given tokens
     ///
