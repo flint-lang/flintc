@@ -685,7 +685,18 @@ namespace Debug {
                 std::cout << *it;
             }
             std::cout << ") of types ";
-            std::cout << assignment.field_types->to_string();
+            if (assignment.field_types.size() > 1) {
+                std::cout << "(";
+                for (size_t i = 0; i < assignment.field_types.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    std::cout << assignment.field_types[i]->to_string();
+                }
+                std::cout << ")";
+            } else {
+                std::cout << assignment.field_types.front()->to_string();
+            }
             std::cout << " at IDs (";
             for (auto it = assignment.field_ids.begin(); it != assignment.field_ids.end(); ++it) {
                 if (it != assignment.field_ids.begin()) {
