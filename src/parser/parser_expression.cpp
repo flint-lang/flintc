@@ -11,6 +11,7 @@
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/type/array_type.hpp"
+#include "parser/type/group_type.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -18,76 +19,24 @@
 #include <variant>
 
 bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
-    if (std::holds_alternative<std::shared_ptr<Type>>(lhs->type) && std::holds_alternative<std::shared_ptr<Type>>(rhs->type)) {
+    const GroupType *lhs_group = dynamic_cast<const GroupType *>(lhs->type.get());
+    const GroupType *rhs_group = dynamic_cast<const GroupType *>(rhs->type.get());
+    if (lhs_group == nullptr && rhs_group == nullptr) {
         // Both single type
-        const std::shared_ptr<Type> lhs_type = std::get<std::shared_ptr<Type>>(lhs->type);
-        const std::shared_ptr<Type> rhs_type = std::get<std::shared_ptr<Type>>(rhs->type);
-        if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
-            type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
+        if (type_precedence.find(lhs->type->to_string()) == type_precedence.end() ||
+            type_precedence.find(rhs->type->to_string()) == type_precedence.end()) {
             // Not castable, wrong arg types
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
-        const unsigned int rhs_precedence = type_precedence.at(rhs_type->to_string());
+        const unsigned int lhs_precedence = type_precedence.at(lhs->type->to_string());
+        const unsigned int rhs_precedence = type_precedence.at(rhs->type->to_string());
         if (lhs_precedence > rhs_precedence) {
             // The right type needs to be cast to the left type
-            rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
+            rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
         } else {
             // The left type needs to be cast to the right type
-            lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
-        }
-    } else if (!std::holds_alternative<std::shared_ptr<Type>>(lhs->type) && std::holds_alternative<std::shared_ptr<Type>>(rhs->type)) {
-        // Left group, right single type
-        if (std::get<std::vector<std::shared_ptr<Type>>>(lhs->type).size() > 1) {
-            // Not castable, group and single type mismatch
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
-        const std::shared_ptr<Type> lhs_type = std::get<std::vector<std::shared_ptr<Type>>>(lhs->type).at(0);
-        const std::shared_ptr<Type> rhs_type = std::get<std::shared_ptr<Type>>(rhs->type);
-        if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
-            type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
-            // Not castable, wrong types
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
-        const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
-        const unsigned int rhs_precedence = type_precedence.at(rhs_type->to_string());
-        if (lhs_precedence > rhs_precedence) {
-            // The right type needs to be cast to the left type
-            rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
-            // Also change the type of the lhs from a single group type to a single value
-            lhs->type = lhs_type;
-        } else {
-            // The left type needs to be cast to the right type
-            lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
-        }
-    } else if (std::holds_alternative<std::shared_ptr<Type>>(lhs->type) && !std::holds_alternative<std::shared_ptr<Type>>(rhs->type)) {
-        // Left single type, right group
-        if (std::get<std::vector<std::shared_ptr<Type>>>(rhs->type).size() > 1) {
-            // Not castable, group and single type mismatch
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
-        const std::shared_ptr<Type> lhs_type = std::get<std::shared_ptr<Type>>(lhs->type);
-        const std::shared_ptr<Type> rhs_type = std::get<std::vector<std::shared_ptr<Type>>>(rhs->type).at(0);
-        if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
-            type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
-            // Not castable, wrong types
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
-        const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
-        const unsigned int rhs_precedence = type_precedence.at(rhs_type->to_string());
-        if (lhs_precedence > rhs_precedence) {
-            // The right type needs to be cast to the left type
-            rhs = std::make_unique<TypeCastNode>(lhs_type, rhs);
-        } else {
-            // The left type needs to be cast to the right type
-            lhs = std::make_unique<TypeCastNode>(rhs_type, lhs);
-            // Also change the type of the rhs from a single group type to a single value
-            rhs->type = rhs_type;
+            lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
         }
     } else {
         // Both group
@@ -142,112 +91,69 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             break;
         case TOK_PLUS:
             if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                      //
-                    std::get<int>(lhs->value) + std::get<int>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true       //
-                );
+                return std::make_unique<LiteralNode>(std::get<int>(lhs->value) + std::get<int>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                          //
-                    std::get<float>(lhs->value) + std::get<float>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true           //
-                );
+                return std::make_unique<LiteralNode>(std::get<float>(lhs->value) + std::get<float>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<std::string>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                                      //
-                    std::get<std::string>(lhs->value) + std::get<std::string>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true                       //
+                return std::make_unique<LiteralNode>(                                                      //
+                    std::get<std::string>(lhs->value) + std::get<std::string>(rhs->value), lhs->type, true //
                 );
             } else if (std::holds_alternative<char>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                        //
-                    std::get<char>(lhs->value) + std::get<char>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true         //
-                );
+                return std::make_unique<LiteralNode>(std::get<char>(lhs->value) + std::get<char>(rhs->value), lhs->type, true);
             }
             break;
         case TOK_MINUS:
             if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                      //
-                    std::get<int>(lhs->value) - std::get<int>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true       //
-                );
+                return std::make_unique<LiteralNode>(std::get<int>(lhs->value) - std::get<int>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                          //
-                    std::get<float>(lhs->value) - std::get<float>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true           //
-                );
+                return std::make_unique<LiteralNode>(std::get<float>(lhs->value) - std::get<float>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<char>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                        //
-                    std::get<char>(lhs->value) - std::get<char>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true         //
-                );
+                return std::make_unique<LiteralNode>(std::get<char>(lhs->value) - std::get<char>(rhs->value), lhs->type, true);
             }
             break;
         case TOK_MULT:
             if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                      //
-                    std::get<int>(lhs->value) * std::get<int>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true       //
-                );
+                return std::make_unique<LiteralNode>(std::get<int>(lhs->value) * std::get<int>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                          //
-                    std::get<float>(lhs->value) * std::get<float>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true           //
-                );
+                return std::make_unique<LiteralNode>(std::get<float>(lhs->value) * std::get<float>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<char>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                        //
-                    std::get<char>(lhs->value) * std::get<char>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true         //
-                );
+                return std::make_unique<LiteralNode>(std::get<char>(lhs->value) * std::get<char>(rhs->value), lhs->type, true);
             }
             break;
         case TOK_DIV:
             if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                      //
-                    std::get<int>(lhs->value) / std::get<int>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true       //
-                );
+                return std::make_unique<LiteralNode>(std::get<int>(lhs->value) / std::get<int>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                          //
-                    std::get<float>(lhs->value) / std::get<float>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true           //
-                );
+                return std::make_unique<LiteralNode>(std::get<float>(lhs->value) / std::get<float>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<char>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                        //
-                    std::get<char>(lhs->value) / std::get<char>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true         //
-                );
+                return std::make_unique<LiteralNode>(std::get<char>(lhs->value) / std::get<char>(rhs->value), lhs->type, true);
             }
             break;
         case TOK_POW:
             if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                                                 //
-                    static_cast<int>(std::pow(std::get<int>(lhs->value), std::get<int>(rhs->value))), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true                                  //
-                );
+                return std::make_unique<LiteralNode>(static_cast<int>(std::pow(std::get<int>(lhs->value), std::get<int>(rhs->value))),
+                    lhs->type, true);
             } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                                                       //
-                    static_cast<float>(std::pow(std::get<float>(lhs->value), std::get<float>(rhs->value))), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true                                        //
+                return std::make_unique<LiteralNode>(                                                                       //
+                    static_cast<float>(std::pow(std::get<float>(lhs->value), std::get<float>(rhs->value))), lhs->type, true //
                 );
             } else if (std::holds_alternative<char>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                                                    //
-                    static_cast<char>(std::pow(std::get<char>(lhs->value), std::get<char>(rhs->value))), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true                                     //
+                return std::make_unique<LiteralNode>(                                                                    //
+                    static_cast<char>(std::pow(std::get<char>(lhs->value), std::get<char>(rhs->value))), lhs->type, true //
                 );
             }
             break;
         case TOK_AND:
             if (std::holds_alternative<bool>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                         //
-                    std::get<bool>(lhs->value) && std::get<bool>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true          //
+                return std::make_unique<LiteralNode>(                                         //
+                    std::get<bool>(lhs->value) && std::get<bool>(rhs->value), lhs->type, true //
                 );
             }
             break;
         case TOK_OR:
             if (std::holds_alternative<bool>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                         //
-                    std::get<bool>(lhs->value) || std::get<bool>(rhs->value), //
-                    std::get<std::shared_ptr<Type>>(lhs->type), true          //
+                return std::make_unique<LiteralNode>(                                         //
+                    std::get<bool>(lhs->value) || std::get<bool>(rhs->value), lhs->type, true //
                 );
             }
             break;
@@ -453,9 +359,9 @@ Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &t
             args.emplace_back(std::move(arg.first));
         }
         std::unique_ptr<InitializerNode> initializer_node = std::make_unique<InitializerNode>( //
-            std::get<2>(call_or_init_node_args.value()).at(0),   // type vector (always of size 1 for initializers)
-            std::get<3>(call_or_init_node_args.value()).value(), // is_data
-            args                                                 // args
+            std::get<2>(call_or_init_node_args.value()),                                       // type
+            std::get<3>(call_or_init_node_args.value()).value(),                               // is_data
+            args                                                                               // args
         );
         return initializer_node;
     } else {
@@ -506,24 +412,21 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, const token_s
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
         return std::nullopt;
     }
-    if (!std::holds_alternative<std::shared_ptr<Type>>(expression.value()->type)) {
-        if (std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type).size() == 1) {
-            expression.value()->type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type).at(0);
-        } else {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-    }
+    // if (!std::holds_alternative<std::shared_ptr<Type>>(expression.value()->type)) {
+    //     if (std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type).size() == 1) {
+    //         expression.value()->type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type).at(0);
+    //     } else {
+    //         THROW_BASIC_ERR(ERR_PARSING);
+    //         return std::nullopt;
+    //     }
+    // }
 
     // Check if the type of the expression is castable at all
-    if (primitive_casting_table.find(std::get<std::shared_ptr<Type>>(expression.value()->type)->to_string()) ==
-        primitive_casting_table.end()) {
+    if (primitive_casting_table.find(expression.value()->type->to_string()) == primitive_casting_table.end()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::vector<std::string_view> &to_types = primitive_casting_table.at( //
-        std::get<std::shared_ptr<Type>>(expression.value()->type)->to_string()  //
-    );
+    const std::vector<std::string_view> &to_types = primitive_casting_table.at(expression.value()->type->to_string());
     if (std::find(to_types.begin(), to_types.end(), type_token.lexme) == to_types.end()) {
         // The given expression type cannot be cast to the wanted type
         THROW_BASIC_ERR(ERR_PARSING);
@@ -965,7 +868,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     Scope *scope,                                                         //
     const token_slice &tokens,                                            //
-    const std::optional<ExprType> &expected_type                          //
+    const std::optional<std::shared_ptr<Type>> &expected_type             //
 ) {
     token_slice expr_tokens = tokens;
     remove_trailing_garbage(expr_tokens);
@@ -979,51 +882,26 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     }
 
     // Check if the expressions result is a vector of size 1, if it is make its type into a direct type
-    if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type)) {
-        std::vector<std::shared_ptr<Type>> &type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type);
-        if (type.size() == 1) {
-            // Use emplace to construct the shared_ptr alternative in-place
-            std::shared_ptr<Type> single_type = type.at(0);
-            type.clear();
-            expression.value()->type = single_type;
-        }
-    }
+    // if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type)) {
+    //     std::vector<std::shared_ptr<Type>> &type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type);
+    //     if (type.size() == 1) {
+    //         // Use emplace to construct the shared_ptr alternative in-place
+    //         std::shared_ptr<Type> single_type = type.at(0);
+    //         type.clear();
+    //         expression.value()->type = single_type;
+    //     }
+    // }
 
     // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
     if (expected_type.has_value() && expected_type.value() != expression.value()->type) {
-        if (std::holds_alternative<std::shared_ptr<Type>>(expression.value()->type) &&
-            std::holds_alternative<std::shared_ptr<Type>>(expected_type.value())) {
-            const std::shared_ptr<Type> type = std::get<std::shared_ptr<Type>>(expression.value()->type);
-            if (primitive_implicit_casting_table.find(type->to_string()) != primitive_implicit_casting_table.end()) {
-                const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(type->to_string());
-                if (std::find(to_types.begin(), to_types.end(), std::get<std::shared_ptr<Type>>(expected_type.value())->to_string()) !=
-                    to_types.end()) {
-                    expression = std::make_unique<TypeCastNode>(std::get<std::shared_ptr<Type>>(expected_type.value()), expression.value());
-                }
-            } else {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
+        if (primitive_implicit_casting_table.find(expression.value()->type->to_string()) != primitive_implicit_casting_table.end()) {
+            const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(expression.value()->type->to_string());
+            if (std::find(to_types.begin(), to_types.end(), expected_type.value()->to_string()) != to_types.end()) {
+                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
             }
-        } else if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type) &&
-            std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expected_type.value())) {
-            // TODO
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return std::nullopt;
         } else {
-            // Lastly, check if the expression type is a group of size 1, if it is it could become a single type instead
-            if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type)) {
-                auto &expression_type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type);
-                if (expression_type.size() == 1) {
-                    std::shared_ptr<Type> type = expression_type.at(0);
-                    expression.value()->type = type;
-                } else {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                    return std::nullopt;
-                }
-            } else {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
-            }
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+            return std::nullopt;
         }
     }
 

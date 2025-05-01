@@ -50,8 +50,7 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, const token_slice &t
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
-    if (!std::holds_alternative<std::shared_ptr<Type>>(expr.value()->type) ||
-        std::get<std::shared_ptr<Type>>(expr.value()->type)->to_string() != "i32") {
+    if (expr.value()->type->to_string() != "i32") {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, Type::get_simple_type("i32"), expr.value()->type);
         return std::nullopt;
     }
@@ -118,8 +117,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, this_if_pair.first);
         return std::nullopt;
     }
-    if (!std::holds_alternative<std::shared_ptr<Type>>(condition.value()->type) ||
-        std::get<std::shared_ptr<Type>>(condition.value()->type)->to_string() != "bool") {
+    if (condition.value()->type->to_string() != "bool") {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, this_if_pair.first, Type::get_simple_type("bool"), condition.value()->type);
         return std::nullopt;
     }
@@ -522,8 +520,9 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
-    assert(std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type));
-    const std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type);
+    const GroupType *group_type = dynamic_cast<const GroupType *>(expression.value()->type.get());
+    assert(group_type != nullptr);
+    const std::vector<std::shared_ptr<Type>> &types = group_type->types;
     assert(variables.size() == types.size());
     for (unsigned int i = 0; i < variables.size(); i++) {
         variables.at(i).first = types.at(i);
@@ -603,7 +602,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
             THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
             return std::nullopt;
         }
-        if (!std::holds_alternative<std::shared_ptr<Type>>(expr.value()->type)) {
+        if (dynamic_cast<const GroupType *>(expr.value()->type.get())) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -613,12 +612,12 @@ std::optional<DeclarationNode> Parser::create_declaration( //
                 break;
             }
         }
-        if (!scope->add_variable(name, std::get<std::shared_ptr<Type>>(expr.value()->type), scope->scope_id, true, false)) {
+        if (!scope->add_variable(name, expr.value()->type, scope->scope_id, true, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens_mut.first->line, tokens_mut.first->column, name);
             return std::nullopt;
         }
-        declaration = DeclarationNode(std::get<std::shared_ptr<Type>>(expr.value()->type), name, expr);
+        declaration = DeclarationNode(expr.value()->type, name, expr);
     } else {
         token_slice type_tokens = {lhs_tokens.first, lhs_tokens.second - 2};
         lhs_tokens.first = type_tokens.second;

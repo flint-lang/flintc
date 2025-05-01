@@ -9,9 +9,15 @@
 #include "llvm/IR/Constants.h"
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
-    const std::vector<std::shared_ptr<Type>> &types,  //
+    const std::shared_ptr<Type> &type,                //
     const bool is_return_type                         //
 ) {
+    std::vector<std::shared_ptr<Type>> types;
+    if (const GroupType *group_type = dynamic_cast<const GroupType *>(type.get())) {
+        types = group_type->types;
+    } else {
+        types.emplace_back(type);
+    }
     std::string types_str = is_return_type ? "ret_" : "";
     for (auto it = types.begin(); it < types.end(); ++it) {
         types_str.append((*it)->to_string());
@@ -160,7 +166,16 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
         for (const auto &order_name : data_type->data_node->order) {
             types.emplace_back(data_type->data_node->fields.at(order_name).first);
         }
-        return {add_and_or_get_type(types, false), true};
+        std::shared_ptr<Type> type_ptr = nullptr;
+        if (types.size() == 1) {
+            type_ptr = types.front();
+        } else {
+            type_ptr = std::make_shared<GroupType>(types);
+            if (!Type::add_type(type_ptr)) {
+                type_ptr = Type::get_type_from_str(type_ptr->to_string()).value();
+            }
+        }
+        return {add_and_or_get_type(type_ptr, false), true};
     } else if (dynamic_cast<ArrayType *>(type.get())) {
         // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
         if (type_map.find("type_str") == type_map.end()) {

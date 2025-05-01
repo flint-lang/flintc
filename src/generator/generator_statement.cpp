@@ -197,8 +197,7 @@ bool Generator::Statement::generate_return_statement(                 //
         }
 
         // If the rhs is of type `str`, delete the last "garbage", as thats the _actual_ return value
-        if (std::holds_alternative<std::shared_ptr<Type>>(return_node->return_value->type) &&
-            std::get<std::shared_ptr<Type>>(return_node->return_value->type)->to_string() == "str" && garbage.count(0) > 0) {
+        if (return_node->return_value->type->to_string() == "str" && garbage.count(0) > 0) {
             garbage.at(0).clear();
         }
         if (!clear_garbage(builder, garbage)) {
@@ -835,8 +834,7 @@ bool Generator::Statement::generate_assignment(                       //
     llvm::Value *expression = expr.value().at(0);
 
     // If the rhs is of type `str`, delete tha last "garbage", as thats the _actual_ value
-    if (std::holds_alternative<std::shared_ptr<Type>>(assignment_node->expression->type) &&
-        std::get<std::shared_ptr<Type>>(assignment_node->expression->type)->to_string() == "str" && garbage.count(0) > 0) {
+    if (assignment_node->expression->type->to_string() == "str" && garbage.count(0) > 0) {
         garbage.at(0).clear();
     }
     if (!clear_garbage(builder, garbage)) {
@@ -972,9 +970,8 @@ bool Generator::Statement::generate_array_assignment(                 //
         return false;
     }
     llvm::Value *expression = expression_result.value().at(0);
-    std::shared_ptr<Type> expr_type = std::get<std::shared_ptr<Type>>(array_assignment->expression->type);
-    if (expr_type != array_assignment->value_type) {
-        expression = Expression::generate_type_cast(builder, expression, expr_type, array_assignment->value_type);
+    if (array_assignment->expression->type != array_assignment->value_type) {
+        expression = Expression::generate_type_cast(builder, expression, array_assignment->expression->type, array_assignment->value_type);
     }
     // Generate all the indexing expressions
     std::vector<llvm::Value *> idx_expressions;
@@ -1030,19 +1027,19 @@ bool Generator::Statement::generate_unary_op_statement(               //
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
     llvm::Value *const alloca = allocations.at(var_name);
 
-    llvm::LoadInst *var_value = builder.CreateLoad(                          //
-        IR::get_type(std::get<std::shared_ptr<Type>>(var_node->type)).first, //
-        alloca,                                                              //
-        var_node->name + "_val"                                              //
+    llvm::LoadInst *var_value = builder.CreateLoad( //
+        IR::get_type(var_node->type).first,         //
+        alloca,                                     //
+        var_node->name + "_val"                     //
     );
     var_value->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + var_node->name + "'")));
     llvm::Value *operation_result = nullptr;
 
-    if (!std::holds_alternative<std::shared_ptr<Type>>(var_node->type)) {
+    if (dynamic_cast<const GroupType *>(var_node->type.get())) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    const std::string var_type = std::get<std::shared_ptr<Type>>(var_node->type)->to_string();
+    const std::string var_type = var_node->type->to_string();
     switch (unary_op->operator_token) {
         default:
             // Unknown unary operator

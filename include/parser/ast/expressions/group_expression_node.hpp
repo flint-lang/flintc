@@ -2,9 +2,9 @@
 
 #include "error/error.hpp"
 #include "expression_node.hpp"
+#include "parser/type/group_type.hpp"
 
 #include <memory>
-#include <variant>
 #include <vector>
 
 /// @class `GroupExpressionNode`
@@ -15,14 +15,21 @@ class GroupExpressionNode : public ExpressionNode {
         expressions(std::move(expressions)) {
         std::vector<std::shared_ptr<Type>> types;
         for (auto it = this->expressions.begin(); it != this->expressions.end(); ++it) {
-            if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>((*it)->type)) {
+            if (dynamic_cast<const GroupType *>((*it)->type.get())) {
                 // Nested groups are not allowed
                 THROW_BASIC_ERR(ERR_PARSING);
                 return;
             }
-            types.emplace_back(std::get<std::shared_ptr<Type>>((*it)->type));
+            types.emplace_back((*it)->type);
         }
-        this->type = types;
+        std::shared_ptr<Type> group_type = std::make_shared<GroupType>(types);
+        if (Type::add_type(group_type)) {
+            this->type = group_type;
+        } else {
+            // The type was already present, so we set the type of the group expression to the already present type to minimize type
+            // duplication
+            this->type = Type::get_type_from_str(group_type->to_string()).value();
+        }
     }
 
     /// @var `expressions`

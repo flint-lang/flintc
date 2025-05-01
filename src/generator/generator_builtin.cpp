@@ -10,7 +10,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     FunctionNode function_node = FunctionNode(false, false, "_main", parameters, return_types, scope);
 
     // Create the declaration of the custom main function
-    llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(function_node.return_types);
+    llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(Type::get_simple_type("i32"));
     llvm::FunctionType *custom_main_type = Function::generate_function_type(&function_node);
     llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction(function_node.name, custom_main_type);
 

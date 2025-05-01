@@ -188,22 +188,6 @@ namespace Debug {
                 }
                 std::cout << "> ";
             }
-
-            void print_type(const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &type) {
-                if (std::holds_alternative<std::shared_ptr<Type>>(type)) {
-                    std::cout << std::get<std::shared_ptr<Type>>(type)->to_string();
-                } else {
-                    const std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(type);
-                    std::cout << "(";
-                    for (auto it = types.begin(); it != types.end(); ++it) {
-                        if (it != types.begin()) {
-                            std::cout << ", ";
-                        }
-                        std::cout << (*it)->to_string();
-                    }
-                    std::cout << ")";
-                }
-            }
         } // namespace Local
 
         void print_all_files() {
@@ -273,7 +257,7 @@ namespace Debug {
 
         void print_literal(unsigned int indent_lvl, uint2 empty, const LiteralNode &lit) {
             Local::print_header(indent_lvl, empty, "Lit ");
-            Local::print_type(lit.type);
+            std::cout << lit.type->to_string();
             std::cout << ": ";
             if (std::holds_alternative<int>(lit.value)) {
                 std::cout << std::get<int>(lit.value);
@@ -358,13 +342,13 @@ namespace Debug {
             }
             std::cout << std::endl;
             Local::print_header(indent_lvl + 1, empty, "LHS ");
-            Local::print_type(bin.left->type);
+            std::cout << bin.left->type->to_string();
             std::cout << std::endl;
             empty.second = indent_lvl + 1;
             print_expression(indent_lvl + 2, empty, bin.left);
             empty.second = indent_lvl + 2;
             Local::print_header(indent_lvl + 1, empty, "RHS ");
-            Local::print_type(bin.right->type);
+            std::cout << bin.right->type->to_string();
             std::cout << std::endl;
             empty.second = indent_lvl + 3;
             print_expression(indent_lvl + 2, empty, bin.right);
@@ -372,9 +356,9 @@ namespace Debug {
 
         void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast) {
             Local::print_header(indent_lvl, empty, "TypeCast ");
-            Local::print_type(cast.expr->type);
+            std::cout << cast.expr->type->to_string();
             std::cout << " -> ";
-            Local::print_type(cast.type);
+            std::cout << cast.type->to_string();
             std::cout << std::endl;
             empty.second = indent_lvl + 2;
             print_expression(indent_lvl + 1, empty, cast.expr);
@@ -383,7 +367,7 @@ namespace Debug {
         void print_initilalizer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer) {
             Local::print_header(indent_lvl, empty, "Initializer ");
             std::cout << "of " << (initializer.is_data ? "data" : "entity") << " type '";
-            Local::print_type(initializer.type);
+            std::cout << initializer.type->to_string();
             std::cout << "'" << std::endl;
             empty.second = indent_lvl + 1;
             for (auto &expr : initializer.args) {
@@ -394,7 +378,7 @@ namespace Debug {
         void print_group_expression(unsigned int indent_lvl, uint2 empty, const GroupExpressionNode &group) {
             Local::print_header(indent_lvl, empty, "Group Expr ");
             std::cout << "group types: ";
-            Local::print_type(group.type);
+            std::cout << group.type->to_string();
             std::cout << std::endl;
 
             empty.second = indent_lvl + 1;
@@ -405,20 +389,20 @@ namespace Debug {
 
         void print_array_initializer(unsigned int indent_lvl, uint2 empty, const ArrayInitializerNode &init) {
             Local::print_header(indent_lvl, empty, "Array Initializer ");
-            Local::print_type(init.type);
+            std::cout << init.type->to_string();
             std::cout << std::endl;
 
             for (size_t i = 0; i < init.length_expressions.size(); i++) {
                 empty.second = indent_lvl + 1;
                 Local::print_header(indent_lvl + 1, empty, "Len Init " + std::to_string(i) + " ");
-                Local::print_type(init.length_expressions[i]->type);
+                std::cout << init.length_expressions[i]->type->to_string();
                 std::cout << std::endl;
                 empty.second = indent_lvl + 3;
                 print_expression(indent_lvl + 2, empty, init.length_expressions[i]);
             }
             empty.second = indent_lvl + 2;
             Local::print_header(indent_lvl + 1, empty, "Initializer ");
-            Local::print_type(init.initializer_value->type);
+            std::cout << init.initializer_value->type->to_string();
             std::cout << std::endl;
             empty.second = indent_lvl + 3;
             print_expression(indent_lvl + 2, empty, init.initializer_value);
@@ -427,12 +411,12 @@ namespace Debug {
         void print_array_access(unsigned int indent_lvl, uint2 empty, const ArrayAccessNode &access) {
             Local::print_header(indent_lvl, empty, "Array Access ");
             std::cout << access.variable_type->to_string() << " " << access.variable_name << " -> ";
-            Local::print_type(access.type);
+            std::cout << access.type->to_string();
             std::cout << std::endl;
             for (size_t i = 0; i < access.indexing_expressions.size(); i++) {
                 empty.second = indent_lvl + 1;
                 Local::print_header(indent_lvl + 1, empty, "ID " + std::to_string(i) + " ");
-                Local::print_type(access.indexing_expressions[i]->type);
+                std::cout << access.indexing_expressions[i]->type->to_string();
                 std::cout << std::endl;
                 empty.second = indent_lvl + 3;
                 print_expression(indent_lvl + 2, empty, access.indexing_expressions[i]);
@@ -443,7 +427,7 @@ namespace Debug {
             Local::print_header(indent_lvl, empty, "Data Access ");
             std::cout << "[" << access.data_type->to_string() << "]: " << access.var_name << "." << access.field_name << " at ID "
                       << access.field_id << " with type ";
-            Local::print_type(access.type);
+            std::cout << access.type->to_string();
             std::cout << std::endl;
         }
 
@@ -464,7 +448,7 @@ namespace Debug {
                 std::cout << *it;
             }
             std::cout << ") of types ";
-            Local::print_type(access.type);
+            std::cout << access.type->to_string();
             std::cout << std::endl;
         }
 
@@ -642,7 +626,7 @@ namespace Debug {
             for (size_t i = 0; i < assign.indexing_expressions.size(); i++) {
                 empty.second = indent_lvl + 1;
                 Local::print_header(indent_lvl + 1, empty, "ID " + std::to_string(i) + " ");
-                Local::print_type(assign.indexing_expressions[i]->type);
+                std::cout << assign.indexing_expressions[i]->type->to_string();
                 std::cout << std::endl;
                 empty.second = indent_lvl + 3;
                 print_expression(indent_lvl + 2, empty, assign.indexing_expressions[i]);
@@ -701,7 +685,7 @@ namespace Debug {
                 std::cout << *it;
             }
             std::cout << ") of types ";
-            Local::print_type(assignment.field_types);
+            std::cout << assignment.field_types->to_string();
             std::cout << " at IDs (";
             for (auto it = assignment.field_ids.begin(); it != assignment.field_ids.end(); ++it) {
                 if (it != assignment.field_ids.begin()) {

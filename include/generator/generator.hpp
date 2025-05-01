@@ -347,12 +347,12 @@ class Generator {
         /// @brief Checks if a given return type of a given types list already exists. If it exists, it returns a reference to it, if it
         /// does not exist it creates it and then returns a reference to the created StructType
         ///
-        /// @param `types` The list of types to get or set the struct type from
+        /// @param `type` The type to get or set the struct type from
         /// @param `is_return_type` Whether the StructType is a return type (if it is, it has one return value more, the error return value)
         /// @return `llvm::StructType *` The reference to the StructType, representing the return type of the types map
-        static llvm::StructType *add_and_or_get_type(        //
-            const std::vector<std::shared_ptr<Type>> &types, //
-            const bool is_return_type = true                 //
+        static llvm::StructType *add_and_or_get_type( //
+            const std::shared_ptr<Type> &type,        //
+            const bool is_return_type = true          //
         );
 
         /// @function `generate_bitwidth_change`

@@ -11,10 +11,10 @@
 /// @brief The base class for calls, both statements and expressions
 class CallNodeBase {
   public:
-    CallNodeBase(                                                                           //
-        std::string function_name,                                                          //
-        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments,            //
-        const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &type //
+    CallNodeBase(                                                                //
+        std::string function_name,                                               //
+        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments, //
+        const std::shared_ptr<Type> &type                                        //
         ) :
         function_name(std::move(function_name)),
         arguments(std::move(arguments)),
@@ -51,7 +51,7 @@ class CallNodeBase {
 
     /// @var `type`
     /// @brief The type of the call`s return value(s)
-    std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> type;
+    std::shared_ptr<Type> type;
 
   protected:
     CallNodeBase() = default;

@@ -148,7 +148,7 @@ token_slice Parser::get_body_tokens(unsigned int definition_indentation, const t
 std::optional<std::tuple<                                          //
     std::string,                                                   //
     std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, //
-    std::vector<std::shared_ptr<Type>>,                            //
+    std::shared_ptr<Type>,                                         //
     std::optional<bool>                                            //
     >>
 Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens) {
@@ -220,8 +220,7 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
     std::vector<std::shared_ptr<Type>> argument_types;
     argument_types.reserve(arguments.size());
     for (auto &arg : arguments) {
-        assert(std::holds_alternative<std::shared_ptr<Type>>(arg.first->type));
-        argument_types.emplace_back(std::get<std::shared_ptr<Type>>(arg.first->type));
+        argument_types.emplace_back(arg.first->type);
     }
 
     // Check if its a call to a builtin function, if it is, get the return type of said function
@@ -262,12 +261,16 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
             THROW_ERR(ErrExprCallWrongArgsBuiltin, ERR_PARSING, file_name, err_tokens, function_name, argument_types);
             return std::nullopt;
         }
-        std::vector<std::shared_ptr<Type>> types;
-        types.reserve(found_function.value().second.size());
-        for (const std::shared_ptr<Type> &type : found_function.value().second) {
-            types.emplace_back(type);
+        if (found_function.value().second.size() > 1) {
+            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(found_function.value().second);
+            if (!Type::add_type(group_type)) {
+                // The type was already present, so we set the type of the group expression to the already present type to minimize type
+                // duplication
+                group_type = Type::get_type_from_str(group_type->to_string()).value();
+            }
+            return std::make_tuple(function_name, std::move(arguments), group_type, std::nullopt);
         }
-        return std::make_tuple(function_name, std::move(arguments), types, std::nullopt);
+        return std::make_tuple(function_name, std::move(arguments), found_function.value().second.front(), std::nullopt);
     }
 
     // Check if there exists a type with the name of the "function" call
@@ -283,24 +286,17 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
                 return std::nullopt;
             }
             for (size_t i = 0; i < arguments.size(); i++) {
-                ExprType arg_type = arguments.at(i).first->type;
-                if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(arg_type)) {
+                std::shared_ptr<Type> arg_type = arguments[i].first->type;
+                if (dynamic_cast<const GroupType *>(arg_type.get())) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                if (std::get<1>(initializer_fields.at(i)) != std::get<std::shared_ptr<Type>>(arg_type)) {
+                if (std::get<1>(initializer_fields.at(i)) != arg_type) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
             }
-
-            std::vector<std::shared_ptr<Type>> return_type = {complex_type.value()};
-            return std::make_tuple(   //
-                data_node->name,      //
-                std::move(arguments), //
-                return_type,          //
-                true                  //
-            );
+            return std::make_tuple(data_node->name, std::move(arguments), complex_type.value(), true);
         }
     }
 
@@ -322,10 +318,20 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
     // Lastly, update the arguments of the call with the information of the function definition, if the arguments should be references
     // Every non-primitive type is always a reference (for now)
     for (auto &arg : arguments) {
-        arg.second = keywords.find(std::get<std::shared_ptr<Type>>(arg.first->type)->to_string()) == keywords.end();
+        arg.second = keywords.find(arg.first->type->to_string()) == keywords.end();
     }
 
-    return std::make_tuple(function_name, std::move(arguments), function.value().first->return_types, std::nullopt);
+    std::vector<std::shared_ptr<Type>> return_types = function.value().first->return_types;
+    if (return_types.empty()) {
+        return std::make_tuple(function_name, std::move(arguments), Type::get_simple_type("void"), std::nullopt);
+    } else if (return_types.size() > 1) {
+        std::shared_ptr<Type> group_type = std::make_shared<GroupType>(return_types);
+        if (!Type::add_type(group_type)) {
+            group_type = Type::get_type_from_str(group_type->to_string()).value();
+        }
+        return std::make_tuple(function_name, std::move(arguments), group_type, std::nullopt);
+    }
+    return std::make_tuple(function_name, std::move(arguments), return_types.front(), std::nullopt);
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base( //

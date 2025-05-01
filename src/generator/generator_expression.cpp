@@ -154,7 +154,7 @@ llvm::Value *Generator::Expression::generate_variable(                //
     }
 
     // Get the type that the pointer points to
-    llvm::Type *value_type = IR::get_type(std::get<std::shared_ptr<Type>>(variable_node->type)).first;
+    llvm::Type *value_type = IR::get_type(variable_node->type).first;
 
     // Load the variable's value if it's a pointer
     llvm::LoadInst *load = builder.CreateLoad(value_type, variable, variable_node->name + "_val");
@@ -242,9 +242,8 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Value *expr_val = expression.value().at(0);
-        if (call_node->function_name != "print" && std::holds_alternative<std::shared_ptr<Type>>(arg.first->type) &&
-            std::get<std::shared_ptr<Type>>(arg.first->type)->to_string() == "str") {
+        llvm::Value *expr_val = expression.value().front();
+        if (call_node->function_name != "print" && arg.first->type->to_string() == "str") {
             expr_val = String::generate_string_declaration(builder, expr_val, arg.first.get());
         }
         args.emplace_back(expr_val);
@@ -259,17 +258,16 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             return std::nullopt;
         }
         // There doesnt exist a builtin print function for any groups
-        if (!std::holds_alternative<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)) {
+        if (dynamic_cast<const GroupType *>(call_node->arguments.front().first->type.get())) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
         // Call the builtin function 'print'
         std::vector<llvm::Value *> return_value;
         if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
-            print_functions.find(std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string()) !=
-                print_functions.end()) {
+            print_functions.find(call_node->arguments.front().first->type->to_string()) != print_functions.end()) {
             // If the argument is of type str we need to differentiate between literals and str variables
-            if (std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string() == "str") {
+            if (call_node->arguments.at(0).first->type->to_string() == "str") {
                 if (dynamic_cast<const LiteralNode *>(call_node->arguments.at(0).first.get())) {
                     return_value.emplace_back(builder.CreateCall(print_functions.at("str"), args));
                     if (!Statement::clear_garbage(builder, garbage)) {
@@ -284,10 +282,8 @@ Generator::group_mapping Generator::Expression::generate_call(        //
                     return return_value;
                 }
             }
-            return_value.emplace_back(builder.CreateCall(                                                                 //
-                print_functions.at(std::get<std::shared_ptr<Type>>(call_node->arguments.at(0).first->type)->to_string()), //
-                args                                                                                                      //
-                ));
+
+            return_value.emplace_back(builder.CreateCall(print_functions.at(call_node->arguments.at(0).first->type->to_string()), args));
             if (!Statement::clear_garbage(builder, garbage)) {
                 return std::nullopt;
             }
@@ -329,9 +325,7 @@ Generator::group_mapping Generator::Expression::generate_call(        //
     builder.CreateStore(call, res_var);
 
     // Extract and store error value
-    llvm::StructType *return_type = static_cast<llvm::StructType *>(                           //
-        IR::add_and_or_get_type(std::get<std::vector<std::shared_ptr<Type>>>(call_node->type)) //
-    );
+    llvm::StructType *return_type = static_cast<llvm::StructType *>(IR::add_and_or_get_type(call_node->type));
     llvm::Value *err_ptr = builder.CreateStructGEP(                                //
         return_type,                                                               //
         res_var,                                                                   //
@@ -528,12 +522,12 @@ Generator::group_mapping Generator::Expression::generate_initializer(           
 ) {
     // Check if its a data initializer
     if (initializer->is_data) {
-        if (!std::holds_alternative<std::shared_ptr<Type>>(initializer->type)) {
+        if (dynamic_cast<const GroupType *>(initializer->type.get())) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
         // Check if the initializer data type is even present
-        if (data_nodes.find(std::get<std::shared_ptr<Type>>(initializer->type)->to_string()) == data_nodes.end()) {
+        if (data_nodes.find(initializer->type->to_string()) == data_nodes.end()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
@@ -549,7 +543,7 @@ Generator::group_mapping Generator::Expression::generate_initializer(           
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            return_values.emplace_back(expr_result.value().at(0));
+            return_values.emplace_back(expr_result.value().front());
         }
         return return_values;
     }
@@ -577,12 +571,7 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        llvm::Value *index_i64 = generate_type_cast(     //
-            builder,                                     //
-            result.value().at(0),                        //
-            std::get<std::shared_ptr<Type>>(expr->type), //
-            Type::get_simple_type("u64")                 //
-        );
+        llvm::Value *index_i64 = generate_type_cast(builder, result.value().front(), expr->type, Type::get_simple_type("u64"));
         length_expressions.emplace_back(index_i64);
     }
     group_mapping initializer_mapping = generate_expression(                                           //
@@ -596,8 +585,8 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
         THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }
-    llvm::Value *initializer_expression = initializer_mapping.value().at(0);
-    std::shared_ptr<Type> init_expr_type = std::get<std::shared_ptr<Type>>(initializer->initializer_value->type);
+    llvm::Value *initializer_expression = initializer_mapping.value().front();
+    std::shared_ptr<Type> init_expr_type = initializer->initializer_value->type;
     if (init_expr_type != initializer->element_type) {
         initializer_expression = generate_type_cast(builder, initializer_expression, init_expr_type, initializer->element_type);
     }
@@ -623,7 +612,7 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
             llvm::MDString::get(context,
                 "Create an array of type " + initializer->element_type->to_string() + "[" +
                     std::string(length_expressions.size() - 1, ',') + "]")));
-    llvm::Type *from_type = IR::get_type(std::get<std::shared_ptr<Type>>(initializer->initializer_value->type)).first;
+    llvm::Type *from_type = IR::get_type(initializer->initializer_value->type).first;
     llvm::Value *value_container = IR::generate_bitwidth_change( //
         builder,                                                 //
         initializer_expression,                                  //
@@ -660,12 +649,12 @@ llvm::Value *Generator::Expression::generate_array_access(                      
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        llvm::Value *index_expr = index.value().at(0);
-        if (!std::holds_alternative<std::shared_ptr<Type>>(index_expression->type)) {
+        llvm::Value *index_expr = index.value().front();
+        if (dynamic_cast<const GroupType *>(index_expression->type.get())) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        std::shared_ptr<Type> from_type = std::get<std::shared_ptr<Type>>(index_expression->type);
+        std::shared_ptr<Type> from_type = index_expression->type;
         std::shared_ptr<Type> to_type = Type::get_simple_type("u64");
         if (from_type != to_type) {
             index_expr = generate_type_cast(builder, index_expr, from_type, to_type);
@@ -687,7 +676,7 @@ llvm::Value *Generator::Expression::generate_array_access(                      
         );
     }
     const llvm::DataLayout &data_layout = parent->getParent()->getDataLayout();
-    llvm::Type *element_type = IR::get_type(std::get<std::shared_ptr<Type>>(access->type)).first;
+    llvm::Type *element_type = IR::get_type(access->type).first;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
     llvm::Value *array_ptr = builder.CreateLoad(IR::get_type(access->variable_type).first, array_alloca, "array_ptr");
     llvm::Value *result = builder.CreateCall(Array::array_manip_functions.at("access_arr_val"), //
@@ -695,8 +684,7 @@ llvm::Value *Generator::Expression::generate_array_access(                      
     );
     // return builder.CreateBitCast(result, IR::get_type(std::get<std::shared_ptr<Type>>(access->type)).first);
     // return generate_type_cast(builder, result, Type::get_simple_type("u64"), std::get<std::shared_ptr<Type>>(access->type));
-    std::shared_ptr<Type> to_type = std::get<std::shared_ptr<Type>>(access->type);
-    llvm::Type *to_type_value = IR::get_type(to_type).first;
+    llvm::Type *to_type_value = IR::get_type(access->type).first;
     return IR::generate_bitwidth_change(builder, result, 64, to_type_value->getPrimitiveSizeInBits(), to_type_value);
 }
 
@@ -726,10 +714,10 @@ llvm::Value *Generator::Expression::generate_data_access(             //
     }
 
     llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, data_access->field_id);
-    llvm::LoadInst *loaded_value = builder.CreateLoad(                          //
-        IR::get_type(std::get<std::shared_ptr<Type>>(data_access->type)).first, //
-        value_ptr,                                                              //
-        data_access->var_name + "_" + data_access->field_name + "_val"          //
+    llvm::LoadInst *loaded_value = builder.CreateLoad(                 //
+        IR::get_type(data_access->type).first,                         //
+        value_ptr,                                                     //
+        data_access->var_name + "_" + data_access->field_name + "_val" //
     );
     return loaded_value;
 }
@@ -746,15 +734,15 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     llvm::Value *const var_alloca = allocations.at(var_name);
 
     llvm::Type *data_type = IR::get_type(grouped_data_access->data_type).first;
-    assert(std::holds_alternative<std::vector<std::shared_ptr<Type>>>(grouped_data_access->type));
-    std::vector<std::shared_ptr<Type>> group_types = std::get<std::vector<std::shared_ptr<Type>>>(grouped_data_access->type);
+    const GroupType *group_type = dynamic_cast<const GroupType *>(grouped_data_access->type.get());
+    assert(group_type != nullptr);
 
     std::vector<llvm::Value *> return_values;
-    return_values.reserve(group_types.size());
+    return_values.reserve(group_type->types.size());
     for (size_t i = 0; i < grouped_data_access->field_names.size(); i++) {
         llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_data_access->field_ids.at(i));
         llvm::LoadInst *loaded_value = builder.CreateLoad(                                        //
-            IR::get_type(group_types.at(i)).first,                                                //
+            IR::get_type(group_type->types.at(i)).first,                                          //
             value_ptr,                                                                            //
             grouped_data_access->var_name + "_" + grouped_data_access->field_names.at(i) + "_val" //
         );
@@ -776,31 +764,30 @@ Generator::group_mapping Generator::Expression::generate_type_cast(             
     std::vector<llvm::Value *> expr =
         generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, type_cast_node->expr.get()).value();
     // Then, make sure that the expressions types are "normal" strings
-    if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(type_cast_node->expr->type)) {
-        std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(type_cast_node->expr->type);
-        if (types.size() > 1) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        std::shared_ptr<Type> single_type = types.at(0);
-        types.clear();
-        type_cast_node->expr->type = single_type;
-    }
-    const std::shared_ptr<Type> from_type = std::get<std::shared_ptr<Type>>(type_cast_node->expr->type);
+    // if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(type_cast_node->expr->type)) {
+    //     std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(type_cast_node->expr->type);
+    //     if (types.size() > 1) {
+    //         THROW_BASIC_ERR(ERR_GENERATING);
+    //         return std::nullopt;
+    //     }
+    //     std::shared_ptr<Type> single_type = types.at(0);
+    //     types.clear();
+    //     type_cast_node->expr->type = single_type;
+    // }
     std::shared_ptr<Type> to_type;
-    if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(type_cast_node->type)) {
-        const std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(type_cast_node->type);
+    if (const GroupType *group_type = dynamic_cast<const GroupType *>(type_cast_node->type.get())) {
+        const std::vector<std::shared_ptr<Type>> &types = group_type->types;
         if (types.size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        to_type = types.at(0);
+        to_type = types.front();
     } else {
-        to_type = std::get<std::shared_ptr<Type>>(type_cast_node->type);
+        to_type = type_cast_node->type;
     }
     // Lastly, check if the expression is castable, and if it is generate the type cast
     for (size_t i = 0; i < expr.size(); i++) {
-        expr.at(i) = generate_type_cast(builder, expr.at(i), from_type, to_type);
+        expr.at(i) = generate_type_cast(builder, expr.at(i), type_cast_node->expr->type, to_type);
     }
     return expr;
 }
@@ -952,7 +939,7 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression(   
     std::vector<llvm::Value *> operand =
         generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, expression).value();
     for (size_t i = 0; i < operand.size(); i++) {
-        const std::string &expression_type = std::get<std::shared_ptr<Type>>(expression->type)->to_string();
+        const std::string &expression_type = expression->type->to_string();
         switch (unary_op->operator_token) {
             default:
                 // Unknown unary operator
@@ -1079,44 +1066,45 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
     std::vector<llvm::Value *> return_value;
 
     for (size_t i = 0; i < lhs.size(); i++) {
-        const std::string type = std::holds_alternative<std::shared_ptr<Type>>(bin_op_node->left->type)
-            ? std::get<std::shared_ptr<Type>>(bin_op_node->left->type)->to_string()
-            : std::get<std::vector<std::shared_ptr<Type>>>(bin_op_node->left->type).at(i)->to_string();
+        const std::shared_ptr<Type> type = bin_op_node->left->type;
+        const GroupType *group_type = dynamic_cast<const GroupType *>(type.get());
+        assert(group_type == nullptr || group_type->types.size() == lhs.size());
+        const std::string type_str = group_type == nullptr ? type->to_string() : group_type->types[i]->to_string();
         switch (bin_op_node->operator_token) {
             default:
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             case TOK_PLUS:
-                if (type == "i32") {
+                if (type_str == "i32") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateAdd(lhs.at(i), rhs.at(i), "add_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("i32_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
                     );
-                } else if (type == "i64") {
+                } else if (type_str == "i64") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateAdd(lhs.at(i), rhs.at(i), "add_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("i64_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
                     );
-                } else if (type == "u32") {
+                } else if (type_str == "u32") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateAdd(lhs.at(i), rhs.at(i), "add_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("u32_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
                     );
-                } else if (type == "u64") {
+                } else if (type_str == "u64") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateAdd(lhs.at(i), rhs.at(i), "add_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("u64_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
                     );
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFAdd(lhs.at(i), rhs.at(i), "faddtmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
-                } else if (type == "str") {
+                } else if (type_str == "str") {
                     return_value.emplace_back(String::generate_string_addition(builder, scope, allocations, garbage, expr_depth + 1, //
                         lhs.at(i), bin_op_node->left.get(),                                                                          //
                         rhs.at(i), bin_op_node->right.get(),                                                                         //
@@ -1128,33 +1116,33 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_MINUS:
-                if (type == "i32") {
+                if (type_str == "i32") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateSub(lhs.at(i), rhs.at(i), "sub_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("i32_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
                     );
-                } else if (type == "i64") {
+                } else if (type_str == "i64") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateSub(lhs.at(i), rhs.at(i), "sub_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("i64_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
                     );
-                } else if (type == "u32") {
+                } else if (type_str == "u32") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE //
                             ? builder.CreateSub(lhs.at(i), rhs.at(i), "sub_res")
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("u32_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
                     );
-                } else if (type == "u64") {
+                } else if (type_str == "u64") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateSub(lhs.at(i), rhs.at(i), "sub_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("u64_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
                     );
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFSub(lhs.at(i), rhs.at(i), "fsubtmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
                 } else {
@@ -1163,33 +1151,33 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_MULT:
-                if (type == "i32") {
+                if (type_str == "i32") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateMul(lhs.at(i), rhs.at(i), "mul_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("i32_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
                     );
-                } else if (type == "i64") {
+                } else if (type_str == "i64") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateMul(lhs.at(i), rhs.at(i), "mul_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("i64_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
                     );
-                } else if (type == "u32") {
+                } else if (type_str == "u32") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateMul(lhs.at(i), rhs.at(i), "mul_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("u32_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
                     );
-                } else if (type == "u64") {
+                } else if (type_str == "u64") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
                             ? builder.CreateMul(lhs.at(i), rhs.at(i), "mul_res")                                               //
                             : builder.CreateCall(                                                                              //
                                   Arithmetic::arithmetic_functions.at("u64_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
                     );
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFMul(lhs.at(i), rhs.at(i), "fmultmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
                 } else {
@@ -1198,33 +1186,33 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_DIV:
-                if (type == "i32") {
+                if (type_str == "i32") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                   //
                             ? builder.CreateSDiv(lhs.at(i), rhs.at(i), "sdiv_res")                                              //
                             : builder.CreateCall(                                                                               //
                                   Arithmetic::arithmetic_functions.at("i32_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_sdiv_res") //
                     );
-                } else if (type == "i64") {
+                } else if (type_str == "i64") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                   //
                             ? builder.CreateSDiv(lhs.at(i), rhs.at(i), "sdiv_res")                                              //
                             : builder.CreateCall(                                                                               //
                                   Arithmetic::arithmetic_functions.at("i64_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_sdiv_res") //
                     );
-                } else if (type == "u32") {
+                } else if (type_str == "u32") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                   //
                             ? builder.CreateUDiv(lhs.at(i), rhs.at(i), "udiv_res")                                              //
                             : builder.CreateCall(                                                                               //
                                   Arithmetic::arithmetic_functions.at("u32_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_udiv_res") //
                     );
-                } else if (type == "u64") {
+                } else if (type_str == "u64") {
                     return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                   //
                             ? builder.CreateUDiv(lhs.at(i), rhs.at(i), "udiv_res")                                              //
                             : builder.CreateCall(                                                                               //
                                   Arithmetic::arithmetic_functions.at("u64_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_udiv_res") //
                     );
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFDiv(lhs.at(i), rhs.at(i), "fdivtmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
                 } else {
@@ -1236,16 +1224,16 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 return_value.emplace_back(IR::generate_pow_instruction(builder, parent, lhs.at(i), rhs.at(i)));
                 break;
             case TOK_LESS:
-                if (type == "i32" || type == "i64") {
+                if (type_str == "i32" || type_str == "i64") {
                     return_value.emplace_back(builder.CreateICmpSLT(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type == "u32" || type == "u64") {
+                } else if (type_str == "u32" || type_str == "u64") {
                     return_value.emplace_back(builder.CreateICmpULT(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFCmpOLT(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
-                } else if (type == "str") {
+                } else if (type_str == "str") {
                     return_value.emplace_back(Logical::generate_string_cmp_lt(                            //
                         builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
                     );
@@ -1255,16 +1243,16 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_GREATER:
-                if (type == "i32" || type == "i64") {
+                if (type_str == "i32" || type_str == "i64") {
                     return_value.emplace_back(builder.CreateICmpSGT(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type == "u32" || type == "u64") {
+                } else if (type_str == "u32" || type_str == "u64") {
                     return_value.emplace_back(builder.CreateICmpUGT(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFCmpOGT(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
-                } else if (type == "str") {
+                } else if (type_str == "str") {
                     return_value.emplace_back(Logical::generate_string_cmp_gt(                            //
                         builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
                     );
@@ -1274,16 +1262,16 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_LESS_EQUAL:
-                if (type == "i32" || type == "i64") {
+                if (type_str == "i32" || type_str == "i64") {
                     return_value.emplace_back(builder.CreateICmpSLE(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type == "u32" || type == "u64") {
+                } else if (type_str == "u32" || type_str == "u64") {
                     return_value.emplace_back(builder.CreateICmpULE(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFCmpOLE(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
-                } else if (type == "str") {
+                } else if (type_str == "str") {
                     return_value.emplace_back(Logical::generate_string_cmp_le(                            //
                         builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
                     );
@@ -1293,16 +1281,16 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_GREATER_EQUAL:
-                if (type == "i32" || type == "i64") {
+                if (type_str == "i32" || type_str == "i64") {
                     return_value.emplace_back(builder.CreateICmpSGE(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type == "u32" || type == "u64") {
+                } else if (type_str == "u32" || type_str == "u64") {
                     return_value.emplace_back(builder.CreateICmpUGE(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFCmpOGE(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
-                } else if (type == "str") {
+                } else if (type_str == "str") {
                     return_value.emplace_back(Logical::generate_string_cmp_ge(                            //
                         builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
                     );
@@ -1312,16 +1300,16 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_EQUAL_EQUAL:
-                if (type == "i32" || type == "i64") {
+                if (type_str == "i32" || type_str == "i64") {
                     return_value.emplace_back(builder.CreateICmpEQ(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type == "u32" || type == "u64") {
+                } else if (type_str == "u32" || type_str == "u64") {
                     return_value.emplace_back(builder.CreateICmpEQ(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFCmpOEQ(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
-                } else if (type == "str") {
+                } else if (type_str == "str") {
                     return_value.emplace_back(Logical::generate_string_cmp_eq(                            //
                         builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
                     );
@@ -1331,16 +1319,16 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_NOT_EQUAL:
-                if (type == "i32" || type == "i64") {
+                if (type_str == "i32" || type_str == "i64") {
                     return_value.emplace_back(builder.CreateICmpNE(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type == "u32" || type == "u64") {
+                } else if (type_str == "u32" || type_str == "u64") {
                     return_value.emplace_back(builder.CreateICmpNE(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type == "f32" || type == "f64") {
+                } else if (type_str == "f32" || type_str == "f64") {
                     return_value.emplace_back(builder.CreateFCmpONE(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type == "flint") {
+                } else if (type_str == "flint") {
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return std::nullopt;
-                } else if (type == "str") {
+                } else if (type_str == "str") {
                     return_value.emplace_back(Logical::generate_string_cmp_neq(                           //
                         builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
                     );
@@ -1350,14 +1338,14 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
                 }
                 break;
             case TOK_AND:
-                if (type != "bool") {
+                if (type_str != "bool") {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
                 return_value.emplace_back(builder.CreateLogicalAnd(lhs.at(i), rhs.at(i), "band"));
                 break;
             case TOK_OR:
-                if (type != "bool") {
+                if (type_str != "bool") {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }

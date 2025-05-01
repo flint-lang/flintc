@@ -2,7 +2,16 @@
 #include "generator/generator.hpp"
 
 llvm::FunctionType *Generator::Function::generate_function_type(FunctionNode *function_node) {
-    llvm::Type *return_types = IR::add_and_or_get_type(function_node->return_types);
+    llvm::Type *return_types = nullptr;
+    if (function_node->return_types.size() == 1) {
+        return_types = IR::add_and_or_get_type(function_node->return_types.front());
+    } else {
+        std::shared_ptr<Type> group_type = std::make_shared<GroupType>(function_node->return_types);
+        if (!Type::add_type(group_type)) {
+            group_type = Type::get_type_from_str(group_type->to_string()).value();
+        }
+        return_types = IR::add_and_or_get_type(group_type);
+    }
 
     // Get the parameter types
     std::vector<llvm::Type *> param_types_vec;
