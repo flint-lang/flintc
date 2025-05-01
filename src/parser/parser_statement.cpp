@@ -759,13 +759,32 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
     indexing_tokens.first++;
     assert(std::prev(indexing_tokens.second)->type == TOK_RIGHT_BRACKET);
     indexing_tokens.second--;
-    std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(scope, indexing_tokens);
-    if (!indexing_expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, indexing_tokens);
-        return std::nullopt;
-    }
+
     std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
-    indexing_expressions.emplace_back(std::move(indexing_expression.value()));
+    while (indexing_tokens.first != indexing_tokens.second) {
+        std::optional<uint2> next_expr_range = Matcher::get_next_match_range(indexing_tokens, Matcher::until_comma);
+        if (!next_expr_range.has_value()) {
+            // The last expression
+            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(scope, indexing_tokens);
+            indexing_tokens.first = indexing_tokens.second;
+            if (!indexing_expression.has_value()) {
+                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, indexing_tokens);
+                return std::nullopt;
+            }
+            indexing_expressions.emplace_back(std::move(indexing_expression.value()));
+        } else {
+            // Not the last expression
+            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(        //
+                scope, {indexing_tokens.first, indexing_tokens.first + next_expr_range.value().second - 1} //
+            );
+            indexing_tokens.first += next_expr_range.value().second;
+            if (!indexing_expression.has_value()) {
+                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, indexing_tokens);
+                return std::nullopt;
+            }
+            indexing_expressions.emplace_back(std::move(indexing_expression.value()));
+        }
+    }
     // Now the next token should be a = sign
     assert(tokens_mut.first->type == TOK_EQUAL);
     tokens_mut.first++;

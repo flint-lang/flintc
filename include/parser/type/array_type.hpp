@@ -3,23 +3,22 @@
 #include "type.hpp"
 
 #include <memory>
-#include <optional>
 
 /// @class `ArrayType`
 /// @brief Represents array types
 class ArrayType : public Type {
   public:
-    ArrayType(const std::optional<size_t> &length, const std::shared_ptr<Type> &type) :
-        length(length),
+    ArrayType(const size_t dimensionality, const std::shared_ptr<Type> &type) :
+        dimensionality(dimensionality),
         type(type) {}
 
     std::string to_string() override {
-        return type->to_string() + "[]";
+        return type->to_string() + "[" + std::string(dimensionality - 1, ',') + "]";
     }
 
-    /// @var `length`
-    /// @brief The length of the array type, nullopt if the length is unknown
-    std::optional<size_t> length;
+    /// @var `dimensionality`
+    /// @brief The dimensionality of the array
+    size_t dimensionality;
 
     /// @var `type`
     /// @brief The actual type of every array element

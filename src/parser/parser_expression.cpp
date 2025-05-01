@@ -653,22 +653,37 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     // Remove the open and closing brackets
     tokens_mut.first++;
     tokens_mut.second--;
-    std::optional<std::unique_ptr<ExpressionNode>> length_expression = create_expression(scope, tokens_mut);
-    if (!length_expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
-        return std::nullopt;
-    }
     std::vector<std::unique_ptr<ExpressionNode>> length_expressions;
-    length_expressions.emplace_back(std::move(length_expression.value()));
+    while (tokens_mut.first != tokens_mut.second) {
+        std::optional<uint2> next_expr_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_comma);
+        if (!next_expr_range.has_value()) {
+            // The last expression
+            std::optional<std::unique_ptr<ExpressionNode>> length_expression = create_expression(scope, tokens_mut);
+            tokens_mut.first = tokens_mut.second;
+            if (!length_expression.has_value()) {
+                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
+                return std::nullopt;
+            }
+            length_expressions.emplace_back(std::move(length_expression.value()));
+        } else {
+            // Not the last expression
+            std::optional<std::unique_ptr<ExpressionNode>> length_expression = create_expression( //
+                scope, {tokens_mut.first, tokens_mut.first + next_expr_range.value().second - 1}  //
+            );
+            tokens_mut.first += next_expr_range.value().second;
+            if (!length_expression.has_value()) {
+                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
+                return std::nullopt;
+            }
+            length_expressions.emplace_back(std::move(length_expression.value()));
+        }
+    }
 
-    std::optional<std::shared_ptr<Type>> actual_array_type = Type::get_type_from_str(element_type.value()->to_string() + "[]");
+    std::string actual_type_str = element_type.value()->to_string() + "[" + std::string(length_expressions.size() - 1, ',') + "]";
+    std::optional<std::shared_ptr<Type>> actual_array_type = Type::get_type_from_str(actual_type_str);
     if (!actual_array_type.has_value()) {
         // This type does not yet exist, so we need to create it
-        if (const LiteralNode *lit = dynamic_cast<const LiteralNode *>(length_expressions.front().get())) {
-            actual_array_type = std::make_shared<ArrayType>(std::get<int>(lit->value), element_type.value());
-        } else {
-            actual_array_type = std::make_shared<ArrayType>(std::nullopt, element_type.value());
-        }
+        actual_array_type = std::make_shared<ArrayType>(length_expressions.size(), element_type.value());
         Type::add_type(actual_array_type.value());
     }
     return ArrayInitializerNode(   //
@@ -732,6 +747,10 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *s
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
+    token_list toks;
+    if (DEBUG_MODE) {
+        toks = clone_from_slice(tokens);
+    }
     assert(tokens_mut.first != tokens_mut.second); // Assert that tokens is not empty
     if (!Matcher::tokens_match(tokens_mut, Matcher::group_expression)) {
         remove_surrounding_paren(tokens_mut);

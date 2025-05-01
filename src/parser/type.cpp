@@ -114,6 +114,12 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
     // If the type list ends with a ], its definitely an array type
     if (std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET) {
         tokens_mut.second--; // Remove the ]
+        // Now, check how many commas follow (in reverse order) to get the dimensionality
+        size_t dimensionality = 1;
+        while (std::prev(tokens_mut.second)->type == TOK_COMMA) {
+            dimensionality++;
+            tokens_mut.second--;
+        }
         // Now, check if the last element is either a literal or a [ token
         if (std::prev(tokens_mut.second)->type == TOK_LEFT_BRACKET) {
             tokens_mut.second--; // Remove the [
@@ -122,18 +128,7 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            return std::make_shared<ArrayType>(std::nullopt, arr_type.value());
-        } else if (std::prev(tokens_mut.second)->type == TOK_INT_VALUE) {
-            const size_t length = std::stoul(std::prev(tokens_mut.second)->lexme);
-            tokens_mut.second--; // Remove the int value
-            assert(std::prev(tokens_mut.second)->type == TOK_LEFT_BRACKET);
-            tokens_mut.second--; // Remove the [
-            std::optional<std::shared_ptr<Type>> arr_type = get_type(tokens_mut, mutex_already_locked);
-            if (!arr_type.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            return std::make_shared<ArrayType>(length, arr_type.value());
+            return std::make_shared<ArrayType>(dimensionality, arr_type.value());
         } else {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
