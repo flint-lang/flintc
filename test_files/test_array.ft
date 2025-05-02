@@ -42,3 +42,14 @@ def test_array():
     for i32 i = 0; i < arr_f64.length; i++:
         sum_f64 += arr_f64[i];
     assert(i32(sum_f64 - 45) == 0);
+
+    i32[,] arr;
+    arr = i32[10, 10](5);
+    arr[0, 0] = 8;
+    (I, J) := arr.length;
+    i32 sum = 0;
+    for i32 j = 0; j < J; j++:
+        for i32 i = 0; i < I; i++:
+            arr[i, j] = i * j;
+            sum += arr[i, j];
+    assert(sum == 2025);
