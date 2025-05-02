@@ -58,8 +58,7 @@ Generator::group_mapping Generator::Expression::generate_expression(            
         return generate_initializer(builder, parent, scope, allocations, garbage, expr_depth, initializer);
     }
     if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expression_node)) {
-        group_map.emplace_back(generate_data_access(builder, scope, allocations, data_access));
-        return group_map;
+        return generate_data_access(builder, scope, allocations, data_access);
     }
     if (const auto *grouped_data_access = dynamic_cast<const GroupedDataAccessNode *>(expression_node)) {
         return generate_grouped_data_access(builder, scope, allocations, grouped_data_access);
@@ -688,7 +687,7 @@ llvm::Value *Generator::Expression::generate_array_access(                      
     return IR::generate_bitwidth_change(builder, result, 64, to_type_value->getPrimitiveSizeInBits(), to_type_value);
 }
 
-llvm::Value *Generator::Expression::generate_data_access(             //
+Generator::group_mapping Generator::Expression::generate_data_access( //
     llvm::IRBuilder<> &builder,                                       //
     const Scope *scope,                                               //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
@@ -703,12 +702,21 @@ llvm::Value *Generator::Expression::generate_data_access(             //
     if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
         data_type = IR::get_type(Type::get_simple_type("str_var")).first;
         var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, data_access->var_name + "_str_val");
-    } else if (dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
+    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
+        if (data_access->field_name != "length") {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        std::vector<llvm::Value *> length_values;
         llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
         llvm::Value *arr_val = builder.CreateLoad(str_type->getPointerTo(), var_alloca, "arr_val");
         llvm::Value *length_ptr = builder.CreateStructGEP(str_type, arr_val, 1);
-        llvm::Value *length_value = builder.CreateLoad(builder.getInt64Ty(), length_ptr, "length_value");
-        return length_value;
+        for (size_t i = 0; i < array_type->dimensionality; i++) {
+            llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
+            llvm::Value *length_value = builder.CreateLoad(builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i));
+            length_values.emplace_back(length_value);
+        }
+        return length_values;
     } else {
         data_type = IR::get_type(data_access->data_type).first;
     }
@@ -719,7 +727,9 @@ llvm::Value *Generator::Expression::generate_data_access(             //
         value_ptr,                                                     //
         data_access->var_name + "_" + data_access->field_name + "_val" //
     );
-    return loaded_value;
+    std::vector<llvm::Value *> values;
+    values.emplace_back(loaded_value);
+    return values;
 }
 
 Generator::group_mapping Generator::Expression::generate_grouped_data_access( //

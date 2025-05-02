@@ -418,10 +418,22 @@ Parser::create_field_access_base( //
             return std::nullopt;
         }
         return std::make_tuple(data_type.value(), var_name, "length", 0, Type::get_simple_type("u64"));
-    } else if (dynamic_cast<const ArrayType *>(data_type.value().get())) {
+    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_type.value().get())) {
         if (field_name != "length") {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
+        }
+        if (array_type->dimensionality > 1) {
+            std::shared_ptr<Type> u64_type = Type::get_simple_type("u64");
+            std::vector<std::shared_ptr<Type>> length_types;
+            for (size_t i = 0; i < array_type->dimensionality; i++) {
+                length_types.emplace_back(u64_type);
+            }
+            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(length_types);
+            if (!Type::add_type(group_type)) {
+                group_type = Type::get_type_from_str(group_type->to_string()).value();
+            }
+            return std::make_tuple(data_type.value(), var_name, "length", 1, group_type);
         }
         return std::make_tuple(data_type.value(), var_name, "length", 1, Type::get_simple_type("u64"));
     }

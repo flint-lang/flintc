@@ -1924,8 +1924,8 @@ class Generator {
         /// @param `scope` The scope the data access is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `data_access` The data access node to generate
-        /// @return `llvm::Value *` The value containing the result of the data access
-        static llvm::Value *generate_data_access(                             //
+        /// @return `std::optional<llvm::Value *>` The value containing the result of the data access, nullopt if generation failed
+        static group_mapping generate_data_access(                            //
             llvm::IRBuilder<> &builder,                                       //
             const Scope *scope,                                               //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //

@@ -2,4 +2,10 @@ def main():
     i32[,] arr;
     arr = i32[10, 10](5);
     arr[0, 0] = 8;
-    print($"arr[0, 0] = {arr[0, 0]}\n");
+    (I, J) := arr.length;
+    print($"I = {I}\n");
+    print($"J = {J}\n");
+    for i32 j = 0; j < J; j++:
+        for i32 i = 0; i < I; i++:
+            arr[i, j] = i * j;
+            print($"arr[{i}, {j}] = {arr[i, j]}\n");
