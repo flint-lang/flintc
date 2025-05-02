@@ -635,7 +635,14 @@ namespace Debug {
 
         void print_group_declaration(unsigned int indent_lvl, uint2 empty, const GroupDeclarationNode &decl) {
             Local::print_header(indent_lvl, empty, "Group Decl ");
-            std::cout << "of type (";
+            std::cout << "(";
+            for (size_t i = 0; i < decl.variables.size(); i++) {
+                if (i > 0) {
+                    std::cout << ", ";
+                }
+                std::cout << decl.variables[i].second;
+            }
+            std::cout << ") of types (";
             for (auto it = decl.variables.begin(); it != decl.variables.end(); ++it) {
                 if (it != decl.variables.begin()) {
                     std::cout << ", ";
