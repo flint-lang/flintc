@@ -12,6 +12,7 @@ The Compiler is not done yet, as many planned features are still missing. The wh
 - [ ] Comprehensive Compile Error output (Error)
 - [ ] Semantics Checking Stage (Checker / Linter)
 - [x] Linking of Files (Linker)
+- [x] Signature Pattern Matcher (Matcher)
 - [ ] Fetching libraries from FlintHub (Fetcher)
 - [x] Creation and Management of dependencies (Resolver)
 - [x] Compilation of IR code to a binary (Compiler)
@@ -33,19 +34,19 @@ Currently, only the most basic features are working:
 - Initialization of custom data types, grouped variable access (`v2.(x, y)`) of custom data types
 - Variables of custom `data` types are _always_ passed by reference to functions
 - With the `mut` keyword, function parameters now can become mutable, both primitive and `data` parameters
-- The builtin `print` function, with overloaded variants to print `i32`, `flint`, `str` and `bool` variables or literals
+- The builtin `print` function, with overloaded variants to print all primitive types
 - Unary operators such as `++`, `--` or `not`
 - safe `i32`, `i64`, `u32`, `u64`, `f32` and `f64` variables, addition, substraction and multiplication
 - implicit primitive type conversions
 - explicit primitive type conversions (`i32(5.4)`, `str(69)`)
-- `str` variables + string mutability + concatenation
+- `str` variables + string mutability + concatenation + interpolation
 - `bool` variables
+- rectangular n-dimensional arrays (`i32[]`, `i32[,]` ...) and accessing the length(s) via `.length` which returns n `u64` values, one for each dimension length
 
 ## What's not working
 
 - `flint` variables dont behave as expected and are always wrong
-- enhanced `for` loops (because arrays dont exist yet, because DIMA doesnt exist yet)
-- Arrays `[]`
+- enhanced `for` loops (because DIMA doesnt exist yet)
 - The optional type
 - Custom `error` sets
 - `enum` type
