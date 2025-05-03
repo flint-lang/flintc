@@ -5,6 +5,7 @@
 #include "lexer/lexer_utils.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "llvm/IR/Constants.h"
 
@@ -191,6 +192,10 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
             type_map["type_str"] = str_type;
         }
         return {type_map.at("type_str")->getPointerTo(), false};
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
+        llvm::Type *element_type = get_type(multi_type->base_type).first;
+        llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+        return {vector_type, false};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
@@ -209,6 +214,13 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     }
     if (type->isStructTy()) {
         return llvm::ConstantStruct::get(llvm::cast<llvm::StructType>(type));
+    }
+    if (type->isVectorTy()) {
+        llvm::VectorType *vector_type = llvm::cast<llvm::VectorType>(type);
+        llvm::Type *element_type = vector_type->getElementType();
+        llvm::Constant *zero_element = llvm::cast<llvm::Constant>(get_default_value_of_type(element_type));
+        // Create a splat (all elements are the same)
+        return llvm::ConstantVector::getSplat(vector_type->getElementCount(), zero_element);
     }
     // No conversion available
     THROW_BASIC_ERR(ERR_GENERATING);

@@ -6,6 +6,7 @@
 #include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/type/multi_type.hpp"
 
 #include <llvm/IR/Instructions.h>
 #include <string>
@@ -773,17 +774,6 @@ Generator::group_mapping Generator::Expression::generate_type_cast(             
     // First, generate the expression
     std::vector<llvm::Value *> expr =
         generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, type_cast_node->expr.get()).value();
-    // Then, make sure that the expressions types are "normal" strings
-    // if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(type_cast_node->expr->type)) {
-    //     std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(type_cast_node->expr->type);
-    //     if (types.size() > 1) {
-    //         THROW_BASIC_ERR(ERR_GENERATING);
-    //         return std::nullopt;
-    //     }
-    //     std::shared_ptr<Type> single_type = types.at(0);
-    //     types.clear();
-    //     type_cast_node->expr->type = single_type;
-    // }
     std::shared_ptr<Type> to_type;
     if (const GroupType *group_type = dynamic_cast<const GroupType *>(type_cast_node->type.get())) {
         const std::vector<std::shared_ptr<Type>> &types = group_type->types;
@@ -792,6 +782,25 @@ Generator::group_mapping Generator::Expression::generate_type_cast(             
             return std::nullopt;
         }
         to_type = types.front();
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type_cast_node->type.get())) {
+        // The expression now must be a group type, so the `expr` size must be the multi-type width
+        if (expr.size() != multi_type->width) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        llvm::Type *element_type = IR::get_type(multi_type->base_type).first;
+        llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+
+        // Create and undefined vector to insert elements into
+        llvm::Value *vec = llvm::UndefValue::get(vector_type);
+
+        // "Store" all the values inside the vector which will be stored in the alloca in the `generate_declaration` function
+        for (unsigned int i = 0; i < expr.size(); i++) {
+            vec = builder.CreateInsertElement(vec, expr[i], builder.getInt32(i), "vec_insert");
+        }
+        std::vector<llvm::Value *> result;
+        result.emplace_back(vec);
+        return result;
     } else {
         to_type = type_cast_node->type;
     }
