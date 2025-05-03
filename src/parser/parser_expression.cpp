@@ -886,17 +886,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
         return std::nullopt;
     }
 
-    // Check if the expressions result is a vector of size 1, if it is make its type into a direct type
-    // if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(expression.value()->type)) {
-    //     std::vector<std::shared_ptr<Type>> &type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type);
-    //     if (type.size() == 1) {
-    //         // Use emplace to construct the shared_ptr alternative in-place
-    //         std::shared_ptr<Type> single_type = type.at(0);
-    //         type.clear();
-    //         expression.value()->type = single_type;
-    //     }
-    // }
-
     // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
     if (expected_type.has_value() && expected_type.value() != expression.value()->type) {
         if (primitive_implicit_casting_table.find(expression.value()->type->to_string()) != primitive_implicit_casting_table.end()) {

@@ -5,6 +5,7 @@
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/type/array_type.hpp"
+#include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
 
 #include <mutex>
@@ -117,7 +118,19 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
             assert(false);
         } else if (Matcher::token_match(tokens_mut.first->type, Matcher::type_prim_mult)) {
             // Its a multi-type
-            // return std::make_shared<MultiType>(tokens_mut.first->lexme);
+            const std::string &type_string = tokens_mut.first->lexme;
+            // The last character should be a number
+            const char width_char = type_string.back();
+            if (width_char < '0' || width_char > '9') {
+                assert(false);
+            }
+            // Skip the last character (being the number) as well as the `x`, if the last character is an 'x'
+            const bool ends_with_x = type_string.at(type_string.size() - 2) == 'x';
+            const std::string type_str = type_string.substr(0, type_string.size() - (ends_with_x ? 2 : 1));
+            assert(types.find(type_str) != types.end());
+            const std::shared_ptr<Type> base_type = types.at(type_str);
+            const unsigned int width = width_char - '0';
+            return std::make_shared<MultiType>(base_type, width);
         }
         // Its a data, entity or any other type that only has one string as its descriptor. Because these types should have been added
         // already this is a wrong condition too, as these types all have internal references. Its not an assertion error, because the type
