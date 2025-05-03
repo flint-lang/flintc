@@ -10,7 +10,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     FunctionNode function_node = FunctionNode(false, false, "_main", parameters, return_types, scope);
 
     // Create the declaration of the custom main function
-    llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(Type::get_simple_type("i32"));
+    llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(Type::get_primitive_type("i32"));
     llvm::FunctionType *custom_main_type = Function::generate_function_type(&function_node);
     llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction(function_node.name, custom_main_type);
 
@@ -219,7 +219,7 @@ void Generator::Builtin::generate_builtin_print( //
     // Create print function type
     llvm::FunctionType *print_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                       // return void
-        {IR::get_type(Type::get_simple_type(type)).first},    // takes type
+        {IR::get_type(Type::get_primitive_type(type)).first}, // takes type
         false                                                 // no vararg
     );
     // Create the print_int function
@@ -263,7 +263,7 @@ void Generator::Builtin::generate_builtin_print( //
 }
 
 void Generator::Builtin::generate_builtin_print_str_var(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
 
     // Create print function type
     llvm::FunctionType *print_str_type = llvm::FunctionType::get( //
@@ -313,10 +313,10 @@ void Generator::Builtin::generate_builtin_print_str_var(llvm::IRBuilder<> *build
 
 void Generator::Builtin::generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // Create print function type
-    llvm::FunctionType *print_type = llvm::FunctionType::get( //
-        llvm::Type::getVoidTy(context),                       // return void
-        {IR::get_type(Type::get_simple_type("bool")).first},  // takes type
-        false                                                 // no vararg
+    llvm::FunctionType *print_type = llvm::FunctionType::get(   //
+        llvm::Type::getVoidTy(context),                         // return void
+        {IR::get_type(Type::get_primitive_type("bool")).first}, // takes type
+        false                                                   // no vararg
     );
     // Create the print_int function
     llvm::Function *print_function = llvm::Function::Create( //

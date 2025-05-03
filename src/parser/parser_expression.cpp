@@ -222,25 +222,25 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
             case TOK_INT_VALUE: {
                 if (front_token == TOK_MINUS) {
                     std::variant<int, float, std::string, bool, char> value = std::stoi(tok->lexme) * -1;
-                    return LiteralNode(value, Type::get_simple_type("i32"));
+                    return LiteralNode(value, Type::get_primitive_type("i32"));
                 } else {
                     std::variant<int, float, std::string, bool, char> value = std::stoi(tok->lexme);
-                    return LiteralNode(value, Type::get_simple_type("i32"));
+                    return LiteralNode(value, Type::get_primitive_type("i32"));
                 }
             }
             case TOK_FLINT_VALUE: {
                 if (front_token == TOK_MINUS) {
                     std::variant<int, float, std::string, bool, char> value = std::stof(tok->lexme) * -1;
-                    return LiteralNode(value, Type::get_simple_type("f32"));
+                    return LiteralNode(value, Type::get_primitive_type("f32"));
                 } else {
                     std::variant<int, float, std::string, bool, char> value = std::stof(tok->lexme);
-                    return LiteralNode(value, Type::get_simple_type("f32"));
+                    return LiteralNode(value, Type::get_primitive_type("f32"));
                 }
             }
             case TOK_STR_VALUE: {
                 if (front_token == TOK_DOLLAR) {
                     std::variant<int, float, std::string, bool, char> value = tok->lexme;
-                    return LiteralNode(value, Type::get_simple_type("str"));
+                    return LiteralNode(value, Type::get_primitive_type("str"));
                 } else {
                     const std::string &str = tok->lexme;
                     std::stringstream processed_str;
@@ -269,20 +269,20 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                         }
                     }
                     std::variant<int, float, std::string, bool, char> value = processed_str.str();
-                    return LiteralNode(value, Type::get_simple_type("str"));
+                    return LiteralNode(value, Type::get_primitive_type("str"));
                 }
             }
             case TOK_TRUE: {
                 std::variant<int, float, std::string, bool, char> value = true;
-                return LiteralNode(value, Type::get_simple_type("bool"));
+                return LiteralNode(value, Type::get_primitive_type("bool"));
             }
             case TOK_FALSE: {
                 std::variant<int, float, std::string, bool, char> value = false;
-                return LiteralNode(value, Type::get_simple_type("bool"));
+                return LiteralNode(value, Type::get_primitive_type("bool"));
             }
             case TOK_CHAR_VALUE: {
                 std::variant<int, float, std::string, bool, char> value = tok->lexme[0];
-                return LiteralNode(value, Type::get_simple_type("char"));
+                return LiteralNode(value, Type::get_primitive_type("char"));
             }
         }
     }
@@ -295,7 +295,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
     std::vector<std::variant<std::unique_ptr<TypeCastNode>, std::unique_ptr<LiteralNode>>> interpol_content;
     // If the ranges are empty, the interpolation does not contain any groups
     if (ranges.empty()) {
-        interpol_content.emplace_back(std::make_unique<LiteralNode>(interpol_string, Type::get_simple_type("str")));
+        interpol_content.emplace_back(std::make_unique<LiteralNode>(interpol_string, Type::get_primitive_type("str")));
         return StringInterpolationNode(interpol_content);
     }
     // First, add all the strings from the begin to the first ranges begin to the interpolation content
@@ -329,7 +329,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
             return std::nullopt;
         }
         // Cast every expression inside to a str type
-        interpol_content.emplace_back(std::make_unique<TypeCastNode>(Type::get_simple_type("str"), expr.value()));
+        interpol_content.emplace_back(std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expr.value()));
         if (std::next(it) == ranges.end() && it->second + 2 < interpol_string.length()) {
             // Add string after last } symbol
             token_list lit_toks = {
@@ -433,7 +433,7 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, const token_s
         return std::nullopt;
     }
 
-    return TypeCastNode(Type::get_simple_type(type_token.lexme), expression.value());
+    return TypeCastNode(Type::get_primitive_type(type_token.lexme), expression.value());
 }
 
 std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope, const token_slice &tokens) {
@@ -865,7 +865,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
 
     // Create the binary operator node
     if (Matcher::token_match(pivot_token, Matcher::relational_binop)) {
-        return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), Type::get_simple_type("bool"));
+        return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), Type::get_primitive_type("bool"));
     }
     return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs.value()->type);
 }

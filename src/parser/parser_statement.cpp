@@ -45,13 +45,13 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, const token_slice &t
         }
     }
     token_slice expression_tokens = {tokens.first + throw_id + 1, tokens.second};
-    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens, Type::get_simple_type("i32"));
+    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens, Type::get_primitive_type("i32"));
     if (!expr.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
     if (expr.value()->type->to_string() != "i32") {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, Type::get_simple_type("i32"), expr.value()->type);
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, Type::get_primitive_type("i32"), expr.value()->type);
         return std::nullopt;
     }
     return ThrowNode(expr.value());
@@ -111,14 +111,16 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
     }
 
     // Create the if statements condition and body statements
-    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, this_if_pair.first, Type::get_simple_type("bool"));
+    std::optional<std::unique_ptr<ExpressionNode>> condition =
+        create_expression(scope, this_if_pair.first, Type::get_primitive_type("bool"));
     if (!condition.has_value()) {
         // Invalid expression inside if statement
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, this_if_pair.first);
         return std::nullopt;
     }
     if (condition.value()->type->to_string() != "bool") {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, this_if_pair.first, Type::get_simple_type("bool"), condition.value()->type);
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, this_if_pair.first, Type::get_primitive_type("bool"),
+            condition.value()->type);
         return std::nullopt;
     }
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
@@ -174,7 +176,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
         condition_tokens.second--;
     }
 
-    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens, Type::get_simple_type("bool"));
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens, Type::get_primitive_type("bool"));
     if (!condition.has_value()) {
         // Invalid expression inside while statement
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, condition_tokens);
@@ -326,7 +328,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     if (err_var.has_value()) {
-        body_scope->add_variable(err_var.value(), Type::get_simple_type("i32"), body_scope->scope_id, false, false);
+        body_scope->add_variable(err_var.value(), Type::get_primitive_type("i32"), body_scope->scope_id, false, false);
     }
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {

@@ -213,9 +213,9 @@ llvm::Value *Generator::Expression::generate_string_interpolation(              
         }
     }
     if (garbage.count(expr_depth) == 0) {
-        garbage[expr_depth].emplace_back(Type::get_simple_type("str"), str_value);
+        garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), str_value);
     } else {
-        garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), str_value);
+        garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), str_value);
     }
     return str_value;
 }
@@ -570,7 +570,7 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        llvm::Value *index_i64 = generate_type_cast(builder, result.value().front(), expr->type, Type::get_simple_type("u64"));
+        llvm::Value *index_i64 = generate_type_cast(builder, result.value().front(), expr->type, Type::get_primitive_type("u64"));
         length_expressions.emplace_back(index_i64);
     }
     group_mapping initializer_mapping = generate_expression(                                           //
@@ -617,7 +617,7 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
         initializer_expression,                                  //
         from_type->getPrimitiveSizeInBits(),                     //
         64,                                                      //
-        IR::get_type(Type::get_simple_type("i64")).first         //
+        IR::get_type(Type::get_primitive_type("i64")).first      //
     );
     llvm::CallInst *fill_call = builder.CreateCall(                               //
         Array::array_manip_functions.at("fill_arr_val"),                          //
@@ -654,7 +654,7 @@ llvm::Value *Generator::Expression::generate_array_access(                      
             return nullptr;
         }
         std::shared_ptr<Type> from_type = index_expression->type;
-        std::shared_ptr<Type> to_type = Type::get_simple_type("u64");
+        std::shared_ptr<Type> to_type = Type::get_primitive_type("u64");
         if (from_type != to_type) {
             index_expr = generate_type_cast(builder, index_expr, from_type, to_type);
         }
@@ -682,7 +682,7 @@ llvm::Value *Generator::Expression::generate_array_access(                      
         {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                //
     );
     // return builder.CreateBitCast(result, IR::get_type(std::get<std::shared_ptr<Type>>(access->type)).first);
-    // return generate_type_cast(builder, result, Type::get_simple_type("u64"), std::get<std::shared_ptr<Type>>(access->type));
+    // return generate_type_cast(builder, result, Type::get_primitive_type("u64"), std::get<std::shared_ptr<Type>>(access->type));
     llvm::Type *to_type_value = IR::get_type(access->type).first;
     return IR::generate_bitwidth_change(builder, result, 64, to_type_value->getPrimitiveSizeInBits(), to_type_value);
 }
@@ -700,7 +700,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
 
     llvm::Type *data_type;
     if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
-        data_type = IR::get_type(Type::get_simple_type("str_var")).first;
+        data_type = IR::get_type(Type::get_primitive_type("str_var")).first;
         var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, data_access->var_name + "_str_val");
     } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
         if (data_access->field_name != "length") {
@@ -708,7 +708,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             return std::nullopt;
         }
         std::vector<llvm::Value *> length_values;
-        llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
         llvm::Value *arr_val = builder.CreateLoad(str_type->getPointerTo(), var_alloca, "arr_val");
         llvm::Value *length_ptr = builder.CreateStructGEP(str_type, arr_val, 1);
         for (size_t i = 0; i < array_type->dimensionality; i++) {

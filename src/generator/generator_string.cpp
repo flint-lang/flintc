@@ -10,7 +10,7 @@ void Generator::String::generate_create_str_function(llvm::IRBuilder<> *builder,
     //     string->len = len;
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *create_str_type = llvm::FunctionType::get( //
@@ -64,7 +64,7 @@ void Generator::String::generate_init_str_function(llvm::IRBuilder<> *builder, l
     //     memcpy(string->value, value, len);
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -122,7 +122,7 @@ void Generator::String::generate_compare_str_function(llvm::IRBuilder<> *builder
     //     }
     //     return memcmp(lhs->value, rhs->value, lhs->len);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *memcmp_fn = c_functions.at(MEMCMP);
 
     llvm::FunctionType *compare_str_type = llvm::FunctionType::get( //
@@ -207,7 +207,7 @@ void Generator::String::generate_assign_str_function(llvm::IRBuilder<> *builder,
     //     free(*string);
     //     *string = value;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *free_fn = c_functions.at(FREE);
 
     llvm::FunctionType *assign_str_type = llvm::FunctionType::get( //
@@ -262,7 +262,7 @@ void Generator::String::generate_assign_lit_function(llvm::IRBuilder<> *builder,
     //     new_string->len = len;
     //     memcpy(new_string->value, value, len);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -338,7 +338,7 @@ void Generator::String::generate_append_str_function(llvm::IRBuilder<> *builder,
     //     memcpy(new_dest->value + new_dest->len, source->value, source->len);
     //     new_dest->len += source->len;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -421,7 +421,7 @@ void Generator::String::generate_append_lit_function(llvm::IRBuilder<> *builder,
     //     memcpy(new_dest->value + new_dest->len, source, source_len);
     //     new_dest->len += source_len;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -499,7 +499,7 @@ void Generator::String::generate_add_str_str_function(llvm::IRBuilder<> *builder
     //     memcpy(result->value + lhs->len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -578,7 +578,7 @@ void Generator::String::generate_add_str_lit_function(llvm::IRBuilder<> *builder
     //     memcpy(result->value + lhs->len, rhs, rhs_len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -655,7 +655,7 @@ void Generator::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder
     //     memcpy(result->value + lhs_len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -829,17 +829,17 @@ llvm::Value *Generator::String::generate_string_addition(                       
             const VariableNode *rhs_var = dynamic_cast<const VariableNode *>(rhs_expr);
             if (garbage.count(expr_depth) == 0) {
                 if (lhs_var == nullptr) {
-                    garbage[expr_depth].emplace_back(Type::get_simple_type("str"), lhs);
+                    garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
                 }
                 if (rhs_var == nullptr) {
-                    garbage[expr_depth].emplace_back(Type::get_simple_type("str"), rhs);
+                    garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), rhs);
                 }
             } else {
                 if (lhs_var == nullptr) {
-                    garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), lhs);
+                    garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), lhs);
                 }
                 if (rhs_var == nullptr) {
-                    garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), rhs);
+                    garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), rhs);
                 }
             }
             return addition_result;
@@ -866,9 +866,9 @@ llvm::Value *Generator::String::generate_string_addition(                       
             llvm::Value *addition_result = builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
             if (lhs_var == nullptr) {
                 if (garbage.count(expr_depth) == 0) {
-                    garbage[expr_depth].emplace_back(Type::get_simple_type("str"), lhs);
+                    garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
                 } else {
-                    garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), lhs);
+                    garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), lhs);
                 }
             }
             return addition_result;
@@ -883,9 +883,9 @@ llvm::Value *Generator::String::generate_string_addition(                       
         llvm::Value *addition_result = builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
         if (dynamic_cast<const VariableNode *>(rhs_expr) == nullptr) {
             if (garbage.count(expr_depth) == 0) {
-                garbage[expr_depth].emplace_back(Type::get_simple_type("str"), rhs);
+                garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), rhs);
             } else {
-                garbage.at(expr_depth).emplace_back(Type::get_simple_type("str"), rhs);
+                garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), rhs);
             }
         }
         return addition_result;

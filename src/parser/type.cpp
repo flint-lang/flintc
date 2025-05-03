@@ -3,24 +3,26 @@
 #include "error/error.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
+#include "matcher/matcher.hpp"
 #include "parser/type/array_type.hpp"
-#include "parser/type/simple_type.hpp"
+#include "parser/type/primitive_type.hpp"
 
 #include <mutex>
 #include <optional>
 #include <string>
 
 void Type::init_types() {
-    get_simple_type("i32");
-    get_simple_type("u32");
-    get_simple_type("i64");
-    get_simple_type("u64");
-    get_simple_type("f32");
-    get_simple_type("f64");
-    get_simple_type("bool");
-    get_simple_type("str");
-    get_simple_type("void");
-    get_simple_type("char");
+    get_primitive_type("i32");
+    get_primitive_type("u32");
+    get_primitive_type("i64");
+    get_primitive_type("u64");
+    get_primitive_type("f32");
+    get_primitive_type("f64");
+    get_primitive_type("bool");
+    get_primitive_type("str");
+    get_primitive_type("str_var");
+    get_primitive_type("void");
+    get_primitive_type("char");
 }
 
 bool Type::add_type(const std::shared_ptr<Type> &type_to_add) {
@@ -59,7 +61,7 @@ std::optional<std::shared_ptr<Type>> Type::get_type(const token_slice &tokens, c
     return types.at(type_str);
 }
 
-std::shared_ptr<Type> Type::get_simple_type(const std::string &type_str) {
+std::shared_ptr<Type> Type::get_primitive_type(const std::string &type_str) {
     // Check if string is empty
     assert(!type_str.empty() && "Identifier cannot be empty");
     // Check first character (must be letter or underscore)
@@ -83,8 +85,8 @@ std::shared_ptr<Type> Type::get_simple_type(const std::string &type_str) {
         // Another thread might already have added the type
         return types.at(type_str);
     }
-    // Create a simple type from the type_str
-    types[type_str] = std::make_shared<SimpleType>(type_str);
+    // Create a primitive type from the type_str
+    types[type_str] = std::make_shared<PrimitiveType>(type_str);
     return types.at(type_str);
 }
 
@@ -109,7 +111,20 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
     token_slice tokens_mut = tokens;
     // If the size of the token type list is 1, its definitely a simple type
     if (std::next(tokens_mut.first) == tokens_mut.second) {
-        return std::make_shared<SimpleType>(tokens_mut.first->lexme);
+        if (Matcher::token_match(tokens_mut.first->type, Matcher::type_prim)) {
+            // Its definitely a primitive type, but all primitive types should have been created by default annyway, so this should not be
+            // possible
+            assert(false);
+        } else if (Matcher::token_match(tokens_mut.first->type, Matcher::type_prim_mult)) {
+            // Its a multi-type
+            // return std::make_shared<MultiType>(tokens_mut.first->lexme);
+        }
+        // Its a data, entity or any other type that only has one string as its descriptor. Because these types should have been added
+        // already this is a wrong condition too, as these types all have internal references. Its not an assertion error, because the type
+        // name could just have been misspelled, but its definitely an error, so we return nullopt.
+        // This is a type not declared error
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
     }
     // If the type list ends with a ], its definitely an array type
     if (std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET) {
@@ -134,7 +149,7 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
             return std::nullopt;
         }
     }
-    // If its not a simple type and not an array type its a complex type, e.g. Opt<..> for example. This is not supported yet
+    // If its not a primitive type and not an array type its a complex type, e.g. Opt<..> for example. This is not supported yet
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }

@@ -174,7 +174,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name, next_it->line, next_it->column, next_it->lexme);
                 return std::nullopt;
             }
-            fields[next_it->lexme] = {Type::get_simple_type(body_it->lexme), std::nullopt};
+            fields[next_it->lexme] = {Type::get_primitive_type(body_it->lexme), std::nullopt};
             if ((body_it + 2)->type == TOK_EQUAL) {
                 fields[next_it->lexme].second = (body_it + 3)->lexme;
             }

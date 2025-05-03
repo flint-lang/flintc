@@ -323,7 +323,7 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
 
     std::vector<std::shared_ptr<Type>> return_types = function.value().first->return_types;
     if (return_types.empty()) {
-        return std::make_tuple(function_name, std::move(arguments), Type::get_simple_type("void"), std::nullopt);
+        return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), std::nullopt);
     } else if (return_types.size() > 1) {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(return_types);
         if (!Type::add_type(group_type)) {
@@ -417,14 +417,14 @@ Parser::create_field_access_base( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_tuple(data_type.value(), var_name, "length", 0, Type::get_simple_type("u64"));
+        return std::make_tuple(data_type.value(), var_name, "length", 0, Type::get_primitive_type("u64"));
     } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_type.value().get())) {
         if (field_name != "length") {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         if (array_type->dimensionality > 1) {
-            std::shared_ptr<Type> u64_type = Type::get_simple_type("u64");
+            std::shared_ptr<Type> u64_type = Type::get_primitive_type("u64");
             std::vector<std::shared_ptr<Type>> length_types;
             for (size_t i = 0; i < array_type->dimensionality; i++) {
                 length_types.emplace_back(u64_type);
@@ -435,7 +435,7 @@ Parser::create_field_access_base( //
             }
             return std::make_tuple(data_type.value(), var_name, "length", 1, group_type);
         }
-        return std::make_tuple(data_type.value(), var_name, "length", 1, Type::get_simple_type("u64"));
+        return std::make_tuple(data_type.value(), var_name, "length", 1, Type::get_primitive_type("u64"));
     }
     std::optional<DataNode *> data_node = get_data_definition(                        //
         file_name, data_type.value()->to_string(), imported_files, std::nullopt, true //

@@ -6,7 +6,7 @@
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/type/array_type.hpp"
-#include "parser/type/simple_type.hpp"
+#include "parser/type/primitive_type.hpp"
 
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Metadata.h>
@@ -75,8 +75,8 @@ bool Generator::Statement::clear_garbage(                                       
             if (DEBUG_MODE) {
                 std::cout << "  -- Type '" << type->to_string() << "' val addr: " << llvm_val << "\n";
             }
-            if (const auto simple_type = dynamic_cast<const SimpleType *>(type.get())) {
-                if (simple_type->type_name == "str") {
+            if (const auto primitive_type = dynamic_cast<const PrimitiveType *>(type.get())) {
+                if (primitive_type->type_name == "str") {
                     llvm::Function *free_fn = c_functions.at(FREE);
                     llvm::CallInst *free_call = builder.CreateCall(free_fn, {llvm_val});
                     free_call->setMetadata("comment",
@@ -140,20 +140,20 @@ bool Generator::Statement::generate_end_of_scope(                    //
         }
         // Check if the variable is of type str
         std::shared_ptr<Type> var_type = std::get<0>(var_info);
-        if (const auto simple_type = dynamic_cast<const SimpleType *>(var_type.get())) {
-            if (simple_type->type_name != "str") {
+        if (const auto primitive_type = dynamic_cast<const PrimitiveType *>(var_type.get())) {
+            if (primitive_type->type_name != "str") {
                 continue;
             }
             // Get the allocation of the variable
             const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
             llvm::Value *const alloca = allocations.at(alloca_name);
-            llvm::Type *str_type = IR::get_type(Type::get_simple_type("str_var")).first;
+            llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
             llvm::Value *str_ptr = builder.CreateLoad(str_type->getPointerTo(), alloca, var_name + "_cleanup");
             builder.CreateCall(c_functions.at(FREE), {str_ptr});
         } else if (dynamic_cast<ArrayType *>(var_type.get())) {
             const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
             llvm::Value *const alloca = allocations.at(alloca_name);
-            llvm::Type *arr_type = IR::get_type(Type::get_simple_type("str_var")).first;
+            llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("str_var")).first;
             llvm::Value *arr_ptr = builder.CreateLoad(arr_type->getPointerTo(), alloca, var_name + "_cleanup");
             builder.CreateCall(c_functions.at(FREE), {arr_ptr});
         }
@@ -994,14 +994,14 @@ bool Generator::Statement::generate_array_assignment(                 //
         builder.CreateStore(idx_expressions[i], idx_ptr);
     }
     // Store the main expression result in an 8 byte container
-    llvm::Type *to_type = IR::get_type(Type::get_simple_type("i64")).first;
+    llvm::Type *to_type = IR::get_type(Type::get_primitive_type("i64")).first;
     const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
     expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
     // Get the array value
     const unsigned int var_decl_scope = std::get<1>(scope->variables.at(array_assignment->variable_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + array_assignment->variable_name;
     llvm::Value *const array_alloca = allocations.at(var_name);
-    llvm::Type *arr_type = IR::get_type(Type::get_simple_type("str_var")).first->getPointerTo();
+    llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("str_var")).first->getPointerTo();
     llvm::Value *array_ptr = builder.CreateLoad(arr_type, array_alloca, "array_ptr");
     // Call the `assign_at_val` function
     builder.CreateCall(                                                       //

@@ -45,12 +45,12 @@ class Type {
     /// @return `std::optional<std::shared_ptr<Type>>` The shared pointer to the Type, nullopt if the creation of the type faied
     static std::optional<std::shared_ptr<Type>> get_type(const token_slice &tokens, const bool mutex_already_locked = false);
 
-    /// @function get_simple_type`
-    /// @brief Returns the simple type of a given string type, adds the type if it doesnt exist yet
+    /// @function get_primitive_type`
+    /// @brief Returns the primitive type of a given string type, adds the type if it doesnt exist yet
     ///
     /// @param `type_str` The type string
     /// @retrun `std::shared_ptr<Type>` The added type
-    static std::shared_ptr<Type> get_simple_type(const std::string &type_str);
+    static std::shared_ptr<Type> get_primitive_type(const std::string &type_str);
 
     /// @function `get_type_from_str`
     /// @brief Returns the type from a given string. If the types map does not contain this type, nullopt is retunred

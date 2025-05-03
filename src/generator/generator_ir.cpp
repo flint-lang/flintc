@@ -5,7 +5,7 @@
 #include "lexer/lexer_utils.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/simple_type.hpp"
+#include "parser/type/primitive_type.hpp"
 #include "llvm/IR/Constants.h"
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
@@ -114,9 +114,9 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
 }
 
 std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type> &type) {
-    if (const SimpleType *simple_type = dynamic_cast<const SimpleType *>(type.get())) {
+    if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(type.get())) {
         // Check if its a primitive or not. If it is not a primitive, its just a pointer type
-        if (simple_type->type_name == "str_var") {
+        if (primitive_type->type_name == "str_var") {
             // A string is a struct of type 'type { i64, [0 x i8] }'
             if (type_map.find("type_str") == type_map.end()) {
                 llvm::StructType *str_type = llvm::StructType::create( //
@@ -132,8 +132,8 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
             }
             return {type_map.at("type_str"), false};
         }
-        if (keywords.find(simple_type->type_name) != keywords.end()) {
-            switch (keywords.at(simple_type->type_name)) {
+        if (keywords.find(primitive_type->type_name) != keywords.end()) {
+            switch (keywords.at(primitive_type->type_name)) {
                 default:
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return {nullptr, false};
