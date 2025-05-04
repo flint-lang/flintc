@@ -1,3 +1,4 @@
 def main():
     i32x3 int3 = (1, 2, 3);
-    // str int3str = str(int3);
+    int3.(x, y, z) = (5, 3, 8);
+    print($"int3.x = {int3.x}\n");

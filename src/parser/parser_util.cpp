@@ -8,6 +8,7 @@
 #include "debug.hpp"
 #include "error/error.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/multi_type.hpp"
 #include <algorithm>
 
 bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
@@ -436,6 +437,19 @@ Parser::create_field_access_base( //
             return std::make_tuple(data_type.value(), var_name, "length", 1, group_type);
         }
         return std::make_tuple(data_type.value(), var_name, "length", 1, Type::get_primitive_type("u64"));
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(data_type.value().get())) {
+        auto access = create_multi_type_access(multi_type, field_name);
+        if (!access.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_tuple(          //
+            data_type.value(),           // Base type (multi-type)
+            var_name,                    // Name of the mutli-type variable
+            std::get<0>(access.value()), // Name of the accessed field
+            std::get<1>(access.value()), // ID of the accessed field
+            multi_type->base_type        // Type of the accessed field
+        );
     }
     std::optional<DataNode *> data_node = get_data_definition(                        //
         file_name, data_type.value()->to_string(), imported_files, std::nullopt, true //
@@ -463,6 +477,65 @@ Parser::create_field_access_base( //
     }
 
     return std::make_tuple(data_type.value(), var_name, field_name, field_id, field_type);
+}
+
+std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_access( //
+    const MultiType *multi_type,                                                       //
+    const std::string &field_name                                                      //
+) {
+    if (multi_type->width == 2) {
+        // The fields are called x and y, but can be accessed via $N
+        if (field_name == "x" || field_name == "$0") {
+            return std::make_tuple("$0", 0);
+        } else if (field_name == "y" || field_name == "$1") {
+            return std::make_tuple("$1", 1);
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    } else if (multi_type->width == 3) {
+        // The fields are called x, y and z, but can be accessed via $N
+        if (field_name == "x" || field_name == "$0") {
+            return std::make_tuple("$0", 0);
+        } else if (field_name == "y" || field_name == "$1") {
+            return std::make_tuple("$1", 1);
+        } else if (field_name == "z" || field_name == "$2") {
+            return std::make_tuple("$2", 2);
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    } else if (multi_type->width == 4) {
+        // The fields are called r, g, b and a, but can be accessed via $N
+        if (field_name == "r" || field_name == "$0") {
+            return std::make_tuple("$0", 0);
+        } else if (field_name == "g" || field_name == "$1") {
+            return std::make_tuple("$1", 1);
+        } else if (field_name == "b" || field_name == "$2") {
+            return std::make_tuple("$2", 2);
+        } else if (field_name == "a" || field_name == "$3") {
+            return std::make_tuple("$3", 3);
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    } else {
+        // The fields are accessed via $N
+        if (field_name.front() != '$') {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (field_name.size() != 2) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const char id = field_name.back() - '0';
+        if (static_cast<unsigned int>(id) >= multi_type->width || id < 0) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_tuple("$" + std::to_string(id), id);
+    }
 }
 
 std::optional<
@@ -505,14 +578,34 @@ Parser::create_grouped_access_base( //
     tokens.first++;
 
     // Now get the data type from the data variables name
-    const std::optional<std::shared_ptr<Type>> data_type = scope->get_variable_type(var_name);
-    if (!data_type.has_value()) {
+    const std::optional<std::shared_ptr<Type>> variable_type = scope->get_variable_type(var_name);
+    if (!variable_type.has_value()) {
         // The variable doesnt exist
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    std::optional<DataNode *> data_node = get_data_definition(                        //
-        file_name, data_type.value()->to_string(), imported_files, std::nullopt, true //
+
+    // First, look if its a multi-type
+    if (const MultiType *multi_type = dynamic_cast<const MultiType *>(variable_type.value().get())) {
+        std::vector<std::string> access_field_names;
+        std::vector<std::shared_ptr<Type>> field_types;
+        std::vector<unsigned int> field_ids;
+        for (const auto &field_name : field_names) {
+            auto access = create_multi_type_access(multi_type, field_name);
+            if (!access.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            access_field_names.emplace_back(std::get<0>(access.value()));
+            field_types.emplace_back(multi_type->base_type);
+            field_ids.emplace_back(std::get<1>(access.value()));
+        }
+        return std::make_tuple(variable_type.value(), var_name, access_field_names, field_ids, field_types);
+    }
+
+    // It should be a data type
+    std::optional<DataNode *> data_node = get_data_definition(                            //
+        file_name, variable_type.value()->to_string(), imported_files, std::nullopt, true //
     );
     if (!data_node.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -542,5 +635,5 @@ Parser::create_grouped_access_base( //
         field_ids.emplace_back(field_id);
     }
 
-    return std::make_tuple(data_type.value(), var_name, field_names, field_ids, field_types);
+    return std::make_tuple(variable_type.value(), var_name, field_names, field_ids, field_types);
 }

@@ -47,6 +47,8 @@
 #include "ast/statements/catch_node.hpp"
 #include "ast/statements/throw_node.hpp"
 
+#include "parser/type/multi_type.hpp"
+
 #include <cassert>
 #include <filesystem>
 #include <map>
@@ -543,6 +545,18 @@ class Parser {
     create_field_access_base( //
         Scope *scope,         //
         token_slice &tokens   //
+    );
+
+    /// @function `create_multi_type_access`
+    /// @brief Checks the multi-typed acccess and returns the index as well as the field name, where the returned field name is always in
+    /// the form of $N instead of the x, y, z or r, g, b, a form thats possible
+    ///
+    /// @param `multi_type` The multi-type the field access is based on
+    /// @param `field_name` The field name of the access
+    /// @return `std::optional<std::tuple<std::string, unsigned int>>` A tuple of the "new" access name and the access id, nullopt if failed
+    std::optional<std::tuple<std::string, unsigned int>> create_multi_type_access( //
+        const MultiType *multi_type,                                               //
+        const std::string &field_name                                              //
     );
 
     /// @function `create_grouped_access_base`
