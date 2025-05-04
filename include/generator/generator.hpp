@@ -1441,6 +1441,13 @@ class Generator {
             const std::string &ir_comment                                     //
         );
 
+        /// @function `calculate_type_alignment`
+        /// @brief Calculates the alignment for the given type
+        ///
+        /// @param `type` The type to calculate the alignment for
+        /// @return `unsigned int` The calculated alignment
+        static unsigned int calculate_type_alignment(llvm::Type *type);
+
         /// @function `generate_default_struct`
         /// @brief Allocates a struct and adds default values to every element of the struct
         ///

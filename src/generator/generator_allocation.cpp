@@ -60,6 +60,7 @@ void Generator::Allocation::generate_function_allocations(            //
             if (std::get<2>(param)) {
                 // Is mutable
                 llvm::AllocaInst *argAlloca = builder.CreateAlloca(arg.getType(), nullptr, arg.getName() + ".addr");
+                argAlloca->setAlignment(llvm::Align(calculate_type_alignment(arg.getType())));
 
                 // Store the initial argument value into the alloca
                 builder.CreateStore(&arg, argAlloca);
@@ -253,12 +254,43 @@ void Generator::Allocation::generate_allocation(                      //
         nullptr,                                     //
         ir_name                                      //
     );
+    alloca->setAlignment(llvm::Align(calculate_type_alignment(type)));
+
     alloca->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, ir_comment)));
     if (allocations.find(alloca_name) != allocations.end()) {
         // Variable allocation was already made somewhere else
         THROW_BASIC_ERR(ERR_GENERATING);
     }
     allocations.insert({alloca_name, alloca});
+}
+
+unsigned int Generator::Allocation::calculate_type_alignment(llvm::Type *type) {
+    // Default alignment
+    unsigned int alignment = 8;
+
+    // Check if the type is a vector type
+    if (type->isVectorTy()) {
+        // For vector types, use alignment of 16 bytes (or vector size if larger)
+        unsigned int prim_size = type->getPrimitiveSizeInBits() / 8;
+        alignment = prim_size > 16 ? prim_size : 16;
+    }
+    // Check if the type is a struct type
+    else if (type->isStructTy()) {
+        llvm::StructType *structType = llvm::cast<llvm::StructType>(type);
+
+        // For struct types, calculate the maximum alignment needed by any of its elements
+        for (unsigned i = 0; i < structType->getNumElements(); i++) {
+            llvm::Type *elemType = structType->getElementType(i);
+            alignment = std::max(alignment, calculate_type_alignment(elemType));
+        }
+    }
+    // For array types, check the element type
+    else if (type->isArrayTy()) {
+        llvm::Type *elemType = type->getArrayElementType();
+        alignment = calculate_type_alignment(elemType);
+    }
+
+    return alignment;
 }
 
 llvm::AllocaInst *Generator::Allocation::generate_default_struct( //
@@ -268,6 +300,7 @@ llvm::AllocaInst *Generator::Allocation::generate_default_struct( //
     bool ignore_first                                             //
 ) {
     llvm::AllocaInst *alloca = builder.CreateAlloca(type, nullptr, name);
+    alloca->setAlignment(llvm::Align(calculate_type_alignment(type)));
 
     for (unsigned int i = (ignore_first ? 1 : 0); i < type->getNumElements(); ++i) {
         llvm::Type *field_type = type->getElementType(i);

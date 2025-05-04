@@ -173,6 +173,7 @@ bool Generator::Statement::generate_return_statement(                 //
 
     // Allocate space for the function's return type (should be a struct type)
     llvm::AllocaInst *return_struct = builder.CreateAlloca(return_struct_type, nullptr, "ret_struct");
+    return_struct->setAlignment(llvm::Align(Allocation::calculate_type_alignment(return_struct_type)));
     return_struct->setMetadata("comment",
         llvm::MDNode::get(context,
             llvm::MDString::get(context,
