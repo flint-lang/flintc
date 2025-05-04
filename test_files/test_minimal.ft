@@ -5,4 +5,5 @@ def main():
     i32x3 result = int3 + int32;
     i32x3 temp = (4, 4, 4);
     result -= temp;
+    result *= temp;
     print($"result = ({result.x}, {result.y}, {result.z})\n");
