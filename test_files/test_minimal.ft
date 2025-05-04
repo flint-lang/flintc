@@ -1,4 +1,6 @@
 def main():
     i32x3 int3 = (1, 2, 3);
     int3.(x, y, z) = (5, 3, 8);
-    print($"int3.x = {int3.x}\n");
+    i32x3 int32 = (88, 3, 44);
+    i32x3 result = int3 + int32;
+    print($"result = ({result.x}, {result.y}, {result.z})\n");

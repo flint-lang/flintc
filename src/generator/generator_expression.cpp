@@ -1084,293 +1084,432 @@ Generator::group_mapping Generator::Expression::generate_binary_op(             
     assert(lhs.size() == rhs.size());
     std::vector<llvm::Value *> return_value;
 
+    const MultiType *lhs_mult = dynamic_cast<const MultiType *>(bin_op_node->left->type.get());
+    const MultiType *rhs_mult = dynamic_cast<const MultiType *>(bin_op_node->right->type.get());
+    if (lhs_mult != nullptr && rhs_mult != nullptr) {
+        if (lhs_mult->base_type != rhs_mult->base_type) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        if (lhs_mult->width != rhs_mult->width) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        // For multi-types we have exactly one value in each vector
+        assert(lhs.size() == 1 && rhs.size() == 1);
+        const std::string type_str = bin_op_node->type->to_string();
+        std::optional<llvm::Value *> result = generate_binary_op_vector(builder, bin_op_node, type_str, lhs[0], rhs[0]);
+        if (!result.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        return_value.emplace_back(result.value());
+        return return_value;
+    }
+
     for (size_t i = 0; i < lhs.size(); i++) {
         const std::shared_ptr<Type> type = bin_op_node->left->type;
         const GroupType *group_type = dynamic_cast<const GroupType *>(type.get());
         assert(group_type == nullptr || group_type->types.size() == lhs.size());
         const std::string type_str = group_type == nullptr ? type->to_string() : group_type->types[i]->to_string();
-        switch (bin_op_node->operator_token) {
-            default:
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
-            case TOK_PLUS:
-                if (type_str == "i32") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateAdd(lhs.at(i), rhs.at(i), "add_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("i32_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
-                    );
-                } else if (type_str == "i64") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateAdd(lhs.at(i), rhs.at(i), "add_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("i64_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
-                    );
-                } else if (type_str == "u32") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateAdd(lhs.at(i), rhs.at(i), "add_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("u32_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
-                    );
-                } else if (type_str == "u64") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateAdd(lhs.at(i), rhs.at(i), "add_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("u64_safe_add"), {lhs.at(i), rhs.at(i)}, "safe_add_res") //
-                    );
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFAdd(lhs.at(i), rhs.at(i), "faddtmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else if (type_str == "str") {
-                    return_value.emplace_back(String::generate_string_addition(builder, scope, allocations, garbage, expr_depth + 1, //
-                        lhs.at(i), bin_op_node->left.get(),                                                                          //
-                        rhs.at(i), bin_op_node->right.get(),                                                                         //
-                        bin_op_node->is_shorthand)                                                                                   //
-                    );
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_MINUS:
-                if (type_str == "i32") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateSub(lhs.at(i), rhs.at(i), "sub_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("i32_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
-                    );
-                } else if (type_str == "i64") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateSub(lhs.at(i), rhs.at(i), "sub_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("i64_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
-                    );
-                } else if (type_str == "u32") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE //
-                            ? builder.CreateSub(lhs.at(i), rhs.at(i), "sub_res")
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("u32_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
-                    );
-                } else if (type_str == "u64") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateSub(lhs.at(i), rhs.at(i), "sub_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("u64_safe_sub"), {lhs.at(i), rhs.at(i)}, "safe_sub_res") //
-                    );
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFSub(lhs.at(i), rhs.at(i), "fsubtmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_MULT:
-                if (type_str == "i32") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateMul(lhs.at(i), rhs.at(i), "mul_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("i32_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
-                    );
-                } else if (type_str == "i64") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateMul(lhs.at(i), rhs.at(i), "mul_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("i64_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
-                    );
-                } else if (type_str == "u32") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateMul(lhs.at(i), rhs.at(i), "mul_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("u32_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
-                    );
-                } else if (type_str == "u64") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                  //
-                            ? builder.CreateMul(lhs.at(i), rhs.at(i), "mul_res")                                               //
-                            : builder.CreateCall(                                                                              //
-                                  Arithmetic::arithmetic_functions.at("u64_safe_mul"), {lhs.at(i), rhs.at(i)}, "safe_mul_res") //
-                    );
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFMul(lhs.at(i), rhs.at(i), "fmultmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_DIV:
-                if (type_str == "i32") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                   //
-                            ? builder.CreateSDiv(lhs.at(i), rhs.at(i), "sdiv_res")                                              //
-                            : builder.CreateCall(                                                                               //
-                                  Arithmetic::arithmetic_functions.at("i32_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_sdiv_res") //
-                    );
-                } else if (type_str == "i64") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                   //
-                            ? builder.CreateSDiv(lhs.at(i), rhs.at(i), "sdiv_res")                                              //
-                            : builder.CreateCall(                                                                               //
-                                  Arithmetic::arithmetic_functions.at("i64_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_sdiv_res") //
-                    );
-                } else if (type_str == "u32") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                   //
-                            ? builder.CreateUDiv(lhs.at(i), rhs.at(i), "udiv_res")                                              //
-                            : builder.CreateCall(                                                                               //
-                                  Arithmetic::arithmetic_functions.at("u32_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_udiv_res") //
-                    );
-                } else if (type_str == "u64") {
-                    return_value.emplace_back(overflow_mode == ArithmeticOverflowMode::UNSAFE                                   //
-                            ? builder.CreateUDiv(lhs.at(i), rhs.at(i), "udiv_res")                                              //
-                            : builder.CreateCall(                                                                               //
-                                  Arithmetic::arithmetic_functions.at("u64_safe_div"), {lhs.at(i), rhs.at(i)}, "safe_udiv_res") //
-                    );
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFDiv(lhs.at(i), rhs.at(i), "fdivtmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_POW:
-                return_value.emplace_back(IR::generate_pow_instruction(builder, parent, lhs.at(i), rhs.at(i)));
-                break;
-            case TOK_LESS:
-                if (type_str == "i32" || type_str == "i64") {
-                    return_value.emplace_back(builder.CreateICmpSLT(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type_str == "u32" || type_str == "u64") {
-                    return_value.emplace_back(builder.CreateICmpULT(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFCmpOLT(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else if (type_str == "str") {
-                    return_value.emplace_back(Logical::generate_string_cmp_lt(                            //
-                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
-                    );
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_GREATER:
-                if (type_str == "i32" || type_str == "i64") {
-                    return_value.emplace_back(builder.CreateICmpSGT(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type_str == "u32" || type_str == "u64") {
-                    return_value.emplace_back(builder.CreateICmpUGT(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFCmpOGT(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else if (type_str == "str") {
-                    return_value.emplace_back(Logical::generate_string_cmp_gt(                            //
-                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
-                    );
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_LESS_EQUAL:
-                if (type_str == "i32" || type_str == "i64") {
-                    return_value.emplace_back(builder.CreateICmpSLE(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type_str == "u32" || type_str == "u64") {
-                    return_value.emplace_back(builder.CreateICmpULE(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFCmpOLE(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else if (type_str == "str") {
-                    return_value.emplace_back(Logical::generate_string_cmp_le(                            //
-                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
-                    );
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_GREATER_EQUAL:
-                if (type_str == "i32" || type_str == "i64") {
-                    return_value.emplace_back(builder.CreateICmpSGE(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type_str == "u32" || type_str == "u64") {
-                    return_value.emplace_back(builder.CreateICmpUGE(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFCmpOGE(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else if (type_str == "str") {
-                    return_value.emplace_back(Logical::generate_string_cmp_ge(                            //
-                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
-                    );
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_EQUAL_EQUAL:
-                if (type_str == "i32" || type_str == "i64") {
-                    return_value.emplace_back(builder.CreateICmpEQ(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type_str == "u32" || type_str == "u64") {
-                    return_value.emplace_back(builder.CreateICmpEQ(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFCmpOEQ(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else if (type_str == "str") {
-                    return_value.emplace_back(Logical::generate_string_cmp_eq(                            //
-                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
-                    );
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_NOT_EQUAL:
-                if (type_str == "i32" || type_str == "i64") {
-                    return_value.emplace_back(builder.CreateICmpNE(lhs.at(i), rhs.at(i), "icmptmp"));
-                } else if (type_str == "u32" || type_str == "u64") {
-                    return_value.emplace_back(builder.CreateICmpNE(lhs.at(i), rhs.at(i), "ucmptmp"));
-                } else if (type_str == "f32" || type_str == "f64") {
-                    return_value.emplace_back(builder.CreateFCmpONE(lhs.at(i), rhs.at(i), "fcmptmp"));
-                } else if (type_str == "flint") {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
-                } else if (type_str == "str") {
-                    return_value.emplace_back(Logical::generate_string_cmp_neq(                           //
-                        builder, lhs.at(i), bin_op_node->left.get(), rhs.at(i), bin_op_node->right.get()) //
-                    );
-                } else {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                break;
-            case TOK_AND:
-                if (type_str != "bool") {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                return_value.emplace_back(builder.CreateLogicalAnd(lhs.at(i), rhs.at(i), "band"));
-                break;
-            case TOK_OR:
-                if (type_str != "bool") {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                return_value.emplace_back(builder.CreateLogicalOr(lhs.at(i), rhs.at(i), "bor"));
-                break;
+        std::optional<llvm::Value *> result = generate_binary_op_scalar(                                    //
+            builder, parent, scope, allocations, garbage, expr_depth, bin_op_node, type_str, lhs[i], rhs[i] //
+        );
+        if (!result.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
         }
+        return_value.emplace_back(result.value());
     }
     return return_value;
+}
+
+std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(                                    //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const BinaryOpNode *bin_op_node,                                                                              //
+    const std::string &type_str,                                                                                  //
+    llvm::Value *lhs,                                                                                             //
+    llvm::Value *rhs                                                                                              //
+) {
+    switch (bin_op_node->operator_token) {
+        default:
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        case TOK_PLUS:
+            if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
+                return builder.CreateAdd(lhs, rhs, "add_res");
+            }
+            if (type_str == "i32") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_add"), {lhs, rhs}, "safe_add_res");
+            } else if (type_str == "i64") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_add"), {lhs, rhs}, "safe_add_res");
+            } else if (type_str == "u32") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_add"), {lhs, rhs}, "safe_add_res");
+            } else if (type_str == "u64") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_add"), {lhs, rhs}, "safe_add_res");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFAdd(lhs, rhs, "faddtmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            } else if (type_str == "str") {
+                return String::generate_string_addition(builder, scope, allocations, garbage, expr_depth + 1, //
+                    lhs, bin_op_node->left.get(),                                                             //
+                    rhs, bin_op_node->right.get(),                                                            //
+                    bin_op_node->is_shorthand                                                                 //
+                );
+            }
+            break;
+        case TOK_MINUS:
+            if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
+                return builder.CreateSub(lhs, rhs, "sub_res");
+            }
+            if (type_str == "i32") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_sub"), {lhs, rhs}, "safe_sub_res");
+            } else if (type_str == "i64") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_sub"), {lhs, rhs}, "safe_sub_res");
+            } else if (type_str == "u32") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_sub"), {lhs, rhs}, "safe_sub_res");
+            } else if (type_str == "u64") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_sub"), {lhs, rhs}, "safe_sub_res");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFSub(lhs, rhs, "fsubtmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+            break;
+        case TOK_MULT:
+            if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
+                return builder.CreateMul(lhs, rhs, "mul_res");
+            }
+            if (type_str == "i32") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_mul"), {lhs, rhs}, "safe_mul_res");
+            } else if (type_str == "i64") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_mul"), {lhs, rhs}, "safe_mul_res");
+            } else if (type_str == "u32") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_mul"), {lhs, rhs}, "safe_mul_res");
+            } else if (type_str == "u64") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_mul"), {lhs, rhs}, "safe_mul_res");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFMul(lhs, rhs, "fmultmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+            break;
+        case TOK_DIV:
+            if (type_str == "i32") {
+                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
+                    ? builder.CreateSDiv(lhs, rhs, "sdiv_res")         //
+                    : builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_div"), {lhs, rhs}, "safe_sdiv_res");
+            } else if (type_str == "i64") {
+                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
+                    ? builder.CreateSDiv(lhs, rhs, "sdiv_res")         //
+                    : builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_div"), {lhs, rhs}, "safe_sdiv_res");
+            } else if (type_str == "u32") {
+                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
+                    ? builder.CreateUDiv(lhs, rhs, "udiv_res")         //
+                    : builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_div"), {lhs, rhs}, "safe_udiv_res");
+            } else if (type_str == "u64") {
+                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
+                    ? builder.CreateUDiv(lhs, rhs, "udiv_res")         //
+                    : builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_div"), {lhs, rhs}, "safe_udiv_res");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFDiv(lhs, rhs, "fdivtmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+            break;
+        case TOK_POW:
+            return IR::generate_pow_instruction(builder, parent, lhs, rhs);
+            break;
+        case TOK_LESS:
+            if (type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpSLT(lhs, rhs, "icmptmp");
+            } else if (type_str == "u32" || type_str == "u64") {
+                return builder.CreateICmpULT(lhs, rhs, "ucmptmp");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFCmpOLT(lhs, rhs, "fcmptmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            } else if (type_str == "str") {
+                return Logical::generate_string_cmp_lt(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+            }
+            break;
+        case TOK_GREATER:
+            if (type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpSGT(lhs, rhs, "icmptmp");
+            } else if (type_str == "u32" || type_str == "u64") {
+                return builder.CreateICmpUGT(lhs, rhs, "ucmptmp");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFCmpOGT(lhs, rhs, "fcmptmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            } else if (type_str == "str") {
+                return Logical::generate_string_cmp_gt(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+            }
+            break;
+        case TOK_LESS_EQUAL:
+            if (type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpSLE(lhs, rhs, "icmptmp");
+            } else if (type_str == "u32" || type_str == "u64") {
+                return builder.CreateICmpULE(lhs, rhs, "ucmptmp");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFCmpOLE(lhs, rhs, "fcmptmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            } else if (type_str == "str") {
+                return Logical::generate_string_cmp_le(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+            }
+            break;
+        case TOK_GREATER_EQUAL:
+            if (type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpSGE(lhs, rhs, "icmptmp");
+            } else if (type_str == "u32" || type_str == "u64") {
+                return builder.CreateICmpUGE(lhs, rhs, "ucmptmp");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFCmpOGE(lhs, rhs, "fcmptmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            } else if (type_str == "str") {
+                return Logical::generate_string_cmp_ge(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+            }
+            break;
+        case TOK_EQUAL_EQUAL:
+            if (type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpEQ(lhs, rhs, "icmptmp");
+            } else if (type_str == "u32" || type_str == "u64") {
+                return builder.CreateICmpEQ(lhs, rhs, "ucmptmp");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFCmpOEQ(lhs, rhs, "fcmptmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            } else if (type_str == "str") {
+                return Logical::generate_string_cmp_eq(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+            }
+            break;
+        case TOK_NOT_EQUAL:
+            if (type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpNE(lhs, rhs, "icmptmp");
+            } else if (type_str == "u32" || type_str == "u64") {
+                return builder.CreateICmpNE(lhs, rhs, "ucmptmp");
+            } else if (type_str == "f32" || type_str == "f64") {
+                return builder.CreateFCmpONE(lhs, rhs, "fcmptmp");
+            } else if (type_str == "flint") {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            } else if (type_str == "str") {
+                return Logical::generate_string_cmp_neq(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+            }
+            break;
+        case TOK_AND:
+            if (type_str != "bool") {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return builder.CreateLogicalAnd(lhs, rhs, "band");
+            break;
+        case TOK_OR:
+            if (type_str != "bool") {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return builder.CreateLogicalOr(lhs, rhs, "bor");
+            break;
+    }
+    return std::nullopt;
+}
+
+std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( //
+    llvm::IRBuilder<> &builder,                                                //
+    const BinaryOpNode *bin_op_node,                                           //
+    const std::string &type_str,                                               //
+    llvm::Value *lhs,                                                          //
+    llvm::Value *rhs                                                           //
+) {
+    const bool is_float = lhs->getType()->isFloatTy();
+    switch (bin_op_node->operator_token) {
+        default:
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        case TOK_PLUS:
+            if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
+                if (is_float) {
+                    return builder.CreateFAdd(lhs, rhs, "vec_add");
+                } else {
+                    return builder.CreateAdd(lhs, rhs, "vec_add");
+                }
+            }
+            if (type_str == "i32x2") {
+                return std::nullopt;
+            } else if (type_str == "i32x3") {
+                return std::nullopt;
+            } else if (type_str == "i32x4") {
+                return std::nullopt;
+            } else if (type_str == "i32x8") {
+                return std::nullopt;
+            } else if (type_str == "i64x2") {
+                return std::nullopt;
+            } else if (type_str == "i64x3") {
+                return std::nullopt;
+            } else if (type_str == "i64x4") {
+                return std::nullopt;
+            } else if (type_str == "f32x2") {
+                return std::nullopt;
+            } else if (type_str == "f32x3") {
+                return std::nullopt;
+            } else if (type_str == "f32x4") {
+                return std::nullopt;
+            } else if (type_str == "f32x8") {
+                return std::nullopt;
+            } else if (type_str == "f64x2") {
+                return std::nullopt;
+            } else if (type_str == "f64x3") {
+                return std::nullopt;
+            } else if (type_str == "f64x4") {
+                return std::nullopt;
+            }
+            break;
+        case TOK_MINUS:
+            if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
+                if (is_float) {
+                    return builder.CreateFSub(lhs, rhs, "vec_sub");
+                } else {
+                    return builder.CreateSub(lhs, rhs, "vec_sub");
+                }
+            }
+            if (type_str == "i32x2") {
+                return std::nullopt;
+            } else if (type_str == "i32x3") {
+                return std::nullopt;
+            } else if (type_str == "i32x4") {
+                return std::nullopt;
+            } else if (type_str == "i32x8") {
+                return std::nullopt;
+            } else if (type_str == "i64x2") {
+                return std::nullopt;
+            } else if (type_str == "i64x3") {
+                return std::nullopt;
+            } else if (type_str == "i64x4") {
+                return std::nullopt;
+            } else if (type_str == "f32x2") {
+                return std::nullopt;
+            } else if (type_str == "f32x3") {
+                return std::nullopt;
+            } else if (type_str == "f32x4") {
+                return std::nullopt;
+            } else if (type_str == "f32x8") {
+                return std::nullopt;
+            } else if (type_str == "f64x2") {
+                return std::nullopt;
+            } else if (type_str == "f64x3") {
+                return std::nullopt;
+            } else if (type_str == "f64x4") {
+                return std::nullopt;
+            }
+            break;
+        case TOK_MULT:
+            if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
+                if (is_float) {
+                    return builder.CreateFMul(lhs, rhs, "vec_mul");
+                } else {
+                    return builder.CreateMul(lhs, rhs, "vec_mul");
+                }
+            }
+            if (type_str == "i32x2") {
+                return std::nullopt;
+            } else if (type_str == "i32x3") {
+                return std::nullopt;
+            } else if (type_str == "i32x4") {
+                return std::nullopt;
+            } else if (type_str == "i32x8") {
+                return std::nullopt;
+            } else if (type_str == "i64x2") {
+                return std::nullopt;
+            } else if (type_str == "i64x3") {
+                return std::nullopt;
+            } else if (type_str == "i64x4") {
+                return std::nullopt;
+            } else if (type_str == "f32x2") {
+                return std::nullopt;
+            } else if (type_str == "f32x3") {
+                return std::nullopt;
+            } else if (type_str == "f32x4") {
+                return std::nullopt;
+            } else if (type_str == "f32x8") {
+                return std::nullopt;
+            } else if (type_str == "f64x2") {
+                return std::nullopt;
+            } else if (type_str == "f64x3") {
+                return std::nullopt;
+            } else if (type_str == "f64x4") {
+                return std::nullopt;
+            }
+            break;
+        case TOK_DIV:
+            if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
+                if (is_float) {
+                    return builder.CreateFDiv(lhs, rhs, "vec_div");
+                } else {
+                    return builder.CreateSDiv(lhs, rhs, "vec_div");
+                }
+            }
+            if (type_str == "i32x2") {
+                return std::nullopt;
+            } else if (type_str == "i32x3") {
+                return std::nullopt;
+            } else if (type_str == "i32x4") {
+                return std::nullopt;
+            } else if (type_str == "i32x8") {
+                return std::nullopt;
+            } else if (type_str == "i64x2") {
+                return std::nullopt;
+            } else if (type_str == "i64x3") {
+                return std::nullopt;
+            } else if (type_str == "i64x4") {
+                return std::nullopt;
+            } else if (type_str == "f32x2") {
+                return std::nullopt;
+            } else if (type_str == "f32x3") {
+                return std::nullopt;
+            } else if (type_str == "f32x4") {
+                return std::nullopt;
+            } else if (type_str == "f32x8") {
+                return std::nullopt;
+            } else if (type_str == "f64x2") {
+                return std::nullopt;
+            } else if (type_str == "f64x3") {
+                return std::nullopt;
+            } else if (type_str == "f64x4") {
+                return std::nullopt;
+            }
+            break;
+        case TOK_AND:
+            if (type_str != "bool8") {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return builder.CreateAnd(lhs, rhs, "vec_i8_and");
+            break;
+        case TOK_OR:
+            if (type_str != "bool8") {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return builder.CreateOr(lhs, rhs, "vec_i8_or");
+            break;
+    }
+    return std::nullopt;
 }

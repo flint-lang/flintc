@@ -2024,6 +2024,55 @@ class Generator {
             const unsigned int expr_depth,                                                                                //
             const BinaryOpNode *bin_op_node                                                                               //
         );
+
+        /// @function `generate_binary_op_scalar`
+        /// @brief Generates the binary operation for scalar binary ops
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the binary operation is generated in
+        /// @param `scope` The scope the binary operation is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 every layer)
+        /// @param `bin_op_node` The binary operation to generate
+        /// @param `type_str` The string representation of the type
+        /// @param `lhs` The left hand side llvm instruction
+        /// @param `rhs` The right hand side llvm instruction
+        /// @return `std::optional<llvm::Value *>` The result of the binary operation
+        static std::optional<llvm::Value *> generate_binary_op_scalar(                                                    //
+            llvm::IRBuilder<> &builder,                                                                                   //
+            llvm::Function *parent,                                                                                       //
+            const Scope *scope,                                                                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                                //
+            const BinaryOpNode *bin_op_node,                                                                              //
+            const std::string &type_str,                                                                                  //
+            llvm::Value *lhs,                                                                                             //
+            llvm::Value *rhs                                                                                              //
+        );
+
+        /// @function `generate_binary_op_vector`
+        /// @brief Generates the binary operation for vector binary ops
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the binary operation is generated in
+        /// @param `scope` The scope the binary operation is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 every layer)
+        /// @param `bin_op_node` The binary operation to generate
+        /// @param `type_str` The string representation of the type
+        /// @param `lhs` The left hand side llvm instruction
+        /// @param `rhs` The right hand side llvm instruction
+        /// @return `std::optional<llvm::Value *>` The result of the binary operation
+        static std::optional<llvm::Value *> generate_binary_op_vector( //
+            llvm::IRBuilder<> &builder,                                //
+            const BinaryOpNode *bin_op_node,                           //
+            const std::string &type_str,                               //
+            llvm::Value *lhs,                                          //
+            llvm::Value *rhs                                           //
+        );
     }; // subclass Expression
 
     /// @class `String`
