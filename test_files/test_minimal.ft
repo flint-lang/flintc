@@ -4,5 +4,6 @@ def assert(bool condition):
 
 def main():
     i32x3 int3 = 4;
-    assert(int3 == (4, 4, 4));
+    int3 *= 2;
+    assert(int3 == 8);
     print($"int3 = ({int3.x}, {int3.y}, {int3.z})\n");

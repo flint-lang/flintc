@@ -23,6 +23,16 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
     const GroupType *rhs_group = dynamic_cast<const GroupType *>(rhs->type.get());
     if (lhs_group == nullptr && rhs_group == nullptr) {
         // Both single type
+        // If one of them is a multi-type, the other one has to be a single value with the same type as the base type of the mutli-type
+        const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs->type.get());
+        const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs->type.get());
+        if (lhs_mult != nullptr && rhs_mult == nullptr && lhs_mult->base_type == rhs->type) {
+            rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
+            return true;
+        } else if (lhs_mult == nullptr && rhs_mult != nullptr && lhs->type == rhs_mult->base_type) {
+            lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
+            return true;
+        }
         if (type_precedence.find(lhs->type->to_string()) == type_precedence.end() ||
             type_precedence.find(rhs->type->to_string()) == type_precedence.end()) {
             // Not castable, wrong arg types
