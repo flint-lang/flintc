@@ -42,6 +42,7 @@ Currently, only the most basic features are working:
 - `str` variables + string mutability + concatenation + interpolation
 - `bool` variables
 - rectangular n-dimensional arrays (`i32[]`, `i32[,]` ...) and accessing the length(s) via `.length` which returns n `u64` values, one for each dimension length
+- SIMD multi-types such as `i32x2`, `f32x3`, `i64x4`, `bool8`, etc. and native interoperability with groups
 
 ## What's not working
 
