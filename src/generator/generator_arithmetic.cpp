@@ -31,30 +31,37 @@ void Generator::Arithmetic::generate_arithmetic_functions(llvm::IRBuilder<> *bui
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
     generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
     generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
     // i32x3 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
     generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
     generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
     // i32x4 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
     generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
     generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
     // i32x8 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
     generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
     generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
     // i64x2 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
     generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
     generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
     // i64x3 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
     generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
     generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
     // i64x4 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
     generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
     generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
 }
 
 void Generator::Arithmetic::generate_int_safe_add( //
@@ -1146,5 +1153,119 @@ void Generator::Arithmetic::generate_int_vector_safe_mul( //
 
         builder->SetInsertPoint(no_overflow_block);
         builder->CreateRet(mult);
+    }
+}
+
+void Generator::Arithmetic::generate_int_vector_safe_div( //
+    llvm::IRBuilder<> *builder,                           //
+    llvm::Module *module,                                 //
+    const bool only_declarations,                         //
+    llvm::VectorType *vector_int_type,                    //
+    const unsigned int vector_width,                      //
+    const std::string &name                               //
+) {
+    llvm::FunctionType *int_vector_safe_div_type = llvm::FunctionType::get(vector_int_type, {vector_int_type, vector_int_type}, false);
+    llvm::Function *int_vector_safe_div_fn = llvm::Function::Create( //
+        int_vector_safe_div_type,                                    //
+        llvm::Function::ExternalLinkage,                             //
+        "__flint_" + name + "_safe_div",                             //
+        module                                                       //
+    );
+    arithmetic_functions[name + "_safe_div"] = int_vector_safe_div_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_vector_safe_div_fn);
+    llvm::BasicBlock *error_block;
+    llvm::BasicBlock *no_error_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        error_block = llvm::BasicBlock::Create(context, "error", int_vector_safe_div_fn);
+        no_error_block = llvm::BasicBlock::Create(context, "no_error", int_vector_safe_div_fn);
+    }
+    builder->SetInsertPoint(entry_block);
+
+    // Get the parameters
+    llvm::Argument *arg_lhs = int_vector_safe_div_fn->arg_begin();
+    arg_lhs->setName("lhs");
+    llvm::Argument *arg_rhs = int_vector_safe_div_fn->arg_begin() + 1;
+    arg_rhs->setName("rhs");
+
+    // Get the scalar type from the vector type
+    llvm::Type *element_type = vector_int_type->getElementType();
+
+    // Create vector constants
+    llvm::Constant *scalar_zero = llvm::ConstantInt::get(element_type, 0);
+    llvm::Constant *scalar_minus_one = llvm::ConstantInt::get(element_type, -1);
+    llvm::Constant *scalar_min_int =
+        llvm::ConstantInt::get(element_type, llvm::APInt::getSignedMinValue(element_type->getIntegerBitWidth()));
+
+    llvm::Constant *zero = llvm::ConstantVector::getSplat(llvm::ElementCount::get(vector_width, false), scalar_zero);
+    llvm::Constant *minus_one = llvm::ConstantVector::getSplat(llvm::ElementCount::get(vector_width, false), scalar_minus_one);
+    llvm::Constant *min_int = llvm::ConstantVector::getSplat(llvm::ElementCount::get(vector_width, false), scalar_min_int);
+
+    // Check for division by zero and MIN_INT/-1
+    llvm::Value *div_by_zero = builder->CreateICmpEQ(arg_rhs, zero);
+    llvm::Value *is_min_int = builder->CreateICmpEQ(arg_lhs, min_int);
+    llvm::Value *div_by_minus_one = builder->CreateICmpEQ(arg_rhs, minus_one);
+    llvm::Value *would_overflow = builder->CreateAnd(is_min_int, div_by_minus_one);
+
+    // Combine error conditions
+    llvm::Value *error_happened_vec = builder->CreateOr(div_by_zero, would_overflow);
+
+    // Create the division
+    llvm::Value *div = builder->CreateSDiv(arg_lhs, arg_rhs, "vdivtmp");
+
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        // In silent mode, just select the original left operand when there's an error
+        llvm::Value *result = builder->CreateSelect(error_happened_vec, arg_lhs, div);
+        builder->CreateRet(result);
+    } else {
+        // Check if any error occurred in any element
+        llvm::Type *error_vec_type = error_happened_vec->getType();
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {error_vec_type});
+        llvm::Value *any_error = builder->CreateCall(reduce_or_fn, {error_happened_vec}, "any_error");
+
+        // Change branch prediction, as errors are much less likely to happen
+        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
+            {
+                llvm::MDString::get(context, "branch_weights"),       //
+                llvm::ConstantAsMetadata::get(builder->getInt32(1)),  // weight of error
+                llvm::ConstantAsMetadata::get(builder->getInt32(100)) // weight of no error
+            });
+        builder->CreateCondBr(any_error, error_block, no_error_block, branch_weights);
+
+        builder->SetInsertPoint(error_block);
+        llvm::Value *div_zero_message = IR::generate_const_string(*builder, name + " division by zero caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " division overflow caught\n");
+
+        // Determine if we should display division by zero or overflow message
+        // Check if any element has division by zero
+        llvm::Function *reduce_or_fn_zero =
+            llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {div_by_zero->getType()});
+        llvm::Value *any_div_by_zero = builder->CreateCall(reduce_or_fn_zero, {div_by_zero}, "any_div_by_zero");
+
+        llvm::Value *message = builder->CreateSelect(any_div_by_zero, div_zero_message, overflow_message);
+        builder->CreateCall(builtins.at(PRINT), {message});
+
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_int_vector_safe_div'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                // For the PRINT mode, we use the original lhs values when there's an error
+                llvm::Value *result = builder->CreateSelect(error_happened_vec, arg_lhs, div);
+                builder->CreateRet(result);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_error_block);
+        builder->CreateRet(div);
     }
 }

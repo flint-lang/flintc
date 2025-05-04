@@ -721,6 +721,15 @@ class Generator {
             const std::string &name         //
         );
 
+        /// @function `generate_int_vector_safe_add`
+        /// @brief Creates a safe addition of two signed integer vector types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `iMxN_safe_add` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        /// @param `vector_int_type` The vector type to generate the function for
+        /// @param `vector_width` The width of the vector
+        /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
         static void generate_int_vector_safe_add( //
             llvm::IRBuilder<> *builder,           //
             llvm::Module *module,                 //
@@ -730,6 +739,15 @@ class Generator {
             const std::string &name               //
         );
 
+        /// @function `generate_int_vector_safe_sub`
+        /// @brief Creates a safe subtraction of two signed integer vector types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `iMxN_safe_sub` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        /// @param `vector_int_type` The vector type to generate the function for
+        /// @param `vector_width` The width of the vector
+        /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
         static void generate_int_vector_safe_sub( //
             llvm::IRBuilder<> *builder,           //
             llvm::Module *module,                 //
@@ -739,7 +757,34 @@ class Generator {
             const std::string &name               //
         );
 
+        /// @function `generate_int_vector_safe_mul`
+        /// @brief Creates a safe multiplication of two signed integer vector types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `iMxN_safe_mul` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        /// @param `vector_int_type` The vector type to generate the function for
+        /// @param `vector_width` The width of the vector
+        /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
         static void generate_int_vector_safe_mul( //
+            llvm::IRBuilder<> *builder,           //
+            llvm::Module *module,                 //
+            const bool only_declarations,         //
+            llvm::VectorType *vector_int_type,    //
+            const unsigned int vector_width,      //
+            const std::string &name               //
+        );
+
+        /// @function `generate_int_vector_safe_div`
+        /// @brief Creates a safe division of two signed integer vector types
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `iMxN_safe_div` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        /// @param `vector_int_type` The vector type to generate the function for
+        /// @param `vector_width` The width of the vector
+        /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
+        static void generate_int_vector_safe_div( //
             llvm::IRBuilder<> *builder,           //
             llvm::Module *module,                 //
             const bool only_declarations,         //
