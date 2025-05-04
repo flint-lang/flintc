@@ -1144,14 +1144,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
                 return builder.CreateAdd(lhs, rhs, "add_res");
             }
-            if (type_str == "i32") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_add"), {lhs, rhs}, "safe_add_res");
-            } else if (type_str == "i64") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_add"), {lhs, rhs}, "safe_add_res");
-            } else if (type_str == "u32") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_add"), {lhs, rhs}, "safe_add_res");
-            } else if (type_str == "u64") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_add"), {lhs, rhs}, "safe_add_res");
+            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_add"), {lhs, rhs}, "safe_add_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFAdd(lhs, rhs, "faddtmp");
             } else if (type_str == "flint") {
@@ -1169,14 +1163,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
                 return builder.CreateSub(lhs, rhs, "sub_res");
             }
-            if (type_str == "i32") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_sub"), {lhs, rhs}, "safe_sub_res");
-            } else if (type_str == "i64") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_sub"), {lhs, rhs}, "safe_sub_res");
-            } else if (type_str == "u32") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_sub"), {lhs, rhs}, "safe_sub_res");
-            } else if (type_str == "u64") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_sub"), {lhs, rhs}, "safe_sub_res");
+            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_sub"), {lhs, rhs}, "safe_sub_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFSub(lhs, rhs, "fsubtmp");
             } else if (type_str == "flint") {
@@ -1188,14 +1176,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
                 return builder.CreateMul(lhs, rhs, "mul_res");
             }
-            if (type_str == "i32") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_mul"), {lhs, rhs}, "safe_mul_res");
-            } else if (type_str == "i64") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_mul"), {lhs, rhs}, "safe_mul_res");
-            } else if (type_str == "u32") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_mul"), {lhs, rhs}, "safe_mul_res");
-            } else if (type_str == "u64") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_mul"), {lhs, rhs}, "safe_mul_res");
+            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64") {
+                return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_mul"), {lhs, rhs}, "safe_mul_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFMul(lhs, rhs, "fmultmp");
             } else if (type_str == "flint") {
@@ -1204,22 +1186,14 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
             }
             break;
         case TOK_DIV:
-            if (type_str == "i32") {
+            if (type_str == "i32" || type_str == "i64") {
                 return overflow_mode == ArithmeticOverflowMode::UNSAFE //
                     ? builder.CreateSDiv(lhs, rhs, "sdiv_res")         //
-                    : builder.CreateCall(Arithmetic::arithmetic_functions.at("i32_safe_div"), {lhs, rhs}, "safe_sdiv_res");
-            } else if (type_str == "i64") {
-                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
-                    ? builder.CreateSDiv(lhs, rhs, "sdiv_res")         //
-                    : builder.CreateCall(Arithmetic::arithmetic_functions.at("i64_safe_div"), {lhs, rhs}, "safe_sdiv_res");
-            } else if (type_str == "u32") {
+                    : builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_sdiv_res");
+            } else if (type_str == "u32" || type_str == "u64") {
                 return overflow_mode == ArithmeticOverflowMode::UNSAFE //
                     ? builder.CreateUDiv(lhs, rhs, "udiv_res")         //
-                    : builder.CreateCall(Arithmetic::arithmetic_functions.at("u32_safe_div"), {lhs, rhs}, "safe_udiv_res");
-            } else if (type_str == "u64") {
-                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
-                    ? builder.CreateUDiv(lhs, rhs, "udiv_res")         //
-                    : builder.CreateCall(Arithmetic::arithmetic_functions.at("u64_safe_div"), {lhs, rhs}, "safe_udiv_res");
+                    : builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_udiv_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFDiv(lhs, rhs, "fdivtmp");
             } else if (type_str == "flint") {
@@ -1345,156 +1319,56 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         case TOK_PLUS:
+            if (is_float) {
+                return builder.CreateFAdd(lhs, rhs, "vec_add");
+            }
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
-                if (is_float) {
-                    return builder.CreateFAdd(lhs, rhs, "vec_add");
-                } else {
-                    return builder.CreateAdd(lhs, rhs, "vec_add");
-                }
+                return builder.CreateAdd(lhs, rhs, "vec_add");
             }
-            if (type_str == "i32x2") {
-                return std::nullopt;
-            } else if (type_str == "i32x3") {
-                return std::nullopt;
-            } else if (type_str == "i32x4") {
-                return std::nullopt;
-            } else if (type_str == "i32x8") {
-                return std::nullopt;
-            } else if (type_str == "i64x2") {
-                return std::nullopt;
-            } else if (type_str == "i64x3") {
-                return std::nullopt;
-            } else if (type_str == "i64x4") {
-                return std::nullopt;
-            } else if (type_str == "f32x2") {
-                return std::nullopt;
-            } else if (type_str == "f32x3") {
-                return std::nullopt;
-            } else if (type_str == "f32x4") {
-                return std::nullopt;
-            } else if (type_str == "f32x8") {
-                return std::nullopt;
-            } else if (type_str == "f64x2") {
-                return std::nullopt;
-            } else if (type_str == "f64x3") {
-                return std::nullopt;
-            } else if (type_str == "f64x4") {
+            if (Arithmetic::arithmetic_functions.find(type_str + "_safe_add") == Arithmetic::arithmetic_functions.end()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
+            return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_add"), {lhs, rhs}, "safe_add_res");
             break;
         case TOK_MINUS:
+            if (is_float) {
+                return builder.CreateFSub(lhs, rhs, "vec_sub");
+            }
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
-                if (is_float) {
-                    return builder.CreateFSub(lhs, rhs, "vec_sub");
-                } else {
-                    return builder.CreateSub(lhs, rhs, "vec_sub");
-                }
+                return builder.CreateSub(lhs, rhs, "vec_sub");
             }
-            if (type_str == "i32x2") {
-                return std::nullopt;
-            } else if (type_str == "i32x3") {
-                return std::nullopt;
-            } else if (type_str == "i32x4") {
-                return std::nullopt;
-            } else if (type_str == "i32x8") {
-                return std::nullopt;
-            } else if (type_str == "i64x2") {
-                return std::nullopt;
-            } else if (type_str == "i64x3") {
-                return std::nullopt;
-            } else if (type_str == "i64x4") {
-                return std::nullopt;
-            } else if (type_str == "f32x2") {
-                return std::nullopt;
-            } else if (type_str == "f32x3") {
-                return std::nullopt;
-            } else if (type_str == "f32x4") {
-                return std::nullopt;
-            } else if (type_str == "f32x8") {
-                return std::nullopt;
-            } else if (type_str == "f64x2") {
-                return std::nullopt;
-            } else if (type_str == "f64x3") {
-                return std::nullopt;
-            } else if (type_str == "f64x4") {
+            if (Arithmetic::arithmetic_functions.find(type_str + "_safe_sub") == Arithmetic::arithmetic_functions.end()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
+            return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_sub"), {lhs, rhs}, "safe_sub_res");
             break;
         case TOK_MULT:
+            if (is_float) {
+                return builder.CreateFMul(lhs, rhs, "vec_mul");
+            }
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
-                if (is_float) {
-                    return builder.CreateFMul(lhs, rhs, "vec_mul");
-                } else {
-                    return builder.CreateMul(lhs, rhs, "vec_mul");
-                }
+                return builder.CreateMul(lhs, rhs, "vec_mul");
             }
-            if (type_str == "i32x2") {
-                return std::nullopt;
-            } else if (type_str == "i32x3") {
-                return std::nullopt;
-            } else if (type_str == "i32x4") {
-                return std::nullopt;
-            } else if (type_str == "i32x8") {
-                return std::nullopt;
-            } else if (type_str == "i64x2") {
-                return std::nullopt;
-            } else if (type_str == "i64x3") {
-                return std::nullopt;
-            } else if (type_str == "i64x4") {
-                return std::nullopt;
-            } else if (type_str == "f32x2") {
-                return std::nullopt;
-            } else if (type_str == "f32x3") {
-                return std::nullopt;
-            } else if (type_str == "f32x4") {
-                return std::nullopt;
-            } else if (type_str == "f32x8") {
-                return std::nullopt;
-            } else if (type_str == "f64x2") {
-                return std::nullopt;
-            } else if (type_str == "f64x3") {
-                return std::nullopt;
-            } else if (type_str == "f64x4") {
+            if (Arithmetic::arithmetic_functions.find(type_str + "_safe_mul") == Arithmetic::arithmetic_functions.end()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
+            return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_mul"), {lhs, rhs}, "safe_mul_res");
             break;
         case TOK_DIV:
+            if (is_float) {
+                return builder.CreateFDiv(lhs, rhs, "vec_div");
+            }
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
-                if (is_float) {
-                    return builder.CreateFDiv(lhs, rhs, "vec_div");
-                } else {
-                    return builder.CreateSDiv(lhs, rhs, "vec_div");
-                }
+                return builder.CreateSDiv(lhs, rhs, "vec_div");
             }
-            if (type_str == "i32x2") {
-                return std::nullopt;
-            } else if (type_str == "i32x3") {
-                return std::nullopt;
-            } else if (type_str == "i32x4") {
-                return std::nullopt;
-            } else if (type_str == "i32x8") {
-                return std::nullopt;
-            } else if (type_str == "i64x2") {
-                return std::nullopt;
-            } else if (type_str == "i64x3") {
-                return std::nullopt;
-            } else if (type_str == "i64x4") {
-                return std::nullopt;
-            } else if (type_str == "f32x2") {
-                return std::nullopt;
-            } else if (type_str == "f32x3") {
-                return std::nullopt;
-            } else if (type_str == "f32x4") {
-                return std::nullopt;
-            } else if (type_str == "f32x8") {
-                return std::nullopt;
-            } else if (type_str == "f64x2") {
-                return std::nullopt;
-            } else if (type_str == "f64x3") {
-                return std::nullopt;
-            } else if (type_str == "f64x4") {
+            if (Arithmetic::arithmetic_functions.find(type_str + "_safe_div") == Arithmetic::arithmetic_functions.end()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
+            return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_div_res");
             break;
         case TOK_AND:
             if (type_str != "bool8") {

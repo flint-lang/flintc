@@ -533,6 +533,7 @@ class Generator {
         /// @attention The functions are nullpointers until the `generate_arithmetic_functions` function is called
         /// @attention The map is not being cleared after the program module has been generated
         static inline std::unordered_map<std::string_view, llvm::Function *> arithmetic_functions = {
+            // Signed Integer Types
             {"i32_safe_add", nullptr},
             {"i32_safe_sub", nullptr},
             {"i32_safe_mul", nullptr},
@@ -541,6 +542,7 @@ class Generator {
             {"i64_safe_sub", nullptr},
             {"i64_safe_mul", nullptr},
             {"i64_safe_div", nullptr},
+            // Unsigned Integer Types
             {"u32_safe_add", nullptr},
             {"u32_safe_sub", nullptr},
             {"u32_safe_mul", nullptr},
@@ -549,6 +551,38 @@ class Generator {
             {"u64_safe_sub", nullptr},
             {"u64_safe_mul", nullptr},
             {"u64_safe_div", nullptr},
+            // Signed Multi Types of length 2
+            {"i32x2_safe_add", nullptr},
+            {"i32x2_safe_sub", nullptr},
+            {"i32x2_safe_mul", nullptr},
+            {"i32x2_safe_div", nullptr},
+            {"i64x2_safe_add", nullptr},
+            {"i64x2_safe_sub", nullptr},
+            {"i64x2_safe_mul", nullptr},
+            {"i64x2_safe_div", nullptr},
+            // Signed Multi Types of length 3
+            {"i32x3_safe_add", nullptr},
+            {"i32x3_safe_sub", nullptr},
+            {"i32x3_safe_mul", nullptr},
+            {"i32x3_safe_div", nullptr},
+            {"i64x3_safe_add", nullptr},
+            {"i64x3_safe_sub", nullptr},
+            {"i64x3_safe_mul", nullptr},
+            {"i64x3_safe_div", nullptr},
+            // Signed Multi Types of length 4
+            {"i32x4_safe_add", nullptr},
+            {"i32x4_safe_sub", nullptr},
+            {"i32x4_safe_mul", nullptr},
+            {"i32x4_safe_div", nullptr},
+            {"i64x4_safe_add", nullptr},
+            {"i64x4_safe_sub", nullptr},
+            {"i64x4_safe_mul", nullptr},
+            {"i64x4_safe_div", nullptr},
+            // Signed Multi Types of length 8
+            {"i32x8_safe_add", nullptr},
+            {"i32x8_safe_sub", nullptr},
+            {"i32x8_safe_mul", nullptr},
+            {"i32x8_safe_div", nullptr},
         };
 
         /// @function `generate_arithmetic_functions`
@@ -685,6 +719,15 @@ class Generator {
             const bool only_declarations,   //
             llvm::Type *int_type,           //
             const std::string &name         //
+        );
+
+        static void generate_int_vector_safe_add( //
+            llvm::IRBuilder<> *builder,           //
+            llvm::Module *module,                 //
+            const bool only_declarations,         //
+            llvm::VectorType *vector_int_type,    //
+            const unsigned int vector_width,      //
+            const std::string &name               //
         );
     }; // subclass Arithmetic
 
