@@ -2056,11 +2056,6 @@ class Generator {
         /// @brief Generates the binary operation for vector binary ops
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the binary operation is generated in
-        /// @param `scope` The scope the binary operation is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
-        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 every layer)
         /// @param `bin_op_node` The binary operation to generate
         /// @param `type_str` The string representation of the type
         /// @param `lhs` The left hand side llvm instruction
