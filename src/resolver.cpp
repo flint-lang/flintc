@@ -195,22 +195,22 @@ bool Resolver::process_dependency_file(                               //
         std::string parsed_file_name = file.value().file_name;
         // Add all dependencies of the file and the file itself to the file map and the dependency map
         // Also return a created DepNode, but its dependants are not created yet
-        std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file.value(), file_dep.first);
+        std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file.value(), dep_file_path.parent_path());
         if (!base_maybe.has_value()) {
             // File already exists in the dependency map, so it can be added to the "root" DepNode as a weak ptr
             std::lock_guard<std::mutex> lock(dependency_node_map_mutex);
-            std::weak_ptr<DepNode> weak(dependency_node_map.at(file_dep.second));
+            std::weak_ptr<DepNode> weak(dependency_node_map.at(dep_file_path.filename().string()));
             dependency_node_map.at(dep_name)->dependencies.emplace_back(weak);
             continue;
         }
         // Add parsed file to the dependency graph
-        add_path(parsed_file_name, file_dep.first);
+        add_path(parsed_file_name, dep_file_path.parent_path());
         std::shared_ptr<DepNode> shared_dep = std::make_shared<DepNode>(base_maybe.value());
         {
             std::lock_guard<std::mutex> lock(dependency_node_map_mutex);
             shared_dep->root = dependency_node_map.at(dep_name);
             dependency_node_map.at(dep_name)->dependencies.emplace_back(shared_dep);
-            dependency_node_map.emplace(file_dep.second, shared_dep);
+            dependency_node_map.emplace(dep_file_path.filename().string(), shared_dep);
         } // The mutex will be unlocked automatically when it goes out of scope
 
         // Add all dependencies of this parsed file to be parsed next
