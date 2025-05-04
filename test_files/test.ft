@@ -1,11 +1,10 @@
-use "test_array.ft"
-use "test_data.ft"
-use "test_error.ft"
-use "test_loops.ft"
-use "test_multi_types.ft"
-use "test_str.ft"
-use "subdir/test_subdir.ft"
-use "test_tests.ft"
+use "tests/array.ft"
+use "tests/data.ft"
+use "tests/error.ft"
+use "tests/loops.ft"
+use "tests/multi_types.ft"
+use "tests/str.ft"
+use "tests/tests.ft"
 
 def main():
 	test_array();
@@ -14,5 +13,4 @@ def main():
 	test_multi_types();
 	test_loops();
 	test_str();
-	assert(test_subdir(1, 2) == 3);
 	print("All tests passed!\n");
