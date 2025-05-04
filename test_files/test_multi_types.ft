@@ -1,0 +1,42 @@
+use "assert.ft"
+
+def test_mult_fn(i32x4 v4, i32 m) -> i32x4:
+    return v4 * m;
+
+def test_single_value_expansion():
+    f32x4 v4 = 8.0;
+    assert(v4 == (8.0, 8.0, 8.0, 8.0));
+
+    v4 /= 2.0;
+    assert(v4 == 4.0);
+
+    v4.(r, b) = (3.0, 5.0);
+    assert(v4 == (3.0, 4.0, 5.0, 4.0));
+
+    v4 = 0.0;
+    assert(v4 == 0.0);
+
+def test_simple_operations():
+    i32x3 int3 = (1, 2, 3);
+    int3.(x, y, z) = (5, 3, 8);
+    i32x3 int32 = (88, 3, 44);
+    i32x3 result = int3 + int32;
+    assert(result == (93, 6, 52));
+
+    i32x3 temp = (4, 4, 4);
+    result -= temp;
+    assert(result == (89, 2, 48));
+
+    result *= temp;
+    assert(result == (356, 8, 192));
+
+    i32x3 temp2 = (2, 2, 2);
+    result /= temp2;
+    assert(result == (178, 4, 96));
+
+def test_multi_types():
+    test_simple_operations();
+    test_single_value_expansion();
+    i32x4 input = (1, 2, 3, 4);
+    i32x4 out = test_mult_fn(input, 3);
+    assert(out == (3, 6, 9, 12));
