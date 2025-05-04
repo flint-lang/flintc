@@ -934,6 +934,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
             const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(expression.value()->type->to_string());
             if (std::find(to_types.begin(), to_types.end(), expected_type.value()->to_string()) != to_types.end()) {
                 expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+            } else {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
             }
         } else {
             THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);

@@ -83,13 +83,13 @@ static inline std::unordered_map<std::string_view, std::vector<std::string_view>
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_implicit_casting_table = {
-    {"i32", {"str", "u32", "u64", "i64", "f32", "f64"}},
-    {"i64", {"str"}},
+    {"i32", {"str", "u32", "u64", "i64", "f32", "f64", "i32x2", "i32x3", "i32x4", "i32x8"}},
+    {"i64", {"str", "i64x2", "i64x3", "i64x4"}},
     {"u32", {"str", "i32", "i64", "u64", "f32", "f64"}},
     {"u64", {"str"}},
-    {"f32", {"str", "f64"}},
-    {"f64", {"str"}},
-    {"bool", {"str"}},
+    {"f32", {"str", "f64", "f32x2", "f32x3", "f32x4", "f32x8"}},
+    {"f64", {"str", "f64x2", "f64x3", "f64x4"}},
+    {"bool", {"str", "bool8"}},
     {"char", {"bool8"}},
     {"bool8", {"char"}},
     {"(i32, i32)", {"i32x2"}},

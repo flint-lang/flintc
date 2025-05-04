@@ -785,6 +785,12 @@ Generator::group_mapping Generator::Expression::generate_type_cast(             
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type_cast_node->type.get())) {
         // The expression now must be a group type, so the `expr` size must be the multi-type width
         if (expr.size() != multi_type->width) {
+            // If the sizes dont match, the rhs must have size 1 and its type must match the element type of the multi-type
+            if (expr.size() == 1 && type_cast_node->expr->type == multi_type->base_type) {
+                // We now can create a single value extension for the vector
+                expr[0] = builder.CreateVectorSplat(multi_type->width, expr[0], "vec_ext");
+                return expr;
+            }
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
