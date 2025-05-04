@@ -38,6 +38,48 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
             // The left type needs to be cast to the right type
             lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
         }
+    } else if (lhs_group == nullptr && rhs_group != nullptr) {
+        // Left is no group, right is group
+        // Check if left is a multi-type, then the right is castable to the left
+        const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs->type.get());
+        if (lhs_mult == nullptr) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        // The group must have the same size as the multi-type
+        if (lhs_mult->width != rhs_group->types.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        // All elements in the group must have the same type as the multi-type
+        for (size_t i = 0; i < lhs_mult->width; i++) {
+            if (lhs_mult->base_type != rhs_group->types[i]) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+        }
+        rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
+    } else if (lhs_group != nullptr && rhs_group == nullptr) {
+        // Left is group, right is no group
+        // Check if right is a multi-type, then the left is castable to the right
+        const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs->type.get());
+        if (rhs_mult == nullptr) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        // The group must have the same size as the multi-type
+        if (rhs_mult->width != lhs_group->types.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        // All elements in the group must have the same type as the multi-type
+        for (size_t i = 0; i < rhs_mult->width; i++) {
+            if (rhs_mult->base_type != lhs_group->types[i]) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+        }
+        lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
     } else {
         // Both group
         // TODO

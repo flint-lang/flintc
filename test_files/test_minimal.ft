@@ -1,11 +1,19 @@
+def assert(bool condition):
+    if not condition:
+        throw 10;
+
 def main():
     i32x3 int3 = (1, 2, 3);
     int3.(x, y, z) = (5, 3, 8);
     i32x3 int32 = (88, 3, 44);
     i32x3 result = int3 + int32; // result = (93, 6, 52)
+    assert(result == (93, 6, 52));
     i32x3 temp = (4, 4, 4);
     result -= temp; // result = (89, 2, 48)
+    assert(result == (89, 2, 48));
     result *= temp; // result = (356, 8, 192)
+    assert(result == (356, 8, 192));
     i32x3 temp2 = (2, 2, 2);
     result /= temp2; // result = (178, 4, 96)
+    assert(result == (178, 4, 96));
     print($"result = ({result.x}, {result.y}, {result.z})\n");

@@ -1313,7 +1313,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
     llvm::Value *lhs,                                                          //
     llvm::Value *rhs                                                           //
 ) {
-    const bool is_float = lhs->getType()->isFloatTy();
+    const bool is_float = lhs->getType()->getScalarType()->isFloatTy();
     switch (bin_op_node->operator_token) {
         default:
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -1369,6 +1369,48 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
                 return std::nullopt;
             }
             return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_div_res");
+            break;
+        case TOK_LESS:
+            if (is_float) {
+                return builder.CreateFCmpOLT(lhs, rhs, "vec_lt");
+            } else {
+                return builder.CreateICmpSLT(lhs, rhs, "vec_lt");
+            }
+            break;
+        case TOK_GREATER:
+            if (is_float) {
+                return builder.CreateFCmpOGT(lhs, rhs, "vec_gt");
+            } else {
+                return builder.CreateICmpSGT(lhs, rhs, "vec_gt");
+            }
+            break;
+        case TOK_LESS_EQUAL:
+            if (is_float) {
+                return builder.CreateFCmpOLE(lhs, rhs, "vec_le");
+            } else {
+                return builder.CreateICmpSLE(lhs, rhs, "vec_le");
+            }
+            break;
+        case TOK_GREATER_EQUAL:
+            if (is_float) {
+                return builder.CreateFCmpOGE(lhs, rhs, "vec_ge");
+            } else {
+                return builder.CreateICmpSGE(lhs, rhs, "vec_ge");
+            }
+            break;
+        case TOK_EQUAL_EQUAL:
+            if (is_float) {
+                return builder.CreateFCmpOEQ(lhs, rhs, "vec_eq");
+            } else {
+                return builder.CreateICmpEQ(lhs, rhs, "vec_eq");
+            }
+            break;
+        case TOK_NOT_EQUAL:
+            if (is_float) {
+                return builder.CreateFCmpONE(lhs, rhs, "vec_ne");
+            } else {
+                return builder.CreateICmpNE(lhs, rhs, "vec_ne");
+            }
             break;
         case TOK_AND:
             if (type_str != "bool8") {
