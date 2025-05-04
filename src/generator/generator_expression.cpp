@@ -1376,48 +1376,86 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             }
             return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_div_res");
             break;
-        case TOK_LESS:
+        case TOK_LESS: {
+            llvm::Value *cmp_result;
             if (is_float) {
-                return builder.CreateFCmpOLT(lhs, rhs, "vec_lt");
+                cmp_result = builder.CreateFCmpOLT(lhs, rhs, "vec_lt");
             } else {
-                return builder.CreateICmpSLT(lhs, rhs, "vec_lt");
+                cmp_result = builder.CreateICmpSLT(lhs, rhs, "vec_lt");
             }
-            break;
-        case TOK_GREATER:
+            // Create the intrinsic declaration for vector_reduce_and
+            llvm::Type *cmp_type = cmp_result->getType();
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+                builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
+            );
+            // Call the intrinsic to reduce the vector to a single boolean
+            return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_lt");
+        }
+        case TOK_GREATER: {
+            llvm::Value *cmp_result;
             if (is_float) {
-                return builder.CreateFCmpOGT(lhs, rhs, "vec_gt");
+                cmp_result = builder.CreateFCmpOGT(lhs, rhs, "vec_gt");
             } else {
-                return builder.CreateICmpSGT(lhs, rhs, "vec_gt");
+                cmp_result = builder.CreateICmpSGT(lhs, rhs, "vec_gt");
             }
-            break;
-        case TOK_LESS_EQUAL:
+            llvm::Type *cmp_type = cmp_result->getType();
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+                builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
+            );
+            return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_gt");
+        }
+        case TOK_LESS_EQUAL: {
+            llvm::Value *cmp_result;
             if (is_float) {
-                return builder.CreateFCmpOLE(lhs, rhs, "vec_le");
+                cmp_result = builder.CreateFCmpOLE(lhs, rhs, "vec_le");
             } else {
-                return builder.CreateICmpSLE(lhs, rhs, "vec_le");
+                cmp_result = builder.CreateICmpSLE(lhs, rhs, "vec_le");
             }
-            break;
-        case TOK_GREATER_EQUAL:
+            llvm::Type *cmp_type = cmp_result->getType();
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+                builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
+            );
+            return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_le");
+        }
+        case TOK_GREATER_EQUAL: {
+            llvm::Value *cmp_result;
             if (is_float) {
-                return builder.CreateFCmpOGE(lhs, rhs, "vec_ge");
+                cmp_result = builder.CreateFCmpOGE(lhs, rhs, "vec_ge");
             } else {
-                return builder.CreateICmpSGE(lhs, rhs, "vec_ge");
+                cmp_result = builder.CreateICmpSGE(lhs, rhs, "vec_ge");
             }
-            break;
-        case TOK_EQUAL_EQUAL:
+            llvm::Type *cmp_type = cmp_result->getType();
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+                builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
+            );
+            return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_ge");
+        }
+        case TOK_EQUAL_EQUAL: {
+            llvm::Value *cmp_result;
             if (is_float) {
-                return builder.CreateFCmpOEQ(lhs, rhs, "vec_eq");
+                cmp_result = builder.CreateFCmpOEQ(lhs, rhs, "vec_eq");
             } else {
-                return builder.CreateICmpEQ(lhs, rhs, "vec_eq");
+                cmp_result = builder.CreateICmpEQ(lhs, rhs, "vec_eq");
             }
-            break;
-        case TOK_NOT_EQUAL:
+            llvm::Type *cmp_type = cmp_result->getType();
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+                builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
+            );
+            return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_eq");
+        }
+        case TOK_NOT_EQUAL: {
+            llvm::Value *cmp_result;
             if (is_float) {
-                return builder.CreateFCmpONE(lhs, rhs, "vec_ne");
+                cmp_result = builder.CreateFCmpONE(lhs, rhs, "vec_ne");
             } else {
-                return builder.CreateICmpNE(lhs, rhs, "vec_ne");
+                cmp_result = builder.CreateICmpNE(lhs, rhs, "vec_ne");
             }
-            break;
+            llvm::Type *cmp_type = cmp_result->getType();
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+                builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
+            );
+            return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_ne");
+        }
         case TOK_AND:
             if (type_str != "bool8") {
                 THROW_BASIC_ERR(ERR_GENERATING);
