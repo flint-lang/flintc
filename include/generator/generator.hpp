@@ -729,6 +729,15 @@ class Generator {
             const unsigned int vector_width,      //
             const std::string &name               //
         );
+
+        static void generate_int_vector_safe_sub( //
+            llvm::IRBuilder<> *builder,           //
+            llvm::Module *module,                 //
+            const bool only_declarations,         //
+            llvm::VectorType *vector_int_type,    //
+            const unsigned int vector_width,      //
+            const std::string &name               //
+        );
     }; // subclass Arithmetic
 
     /// @class `Logical`

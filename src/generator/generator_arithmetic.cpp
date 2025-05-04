@@ -29,18 +29,25 @@ void Generator::Arithmetic::generate_arithmetic_functions(llvm::IRBuilder<> *bui
 
     // i32x2 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
     // i32x3 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
     // i32x4 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
     // i32x8 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
     // i64x2 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
     // i64x3 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
     // i64x4 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
 }
 
 void Generator::Arithmetic::generate_int_safe_add( //
@@ -872,5 +879,140 @@ void Generator::Arithmetic::generate_int_vector_safe_add( //
 
         builder->SetInsertPoint(no_overflow_block);
         builder->CreateRet(add);
+    }
+}
+
+void Generator::Arithmetic::generate_int_vector_safe_sub( //
+    llvm::IRBuilder<> *builder,                           //
+    llvm::Module *module,                                 //
+    const bool only_declarations,                         //
+    llvm::VectorType *vector_int_type,                    //
+    const unsigned int vector_width,                      //
+    const std::string &name                               //
+) {
+    llvm::FunctionType *int_vector_safe_sub_type = llvm::FunctionType::get(vector_int_type, {vector_int_type, vector_int_type}, false);
+    llvm::Function *int_vector_safe_sub_fn = llvm::Function::Create( //
+        int_vector_safe_sub_type,                                    //
+        llvm::Function::ExternalLinkage,                             //
+        "__flint_" + name + "_safe_sub",                             //
+        module                                                       //
+    );
+    arithmetic_functions[name + "_safe_sub"] = int_vector_safe_sub_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_vector_safe_sub_fn);
+    llvm::BasicBlock *overflow_block;
+    llvm::BasicBlock *no_overflow_block;
+    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
+        overflow_block = llvm::BasicBlock::Create(context, "overflow", int_vector_safe_sub_fn);
+        no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", int_vector_safe_sub_fn);
+    }
+    builder->SetInsertPoint(entry_block);
+
+    // Get the parameters
+    llvm::Argument *arg_lhs = int_vector_safe_sub_fn->arg_begin();
+    arg_lhs->setName("lhs");
+    llvm::Argument *arg_rhs = int_vector_safe_sub_fn->arg_begin() + 1;
+    arg_rhs->setName("rhs");
+
+    // Get the scalar type from the vector type
+    llvm::Type *element_type = vector_int_type->getElementType();
+
+    // Get type-specific constants
+    llvm::Constant *scalar_int_min = llvm::ConstantInt::get(                             //
+        element_type, llvm::APInt::getSignedMinValue(element_type->getIntegerBitWidth()) //
+    );
+    llvm::Constant *scalar_int_max = llvm::ConstantInt::get(                             //
+        element_type, llvm::APInt::getSignedMaxValue(element_type->getIntegerBitWidth()) //
+    );
+
+    // Create vector constants by splat (repeating scalar values)
+    llvm::Constant *int_min = llvm::ConstantVector::getSplat(llvm::ElementCount::get(vector_width, false), scalar_int_min);
+    llvm::Constant *int_max = llvm::ConstantVector::getSplat(llvm::ElementCount::get(vector_width, false), scalar_int_max);
+    llvm::Constant *zero = llvm::ConstantVector::getSplat(                                    //
+        llvm::ElementCount::get(vector_width, false), llvm::ConstantInt::get(element_type, 0) //
+    );
+
+    // Subtract with overflow check
+    llvm::Value *sub = builder->CreateSub(arg_lhs, arg_rhs, "vsubtmp");
+
+    // Check for positive overflow:
+    // If lhs is positive and rhs is negative and result is negative
+    llvm::Value *lhs_pos = builder->CreateICmpSGE(arg_lhs, zero);
+    llvm::Value *rhs_neg = builder->CreateICmpSLT(arg_rhs, zero);
+    llvm::Value *res_neg = builder->CreateICmpSLT(sub, zero);
+    llvm::Value *pos_overflow = builder->CreateAnd(builder->CreateAnd(lhs_pos, rhs_neg), res_neg);
+
+    // Check for negative overflow:
+    // If lhs is negative and rhs is positive and result is positive
+    llvm::Value *lhs_neg = builder->CreateICmpSLT(arg_lhs, zero);
+    llvm::Value *rhs_pos = builder->CreateICmpSGE(arg_rhs, zero);
+    llvm::Value *res_pos = builder->CreateICmpSGE(sub, zero);
+    llvm::Value *neg_overflow = builder->CreateAnd(builder->CreateAnd(lhs_neg, rhs_pos), res_pos);
+
+    // Select appropriate result
+    llvm::Value *use_max = pos_overflow;
+    llvm::Value *use_min = neg_overflow;
+
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *temp = builder->CreateSelect(use_max, int_max, sub);
+        llvm::Value *selection = builder->CreateSelect(use_min, int_min, temp);
+        builder->CreateRet(selection);
+    } else {
+        // Check if any overflow occurred in any element
+        llvm::Value *overflow_happened_vec = builder->CreateOr(pos_overflow, neg_overflow);
+
+        // Convert vector of booleans to a single boolean using a reduction
+        // First, we'll create the intrinsic declaration for vector_reduce_or
+        llvm::Type *overflow_vec_type = overflow_happened_vec->getType();
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {overflow_vec_type});
+
+        // Now call the intrinsic to get a single boolean value
+        llvm::Value *any_overflow = builder->CreateCall(reduce_or_fn, {overflow_happened_vec}, "any_overflow");
+
+        // Change branch prediction, as no overflow is much more likely to happen than an overflow
+        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
+            {
+                llvm::MDString::get(context, "branch_weights"),       //
+                llvm::ConstantAsMetadata::get(builder->getInt32(1)),  // weight of overflow
+                llvm::ConstantAsMetadata::get(builder->getInt32(100)) // weight of no overflow
+            });
+        builder->CreateCondBr(any_overflow, overflow_block, no_overflow_block, branch_weights);
+
+        builder->SetInsertPoint(overflow_block);
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " sub overflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " sub underflow caught\n");
+
+        // Determine if the overflow is positive or negative
+        // For vectors, just check if any positive overflow happened
+        llvm::Function *reduce_or_fn_pos = llvm::Intrinsic::getDeclaration(      //
+            module, llvm::Intrinsic::vector_reduce_or, {pos_overflow->getType()} //
+        );
+        llvm::Value *any_pos_overflow = builder->CreateCall(reduce_or_fn_pos, {pos_overflow}, "any_pos_overflow");
+
+        llvm::Value *message = builder->CreateSelect(any_pos_overflow, overflow_message, underflow_message);
+        builder->CreateCall(builtins.at(PRINT), {message});
+
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_int_vector_safe_sub'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                llvm::Value *temp = builder->CreateSelect(use_max, int_max, sub);
+                llvm::Value *selection = builder->CreateSelect(use_min, int_min, temp);
+                builder->CreateRet(selection);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+
+        builder->SetInsertPoint(no_overflow_block);
+        builder->CreateRet(sub);
     }
 }
