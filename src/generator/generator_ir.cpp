@@ -58,7 +58,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
         context,                                    //
         return_types_arr,                           //
         "type_" + types_str,                        //
-        true                                        //
+        false                                       //
     );
     return type_map[types_str];
 }
@@ -127,7 +127,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
                         llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
                     },                                                          //
                     "type_str",
-                    false // is packed
+                    false // is not packed, its padded
                 );
                 type_map["type_str"] = str_type;
             }
@@ -187,7 +187,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
                     llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data (the lenghts followed by the row-major array)
                 },                                                          //
                 "type_str",
-                false // is packed
+                false // is not packed, its padded
             );
             type_map["type_str"] = str_type;
         }
