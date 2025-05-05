@@ -1,6 +1,6 @@
 #include "generator/generator.hpp"
 
-void Generator::TypeCast::generate_helper_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::TypeCast::generate_typecast_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     if (!only_declarations) {
         generate_count_digits_function(builder, module);
     }

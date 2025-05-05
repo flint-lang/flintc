@@ -126,7 +126,7 @@ bool Generator::generate_builtin_modules() {
         Builtin::generate_c_functions(module.get());
         // The typecast functions depend on the string manipulation functions, so we provide the declarations for them
         String::generate_string_manip_functions(builder.get(), module.get(), true);
-        TypeCast::generate_helper_functions(builder.get(), module.get(), false);
+        TypeCast::generate_typecast_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
         if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::CAST))) {
@@ -480,7 +480,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     String::generate_string_manip_functions(builder.get(), module.get());
 
     // Generate all the "hidden" typecast helper functions
-    TypeCast::generate_helper_functions(builder.get(), module.get());
+    TypeCast::generate_typecast_functions(builder.get(), module.get());
 
     // Generate all the "hidden" arithmetic helper functions
     Arithmetic::generate_arithmetic_functions(builder.get(), module.get());

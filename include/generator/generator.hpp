@@ -867,14 +867,14 @@ class Generator {
             {"bool_to_str", nullptr},
         };
 
-        /// @function `generate_helper_functions`
+        /// @function `generate_typecast_functions`
         /// @brief Function to generate all helper functions used for the type-casting. Currently these helper functions are only used when
         /// casting strings
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the function is generated in
         /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
-        static void generate_helper_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+        static void generate_typecast_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
         /// @function `generate_count_digits_function`
         /// @brief Function to generate the `count_digits` helper function, used for to-string casting
