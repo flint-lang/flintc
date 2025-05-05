@@ -158,32 +158,6 @@ class Generator {
         {CFunction::ABORT, nullptr},
     };
 
-    /// @var `print_functions`
-    /// @brief Map containing references to all print function varaints
-    ///
-    /// This map exists to track the references to the builtin print functions. They are being created at the beginning of the program
-    /// generation phase. Whenever a builtin print function is being refernced this map is used to resolve it.
-    ///
-    /// @details
-    /// - **Key** `std::string_view` - The type of the print function
-    /// - **Value** `llvm::Function *` - The reference to the genereated print function
-    ///
-    /// @attention The print functions are nullpointers until the `generate_builtin_prints` function is called
-    /// @attention The map is not being cleared after the program module has been generated
-    static inline std::unordered_map<std::string_view, llvm::Function *> print_functions = {
-        {"i32", nullptr},
-        {"i64", nullptr},
-        {"u32", nullptr},
-        {"u64", nullptr},
-        {"f32", nullptr},
-        {"f64", nullptr},
-        {"flint", nullptr},
-        {"char", nullptr},
-        {"str", nullptr},
-        {"str_var", nullptr},
-        {"bool", nullptr},
-    };
-
     /// @var `type_map`
     /// @brief Map containing all possible struct return types of function calls
     ///
@@ -458,46 +432,6 @@ class Generator {
         ///
         /// @param `module` The LLVM Module the c functions will be defined in
         static void generate_c_functions(llvm::Module *module);
-
-        /// @function `generate_builtin_prints`
-        /// @brief Generates the builtin 'print()' function and its overloaded versions to utilize C IO calls of the IO C stdlib
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `module` The LLVM Module the print functions definitions will be generated in
-        /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
-        static void generate_builtin_prints(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
-
-        /// @function `generate_builtin_print`
-        /// @brief Helper function to generate the builtin print function for the specified type
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `module` The LLVM Module the print function definition will be generated in
-        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-        /// @param `type` The type of variable this print function expects
-        /// @param `format` The C format string for the specified type (%i or %d for example)
-        static void generate_builtin_print( //
-            llvm::IRBuilder<> *builder,     //
-            llvm::Module *module,           //
-            const bool only_declarations,   //
-            const std::string &type,        //
-            const std::string &format       //
-        );
-
-        /// @function `generate_builtin_print_str_var`
-        /// @brief Generates the builtin print_str_var function which prints the value of a string variable
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `module` The LLVM Module the print function definition will be generated in
-        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-        static void generate_builtin_print_str_var(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-        /// @function `generate_builtin_print_bool`
-        /// @brief Generates the builtin print_bool function which prints 'true' or 'false' depending on the bool value
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `module` The LLVM Module the print function definition will be generated in
-        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-        static void generate_builtin_print_bool(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_builtin_test`
         /// @brief Generates the entry point of the program when compiled with the `--test` flag enabled
@@ -2444,4 +2378,79 @@ class Generator {
         /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
         static void generate_array_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
     }; // subclass Array
+
+    /// @class `Print`
+    /// @brief The class which is responsible for generating everything related to print
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Print {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        Print() = delete;
+
+        /// @var `print_functions`
+        /// @brief Map containing references to all print function varaints
+        ///
+        /// This map exists to track the references to the builtin print functions. They are being created at the beginning of the program
+        /// generation phase. Whenever a builtin print function is being refernced this map is used to resolve it.
+        ///
+        /// @details
+        /// - **Key** `std::string_view` - The type of the print function
+        /// - **Value** `llvm::Function *` - The reference to the genereated print function
+        ///
+        /// @attention The print functions are nullpointers until the `generate_builtin_prints` function is called
+        /// @attention The map is not being cleared after the program module has been generated
+        static inline std::unordered_map<std::string_view, llvm::Function *> print_functions = {
+            {"i32", nullptr},
+            {"i64", nullptr},
+            {"u32", nullptr},
+            {"u64", nullptr},
+            {"f32", nullptr},
+            {"f64", nullptr},
+            {"flint", nullptr},
+            {"char", nullptr},
+            {"str", nullptr},
+            {"str_var", nullptr},
+            {"bool", nullptr},
+        };
+
+        /// @function `generate_print_functions`
+        /// @brief Generates the builtin 'print()' function and its overloaded versions to utilize C IO calls of the IO C stdlib
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the print functions definitions will be generated in
+        /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+        static void generate_print_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+        /// @function `generate_print_function`
+        /// @brief Helper function to generate the builtin print function for the specified type
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the print function definition will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        /// @param `type` The type of variable this print function expects
+        /// @param `format` The C format string for the specified type (%i or %d for example)
+        static void generate_print_function( //
+            llvm::IRBuilder<> *builder,      //
+            llvm::Module *module,            //
+            const bool only_declarations,    //
+            const std::string &type,         //
+            const std::string &format        //
+        );
+
+        /// @function `generate_print_str_var_function`
+        /// @brief Generates the builtin print_str_var function which prints the value of a string variable
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the print function definition will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_print_str_var_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+        /// @function `generate_print_bool_function`
+        /// @brief Generates the builtin print_bool function which prints 'true' or 'false' depending on the bool value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the print function definition will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_print_bool_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+    };
 };

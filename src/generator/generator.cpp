@@ -80,7 +80,7 @@ bool Generator::generate_builtin_modules() {
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("print", context);
         Builtin::generate_c_functions(module.get());
-        Builtin::generate_builtin_prints(builder.get(), module.get(), false);
+        Print::generate_print_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
         if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::PRINT))) {
@@ -149,7 +149,7 @@ bool Generator::generate_builtin_modules() {
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("arithmetic", context);
         Builtin::generate_c_functions(module.get());
-        Builtin::generate_builtin_prints(builder.get(), module.get(), true);
+        Print::generate_print_functions(builder.get(), module.get(), true);
         Arithmetic::generate_arithmetic_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
@@ -172,7 +172,7 @@ bool Generator::generate_builtin_modules() {
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("array", context);
         Builtin::generate_c_functions(module.get());
-        Builtin::generate_builtin_prints(builder.get(), module.get(), true);
+        Print::generate_print_functions(builder.get(), module.get(), true);
         Array::generate_array_manip_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
@@ -471,7 +471,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     get_data_nodes();
 
     // Generate built-in functions in the main module
-    Builtin::generate_builtin_prints(builder.get(), module.get());
+    Print::generate_print_functions(builder.get(), module.get());
 
     // Generate all the c functions
     Builtin::generate_c_functions(module.get());
@@ -636,7 +636,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
         }
     }
     // Declare the built-in print functions in the file module to reference the main module's versions
-    for (auto &prints : print_functions) {
+    for (auto &prints : Print::print_functions) {
         if (prints.second != nullptr) {
             module->getOrInsertFunction(         //
                 prints.second->getName(),        //

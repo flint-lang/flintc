@@ -265,17 +265,17 @@ Generator::group_mapping Generator::Expression::generate_call(        //
         // Call the builtin function 'print'
         std::vector<llvm::Value *> return_value;
         if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
-            print_functions.find(call_node->arguments.front().first->type->to_string()) != print_functions.end()) {
+            Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != Print::print_functions.end()) {
             // If the argument is of type str we need to differentiate between literals and str variables
             if (call_node->arguments.at(0).first->type->to_string() == "str") {
                 if (dynamic_cast<const LiteralNode *>(call_node->arguments.at(0).first.get())) {
-                    return_value.emplace_back(builder.CreateCall(print_functions.at("str"), args));
+                    return_value.emplace_back(builder.CreateCall(Print::print_functions.at("str"), args));
                     if (!Statement::clear_garbage(builder, garbage)) {
                         return std::nullopt;
                     }
                     return return_value;
                 } else {
-                    return_value.emplace_back(builder.CreateCall(print_functions.at("str_var"), args));
+                    return_value.emplace_back(builder.CreateCall(Print::print_functions.at("str_var"), args));
                     if (!Statement::clear_garbage(builder, garbage)) {
                         return std::nullopt;
                     }
@@ -283,7 +283,8 @@ Generator::group_mapping Generator::Expression::generate_call(        //
                 }
             }
 
-            return_value.emplace_back(builder.CreateCall(print_functions.at(call_node->arguments.at(0).first->type->to_string()), args));
+            const std::string type_str = call_node->arguments.front().first->type->to_string();
+            return_value.emplace_back(builder.CreateCall(Print::print_functions.at(type_str), args));
             if (!Statement::clear_garbage(builder, garbage)) {
                 return std::nullopt;
             }
