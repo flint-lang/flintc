@@ -2,17 +2,10 @@
 
 #include "colors.hpp"
 
-#include <codecvt>
-#include <locale>
 #include <string>
 
 class TestResult {
   private:
-    static std::wstring convert(const std::string &str) {
-        static std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-        return converter.from_bytes(str);
-    }
-
     std::string message{WHITE};
     unsigned int count = 0;
 

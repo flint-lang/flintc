@@ -2,6 +2,8 @@
 
 #include "token_pattern_matcher.hpp"
 
+#include <cstdint>
+
 class RepetitionMatcher : public TokenPatternMatcher {
   private:
     PatternPtr pattern;

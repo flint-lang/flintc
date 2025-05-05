@@ -77,6 +77,8 @@ else()
         -Wundef       # Warn if an undefined identifier is evaluated in an #if
         -Wpointer-arith # Warn about sizeof(void) and add/sub with void*
         -Wunreachable-code # Warn about unreachable code
+        -Wno-deprecated-declarations  # Ignore deprecation warnings
+        -Wno-deprecated  # Ignore general deprecation warnings
         -fno-omit-frame-pointer
         -funwind-tables
         -fstandalone-debug # Only for Clang on Linux
