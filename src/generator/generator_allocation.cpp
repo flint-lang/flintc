@@ -94,6 +94,19 @@ void Generator::Allocation::generate_call_allocations(                //
         ) {
             // Print functions dont return anything, so we dont need to allocate anything for them
             return;
+        } else if (call_node->arguments.size() == 0 && Read::read_functions.find(call_node->function_name) != Read::read_functions.end()) {
+            // We only need to create an allocation of the call if its the `read_str` function
+            // But, for now, the `read_X` functions dont return a struct with the error value but only the value directly and hard-crash
+            // when the entered input could not be parsed. When this is changed that the builtin functions also can return a { i32, RES }
+            // struct, then we would need to pre-allocate the results of these calls too, but as it stands now, builtin read functions dont
+            // return the structs
+
+            // TODO: Implement a way that builtin functions can also return an error struct container
+            return;
+
+            // if (call_node->function_name != "read_str") {
+            //     return;
+            // }
         }
     }
     // Get the function definition from any module

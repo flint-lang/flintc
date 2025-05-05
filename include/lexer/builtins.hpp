@@ -6,9 +6,19 @@
 
 /// @enum `BuiltinFunction`
 /// @brief An enum describing the builtin function without saying anything about their respective parameter and return types
-enum BuiltinFunction { //
+enum BuiltinFunction {
+    // Print functions
     PRINT,
     PRINT_ERR,
+    // Read functions
+    READ_STR,
+    READ_I32,
+    READ_I64,
+    READ_U32,
+    READ_U64,
+    READ_F32,
+    READ_F64,
+    // Assertion functions
     // ASSERT,
     ASSERT_ARG,
     RUN_ON_ALL,
@@ -26,8 +36,16 @@ static const std::unordered_map<std::string_view, BuiltinFunction> builtin_funct
     // printing
     {"print", PRINT},        //
     {"printerr", PRINT_ERR}, //
+    // reading from stdin
+    {"read_str", READ_STR}, //
+    {"read_i32", READ_I32}, //
+    {"read_i64", READ_I64}, //
+    {"read_u32", READ_U32}, //
+    {"read_u64", READ_U64}, //
+    {"read_f32", READ_F32}, //
+    {"read_f64", READ_F64}, //
     // assertions
-    // {"assert", ASSERT},         //
+    // {"assert", ASSERT},      //
     {"assert_arg", ASSERT_ARG}, //
     // concurrency
     {"run_on_all", RUN_ON_ALL},            //
@@ -62,16 +80,23 @@ using type_list = std::vector<std::string_view>;
 static inline std::unordered_map<BuiltinFunction, std::vector<std::pair<type_list, type_list>>> builtin_function_types = {
     {BuiltinFunction::PRINT,
         {
-            {{"i32"}, {"void"}},
-            {{"i64"}, {"void"}},
-            {{"u32"}, {"void"}},
-            {{"u64"}, {"void"}},
-            {{"f32"}, {"void"}},
-            {{"f64"}, {"void"}},
-            {{"char"}, {"void"}},
-            {{"str"}, {"void"}},
-            {{"bool"}, {"void"}},
+            {{"i32"}, {"void"}},  // Overloaded print function to print i32 values
+            {{"i64"}, {"void"}},  // Overloaded print function to print i64 values
+            {{"u32"}, {"void"}},  // Overloaded print function to print u32 values
+            {{"u64"}, {"void"}},  // Overloaded print function to print u64 values
+            {{"f32"}, {"void"}},  // Overloaded print function to print f32 values
+            {{"f64"}, {"void"}},  // Overloaded print function to print f64 values
+            {{"char"}, {"void"}}, // Overloaded print function to print char values
+            {{"str"}, {"void"}},  // Overloaded print function to print str values
+            {{"bool"}, {"void"}}, // Overloaded print function to print bool values
         }},
+    {BuiltinFunction::READ_STR, {{{}, {"str"}}}},
+    {BuiltinFunction::READ_I32, {{{}, {"i32"}}}},
+    {BuiltinFunction::READ_I64, {{{}, {"i64"}}}},
+    {BuiltinFunction::READ_U32, {{{}, {"u32"}}}},
+    {BuiltinFunction::READ_U64, {{{}, {"u64"}}}},
+    {BuiltinFunction::READ_F32, {{{}, {"f32"}}}},
+    {BuiltinFunction::READ_F64, {{{}, {"f64"}}}},
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {

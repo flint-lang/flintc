@@ -279,6 +279,11 @@ Generator::group_mapping Generator::Expression::generate_call(        //
                 return std::nullopt;
             }
             return return_value;
+        } else if (call_node->arguments.size() == 0 && Read::read_functions.find(call_node->function_name) != Read::read_functions.end()) {
+            return_value.emplace_back(builder.CreateCall(                                                   //
+                Read::read_functions.at(call_node->function_name), args, call_node->function_name + "_res") //
+            );
+            return return_value;
         }
     }
 
