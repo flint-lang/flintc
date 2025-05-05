@@ -3,6 +3,7 @@ use "tests/data.ft"
 use "tests/error.ft"
 use "tests/loops.ft"
 use "tests/multi_types.ft"
+use "tests/read.ft"
 use "tests/str.ft"
 use "tests/tests.ft"
 
@@ -12,5 +13,7 @@ def main():
 	test_error();
 	test_multi_types();
 	test_loops();
+	// Its annoying to always enter things so this is commented out
+	// test_read();
 	test_str();
 	print("All tests passed!\n");

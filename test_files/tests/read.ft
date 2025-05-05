@@ -1,4 +1,4 @@
-def main():
+def test_read():
     print("Enter str input: ");
     str str_input = read_str();
     print($"str_input = '{str_input}'\n");

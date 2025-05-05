@@ -2502,6 +2502,48 @@ class Generator {
         /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         static void generate_read_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
+        /// @function `generate_read_int_function`
+        /// @brief Generates the builtin hidden `read_iX` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `read_iX` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_read_int_function( //
+            llvm::IRBuilder<> *builder,         //
+            llvm::Module *module,               //
+            const bool only_declarations,       //
+            llvm::Type *result_type             //
+        );
+
+        /// @function `generate_read_uint_function`
+        /// @brief Generates the builtin hidden `read_uX` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `read_uX` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_read_uint_function( //
+            llvm::IRBuilder<> *builder,          //
+            llvm::Module *module,                //
+            const bool only_declarations,        //
+            llvm::Type *result_type              //
+        );
+
+        /// @function `generate_read_f32_function`
+        /// @brief Generates the builtin hidden `read_f32` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `read_f32` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_read_f32_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+        /// @function `generate_read_f64_function`
+        /// @brief Generates the builtin hidden `read_f64` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `read_f64` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_read_f64_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
         /// @function `generate_read_functions`
         /// @brief Generates all the builtin hidden read functions to read from stdin
         ///

@@ -69,6 +69,10 @@ enum CFunction {
     ABORT,
     FGETC,
     MEMMOVE,
+    STRTOL,
+    STRTOUL,
+    STRTOF,
+    STRTOD,
 };
 
 /// @typedef `type_list`

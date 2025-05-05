@@ -206,6 +206,62 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *memmove_fn = llvm::Function::Create(memmove_type, llvm::Function::ExternalLinkage, "memmove", module);
         c_functions[MEMMOVE] = memmove_fn;
     }
+    // strtol
+    {
+        llvm::FunctionType *strtol_type = llvm::FunctionType::get( //
+            llvm::Type::getInt64Ty(context),                       // return i64
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(),                 // char* buffer
+                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo(), // char** endptr
+                llvm::Type::getInt32Ty(context)                                 // i32 base
+            },                                                                  //
+            false                                                               // No vaarg
+        );
+        llvm::Function *strtol_fn = llvm::Function::Create(strtol_type, llvm::Function::ExternalLinkage, "strtol", module);
+        c_functions[STRTOL] = strtol_fn;
+    }
+    // strtoul
+    {
+        llvm::FunctionType *strtoul_type = llvm::FunctionType::get( //
+            llvm::Type::getInt64Ty(context),                        // return u64
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(),                 // char* buffer
+                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo(), // char** endptr
+                llvm::Type::getInt32Ty(context)                                 // i32 base
+            },                                                                  //
+            false                                                               // No vaarg
+        );
+        llvm::Function *strtoul_fn = llvm::Function::Create(strtoul_type, llvm::Function::ExternalLinkage, "strtoul", module);
+        c_functions[STRTOUL] = strtoul_fn;
+    }
+    // strtof
+    {
+        llvm::FunctionType *strtof_type = llvm::FunctionType::get( //
+            llvm::Type::getFloatTy(context),                       // return f32
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(),                 // char* buffer
+                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo(), // char** endptr
+                llvm::Type::getInt32Ty(context)                                 // i32 base
+            },                                                                  //
+            false                                                               // No vaarg
+        );
+        llvm::Function *strtof_fn = llvm::Function::Create(strtof_type, llvm::Function::ExternalLinkage, "strtof", module);
+        c_functions[STRTOF] = strtof_fn;
+    }
+    // strtod
+    {
+        llvm::FunctionType *strtod_type = llvm::FunctionType::get( //
+            llvm::Type::getDoubleTy(context),                      // return f64
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(),                 // char* buffer
+                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo(), // char** endptr
+                llvm::Type::getInt32Ty(context)                                 // i32 base
+            },                                                                  //
+            false                                                               // No vaarg
+        );
+        llvm::Function *strtod_fn = llvm::Function::Create(strtod_type, llvm::Function::ExternalLinkage, "strtod", module);
+        c_functions[STRTOD] = strtod_fn;
+    }
 }
 
 void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {

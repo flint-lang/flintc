@@ -320,7 +320,491 @@ void Generator::Read::generate_read_str_function(llvm::IRBuilder<> *builder, llv
     builder->CreateRet(result);
 }
 
+void Generator::Read::generate_read_int_function( //
+    llvm::IRBuilder<> *builder,                   //
+    llvm::Module *module,                         //
+    const bool only_declarations,                 //
+    llvm::Type *result_type                       //
+) {
+    // THE C IMPLEMENTATION:
+    // int32_t read_i32() {
+    //     long len = 0;
+    //     char *buffer = __flint_getline(&len);
+    //     if (buffer == NULL) {
+    //         printf("Something went wrong\n");
+    //         abort();
+    //     }
+    //     char *endptr = NULL;
+    //     long value = strtol(buffer, &endptr, 10);
+    //     // The whole string should have been parsed
+    //     if (endptr < buffer + len) {
+    //         printf("Not whole buffer read!\n");
+    //         abort();
+    //     }
+    //     return (int32_t)value;
+    // }
+    llvm::Function *printf_fn = builtins.at(PRINT);
+    llvm::Function *strtol_fn = c_functions.at(STRTOL);
+    llvm::Function *abort_fn = c_functions.at(ABORT);
+
+    llvm::FunctionType *read_int_type = llvm::FunctionType::get(result_type, false);
+    llvm::Function *read_int_fn = llvm::Function::Create(                     //
+        read_int_type,                                                        //
+        llvm::Function::ExternalLinkage,                                      //
+        "__flint_read_i" + std::to_string(result_type->getIntegerBitWidth()), //
+        module                                                                //
+    );
+    read_functions["read_i" + std::to_string(result_type->getIntegerBitWidth())] = read_int_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", read_int_fn);
+    llvm::BasicBlock *error_block = llvm::BasicBlock::Create(context, "error", read_int_fn);
+    llvm::BasicBlock *continue_block = llvm::BasicBlock::Create(context, "continue", read_int_fn);
+    llvm::BasicBlock *parse_error_block = llvm::BasicBlock::Create(context, "parse_error", read_int_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", read_int_fn);
+
+    // Set insertion point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Create len variable: long len = 0
+    llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
+    builder->CreateStore(builder->getInt64(0), len_ptr);
+
+    // Call getline: char *buffer = __flint_getline(&len)
+    llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
+
+    // Check if buffer is NULL
+    llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
+    builder->CreateCondBr(is_null, error_block, continue_block);
+
+    // Error block: print error and abort
+    builder->SetInsertPoint(error_block);
+    llvm::Value *null_error_str = IR::generate_const_string(*builder, "Got a NULL from __flint_getline function call\n");
+    builder->CreateCall(printf_fn, {null_error_str});
+    builder->CreateCall(abort_fn, {});
+    builder->CreateUnreachable(); // This block never returns
+
+    // Continue with normal execution
+    builder->SetInsertPoint(continue_block);
+
+    // Get the length value
+    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+
+    // Create endptr variable: char *endptr = NULL
+    llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
+    builder->CreateStore(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+
+    // Call strtol: long value = strtol(buffer, &endptr, 10)
+    llvm::Value *base = builder->getInt32(10); // base 10
+    llvm::Value *value = builder->CreateCall(strtol_fn, {buffer, endptr_ptr, base}, "value");
+
+    // Load the endptr value after strtol call
+    llvm::Value *endptr = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+
+    // Calculate buffer + len (end of the buffer)
+    llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), buffer, len, "buffer_end");
+
+    // Check if endptr < buffer + len
+    llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, buffer_end, "endptr_lt_end");
+    builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
+
+    // Parse error block: print error and abort
+    builder->SetInsertPoint(parse_error_block);
+    llvm::Value *parse_error_str = IR::generate_const_string(*builder, "Not whole buffer read!\n");
+    builder->CreateCall(printf_fn, {parse_error_str});
+    builder->CreateCall(abort_fn, {});
+    builder->CreateUnreachable(); // This block never returns
+
+    // Create exit block for the final return
+    builder->SetInsertPoint(exit_block);
+
+    // Convert long to the required integer type: return (int32_t)value
+    llvm::Value *result_value;
+    if (result_type->getIntegerBitWidth() < 64) {
+        // Truncate if result type is smaller than long (64-bit)
+        result_value = builder->CreateTrunc(value, result_type, "result_value");
+    } else if (result_type->getIntegerBitWidth() > 64) {
+        // Sign-extend if result type is larger than long (64-bit)
+        result_value = builder->CreateSExt(value, result_type, "result_value");
+    } else {
+        // Same bit width, no conversion needed
+        result_value = value;
+    }
+
+    // Return the converted value
+    builder->CreateRet(result_value);
+}
+
+void Generator::Read::generate_read_uint_function( //
+    llvm::IRBuilder<> *builder,                    //
+    llvm::Module *module,                          //
+    const bool only_declarations,                  //
+    llvm::Type *result_type                        //
+) {
+    // THE C IMPLEMENTATION:
+    // uint32_t read_u32() {
+    //     long len = 0;
+    //     char *buffer = __flint_getline(&len);
+    //     if (buffer == NULL) {
+    //         printf("Something went wrong\n");
+    //         abort();
+    //     }
+    //     if (len > 0 && buffer[0] == '-') {
+    //         printf("Negative input not allowed for unsigned types!\n");
+    //         abort();
+    //     }
+    //     char *endptr = NULL;
+    //     unsigned long value = strtoul(buffer, &endptr, 10);
+    //     // The whole string should have been parsed
+    //     if (endptr < buffer + len) {
+    //         printf("Not whole buffer read!\n");
+    //         abort();
+    //     }
+    //     return (uint32_t)value;
+    // }
+    llvm::Function *printf_fn = builtins.at(PRINT);
+    llvm::Function *strtoul_fn = c_functions.at(STRTOUL);
+    llvm::Function *abort_fn = c_functions.at(ABORT);
+
+    llvm::FunctionType *read_uint_type = llvm::FunctionType::get(result_type, false);
+    llvm::Function *read_uint_fn = llvm::Function::Create(                    //
+        read_uint_type,                                                       //
+        llvm::Function::ExternalLinkage,                                      //
+        "__flint_read_u" + std::to_string(result_type->getIntegerBitWidth()), //
+        module                                                                //
+    );
+    read_functions["read_u" + std::to_string(result_type->getIntegerBitWidth())] = read_uint_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", read_uint_fn);
+    llvm::BasicBlock *error_block = llvm::BasicBlock::Create(context, "error", read_uint_fn);
+    llvm::BasicBlock *continue_block = llvm::BasicBlock::Create(context, "continue", read_uint_fn);
+    llvm::BasicBlock *check_negative_block = llvm::BasicBlock::Create(context, "check_negative", read_uint_fn);
+    llvm::BasicBlock *negative_error_block = llvm::BasicBlock::Create(context, "negative_error", read_uint_fn);
+    llvm::BasicBlock *parse_block = llvm::BasicBlock::Create(context, "parse", read_uint_fn);
+    llvm::BasicBlock *parse_error_block = llvm::BasicBlock::Create(context, "parse_error", read_uint_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", read_uint_fn);
+
+    // Set insertion point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Create len variable: long len = 0
+    llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
+    builder->CreateStore(builder->getInt64(0), len_ptr);
+
+    // Call getline: char *buffer = __flint_getline(&len)
+    llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
+
+    // Check if buffer is NULL
+    llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
+    builder->CreateCondBr(is_null, error_block, continue_block);
+
+    // Error block: print error and abort
+    builder->SetInsertPoint(error_block);
+    llvm::Value *null_error_str = IR::generate_const_string(*builder, "Got a NULL from __flint_getline function call\n");
+    builder->CreateCall(printf_fn, {null_error_str});
+    builder->CreateCall(abort_fn, {});
+    builder->CreateUnreachable(); // This block never returns
+
+    // Continue with normal execution
+    builder->SetInsertPoint(continue_block);
+
+    // Get the length value
+    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+
+    // Check if the length is greater than zero
+    llvm::Value *len_gt_zero = builder->CreateICmpUGT(len, builder->getInt64(0), "len_gt_zero");
+    builder->CreateCondBr(len_gt_zero, check_negative_block, parse_block);
+
+    // Check if the first character is a negative sign
+    builder->SetInsertPoint(check_negative_block);
+
+    // Load the first character: buffer[0]
+    llvm::Value *first_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer, builder->getInt64(0), "first_char_ptr");
+    llvm::Value *first_char = builder->CreateLoad(builder->getInt8Ty(), first_char_ptr, "first_char");
+
+    // Check if first character is '-'
+    llvm::Value *is_negative = builder->CreateICmpEQ(first_char, builder->getInt8('-'), "is_negative");
+    builder->CreateCondBr(is_negative, negative_error_block, parse_block);
+
+    // Negative error block: print error and abort
+    builder->SetInsertPoint(negative_error_block);
+    llvm::Value *negative_error_str = IR::generate_const_string(*builder, "Negative input not allowed for unsigned types!\n");
+    builder->CreateCall(printf_fn, {negative_error_str});
+    builder->CreateCall(abort_fn, {});
+    builder->CreateUnreachable(); // This block never returns
+
+    // Parse block: parse the string with strtoul
+    builder->SetInsertPoint(parse_block);
+
+    // Create endptr variable: char *endptr = NULL
+    llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
+    builder->CreateStore(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+
+    // Call strtoul: unsigned long value = strtoul(buffer, &endptr, 10)
+    llvm::Value *base = builder->getInt32(10); // base 10
+    llvm::Value *value = builder->CreateCall(strtoul_fn, {buffer, endptr_ptr, base}, "value");
+
+    // Load the endptr value after strtoul call
+    llvm::Value *endptr = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+
+    // Calculate buffer + len (end of the buffer)
+    llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), buffer, len, "buffer_end");
+
+    // Check if endptr < buffer + len
+    llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, buffer_end, "endptr_lt_end");
+    builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
+
+    // Parse error block: print error and abort
+    builder->SetInsertPoint(parse_error_block);
+    llvm::Value *parse_error_str = IR::generate_const_string(*builder, "Not whole buffer read!\n");
+    builder->CreateCall(printf_fn, {parse_error_str});
+    builder->CreateCall(abort_fn, {});
+    builder->CreateUnreachable(); // This block never returns
+
+    // Create exit block for the final return
+    builder->SetInsertPoint(exit_block);
+
+    // Convert unsigned long to the required integer type: return (uint32_t)value
+    llvm::Value *result_value;
+    if (result_type->getIntegerBitWidth() < 64) {
+        // Truncate if result type is smaller than unsigned long (64-bit)
+        result_value = builder->CreateTrunc(value, result_type, "result_value");
+    } else if (result_type->getIntegerBitWidth() > 64) {
+        // Zero-extend if result type is larger than unsigned long (64-bit)
+        result_value = builder->CreateZExt(value, result_type, "result_value");
+    } else {
+        // Same bit width, no conversion needed
+        result_value = value;
+    }
+
+    // Return the converted value
+    builder->CreateRet(result_value);
+}
+
+void Generator::Read::generate_read_f32_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // float read_f32() {
+    //     long len = 0;
+    //     char *buffer = __flint_getline(&len);
+    //     if (buffer == NULL) {
+    //         printf("Something went wrong\n");
+    //         abort();
+    //     }
+    //     char *endptr = NULL;
+    //     float value = strtof(buffer, &endptr);
+    //     // The whole string should have been parsed
+    //     if (endptr < buffer + len) {
+    //         printf("Not whole buffer read!\n");
+    //         abort();
+    //     }
+    //     return value;
+    // }
+    llvm::Function *printf_fn = builtins.at(PRINT);
+    llvm::Function *strtof_fn = c_functions.at(STRTOF);
+    llvm::Function *abort_fn = c_functions.at(ABORT);
+
+    // Create f32 read function type (returns float, no parameters)
+    llvm::FunctionType *read_f32_type = llvm::FunctionType::get(builder->getFloatTy(), false);
+
+    // Create the function
+    llvm::Function *read_f32_fn = llvm::Function::Create( //
+        read_f32_type,                                    //
+        llvm::Function::ExternalLinkage,                  //
+        "__flint_read_f32",                               //
+        module                                            //
+    );
+
+    // Store in the read_functions map
+    read_functions["read_f32"] = read_f32_fn;
+
+    if (only_declarations) {
+        return;
+    }
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", read_f32_fn);
+    llvm::BasicBlock *error_block = llvm::BasicBlock::Create(context, "error", read_f32_fn);
+    llvm::BasicBlock *continue_block = llvm::BasicBlock::Create(context, "continue", read_f32_fn);
+    llvm::BasicBlock *parse_error_block = llvm::BasicBlock::Create(context, "parse_error", read_f32_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", read_f32_fn);
+
+    // Set insertion point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Create len variable: long len = 0
+    llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
+    builder->CreateStore(builder->getInt64(0), len_ptr);
+
+    // Call getline: char *buffer = __flint_getline(&len)
+    llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
+
+    // Check if buffer is NULL
+    llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
+    builder->CreateCondBr(is_null, error_block, continue_block);
+
+    // Error block: print error and abort
+    builder->SetInsertPoint(error_block);
+    llvm::Value *null_error_str = IR::generate_const_string(*builder, "Got a NULL from __flint_getline function call\n");
+    builder->CreateCall(printf_fn, {null_error_str});
+    builder->CreateCall(abort_fn, {});
+    builder->CreateUnreachable(); // This block never returns
+
+    // Continue with normal execution
+    builder->SetInsertPoint(continue_block);
+
+    // Get the length value
+    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+
+    // Create endptr variable: char *endptr = NULL
+    llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
+    builder->CreateStore(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+
+    // Call strtof: float value = strtof(buffer, &endptr)
+    llvm::Value *value = builder->CreateCall(strtof_fn, {buffer, endptr_ptr}, "value");
+
+    // Load the endptr value after strtof call
+    llvm::Value *endptr = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+
+    // Calculate buffer + len (end of the buffer)
+    llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), buffer, len, "buffer_end");
+
+    // Check if endptr < buffer + len (not all input was parsed)
+    llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, buffer_end, "endptr_lt_end");
+
+    // Branch if an parse error occured
+    builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
+
+    // Parse warning block: print warning and continue
+    builder->SetInsertPoint(parse_error_block);
+    llvm::Value *parse_warning_str = IR::generate_const_string(*builder, "Not whole buffer read!\n");
+    builder->CreateCall(printf_fn, {parse_warning_str});
+    builder->CreateCall(abort_fn, {});
+    builder->CreateUnreachable();
+
+    // Exit block: return the float value
+    builder->SetInsertPoint(exit_block);
+    builder->CreateRet(value);
+}
+
+void Generator::Read::generate_read_f64_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // double read_f64() {
+    //     long len = 0;
+    //     char *buffer = __flint_getline(&len);
+    //     if (buffer == NULL) {
+    //         printf("Something went wrong\n");
+    //         abort();
+    //     }
+    //     char *endptr = NULL;
+    //     double value = strtod(buffer, &endptr);
+    //     // The whole string should have been parsed
+    //     if (endptr < buffer + len) {
+    //         printf("Not whole buffer read!\n");
+    //         abort();
+    //     }
+    //     return value;
+    // }
+    llvm::Function *printf_fn = builtins.at(PRINT);
+    llvm::Function *strtod_fn = c_functions.at(STRTOD);
+    llvm::Function *abort_fn = c_functions.at(ABORT);
+
+    // Create f64 read function type (returns double, no parameters)
+    llvm::FunctionType *read_f64_type = llvm::FunctionType::get(builder->getDoubleTy(), false);
+
+    // Create the function
+    llvm::Function *read_f64_fn = llvm::Function::Create( //
+        read_f64_type,                                    //
+        llvm::Function::ExternalLinkage,                  //
+        "__flint_read_f64",                               //
+        module                                            //
+    );
+
+    // Store in the read_functions map
+    read_functions["read_f64"] = read_f64_fn;
+
+    if (only_declarations) {
+        return;
+    }
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", read_f64_fn);
+    llvm::BasicBlock *error_block = llvm::BasicBlock::Create(context, "error", read_f64_fn);
+    llvm::BasicBlock *continue_block = llvm::BasicBlock::Create(context, "continue", read_f64_fn);
+    llvm::BasicBlock *parse_error_block = llvm::BasicBlock::Create(context, "parse_error", read_f64_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", read_f64_fn);
+
+    // Set insertion point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Create len variable: long len = 0
+    llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
+    builder->CreateStore(builder->getInt64(0), len_ptr);
+
+    // Call getline: char *buffer = __flint_getline(&len)
+    llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
+
+    // Check if buffer is NULL
+    llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
+    builder->CreateCondBr(is_null, error_block, continue_block);
+
+    // Error block: print error and abort
+    builder->SetInsertPoint(error_block);
+    llvm::Value *null_error_str = IR::generate_const_string(*builder, "Got a NULL from __flint_getline function call\n");
+    builder->CreateCall(printf_fn, {null_error_str});
+    builder->CreateCall(abort_fn, {});
+    builder->CreateUnreachable(); // This block never returns
+
+    // Continue with normal execution
+    builder->SetInsertPoint(continue_block);
+
+    // Get the length value
+    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+
+    // Create endptr variable: char *endptr = NULL
+    llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
+    builder->CreateStore(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+
+    // Call strtod: double value = strtod(buffer, &endptr)
+    llvm::Value *value = builder->CreateCall(strtod_fn, {buffer, endptr_ptr}, "value");
+
+    // Load the endptr value after strtod call
+    llvm::Value *endptr = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+
+    // Calculate buffer + len (end of the buffer)
+    llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), buffer, len, "buffer_end");
+
+    // Check if endptr < buffer + len (not all input was parsed)
+    llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, buffer_end, "endptr_lt_end");
+
+    // Branch if an parse error occured
+    builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
+
+    // Parse warning block: print warning and continue
+    builder->SetInsertPoint(parse_error_block);
+    llvm::Value *parse_warning_str = IR::generate_const_string(*builder, "Not whole buffer read!\n");
+    builder->CreateCall(printf_fn, {parse_warning_str});
+    builder->CreateCall(abort_fn, {});
+    builder->CreateUnreachable();
+
+    // Exit block: return the double value
+    builder->SetInsertPoint(exit_block);
+    builder->CreateRet(value);
+}
+
 void Generator::Read::generate_read_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_getline_function(builder, module, only_declarations);
     generate_read_str_function(builder, module, only_declarations);
+    generate_read_int_function(builder, module, only_declarations, builder->getInt32Ty());
+    generate_read_int_function(builder, module, only_declarations, builder->getInt64Ty());
+    generate_read_uint_function(builder, module, only_declarations, builder->getInt32Ty());
+    generate_read_uint_function(builder, module, only_declarations, builder->getInt64Ty());
+    generate_read_f32_function(builder, module, only_declarations);
+    generate_read_f64_function(builder, module, only_declarations);
 }
