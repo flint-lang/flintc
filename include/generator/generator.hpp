@@ -2452,5 +2452,64 @@ class Generator {
         /// @param `module` The LLVM Module the print function definition will be generated in
         /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
         static void generate_print_bool_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-    };
+    }; // subclass Print
+
+    /// @class `Read`
+    /// @brief The class which is responsible for generating everything related to reading
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Read {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        Read() = delete;
+
+        /// @var `getline_function`
+        /// @brief The builtin getline function to provide a platform-independant way of reading a line from stdio
+        static inline llvm::Function *getline_function{nullptr};
+
+        /// @var `read_functions`
+        /// @brief Map containing references to all read function varaints
+        ///
+        /// This map exists to track the references to the builtin read functions. They are being created at the beginning of the program
+        /// generation phase. Whenever a builtin read function is being refernced this map is used to resolve it.
+        ///
+        /// @details
+        /// - **Key** `std::string_view` - The name of the read function
+        /// - **Value** `llvm::Function *` - The reference to the genereated read function
+        ///
+        /// @attention The print functions are nullpointers until the `generate_read_functions` function is called
+        /// @attention The map is not being cleared after the program module has been generated
+        static inline std::unordered_map<std::string_view, llvm::Function *> read_functions = {
+            {"read_str", nullptr},
+            {"read_i32", nullptr},
+            {"read_i64", nullptr},
+            {"read_u32", nullptr},
+            {"read_u64", nullptr},
+            {"read_f32", nullptr},
+            {"read_f64", nullptr},
+        };
+
+        /// @function `generate_getline_function`
+        /// @brief Generates the builtin hidden `getline` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `getline` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_getline_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+        /// @function `generate_read_str_function`
+        /// @brief Generates the builtin hidden `read_str` function
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `read_str` function will be generated in
+        /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+        static void generate_read_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+        /// @function `generate_read_functions`
+        /// @brief Generates all the builtin hidden read functions to read from stdin
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the read functions will be generated in
+        /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+        static void generate_read_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+    }; // subclass Read
 };

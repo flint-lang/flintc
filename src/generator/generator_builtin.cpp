@@ -95,7 +95,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *malloc_type = llvm::FunctionType::get( //
             llvm::Type::getVoidTy(context)->getPointerTo(),        // Return type: void*
             {llvm::Type::getInt64Ty(context)},                     // Arguments: u64
-            false                                                  // No varargs
+            false                                                  // No vaarg
         );
         llvm::Function *malloc_fn = llvm::Function::Create(malloc_type, llvm::Function::ExternalLinkage, "malloc", module);
         c_functions[MALLOC] = malloc_fn;
@@ -105,7 +105,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *free_type = llvm::FunctionType::get( //
             llvm::Type::getVoidTy(context),                      // Return type: void
             {llvm::Type::getVoidTy(context)->getPointerTo()},    // Argument: void*
-            false                                                // No varargs
+            false                                                // No vaarg
         );
         llvm::Function *free_fn = llvm::Function::Create(free_type, llvm::Function::ExternalLinkage, "free", module);
         c_functions[FREE] = free_fn;
@@ -119,7 +119,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
                 llvm::Type::getVoidTy(context)->getPointerTo(), // Argument: const void*
                 llvm::Type::getInt64Ty(context)                 // Argument: u64
             },                                                  //
-            false                                               // No varargs
+            false                                               // No vaarg
         );
         llvm::Function *memcpy_fn = llvm::Function::Create(memcpy_type, llvm::Function::ExternalLinkage, "memcpy", module);
         c_functions[MEMCPY] = memcpy_fn;
@@ -132,7 +132,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
                 llvm::Type::getVoidTy(context)->getPointerTo(), // Argument: void*
                 llvm::Type::getInt64Ty(context)                 // Argument: u64
             },                                                  //
-            false                                               // No varargs
+            false                                               // No vaarg
         );
         llvm::Function *realloc_fn = llvm::Function::Create(realloc_type, llvm::Function::ExternalLinkage, "realloc", module);
         c_functions[REALLOC] = realloc_fn;
@@ -146,7 +146,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
                 llvm::Type::getInt64Ty(context),                // Argument: u64 (max_len)
                 llvm::Type::getInt8Ty(context)->getPointerTo()  // Argument: char* (format)
             },                                                  //
-            true                                                // Varargs
+            true                                                // vaarg
         );
         llvm::Function *snprintf_fn = llvm::Function::Create(snprintf_type, llvm::Function::ExternalLinkage, "snprintf", module);
         c_functions[SNPRINTF] = snprintf_fn;
@@ -160,7 +160,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
                 llvm::Type::getVoidTy(context)->getPointerTo(), // Argument: void* (memory address 2)
                 llvm::Type::getInt64Ty(context)                 // Argument: u64 (size to compare)
             },                                                  //
-            false                                               // No varargs
+            false                                               // No vaarg
         );
         llvm::Function *memcmp_fn = llvm::Function::Create(memcmp_type, llvm::Function::ExternalLinkage, "memcmp", module);
         c_functions[MEMCMP] = memcmp_fn;
@@ -171,7 +171,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *exit_type = llvm::FunctionType::get( //
             llvm::Type::getVoidTy(context),                      // return void
             llvm::Type::getInt32Ty(context),                     // takes i32
-            false                                                // no vararg
+            false                                                // No vaarg
         );
         llvm::Function *exit_fn = llvm::Function::Create(exit_type, llvm::Function::ExternalLinkage, "exit", module);
         c_functions[EXIT] = exit_fn;
@@ -181,6 +181,30 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *abort_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
         llvm::Function *abort_fn = llvm::Function::Create(abort_type, llvm::Function::ExternalLinkage, "abort", module);
         c_functions[ABORT] = abort_fn;
+    }
+    // fgetc
+    {
+        llvm::FunctionType *fgetc_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                      // return i32
+            {llvm::Type::getVoidTy(context)->getPointerTo()},     // FILE* stream (as void*)
+            false                                                 // no vaarg
+        );
+        llvm::Function *fgetc_fn = llvm::Function::Create(fgetc_type, llvm::Function::ExternalLinkage, "fgetc", module);
+        c_functions[FGETC] = fgetc_fn;
+    }
+    // memmove
+    {
+        llvm::FunctionType *memmove_type = llvm::FunctionType::get( //
+            llvm::Type::getVoidTy(context)->getPointerTo(),         // return void*
+            {
+                llvm::Type::getVoidTy(context)->getPointerTo(), // void* dest
+                llvm::Type::getVoidTy(context)->getPointerTo(), // void* src
+                llvm::Type::getInt64Ty(context)                 // i64 n
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *memmove_fn = llvm::Function::Create(memmove_type, llvm::Function::ExternalLinkage, "memmove", module);
+        c_functions[MEMMOVE] = memmove_fn;
     }
 }
 

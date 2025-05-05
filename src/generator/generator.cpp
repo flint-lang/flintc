@@ -189,6 +189,30 @@ bool Generator::generate_builtin_modules() {
             return false;
         }
     }
+    // module 'read'
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::READ)) {
+        PROFILE_SCOPE("Generating module 'read'");
+        builder = std::make_unique<llvm::IRBuilder<>>(context);
+        module = std::make_unique<llvm::Module>("read", context);
+        Builtin::generate_c_functions(module.get());
+        Print::generate_print_functions(builder.get(), module.get(), true);
+        String::generate_string_manip_functions(builder.get(), module.get(), true);
+        Read::generate_read_functions(builder.get(), module.get(), false);
+
+        // Print the module, if requested
+        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::READ))) {
+            std::cout << YELLOW << "[Debug Info] Generated Module 'read':\n"
+                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+        }
+        // Save the generated module at the module path
+        bool compilation_successful = compile_module(module.get(), cache_path / "read");
+        module.reset();
+        builder.reset();
+        if (!compilation_successful) {
+            std::cerr << "Error: Failed to generate builtin module 'read'" << std::endl;
+            return false;
+        }
+    }
     // Then, save the new metadata file
     save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
 
@@ -307,6 +331,9 @@ unsigned int Generator::which_builtin_modules_to_rebuild() {
     }
     if (!std::filesystem::exists(cache_path / ("array" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
+    }
+    if (!std::filesystem::exists(cache_path / ("read" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::READ);
     }
     return needed_rebuilds;
 }
@@ -476,8 +503,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate all the c functions
     Builtin::generate_c_functions(module.get());
 
-    // Generate all the "hidden" builtin string manipulation functions
+    // Generate all the "hidden" string helper functions
     String::generate_string_manip_functions(builder.get(), module.get());
+
+    // Generate all the "hidden" read helper functions
+    Read::generate_read_functions(builder.get(), module.get());
 
     // Generate all the "hidden" typecast helper functions
     TypeCast::generate_typecast_functions(builder.get(), module.get());

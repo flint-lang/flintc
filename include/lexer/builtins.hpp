@@ -49,6 +49,8 @@ enum CFunction {
     MEMCMP,
     EXIT,
     ABORT,
+    FGETC,
+    MEMMOVE,
 };
 
 /// @typedef `type_list`

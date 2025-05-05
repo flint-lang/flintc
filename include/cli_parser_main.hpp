@@ -123,6 +123,8 @@ class CLIParserMain : public CLIParserBase {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
             } else if (arg == "--print-ir-array") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
+            } else if (arg == "--print-ir-read") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::READ);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);
@@ -195,6 +197,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
         std::cout << "  --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
         std::cout << "  --print-ir-array            Enables printing of the IR code for the array.o library\n";
+        std::cout << "  --print-ir-read             Enables printing of the IR code for the read.o library\n";
         std::cout << "                              HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used.";
         std::cout << std::endl;
 #endif
