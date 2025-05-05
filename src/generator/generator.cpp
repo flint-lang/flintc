@@ -692,7 +692,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             if (!is_test) {
                 continue;
             }
-            std::optional<llvm::Function *> test_function = Builtin::generate_test_function(module.get(), test_node);
+            std::optional<llvm::Function *> test_function = Function::generate_test_function(module.get(), test_node);
             if (!test_function.has_value()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;

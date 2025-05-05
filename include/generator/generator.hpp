@@ -439,14 +439,6 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the test entry point will be generated in
         static void generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module);
-
-        /// @function `generate_test_function`
-        /// @brief Generates the test function
-        ///
-        /// @param `module` The LLVM Module in which the test will be generated in
-        /// @param `test_node` The TestNode to generate
-        /// @return `std::optional<llvm::Function *>` The generated test function, nullopt if generation failed
-        [[nodiscard]] static std::optional<llvm::Function *> generate_test_function(llvm::Module *module, const TestNode *test_node);
     }; // subclass Builtin
 
     /// @class `Arithmetic`
@@ -1425,6 +1417,14 @@ class Generator {
         /// @param `function_node` The FunctionNode used to generate the function
         /// @return `bool` Whether the code generation of the function was successful
         [[nodiscard]] static bool generate_function(llvm::Module *module, FunctionNode *function_node);
+
+        /// @function `generate_test_function`
+        /// @brief Generates the test function
+        ///
+        /// @param `module` The LLVM Module in which the test will be generated in
+        /// @param `test_node` The TestNode to generate
+        /// @return `std::optional<llvm::Function *>` The generated test function, nullopt if generation failed
+        [[nodiscard]] static std::optional<llvm::Function *> generate_test_function(llvm::Module *module, const TestNode *test_node);
 
         /// @function `get_function_definition`
         /// @brief Returns the function definition from the given CallNode or other values based on a few conditions

@@ -84,6 +84,49 @@ bool Generator::Function::generate_function(llvm::Module *module, FunctionNode *
     return true;
 }
 
+std::optional<llvm::Function *> Generator::Function::generate_test_function(llvm::Module *module, const TestNode *test_node) {
+    llvm::StructType *void_type = IR::add_and_or_get_type({});
+
+    // Create the function type
+    llvm::FunctionType *test_type = llvm::FunctionType::get( //
+        void_type,                                           // return { i32 }
+        {},                                                  // takes nothing
+        false                                                // no vararg
+    );
+    // Create the test function itself
+    llvm::Function *test_function = llvm::Function::Create( //
+        test_type,                                          //
+        llvm::Function::ExternalLinkage,                    //
+        "___test_" + std::to_string(test_node->test_id),    //
+        module                                              //
+    );
+
+    // Create the entry block
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
+        context,                                              //
+        "entry",                                              //
+        test_function                                         //
+    );
+
+    // The test function has no parameters when called, it just returns whether it has succeeded through the error value
+    llvm::IRBuilder<> builder(entry_block);
+    std::unordered_map<std::string, llvm::Value *const> allocations;
+    Allocation::generate_allocations(builder, test_function, test_node->scope.get(), allocations);
+    // Normally generate the tests body
+    if (!Statement::generate_body(builder, test_function, test_node->scope.get(), allocations)) {
+        return std::nullopt;
+    }
+
+    // Check if the function has a terminator, if not add an "empty" return (only the error return)
+    if (!test_function->empty() && test_function->back().getTerminator() == nullptr) {
+        if (!Statement::generate_return_statement(builder, test_function, test_node->scope.get(), allocations, {})) {
+            return std::nullopt;
+        }
+    }
+
+    return test_function;
+}
+
 std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_function_definition( //
     llvm::Function *parent,                                                                    //
     const CallNodeBase *call_node                                                              //
