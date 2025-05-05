@@ -1429,10 +1429,8 @@ class Generator {
         /// @function `get_function_definition`
         /// @brief Returns the function definition from the given CallNode or other values based on a few conditions
         ///
-        /// In the "normal" execution case, this function returns a pointer to the definition from a given CallNode's call. But, there are
-        /// some conditions. If the call is towards a builtin function, this function explicitely returns a nullptr on purpose. If the
-        /// definition could not be found, this function returns a `std::nullopt`. The second variable determines whether the call targets a
-        /// function inside the current module (false) or if it targets a function from another module (true).
+        /// If the definition could not be found, this function returns a `std::nullopt`. The second variable determines whether the call
+        /// targets a function inside the current module (false) or if it targets a function from another module (true).
         ///
         /// @param `parent` The Function the call happens in
         /// @param `call_node` The CallNode from which the actual function definition is tried to be found

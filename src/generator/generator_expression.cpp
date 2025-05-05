@@ -251,24 +251,14 @@ Generator::group_mapping Generator::Expression::generate_call(        //
 
     // Check if it is a builtin function and call it
     if (builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
-        llvm::Function *builtin_function = builtins.at(builtin_functions.at(call_node->function_name));
-        if (builtin_function == nullptr) {
-            // Function has not been generated yet, but it should have been
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        // There doesnt exist a builtin print function for any groups
-        if (dynamic_cast<const GroupType *>(call_node->arguments.front().first->type.get())) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        // Call the builtin function 'print'
         std::vector<llvm::Value *> return_value;
         if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
-            Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != Print::print_functions.end()) {
+            Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != Print::print_functions.end() //
+        ) {
+            // Call the builtin function 'print'
             // If the argument is of type str we need to differentiate between literals and str variables
-            if (call_node->arguments.at(0).first->type->to_string() == "str") {
-                if (dynamic_cast<const LiteralNode *>(call_node->arguments.at(0).first.get())) {
+            if (call_node->arguments.front().first->type->to_string() == "str") {
+                if (dynamic_cast<const LiteralNode *>(call_node->arguments.front().first.get())) {
                     return_value.emplace_back(builder.CreateCall(Print::print_functions.at("str"), args));
                     if (!Statement::clear_garbage(builder, garbage)) {
                         return std::nullopt;
@@ -290,8 +280,6 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             }
             return return_value;
         }
-        return_value.emplace_back(builder.CreateCall(builtin_function, args));
-        return return_value;
     }
 
     // Get the function definition from any module
@@ -301,12 +289,6 @@ Generator::group_mapping Generator::Expression::generate_call(        //
         return std::nullopt;
     }
     llvm::Function *func_decl = func_decl_res.value();
-    if (func_decl == nullptr) {
-        // Is a builtin function, but the code block above should have been executed in that case, because we are here, something went
-        // wrong
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return std::nullopt;
-    }
 
     // Create the call instruction using the original declaration
     llvm::CallInst *call = builder.CreateCall(                                  //

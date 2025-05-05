@@ -87,6 +87,15 @@ void Generator::Allocation::generate_call_allocations(                //
     for (const auto &arg : call_node->arguments) {
         generate_expression_allocations(builder, parent, scope, allocations, arg.first.get());
     }
+    // Check if the call targets any builtin functions
+    if (builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
+        if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
+            Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != Print::print_functions.end() //
+        ) {
+            // Print functions dont return anything, so we dont need to allocate anything for them
+            return;
+        }
+    }
     // Get the function definition from any module
     auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
     if (!func_decl_res.has_value()) {
@@ -94,10 +103,6 @@ void Generator::Allocation::generate_call_allocations(                //
         return;
     }
     llvm::Function *func_decl = func_decl_res.value();
-    if (func_decl == nullptr) {
-        // Builtin function call with void return
-        return;
-    }
 
     // Temporary allocation for the entire return struct
     const std::string ret_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
