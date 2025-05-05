@@ -230,6 +230,7 @@ bool Generator::generate_builtin_modules() {
         libs.emplace_back(cache_path / ("arithmetic" + file_ending));
     }
     libs.emplace_back(cache_path / ("array" + file_ending));
+    libs.emplace_back(cache_path / ("read" + file_ending));
 
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
