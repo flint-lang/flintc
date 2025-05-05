@@ -178,7 +178,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation(              
     auto it = interpol_node->string_content.begin();
     llvm::Value *str_value = nullptr;
     if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
-        llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+        llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
         const std::string lit_string = std::get<std::string>(std::get<std::unique_ptr<LiteralNode>>(*it)->value);
         llvm::Value *lit_str = IR::generate_const_string(builder, lit_string);
         str_value = builder.CreateCall(init_str_fn, {lit_str, builder.getInt64(lit_string.length())}, "init_str_value");
@@ -195,8 +195,8 @@ llvm::Value *Generator::Expression::generate_string_interpolation(              
     }
     ++it;
 
-    llvm::Function *add_str_lit = String::string_manip_functions.at("add_str_lit");
-    llvm::Function *add_str_str = String::string_manip_functions.at("add_str_str");
+    llvm::Function *add_str_lit = Module::String::string_manip_functions.at("add_str_lit");
+    llvm::Function *add_str_str = Module::String::string_manip_functions.at("add_str_str");
     for (; it != interpol_node->string_content.end(); ++it) {
         if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
             const std::string lit_string = std::get<std::string>(std::get<std::unique_ptr<LiteralNode>>(*it)->value);
@@ -244,7 +244,7 @@ Generator::group_mapping Generator::Expression::generate_call(        //
         }
         llvm::Value *expr_val = expression.value().front();
         if (call_node->function_name != "print" && arg.first->type->to_string() == "str") {
-            expr_val = String::generate_string_declaration(builder, expr_val, arg.first.get());
+            expr_val = Module::String::generate_string_declaration(builder, expr_val, arg.first.get());
         }
         args.emplace_back(expr_val);
     }
@@ -252,20 +252,21 @@ Generator::group_mapping Generator::Expression::generate_call(        //
     // Check if it is a builtin function and call it
     if (builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
         std::vector<llvm::Value *> return_value;
-        if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
-            Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != Print::print_functions.end() //
+        if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&                    //
+            Module::Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != //
+                Module::Print::print_functions.end()                                                      //
         ) {
             // Call the builtin function 'print'
             // If the argument is of type str we need to differentiate between literals and str variables
             if (call_node->arguments.front().first->type->to_string() == "str") {
                 if (dynamic_cast<const LiteralNode *>(call_node->arguments.front().first.get())) {
-                    return_value.emplace_back(builder.CreateCall(Print::print_functions.at("str"), args));
+                    return_value.emplace_back(builder.CreateCall(Module::Print::print_functions.at("str"), args));
                     if (!Statement::clear_garbage(builder, garbage)) {
                         return std::nullopt;
                     }
                     return return_value;
                 } else {
-                    return_value.emplace_back(builder.CreateCall(Print::print_functions.at("str_var"), args));
+                    return_value.emplace_back(builder.CreateCall(Module::Print::print_functions.at("str_var"), args));
                     if (!Statement::clear_garbage(builder, garbage)) {
                         return std::nullopt;
                     }
@@ -274,14 +275,16 @@ Generator::group_mapping Generator::Expression::generate_call(        //
             }
 
             const std::string type_str = call_node->arguments.front().first->type->to_string();
-            return_value.emplace_back(builder.CreateCall(Print::print_functions.at(type_str), args));
+            return_value.emplace_back(builder.CreateCall(Module::Print::print_functions.at(type_str), args));
             if (!Statement::clear_garbage(builder, garbage)) {
                 return std::nullopt;
             }
             return return_value;
-        } else if (call_node->arguments.size() == 0 && Read::read_functions.find(call_node->function_name) != Read::read_functions.end()) {
-            return_value.emplace_back(builder.CreateCall(                                                   //
-                Read::read_functions.at(call_node->function_name), args, call_node->function_name + "_res") //
+        } else if (call_node->arguments.size() == 0 &&                                                        //
+            Module::Read::read_functions.find(call_node->function_name) != Module::Read::read_functions.end() //
+        ) {
+            return_value.emplace_back(builder.CreateCall(                                                           //
+                Module::Read::read_functions.at(call_node->function_name), args, call_node->function_name + "_res") //
             );
             return return_value;
         }
@@ -586,8 +589,8 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
     const llvm::DataLayout &data_layout = parent->getParent()->getDataLayout();
     llvm::Type *element_type = IR::get_type(initializer->element_type).first;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
-    llvm::CallInst *created_array = builder.CreateCall( //
-        Array::array_manip_functions.at("create_arr"),  //
+    llvm::CallInst *created_array = builder.CreateCall(        //
+        Module::Array::array_manip_functions.at("create_arr"), //
         {
             builder.getInt64(length_expressions.size()), // dimensionality
             builder.getInt64(element_size_in_bytes),     // element_size
@@ -609,7 +612,7 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
         IR::get_type(Type::get_primitive_type("i64")).first      //
     );
     llvm::CallInst *fill_call = builder.CreateCall(                               //
-        Array::array_manip_functions.at("fill_arr_val"),                          //
+        Module::Array::array_manip_functions.at("fill_arr_val"),                  //
         {created_array, builder.getInt64(element_size_in_bytes), value_container} //
     );
     fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
@@ -667,8 +670,8 @@ llvm::Value *Generator::Expression::generate_array_access(                      
     llvm::Type *element_type = IR::get_type(access->type).first;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
     llvm::Value *array_ptr = builder.CreateLoad(IR::get_type(access->variable_type).first, array_alloca, "array_ptr");
-    llvm::Value *result = builder.CreateCall(Array::array_manip_functions.at("access_arr_val"), //
-        {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                //
+    llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
+        {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
     );
     // return builder.CreateBitCast(result, IR::get_type(std::get<std::shared_ptr<Type>>(access->type)).first);
     // return generate_type_cast(builder, result, Type::get_primitive_type("u64"), std::get<std::shared_ptr<Type>>(access->type));
@@ -817,121 +820,121 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         return expr;
     } else if (from_type_str == "i32") {
         if (to_type_str == "str") {
-            return builder.CreateCall(TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");
         }
         if (to_type_str == "u32") {
-            return TypeCast::i32_to_u32(builder, expr);
+            return Module::TypeCast::i32_to_u32(builder, expr);
         }
         if (to_type_str == "i64") {
-            return TypeCast::i32_to_i64(builder, expr);
+            return Module::TypeCast::i32_to_i64(builder, expr);
         }
         if (to_type_str == "u64") {
-            return TypeCast::i32_to_u64(builder, expr);
+            return Module::TypeCast::i32_to_u64(builder, expr);
         }
         if (to_type_str == "f32") {
-            return TypeCast::i32_to_f32(builder, expr);
+            return Module::TypeCast::i32_to_f32(builder, expr);
         }
         if (to_type_str == "f64") {
-            return TypeCast::i32_to_f64(builder, expr);
+            return Module::TypeCast::i32_to_f64(builder, expr);
         }
     } else if (from_type_str == "u32") {
         if (to_type_str == "str") {
-            return builder.CreateCall(TypeCast::typecast_functions.at("u32_to_str"), {expr}, "u32_to_str_res");
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("u32_to_str"), {expr}, "u32_to_str_res");
         }
         if (to_type_str == "i32") {
-            return TypeCast::u32_to_i32(builder, expr);
+            return Module::TypeCast::u32_to_i32(builder, expr);
         }
         if (to_type_str == "i64") {
-            return TypeCast::u32_to_i64(builder, expr);
+            return Module::TypeCast::u32_to_i64(builder, expr);
         }
         if (to_type_str == "u64") {
-            return TypeCast::u32_to_u64(builder, expr);
+            return Module::TypeCast::u32_to_u64(builder, expr);
         }
         if (to_type_str == "f32") {
-            return TypeCast::u32_to_f32(builder, expr);
+            return Module::TypeCast::u32_to_f32(builder, expr);
         }
         if (to_type_str == "f64") {
-            return TypeCast::u32_to_f64(builder, expr);
+            return Module::TypeCast::u32_to_f64(builder, expr);
         }
     } else if (from_type_str == "i64") {
         if (to_type_str == "str") {
-            return builder.CreateCall(TypeCast::typecast_functions.at("i64_to_str"), {expr}, "i64_to_str_res");
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("i64_to_str"), {expr}, "i64_to_str_res");
         }
         if (to_type_str == "i32") {
-            return TypeCast::i64_to_i32(builder, expr);
+            return Module::TypeCast::i64_to_i32(builder, expr);
         }
         if (to_type_str == "u32") {
-            return TypeCast::i64_to_u32(builder, expr);
+            return Module::TypeCast::i64_to_u32(builder, expr);
         }
         if (to_type_str == "u64") {
-            return TypeCast::i64_to_u64(builder, expr);
+            return Module::TypeCast::i64_to_u64(builder, expr);
         }
         if (to_type_str == "f32") {
-            return TypeCast::i64_to_f32(builder, expr);
+            return Module::TypeCast::i64_to_f32(builder, expr);
         }
         if (to_type_str == "f64") {
-            return TypeCast::i64_to_f64(builder, expr);
+            return Module::TypeCast::i64_to_f64(builder, expr);
         }
     } else if (from_type_str == "u64") {
         if (to_type_str == "str") {
-            return builder.CreateCall(TypeCast::typecast_functions.at("u64_to_str"), {expr}, "u64_to_str_res");
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("u64_to_str"), {expr}, "u64_to_str_res");
         }
         if (to_type_str == "i32") {
-            return TypeCast::u64_to_i32(builder, expr);
+            return Module::TypeCast::u64_to_i32(builder, expr);
         }
         if (to_type_str == "u32") {
-            return TypeCast::u64_to_u32(builder, expr);
+            return Module::TypeCast::u64_to_u32(builder, expr);
         }
         if (to_type_str == "i64") {
-            return TypeCast::u64_to_i64(builder, expr);
+            return Module::TypeCast::u64_to_i64(builder, expr);
         }
         if (to_type_str == "f32") {
-            return TypeCast::u64_to_f32(builder, expr);
+            return Module::TypeCast::u64_to_f32(builder, expr);
         }
         if (to_type_str == "f64") {
-            return TypeCast::u64_to_f64(builder, expr);
+            return Module::TypeCast::u64_to_f64(builder, expr);
         }
     } else if (from_type_str == "f32") {
         if (to_type_str == "str") {
-            return builder.CreateCall(TypeCast::typecast_functions.at("f32_to_str"), {expr}, "f32_to_str_res");
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("f32_to_str"), {expr}, "f32_to_str_res");
         }
         if (to_type_str == "i32") {
-            return TypeCast::f32_to_i32(builder, expr);
+            return Module::TypeCast::f32_to_i32(builder, expr);
         }
         if (to_type_str == "u32") {
-            return TypeCast::f32_to_u32(builder, expr);
+            return Module::TypeCast::f32_to_u32(builder, expr);
         }
         if (to_type_str == "i64") {
-            return TypeCast::f32_to_i64(builder, expr);
+            return Module::TypeCast::f32_to_i64(builder, expr);
         }
         if (to_type_str == "u64") {
-            return TypeCast::f32_to_u64(builder, expr);
+            return Module::TypeCast::f32_to_u64(builder, expr);
         }
         if (to_type_str == "f64") {
-            return TypeCast::f32_to_f64(builder, expr);
+            return Module::TypeCast::f32_to_f64(builder, expr);
         }
     } else if (from_type_str == "f64") {
         if (to_type_str == "str") {
-            return builder.CreateCall(TypeCast::typecast_functions.at("f64_to_str"), {expr}, "f64_to_str_res");
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("f64_to_str"), {expr}, "f64_to_str_res");
         }
         if (to_type_str == "i32") {
-            return TypeCast::f64_to_i32(builder, expr);
+            return Module::TypeCast::f64_to_i32(builder, expr);
         }
         if (to_type_str == "u32") {
-            return TypeCast::f64_to_u32(builder, expr);
+            return Module::TypeCast::f64_to_u32(builder, expr);
         }
         if (to_type_str == "i64") {
-            return TypeCast::f64_to_i64(builder, expr);
+            return Module::TypeCast::f64_to_i64(builder, expr);
         }
         if (to_type_str == "u64") {
-            return TypeCast::f64_to_u64(builder, expr);
+            return Module::TypeCast::f64_to_u64(builder, expr);
         }
         if (to_type_str == "f32") {
-            return TypeCast::f64_to_f32(builder, expr);
+            return Module::TypeCast::f64_to_f32(builder, expr);
         }
     } else if (from_type_str == "bool") {
         if (to_type_str == "str") {
-            return builder.CreateCall(TypeCast::typecast_functions.at("bool_to_str"), {expr}, "bool_to_str_res");
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("bool_to_str"), {expr}, "bool_to_str_res");
         }
     }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;
@@ -971,29 +974,29 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression(   
                     llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
                     operand.at(i) = overflow_mode == ArithmeticOverflowMode::UNSAFE
                         ? builder.CreateAdd(operand.at(i), one, "add_res")
-                        : builder.CreateCall(                                                                           //
-                              Arithmetic::arithmetic_functions.at("i32_safe_add"), {operand.at(i), one}, "safe_add_res" //
+                        : builder.CreateCall(                                                                                   //
+                              Module::Arithmetic::arithmetic_functions.at("i32_safe_add"), {operand.at(i), one}, "safe_add_res" //
                           );
                 } else if (expression_type == "i64") {
                     llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
                     operand.at(i) = overflow_mode == ArithmeticOverflowMode::UNSAFE
                         ? builder.CreateAdd(operand.at(i), one, "add_res")
-                        : builder.CreateCall(                                                                           //
-                              Arithmetic::arithmetic_functions.at("i64_safe_add"), {operand.at(i), one}, "safe_add_res" //
+                        : builder.CreateCall(                                                                                   //
+                              Module::Arithmetic::arithmetic_functions.at("i64_safe_add"), {operand.at(i), one}, "safe_add_res" //
                           );
                 } else if (expression_type == "u32") {
                     llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
                     operand.at(i) = overflow_mode == ArithmeticOverflowMode::UNSAFE
                         ? builder.CreateAdd(operand.at(i), one, "add_res")
-                        : builder.CreateCall(                                                                           //
-                              Arithmetic::arithmetic_functions.at("u32_safe_add"), {operand.at(0), one}, "safe_add_res" //
+                        : builder.CreateCall(                                                                                   //
+                              Module::Arithmetic::arithmetic_functions.at("u32_safe_add"), {operand.at(0), one}, "safe_add_res" //
                           );
                 } else if (expression_type == "u64") {
                     llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
                     operand.at(i) = overflow_mode == ArithmeticOverflowMode::UNSAFE
                         ? builder.CreateAdd(operand.at(i), one, "add_res")
-                        : builder.CreateCall(                                                                           //
-                              Arithmetic::arithmetic_functions.at("u64_safe_add"), {operand.at(0), one}, "safe_add_res" //
+                        : builder.CreateCall(                                                                                   //
+                              Module::Arithmetic::arithmetic_functions.at("u64_safe_add"), {operand.at(0), one}, "safe_add_res" //
                           );
                 } else if (expression_type == "f32" || expression_type == "f64") {
                     llvm::Value *one = llvm::ConstantFP::get(operand.at(i)->getType(), 1.0);
@@ -1005,29 +1008,29 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression(   
                     llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
                     operand.at(i) = overflow_mode == ArithmeticOverflowMode::UNSAFE
                         ? builder.CreateSub(operand.at(i), one, "sub_res")
-                        : builder.CreateCall(                                                                           //
-                              Arithmetic::arithmetic_functions.at("i32_safe_sub"), {operand.at(i), one}, "safe_sub_res" //
+                        : builder.CreateCall(                                                                                   //
+                              Module::Arithmetic::arithmetic_functions.at("i32_safe_sub"), {operand.at(i), one}, "safe_sub_res" //
                           );
                 } else if (expression_type == "i64") {
                     llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
                     operand.at(i) = overflow_mode == ArithmeticOverflowMode::UNSAFE
                         ? builder.CreateSub(operand.at(i), one, "sub_res")
-                        : builder.CreateCall(                                                                           //
-                              Arithmetic::arithmetic_functions.at("i64_safe_sub"), {operand.at(i), one}, "safe_sub_res" //
+                        : builder.CreateCall(                                                                                   //
+                              Module::Arithmetic::arithmetic_functions.at("i64_safe_sub"), {operand.at(i), one}, "safe_sub_res" //
                           );
                 } else if (expression_type == "u32") {
                     llvm::Value *one = llvm::ConstantInt::get(builder.getInt32Ty(), 1);
                     operand.at(i) = overflow_mode == ArithmeticOverflowMode::UNSAFE
                         ? builder.CreateSub(operand.at(i), one, "sub_res")
-                        : builder.CreateCall(                                                                           //
-                              Arithmetic::arithmetic_functions.at("u32_safe_sub"), {operand.at(0), one}, "safe_sub_res" //
+                        : builder.CreateCall(                                                                                   //
+                              Module::Arithmetic::arithmetic_functions.at("u32_safe_sub"), {operand.at(0), one}, "safe_sub_res" //
                           );
                 } else if (expression_type == "u64") {
                     llvm::Value *one = llvm::ConstantInt::get(builder.getInt64Ty(), 1);
                     operand.at(i) = overflow_mode == ArithmeticOverflowMode::UNSAFE
                         ? builder.CreateSub(operand.at(i), one, "sub_res")
-                        : builder.CreateCall(                                                                           //
-                              Arithmetic::arithmetic_functions.at("u64_safe_sub"), {operand.at(0), one}, "safe_sub_res" //
+                        : builder.CreateCall(                                                                                   //
+                              Module::Arithmetic::arithmetic_functions.at("u64_safe_sub"), {operand.at(0), one}, "safe_sub_res" //
                           );
                 } else if (expression_type == "f32" || expression_type == "f64") {
                     llvm::Value *one = llvm::ConstantFP::get(operand.at(i)->getType(), 1.0);
@@ -1139,17 +1142,17 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
                 return builder.CreateAdd(lhs, rhs, "add_res");
             }
             if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_add"), {lhs, rhs}, "safe_add_res");
+                return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_add"), {lhs, rhs}, "safe_add_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFAdd(lhs, rhs, "faddtmp");
             } else if (type_str == "flint") {
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
-                return String::generate_string_addition(builder, scope, allocations, garbage, expr_depth + 1, //
-                    lhs, bin_op_node->left.get(),                                                             //
-                    rhs, bin_op_node->right.get(),                                                            //
-                    bin_op_node->is_shorthand                                                                 //
+                return Module::String::generate_string_addition(builder, scope, allocations, garbage, expr_depth + 1, //
+                    lhs, bin_op_node->left.get(),                                                                     //
+                    rhs, bin_op_node->right.get(),                                                                    //
+                    bin_op_node->is_shorthand                                                                         //
                 );
             }
             break;
@@ -1158,7 +1161,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
                 return builder.CreateSub(lhs, rhs, "sub_res");
             }
             if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_sub"), {lhs, rhs}, "safe_sub_res");
+                return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_sub"), {lhs, rhs}, "safe_sub_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFSub(lhs, rhs, "fsubtmp");
             } else if (type_str == "flint") {
@@ -1171,7 +1174,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
                 return builder.CreateMul(lhs, rhs, "mul_res");
             }
             if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64") {
-                return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_mul"), {lhs, rhs}, "safe_mul_res");
+                return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_mul"), {lhs, rhs}, "safe_mul_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFMul(lhs, rhs, "fmultmp");
             } else if (type_str == "flint") {
@@ -1183,11 +1186,11 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
             if (type_str == "i32" || type_str == "i64") {
                 return overflow_mode == ArithmeticOverflowMode::UNSAFE //
                     ? builder.CreateSDiv(lhs, rhs, "sdiv_res")         //
-                    : builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_sdiv_res");
+                    : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_sdiv_res");
             } else if (type_str == "u32" || type_str == "u64") {
                 return overflow_mode == ArithmeticOverflowMode::UNSAFE //
                     ? builder.CreateUDiv(lhs, rhs, "udiv_res")         //
-                    : builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_udiv_res");
+                    : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_udiv_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFDiv(lhs, rhs, "fdivtmp");
             } else if (type_str == "flint") {
@@ -1319,11 +1322,11 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
                 return builder.CreateAdd(lhs, rhs, "vec_add");
             }
-            if (Arithmetic::arithmetic_functions.find(type_str + "_safe_add") == Arithmetic::arithmetic_functions.end()) {
+            if (Module::Arithmetic::arithmetic_functions.find(type_str + "_safe_add") == Module::Arithmetic::arithmetic_functions.end()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_add"), {lhs, rhs}, "safe_add_res");
+            return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_add"), {lhs, rhs}, "safe_add_res");
             break;
         case TOK_MINUS:
             if (is_float) {
@@ -1332,11 +1335,11 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
                 return builder.CreateSub(lhs, rhs, "vec_sub");
             }
-            if (Arithmetic::arithmetic_functions.find(type_str + "_safe_sub") == Arithmetic::arithmetic_functions.end()) {
+            if (Module::Arithmetic::arithmetic_functions.find(type_str + "_safe_sub") == Module::Arithmetic::arithmetic_functions.end()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_sub"), {lhs, rhs}, "safe_sub_res");
+            return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_sub"), {lhs, rhs}, "safe_sub_res");
             break;
         case TOK_MULT:
             if (is_float) {
@@ -1345,11 +1348,11 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
                 return builder.CreateMul(lhs, rhs, "vec_mul");
             }
-            if (Arithmetic::arithmetic_functions.find(type_str + "_safe_mul") == Arithmetic::arithmetic_functions.end()) {
+            if (Module::Arithmetic::arithmetic_functions.find(type_str + "_safe_mul") == Module::Arithmetic::arithmetic_functions.end()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_mul"), {lhs, rhs}, "safe_mul_res");
+            return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_mul"), {lhs, rhs}, "safe_mul_res");
             break;
         case TOK_DIV:
             if (is_float) {
@@ -1358,11 +1361,11 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
                 return builder.CreateSDiv(lhs, rhs, "vec_div");
             }
-            if (Arithmetic::arithmetic_functions.find(type_str + "_safe_div") == Arithmetic::arithmetic_functions.end()) {
+            if (Module::Arithmetic::arithmetic_functions.find(type_str + "_safe_div") == Module::Arithmetic::arithmetic_functions.end()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            return builder.CreateCall(Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_div_res");
+            return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_div_res");
             break;
         case TOK_LESS: {
             llvm::Value *cmp_result;

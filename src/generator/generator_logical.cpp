@@ -23,8 +23,8 @@ llvm::Value *Generator::Logical::generate_string_cmp_lt( //
     llvm::Value *rhs,                                    //
     const ExpressionNode *rhs_expr                       //
 ) {
-    llvm::Function *compare_str_fn = String::string_manip_functions.at("compare_str");
-    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *compare_str_fn = Module::String::string_manip_functions.at("compare_str");
+    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
@@ -50,8 +50,8 @@ llvm::Value *Generator::Logical::generate_string_cmp_gt( //
     llvm::Value *rhs,                                    //
     const ExpressionNode *rhs_expr                       //
 ) {
-    llvm::Function *compare_str_fn = String::string_manip_functions.at("compare_str");
-    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *compare_str_fn = Module::String::string_manip_functions.at("compare_str");
+    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
@@ -77,8 +77,8 @@ llvm::Value *Generator::Logical::generate_string_cmp_le( //
     llvm::Value *rhs,                                    //
     const ExpressionNode *rhs_expr                       //
 ) {
-    llvm::Function *compare_str_fn = String::string_manip_functions.at("compare_str");
-    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *compare_str_fn = Module::String::string_manip_functions.at("compare_str");
+    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
@@ -104,8 +104,8 @@ llvm::Value *Generator::Logical::generate_string_cmp_ge( //
     llvm::Value *rhs,                                    //
     const ExpressionNode *rhs_expr                       //
 ) {
-    llvm::Function *compare_str_fn = String::string_manip_functions.at("compare_str");
-    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *compare_str_fn = Module::String::string_manip_functions.at("compare_str");
+    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
@@ -131,8 +131,8 @@ llvm::Value *Generator::Logical::generate_string_cmp_eq( //
     llvm::Value *rhs,                                    //
     const ExpressionNode *rhs_expr                       //
 ) {
-    llvm::Function *compare_str_fn = String::string_manip_functions.at("compare_str");
-    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *compare_str_fn = Module::String::string_manip_functions.at("compare_str");
+    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
@@ -158,8 +158,8 @@ llvm::Value *Generator::Logical::generate_string_cmp_neq( //
     llvm::Value *rhs,                                     //
     const ExpressionNode *rhs_expr                        //
 ) {
-    llvm::Function *compare_str_fn = String::string_manip_functions.at("compare_str");
-    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *compare_str_fn = Module::String::string_manip_functions.at("compare_str");
+    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;

@@ -89,12 +89,15 @@ void Generator::Allocation::generate_call_allocations(                //
     }
     // Check if the call targets any builtin functions
     if (builtin_functions.find(call_node->function_name) != builtin_functions.end()) {
-        if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&
-            Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != Print::print_functions.end() //
+        if (call_node->function_name == "print" && call_node->arguments.size() == 1 &&                    //
+            Module::Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != //
+                Module::Print::print_functions.end()                                                      //
         ) {
             // Print functions dont return anything, so we dont need to allocate anything for them
             return;
-        } else if (call_node->arguments.size() == 0 && Read::read_functions.find(call_node->function_name) != Read::read_functions.end()) {
+        } else if (call_node->arguments.size() == 0 &&                                                        //
+            Module::Read::read_functions.find(call_node->function_name) != Module::Read::read_functions.end() //
+        ) {
             // We only need to create an allocation of the call if its the `read_str` function
             // But, for now, the `read_X` functions dont return a struct with the error value but only the value directly and hard-crash
             // when the entered input could not be parsed. When this is changed that the builtin functions also can return a { i32, RES }

@@ -3,14 +3,11 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "globals.hpp"
-#include "linker/linker.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/parser.hpp"
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
-
-#include <json/parser.hpp>
 
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/BasicBlock.h>
@@ -39,7 +36,6 @@
 
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -60,314 +56,6 @@ void Generator::get_data_nodes() {
             data_nodes.emplace(data->name, data);
         }
     }
-}
-
-bool Generator::generate_builtin_modules() {
-    std::filesystem::path cache_path = get_flintc_cache_path();
-
-    // Check if the files need to be rebuilt at all
-    const unsigned int which_need_rebuilding = which_builtin_modules_to_rebuild();
-    // If no files need to be rebuilt, we can directly return true
-    if (which_need_rebuilding == 0) {
-        return true;
-    }
-
-    std::unique_ptr<llvm::IRBuilder<>> builder = nullptr;
-    std::unique_ptr<llvm::Module> module = nullptr;
-    // module 'print'
-    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::PRINT)) {
-        PROFILE_SCOPE("Generating module 'print'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("print", context);
-        Builtin::generate_c_functions(module.get());
-        Print::generate_print_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::PRINT))) {
-            std::cout << YELLOW << "[Debug Info] Generated module 'print':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "print");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'print'" << std::endl;
-            return false;
-        }
-    }
-    // module 'str'
-    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::STR)) {
-        PROFILE_SCOPE("Generating module 'str'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("str", context);
-        Builtin::generate_c_functions(module.get());
-        String::generate_string_manip_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::STR))) {
-            std::cout << YELLOW << "[Debug Info] Generated module 'str':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "str");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'str'" << std::endl;
-            return false;
-        }
-    }
-    // module 'cast'
-    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::CAST)) {
-        PROFILE_SCOPE("Generating module 'cast'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("cast", context);
-        Builtin::generate_c_functions(module.get());
-        // The typecast functions depend on the string manipulation functions, so we provide the declarations for them
-        String::generate_string_manip_functions(builder.get(), module.get(), true);
-        TypeCast::generate_typecast_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::CAST))) {
-            std::cout << YELLOW << "[Debug Info] Generated module 'cast':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "cast");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'cast'" << std::endl;
-            return false;
-        }
-    }
-    // module 'arithmetic'
-    if (overflow_mode != ArithmeticOverflowMode::UNSAFE &&
-        (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC))) {
-        PROFILE_SCOPE("Generating module 'arithmetic'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("arithmetic", context);
-        Builtin::generate_c_functions(module.get());
-        Print::generate_print_functions(builder.get(), module.get(), true);
-        Arithmetic::generate_arithmetic_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC))) {
-            std::cout << YELLOW << "[Debug Info] Generated module: 'arithmetic':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "arithmetic");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'arithmetic'" << std::endl;
-            return false;
-        }
-    }
-    // module 'array'
-    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ARRAY)) {
-        PROFILE_SCOPE("Generating module 'array'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("array", context);
-        Builtin::generate_c_functions(module.get());
-        Print::generate_print_functions(builder.get(), module.get(), true);
-        Array::generate_array_manip_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::ARRAY))) {
-            std::cout << YELLOW << "[Debug Info] Generated Module 'array':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module path
-        bool compilation_successful = compile_module(module.get(), cache_path / "array");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'array'" << std::endl;
-            return false;
-        }
-    }
-    // module 'read'
-    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::READ)) {
-        PROFILE_SCOPE("Generating module 'read'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("read", context);
-        Builtin::generate_c_functions(module.get());
-        Print::generate_print_functions(builder.get(), module.get(), true);
-        String::generate_string_manip_functions(builder.get(), module.get(), true);
-        Read::generate_read_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::READ))) {
-            std::cout << YELLOW << "[Debug Info] Generated Module 'read':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module path
-        bool compilation_successful = compile_module(module.get(), cache_path / "read");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'read'" << std::endl;
-            return false;
-        }
-    }
-    // Then, save the new metadata file
-    save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
-
-    // Now, merge together all object files into one single .o / .obj file
-#ifdef __WIN32__
-    const std::string file_ending = ".obj";
-#else
-    const std::string file_ending = ".o";
-#endif
-    std::vector<std::filesystem::path> libs;
-    libs.emplace_back(cache_path / ("print" + file_ending));
-    libs.emplace_back(cache_path / ("str" + file_ending));
-    libs.emplace_back(cache_path / ("cast" + file_ending));
-    if (overflow_mode != ArithmeticOverflowMode::UNSAFE) {
-        libs.emplace_back(cache_path / ("arithmetic" + file_ending));
-    }
-    libs.emplace_back(cache_path / ("array" + file_ending));
-    libs.emplace_back(cache_path / ("read" + file_ending));
-
-    // Delete the old `builtins.` o / obj file before creating a new one
-    std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
-    if (std::filesystem::exists(builtins_path)) {
-        std::filesystem::remove(builtins_path);
-    }
-
-    // Create the static .a file from all `.o` files
-    Profiler::start_task("Creating static library libbuiltins.a");
-    bool merge_success = Linker::create_static_library(libs, cache_path / "libbuiltins.a");
-    Profiler::end_task("Creating static library libbuiltins.a");
-    return merge_success;
-}
-
-unsigned int Generator::which_builtin_modules_to_rebuild() {
-    // First, all modules need to be rebuilt which are requested to be printed
-    unsigned int needed_rebuilds = BUILTIN_LIBS_TO_PRINT;
-
-    // Then, we parse the metadata.json file in the cache directory, or if it doesnt exist, create it
-    const std::filesystem::path cache_path = get_flintc_cache_path();
-    const std::filesystem::path metadata_file = cache_path / "metadata.json";
-    if (!std::filesystem::exists(metadata_file)) {
-        // If no metadata file existed, we need to re-build everything as we cannot be sure with which settings the .o files were built the
-        // last time
-        if (DEBUG_MODE) {
-            std::cout << YELLOW << "[Debug Info] Rebuilding all library files because no metadata.json file was found\n" << DEFAULT;
-            std::cout << "-- overflow_mode: " << static_cast<unsigned int>(overflow_mode) << "\n" << std::endl;
-        }
-        save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
-        return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
-    }
-
-    std::vector<JsonToken> tokens = JsonLexer::scan(metadata_file);
-    std::optional<std::unique_ptr<JsonObject>> metadata = JsonParser::parse(tokens);
-    if (!metadata.has_value()) {
-        // Failed to parse the metadata, so we create the current metadata json file
-        save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
-        // We dont know the settings of the old metadata.json file, so we rebuild everything
-        return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
-    }
-
-    // Read all the values from the metadata
-    const auto main_group = dynamic_cast<const JsonGroup *>(metadata.value().get());
-    if (main_group == nullptr || main_group->name != "__ROOT__") {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        // Set all bits to 1, e.g. rebuild everything
-        return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
-    }
-    for (const auto &group : main_group->fields) {
-        const auto group_value = dynamic_cast<const JsonGroup *>(group.get());
-        if (group_value == nullptr) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            // Set all bits to 1, e.g. rebuild everything
-            return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
-        }
-        if (group_value->name == "arithmetic") {
-            // For now, we can assume that it contains a single value
-            const auto metadata_overflow_mode = dynamic_cast<const JsonNumber *>(group_value->fields.at(0).get());
-            if (metadata_overflow_mode == nullptr) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                // Set all bits to 1, e.g. rebuild everything
-                return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
-            }
-            if (metadata_overflow_mode->number != static_cast<int>(overflow_mode)) {
-                // We need to rebuild the arithmetic.o file if the overflow modes dont match up
-                needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
-            }
-        } else if (group_value->name == "array") {
-            const auto metadata_oob_mode = dynamic_cast<const JsonNumber *>(group_value->fields.at(0).get());
-            if (metadata_oob_mode == nullptr) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                // Set all bits to 1, e.g. rebuild everything
-                return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
-            }
-            if (metadata_oob_mode->number != static_cast<int>(oob_mode)) {
-                // We need to rebuild the arithmetic.o file if the overflow modes dont match up
-                needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
-            }
-        }
-    }
-
-    // Check which object files exist. If any does not exist, it needs to be rebuilt
-#ifdef __WIN32__
-    const std::string file_ending = ".obj";
-#else
-    const std::string file_ending = ".o";
-#endif
-    if (!std::filesystem::exists(cache_path / ("print" + file_ending))) {
-        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::PRINT);
-    }
-    if (!std::filesystem::exists(cache_path / ("str" + file_ending))) {
-        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::STR);
-    }
-    if (!std::filesystem::exists(cache_path / ("cast" + file_ending))) {
-        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::CAST);
-    }
-    if (!std::filesystem::exists(cache_path / ("arithmetic" + file_ending))) {
-        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
-    }
-    if (!std::filesystem::exists(cache_path / ("array" + file_ending))) {
-        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
-    }
-    if (!std::filesystem::exists(cache_path / ("read" + file_ending))) {
-        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::READ);
-    }
-    return needed_rebuilds;
-}
-
-void Generator::save_metadata_json_file(int overflow_mode_value, int oob_mode_value) {
-    std::unique_ptr<JsonObject> overflow_mode_object = std::make_unique<JsonNumber>("overflow_mode", overflow_mode_value);
-    std::vector<std::unique_ptr<JsonObject>> arithmetic_group_content;
-    arithmetic_group_content.emplace_back(std::move(overflow_mode_object));
-    std::unique_ptr<JsonObject> arithmetic_group = std::make_unique<JsonGroup>("arithmetic", arithmetic_group_content);
-
-    std::unique_ptr<JsonObject> oob_mode_object = std::make_unique<JsonNumber>("oob_mode", oob_mode_value);
-    std::vector<std::unique_ptr<JsonObject>> array_group_content;
-    array_group_content.emplace_back(std::move(oob_mode_object));
-    std::unique_ptr<JsonObject> array_group = std::make_unique<JsonGroup>("array", array_group_content);
-
-    std::vector<std::unique_ptr<JsonObject>> main_object_content;
-    main_object_content.emplace_back(std::move(arithmetic_group));
-    main_object_content.emplace_back(std::move(array_group));
-    std::unique_ptr<JsonObject> main_object = std::make_unique<JsonGroup>("__ROOT__", main_object_content);
-
-    std::string main_object_string = JsonParser::to_string(main_object.get());
-    main_object.reset();
-
-    const std::filesystem::path metadata_file = get_flintc_cache_path() / "metadata.json";
-    if (std::filesystem::exists(metadata_file)) {
-        std::filesystem::remove(metadata_file);
-    }
-
-    // Save the main_object_string to the file
-    std::ofstream file_stream(metadata_file);
-    file_stream << main_object_string;
-    file_stream.flush();
-    file_stream.close();
 }
 
 std::filesystem::path Generator::get_flintc_cache_path() {
@@ -484,7 +172,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     const bool is_test                                                       //
 ) {
     Profiler::start_task("Generate builtin libraries");
-    if (!generate_builtin_modules()) {
+    if (!Module::generate_modules()) {
         std::cerr << "Error: Failed to generate builtin modules. aborting..." << std::endl;
         abort();
     }
@@ -499,25 +187,25 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     get_data_nodes();
 
     // Generate built-in functions in the main module
-    Print::generate_print_functions(builder.get(), module.get());
+    Module::Print::generate_print_functions(builder.get(), module.get());
 
     // Generate all the c functions
     Builtin::generate_c_functions(module.get());
 
     // Generate all the "hidden" string helper functions
-    String::generate_string_manip_functions(builder.get(), module.get());
+    Module::String::generate_string_manip_functions(builder.get(), module.get());
 
     // Generate all the "hidden" read helper functions
-    Read::generate_read_functions(builder.get(), module.get());
+    Module::Read::generate_read_functions(builder.get(), module.get());
 
     // Generate all the "hidden" typecast helper functions
-    TypeCast::generate_typecast_functions(builder.get(), module.get());
+    Module::TypeCast::generate_typecast_functions(builder.get(), module.get());
 
     // Generate all the "hidden" arithmetic helper functions
-    Arithmetic::generate_arithmetic_functions(builder.get(), module.get());
+    Module::Arithmetic::generate_arithmetic_functions(builder.get(), module.get());
 
     // Gneerate all the "hidden" array helper functions
-    Array::generate_array_manip_functions(builder.get(), module.get());
+    Module::Array::generate_array_manip_functions(builder.get(), module.get());
 
     if (!is_test) {
         // Generate main function in the main module
@@ -667,7 +355,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
         }
     }
     // Declare the built-in print functions in the file module to reference the main module's versions
-    for (auto &prints : Print::print_functions) {
+    for (auto &prints : Module::Print::print_functions) {
         if (prints.second != nullptr) {
             module->getOrInsertFunction(         //
                 prints.second->getName(),        //

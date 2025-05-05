@@ -76,12 +76,12 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Create the message that an error has occured
     llvm::Value *message_begin_ptr = IR::generate_const_string(*builder, "ERROR: Program exited with exit code '");
-    builder->CreateCall(Print::print_functions.at("str"), {message_begin_ptr});
+    builder->CreateCall(Module::Print::print_functions.at("str"), {message_begin_ptr});
     // Print the actual error value
-    builder->CreateCall(Print::print_functions.at("i32"), {err_val});
+    builder->CreateCall(Module::Print::print_functions.at("i32"), {err_val});
     // Print the rest of the string
     llvm::Value *message_end_ptr = IR::generate_const_string(*builder, "'\n");
-    builder->CreateCall(Print::print_functions.at("str"), {message_end_ptr});
+    builder->CreateCall(Module::Print::print_functions.at("str"), {message_end_ptr});
 
     builder->CreateBr(merge_block);
     builder->SetInsertPoint(merge_block);
@@ -370,8 +370,8 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             );
             // Increment the fail counter only if the test has failed
             llvm::LoadInst *counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(context), counter, "counter_val");
-            llvm::Value *new_counter_value = builder->CreateCall(                                            //
-                Arithmetic::arithmetic_functions.at("i32_safe_add"), {counter_value, one}, "new_counter_val" //
+            llvm::Value *new_counter_value = builder->CreateCall(                                                    //
+                Module::Arithmetic::arithmetic_functions.at("i32_safe_add"), {counter_value, one}, "new_counter_val" //
             );
             builder->CreateStore(new_counter_value, counter);
             builder->CreateBr(merge_block);

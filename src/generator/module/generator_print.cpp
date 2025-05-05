@@ -1,6 +1,6 @@
 #include "generator/generator.hpp"
 
-void Generator::Print::generate_print_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Print::generate_print_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     llvm::FunctionType *printf_type = llvm::FunctionType::get(        //
         llvm::Type::getInt32Ty(context),                              // Return type: int
         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(context)), // Takes char*
@@ -25,12 +25,12 @@ void Generator::Print::generate_print_functions(llvm::IRBuilder<> *builder, llvm
     generate_print_bool_function(builder, module, only_declarations);
 }
 
-void Generator::Print::generate_print_function( //
-    llvm::IRBuilder<> *builder,                 //
-    llvm::Module *module,                       //
-    const bool only_declarations,               //
-    const std::string &type,                    //
-    const std::string &format                   //
+void Generator::Module::Print::generate_print_function( //
+    llvm::IRBuilder<> *builder,                         //
+    llvm::Module *module,                               //
+    const bool only_declarations,                       //
+    const std::string &type,                            //
+    const std::string &format                           //
 ) {
     // Create print function type
     llvm::FunctionType *print_type = llvm::FunctionType::get( //
@@ -78,7 +78,8 @@ void Generator::Print::generate_print_function( //
     builder->CreateRetVoid();
 }
 
-void Generator::Print::generate_print_str_var_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
 
     // Create print function type
@@ -127,7 +128,8 @@ void Generator::Print::generate_print_str_var_function(llvm::IRBuilder<> *builde
     builder->CreateRetVoid();
 }
 
-void Generator::Print::generate_print_bool_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Print::generate_print_bool_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // Create print function type
     llvm::FunctionType *print_type = llvm::FunctionType::get(   //
         llvm::Type::getVoidTy(context),                         // return void

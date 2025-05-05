@@ -1,7 +1,8 @@
 #include "generator/generator.hpp"
 #include "globals.hpp"
 
-void Generator::Arithmetic::generate_arithmetic_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Arithmetic::generate_arithmetic_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
         // Generate no arithmetic functions for the unsafe mode, as they are never called in unsafe mode annyway
         return;
@@ -64,12 +65,12 @@ void Generator::Arithmetic::generate_arithmetic_functions(llvm::IRBuilder<> *bui
     generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
 }
 
-void Generator::Arithmetic::generate_int_safe_add( //
-    llvm::IRBuilder<> *builder,                    //
-    llvm::Module *module,                          //
-    const bool only_declarations,                  //
-    llvm::Type *int_type,                          //
-    const std::string &name                        //
+void Generator::Module::Arithmetic::generate_int_safe_add( //
+    llvm::IRBuilder<> *builder,                            //
+    llvm::Module *module,                                  //
+    const bool only_declarations,                          //
+    llvm::Type *int_type,                                  //
+    const std::string &name                                //
 ) {
     llvm::FunctionType *int_safe_add_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *int_safe_add_fn = llvm::Function::Create( //
@@ -166,12 +167,12 @@ void Generator::Arithmetic::generate_int_safe_add( //
     }
 }
 
-void Generator::Arithmetic::generate_int_safe_sub( //
-    llvm::IRBuilder<> *builder,                    //
-    llvm::Module *module,                          //
-    const bool only_declarations,                  //
-    llvm::Type *int_type,                          //
-    const std::string &name                        //
+void Generator::Module::Arithmetic::generate_int_safe_sub( //
+    llvm::IRBuilder<> *builder,                            //
+    llvm::Module *module,                                  //
+    const bool only_declarations,                          //
+    llvm::Type *int_type,                                  //
+    const std::string &name                                //
 ) {
     llvm::FunctionType *int_safe_sub_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *int_safe_sub_fn = llvm::Function::Create( //
@@ -268,12 +269,12 @@ void Generator::Arithmetic::generate_int_safe_sub( //
     }
 }
 
-void Generator::Arithmetic::generate_int_safe_mul( //
-    llvm::IRBuilder<> *builder,                    //
-    llvm::Module *module,                          //
-    const bool only_declarations,                  //
-    llvm::Type *int_type,                          //
-    const std::string &name                        //
+void Generator::Module::Arithmetic::generate_int_safe_mul( //
+    llvm::IRBuilder<> *builder,                            //
+    llvm::Module *module,                                  //
+    const bool only_declarations,                          //
+    llvm::Type *int_type,                                  //
+    const std::string &name                                //
 ) {
     llvm::FunctionType *int_safe_mul_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *int_safe_mul_fn = llvm::Function::Create( //
@@ -362,12 +363,12 @@ void Generator::Arithmetic::generate_int_safe_mul( //
     }
 }
 
-void Generator::Arithmetic::generate_int_safe_div( //
-    llvm::IRBuilder<> *builder,                    //
-    llvm::Module *module,                          //
-    const bool only_declarations,                  //
-    llvm::Type *int_type,                          //
-    const std::string &name                        //
+void Generator::Module::Arithmetic::generate_int_safe_div( //
+    llvm::IRBuilder<> *builder,                            //
+    llvm::Module *module,                                  //
+    const bool only_declarations,                          //
+    llvm::Type *int_type,                                  //
+    const std::string &name                                //
 ) {
     llvm::FunctionType *int_safe_div_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *int_safe_div_fn = llvm::Function::Create( //
@@ -448,12 +449,12 @@ void Generator::Arithmetic::generate_int_safe_div( //
     }
 }
 
-void Generator::Arithmetic::generate_uint_safe_add( //
-    llvm::IRBuilder<> *builder,                     //
-    llvm::Module *module,                           //
-    const bool only_declarations,                   //
-    llvm::Type *int_type,                           //
-    const std::string &name                         //
+void Generator::Module::Arithmetic::generate_uint_safe_add( //
+    llvm::IRBuilder<> *builder,                             //
+    llvm::Module *module,                                   //
+    const bool only_declarations,                           //
+    llvm::Type *int_type,                                   //
+    const std::string &name                                 //
 ) {
     llvm::FunctionType *uint_safe_add_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *uint_safe_add_fn = llvm::Function::Create( //
@@ -524,12 +525,12 @@ void Generator::Arithmetic::generate_uint_safe_add( //
     }
 }
 
-void Generator::Arithmetic::generate_uint_safe_sub( //
-    llvm::IRBuilder<> *builder,                     //
-    llvm::Module *module,                           //
-    const bool only_declarations,                   //
-    llvm::Type *int_type,                           //
-    const std::string &name                         //
+void Generator::Module::Arithmetic::generate_uint_safe_sub( //
+    llvm::IRBuilder<> *builder,                             //
+    llvm::Module *module,                                   //
+    const bool only_declarations,                           //
+    llvm::Type *int_type,                                   //
+    const std::string &name                                 //
 ) {
     llvm::FunctionType *uint_safe_sub_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *uint_safe_sub_fn = llvm::Function::Create( //
@@ -601,12 +602,12 @@ void Generator::Arithmetic::generate_uint_safe_sub( //
     }
 }
 
-void Generator::Arithmetic::generate_uint_safe_mul( //
-    llvm::IRBuilder<> *builder,                     //
-    llvm::Module *module,                           //
-    const bool only_declarations,                   //
-    llvm::Type *int_type,                           //
-    const std::string &name                         //
+void Generator::Module::Arithmetic::generate_uint_safe_mul( //
+    llvm::IRBuilder<> *builder,                             //
+    llvm::Module *module,                                   //
+    const bool only_declarations,                           //
+    llvm::Type *int_type,                                   //
+    const std::string &name                                 //
 ) {
     llvm::FunctionType *uint_safe_mul_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *uint_safe_mul_fn = llvm::Function::Create( //
@@ -684,12 +685,12 @@ void Generator::Arithmetic::generate_uint_safe_mul( //
     }
 }
 
-void Generator::Arithmetic::generate_uint_safe_div( //
-    llvm::IRBuilder<> *builder,                     //
-    llvm::Module *module,                           //
-    const bool only_declarations,                   //
-    llvm::Type *int_type,                           //
-    const std::string &name                         //
+void Generator::Module::Arithmetic::generate_uint_safe_div( //
+    llvm::IRBuilder<> *builder,                             //
+    llvm::Module *module,                                   //
+    const bool only_declarations,                           //
+    llvm::Type *int_type,                                   //
+    const std::string &name                                 //
 ) {
     llvm::FunctionType *uint_safe_div_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *uint_safe_div_fn = llvm::Function::Create( //
@@ -761,13 +762,13 @@ void Generator::Arithmetic::generate_uint_safe_div( //
     }
 }
 
-void Generator::Arithmetic::generate_int_vector_safe_add( //
-    llvm::IRBuilder<> *builder,                           //
-    llvm::Module *module,                                 //
-    const bool only_declarations,                         //
-    llvm::VectorType *vector_int_type,                    //
-    const unsigned int vector_width,                      //
-    const std::string &name                               //
+void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
+    llvm::IRBuilder<> *builder,                                   //
+    llvm::Module *module,                                         //
+    const bool only_declarations,                                 //
+    llvm::VectorType *vector_int_type,                            //
+    const unsigned int vector_width,                              //
+    const std::string &name                                       //
 ) {
     llvm::FunctionType *int_vector_safe_add_type = llvm::FunctionType::get(vector_int_type, {vector_int_type, vector_int_type}, false);
     llvm::Function *int_vector_safe_add_fn = llvm::Function::Create( //
@@ -896,13 +897,13 @@ void Generator::Arithmetic::generate_int_vector_safe_add( //
     }
 }
 
-void Generator::Arithmetic::generate_int_vector_safe_sub( //
-    llvm::IRBuilder<> *builder,                           //
-    llvm::Module *module,                                 //
-    const bool only_declarations,                         //
-    llvm::VectorType *vector_int_type,                    //
-    const unsigned int vector_width,                      //
-    const std::string &name                               //
+void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
+    llvm::IRBuilder<> *builder,                                   //
+    llvm::Module *module,                                         //
+    const bool only_declarations,                                 //
+    llvm::VectorType *vector_int_type,                            //
+    const unsigned int vector_width,                              //
+    const std::string &name                                       //
 ) {
     llvm::FunctionType *int_vector_safe_sub_type = llvm::FunctionType::get(vector_int_type, {vector_int_type, vector_int_type}, false);
     llvm::Function *int_vector_safe_sub_fn = llvm::Function::Create( //
@@ -1031,13 +1032,13 @@ void Generator::Arithmetic::generate_int_vector_safe_sub( //
     }
 }
 
-void Generator::Arithmetic::generate_int_vector_safe_mul( //
-    llvm::IRBuilder<> *builder,                           //
-    llvm::Module *module,                                 //
-    const bool only_declarations,                         //
-    llvm::VectorType *vector_int_type,                    //
-    const unsigned int vector_width,                      //
-    const std::string &name                               //
+void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
+    llvm::IRBuilder<> *builder,                                   //
+    llvm::Module *module,                                         //
+    const bool only_declarations,                                 //
+    llvm::VectorType *vector_int_type,                            //
+    const unsigned int vector_width,                              //
+    const std::string &name                                       //
 ) {
     llvm::FunctionType *int_vector_safe_mul_type = llvm::FunctionType::get(vector_int_type, {vector_int_type, vector_int_type}, false);
     llvm::Function *int_vector_safe_mul_fn = llvm::Function::Create( //
@@ -1156,13 +1157,13 @@ void Generator::Arithmetic::generate_int_vector_safe_mul( //
     }
 }
 
-void Generator::Arithmetic::generate_int_vector_safe_div( //
-    llvm::IRBuilder<> *builder,                           //
-    llvm::Module *module,                                 //
-    const bool only_declarations,                         //
-    llvm::VectorType *vector_int_type,                    //
-    const unsigned int vector_width,                      //
-    const std::string &name                               //
+void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
+    llvm::IRBuilder<> *builder,                                   //
+    llvm::Module *module,                                         //
+    const bool only_declarations,                                 //
+    llvm::VectorType *vector_int_type,                            //
+    const unsigned int vector_width,                              //
+    const std::string &name                                       //
 ) {
     llvm::FunctionType *int_vector_safe_div_type = llvm::FunctionType::get(vector_int_type, {vector_int_type, vector_int_type}, false);
     llvm::Function *int_vector_safe_div_fn = llvm::Function::Create( //

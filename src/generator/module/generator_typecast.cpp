@@ -1,6 +1,7 @@
 #include "generator/generator.hpp"
 
-void Generator::TypeCast::generate_typecast_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::TypeCast::generate_typecast_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     if (!only_declarations) {
         generate_count_digits_function(builder, module);
     }
@@ -13,7 +14,7 @@ void Generator::TypeCast::generate_typecast_functions(llvm::IRBuilder<> *builder
     generate_f64_to_str(builder, module, only_declarations);
 }
 
-void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
+void Generator::Module::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // C IMPLEMENTATION:
     // size_t count_digits(size_t n) {
     //     if (n == 0) {
@@ -101,7 +102,7 @@ void Generator::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *buil
     typecast_functions["count_digits"] = count_digits_fn;
 }
 
-void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *bool_to_str(const bool b_value) {
     //     if (b_value) {
@@ -154,7 +155,7 @@ void Generator::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builder, llvm:
  * @region `I32`
  *****************************************************************************************************************************************/
 
-llvm::Value *Generator::TypeCast::i32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     // Compare with 0
     auto zero = llvm::ConstantInt::get(int_value->getType(), 0);
     auto is_negative = builder.CreateICmpSLT(int_value, zero, "is_neg");
@@ -163,11 +164,11 @@ llvm::Value *Generator::TypeCast::i32_to_u32(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateSelect(is_negative, zero, int_value, "safe_i32_to_u32");
 }
 
-llvm::Value *Generator::TypeCast::i32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateSExt(int_value, llvm::Type::getInt64Ty(context), "sext");
 }
 
-llvm::Value *Generator::TypeCast::i32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     // Compare with 0
     auto zero32 = llvm::ConstantInt::get(int_value->getType(), 0);
     auto is_negative = builder.CreateICmpSLT(int_value, zero32, "is_neg");
@@ -180,15 +181,15 @@ llvm::Value *Generator::TypeCast::i32_to_u64(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateSelect(is_negative, zero64, extended, "safe_i32_to_u64");
 }
 
-llvm::Value *Generator::TypeCast::i32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateSIToFP(int_value, llvm::Type::getFloatTy(context), "sitofp");
 }
 
-llvm::Value *Generator::TypeCast::i32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(context), "sitofp");
 }
 
-void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *i32_to_str(const int32_t i_value) {
     //     // Handle special case of minimum value (can't be negated safely)
@@ -355,29 +356,29 @@ void Generator::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::
  * @region `U32`
  *****************************************************************************************************************************************/
 
-llvm::Value *Generator::TypeCast::u32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     auto int_max = llvm::ConstantInt::get(int_value->getType(), llvm::APInt::getSignedMaxValue(32));
     auto too_large = builder.CreateICmpUGT(int_value, int_max);
     return builder.CreateSelect(too_large, int_max, int_value);
 }
 
-llvm::Value *Generator::TypeCast::u32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateZExt(int_value, llvm::Type::getInt64Ty(context), "zext");
 }
 
-llvm::Value *Generator::TypeCast::u32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateZExt(int_value, llvm::Type::getInt64Ty(context), "zext");
 }
 
-llvm::Value *Generator::TypeCast::u32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateUIToFP(int_value, llvm::Type::getFloatTy(context), "uitofp");
 }
 
-llvm::Value *Generator::TypeCast::u32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateUIToFP(int_value, llvm::Type::getDoubleTy(context), "uitofp");
 }
 
-void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *u32_to_str(const uint32_t u_value) {
     //     // Count digits
@@ -438,7 +439,7 @@ void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::
     arg_uvalue->setName("u_value");
 
     // Count digits - call count_digits(u_value)
-    llvm::Value *u64_value = TypeCast::u32_to_u64(*builder, arg_uvalue);
+    llvm::Value *u64_value = Module::TypeCast::u32_to_u64(*builder, arg_uvalue);
     llvm::Value *len = builder->CreateCall(count_digits_fn, {u64_value}, "len");
 
     // Allocate string - call create_str(len)
@@ -526,11 +527,11 @@ void Generator::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::
  * @region `I64`
  *****************************************************************************************************************************************/
 
-llvm::Value *Generator::TypeCast::i64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateTrunc(int_value, llvm::Type::getInt32Ty(context), "trunc");
 }
 
-llvm::Value *Generator::TypeCast::i64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     auto zero = llvm::ConstantInt::get(int_value->getType(), 0);
     auto uint32_max_64 = llvm::ConstantInt::get(int_value->getType(), 0xFFFFFFFFULL);
 
@@ -546,21 +547,21 @@ llvm::Value *Generator::TypeCast::i64_to_u32(llvm::IRBuilder<> &builder, llvm::V
     return builder.CreateTrunc(clamped, llvm::Type::getInt32Ty(context));
 }
 
-llvm::Value *Generator::TypeCast::i64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     auto zero = llvm::ConstantInt::get(int_value->getType(), 0);
     auto is_negative = builder.CreateICmpSLT(int_value, zero);
     return builder.CreateSelect(is_negative, zero, int_value);
 }
 
-llvm::Value *Generator::TypeCast::i64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateSIToFP(int_value, llvm::Type::getFloatTy(context), "sitofp");
 }
 
-llvm::Value *Generator::TypeCast::i64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::i64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateSIToFP(int_value, llvm::Type::getDoubleTy(context), "sitofp");
 }
 
-void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *i64_to_str(const int64_t i_value) {
     //     // Handle special case of minimum value
@@ -730,35 +731,35 @@ void Generator::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::
  * @region `U64`
  *****************************************************************************************************************************************/
 
-llvm::Value *Generator::TypeCast::u64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     auto int32_max_64 = llvm::ConstantInt::get(int_value->getType(), 0x7FFFFFFF);
     auto too_large = builder.CreateICmpUGT(int_value, int32_max_64);
     auto clamped = builder.CreateSelect(too_large, int32_max_64, int_value);
     return builder.CreateTrunc(clamped, llvm::Type::getInt32Ty(context));
 }
 
-llvm::Value *Generator::TypeCast::u64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     auto uint32_max_64 = llvm::ConstantInt::get(int_value->getType(), 0xFFFFFFFFULL);
     auto too_large = builder.CreateICmpUGT(int_value, uint32_max_64);
     auto clamped = builder.CreateSelect(too_large, uint32_max_64, int_value);
     return builder.CreateTrunc(clamped, llvm::Type::getInt32Ty(context));
 }
 
-llvm::Value *Generator::TypeCast::u64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     auto int64_max = llvm::ConstantInt::get(int_value->getType(), llvm::APInt::getSignedMaxValue(64));
     auto too_large = builder.CreateICmpUGT(int_value, int64_max);
     return builder.CreateSelect(too_large, int64_max, int_value);
 }
 
-llvm::Value *Generator::TypeCast::u64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateUIToFP(int_value, llvm::Type::getFloatTy(context), "uitofp");
 }
 
-llvm::Value *Generator::TypeCast::u64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+llvm::Value *Generator::Module::TypeCast::u64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateUIToFP(int_value, llvm::Type::getDoubleTy(context), "uitofp");
 }
 
-void Generator::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *u64_to_str(const uint64_t u_value) {
     //     // Count digits
@@ -905,27 +906,27 @@ void Generator::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder, llvm::
  * @region `F32`
  *****************************************************************************************************************************************/
 
-llvm::Value *Generator::TypeCast::f32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
+llvm::Value *Generator::Module::TypeCast::f32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
     return builder.CreateFPToSI(float_value, llvm::Type::getInt32Ty(context), "fptosi");
 }
 
-llvm::Value *Generator::TypeCast::f32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
+llvm::Value *Generator::Module::TypeCast::f32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
     return builder.CreateFPToUI(float_value, llvm::Type::getInt32Ty(context), "fptoui");
 }
 
-llvm::Value *Generator::TypeCast::f32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
+llvm::Value *Generator::Module::TypeCast::f32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
     return builder.CreateFPToSI(float_value, llvm::Type::getInt64Ty(context), "fptosi");
 }
 
-llvm::Value *Generator::TypeCast::f32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
+llvm::Value *Generator::Module::TypeCast::f32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
     return builder.CreateFPToUI(float_value, llvm::Type::getInt64Ty(context), "fptoui");
 }
 
-llvm::Value *Generator::TypeCast::f32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
+llvm::Value *Generator::Module::TypeCast::f32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *float_value) {
     return builder.CreateFPExt(float_value, llvm::Type::getDoubleTy(context), "fpext");
 }
 
-void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *f32_to_str(const float f_value) {
     //     // Handle special cases
@@ -1213,27 +1214,27 @@ void Generator::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::
  * @region `F64`
  *****************************************************************************************************************************************/
 
-llvm::Value *Generator::TypeCast::f64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
+llvm::Value *Generator::Module::TypeCast::f64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
     return builder.CreateFPToSI(double_value, llvm::Type::getInt32Ty(context), "fptosi");
 }
 
-llvm::Value *Generator::TypeCast::f64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
+llvm::Value *Generator::Module::TypeCast::f64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
     return builder.CreateFPToUI(double_value, llvm::Type::getInt32Ty(context), "fptoui");
 }
 
-llvm::Value *Generator::TypeCast::f64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
+llvm::Value *Generator::Module::TypeCast::f64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
     return builder.CreateFPToSI(double_value, llvm::Type::getInt64Ty(context), "fptosi");
 }
 
-llvm::Value *Generator::TypeCast::f64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
+llvm::Value *Generator::Module::TypeCast::f64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
     return builder.CreateFPToUI(double_value, llvm::Type::getInt64Ty(context), "fptoui");
 }
 
-llvm::Value *Generator::TypeCast::f64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
+llvm::Value *Generator::Module::TypeCast::f64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *double_value) {
     return builder.CreateFPTrunc(double_value, llvm::Type::getFloatTy(context), "fptrunc");
 }
 
-void Generator::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // C IMPLEMENTATION:
     // str *f64_to_str(const double d_value) {
     //     // Handle special cases

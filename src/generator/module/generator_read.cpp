@@ -1,6 +1,6 @@
 #include "generator/generator.hpp"
 
-void Generator::Read::generate_getline_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // char *getline(long *n) {
     //     const int EOF = -1;
@@ -221,7 +221,7 @@ void Generator::Read::generate_getline_function(llvm::IRBuilder<> *builder, llvm
     builder->CreateRet(curr_buf);
 }
 
-void Generator::Read::generate_read_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // str *read_str() {
     //     long len = 0;
@@ -320,11 +320,11 @@ void Generator::Read::generate_read_str_function(llvm::IRBuilder<> *builder, llv
     builder->CreateRet(result);
 }
 
-void Generator::Read::generate_read_int_function( //
-    llvm::IRBuilder<> *builder,                   //
-    llvm::Module *module,                         //
-    const bool only_declarations,                 //
-    llvm::Type *result_type                       //
+void Generator::Module::Read::generate_read_int_function( //
+    llvm::IRBuilder<> *builder,                           //
+    llvm::Module *module,                                 //
+    const bool only_declarations,                         //
+    llvm::Type *result_type                               //
 ) {
     // THE C IMPLEMENTATION:
     // int32_t read_i32() {
@@ -438,11 +438,11 @@ void Generator::Read::generate_read_int_function( //
     builder->CreateRet(result_value);
 }
 
-void Generator::Read::generate_read_uint_function( //
-    llvm::IRBuilder<> *builder,                    //
-    llvm::Module *module,                          //
-    const bool only_declarations,                  //
-    llvm::Type *result_type                        //
+void Generator::Module::Read::generate_read_uint_function( //
+    llvm::IRBuilder<> *builder,                            //
+    llvm::Module *module,                                  //
+    const bool only_declarations,                          //
+    llvm::Type *result_type                                //
 ) {
     // THE C IMPLEMENTATION:
     // uint32_t read_u32() {
@@ -588,7 +588,7 @@ void Generator::Read::generate_read_uint_function( //
     builder->CreateRet(result_value);
 }
 
-void Generator::Read::generate_read_f32_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // float read_f32() {
     //     long len = 0;
@@ -693,7 +693,7 @@ void Generator::Read::generate_read_f32_function(llvm::IRBuilder<> *builder, llv
     builder->CreateRet(value);
 }
 
-void Generator::Read::generate_read_f64_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // double read_f64() {
     //     long len = 0;
@@ -798,7 +798,7 @@ void Generator::Read::generate_read_f64_function(llvm::IRBuilder<> *builder, llv
     builder->CreateRet(value);
 }
 
-void Generator::Read::generate_read_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Read::generate_read_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_getline_function(builder, module, only_declarations);
     generate_read_str_function(builder, module, only_declarations);
     generate_read_int_function(builder, module, only_declarations, builder->getInt32Ty());

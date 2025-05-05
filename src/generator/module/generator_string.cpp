@@ -3,7 +3,8 @@
 #include "llvm/IR/DerivedTypes.h"
 #include <cstdint>
 
-void Generator::String::generate_create_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_create_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // str *create_str(const size_t len) {
     //     str *string = (str *)malloc(sizeof(str) + len);
@@ -57,7 +58,7 @@ void Generator::String::generate_create_str_function(llvm::IRBuilder<> *builder,
     builder->CreateRet(string_ptr);
 }
 
-void Generator::String::generate_init_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_init_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // str *init_str(const char *value, const size_t len) {
     //     str *string = create_str(len);
@@ -112,7 +113,8 @@ void Generator::String::generate_init_str_function(llvm::IRBuilder<> *builder, l
     builder->CreateRet(string_ptr);
 }
 
-void Generator::String::generate_compare_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_compare_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // int32_t compare_str(const str *lhs, const str *rhs) {
     //     if (lhs->len < rhs->len) {
@@ -201,7 +203,8 @@ void Generator::String::generate_compare_str_function(llvm::IRBuilder<> *builder
     builder->CreateRet(memcmp_result);
 }
 
-void Generator::String::generate_assign_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_assign_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void assign_str(str **string, str *value) {
     //     free(*string);
@@ -254,7 +257,8 @@ void Generator::String::generate_assign_str_function(llvm::IRBuilder<> *builder,
     builder->CreateRetVoid();
 }
 
-void Generator::String::generate_assign_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void assign_lit(str **string, const char *value, const size_t len) {
     //     str *new_string = (str *)realloc(*string, sizeof(str) + len);
@@ -330,7 +334,8 @@ void Generator::String::generate_assign_lit_function(llvm::IRBuilder<> *builder,
     builder->CreateRetVoid();
 }
 
-void Generator::String::generate_append_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void append_str(str **dest, const str *source) {
     //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source->len);
@@ -413,7 +418,8 @@ void Generator::String::generate_append_str_function(llvm::IRBuilder<> *builder,
     builder->CreateRetVoid();
 }
 
-void Generator::String::generate_append_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void append_lit(str **dest, const char *source, const size_t source_len) {
     //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source_len);
@@ -491,7 +497,8 @@ void Generator::String::generate_append_lit_function(llvm::IRBuilder<> *builder,
     builder->CreateRetVoid();
 }
 
-void Generator::String::generate_add_str_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_add_str_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // str *add_str_str(const str *lhs, const str *rhs) {
     //     str *result = create_str(lhs->len + rhs->len);
@@ -570,7 +577,8 @@ void Generator::String::generate_add_str_str_function(llvm::IRBuilder<> *builder
     builder->CreateRet(result);
 }
 
-void Generator::String::generate_add_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_add_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // str *add_str_lit(const str *lhs, const char *rhs, const size_t rhs_len) {
     //     str *result = create_str(lhs->len + rhs_len);
@@ -647,7 +655,8 @@ void Generator::String::generate_add_str_lit_function(llvm::IRBuilder<> *builder
     builder->CreateRet(result);
 }
 
-void Generator::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // str *add_lit_str(const char *lhs, const size_t lhs_len, const str *rhs) {
     //     str *result = create_str(lhs_len + rhs->len);
@@ -724,7 +733,8 @@ void Generator::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder
     builder->CreateRet(result);
 }
 
-void Generator::String::generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::String::generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     generate_create_str_function(builder, module, only_declarations);
     generate_init_str_function(builder, module, only_declarations);
     generate_compare_str_function(builder, module, only_declarations);
@@ -737,10 +747,10 @@ void Generator::String::generate_string_manip_functions(llvm::IRBuilder<> *build
     generate_add_lit_str_function(builder, module, only_declarations);
 }
 
-llvm::Value *Generator::String::generate_string_declaration( //
-    llvm::IRBuilder<> &builder,                              //
-    llvm::Value *rhs,                                        //
-    std::optional<const ExpressionNode *> rhs_expr           //
+llvm::Value *Generator::Module::String::generate_string_declaration( //
+    llvm::IRBuilder<> &builder,                                      //
+    llvm::Value *rhs,                                                //
+    std::optional<const ExpressionNode *> rhs_expr                   //
 ) {
     // If there is no initalizer we need to create a new str struct with length 0 and put absolutely nothing into the value field of it
     if (!rhs_expr.has_value()) {
@@ -767,11 +777,11 @@ llvm::Value *Generator::String::generate_string_declaration( //
     }
 }
 
-void Generator::String::generate_string_assignment( //
-    llvm::IRBuilder<> &builder,                     //
-    llvm::Value *const lhs,                         //
-    const AssignmentNode *assignment_node,          //
-    llvm::Value *expression                         //
+void Generator::Module::String::generate_string_assignment( //
+    llvm::IRBuilder<> &builder,                             //
+    llvm::Value *const lhs,                                 //
+    const AssignmentNode *assignment_node,                  //
+    llvm::Value *expression                                 //
 ) {
     // If the rhs is a string literal we need to do different code than if it is a string variable. The expression contains a pointer to the
     // str in memory if its a variable, otherwise it will contain a pointer to the chars (char*).
@@ -794,7 +804,7 @@ void Generator::String::generate_string_assignment( //
     }
 }
 
-llvm::Value *Generator::String::generate_string_addition(                                                         //
+llvm::Value *Generator::Module::String::generate_string_addition(                                                 //
     llvm::IRBuilder<> &builder,                                                                                   //
     const Scope *scope,                                                                                           //
     const std::unordered_map<std::string, llvm::Value *const> &allocations,                                       //

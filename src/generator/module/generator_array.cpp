@@ -4,7 +4,8 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Intrinsics.h"
 
-void Generator::Array::generate_create_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Array::generate_create_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION
     // str *create_arr(const size_t dimensionality, const size_t element_size, const size_t *lengths) {
     //     size_t arr_len = 1;
@@ -134,7 +135,7 @@ void Generator::Array::generate_create_arr_function(llvm::IRBuilder<> *builder, 
     builder->CreateRet(arr);
 }
 
-void Generator::Array::generate_fill_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Array::generate_fill_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void fill_arr(str *arr, const size_t element_size, const void *value) {
     //     const size_t dimensionality = arr->len;
@@ -360,7 +361,8 @@ void Generator::Array::generate_fill_arr_function(llvm::IRBuilder<> *builder, ll
     builder->CreateRetVoid();
 }
 
-void Generator::Array::generate_fill_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Array::generate_fill_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void fill_arr_val(str *arr, const size_t element_size, const size_t value) {
     //     const size_t dimensionality = arr->len;
@@ -587,7 +589,8 @@ void Generator::Array::generate_fill_arr_val_function(llvm::IRBuilder<> *builder
     builder->CreateRetVoid();
 }
 
-void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // char *access_arr(str *arr, const size_t element_size, const size_t *indices) {
     //     const size_t dimensionality = arr->len;
@@ -773,7 +776,8 @@ void Generator::Array::generate_access_arr_function(llvm::IRBuilder<> *builder, 
     builder->CreateRet(result_ptr);
 }
 
-void Generator::Array::generate_access_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Array::generate_access_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // size_t access_arr_val(str *arr, const size_t element_size, const size_t *indices) {
     //     char *element = access_arr(arr, element_size, indices);
@@ -825,7 +829,8 @@ void Generator::Array::generate_access_arr_val_function(llvm::IRBuilder<> *build
     builder->CreateRet(loaded_value);
 }
 
-void Generator::Array::generate_assign_arr_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+void Generator::Module::Array::generate_assign_arr_at_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void assign_arr_at(str *arr, const size_t element_size, const size_t *indices, const void *value) {
     //     char *element = access_arr(arr, element_size, indices);
@@ -878,10 +883,10 @@ void Generator::Array::generate_assign_arr_at_function(llvm::IRBuilder<> *builde
     builder->CreateRetVoid();
 }
 
-void Generator::Array::generate_assign_arr_val_at_function( //
-    llvm::IRBuilder<> *builder,                             //
-    llvm::Module *module,                                   //
-    const bool only_declarations                            //
+void Generator::Module::Array::generate_assign_arr_val_at_function( //
+    llvm::IRBuilder<> *builder,                                     //
+    llvm::Module *module,                                           //
+    const bool only_declarations                                    //
 ) {
     // THE C IMPLEMENTATION:
     // void assign_arr_val_at(str *arr, const size_t element_size, const size_t *indices, const size_t value) {
@@ -937,7 +942,8 @@ void Generator::Array::generate_assign_arr_val_at_function( //
     builder->CreateRetVoid();
 }
 
-void Generator::Array::generate_array_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declaration) {
+void Generator::Module::Array::generate_array_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declaration) {
     generate_create_arr_function(builder, module, only_declaration);
     generate_fill_arr_function(builder, module, only_declaration);
     generate_fill_arr_val_function(builder, module, only_declaration);
