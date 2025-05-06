@@ -994,16 +994,24 @@ bool Generator::Statement::generate_array_assignment(                 //
         llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
         builder.CreateStore(idx_expressions[i], idx_ptr);
     }
-    // Store the main expression result in an 8 byte container
-    llvm::Type *to_type = IR::get_type(Type::get_primitive_type("i64")).first;
-    const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
-    expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
     // Get the array value
     const unsigned int var_decl_scope = std::get<1>(scope->variables.at(array_assignment->variable_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + array_assignment->variable_name;
     llvm::Value *const array_alloca = allocations.at(var_name);
     llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first->getPointerTo();
     llvm::Value *array_ptr = builder.CreateLoad(arr_type, array_alloca, "array_ptr");
+    if (array_assignment->expression->type->to_string() == "str") {
+        llvm::Value *element_ptr = builder.CreateCall(             //
+            Module::Array::array_manip_functions.at("access_arr"), //
+            {array_ptr, builder.getInt64(8), indices}              //
+        );
+        Module::String::generate_string_assignment(builder, element_ptr, array_assignment->expression.get(), expression);
+        return true;
+    }
+    // Store the main expression result in an 8 byte container
+    llvm::Type *to_type = IR::get_type(Type::get_primitive_type("i64")).first;
+    const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
+    expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
     // Call the `assign_at_val` function
     builder.CreateCall(                                                       //
         Module::Array::array_manip_functions.at("assign_arr_val_at"),         //

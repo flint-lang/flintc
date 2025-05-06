@@ -1,28 +1,3 @@
 def main():
-    print("Enter str input: ");
-    str str_input = read_str();
-    print($"str_input = '{str_input}'\n");
-
-    print("Enter i32 input: ");
-    i32 i32_input = read_i32();
-    print($"i32_input = '{i32_input}'\n");
-
-    print("Enter i64 input: ");
-    i64 i64_input = read_i64();
-    print($"i64_input = '{i64_input}'\n");
-
-    print("Enter u32 input: ");
-    u32 u32_input = read_u32();
-    print($"u32_input = '{u32_input}'\n");
-
-    print("Enter u64 input: ");
-    u64 u64_input = read_u64();
-    print($"u64_input = '{u64_input}'\n");
-
-    print("Enter f32 input: ");
-    f32 f32_input = read_f32();
-    print($"f32_input = '{f32_input}'\n");
-
-    print("Enter f64 input: ");
-    f64 f64_input = read_f64();
-    print($"f64_input = '{f64_input}'\n");
+    str[] args = str[3](_);
+    args[0] = "wololo";
