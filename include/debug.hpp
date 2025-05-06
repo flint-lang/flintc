@@ -18,6 +18,7 @@
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
+#include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
@@ -117,6 +118,7 @@ namespace Debug {
         void print_array_access(unsigned int indent_lvl, uint2 empty, const ArrayAccessNode &access);
         void print_data_access(unsigned int indent_lvl, uint2 empty, const DataAccessNode &access);
         void print_grouped_data_access(unsigned int indent_lvl, uint2 empty, const GroupedDataAccessNode &access);
+        void print_default(unsigned int indent_lvl, uint2 empty, const DefaultNode &default_node);
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr);
 
         // --- STATEMENTS ---

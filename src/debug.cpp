@@ -400,15 +400,12 @@ namespace Debug {
                 empty.second = indent_lvl + 3;
                 print_expression(indent_lvl + 2, empty, init.length_expressions[i]);
             }
-            if (!init.initializer_value.has_value()) {
-                return;
-            }
             empty.second = indent_lvl + 2;
             Local::print_header(indent_lvl + 1, empty, "Initializer ");
-            std::cout << init.initializer_value.value()->type->to_string();
+            std::cout << init.initializer_value->type->to_string();
             std::cout << std::endl;
             empty.second = indent_lvl + 3;
-            print_expression(indent_lvl + 2, empty, init.initializer_value.value());
+            print_expression(indent_lvl + 2, empty, init.initializer_value);
         }
 
         void print_array_access(unsigned int indent_lvl, uint2 empty, const ArrayAccessNode &access) {
@@ -455,6 +452,11 @@ namespace Debug {
             std::cout << std::endl;
         }
 
+        void print_default(unsigned int indent_lvl, uint2 empty, const DefaultNode &default_node) {
+            Local::print_header(indent_lvl, empty, "Default ");
+            std::cout << "of type " << default_node.type->to_string() << std::endl;
+        }
+
         void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr) {
             if (const auto *variable_node = dynamic_cast<const VariableNode *>(expr.get())) {
                 print_variable(indent_lvl, empty, *variable_node);
@@ -482,6 +484,8 @@ namespace Debug {
                 print_array_initializer(indent_lvl, empty, *array_init);
             } else if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expr.get())) {
                 print_array_access(indent_lvl, empty, *array_access);
+            } else if (const auto *default_node = dynamic_cast<const DefaultNode *>(expr.get())) {
+                print_default(indent_lvl, empty, *default_node);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;
@@ -634,6 +638,12 @@ namespace Debug {
                 empty.second = indent_lvl + 3;
                 print_expression(indent_lvl + 2, empty, assign.indexing_expressions[i]);
             }
+            empty.second = indent_lvl + 1;
+            Local::print_header(indent_lvl + 1, empty, "Assignee ");
+            std::cout << "of type " << assign.expression->type->to_string();
+            std::cout << std::endl;
+            empty.second = indent_lvl + 3;
+            print_expression(indent_lvl + 2, empty, assign.expression);
         }
 
         void print_group_declaration(unsigned int indent_lvl, uint2 empty, const GroupDeclarationNode &decl) {

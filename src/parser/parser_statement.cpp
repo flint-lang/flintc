@@ -771,7 +771,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
     tokens_mut.first++;
 
     // Parse the rhs expression
-    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, tokens_mut);
+    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, tokens_mut, array_type->type);
     if (!expression.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;

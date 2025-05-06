@@ -6,6 +6,7 @@
 #include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/ast/expressions/default_node.hpp"
 #include "parser/type/multi_type.hpp"
 
 #include <llvm/IR/Instructions.h>
@@ -549,9 +550,11 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
         length_expressions.emplace_back(index_i64);
     }
     llvm::Value *initializer_expression = nullptr;
-    if (initializer->initializer_value.has_value()) {
-        group_mapping initializer_mapping = generate_expression(                                                   //
-            builder, parent, scope, allocations, garbage, expr_depth, initializer->initializer_value.value().get() //
+    if (dynamic_cast<const DefaultNode *>(initializer->initializer_value.get())) {
+        initializer_expression = IR::get_default_value_of_type(IR::get_type(initializer->element_type).first);
+    } else {
+        group_mapping initializer_mapping = generate_expression(                                           //
+            builder, parent, scope, allocations, garbage, expr_depth, initializer->initializer_value.get() //
         );
         if (!initializer_mapping.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -562,12 +565,10 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
             return nullptr;
         }
         initializer_expression = initializer_mapping.value().front();
-        std::shared_ptr<Type> init_expr_type = initializer->initializer_value.value()->type;
+        std::shared_ptr<Type> init_expr_type = initializer->initializer_value->type;
         if (init_expr_type != initializer->element_type) {
             initializer_expression = generate_type_cast(builder, initializer_expression, init_expr_type, initializer->element_type);
         }
-    } else {
-        initializer_expression = IR::get_default_value_of_type(IR::get_type(initializer->element_type).first);
     }
     llvm::Value *const length_array = allocations.at("arr::idx::" + std::to_string(length_expressions.size()));
     for (size_t i = 0; i < length_expressions.size(); i++) {

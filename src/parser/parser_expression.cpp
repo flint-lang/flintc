@@ -5,6 +5,7 @@
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
+#include "parser/ast/expressions/default_node.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -615,19 +616,6 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    std::optional<std::unique_ptr<ExpressionNode>> initializer;
-    if (tokens_mut.first + length_expression_range.value().second != tokens_mut.second) {
-        // Get the initializer tokens (...) and remove the surrounding parenthesis
-        token_slice initializer_tokens = {tokens_mut.first + length_expression_range.value().second, tokens_mut.second};
-        tokens_mut.second = tokens_mut.first + length_expression_range.value().second;
-        remove_surrounding_paren(initializer_tokens);
-        // Now we can create the initializer expression
-        initializer = create_expression(scope, initializer_tokens);
-        if (!initializer.has_value()) {
-            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, initializer_tokens);
-            return std::nullopt;
-        }
-    }
 
     // Get the element type of the array
     token_slice type_tokens = {tokens_mut.first, tokens_mut.first + length_expression_range.value().first};
@@ -638,15 +626,29 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
         return std::nullopt;
     }
 
-    // TODO Find out the dimensionality of the array length expressions, but for now we only care about 1D arrays
-    // Now, everything left in the `tokens` vector should be the [...]
+    // Get the initializer tokens (...) and remove the surrounding parenthesis
+    token_slice initializer_tokens = {tokens.first + length_expression_range.value().second, tokens_mut.second};
+    tokens_mut.second = tokens.first + length_expression_range.value().second;
+    remove_surrounding_paren(initializer_tokens);
+    // Now we can create the initializer expression
+    std::optional<std::unique_ptr<ExpressionNode>> initializer;
+    if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->type == TOK_UNDERSCORE) {
+        initializer = std::make_unique<DefaultNode>(element_type.value());
+    } else {
+        initializer = create_expression(scope, initializer_tokens);
+    }
+    if (!initializer.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, initializer_tokens);
+        return std::nullopt;
+    }
+
     // The first token in the tokens list should be a left bracket
     assert(tokens_mut.first->type == TOK_LEFT_BRACKET);
     tokens_mut.first++;
     // The last token in the tokens list should be a right bracket
     assert(std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET);
     tokens_mut.second--;
-
+    // Now, everything left in the `tokens_mut` vector should be the length expressions [...]
     auto length_expressions = create_group_expressions(scope, tokens_mut);
     if (!length_expressions.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -663,7 +665,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     return ArrayInitializerNode(    //
         actual_array_type.value(),  //
         length_expressions.value(), //
-        initializer                 //
+        initializer.value()         //
     );
 }
 

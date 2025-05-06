@@ -588,7 +588,7 @@ class Matcher {
         type, token(TOK_LEFT_BRACKET),                                                                                // T[ sizes ]
         one_or_more(balanced_match_until(                                                                             //
             token(TOK_LEFT_PAREN), one_of({token(TOK_COMMA), token(TOK_RIGHT_BRACKET)}), token(TOK_RIGHT_PAREN), 0)), //
-        optional(sequence({token(TOK_LEFT_PAREN), until_right_paren}))                                                // ( initializer )
+        token(TOK_LEFT_PAREN), until_right_paren                                                                      // ( initializer )
     });
     static const inline PatternPtr array_access = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_BRACKET), until_right_bracket});
 
