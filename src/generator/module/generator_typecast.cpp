@@ -111,7 +111,7 @@ void Generator::Module::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builde
     //         return init_str("false", 5);
     //     }
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
 
     llvm::FunctionType *bool_to_str_type = llvm::FunctionType::get( //
@@ -223,7 +223,7 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
@@ -404,7 +404,7 @@ void Generator::Module::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
@@ -595,7 +595,7 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
@@ -784,7 +784,7 @@ void Generator::Module::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
@@ -969,7 +969,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     //
     //     return init_str(buffer, last_non_zero + 1);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *snprintf_fn = c_functions.at(SNPRINTF);
 
@@ -1277,7 +1277,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     //
     //     return init_str(buffer, last_non_zero + 1);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *snprintf_fn = c_functions.at(SNPRINTF);
 

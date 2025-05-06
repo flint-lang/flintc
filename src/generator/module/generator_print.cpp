@@ -20,7 +20,7 @@ void Generator::Module::Print::generate_print_functions(llvm::IRBuilder<> *build
     generate_print_function(builder, module, only_declarations, "f32", "%f");
     generate_print_function(builder, module, only_declarations, "f64", "%lf");
     generate_print_function(builder, module, only_declarations, "char", "%c");
-    generate_print_function(builder, module, only_declarations, "str", "%s");
+    generate_print_function(builder, module, only_declarations, "str_lit", "%s");
     generate_print_str_var_function(builder, module, only_declarations);
     generate_print_bool_function(builder, module, only_declarations);
 }
@@ -80,7 +80,7 @@ void Generator::Module::Print::generate_print_function( //
 
 void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<> *builder, llvm::Module *module,
     const bool only_declarations) {
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
 
     // Create print function type
     llvm::FunctionType *print_str_type = llvm::FunctionType::get( //
@@ -92,10 +92,10 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
     llvm::Function *print_str_function = llvm::Function::Create( //
         print_str_type,                                          //
         llvm::Function::ExternalLinkage,                         //
-        "__flint_print_str_var",                                 //
+        "__flint_print_str",                                     //
         module                                                   //
     );
-    print_functions["str_var"] = print_str_function;
+    print_functions["str"] = print_str_function;
     if (only_declarations) {
         return;
     }

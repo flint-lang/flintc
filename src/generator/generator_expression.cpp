@@ -692,7 +692,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
 
     llvm::Type *data_type;
     if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
-        data_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+        data_type = IR::get_type(Type::get_primitive_type("str")).first;
         var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, data_access->var_name + "_str_val");
     } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
         if (data_access->field_name != "length") {
@@ -700,7 +700,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             return std::nullopt;
         }
         std::vector<llvm::Value *> length_values;
-        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
         llvm::Value *arr_val = builder.CreateLoad(str_type->getPointerTo(), var_alloca, "arr_val");
         llvm::Value *length_ptr = builder.CreateStructGEP(str_type, arr_val, 1);
         for (size_t i = 0; i < array_type->dimensionality; i++) {

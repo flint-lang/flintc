@@ -117,21 +117,8 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
 std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type> &type) {
     if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(type.get())) {
         // Check if its a primitive or not. If it is not a primitive, its just a pointer type
-        if (primitive_type->type_name == "str_var") {
-            // A string is a struct of type 'type { i64, [0 x i8] }'
-            if (type_map.find("type_str") == type_map.end()) {
-                llvm::StructType *str_type = llvm::StructType::create( //
-                    context,                                           //
-                    {
-                        llvm::Type::getInt64Ty(context),                        // len of string
-                        llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
-                    },                                                          //
-                    "type_str",
-                    false // is not packed, its padded
-                );
-                type_map["type_str"] = str_type;
-            }
-            return {type_map.at("type_str"), false};
+        if (primitive_type->type_name == "str_lit") {
+            return {llvm::Type::getInt8Ty(context)->getPointerTo(), false};
         }
         if (keywords.find(primitive_type->type_name) != keywords.end()) {
             switch (keywords.at(primitive_type->type_name)) {
@@ -153,8 +140,22 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
                     return {nullptr, false};
                 case TOK_CHAR:
                     return {llvm::Type::getInt8Ty(context), false};
-                case TOK_STR:
-                    return {llvm::Type::getInt8Ty(context)->getPointerTo(), false};
+                case TOK_STR: {
+                    // A string is a struct of type 'type { i64, [0 x i8] }'
+                    if (type_map.find("type_str") == type_map.end()) {
+                        llvm::StructType *str_type = llvm::StructType::create( //
+                            context,                                           //
+                            {
+                                llvm::Type::getInt64Ty(context),                        // len of string
+                                llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
+                            },                                                          //
+                            "type_str",
+                            false // is not packed, its padded
+                        );
+                        type_map["type_str"] = str_type;
+                    }
+                    return {type_map.at("type_str"), false};
+                }
                 case TOK_BOOL:
                     return {llvm::Type::getInt1Ty(context), false};
                 case TOK_VOID:

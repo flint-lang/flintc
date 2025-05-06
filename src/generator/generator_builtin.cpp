@@ -76,7 +76,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Create the message that an error has occured
     llvm::Value *message_begin_ptr = IR::generate_const_string(*builder, "ERROR: Program exited with exit code '");
-    builder->CreateCall(Module::Print::print_functions.at("str"), {message_begin_ptr});
+    builder->CreateCall(Module::Print::print_functions.at("str_lit"), {message_begin_ptr});
     // Print the actual error value
     builder->CreateCall(Module::Print::print_functions.at("i32"), {err_val});
     // Print the rest of the string

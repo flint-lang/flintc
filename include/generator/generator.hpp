@@ -1883,8 +1883,8 @@ class Generator {
                 {"f64", nullptr},
                 {"flint", nullptr},
                 {"char", nullptr},
+                {"str_lit", nullptr},
                 {"str", nullptr},
-                {"str_var", nullptr},
                 {"bool", nullptr},
             };
 

@@ -238,7 +238,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     //     result->len = len;
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str_var")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
     llvm::Function *printf_fn = builtins.at(PRINT);
     llvm::Function *abort_fn = c_functions.at(ABORT);
     llvm::Function *realloc_fn = c_functions.at(REALLOC);

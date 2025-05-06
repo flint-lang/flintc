@@ -321,7 +321,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                         }
                     }
                     std::variant<int, float, std::string, bool, char> value = processed_str.str();
-                    return LiteralNode(value, Type::get_primitive_type("str"));
+                    return LiteralNode(value, Type::get_primitive_type("str_lit"));
                 }
             }
             case TOK_TRUE: {
