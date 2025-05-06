@@ -565,21 +565,26 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
         llvm::Value *index_i64 = generate_type_cast(builder, result.value().front(), expr->type, Type::get_primitive_type("u64"));
         length_expressions.emplace_back(index_i64);
     }
-    group_mapping initializer_mapping = generate_expression(                                           //
-        builder, parent, scope, allocations, garbage, expr_depth, initializer->initializer_value.get() //
-    );
-    if (!initializer_mapping.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return nullptr;
-    }
-    if (initializer_mapping.value().size() > 1) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return nullptr;
-    }
-    llvm::Value *initializer_expression = initializer_mapping.value().front();
-    std::shared_ptr<Type> init_expr_type = initializer->initializer_value->type;
-    if (init_expr_type != initializer->element_type) {
-        initializer_expression = generate_type_cast(builder, initializer_expression, init_expr_type, initializer->element_type);
+    llvm::Value *initializer_expression = nullptr;
+    if (initializer->initializer_value.has_value()) {
+        group_mapping initializer_mapping = generate_expression(                                                   //
+            builder, parent, scope, allocations, garbage, expr_depth, initializer->initializer_value.value().get() //
+        );
+        if (!initializer_mapping.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        if (initializer_mapping.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        initializer_expression = initializer_mapping.value().front();
+        std::shared_ptr<Type> init_expr_type = initializer->initializer_value.value()->type;
+        if (init_expr_type != initializer->element_type) {
+            initializer_expression = generate_type_cast(builder, initializer_expression, init_expr_type, initializer->element_type);
+        }
+    } else {
+        initializer_expression = IR::get_default_value_of_type(IR::get_type(initializer->element_type).first);
     }
     llvm::Value *const length_array = allocations.at("arr::idx::" + std::to_string(length_expressions.size()));
     for (size_t i = 0; i < length_expressions.size(); i++) {
@@ -603,7 +608,7 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
             llvm::MDString::get(context,
                 "Create an array of type " + initializer->element_type->to_string() + "[" +
                     std::string(length_expressions.size() - 1, ',') + "]")));
-    llvm::Type *from_type = IR::get_type(initializer->initializer_value->type).first;
+    llvm::Type *from_type = IR::get_type(initializer->element_type).first;
     llvm::Value *value_container = IR::generate_bitwidth_change( //
         builder,                                                 //
         initializer_expression,                                  //

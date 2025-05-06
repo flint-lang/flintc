@@ -459,13 +459,10 @@ class Matcher {
         token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLINT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE) //
     });
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
-    static const inline PatternPtr no_arr_type = sequence({simple_type, optional(balanced_match(token(TOK_LESS), token(TOK_GREATER)))});
     static const inline PatternPtr type = sequence({
-        simple_type,
-        optional(balanced_match(                                   //
-            one_of({token(TOK_LESS), token(TOK_LEFT_BRACKET)}),    //
-            one_of({token(TOK_GREATER), token(TOK_RIGHT_BRACKET)}) //
-            ))                                                     //
+        simple_type,                                                                                                // Single type
+        optional(balanced_match(token(TOK_LESS), token(TOK_GREATER))),                                              // <..> Type group
+        zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})) // [][,][,,] Arrays
     });
     static const inline PatternPtr assignment_operator = one_of({
         token(TOK_PLUS_EQUALS), token(TOK_MINUS_EQUALS), token(TOK_MULT_EQUALS), token(TOK_DIV_EQUALS) //
@@ -588,10 +585,10 @@ class Matcher {
     });
     static const inline PatternPtr grouped_data_access = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), group_expression});
     static const inline PatternPtr array_initializer = sequence({
-        no_arr_type, token(TOK_LEFT_BRACKET),                                                                         //
+        type, token(TOK_LEFT_BRACKET),                                                                                // T[ sizes ]
         one_or_more(balanced_match_until(                                                                             //
             token(TOK_LEFT_PAREN), one_of({token(TOK_COMMA), token(TOK_RIGHT_BRACKET)}), token(TOK_RIGHT_PAREN), 0)), //
-        token(TOK_LEFT_PAREN), until_right_paren                                                                      //
+        optional(sequence({token(TOK_LEFT_PAREN), until_right_paren}))                                                // ( initializer )
     });
     static const inline PatternPtr array_access = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_BRACKET), until_right_bracket});
 

@@ -608,15 +608,18 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    // Get the initializer tokens (...) and remove the surrounding parenthesis
-    token_slice initializer_tokens = {tokens_mut.first + length_expression_range.value().second, tokens_mut.second};
-    tokens_mut.second = tokens_mut.first + length_expression_range.value().second;
-    remove_surrounding_paren(initializer_tokens);
-    // Now we can create the initializer expression
-    std::optional<std::unique_ptr<ExpressionNode>> initializer = create_expression(scope, initializer_tokens);
-    if (!initializer.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, initializer_tokens);
-        return std::nullopt;
+    std::optional<std::unique_ptr<ExpressionNode>> initializer;
+    if (tokens_mut.first + length_expression_range.value().second != tokens_mut.second) {
+        // Get the initializer tokens (...) and remove the surrounding parenthesis
+        token_slice initializer_tokens = {tokens_mut.first + length_expression_range.value().second, tokens_mut.second};
+        tokens_mut.second = tokens_mut.first + length_expression_range.value().second;
+        remove_surrounding_paren(initializer_tokens);
+        // Now we can create the initializer expression
+        initializer = create_expression(scope, initializer_tokens);
+        if (!initializer.has_value()) {
+            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, initializer_tokens);
+            return std::nullopt;
+        }
     }
 
     // Get the element type of the array
@@ -653,7 +656,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     return ArrayInitializerNode(    //
         actual_array_type.value(),  //
         length_expressions.value(), //
-        initializer.value()         //
+        initializer                 //
     );
 }
 

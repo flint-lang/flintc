@@ -400,12 +400,15 @@ namespace Debug {
                 empty.second = indent_lvl + 3;
                 print_expression(indent_lvl + 2, empty, init.length_expressions[i]);
             }
+            if (!init.initializer_value.has_value()) {
+                return;
+            }
             empty.second = indent_lvl + 2;
             Local::print_header(indent_lvl + 1, empty, "Initializer ");
-            std::cout << init.initializer_value->type->to_string();
+            std::cout << init.initializer_value.value()->type->to_string();
             std::cout << std::endl;
             empty.second = indent_lvl + 3;
-            print_expression(indent_lvl + 2, empty, init.initializer_value);
+            print_expression(indent_lvl + 2, empty, init.initializer_value.value());
         }
 
         void print_array_access(unsigned int indent_lvl, uint2 empty, const ArrayAccessNode &access) {

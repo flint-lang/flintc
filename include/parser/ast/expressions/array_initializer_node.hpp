@@ -13,7 +13,7 @@ class ArrayInitializerNode : public ExpressionNode {
     ArrayInitializerNode(                                                 //
         const std::shared_ptr<Type> &type,                                //
         std::vector<std::unique_ptr<ExpressionNode>> &length_expressions, //
-        std::unique_ptr<ExpressionNode> &initializer_value                //
+        std::optional<std::unique_ptr<ExpressionNode>> &initializer_value //
         ) :
         length_expressions(std::move(length_expressions)),
         initializer_value(std::move(initializer_value)) {
@@ -32,6 +32,7 @@ class ArrayInitializerNode : public ExpressionNode {
     std::vector<std::unique_ptr<ExpressionNode>> length_expressions;
 
     /// @var `initializer_value`
-    /// qbrief The initial value with which all array elements are being initialized with
-    std::unique_ptr<ExpressionNode> initializer_value;
+    /// @brief The initial value with which all array elements are being initialized with, if nullopt they are initialized with their
+    /// default values
+    std::optional<std::unique_ptr<ExpressionNode>> initializer_value;
 };
