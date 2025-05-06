@@ -60,11 +60,11 @@ void Generator::get_data_nodes() {
 
 std::filesystem::path Generator::get_flintc_cache_path() {
 #ifdef __WIN32__
-    const char *program_files = std::getenv("ProgramFiles");
-    if (program_files == nullptr) {
+    const char *local_appdata = std::getenv("LOCALAPPDATA");
+    if (local_appdata == nullptr) {
         return std::filesystem::path();
     }
-    std::filesystem::path cache_path = std::filesystem::path(program_files) / "Flint" / "Cache" / "flintc";
+    std::filesystem::path cache_path = std::filesystem::path(local_appdata) / "Flint" / "Cache" / "flintc";
 #else
     const char *home = std::getenv("HOME");
     if (home == nullptr) {
@@ -80,7 +80,7 @@ std::filesystem::path Generator::get_flintc_cache_path() {
         }
         return cache_path;
     } catch (const std::filesystem::filesystem_error &e) {
-        std::cerr << "Error: Could not create cace path: '" << cache_path.string() << "'" << std::endl;
+        std::cerr << "Error: Could not create cache path: '" << cache_path.string() << "'" << std::endl;
         return std::filesystem::path();
     }
 }

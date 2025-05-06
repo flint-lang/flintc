@@ -1,5 +1,4 @@
 #include "linker/linker.hpp"
-#include "colors.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
 
@@ -8,13 +7,14 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <cstdlib>
 #include <iostream>
-#include <sstream>
 
 // #define __WIN32__
 
 #ifdef __WIN32__
+#include "colors.hpp"
+#include <cstdlib>
+#include <sstream>
 LLD_HAS_DRIVER(coff)
 #else
 LLD_HAS_DRIVER(elf)
@@ -28,36 +28,44 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
     std::string obj_file_str = obj_file.string();
 
     args.push_back("lld-link");
-    const std::string builtins_link_flag = "-L" + (Generator::get_flintc_cache_path()).string();
-    args.push_back(builtins_link_flag.c_str());
-    args.push_back("-lbuiltins");
     args.push_back(obj_file_str.c_str());
 
     std::string out_arg = "/OUT:" + output_exe;
     args.push_back(out_arg.c_str());
+    args.push_back("/VERBOSE:LIB");
+    args.push_back("/SUBSYSTEM:CONSOLE");
+    args.push_back("/NODEFAULTLIB:msvcrt.lib");
 
     // Get the lib environment variable
     std::vector<std::string> lib_paths;
+    std::string cache_path = Generator::get_flintc_cache_path().string();
+    if (cache_path.find(' ') == std::string::npos) {
+        lib_paths.push_back("/LIBPATH:" + cache_path);
+    } else {
+        // Only add the " ... " if the path contains any spaces
+        lib_paths.push_back("/LIBPATH:\"" + cache_path + "\"");
+    }
     const char *lib_env = std::getenv("LIB");
+    std::string lib_env_str(lib_env);
 
     if (lib_env != nullptr) {
-        std::string lib_str(lib_env);
-
         if (DEBUG_MODE) {
-            std::cout << YELLOW << "[Debug Info] " << DEFAULT << "Found LIB environment variable: " << lib_str << std::endl;
+            std::cout << YELLOW << "[Debug Info] Found LIB environment variable: " << DEFAULT << lib_env_str << std::endl;
         }
 
         // Split by semicolons
-        std::stringstream ss(lib_str);
+        std::stringstream ss(lib_env_str);
         std::string path;
         while (std::getline(ss, path, ';')) {
-            if (!path.empty()) {
-                lib_paths.push_back("/LIBPATH:\"" + path + "\"");
+            std::filesystem::path lib_path(path);
+            lib_path = lib_path.parent_path() / "x64";
+            if (std::filesystem::exists(lib_path)) {
+                lib_paths.push_back("/LIBPATH:\"" + lib_path.string() + "\"");
             }
         }
     } else {
         if (DEBUG_MODE) {
-            std::cout << YELLOW << "[Debug Info] " << DEFAULT << "Lib environment variable not found, trying system call..." << std::endl;
+            std::cout << YELLOW << "[Debug Info] Lib environment variable not found, trying system call..." << DEFAULT << std::endl;
         }
 
 // Fallback: try to get it via system call
@@ -77,7 +85,7 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
                 }
 
                 if (DEBUG_MODE) {
-                    std::cout << YELLOW << "[Debug Info] " << DEFAULT << "Got LIB paths via system call: " << lib_str << std::endl;
+                    std::cout << YELLOW << "[Debug Info] Got LIB paths via system call: " << DEFAULT << lib_str << std::endl;
                 }
 
                 // Split by semicolons
@@ -102,31 +110,49 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         args.push_back(path.c_str());
     }
 
+    // Link against the builtins library
+    args.push_back("libbuiltins.lib");
     // Universal C Runtime
     args.push_back("legacy_stdio_definitions.lib");
-    args.push_back("ucrt.lib");
-    args.push_back("vcruntime.lib");
-    std::string link_dir = "-L" + Generator::get_flintc_cache_path().string();
-    args.push_back(link_dir.c_str());
-    args.push_back("-lbuiltins");
-
     if (is_static) {
-        args.push_back("/DEFAULTLIB:libcmt.lib");
-        args.push_back("/NODEFAULTLIB:msvcrt.lib");
+        args.push_back("libvcruntime.lib");
+        args.push_back("ucrt.lib");
+        args.push_back("libcmt.lib");
     } else {
-        args.push_back("/DEFAULTLIB:msvcrt.lib");
+        args.push_back("vcruntime.lib");
+        args.push_back("ucrt.lib");
+        args.push_back("msvcrt.lib");
     }
-    args.push_back("/SUBSYSTEM:CONSOLE");
+
+    // Set the 'LIB' environment variable to nothing so lld-link ignores all of it
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Clearing the 'LIB' environment variable..." << DEFAULT << std::endl;
+    }
+#ifdef _MSC_VER
+    _putenv(const_cast<char *>("LIB="));
+#else
+    putenv(const_cast<char *>("LIB="));
+#endif
 
     if (DEBUG_MODE) {
-        std::cout << YELLOW << "[Debug Info] " << DEFAULT << (is_static ? "Static" : "Dynamic")
-                  << " Windows linking with arguments:" << std::endl;
+        std::cout << YELLOW << "[Debug Info] " << (is_static ? "Static" : "Dynamic") << " Windows linking with arguments:" << DEFAULT
+                  << std::endl;
         for (const auto &arg : args) {
             std::cout << "  " << arg << std::endl;
         }
     }
-
     bool result = lld::coff::link(args, llvm::outs(), llvm::errs(), false, false);
+    // Set the 'LIB' environemnt variable back to what it was originally
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Putting the original content of the 'LIB' environment variable back into it: " << DEFAULT
+                  << lib_env_str << std::endl;
+    }
+    lib_env_str = "LIB=" + lib_env_str;
+#ifdef _MSC_VER
+    _putenv(const_cast<char *>(lib_env_str.c_str()));
+#else
+    putenv(const_cast<char *>(lib_env_str.c_str()));
+#endif
     return result;
 #else
     // Unix ELF linking arguments
@@ -236,7 +262,12 @@ bool Linker::create_static_library(const std::vector<std::filesystem::path> &obj
     }
 
     // Write the archive file
-    llvm::Error err = llvm::writeArchive(output_file.string(), newMembers,
+#ifdef __WIN32__
+    const std::string file_ending = ".lib";
+#else
+    const std::string file_ending = ".a";
+#endif
+    llvm::Error err = llvm::writeArchive(output_file.string() + file_ending, newMembers,
         /*WriteSymtab=*/llvm::SymtabWritingMode::NormalSymtab,
         /*Kind=*/llvm::object::Archive::K_GNU,
         /*Deterministic=*/true,
