@@ -114,6 +114,7 @@ static inline std::unordered_map<std::string_view, std::vector<std::string_view>
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_implicit_casting_table = {
+    {"__flint_type_str_lit", {"str"}},
     {"i32", {"str", "u32", "u64", "i64", "f32", "f64", "i32x2", "i32x3", "i32x4", "i32x8"}},
     {"i64", {"str", "i64x2", "i64x3", "i64x4"}},
     {"u32", {"str", "i32", "i64", "u64", "f32", "f64"}},

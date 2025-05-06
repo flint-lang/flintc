@@ -220,8 +220,12 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
     // Get all the argument types
     std::vector<std::shared_ptr<Type>> argument_types;
     argument_types.reserve(arguments.size());
-    for (auto &arg : arguments) {
-        argument_types.emplace_back(arg.first->type);
+    for (size_t i = 0; i < arguments.size(); i++) {
+        // Typecast all string literals in the args to string variables
+        if (arguments[i].first->type->to_string() == "__flint_type_str_lit") {
+            arguments[i].first = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), arguments[i].first);
+        }
+        argument_types.emplace_back(arguments[i].first->type);
     }
 
     // Check if its a call to a builtin function, if it is, get the return type of said function

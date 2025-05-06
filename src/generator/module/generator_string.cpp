@@ -11,7 +11,7 @@ void Generator::Module::String::generate_create_str_function(llvm::IRBuilder<> *
     //     string->len = len;
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *create_str_type = llvm::FunctionType::get( //
@@ -65,7 +65,7 @@ void Generator::Module::String::generate_init_str_function(llvm::IRBuilder<> *bu
     //     memcpy(string->value, value, len);
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -124,7 +124,7 @@ void Generator::Module::String::generate_compare_str_function(llvm::IRBuilder<> 
     //     }
     //     return memcmp(lhs->value, rhs->value, lhs->len);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *memcmp_fn = c_functions.at(MEMCMP);
 
     llvm::FunctionType *compare_str_type = llvm::FunctionType::get( //
@@ -210,7 +210,7 @@ void Generator::Module::String::generate_assign_str_function(llvm::IRBuilder<> *
     //     free(*string);
     //     *string = value;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *free_fn = c_functions.at(FREE);
 
     llvm::FunctionType *assign_str_type = llvm::FunctionType::get( //
@@ -266,7 +266,7 @@ void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *
     //     new_string->len = len;
     //     memcpy(new_string->value, value, len);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -343,7 +343,7 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     //     memcpy(new_dest->value + new_dest->len, source->value, source->len);
     //     new_dest->len += source->len;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -427,7 +427,7 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     //     memcpy(new_dest->value + new_dest->len, source, source_len);
     //     new_dest->len += source_len;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -506,7 +506,7 @@ void Generator::Module::String::generate_add_str_str_function(llvm::IRBuilder<> 
     //     memcpy(result->value + lhs->len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -586,7 +586,7 @@ void Generator::Module::String::generate_add_str_lit_function(llvm::IRBuilder<> 
     //     memcpy(result->value + lhs->len, rhs, rhs_len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -664,7 +664,7 @@ void Generator::Module::String::generate_add_lit_str_function(llvm::IRBuilder<> 
     //     memcpy(result->value + lhs_len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -780,12 +780,12 @@ llvm::Value *Generator::Module::String::generate_string_declaration( //
 void Generator::Module::String::generate_string_assignment( //
     llvm::IRBuilder<> &builder,                             //
     llvm::Value *const lhs,                                 //
-    const AssignmentNode *assignment_node,                  //
+    const ExpressionNode *expression_node,                  //
     llvm::Value *expression                                 //
 ) {
     // If the rhs is a string literal we need to do different code than if it is a string variable. The expression contains a pointer to the
     // str in memory if its a variable, otherwise it will contain a pointer to the chars (char*).
-    if (const LiteralNode *lit = dynamic_cast<const LiteralNode *>(assignment_node->expression.get())) {
+    if (const LiteralNode *lit = dynamic_cast<const LiteralNode *>(expression_node)) {
         // Get the `assign_lit` function
         llvm::Function *assign_lit_fn = string_manip_functions.at("assign_lit");
 

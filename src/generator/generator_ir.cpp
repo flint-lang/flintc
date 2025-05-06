@@ -115,9 +115,25 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
 }
 
 std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type> &type) {
+    // Check if its a primitive or not. If it is not a primitive, its just a pointer type
     if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(type.get())) {
-        // Check if its a primitive or not. If it is not a primitive, its just a pointer type
-        if (primitive_type->type_name == "str_lit") {
+        if (primitive_type->type_name == "__flint_type_str_struct") {
+            // A string is a struct of type 'type { i64, [0 x i8] }'
+            if (type_map.find("type_str") == type_map.end()) {
+                llvm::StructType *str_type = llvm::StructType::create( //
+                    context,                                           //
+                    {
+                        llvm::Type::getInt64Ty(context),                        // len of string
+                        llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
+                    },                                                          //
+                    "type_str",
+                    false // is not packed, its padded
+                );
+                type_map["type_str"] = str_type;
+            }
+            return {type_map.at("type_str"), false};
+        }
+        if (primitive_type->type_name == "__flint_type_str_lit") {
             return {llvm::Type::getInt8Ty(context)->getPointerTo(), false};
         }
         if (keywords.find(primitive_type->type_name) != keywords.end()) {
@@ -154,7 +170,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
                         );
                         type_map["type_str"] = str_type;
                     }
-                    return {type_map.at("type_str"), false};
+                    return {type_map.at("type_str")->getPointerTo(), false};
                 }
                 case TOK_BOOL:
                     return {llvm::Type::getInt1Ty(context), false};
@@ -261,6 +277,6 @@ void Generator::IR::generate_debug_print( //
         return;
     }
     llvm::Value *msg_str = generate_const_string(*builder, "DEBUG: " + message);
-    llvm::Function *print_fn = Module::Print::print_functions.at("str");
+    llvm::Function *print_fn = builtins.at(PRINT);
     builder->CreateCall(print_fn, {msg_str});
 }

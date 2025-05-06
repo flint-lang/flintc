@@ -257,23 +257,6 @@ Generator::group_mapping Generator::Expression::generate_call(        //
                 Module::Print::print_functions.end()                                                      //
         ) {
             // Call the builtin function 'print'
-            // If the argument is of type str we need to differentiate between literals and str variables
-            if (call_node->arguments.front().first->type->to_string() == "str") {
-                if (dynamic_cast<const LiteralNode *>(call_node->arguments.front().first.get())) {
-                    return_value.emplace_back(builder.CreateCall(Module::Print::print_functions.at("str"), args));
-                    if (!Statement::clear_garbage(builder, garbage)) {
-                        return std::nullopt;
-                    }
-                    return return_value;
-                } else {
-                    return_value.emplace_back(builder.CreateCall(Module::Print::print_functions.at("str_var"), args));
-                    if (!Statement::clear_garbage(builder, garbage)) {
-                        return std::nullopt;
-                    }
-                    return return_value;
-                }
-            }
-
             const std::string type_str = call_node->arguments.front().first->type->to_string();
             return_value.emplace_back(builder.CreateCall(Module::Print::print_functions.at(type_str), args));
             if (!Statement::clear_garbage(builder, garbage)) {
@@ -697,7 +680,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
 
     llvm::Type *data_type;
     if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
-        data_type = IR::get_type(Type::get_primitive_type("str")).first;
+        data_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
         var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, data_access->var_name + "_str_val");
     } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
         if (data_access->field_name != "length") {
@@ -705,7 +688,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             return std::nullopt;
         }
         std::vector<llvm::Value *> length_values;
-        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
         llvm::Value *arr_val = builder.CreateLoad(str_type->getPointerTo(), var_alloca, "arr_val");
         llvm::Value *length_ptr = builder.CreateStructGEP(str_type, arr_val, 1);
         for (size_t i = 0; i < array_type->dimensionality; i++) {
@@ -805,6 +788,11 @@ Generator::group_mapping Generator::Expression::generate_type_cast(             
         return result;
     } else {
         to_type = type_cast_node->type;
+    }
+    if (to_type->to_string() == "str" && type_cast_node->expr->type->to_string() == "__flint_type_str_lit") {
+        assert(expr.size() == 1);
+        expr[0] = Module::String::generate_string_declaration(builder, expr[0], type_cast_node->expr.get());
+        return expr;
     }
     // Lastly, check if the expression is castable, and if it is generate the type cast
     for (size_t i = 0; i < expr.size(); i++) {

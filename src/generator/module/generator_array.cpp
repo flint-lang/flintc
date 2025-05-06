@@ -22,7 +22,7 @@ void Generator::Module::Array::generate_create_arr_function(llvm::IRBuilder<> *b
     //     memcpy(arr->value, lengths, dimensionality * sizeof(size_t));
     //     return arr;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -162,7 +162,7 @@ void Generator::Module::Array::generate_fill_arr_function(llvm::IRBuilder<> *bui
     //         memcpy(data_start + (i * element_size), data_start + ((i - 1) * element_size), element_size);
     //     }
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *fill_arr_type = llvm::FunctionType::get( //
@@ -389,7 +389,7 @@ void Generator::Module::Array::generate_fill_arr_val_function(llvm::IRBuilder<> 
     //         memcpy(data_start + (i * element_size), data_start + ((i - 1) * element_size), element_size);
     //     }
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *fill_arr_val_type = llvm::FunctionType::get( //
@@ -612,7 +612,7 @@ void Generator::Module::Array::generate_access_arr_function(llvm::IRBuilder<> *b
     //     char *data_start = (char *)(dim_lengths + dimensionality); // Skip the dimension lengths
     //     return data_start + offset * element_size;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
 
     llvm::FunctionType *access_arr_type = llvm::FunctionType::get( //
         builder->getInt8Ty()->getPointerTo(),                      // Return type: char*
@@ -785,7 +785,7 @@ void Generator::Module::Array::generate_access_arr_val_function(llvm::IRBuilder<
     //     memcpy(&value, element, element_size);
     //     return value;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *access_arr_fn = array_manip_functions.at("access_arr");
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -836,7 +836,7 @@ void Generator::Module::Array::generate_assign_arr_at_function(llvm::IRBuilder<>
     //     char *element = access_arr(arr, element_size, indices);
     //     memcpy(element, value, element_size);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *access_arr_fn = array_manip_functions.at("access_arr");
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -893,7 +893,7 @@ void Generator::Module::Array::generate_assign_arr_val_at_function( //
     //     char *element = access_arr(arr, element_size, indices);
     //     memcpy(element, &value, element_size);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *access_arr_fn = array_manip_functions.at("access_arr");
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 

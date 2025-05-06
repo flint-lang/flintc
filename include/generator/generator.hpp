@@ -1883,7 +1883,6 @@ class Generator {
                 {"f64", nullptr},
                 {"flint", nullptr},
                 {"char", nullptr},
-                {"str_lit", nullptr},
                 {"str", nullptr},
                 {"bool", nullptr},
             };
@@ -2165,12 +2164,12 @@ class Generator {
             ///
             /// @param `builder` The LLVM IRBuilder
             /// @param `lhs` The pointer to the allocation instruction of the variable to assign to
-            /// @param `assignment_node` The assignment node, used to check if the rhs is a literal or not
+            /// @param `expression_node` The expression to assign
             /// @param `expression` The generated value of the expression of the rhs
             static void generate_string_assignment(    //
                 llvm::IRBuilder<> &builder,            //
                 llvm::Value *const lhs,                //
-                const AssignmentNode *assignment_node, //
+                const ExpressionNode *expression_node, //
                 llvm::Value *expression                //
             );
 

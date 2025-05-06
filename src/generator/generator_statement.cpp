@@ -147,13 +147,13 @@ bool Generator::Statement::generate_end_of_scope(                    //
             // Get the allocation of the variable
             const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
             llvm::Value *const alloca = allocations.at(alloca_name);
-            llvm::Type *str_type = IR::get_type(Type::get_primitive_type("str")).first;
+            llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *str_ptr = builder.CreateLoad(str_type->getPointerTo(), alloca, var_name + "_cleanup");
             builder.CreateCall(c_functions.at(FREE), {str_ptr});
         } else if (dynamic_cast<ArrayType *>(var_type.get())) {
             const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
             llvm::Value *const alloca = allocations.at(alloca_name);
-            llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("str")).first;
+            llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *arr_ptr = builder.CreateLoad(arr_type->getPointerTo(), alloca, var_name + "_cleanup");
             builder.CreateCall(c_functions.at(FREE), {arr_ptr});
         }
@@ -856,7 +856,7 @@ bool Generator::Statement::generate_assignment(                       //
     if (assignment_node->type->to_string() == "str") {
         // Only generate the string assignment if its not a shorthand
         if (!assignment_node->is_shorthand) {
-            Module::String::generate_string_assignment(builder, lhs, assignment_node, expression);
+            Module::String::generate_string_assignment(builder, lhs, assignment_node->expression.get(), expression);
         }
         return true;
     } else {
@@ -1002,7 +1002,7 @@ bool Generator::Statement::generate_array_assignment(                 //
     const unsigned int var_decl_scope = std::get<1>(scope->variables.at(array_assignment->variable_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + array_assignment->variable_name;
     llvm::Value *const array_alloca = allocations.at(var_name);
-    llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("str")).first->getPointerTo();
+    llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first->getPointerTo();
     llvm::Value *array_ptr = builder.CreateLoad(arr_type, array_alloca, "array_ptr");
     // Call the `assign_at_val` function
     builder.CreateCall(                                                       //
