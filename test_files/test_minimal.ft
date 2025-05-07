@@ -1,8 +1,10 @@
+def print_strings(str[] strings):
+    for i32 i = 0; i < strings.length; i++:
+        print($"strings[{i}] = {strings[i]}\n");
+
 def main():
     str[] args = str[3](_);
-    print($"args.length = {args.length}\n");
     args[0] = "wololo";
     args[1] = "something else";
     args[2] = "hello there!";
-    for i32 i = 0; i < args.length; i++:
-        print($"args[{i}] = {args[i]}\n");
+    print_strings(args);

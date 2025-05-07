@@ -36,6 +36,8 @@ void Generator::Allocation::generate_allocations(                    //
             generate_expression_allocations(builder, parent, scope, allocations, return_node->return_value.get());
         } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement_node.get())) {
             generate_allocations(builder, parent, catch_node->scope.get(), allocations);
+        } else if (const auto *array_assignment = dynamic_cast<const ArrayAssignmentNode *>(statement_node.get())) {
+            generate_array_indexing_allocation(builder, allocations, array_assignment->indexing_expressions.size());
         }
     }
 }
@@ -259,6 +261,8 @@ void Generator::Allocation::generate_expression_allocations(          //
         }
     } else if (const auto *array_initializer = dynamic_cast<const ArrayInitializerNode *>(expression)) {
         generate_array_indexing_allocation(builder, allocations, array_initializer->length_expressions.size());
+    } else if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expression)) {
+        generate_array_indexing_allocation(builder, allocations, array_access->indexing_expressions.size());
     }
 }
 
