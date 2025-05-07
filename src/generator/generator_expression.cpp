@@ -8,6 +8,7 @@
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/primitive_type.hpp"
 
 #include <llvm/IR/Instructions.h>
 #include <string>
@@ -549,27 +550,6 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
         llvm::Value *index_i64 = generate_type_cast(builder, result.value().front(), expr->type, Type::get_primitive_type("u64"));
         length_expressions.emplace_back(index_i64);
     }
-    llvm::Value *initializer_expression = nullptr;
-    if (dynamic_cast<const DefaultNode *>(initializer->initializer_value.get())) {
-        initializer_expression = IR::get_default_value_of_type(IR::get_type(initializer->element_type).first);
-    } else {
-        group_mapping initializer_mapping = generate_expression(                                           //
-            builder, parent, scope, allocations, garbage, expr_depth, initializer->initializer_value.get() //
-        );
-        if (!initializer_mapping.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
-        }
-        if (initializer_mapping.value().size() > 1) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
-        }
-        initializer_expression = initializer_mapping.value().front();
-        std::shared_ptr<Type> init_expr_type = initializer->initializer_value->type;
-        if (init_expr_type != initializer->element_type) {
-            initializer_expression = generate_type_cast(builder, initializer_expression, init_expr_type, initializer->element_type);
-        }
-    }
     llvm::Value *const length_array = allocations.at("arr::idx::" + std::to_string(length_expressions.size()));
     for (size_t i = 0; i < length_expressions.size(); i++) {
         llvm::Value *array_element_ptr = builder.CreateGEP(builder.getInt64Ty(), length_array, builder.getInt64(i));
@@ -592,19 +572,55 @@ llvm::Value *Generator::Expression::generate_array_initializer(                 
             llvm::MDString::get(context,
                 "Create an array of type " + initializer->element_type->to_string() + "[" +
                     std::string(length_expressions.size() - 1, ',') + "]")));
-    llvm::Type *from_type = IR::get_type(initializer->element_type).first;
-    llvm::Value *value_container = IR::generate_bitwidth_change( //
-        builder,                                                 //
-        initializer_expression,                                  //
-        from_type->getPrimitiveSizeInBits(),                     //
-        64,                                                      //
-        IR::get_type(Type::get_primitive_type("i64")).first      //
-    );
-    llvm::CallInst *fill_call = builder.CreateCall(                               //
-        Module::Array::array_manip_functions.at("fill_arr_val"),                  //
-        {created_array, builder.getInt64(element_size_in_bytes), value_container} //
-    );
-    fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
+    llvm::Value *initializer_expression = nullptr;
+    if (dynamic_cast<const DefaultNode *>(initializer->initializer_value.get())) {
+        initializer_expression = IR::get_default_value_of_type(builder, initializer->element_type);
+    } else {
+        group_mapping initializer_mapping = generate_expression(                                           //
+            builder, parent, scope, allocations, garbage, expr_depth, initializer->initializer_value.get() //
+        );
+        if (!initializer_mapping.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        if (initializer_mapping.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        initializer_expression = initializer_mapping.value().front();
+        std::shared_ptr<Type> init_expr_type = initializer->initializer_value->type;
+        if (init_expr_type != initializer->element_type) {
+            initializer_expression = generate_type_cast(builder, initializer_expression, init_expr_type, initializer->element_type);
+        }
+    }
+    if (initializer->element_type->to_string() == "str") {
+        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+        llvm::Value *str_len_ptr = builder.CreateStructGEP(str_type, initializer_expression, 0, "str_len_ptr");
+        llvm::Value *str_len = builder.CreateLoad(builder.getInt64Ty(), str_len_ptr, "str_len");
+        uint64_t str_size = data_layout.getTypeAllocSize(str_type);
+        str_len = builder.CreateAdd(str_len, builder.getInt64(str_size));
+        llvm::CallInst *fill_call = builder.CreateCall(               //
+            Module::Array::array_manip_functions.at("fill_arr_deep"), //
+            {created_array, str_len, initializer_expression}          //
+        );
+        fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
+    } else if (dynamic_cast<const PrimitiveType *>(initializer->element_type.get())) {
+        llvm::Type *from_type = IR::get_type(initializer->element_type).first;
+        llvm::Value *value_container = IR::generate_bitwidth_change( //
+            builder,                                                 //
+            initializer_expression,                                  //
+            from_type->getPrimitiveSizeInBits(),                     //
+            64,                                                      //
+            IR::get_type(Type::get_primitive_type("i64")).first      //
+        );
+        llvm::CallInst *fill_call = builder.CreateCall(                               //
+            Module::Array::array_manip_functions.at("fill_arr_val"),                  //
+            {created_array, builder.getInt64(element_size_in_bytes), value_container} //
+        );
+        fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
+    } else if (dynamic_cast<const MultiType *>(initializer->element_type.get())) {
+        // TODO
+    }
     return created_array;
 }
 

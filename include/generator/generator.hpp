@@ -346,6 +346,14 @@ class Generator {
         static std::pair<llvm::Type *, bool> get_type(const std::shared_ptr<Type> &type);
 
         /// @function `get_default_value_of_type`
+        /// @brief Returns the default value associated with the given type
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `type` The type from which the default value has to be returned
+        /// @return `llvm::Value *` The default value of the given type
+        static llvm::Value *get_default_value_of_type(llvm::IRBuilder<> &builder, const std::shared_ptr<Type> &type);
+
+        /// @function `get_default_value_of_type`
         /// @brief Returns the default value associated with a given Type
         ///
         /// @param `type` The Type from which the default value has to be returned

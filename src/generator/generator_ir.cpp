@@ -219,6 +219,14 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
     return {nullptr, false};
 }
 
+llvm::Value *Generator::IR::get_default_value_of_type(llvm::IRBuilder<> &builder, const std::shared_ptr<Type> &type) {
+    const std::string type_string = type->to_string();
+    if (type_string == "str") {
+        return builder.CreateCall(Module::String::string_manip_functions.at("create_str"), {builder.getInt64(0)}, "empty_string");
+    }
+    return get_default_value_of_type(IR::get_type(type).first);
+}
+
 llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     if (type->isIntegerTy()) {
         return llvm::ConstantInt::get(type, 0);

@@ -767,7 +767,7 @@ bool Generator::Statement::generate_declaration(                      //
         }
         expression = expr_val.value().at(0);
     } else {
-        expression = IR::get_default_value_of_type(IR::get_type(declaration_node->type).first);
+        expression = IR::get_default_value_of_type(builder, declaration_node->type);
     }
 
     if (declaration_node->type->to_string() == "str") {
