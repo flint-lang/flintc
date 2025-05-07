@@ -1192,7 +1192,7 @@ void Generator::Module::Array::generate_free_arr_function(llvm::IRBuilder<> *bui
 
     // Get lens = (size_t *)arr->value
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
-    llvm::Value *lens = builder->CreateLoad(builder->getInt8Ty()->getPointerTo()->getPointerTo(), value_ptr);
+    llvm::Value *lens = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), value_ptr, "value");
     llvm::Value *lens_size_t = builder->CreateBitCast(lens, builder->getInt64Ty()->getPointerTo(), "lens_size_t");
 
     // Calculate total length

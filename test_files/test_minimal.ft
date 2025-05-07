@@ -1,5 +1,6 @@
 def main():
     str[] args = str[3](_);
+    print($"args.length = {args.length}\n");
     args[0] = "wololo";
     args[1] = "something else";
     args[2] = "hello there!";
