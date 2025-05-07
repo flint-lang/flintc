@@ -284,10 +284,46 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             // Store that this file is now finished with its generation
             Resolver::file_generation_finished(shared_tip->file_name);
 
-            // std::cout << " -------- MODULE -------- \n"
-            //           << resolve_ir_comments(get_module_ir_string(file_module.get())) << "\n ---------------- \n"
-            //           << std::endl;
-            // llvm::verifyModule(*file_module, &llvm::errs());
+            if (DEBUG_MODE) {
+                // Capture verification errors in a string
+                std::string errorOutput;
+                llvm::raw_string_ostream errorStream(errorOutput);
+
+                // Verify the module, capturing errors in errorStream
+                bool hasErrors = llvm::verifyModule(*file_module.value(), &errorStream);
+                errorStream.flush(); // Make sure all output is written
+
+                // Process the errors - filter out "Referencing function in another module!" errors
+                std::istringstream ss(errorOutput);
+                std::string line;
+                bool hasRealErrors = false;
+                std::string filteredErrors;
+
+                unsigned char lines_to_skip = 0;
+                while (std::getline(ss, line)) {
+                    if (line.find("Referencing function in another module!") != std::string::npos) {
+                        lines_to_skip = 4;
+                    } else if (lines_to_skip > 0) {
+                        lines_to_skip--;
+                    } else {
+                        filteredErrors += line + "\n";
+                        hasRealErrors = true;
+                    }
+                }
+
+                // Only print the module if there are real errors
+                if (hasRealErrors) {
+                    llvm::errs() << filteredErrors;
+                    std::cout << "\n\n -------- MODULE WITH ERRORS -------- \n"
+                              << resolve_ir_comments(get_module_ir_string(file_module.value().get())) << "\n ---------------- \n"
+                              << std::endl;
+                } else if (hasErrors) {
+                    // Optionally print a message indicating only reference "errors" were found
+                    std::cout << YELLOW << "[Debug Info] Module verification for module '" << file_module.value()->getName().str()
+                              << "' successful\n"
+                              << std::endl;
+                }
+            }
 
             // Link the generated module in the main module
             if (linker.linkInModule(std::move(file_module.value()))) {
