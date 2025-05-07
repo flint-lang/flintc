@@ -34,7 +34,9 @@ token_list Lexer::scan() {
     tokens.clear();
 
     while (!is_at_end()) {
-        scan_token();
+        if (!scan_token()) {
+            return {};
+        }
     }
 
     // Special case for when lexing string interpolation expressions: If the token list only contains one entry, early return
@@ -90,7 +92,7 @@ std::string Lexer::to_string(const token_slice &tokens) {
     return token_stream.str();
 }
 
-void Lexer::scan_token() {
+bool Lexer::scan_token() {
     static unsigned int space_counter = 0;
     // ensure the first character isnt skipped
     start = current;
@@ -157,12 +159,12 @@ void Lexer::scan_token() {
             advance(false);
             if (isascii(peek()) == 0) {
                 THROW_ERR(ErrLitExpectedCharValue, ERR_LEXING, file, line, column, std::to_string(peek()));
-                return;
+                return false;
             }
             if (peek_next() != '\'') {
                 THROW_ERR(ErrLitCharLongerThanSingleCharacter, ERR_LEXING, file, line, column,
                     std::to_string(peek()) + std::to_string(peek_next()));
-                return;
+                return false;
             }
             start = current;
             add_token(TOK_CHAR_VALUE);
@@ -186,7 +188,7 @@ void Lexer::scan_token() {
                     advance();
                 }
                 if (is_at_end()) {
-                    return;
+                    return false;
                 }
             } else if (peek_next() == '*') {
                 // eat the '*'
@@ -201,7 +203,7 @@ void Lexer::scan_token() {
                     }
                     if (is_at_end()) {
                         THROW_ERR(ErrCommentUnterminatedMultiline, ERR_LEXING, file, line, comment_start_column);
-                        return;
+                        return false;
                     }
                     advance();
                 }
@@ -209,7 +211,7 @@ void Lexer::scan_token() {
                 // eat the '/'
                 advance();
                 if (is_at_end()) {
-                    return;
+                    return false;
                 }
             } else {
                 add_token(TOK_DIV);
@@ -266,16 +268,19 @@ void Lexer::scan_token() {
             if (is_digit(character)) {
                 number();
             } else if (is_alpha(character)) {
-                identifier();
+                if (!identifier()) {
+                    return false;
+                }
             } else {
                 THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, std::to_string(character));
             }
             break;
     }
     advance();
+    return true;
 }
 
-void Lexer::identifier() {
+bool Lexer::identifier() {
     // Includes all characters in the identifier which are
     // alphanumerical
     while (is_alpha_num(peek_next())) {
@@ -283,9 +288,15 @@ void Lexer::identifier() {
     }
 
     std::string identifier = source.substr(start, current - start + 1);
+    // Check if the name starts with __flint_ as these names are not permitted for user-defined functions
+    if (identifier.length() > 8 && identifier.substr(0, 8) == "__flint_") {
+        THROW_BASIC_ERR(ERR_LEXING);
+        return false;
+    }
     Token type = (keywords.count(identifier) > 0) ? keywords.at(identifier) : TOK_IDENTIFIER;
 
     add_token(type, identifier);
+    return true;
 }
 
 void Lexer::number() {

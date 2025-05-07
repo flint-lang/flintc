@@ -382,6 +382,10 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
         Lexer lexer = (it->first == 0) ? Lexer("string_intepolation", interpol_string.substr(1, it->second))
                                        : Lexer("string_interpolation", interpol_string.substr(it->first + 2, (it->second - it->first - 1)));
         token_list expr_tokens = lexer.scan();
+        if (expr_tokens.empty()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
         token_slice expr_tokens_slice = {expr_tokens.begin(), expr_tokens.end()};
         std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expr_tokens_slice);
         if (!expr.has_value()) {

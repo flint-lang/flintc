@@ -37,11 +37,6 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    // Check if the name starts with __flint_ as these names are not permitted for user-defined functions
-    if (name.length() > 8 && name.substr(0, 8) == "__flint_") {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
     // If its the main function, change its name
     if (name == "main") {
         name = "_main";

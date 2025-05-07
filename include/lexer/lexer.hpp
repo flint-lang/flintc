@@ -99,11 +99,15 @@ class Lexer {
 
     /// @function `scan_token`
     /// @brief Scans the current character and creates tokens depending on the current character
-    void scan_token();
+    ///
+    /// @return `bool` Whether scanning for the next token was successful
+    bool scan_token();
 
     /// @function `identifier`
     /// @brief Lexes an identifier
-    void identifier();
+    ///
+    /// @return `bool` Whether lexing the identifier failed (When it started with __flint_)
+    bool identifier();
 
     /// @function `number`
     /// @brief Lexes a number

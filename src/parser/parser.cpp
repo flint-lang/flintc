@@ -27,6 +27,10 @@ std::optional<FileNode> Parser::parse() {
     PROFILE_SCOPE("Parse file '" + file_name + "'");
     FileNode file_node(file_name);
     token_list tokens = Lexer(file).scan();
+    if (tokens.empty()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
     token_slice token_slice = {tokens.begin(), tokens.end()};
     if (PRINT_TOK_STREAM) {
         Debug::print_token_context_vector(token_slice, file_name);
