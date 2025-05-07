@@ -49,6 +49,7 @@
 
 #include "parser/type/multi_type.hpp"
 
+#include <atomic>
 #include <cassert>
 #include <filesystem>
 #include <map>
@@ -113,6 +114,14 @@ class Parser {
     /// @param `tokens` The list of tokens to convert
     /// @return `std::string` The type string
     static std::string get_type_string(const token_list &tokens);
+
+    /// @var `main_function_has_args`
+    /// @brief Whether the main function has an args list (str[] type)
+    static inline std::atomic_bool main_function_has_args{false};
+
+    /// @var `main_function_parsed`
+    /// @brief Determines whether the main function has been parsed already. Atomic for thread-safe access
+    static inline std::atomic_bool main_function_parsed{false};
 
     /// @var `parsed_data`
     /// @brief Stores all the data nodes that have been parsed

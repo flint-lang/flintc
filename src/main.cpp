@@ -93,6 +93,11 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
         std::cerr << RED << "Error" << DEFAULT << ": Failed to create dependency graph" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+    if (!Parser::main_function_parsed) {
+        // No main function found
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
     if (PRINT_DEP_TREE) {
         Debug::Dep::print_dep_tree(0, dep_graph.value());
     }

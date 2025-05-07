@@ -37,10 +37,6 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    // If its the main function, change its name
-    if (name == "main") {
-        name = "_main";
-    }
     // Skip the left paren
     tok_it++;
     // Parse the parameters only if there are any parameters
@@ -116,6 +112,34 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                 }
                 tok_it++;
             }
+        }
+    }
+
+    // If its the main function, change its name
+    if (name == "main") {
+        if (main_function_parsed) {
+            // Redefinition of the main function
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        main_function_parsed = true;
+        name = "_main";
+
+        // The parameter list either has to be empty or contain one `str[]` parameter
+        main_function_has_args = !parameters.empty();
+        if (parameters.size() > 1) {
+            // Too many parameters for the main function
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        } else if (parameters.size() == 1 && std::get<0>(parameters.front())->to_string() != "str[]") {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+
+        // The main funcition is not allowed to return anything
+        if (!return_types.empty()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
     }
 
