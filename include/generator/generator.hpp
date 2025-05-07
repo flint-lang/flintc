@@ -1777,8 +1777,14 @@ class Generator {
             /// @attention The functions are nullpointers until the `generate_array_manip_functions` function is called
             static inline std::unordered_map<std::string_view, llvm::Function *> array_manip_functions = {
                 {"create_arr", nullptr},
-                {"fill_arr", nullptr},
+                {"fill_arr_inline", nullptr},
+                {"fill_arr_deep", nullptr},
+                {"fill_arr_val", nullptr},
                 {"access_arr", nullptr},
+                {"access_arr_val", nullptr},
+                {"assign_arr_at", nullptr},
+                {"assign_arr_val_at", nullptr},
+                {"free_arr", nullptr},
             };
 
             /// @function `generate_create_arr_function`
@@ -1789,13 +1795,29 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_create_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
-            /// @function `generate_fill_arr_function`
-            /// @brief Generates the builtin hidden `fill_arr` function
+            /// @function `generate_fill_arr_inline_function`
+            /// @brief Generates the builtin hidden `fill_arr_inline` function
             ///
             /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `fill_arr` function will be generated in
+            /// @param `module` The LLVM Module the `fill_arr_inline` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_fill_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+            static void generate_fill_arr_inline_function( //
+                llvm::IRBuilder<> *builder,                //
+                llvm::Module *module,                      //
+                const bool only_declarations = true        //
+            );
+
+            /// @function `generate_fill_arr_deep_function`
+            /// @brief Generates the builtin hidden `fill_arr_deep` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `fill_arr_deep` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_fill_arr_deep_function( //
+                llvm::IRBuilder<> *builder,              //
+                llvm::Module *module,                    //
+                const bool only_declarations = true      //
+            );
 
             /// @function `generate_fill_arr_val_function`
             /// @brief Generates the builtin hidden `fill_arr_val` function
@@ -1803,8 +1825,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `fill_arr_val` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the generation for it
-            static void generate_fill_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-                const bool only_declarations = true);
+            static void generate_fill_arr_val_function( //
+                llvm::IRBuilder<> *builder,             //
+                llvm::Module *module,                   //
+                const bool only_declarations = true     //
+            );
 
             /// @function `generate_access_arr_function`
             /// @brief Generates the builtin hidden `access_arr` function
@@ -1820,8 +1845,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `access_arr_val` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_access_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-                const bool only_declarations = true);
+            static void generate_access_arr_val_function( //
+                llvm::IRBuilder<> *builder,               //
+                llvm::Module *module,                     //
+                const bool only_declarations = true       //
+            );
 
             /// @function `generate_assign_arr_at_function`
             /// @brief Generates the builtin hidden `assign_arr_at` function
@@ -1829,8 +1857,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `assign_arr_at` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_assign_arr_at_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-                const bool only_declarations = true);
+            static void generate_assign_arr_at_function( //
+                llvm::IRBuilder<> *builder,              //
+                llvm::Module *module,                    //
+                const bool only_declarations = true      //
+            );
 
             /// @function `generate_assign_arr_val_at_function`
             /// @brief Generates the builtin hidden `assign_arr_val_at` function
@@ -1844,14 +1875,25 @@ class Generator {
                 const bool only_declarations = true          //
             );
 
+            /// @function `generate_free_arr_function`
+            /// @brief Generates the builtin hidded `free_arr` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `free_arr` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_free_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
             /// @function `generate_array_manip_functions`
             /// @brief Generates all the builtin hidden array manipulation functions
             ///
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the array manipulation functions will be generated in
             /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
-            static void generate_array_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
-                const bool only_declarations = true);
+            static void generate_array_manip_functions( //
+                llvm::IRBuilder<> *builder,             //
+                llvm::Module *module,                   //
+                const bool only_declarations = true     //
+            );
         }; // subclass Array
 
         /// @class `Print`
@@ -2143,8 +2185,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the string manipulation functions will be generated in
             /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
-            static void generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
-                const bool only_declarations = true);
+            static void generate_string_manip_functions( //
+                llvm::IRBuilder<> *builder,              //
+                llvm::Module *module,                    //
+                const bool only_declarations = true      //
+            );
 
             /// @function `generate_string_declaration`
             /// @brief Generates the declaration of a string variable
