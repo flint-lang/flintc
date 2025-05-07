@@ -1001,10 +1001,12 @@ bool Generator::Statement::generate_array_assignment(                 //
     llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first->getPointerTo();
     llvm::Value *array_ptr = builder.CreateLoad(arr_type, array_alloca, "array_ptr");
     if (array_assignment->expression->type->to_string() == "str") {
+        // This call returns a 'str**'
         llvm::Value *element_ptr = builder.CreateCall(             //
             Module::Array::array_manip_functions.at("access_arr"), //
             {array_ptr, builder.getInt64(8), indices}              //
         );
+        // The string assignment will call the 'assign_str' function, which takes in a 'str**' argument for its dest, so this is correct
         Module::String::generate_string_assignment(builder, element_ptr, array_assignment->expression.get(), expression);
         return true;
     }

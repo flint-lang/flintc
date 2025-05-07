@@ -1,3 +1,7 @@
 def main():
     str[] args = str[3](_);
     args[0] = "wololo";
+    args[1] = "something else";
+    args[2] = "hello there!";
+    for i32 i = 0; i < args.length; i++:
+        print($"args[{i}] = {args[i]}\n");

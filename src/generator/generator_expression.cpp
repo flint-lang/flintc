@@ -675,13 +675,24 @@ llvm::Value *Generator::Expression::generate_array_access(                      
     llvm::Type *element_type = IR::get_type(access->type).first;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
     llvm::Value *array_ptr = builder.CreateLoad(IR::get_type(access->variable_type).first, array_alloca, "array_ptr");
-    llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
-        {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
-    );
-    // return builder.CreateBitCast(result, IR::get_type(std::get<std::shared_ptr<Type>>(access->type)).first);
-    // return generate_type_cast(builder, result, Type::get_primitive_type("u64"), std::get<std::shared_ptr<Type>>(access->type));
-    llvm::Type *to_type_value = IR::get_type(access->type).first;
-    return IR::generate_bitwidth_change(builder, result, 64, to_type_value->getPrimitiveSizeInBits(), to_type_value);
+    if (access->type->to_string() == "str") {
+        // We get a 'str**' from the 'access_arr' function, so we need to dereference it first before returning it
+        llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr"), //
+            {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                    //
+        );
+        return builder.CreateLoad(element_type, result, "str_value");
+    } else if (dynamic_cast<const PrimitiveType *>(access->type.get())) {
+        llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
+            {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
+        );
+        return IR::generate_bitwidth_change(builder, result, 64, element_type->getPrimitiveSizeInBits(), element_type);
+    } else if (dynamic_cast<const MultiType *>(access->type.get())) {
+        // TODO
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return nullptr;
+    }
+    THROW_BASIC_ERR(ERR_GENERATING);
+    return nullptr;
 }
 
 Generator::group_mapping Generator::Expression::generate_data_access( //
