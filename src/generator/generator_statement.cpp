@@ -150,12 +150,24 @@ bool Generator::Statement::generate_end_of_scope(                    //
             llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *str_ptr = builder.CreateLoad(str_type->getPointerTo(), alloca, var_name + "_cleanup");
             builder.CreateCall(c_functions.at(FREE), {str_ptr});
-        } else if (dynamic_cast<ArrayType *>(var_type.get())) {
+        } else if (ArrayType *array_type = dynamic_cast<ArrayType *>(var_type.get())) {
             const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
             llvm::Value *const alloca = allocations.at(alloca_name);
             llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *arr_ptr = builder.CreateLoad(arr_type->getPointerTo(), alloca, var_name + "_cleanup");
-            builder.CreateCall(c_functions.at(FREE), {arr_ptr});
+            // Now get the complexity of the array
+            size_t complexity = 0;
+            while (true) {
+                if (ArrayType *element_array_type = dynamic_cast<ArrayType *>(array_type->type.get())) {
+                    complexity++;
+                    array_type = element_array_type;
+                    continue;
+                } else if (array_type->type->to_string() == "str") {
+                    complexity++;
+                }
+                break;
+            }
+            builder.CreateCall(Module::Array::array_manip_functions.at("free_arr"), {arr_ptr, builder.getInt64(complexity)});
         }
     }
     return true;
