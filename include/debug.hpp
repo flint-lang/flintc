@@ -141,7 +141,7 @@ namespace Debug {
         // --- DEFINITIONS ---
         void print_data(unsigned int indent_lvl, uint2 empty, const DataNode &data);
         void print_entity(unsigned int indent_lvl, const EntityNode &entity);
-        void print_enum(unsigned int indent_lvl, const EnumNode &enum_node);
+        void print_enum(unsigned int indent_lvl, uint2 empty, const EnumNode &enum_node);
         void print_error(unsigned int indent_lvl, const ErrorNode &error);
         void print_func(unsigned int indent_lvl, const FuncNode &func);
         void print_function(unsigned int indent_lvl, uint2 empty, const FunctionNode &function);

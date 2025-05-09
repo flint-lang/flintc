@@ -217,7 +217,7 @@ namespace Debug {
                 } else if (const auto *entity_node = dynamic_cast<const EntityNode *>(node.get())) {
                     print_entity(0, *entity_node);
                 } else if (const auto *enum_node = dynamic_cast<const EnumNode *>(node.get())) {
-                    print_enum(0, *enum_node);
+                    print_enum(0, empty, *enum_node);
                 } else if (const auto *func_node = dynamic_cast<const FuncNode *>(node.get())) {
                     print_func(0, *func_node);
                 } else if (const auto *function_node = dynamic_cast<const FunctionNode *>(node.get())) {
@@ -784,7 +784,7 @@ namespace Debug {
         // print_data
         //     Prints the content of the generated DataNode
         void print_data(unsigned int indent_lvl, uint2 empty, const DataNode &data) {
-            Local::print_header(indent_lvl, empty, "Data");
+            Local::print_header(indent_lvl, empty, "Data ");
             if (data.is_aligned) {
                 std::cout << "aligned ";
             }
@@ -826,8 +826,14 @@ namespace Debug {
 
         // print_enum
         //     Prints the content of the generated EnumNode
-        void print_enum([[maybe_unused]] unsigned int indent_lvl, [[maybe_unused]] const EnumNode &enum_node) {
-            std::cout << "    Enum: " << typeid(enum_node).name() << "\n";
+        void print_enum([[maybe_unused]] unsigned int indent_lvl, uint2 empty, const EnumNode &enum_node) {
+            Local::print_header(indent_lvl, empty, "Enum ");
+            std::cout << enum_node.name << std::endl;
+            empty.second = indent_lvl + 1;
+            for (size_t i = 0; i < enum_node.values.size(); i++) {
+                Local::print_header(indent_lvl + 1, empty, "Enum Value " + std::to_string(i) + " ");
+                std::cout << enum_node.values[i] << std::endl;
+            }
         }
 
         // print_error
