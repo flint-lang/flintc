@@ -93,7 +93,6 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         builder->CreateCondBr(builder->CreateICmpSLT(arg_i_val, argc), arg_save_loop_body_block, arg_save_loop_exit_block);
 
         builder->SetInsertPoint(arg_save_loop_body_block);
-        IR::generate_debug_print(builder, "loop_body_block\n");
         llvm::Value *argv_element_ptr = builder->CreateGEP(          //
             builder->getInt8Ty()->getPointerTo()->getPointerTo(),    //
             argv,                                                    //
@@ -114,11 +113,9 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         builder->CreateBr(arg_save_loop_cond_block);
 
         builder->SetInsertPoint(arg_save_loop_exit_block);
-        IR::generate_debug_print(builder, "main_call\n");
         llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {arr_ptr});
         main_call_array[0] = main_call;
         builder->CreateStore(main_call, main_ret);
-        IR::generate_debug_print(builder, "after_main_call\n");
     } else {
         llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {});
         main_call_array[0] = main_call;
