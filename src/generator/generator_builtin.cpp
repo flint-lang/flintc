@@ -1,10 +1,20 @@
 #include "generator/generator.hpp"
 #include "lexer/builtins.hpp"
+#include "parser/parser.hpp"
+#include "llvm/IR/BasicBlock.h"
 
 void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
     std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
+    if (Parser::main_function_has_args) {
+        std::optional<std::shared_ptr<Type>> str_arr_type = Type::get_type_from_str("str[]");
+        if (!str_arr_type.has_value()) {
+            str_arr_type = std::make_shared<ArrayType>(1, Type::get_primitive_type("str"));
+            Type::add_type(str_arr_type.value());
+        }
+        parameters.emplace_back(std::make_tuple(str_arr_type.value(), "args", false));
+    }
     std::vector<std::shared_ptr<Type>> return_types;
     std::unique_ptr<Scope> scope;
     FunctionNode function_node = FunctionNode(false, false, "_main", parameters, return_types, scope);
@@ -14,11 +24,20 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::FunctionType *custom_main_type = Function::generate_function_type(&function_node);
     llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction(function_node.name, custom_main_type);
 
-    llvm::FunctionType *main_type = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(context),                     // Return type: int
-        {},                                                  // Takes nothing
-        false                                                // no varargs
-    );
+    llvm::FunctionType *main_type = nullptr;
+    if (Parser::main_function_has_args) {
+        main_type = llvm::FunctionType::get(                                               //
+            builder->getInt32Ty(),                                                         // Return type: int
+            {builder->getInt32Ty(), builder->getInt8Ty()->getPointerTo()->getPointerTo()}, // Takes int argc, char *argv[]
+            false                                                                          // no varargs
+        );
+    } else {
+        main_type = llvm::FunctionType::get( //
+            builder->getInt32Ty(),           // Return type: int
+            {},                              // Takes nothing
+            false                            // no varargs
+        );
+    }
     llvm::Function *main_function = llvm::Function::Create( //
         main_type,                                          //
         llvm::Function::ExternalLinkage,                    //
@@ -36,25 +55,83 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Create the return types of the call of the main function.
     llvm::AllocaInst *main_ret = builder->CreateAlloca(custom_main_ret_type, nullptr, "main_ret");
-    llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {});
-    main_call_array[0] = main_call;
-    builder->CreateStore(main_call, main_ret);
+    if (Parser::main_function_has_args) {
+        llvm::Argument *argc = main_function->args().begin();
+        argc->setName("argc");
+        llvm::Argument *argv = main_function->args().begin() + 1;
+        argv->setName("argv");
+        // Now get the string type
+        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+        const llvm::DataLayout &data_layout = module->getDataLayout();
+        const unsigned int str_size = data_layout.getTypeAllocSize(str_type) + 8;
+        llvm::Value *arr_len = builder->CreateAdd(                                                      //
+            builder->getInt64(str_size),                                                                //
+            builder->CreateMul(builder->CreateSExt(argc, builder->getInt64Ty()), builder->getInt64(8)), //
+            "arr_len"                                                                                   //
+        );
+        llvm::Value *arr_ptr = builder->CreateCall(c_functions.at(MALLOC), {arr_len}, "arr_ptr");
+        // Store 1 in the dimensionality of the array
+        llvm::Value *dim_ptr = builder->CreateStructGEP(str_type, arr_ptr, 0, "dim_ptr");
+        builder->CreateStore(builder->getInt64(1), dim_ptr);
+        // Store the argc in the value field of the array
+        llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arr_ptr, 1, "len_ptr");
+        builder->CreateStore(builder->CreateSExt(argc, builder->getInt64Ty()), len_ptr);
+
+        // Create the arg_i running variable for the loop
+        llvm::AllocaInst *arg_i = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "arg_i");
+        builder->CreateStore(builder->getInt32(0), arg_i);
+
+        llvm::BasicBlock *current_block = builder->GetInsertBlock();
+        llvm::BasicBlock *arg_save_loop_cond_block = llvm::BasicBlock::Create(context, "arg_save_loop_cond", main_function);
+        llvm::BasicBlock *arg_save_loop_body_block = llvm::BasicBlock::Create(context, "arg_save_loop_body", main_function);
+        llvm::BasicBlock *arg_save_loop_exit_block = llvm::BasicBlock::Create(context, "arg_save_loop_exit", main_function);
+        builder->SetInsertPoint(current_block);
+        builder->CreateBr(arg_save_loop_cond_block);
+
+        builder->SetInsertPoint(arg_save_loop_cond_block);
+        llvm::Value *arg_i_val = builder->CreateLoad(builder->getInt32Ty(), arg_i, "arg_i_val");
+        builder->CreateCondBr(builder->CreateICmpSLT(arg_i_val, argc), arg_save_loop_body_block, arg_save_loop_exit_block);
+
+        builder->SetInsertPoint(arg_save_loop_body_block);
+        IR::generate_debug_print(builder, "loop_body_block\n");
+        llvm::Value *argv_element_ptr = builder->CreateGEP(          //
+            builder->getInt8Ty()->getPointerTo()->getPointerTo(),    //
+            argv,                                                    //
+            {builder->CreateSExt(arg_i_val, builder->getInt64Ty())}, //
+            "argv_element_ptr"                                       //
+        );
+        llvm::Value *argv_element = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), argv_element_ptr, "argv_element");
+        llvm::Value *arg_length = builder->CreateCall(c_functions.at(STRLEN), {argv_element}, "arg_length");
+        llvm::Value *created_str = builder->CreateCall(                                                     //
+            Module::String::string_manip_functions.at("init_str"), {argv_element, arg_length}, "arg_string" //
+        );
+        llvm::Value *arg_ptr = builder->CreateGEP(                                                              //
+            str_type->getPointerTo(), len_ptr, {builder->CreateAdd(arg_i_val, builder->getInt32(1))}, "arg_ptr" //
+        );
+        builder->CreateStore(created_str, arg_ptr);
+        builder->CreateStore(builder->CreateAdd(arg_i_val, builder->getInt32(1)), arg_i);
+
+        builder->CreateBr(arg_save_loop_cond_block);
+
+        builder->SetInsertPoint(arg_save_loop_exit_block);
+        IR::generate_debug_print(builder, "main_call\n");
+        llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {arr_ptr});
+        main_call_array[0] = main_call;
+        builder->CreateStore(main_call, main_ret);
+        IR::generate_debug_print(builder, "after_main_call\n");
+    } else {
+        llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {});
+        main_call_array[0] = main_call;
+        builder->CreateStore(main_call, main_ret);
+    }
 
     // First, load the first return value of the return struct
     llvm::Value *err_ptr = builder->CreateStructGEP(custom_main_ret_type, main_ret, 0);
     llvm::LoadInst *err_val = builder->CreateLoad(llvm::Type::getInt32Ty(context), err_ptr, "main_err_val");
 
     llvm::BasicBlock *current_block = builder->GetInsertBlock();
-    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create( //
-        context,                                              //
-        "main_catch",                                         //
-        main_function                                         //
-    );
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create( //
-        context,                                              //
-        "main_merge",                                         //
-        main_function                                         //
-    );
+    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(context, "main_catch", main_function);
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "main_merge", main_function);
     builder->SetInsertPoint(current_block);
 
     // Create the if check and compare the err value to 0
