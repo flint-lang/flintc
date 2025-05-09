@@ -262,6 +262,16 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *strtod_fn = llvm::Function::Create(strtod_type, llvm::Function::ExternalLinkage, "strtod", module);
         c_functions[STRTOD] = strtod_fn;
     }
+    // strlen
+    {
+        llvm::FunctionType *strlen_type = llvm::FunctionType::get( //
+            llvm::Type::getInt64Ty(context),                       // return u64
+            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // char* str
+            false                                                  // No vaarg
+        );
+        llvm::Function *strlen_fn = llvm::Function::Create(strlen_type, llvm::Function::ExternalLinkage, "strlen", module);
+        c_functions[STRLEN] = strlen_fn;
+    }
 }
 
 void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {

@@ -839,6 +839,12 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     const std::string to_type_str = to_type->to_string();
     if (from_type == to_type) {
         return expr;
+    } else if (from_type_str == "__flint_type_str_lit" && to_type_str == "str") {
+        llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+        // Get the length of the literal
+        llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), {expr}, "lit_len");
+        // Call the `init_str` function
+        return builder.CreateCall(init_str_fn, {expr, str_len}, "str_init");
     } else if (from_type_str == "i32") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");

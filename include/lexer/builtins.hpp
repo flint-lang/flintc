@@ -73,6 +73,7 @@ enum CFunction {
     STRTOUL,
     STRTOF,
     STRTOD,
+    STRLEN,
 };
 
 /// @typedef `type_list`
