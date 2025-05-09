@@ -674,7 +674,14 @@ llvm::Value *Generator::Expression::generate_array_access(                      
     const llvm::DataLayout &data_layout = parent->getParent()->getDataLayout();
     llvm::Type *element_type = IR::get_type(access->type).first;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
-    llvm::Value *array_ptr = builder.CreateLoad(IR::get_type(access->variable_type).first, array_alloca, "array_ptr");
+    llvm::Value *array_ptr = nullptr;
+    if (std::get<3>(scope->variables.at(access->variable_name))) {
+        // Its a function parameter, so its of type 'str*' directly
+        array_ptr = array_alloca;
+    } else {
+        // Its a local variable, so the alloca is of type 'str**'
+        array_ptr = builder.CreateLoad(IR::get_type(access->variable_type).first, array_alloca, "array_ptr");
+    }
     if (access->type->to_string() == "str") {
         // We get a 'str**' from the 'access_arr' function, so we need to dereference it first before returning it
         llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr"), //
@@ -717,7 +724,14 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         }
         std::vector<llvm::Value *> length_values;
         llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
-        llvm::Value *arr_val = builder.CreateLoad(str_type->getPointerTo(), var_alloca, "arr_val");
+        llvm::Value *arr_val = nullptr;
+        if (std::get<3>(scope->variables.at(data_access->var_name))) {
+            // Its a function argument, so the alloca is of 'str*' type
+            arr_val = var_alloca;
+        } else {
+            // Its a local variable, so the alloca is a 'str**' type
+            arr_val = builder.CreateLoad(str_type->getPointerTo(), var_alloca, "arr_val");
+        }
         llvm::Value *length_ptr = builder.CreateStructGEP(str_type, arr_val, 1);
         for (size_t i = 0; i < array_type->dimensionality; i++) {
             llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
