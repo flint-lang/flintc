@@ -5,6 +5,7 @@
 #include "lexer/lexer_utils.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "llvm/IR/Constants.h"
@@ -213,6 +214,8 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
         llvm::Type *element_type = get_type(multi_type->base_type).first;
         llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
         return {vector_type, false};
+    } else if (dynamic_cast<const EnumType *>(type.get())) {
+        return {llvm::Type::getInt32Ty(context), false};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
