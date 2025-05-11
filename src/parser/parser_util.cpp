@@ -410,20 +410,20 @@ Parser::create_field_access_base( //
     tokens.first++;
 
     // Now get the data type from the data variables name
-    const std::optional<std::shared_ptr<Type>> data_type = scope->get_variable_type(var_name);
-    if (!data_type.has_value()) {
+    std::optional<std::shared_ptr<Type>> variable_type = scope->get_variable_type(var_name);
+    if (!variable_type.has_value()) {
         // The variable doesnt exist
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     // If the variable is of type `str`, the only valid access is its `length` variable
-    if (data_type.value()->to_string() == "str") {
+    if (variable_type.value()->to_string() == "str") {
         if (field_name != "length") {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_tuple(data_type.value(), var_name, "length", 0, Type::get_primitive_type("u64"));
-    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_type.value().get())) {
+        return std::make_tuple(variable_type.value(), var_name, "length", 0, Type::get_primitive_type("u64"));
+    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(variable_type.value().get())) {
         if (field_name != "length") {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -438,49 +438,47 @@ Parser::create_field_access_base( //
             if (!Type::add_type(group_type)) {
                 group_type = Type::get_type_from_str(group_type->to_string()).value();
             }
-            return std::make_tuple(data_type.value(), var_name, "length", 1, group_type);
+            return std::make_tuple(variable_type.value(), var_name, "length", 1, group_type);
         }
-        return std::make_tuple(data_type.value(), var_name, "length", 1, Type::get_primitive_type("u64"));
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(data_type.value().get())) {
+        return std::make_tuple(variable_type.value(), var_name, "length", 1, Type::get_primitive_type("u64"));
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(variable_type.value().get())) {
         auto access = create_multi_type_access(multi_type, field_name);
         if (!access.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::make_tuple(          //
-            data_type.value(),           // Base type (multi-type)
+            variable_type.value(),       // Base type (multi-type)
             var_name,                    // Name of the mutli-type variable
             std::get<0>(access.value()), // Name of the accessed field
             std::get<1>(access.value()), // ID of the accessed field
             multi_type->base_type        // Type of the accessed field
         );
-    }
-    std::optional<DataNode *> data_node = get_data_definition(                        //
-        file_name, data_type.value()->to_string(), imported_files, std::nullopt, true //
-    );
-    if (!data_node.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
+    } else if (const DataType *data_type = dynamic_cast<const DataType *>(variable_type.value().get())) {
+        // Its a data type
+        const DataNode *data_node = data_type->data_node;
 
-    // Now we can check if the given field name exists in the data
-    if (data_node.value()->fields.find(field_name) == data_node.value()->fields.end()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const std::shared_ptr<Type> field_type = data_node.value()->fields.at(field_name).first;
-    unsigned int field_id = 0;
-    for (; field_id < data_node.value()->order.size(); field_id++) {
-        if (data_node.value()->order.at(field_id) == field_name) {
-            break;
+        // Now we can check if the given field name exists in the data
+        if (data_node->fields.find(field_name) == data_node->fields.end()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
-    }
-    if (field_id == data_node.value()->order.size()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
+        const std::shared_ptr<Type> field_type = data_node->fields.at(field_name).first;
+        unsigned int field_id = 0;
+        for (; field_id < data_node->order.size(); field_id++) {
+            if (data_node->order.at(field_id) == field_name) {
+                break;
+            }
+        }
+        if (field_id == data_node->order.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
 
-    return std::make_tuple(data_type.value(), var_name, field_name, field_id, field_type);
+        return std::make_tuple(variable_type.value(), var_name, field_name, field_id, field_type);
+    }
+    THROW_BASIC_ERR(ERR_PARSING);
+    return std::nullopt;
 }
 
 std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_access( //
@@ -605,39 +603,35 @@ Parser::create_grouped_access_base( //
             field_ids.emplace_back(std::get<1>(access.value()));
         }
         return std::make_tuple(variable_type.value(), var_name, access_field_names, field_ids, field_types);
-    }
+    } else if (const DataType *data_type = dynamic_cast<const DataType *>(variable_type.value().get())) {
+        // It should be a data type
+        const DataNode *data_node = data_type->data_node;
 
-    // It should be a data type
-    std::optional<DataNode *> data_node = get_data_definition(                            //
-        file_name, variable_type.value()->to_string(), imported_files, std::nullopt, true //
-    );
-    if (!data_node.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-
-    // Next, get the field types and field ids from the data node
-    std::vector<std::shared_ptr<Type>> field_types;
-    std::vector<unsigned int> field_ids;
-    for (const auto &field_name : field_names) {
-        // Now we can check if the given field name exists in the data
-        if (data_node.value()->fields.find(field_name) == data_node.value()->fields.end()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        field_types.emplace_back(data_node.value()->fields.at(field_name).first);
-        unsigned int field_id = 0;
-        for (; field_id < data_node.value()->order.size(); field_id++) {
-            if (data_node.value()->order.at(field_id) == field_name) {
-                break;
+        // Next, get the field types and field ids from the data node
+        std::vector<std::shared_ptr<Type>> field_types;
+        std::vector<unsigned int> field_ids;
+        for (const auto &field_name : field_names) {
+            // Now we can check if the given field name exists in the data
+            if (data_node->fields.find(field_name) == data_node->fields.end()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
             }
+            field_types.emplace_back(data_node->fields.at(field_name).first);
+            unsigned int field_id = 0;
+            for (; field_id < data_node->order.size(); field_id++) {
+                if (data_node->order.at(field_id) == field_name) {
+                    break;
+                }
+            }
+            if (field_id == data_node->order.size()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            field_ids.emplace_back(field_id);
         }
-        if (field_id == data_node.value()->order.size()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        field_ids.emplace_back(field_id);
-    }
 
-    return std::make_tuple(variable_type.value(), var_name, field_names, field_ids, field_types);
+        return std::make_tuple(variable_type.value(), var_name, field_names, field_ids, field_types);
+    }
+    THROW_BASIC_ERR(ERR_PARSING);
+    return std::nullopt;
 }

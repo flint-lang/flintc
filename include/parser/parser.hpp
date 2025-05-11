@@ -373,24 +373,6 @@ class Parser {
         const std::vector<std::shared_ptr<Type>> &arg_types                              //
     );
 
-    /// @function `get_data_definition`
-    /// @brief Get the DataNode of the given data name and arg types of the data`s constructor
-    ///
-    /// @param `file_name` The name of the current file
-    /// @param `data_name` The name of the data node to search for
-    /// @param `imports` All the use statements of the current file
-    /// @param `arg_types` The argument types with which said type is initialized with, or nullopt if only the type itself is searched for
-    /// @param `is_known_data_type` Whether the given data type should be a data type, set this to false if you only want to check _if_ its
-    /// a data type but dont want to generate errors if its not
-    /// @return `std::optional<DataNode *>` The pointer to the data node, if it exists
-    static std::optional<DataNode *> get_data_definition(                   //
-        const std::string &file_name,                                       //
-        const std::string &data_name,                                       //
-        const std::vector<ImportNode *> &imports,                           //
-        const std::optional<std::vector<std::shared_ptr<Type>>> &arg_types, //
-        const bool is_known_data_type = true                                //
-    );
-
     /// @function `add_open_function`
     /// @brief Adds a open function to the list of all open functions
     ///
