@@ -8,6 +8,7 @@
 #include "debug.hpp"
 #include "error/error.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include <algorithm>
 
@@ -86,8 +87,17 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             file_node.add_func(*func_node_ptr);
         }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::enum_definition)) {
-        EnumNode enum_node = create_enum(definition_tokens, body_tokens);
-        file_node.add_enum(enum_node);
+        std::optional<EnumNode> enum_node = create_enum(definition_tokens, body_tokens);
+        if (!enum_node.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        EnumNode *added_enum = file_node.add_enum(enum_node.value());
+        if (!Type::add_type(std::make_shared<EnumType>(added_enum))) {
+            // Enum redifinition
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::error_definition)) {
         ErrorNode error_node = create_error(definition_tokens, body_tokens);
         file_node.add_error(error_node);

@@ -1026,8 +1026,8 @@ class Parser {
     ///
     /// @param `definition` The list of tokens representing the enum definition
     /// @param `body` The list of tokens representing the enum body
-    /// @return `EnumNode` The created EnumNode
-    EnumNode create_enum(const token_slice &definition, const token_slice &body);
+    /// @return `std::optional<EnumNode>` The created EnumNode, nullopt if creation failed
+    std::optional<EnumNode> create_enum(const token_slice &definition, const token_slice &body);
 
     /// @function `create_error`
     /// @brief Creates an ErrorNode from the given definition and body tokens

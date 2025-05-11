@@ -86,8 +86,10 @@ class FileNode : public ASTNode {
     /// @brief Adds an enum node to this file node
     ///
     /// @param `enum_node` The enum node to add
-    void add_enum(EnumNode &enum_node) {
+    /// @return `EnumNode *` A pointer to the added enum node, because this function takes ownership of `enum_node`
+    EnumNode *add_enum(EnumNode &enum_node) {
         definitions.emplace_back(std::make_unique<EnumNode>(std::move(enum_node)));
+        return static_cast<EnumNode *>(definitions.back().get());
     }
 
     /// @function `add_error`

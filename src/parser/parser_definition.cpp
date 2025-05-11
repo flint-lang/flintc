@@ -415,7 +415,7 @@ LinkNode Parser::create_link(const token_slice &tokens) {
     return LinkNode(from_references, to_references);
 }
 
-EnumNode Parser::create_enum(const token_slice &definition, const token_slice &body) {
+std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const token_slice &body) {
     std::string name;
     std::vector<std::string> values;
 
@@ -437,6 +437,7 @@ EnumNode Parser::create_enum(const token_slice &definition, const token_slice &b
                 const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
                 THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name, body_it->line, body_it->column, //
                     expected, body_it->type);
+                return std::nullopt;
             }
         }
     }
