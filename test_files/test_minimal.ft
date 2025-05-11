@@ -2,4 +2,10 @@ enum SomeEnum:
     VAL1, VAL2, VAL3;
 
 def main():
-    SomeEnum e1 = SomeEnum.VAL1;
+    SomeEnum e1 = SomeEnum.VAL3;
+    if e1 == SomeEnum.VAL3:
+        print("is_val3\n");
+    else if e1 == SomeEnum.VAL2:
+        print("is_val2\n");
+    else:
+        print("is_val1\n");

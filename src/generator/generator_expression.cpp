@@ -1317,6 +1317,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
                 return std::nullopt;
             } else if (type_str == "str") {
                 return Logical::generate_string_cmp_eq(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+            } else if (dynamic_cast<const EnumType *>(bin_op_node->left->type.get()) &&
+                dynamic_cast<const EnumType *>(bin_op_node->right->type.get())) {
+                return builder.CreateICmpEQ(lhs, rhs, "enumeq");
             }
             break;
         case TOK_NOT_EQUAL:
@@ -1331,6 +1334,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar(  
                 return std::nullopt;
             } else if (type_str == "str") {
                 return Logical::generate_string_cmp_neq(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+            } else if (dynamic_cast<const EnumType *>(bin_op_node->left->type.get()) &&
+                dynamic_cast<const EnumType *>(bin_op_node->right->type.get())) {
+                return builder.CreateICmpNE(lhs, rhs, "enumneq");
             }
             break;
         case TOK_AND:

@@ -530,7 +530,7 @@ namespace Debug {
             // empty.second = indent_lvl + 2;
             if (if_node.else_scope.has_value()) {
                 if (std::holds_alternative<std::unique_ptr<Scope>>(if_node.else_scope.value())) {
-                    std::cout << "" << std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->scope_id << "]" << std::endl;
+                    std::cout << "else [s" << std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->scope_id << "]" << std::endl;
                     print_body(indent_lvl + 1, empty, std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->body);
                 } else {
                     std::cout << std::endl;
