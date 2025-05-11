@@ -23,7 +23,6 @@ ArrayOutOfBoundsMode oob_mode = ArrayOutOfBoundsMode::PRINT;
 PersistentThreadPool thread_pool;
 
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <memory>

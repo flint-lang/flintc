@@ -48,7 +48,7 @@
 void Generator::get_data_nodes() {
     std::lock_guard<std::mutex> lock(Parser::parsed_data_mutex);
     for (const auto &file : Parser::parsed_data) {
-        for (const auto &data : file.second) {
+        for (const auto *data : file.second) {
             if (data_nodes.find(data->name) != data_nodes.end()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 exit(1);

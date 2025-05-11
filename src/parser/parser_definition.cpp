@@ -164,6 +164,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     bool is_immutable = false;
     bool is_aligned = false;
     std::string name;
+    token_slice body_mut = body;
 
     std::unordered_map<std::string, std::pair<std::shared_ptr<Type>, std::optional<std::string>>> fields;
     std::vector<std::string> order;
@@ -184,19 +185,38 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
             name = (def_it + 1)->lexme;
         }
     }
-    auto body_it = body.first;
-    for (; body_it != body.second; ++body_it) {
-        if (Matcher::token_match(body_it->type, Matcher::type) && (body_it + 1)->type == TOK_IDENTIFIER) {
-            const auto next_it = body_it + 1;
-            if (fields.find(next_it->lexme) != fields.end()) {
+    remove_leading_garbage(body_mut);
+    auto body_it = body_mut.first;
+    for (; body_it != body_mut.second; ++body_it) {
+        if (Matcher::tokens_match({body_mut.first, body_it}, Matcher::type) && body_it->type == TOK_IDENTIFIER) {
+            if (fields.find(body_it->lexme) != fields.end()) {
                 // Field name duplication
-                THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name, next_it->line, next_it->column, next_it->lexme);
+                THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name, body_it->line, body_it->column, body_it->lexme);
                 return std::nullopt;
             }
-            fields[next_it->lexme] = {Type::get_primitive_type(body_it->lexme), std::nullopt};
-            if ((body_it + 2)->type == TOK_EQUAL) {
-                fields[next_it->lexme].second = (body_it + 3)->lexme;
+            // The type is everything from body_mut.first to next_it
+            token_slice type_tokens = {body_mut.first, body_it};
+            remove_leading_garbage(type_tokens);
+            std::optional<std::shared_ptr<Type>> type = Type::get_type(type_tokens);
+            if (!type.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
             }
+            if ((body_it + 1)->type == TOK_EQUAL) {
+                fields[body_it->lexme] = {type.value(), (body_it + 2)->lexme};
+                body_it += 3;
+            } else {
+                fields[body_it->lexme] = {type.value(), std::nullopt};
+                body_it++;
+            }
+            if (body_it->type != TOK_SEMICOLON) {
+                // Missing semicolon
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            body_mut.first = body_it + 1;
+            remove_leading_garbage(body_mut);
+            body_it = body_mut.first;
         }
 
         if (body_it->type == TOK_IDENTIFIER && (body_it + 1)->type == TOK_LEFT_PAREN) {

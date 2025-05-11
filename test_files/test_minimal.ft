@@ -1,3 +1,14 @@
+data SomeData:
+    SomeEnum e1;
+    SomeEnum e2;
+    SomeEnum e3;
+    SomeData(e1, e2, e3);
+
+data ComplexData:
+    SomeData sd;
+    SomeEnum se;
+    ComplexData(sd, se);
+
 enum SomeEnum:
     VAL1, VAL2, VAL3;
 
@@ -9,3 +20,20 @@ def main():
         print("is_val2\n");
     else:
         print("is_val1\n");
+
+    SomeData sd = SomeData(SomeEnum.VAL1, SomeEnum.VAL2, SomeEnum.VAL3);
+    if sd.e1 == SomeEnum.VAL1:
+        print("sd.e1 is VAL1\n");
+
+    ComplexData cd = ComplexData(sd, SomeEnum.VAL2);
+    if cd.se == SomeEnum.VAL2:
+        print("cd.se is VAL2\n");
+    cd.sd = sd;
+    SomeData sd2 = cd.sd;
+    sd2.e1 = SomeEnum.VAL2;
+    if sd2.e1 == SomeEnum.VAL2:
+        print("okay that works...\n");
+    if sd.e1 == SomeEnum.VAL2:
+        print("cd.sd == sd ... hmmm\n");
+    else:
+        print("cd.sd != sd ... good!\n");
