@@ -7,6 +7,7 @@
 #include "parser/type/array_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
+#include "parser/type/unknown_type.hpp"
 
 #include <mutex>
 #include <optional>
@@ -21,7 +22,6 @@ void Type::init_types() {
     get_primitive_type("f64");
     get_primitive_type("bool");
     get_primitive_type("str");
-    get_primitive_type("str_var");
     get_primitive_type("void");
     get_primitive_type("char");
 }
@@ -43,6 +43,9 @@ std::optional<std::shared_ptr<Type>> Type::get_type(const token_slice &tokens, c
         if (types.find(type_str) != types.end()) {
             return types.at(type_str);
         }
+        if (unknown_types.find(type_str) != unknown_types.end()) {
+            return unknown_types.at(type_str);
+        }
     }
     // If the types map does not contain the type yet, lock the map to make it non-accessible while we modify it
     std::unique_lock<std::shared_mutex> lock;
@@ -53,10 +56,17 @@ std::optional<std::shared_ptr<Type>> Type::get_type(const token_slice &tokens, c
         // Another thread might already have added the type
         return types.at(type_str);
     }
+    if (unknown_types.find(type_str) != unknown_types.end()) {
+        return unknown_types.at(type_str);
+    }
     std::optional<std::shared_ptr<Type>> created_type = create_type(tokens, true);
     if (!created_type.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
+    }
+    if (dynamic_cast<const UnknownType *>(created_type.value().get())) {
+        unknown_types[type_str] = created_type.value();
+        return unknown_types.at(type_str);
     }
     types[type_str] = created_type.value();
     return types.at(type_str);
@@ -93,7 +103,7 @@ std::shared_ptr<Type> Type::get_primitive_type(const std::string &type_str) {
 
 std::optional<std::shared_ptr<Type>> Type::get_type_from_str(const std::string &type_str) {
     std::shared_lock<std::shared_mutex> shared_lock(types_mutex);
-    if (types.count(type_str) == 0) {
+    if (types.find(type_str) == types.end()) {
         return std::nullopt;
     }
     return types.at(type_str);
@@ -107,6 +117,10 @@ std::shared_ptr<Type> Type::str_to_type(const std::string_view &str) {
     }
     return result.value();
 };
+
+void Type::clear_unknown_types() {
+    unknown_types.clear();
+}
 
 std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens, const bool mutex_already_locked) {
     token_slice tokens_mut = tokens;
@@ -132,12 +146,9 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
             const unsigned int width = width_char - '0';
             return std::make_shared<MultiType>(base_type, width);
         }
-        // Its a data, entity or any other type that only has one string as its descriptor. Because these types should have been added
-        // already this is a wrong condition too, as these types all have internal references. Its not an assertion error, because the type
-        // name could just have been misspelled, but its definitely an error, so we return nullopt.
-        // This is a type not declared error
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+        // Its a data, entity or any other type that only has one string as its descriptor, and this type has not been added yet. This means
+        // that its an up until now unknown type. This should only happen in the definition phase.
+        return std::make_shared<UnknownType>(tokens_mut.first->lexme);
     }
     // If the type list ends with a ], its definitely an array type
     if (std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET) {

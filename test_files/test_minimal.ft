@@ -1,6 +1,12 @@
-enum NiceEnum:
-    Val1, Val2, Val3;
+def inc_x(mut SomeData sd):
+    sd.x = sd.x + 1;
 
-def main(str[] args):
-    for i32 i = 0; i < args.length; i++:
-        print($"args[{i}] = {args[i]}\n");
+data SomeData:
+    i32 x;
+    i32 y;
+    SomeData(x, y);
+
+def main():
+    SomeData sd = SomeData(1, 2);
+    inc_x(sd);
+    print($"sd.x = {sd.x}\n");

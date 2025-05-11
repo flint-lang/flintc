@@ -86,6 +86,18 @@ class Parser {
     /// @return `std::optional<CallNodeBase *>` An optional pointer to the CallNodeBase, nullopt if no call with the given call id exists
     static std::optional<CallNodeBase *> get_call_from_id(unsigned int call_id);
 
+    /// @function `resolve_all_unknown_types`
+    /// @brief Resolves all unknown types to point to real types
+    ///
+    /// @return `bool` Whether all unknown types could be resolved correctly
+    static bool resolve_all_unknown_types();
+
+    /// @function `get_open_functions`
+    /// @brief Returns all open functions whose bodies have not been parsed yet
+    ///
+    /// @return `std::vector<FunctionNode *>` A list of all open functions
+    std::vector<FunctionNode *> get_open_functions();
+
     /// @function `parse_all_open_functions`
     /// @brief Parses all still open function bodies
     ///
@@ -132,6 +144,10 @@ class Parser {
     /// @var `parsed_data_mutex`
     /// @brief A mutex for the `parsed_data` variable, which is used to provide thread-safe access to the map
     static inline std::mutex parsed_data_mutex;
+
+    /// @var `open_functions_list`
+    /// @brief The list of all open functions, which will be parsed in the second phase of the parser
+    std::vector<std::pair<FunctionNode *, token_list>> open_functions_list{};
 
     /// @function `extract_from_to`
     /// @brief Extracts the tokens from a given index up to the given index from the given tokens list
@@ -272,10 +288,6 @@ class Parser {
     /// @var `parsed_tests_mutex`
     /// @brief A mutex for the `parsed_tests` varible, which is used to provide thread-safe access to the list
     static inline std::mutex parsed_tests_mutex;
-
-    /// @var `open_functions_list`
-    /// @brief The list of all open functions, which will be parsed in the second phase of the parser
-    std::vector<std::pair<FunctionNode *, token_list>> open_functions_list{};
 
     /// @var `open_tests_list`
     /// @brief The lsit of all open tests, which will be parsed in the second phase of the parser

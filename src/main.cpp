@@ -98,6 +98,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
+    Parser::resolve_all_unknown_types();
     if (PRINT_DEP_TREE) {
         Debug::Dep::print_dep_tree(0, dep_graph.value());
     }

@@ -4,12 +4,12 @@
 #include "error/error.hpp"
 #include "globals.hpp"
 #include "lexer/lexer.hpp"
+#include "parser/type/unknown_type.hpp"
 #include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <filesystem>
 #include <iterator>
 #include <map>
@@ -55,6 +55,47 @@ std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
         return parsed_calls.at(call_id);
     }
     return std::nullopt;
+}
+
+bool Parser::resolve_all_unknown_types() {
+    // First go through all the parameters of the function and resolve their type if they are of unknown type
+    for (auto &parser : instances) {
+        // Resolve the parameter types of all functions
+        for (FunctionNode *function : parser.get_open_functions()) {
+            for (auto &param : function->parameters) {
+                if (const UnknownType *unknown_type = dynamic_cast<const UnknownType *>(std::get<0>(param).get())) {
+                    // Get the "real" type from the parameter type
+                    auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
+                    if (!type_maybe.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                    std::get<0>(param) = type_maybe.value();
+                }
+            }
+            // The parameters are added to the list of variables to the functions scope, so we need to change the types there too
+            for (auto &variable : function->scope->variables) {
+                if (const UnknownType *unknown_type = dynamic_cast<const UnknownType *>(std::get<0>(variable.second).get())) {
+                    auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
+                    if (!type_maybe.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                    std::get<0>(variable.second) = type_maybe.value();
+                }
+            }
+        }
+    }
+    Type::clear_unknown_types();
+    return true;
+}
+
+std::vector<FunctionNode *> Parser::get_open_functions() {
+    std::vector<FunctionNode *> open_function_list;
+    for (auto &open_function : open_functions_list) {
+        open_function_list.emplace_back(std::get<0>(open_function));
+    }
+    return open_function_list;
 }
 
 bool Parser::parse_all_open_functions(const bool parse_parallel) {

@@ -66,13 +66,21 @@ class Type {
     /// @return `std::shared_ptr<Type>` The converted type
     static std::shared_ptr<Type> str_to_type(const std::string_view &str);
 
+    /// @function `clear_unknown_types`
+    /// @brief Clears the map of all unknown types
+    static void clear_unknown_types();
+
   private:
     /// @var `types`
     /// @brief A global type register map to track all currently active types
     static inline std::unordered_map<std::string, std::shared_ptr<Type>> types;
 
+    /// @var `unknown_types`
+    /// @brief A global type register map to track all unknown types
+    static inline std::unordered_map<std::string, std::shared_ptr<Type>> unknown_types;
+
     /// @var `types_mutex`
-    /// @brief A mutex for access on the types map
+    /// @brief A mutex for thread-safe access on the `types` and `unknown_types` map
     static inline std::shared_mutex types_mutex;
 
     /// @function `create_type`
