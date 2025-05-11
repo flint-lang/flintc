@@ -1,12 +1,5 @@
-def inc_x(mut SomeData sd):
-    sd.x = sd.x + 1;
-
-data SomeData:
-    i32 x;
-    i32 y;
-    SomeData(x, y);
+enum SomeEnum:
+    VAL1, VAL2, VAL3;
 
 def main():
-    SomeData sd = SomeData(1, 2);
-    inc_x(sd);
-    print($"sd.x = {sd.x}\n");
+    SomeEnum e1 = SomeEnum.VAL1;

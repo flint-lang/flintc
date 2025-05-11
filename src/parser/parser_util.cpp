@@ -419,8 +419,28 @@ Parser::create_field_access_base( //
     const std::string field_name = tokens.first->lexme;
     tokens.first++;
 
+    // Is the variable name itself a type string?
+    std::optional<std::shared_ptr<Type>> variable_type = Type::get_type_from_str(var_name);
+    if (variable_type.has_value()) {
+        // The variable name is not a variable but a type of its own
+        if (const EnumType *enum_type = dynamic_cast<const EnumType *>(variable_type.value().get())) {
+            const EnumNode *enum_node = enum_type->enum_node;
+            auto it = std::find(enum_node->values.begin(), enum_node->values.end(), field_name);
+            if (it == enum_node->values.end()) {
+                // Enum value is non existent
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            const size_t val_id = std::distance(enum_node->values.begin(), it);
+            return std::make_tuple(variable_type.value(), var_name, field_name, val_id, variable_type.value());
+        }
+        // Non-supported type to call `.` on it
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
     // Now get the data type from the data variables name
-    std::optional<std::shared_ptr<Type>> variable_type = scope->get_variable_type(var_name);
+    variable_type = scope->get_variable_type(var_name);
     if (!variable_type.has_value()) {
         // The variable doesnt exist
         THROW_BASIC_ERR(ERR_PARSING);
