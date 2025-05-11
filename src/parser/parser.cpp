@@ -86,6 +86,21 @@ bool Parser::resolve_all_unknown_types() {
             }
         }
     }
+    std::lock_guard<std::mutex> lock(Parser::parsed_data_mutex);
+    for (const auto &file : Parser::parsed_data) {
+        for (DataNode *data : file.second) {
+            for (auto &field : data->fields) {
+                if (const UnknownType *unknown_type = dynamic_cast<const UnknownType *>(field.second.first.get())) {
+                    auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
+                    if (!type_maybe.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                    field.second.first = type_maybe.value();
+                }
+            }
+        }
+    }
     Type::clear_unknown_types();
     return true;
 }
