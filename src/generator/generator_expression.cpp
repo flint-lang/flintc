@@ -7,6 +7,7 @@
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
+#include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
 
@@ -708,7 +709,13 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
     const DataAccessNode *data_access                                 //
 ) {
-    // First, get the alloca instance of the given data variable
+    // Check if the "data access" is a enum access
+    if (dynamic_cast<const EnumType *>(data_access->data_type.get())) {
+        std::vector<llvm::Value *> values;
+        values.emplace_back(builder.getInt32(data_access->field_id));
+        return values;
+    }
+    // Get the alloca instance of the given data variable
     const unsigned int var_decl_scope = std::get<1>(scope->variables.at(data_access->var_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_access->var_name;
     llvm::Value *var_alloca = allocations.at(var_name);
