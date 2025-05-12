@@ -90,13 +90,13 @@ bool Parser::resolve_all_unknown_types() {
     for (const auto &file : Parser::parsed_data) {
         for (DataNode *data : file.second) {
             for (auto &field : data->fields) {
-                if (const UnknownType *unknown_type = dynamic_cast<const UnknownType *>(field.second.first.get())) {
+                if (const UnknownType *unknown_type = dynamic_cast<const UnknownType *>(std::get<1>(field).get())) {
                     auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
                     if (!type_maybe.has_value()) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return false;
                     }
-                    field.second.first = type_maybe.value();
+                    std::get<1>(field) = type_maybe.value();
                 }
             }
         }

@@ -253,7 +253,14 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
         }
     }
 
-    return DataNode(is_shared, is_immutable, is_aligned, name, fields, order);
+    std::vector<std::tuple<std::string, std::shared_ptr<Type>, std::optional<std::string>>> ordered_fields;
+    ordered_fields.resize(fields.size());
+    for (const auto &field : fields) {
+        const size_t field_id = std::distance(order.begin(), std::find(order.begin(), order.end(), field.first));
+        ordered_fields[field_id] = {field.first, field.second.first, field.second.second};
+    }
+
+    return DataNode(is_shared, is_immutable, is_aligned, name, ordered_fields);
 }
 
 std::optional<FuncNode> Parser::create_func(const token_slice &definition, const token_slice &body) {

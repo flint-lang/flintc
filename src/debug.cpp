@@ -800,25 +800,25 @@ namespace Debug {
                 std::cout << "shared ";
             }
             std::cout << data.name << "(";
-            for (auto it = data.order.begin(); it != data.order.end(); ++it) {
-                if (it != data.order.begin()) {
+            for (auto field_it = data.fields.begin(); field_it != data.fields.end(); ++field_it) {
+                if (field_it != data.fields.begin()) {
                     std::cout << ", ";
                 }
-                std::cout << *it;
+                std::cout << std::get<0>(*field_it);
             }
             std::cout << "):" << std::endl;
 
             indent_lvl++;
             empty.first++;
-            for (const auto &[field_name, field_type_default] : data.fields) {
+            for (const auto &field : data.fields) {
                 empty.second = indent_lvl + 1;
                 Local::print_header(indent_lvl, empty, "Field");
-                std::cout << field_type_default.first->to_string() << " " << field_name << "\n";
-                if (field_type_default.second.has_value()) {
+                std::cout << std::get<1>(field)->to_string() << " " << std::get<0>(field) << "\n";
+                if (std::get<2>(field).has_value()) {
                     // Only print default values if they exist
                     empty.second = indent_lvl + 2;
                     Local::print_header(indent_lvl + 1, empty, "Default Value");
-                    std::cout << field_type_default.second.value();
+                    std::cout << std::get<2>(field).value();
                 }
             }
         }

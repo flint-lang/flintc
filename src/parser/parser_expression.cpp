@@ -759,14 +759,18 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
     }
     const DataNode *data_node = data_type->data_node;
     const std::string field_name = separator->lexme;
-    const auto field_it = data_node->fields.find(field_name);
-    if (field_it == data_node->fields.end()) {
+    size_t field_id = 0;
+    for (const auto &field : data_node->fields) {
+        if (std::get<0>(field) == field_name) {
+            break;
+        }
+        field_id++;
+    }
+    if (field_id == data_node->fields.size()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::shared_ptr<Type> field_type = field_it->second.first;
-    const auto order_it = std::find(data_node->order.begin(), data_node->order.end(), field_name);
-    const unsigned int field_id = std::distance(data_node->order.begin(), order_it);
+    const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields[field_id]);
     std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
     return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, field_type);
 }

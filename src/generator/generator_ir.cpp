@@ -182,8 +182,8 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
     } else if (const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
         // Check if its a known data type
         std::vector<std::shared_ptr<Type>> types;
-        for (const auto &order_name : data_type->data_node->order) {
-            types.emplace_back(data_type->data_node->fields.at(order_name).first);
+        for (const auto &field : data_type->data_node->fields) {
+            types.emplace_back(std::get<1>(field));
         }
         std::shared_ptr<Type> type_ptr = nullptr;
         if (types.size() == 1) {

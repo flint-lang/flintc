@@ -294,9 +294,9 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
         // Its a data, entity or enum type
         if (const DataType *data_type = dynamic_cast<const DataType *>(complex_type.value().get())) {
             DataNode *const data_node = data_type->data_node;
-            const auto initializer_fields = data_node->get_initializer_fields();
+            auto &fields = data_node->fields;
             // Now check if the initializer arguments are equal to the expected initializer fields
-            if (initializer_fields.size() != arguments.size()) {
+            if (fields.size() != arguments.size()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
@@ -306,7 +306,7 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                if (std::get<1>(initializer_fields.at(i)) != arg_type) {
+                if (std::get<1>(fields.at(i)) != arg_type) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
@@ -489,22 +489,18 @@ Parser::create_field_access_base( //
         const DataNode *data_node = data_type->data_node;
 
         // Now we can check if the given field name exists in the data
-        if (data_node->fields.find(field_name) == data_node->fields.end()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        const std::shared_ptr<Type> field_type = data_node->fields.at(field_name).first;
         unsigned int field_id = 0;
-        for (; field_id < data_node->order.size(); field_id++) {
-            if (data_node->order.at(field_id) == field_name) {
+        for (const auto &field : data_node->fields) {
+            if (std::get<0>(field) == field_name) {
                 break;
             }
+            field_id++;
         }
-        if (field_id == data_node->order.size()) {
+        if (data_node->fields.size() == field_id) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-
+        const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields.at(field_id));
         return std::make_tuple(variable_type.value(), var_name, field_name, field_id, field_type);
     }
     THROW_BASIC_ERR(ERR_PARSING);
@@ -639,27 +635,19 @@ Parser::create_grouped_access_base( //
 
         // Next, get the field types and field ids from the data node
         std::vector<std::shared_ptr<Type>> field_types;
+        field_types.resize(field_names.size());
         std::vector<unsigned int> field_ids;
-        for (const auto &field_name : field_names) {
-            // Now we can check if the given field name exists in the data
-            if (data_node->fields.find(field_name) == data_node->fields.end()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+        field_ids.resize(field_names.size());
+        size_t field_id = 0;
+        for (const auto &field : data_node->fields) {
+            const auto field_names_it = std::find(field_names.begin(), field_names.end(), std::get<0>(field));
+            if (field_names_it != field_names.end()) {
+                const size_t group_id = std::distance(field_names.begin(), field_names_it);
+                field_types[group_id] = std::get<1>(field);
+                field_ids[group_id] = field_id;
             }
-            field_types.emplace_back(data_node->fields.at(field_name).first);
-            unsigned int field_id = 0;
-            for (; field_id < data_node->order.size(); field_id++) {
-                if (data_node->order.at(field_id) == field_name) {
-                    break;
-                }
-            }
-            if (field_id == data_node->order.size()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            field_ids.emplace_back(field_id);
+            field_id++;
         }
-
         return std::make_tuple(variable_type.value(), var_name, field_names, field_ids, field_types);
     }
     THROW_BASIC_ERR(ERR_PARSING);
