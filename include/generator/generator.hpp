@@ -32,6 +32,7 @@
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
+#include "parser/type/array_type.hpp"
 #include "resolver/resolver.hpp"
 
 #include <llvm/IR/IRBuilder.h>
@@ -862,6 +863,36 @@ class Generator {
             llvm::IRBuilder<> &builder,                                      //
             const Scope *scope,                                              //
             std::unordered_map<std::string, llvm::Value *const> &allocations //
+        );
+
+        /// @function `generate_array_cleanup`
+        /// @brief Generates the instructions to celar up arrays to prevent any memory leaks
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `arr_ptr` The pointer to the allocated array which needs to be freed
+        /// @param `array_type` The type of the array to free
+        /// @return `bool` Whether geenrating the cleanup instrctuonst was successful
+        [[nodiscard]] static bool generate_array_cleanup( //
+            llvm::IRBuilder<> &builder,                   //
+            llvm::Value *arr_ptr,                         //
+            const ArrayType *array_type                   //
+        );
+
+        /// @function `generate_data_cleanup`
+        /// @brief Generates the instructions to clear up nested data correctly to prevent any memory leaks
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `base_type` The base data type which is cleaned up
+        /// @param `alloca` The pointer to the allocation of the data
+        /// @param `data_node` The type of the data to free
+        /// @param `cleanup_depth` The cleanup depth, only at depth != 0 the allocation of the data itself is freed
+        /// @return `bool` Whether generating the cleanup instructions was successful
+        [[nodiscard]] static bool generate_data_cleanup( //
+            llvm::IRBuilder<> &builder,                  //
+            llvm::Type *base_type,                       //
+            llvm::Value *const alloca,                   //
+            const DataNode *data_node,                   //
+            const size_t cleanup_depth = 0               //
         );
 
         /// @function `generate_return_statement`

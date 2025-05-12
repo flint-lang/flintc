@@ -156,20 +156,74 @@ bool Generator::Statement::generate_end_of_scope(                    //
             llvm::Value *const alloca = allocations.at(alloca_name);
             llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *arr_ptr = builder.CreateLoad(arr_type->getPointerTo(), alloca, var_name + "_cleanup");
-            // Now get the complexity of the array
-            size_t complexity = 0;
-            while (true) {
-                if (ArrayType *element_array_type = dynamic_cast<ArrayType *>(array_type->type.get())) {
-                    complexity++;
-                    array_type = element_array_type;
-                    continue;
-                } else if (array_type->type->to_string() == "str") {
-                    complexity++;
-                }
-                break;
+            if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
             }
-            builder.CreateCall(Module::Array::array_manip_functions.at("free_arr"), {arr_ptr, builder.getInt64(complexity)});
+        } else if (DataType *data_type = dynamic_cast<DataType *>(var_type.get())) {
+            const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+            llvm::Value *const alloca = allocations.at(alloca_name);
+            llvm::Type *base_type = IR::get_type(var_type).first;
+            if (!generate_data_cleanup(builder, base_type, alloca, data_type->data_node)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         }
+    }
+    return true;
+}
+
+bool Generator::Statement::generate_array_cleanup( //
+    llvm::IRBuilder<> &builder,                    //
+    llvm::Value *arr_ptr,                          //
+    const ArrayType *array_type                    //
+) {
+    // Now get the complexity of the array
+    size_t complexity = 0;
+    while (true) {
+        if (ArrayType *element_array_type = dynamic_cast<ArrayType *>(array_type->type.get())) {
+            complexity++;
+            array_type = element_array_type;
+            continue;
+        } else if (array_type->type->to_string() == "str") {
+            complexity++;
+        }
+        break;
+    }
+    builder.CreateCall(Module::Array::array_manip_functions.at("free_arr"), {arr_ptr, builder.getInt64(complexity)});
+    return true;
+}
+
+bool Generator::Statement::generate_data_cleanup( //
+    llvm::IRBuilder<> &builder,                   //
+    llvm::Type *base_type,                        //
+    llvm::Value *const alloca,                    //
+    const DataNode *data_node,                    //
+    const size_t cleanup_depth                    //
+) {
+    size_t field_id = 0;
+    for (const auto &field : data_node->fields) {
+        if (const DataType *data_type = dynamic_cast<const DataType *>(std::get<1>(field).get())) {
+            llvm::Type *new_base_type = IR::get_type(std::get<1>(field)).first;
+            llvm::Value *field_ptr = builder.CreateStructGEP(base_type, alloca, field_id);
+            llvm::Value *field_alloca = builder.CreateLoad(new_base_type->getPointerTo(), field_ptr);
+            if (!generate_data_cleanup(builder, new_base_type, field_alloca, data_type->data_node, cleanup_depth + 1)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+        } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(std::get<1>(field).get())) {
+            llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Value *field_ptr = builder.CreateStructGEP(base_type, alloca, field_id);
+            llvm::Value *arr_ptr = builder.CreateLoad(arr_type->getPointerTo(), field_ptr);
+            if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+        }
+        field_id++;
+    }
+    if (cleanup_depth != 0) {
+        builder.CreateCall(c_functions.at(FREE), {alloca});
     }
     return true;
 }
