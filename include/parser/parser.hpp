@@ -725,6 +725,17 @@ class Parser {
     /// @return `std::optional<ArrayAccessNode>` An array access node, nullopt if its creation failed
     std::optional<ArrayAccessNode> create_array_access(Scope *scope, const token_slice &tokens);
 
+    /// @function `create_stacked_expression`
+    /// @brief Creates a stacked expression from the given tokens
+    ///
+    /// @param `scope` The scope in which the scoped expression is defined
+    /// @param `tokens` The list of tokens representing the scoped expression
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The stacked expression, nullopt if its creation failed
+    ///
+    /// @details Stacked expressions are unwrapped from the right to the left: `instance.field.field.field` becomes
+    /// `(instance.field.field).field` and then it becomes `((instance.field).field).field`, so they are evalueated balanced from the right
+    std::optional<std::unique_ptr<ExpressionNode>> create_stacked_expression(Scope *scope, const token_slice &tokens);
+
     /// @function `create_pivot_expression`
     /// @brief Creates a expression based on token precedences, where the token with the highest precedence is the "pivot point" of the
     /// epxression creation

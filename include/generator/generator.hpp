@@ -1311,15 +1311,21 @@ class Generator {
         /// @brief Generates a data access from a given DataAccessNode
         ///
         /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the array access is generated in
         /// @param `scope` The scope the data access is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `data_access` The data access node to generate
-        /// @return `std::optional<llvm::Value *>` The value containing the result of the data access, nullopt if generation failed
-        static group_mapping generate_data_access(                            //
-            llvm::IRBuilder<> &builder,                                       //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const DataAccessNode *data_access                                 //
+        /// @return `group_mapping` The value containing the result of the data access, nullopt if generation failed
+        static group_mapping generate_data_access(                                                                        //
+            llvm::IRBuilder<> &builder,                                                                                   //
+            llvm::Function *parent,                                                                                       //
+            const Scope *scope,                                                                                           //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+            const unsigned int expr_depth,                                                                                //
+            const DataAccessNode *data_access                                                                             //
         );
 
         /// @function `generate_grouped_data_access`

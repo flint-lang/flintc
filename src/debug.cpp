@@ -424,10 +424,16 @@ namespace Debug {
 
         void print_data_access(unsigned int indent_lvl, uint2 empty, const DataAccessNode &access) {
             Local::print_header(indent_lvl, empty, "Data Access ");
-            std::cout << "[" << access.data_type->to_string() << "]: " << access.var_name << "." << access.field_name << " at ID "
-                      << access.field_id << " with type ";
-            std::cout << access.type->to_string();
-            std::cout << std::endl;
+            std::cout << "[" << access.data_type->to_string() << "]: ";
+            if (std::holds_alternative<std::string>(access.variable)) {
+                std::cout << std::get<std::string>(access.variable) << "." << access.field_name << " at ID " << access.field_id
+                          << " with type " << access.type->to_string() << std::endl;
+            } else {
+                std::cout << "stacked access of field " << access.field_name << " at ID " << access.field_id << " with type "
+                          << access.type->to_string() << " of stack:" << std::endl;
+                empty.second = indent_lvl + 1;
+                print_expression(indent_lvl + 1, empty, std::get<std::unique_ptr<ExpressionNode>>(access.variable));
+            }
         }
 
         void print_grouped_data_access(unsigned int indent_lvl, uint2 empty, const GroupedDataAccessNode &access) {

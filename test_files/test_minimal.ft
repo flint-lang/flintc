@@ -1,39 +1,15 @@
-data SomeData:
-    SomeEnum e1;
-    SomeEnum e2;
-    SomeEnum e3;
-    SomeData(e1, e2, e3);
+data Vector2:
+    f32 x;
+    f32 y;
+    Vector2(x, y);
 
-data ComplexData:
-    SomeData sd;
-    SomeEnum se;
-    ComplexData(sd, se);
-
-enum SomeEnum:
-    VAL1, VAL2, VAL3;
+data Transform:
+    Vector2 pos;
+    Vector2 dir;
+    Transform(pos, dir);
 
 def main():
-    SomeEnum e1 = SomeEnum.VAL3;
-    if e1 == SomeEnum.VAL3:
-        print("is_val3\n");
-    else if e1 == SomeEnum.VAL2:
-        print("is_val2\n");
-    else:
-        print("is_val1\n");
-
-    SomeData sd = SomeData(SomeEnum.VAL1, SomeEnum.VAL2, SomeEnum.VAL3);
-    if sd.e1 == SomeEnum.VAL1:
-        print("sd.e1 is VAL1\n");
-
-    ComplexData cd = ComplexData(sd, SomeEnum.VAL2);
-    if cd.se == SomeEnum.VAL2:
-        print("cd.se is VAL2\n");
-    cd.sd = sd;
-    SomeData sd2 = cd.sd;
-    sd2.e1 = SomeEnum.VAL2;
-    if sd2.e1 == SomeEnum.VAL2:
-        print("okay that works...\n");
-    if sd.e1 == SomeEnum.VAL2:
-        print("cd.sd == sd ... hmmm\n");
-    else:
-        print("cd.sd != sd ... good!\n");
+    Vector2 pos = Vector2(1.0, 2.0);
+    Vector2 dir = Vector2(1.3, 4.4);
+    Transform t = Transform(pos, dir);
+    print($"t.pos.x = {t.pos.x}\n");

@@ -591,6 +591,16 @@ class Matcher {
         token(TOK_LEFT_PAREN), until_right_paren                                                                      // ( initializer )
     });
     static const inline PatternPtr array_access = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_BRACKET), until_right_bracket});
+    static const inline PatternPtr stacked_expression = sequence({
+        one_or_more(balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_DOT), token(TOK_RIGHT_PAREN), 0)), //
+        one_of({
+            token(TOK_IDENTIFIER), // Just a normal field access
+            sequence({
+                token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN),                                        //
+                balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1) //
+            })                                                                                       //
+        })                                                                                           //
+    });
 
     // --- STATEMENTS ---
     static const inline PatternPtr group_declaration_inferred = sequence({

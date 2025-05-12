@@ -6,6 +6,7 @@
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/type/array_type.hpp"
+#include "parser/type/data_type.hpp"
 #include "parser/type/primitive_type.hpp"
 
 #include <llvm/IR/Instructions.h>
@@ -769,11 +770,42 @@ bool Generator::Statement::generate_declaration(                      //
                     static_cast<unsigned int>(i),                             //
                     declaration_node->name + "_" + std::to_string(i) + "_ptr" //
                 );
-                llvm::StoreInst *store = builder.CreateStore(expr_val.value().at(i), elem_ptr);
-                store->setMetadata("comment",
-                    llvm::MDNode::get(context,
-                        llvm::MDString::get(context,
-                            "Store the actual val of '" + declaration_node->name + "_" + std::to_string(i) + "'")));
+                // If the data field is a complex field we need to allocate memory for it, then store the "real" result in the allocated
+                // memory region and then store the pointer to the allocated memory region in the 'elem_ptr' GEP
+                const DataType *field_data_type = dynamic_cast<const DataType *>(initializer_node->args[i]->type.get());
+                const ArrayType *field_array_type = dynamic_cast<const ArrayType *>(initializer_node->args[i]->type.get());
+                const bool field_str_type = initializer_node->args[i]->type->to_string() == "str";
+                const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr || field_str_type;
+                if (field_is_complex) {
+                    // For complex types, allocate memory and store a pointer
+                    llvm::Type *field_type = IR::get_type(initializer_node->args[i]->type).first;
+                    const llvm::DataLayout &data_layout = parent->getParent()->getDataLayout();
+                    llvm::Value *field_size = builder.getInt64(data_layout.getTypeAllocSize(field_type));
+                    llvm::Value *field_alloca = builder.CreateCall(                                                      //
+                        c_functions.at(MALLOC), {field_size}, declaration_node->name + "_" + std::to_string(i) + "_data" //
+                    );
+
+                    // Store the field value in the allocated memory
+                    llvm::StoreInst *value_store = builder.CreateStore(expr_val.value().at(i), field_alloca);
+                    value_store->setMetadata("comment",
+                        llvm::MDNode::get(context,
+                            llvm::MDString::get(context,
+                                "Store complex data for '" + declaration_node->name + "_" + std::to_string(i) + "'")));
+
+                    // Store the pointer to the complex data in the parent structure
+                    llvm::StoreInst *ptr_store = builder.CreateStore(field_alloca, elem_ptr);
+                    ptr_store->setMetadata("comment",
+                        llvm::MDNode::get(context,
+                            llvm::MDString::get(context,
+                                "Store pointer to complex data '" + declaration_node->name + "_" + std::to_string(i) + "'")));
+                } else {
+                    // For primitive types, store directly
+                    llvm::StoreInst *store = builder.CreateStore(expr_val.value().at(i), elem_ptr);
+                    store->setMetadata("comment",
+                        llvm::MDNode::get(context,
+                            llvm::MDString::get(context,
+                                "Store the actual val of '" + declaration_node->name + "_" + std::to_string(i) + "'")));
+                }
             }
             return true;
         }

@@ -12,6 +12,7 @@
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/type/array_type.hpp"
+#include "parser/type/data_type.hpp"
 #include "parser/type/group_type.hpp"
 
 #include <algorithm>
@@ -602,9 +603,10 @@ std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, const tok
         return std::nullopt;
     }
 
+    std::variant<std::string, std::unique_ptr<ExpressionNode>> var_name = std::get<1>(field_access_base.value());
     return DataAccessNode(                      //
         std::get<0>(field_access_base.value()), // data_type
-        std::get<1>(field_access_base.value()), // var_name
+        var_name,                               // var_name
         std::get<2>(field_access_base.value()), // field_name
         std::get<3>(field_access_base.value()), // field_id
         std::get<4>(field_access_base.value())  // field_type
@@ -719,6 +721,54 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *s
         std::get<3>(grouped_field_access_base.value()), // field_ids
         std::get<4>(grouped_field_access_base.value())  // field_types
     );
+}
+
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
+    auto separator = tokens_mut.second;
+    size_t depth = 0;
+    for (; separator != tokens_mut.first; --separator) {
+        if (separator->type == TOK_RIGHT_PAREN) {
+            depth++;
+        } else if (separator->type == TOK_LEFT_PAREN) {
+            depth--;
+        } else if (separator->type == TOK_DOT && depth == 0) {
+            break;
+        }
+    }
+    // The separator is now the dot that separates the lhs from the rhs
+    // For now, only field accesses are supported, having `.call()` is not supported yet
+    // TODO: Add support for the `.call()` expression stacking syntax
+    token_slice left_tokens = {tokens_mut.first, separator};
+    std::optional<std::unique_ptr<ExpressionNode>> left_expr = create_expression(scope, left_tokens, std::nullopt);
+    if (!left_expr.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Okay, so now the rhs is only an identifier
+    ++separator;
+    if (separator->type != TOK_IDENTIFIER) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const std::shared_ptr<Type> left_expr_type = left_expr.value()->type;
+    const DataType *data_type = dynamic_cast<const DataType *>(left_expr_type.get());
+    if (data_type == nullptr) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const DataNode *data_node = data_type->data_node;
+    const std::string field_name = separator->lexme;
+    const auto field_it = data_node->fields.find(field_name);
+    if (field_it == data_node->fields.end()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const std::shared_ptr<Type> field_type = field_it->second.first;
+    const auto order_it = std::find(data_node->order.begin(), data_node->order.end(), field_name);
+    const unsigned int field_id = std::distance(data_node->order.begin(), order_it);
+    std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
+    return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, field_type);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(Scope *scope, const token_slice &tokens) {
@@ -853,6 +903,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
             return std::nullopt;
         }
         return std::make_unique<ArrayAccessNode>(std::move(access.value()));
+    }
+    if (Matcher::tokens_match(tokens_mut, Matcher::stacked_expression)) {
+        return create_stacked_expression(scope, tokens_mut);
     }
 
     // Find the highest precedence operator

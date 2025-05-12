@@ -7,6 +7,7 @@
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
+#include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
@@ -62,7 +63,7 @@ Generator::group_mapping Generator::Expression::generate_expression(            
         return generate_initializer(builder, parent, scope, allocations, garbage, expr_depth, initializer);
     }
     if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expression_node)) {
-        return generate_data_access(builder, scope, allocations, data_access);
+        return generate_data_access(builder, parent, scope, allocations, garbage, expr_depth, data_access);
     }
     if (const auto *grouped_data_access = dynamic_cast<const GroupedDataAccessNode *>(expression_node)) {
         return generate_grouped_data_access(builder, scope, allocations, grouped_data_access);
@@ -703,11 +704,14 @@ llvm::Value *Generator::Expression::generate_array_access(                      
     return nullptr;
 }
 
-Generator::group_mapping Generator::Expression::generate_data_access( //
-    llvm::IRBuilder<> &builder,                                       //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const DataAccessNode *data_access                                 //
+Generator::group_mapping Generator::Expression::generate_data_access(                                             //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    llvm::Function *parent,                                                                                       //
+    const Scope *scope,                                                                                           //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int expr_depth,                                                                                //
+    const DataAccessNode *data_access                                                                             //
 ) {
     // Check if the "data access" is a enum access
     if (dynamic_cast<const EnumType *>(data_access->data_type.get())) {
@@ -715,50 +719,102 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         values.emplace_back(builder.getInt32(data_access->field_id));
         return values;
     }
-    // Get the alloca instance of the given data variable
-    const unsigned int var_decl_scope = std::get<1>(scope->variables.at(data_access->var_name));
-    const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_access->var_name;
-    llvm::Value *var_alloca = allocations.at(var_name);
+    // Check if the data access variable is an expression in of itself. If it is then we need to handle everything a bit different
+    if (std::holds_alternative<std::string>(data_access->variable)) {
+        std::string access_var_name = std::get<std::string>(data_access->variable);
+        // Get the alloca instance of the given data variable
+        const unsigned int var_decl_scope = std::get<1>(scope->variables.at(access_var_name));
+        const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + access_var_name;
+        llvm::Value *var_alloca = allocations.at(var_name);
+        llvm::Type *data_type;
+        if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
+            data_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+            var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, access_var_name + "_str_val");
+        } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
+            if (data_access->field_name != "length") {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            std::vector<llvm::Value *> length_values;
+            llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Value *arr_val = nullptr;
+            if (std::get<3>(scope->variables.at(access_var_name))) {
+                // Its a function argument, so the alloca is of 'str*' type
+                arr_val = var_alloca;
+            } else {
+                // Its a local variable, so the alloca is a 'str**' type
+                arr_val = builder.CreateLoad(str_type->getPointerTo(), var_alloca, "arr_val");
+            }
+            llvm::Value *length_ptr = builder.CreateStructGEP(str_type, arr_val, 1);
+            for (size_t i = 0; i < array_type->dimensionality; i++) {
+                llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
+                llvm::Value *length_value =
+                    builder.CreateLoad(builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i));
+                length_values.emplace_back(length_value);
+            }
+            return length_values;
+        } else {
+            data_type = IR::get_type(data_access->data_type).first;
+        }
 
-    llvm::Type *data_type;
-    if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
-        data_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
-        var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, data_access->var_name + "_str_val");
-    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
-        if (data_access->field_name != "length") {
+        llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, data_access->field_id);
+        const DataType *field_data_type = dynamic_cast<const DataType *>(data_access->type.get());
+        const ArrayType *field_array_type = dynamic_cast<const ArrayType *>(data_access->type.get());
+        const bool field_str_type = data_access->type->to_string() == "str";
+        const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr || field_str_type;
+        llvm::Type *field_base_type = IR::get_type(data_access->type).first;
+        llvm::LoadInst *loaded_value = builder.CreateLoad(                        //
+            field_is_complex ? field_base_type->getPointerTo() : field_base_type, //
+            value_ptr,                                                            //
+            access_var_name + "_" + data_access->field_name + "_val"              //
+        );
+        std::vector<llvm::Value *> values;
+        values.emplace_back(loaded_value);
+        return values;
+    } else {
+        const ExpressionNode *left_expr_node = std::get<std::unique_ptr<ExpressionNode>>(data_access->variable).get();
+        group_mapping left_expr = generate_expression(builder, parent, scope, allocations, garbage, expr_depth + 1, left_expr_node, false);
+        if (!left_expr.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        std::vector<llvm::Value *> length_values;
-        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
-        llvm::Value *arr_val = nullptr;
-        if (std::get<3>(scope->variables.at(data_access->var_name))) {
-            // Its a function argument, so the alloca is of 'str*' type
-            arr_val = var_alloca;
+        if (left_expr.value().size() != 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        llvm::Value *expr_val = left_expr.value().front();
+        llvm::Type *data_type;
+        if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
+            data_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+        } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
+            if (data_access->field_name != "length") {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            std::vector<llvm::Value *> length_values;
+            llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 1);
+            for (size_t i = 0; i < array_type->dimensionality; i++) {
+                llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
+                llvm::Value *length_value =
+                    builder.CreateLoad(builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i));
+                length_values.emplace_back(length_value);
+            }
+            return length_values;
         } else {
-            // Its a local variable, so the alloca is a 'str**' type
-            arr_val = builder.CreateLoad(str_type->getPointerTo(), var_alloca, "arr_val");
+            data_type = IR::get_type(data_access->data_type).first;
         }
-        llvm::Value *length_ptr = builder.CreateStructGEP(str_type, arr_val, 1);
-        for (size_t i = 0; i < array_type->dimensionality; i++) {
-            llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
-            llvm::Value *length_value = builder.CreateLoad(builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i));
-            length_values.emplace_back(length_value);
-        }
-        return length_values;
-    } else {
-        data_type = IR::get_type(data_access->data_type).first;
-    }
 
-    llvm::Value *value_ptr = builder.CreateStructGEP(data_type, var_alloca, data_access->field_id);
-    llvm::LoadInst *loaded_value = builder.CreateLoad(                 //
-        IR::get_type(data_access->type).first,                         //
-        value_ptr,                                                     //
-        data_access->var_name + "_" + data_access->field_name + "_val" //
-    );
-    std::vector<llvm::Value *> values;
-    values.emplace_back(loaded_value);
-    return values;
+        llvm::Value *value_ptr = builder.CreateStructGEP(data_type, expr_val, data_access->field_id);
+        llvm::LoadInst *loaded_value = builder.CreateLoad(           //
+            IR::get_type(data_access->type).first,                   //
+            value_ptr,                                               //
+            "__flint_expr_stack_" + data_access->field_name + "_val" //
+        );
+        std::vector<llvm::Value *> values;
+        values.emplace_back(loaded_value);
+        return values;
+    }
 }
 
 Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
