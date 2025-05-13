@@ -112,7 +112,7 @@ namespace Debug {
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call);
         void print_binary_op(unsigned int indent_lvl, uint2 empty, const BinaryOpNode &bin);
         void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast);
-        void print_initilalizer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer);
+        void print_initializer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer);
         void print_group_expression(unsigned int indent_lvl, uint2 empty, const GroupExpressionNode &group);
         void print_array_initializer(unsigned int indent_lvl, uint2 empty, const ArrayInitializerNode &init);
         void print_array_access(unsigned int indent_lvl, uint2 empty, const ArrayAccessNode &access);

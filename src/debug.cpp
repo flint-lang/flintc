@@ -300,12 +300,16 @@ namespace Debug {
             Local::print_header(indent_lvl, empty, "Interpol ");
             std::cout << std::endl;
             indent_lvl++;
-            empty.second = indent_lvl + 1;
-            for (const auto &var : interpol.string_content) {
-                if (std::holds_alternative<std::unique_ptr<LiteralNode>>(var)) {
-                    print_literal(indent_lvl, empty, *std::get<std::unique_ptr<LiteralNode>>(var));
+            empty.first = indent_lvl;
+            empty.second = indent_lvl;
+            for (auto var = interpol.string_content.begin(); var != interpol.string_content.end(); ++var) {
+                if (std::next(var) == interpol.string_content.end()) {
+                    empty.second = indent_lvl + 1;
+                }
+                if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*var)) {
+                    print_literal(indent_lvl, empty, *std::get<std::unique_ptr<LiteralNode>>(*var));
                 } else {
-                    print_type_cast(indent_lvl, empty, *std::get<std::unique_ptr<TypeCastNode>>(var));
+                    print_type_cast(indent_lvl, empty, *std::get<std::unique_ptr<TypeCastNode>>(*var));
                 }
             }
         }
@@ -324,12 +328,12 @@ namespace Debug {
                 std::cout << " with args";
             }
             std::cout << std::endl;
-            unsigned int counter = 0;
-            for (const auto &arg : call.arguments) {
-                if (++counter == call.arguments.size()) {
+            empty.first = indent_lvl + 1;
+            for (auto arg = call.arguments.begin(); arg != call.arguments.end(); ++arg) {
+                if (std::next(arg) == call.arguments.end()) {
                     empty.second = indent_lvl + 2;
                 }
-                print_expression(indent_lvl + 1, empty, arg.first);
+                print_expression(indent_lvl + 1, empty, arg->first);
             }
         }
 
@@ -363,14 +367,18 @@ namespace Debug {
             print_expression(indent_lvl + 1, empty, cast.expr);
         }
 
-        void print_initilalizer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer) {
+        void print_initializer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer) {
             Local::print_header(indent_lvl, empty, "Initializer ");
             std::cout << "of " << (initializer.is_data ? "data" : "entity") << " type '";
             std::cout << initializer.type->to_string();
             std::cout << "'" << std::endl;
+            empty.first = indent_lvl + 1;
             empty.second = indent_lvl + 1;
-            for (auto &expr : initializer.args) {
-                print_expression(indent_lvl + 1, empty, expr);
+            for (auto expr = initializer.args.begin(); expr != initializer.args.end(); ++expr) {
+                if (std::next(expr) == initializer.args.end()) {
+                    empty.second = indent_lvl + 2;
+                }
+                print_expression(indent_lvl + 1, empty, *expr);
             }
         }
 
@@ -476,7 +484,7 @@ namespace Debug {
             } else if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expr.get())) {
                 print_type_cast(indent_lvl, empty, *type_cast_node);
             } else if (const auto *initializer = dynamic_cast<const InitializerNode *>(expr.get())) {
-                print_initilalizer(indent_lvl, empty, *initializer);
+                print_initializer(indent_lvl, empty, *initializer);
             } else if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expr.get())) {
                 print_group_expression(indent_lvl, empty, *group_node);
             } else if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expr.get())) {
@@ -808,17 +816,21 @@ namespace Debug {
             }
             std::cout << "):" << std::endl;
 
-            indent_lvl++;
-            empty.first++;
-            for (const auto &field : data.fields) {
-                empty.second = indent_lvl + 1;
-                Local::print_header(indent_lvl, empty, "Field");
-                std::cout << std::get<1>(field)->to_string() << " " << std::get<0>(field) << "\n";
-                if (std::get<2>(field).has_value()) {
+            empty.first = indent_lvl + 1;
+            empty.second = indent_lvl + 1;
+            for (auto field = data.fields.begin(); field != data.fields.end(); ++field) {
+                if (std::next(field) == data.fields.end()) {
+                    empty.second = indent_lvl + 2;
+                } else {
+                    empty.second = indent_lvl + 1;
+                }
+                Local::print_header(indent_lvl + 1, empty, "Field ");
+                std::cout << std::get<1>(*field)->to_string() << " " << std::get<0>(*field) << "\n";
+                if (std::get<2>(*field).has_value()) {
                     // Only print default values if they exist
                     empty.second = indent_lvl + 2;
-                    Local::print_header(indent_lvl + 1, empty, "Default Value");
-                    std::cout << std::get<2>(field).value();
+                    Local::print_header(indent_lvl + 2, empty, "Default Value ");
+                    std::cout << std::get<2>(*field).value();
                 }
             }
         }
