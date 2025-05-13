@@ -386,6 +386,15 @@ class Matcher {
         return std::make_shared<RepetitionMatcher>(pattern, 1);
     }
 
+    /// @function `two_or_more`
+    /// @brief Returns the pattern to match the given pattern two or more times
+    ///
+    /// @param `pattern` The pattern to match two or more times
+    /// @return `PatternPtr` The created pattern
+    static inline PatternPtr two_or_more(PatternPtr pattern) {
+        return std::make_shared<RepetitionMatcher>(pattern, 2);
+    }
+
     /// @function `optional`
     /// @brief Returns the pattern to optionally match the given pattern
     ///
@@ -622,7 +631,7 @@ class Matcher {
     });
     static const inline PatternPtr array_access = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_BRACKET), until_right_bracket});
     static const inline PatternPtr stacked_expression = sequence({
-        one_or_more(balanced_match_valid_until(                                                               //
+        two_or_more(balanced_match_valid_until(                                                               //
             token(TOK_LEFT_PAREN), token(TOK_DOT), one_of({token(TOK_IDENTIFIER)}), token(TOK_RIGHT_PAREN), 0 //
             )),                                                                                               //
         one_of({

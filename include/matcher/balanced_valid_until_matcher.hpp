@@ -56,7 +56,7 @@ class BalancedValidUntilMatcher : public TokenPatternMatcher {
 
             result = until_pattern->match(tokens, pos);
             if (result.has_value()) {
-                if (depth > 1) {
+                if (depth > 0) {
                     return std::nullopt;
                 }
                 return result;

@@ -833,6 +833,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
         if (std::get<0>(*field_it) == field_name) {
             break;
         }
+        ++field_it;
     }
     if (field_it == data_node->fields.end()) {
         THROW_BASIC_ERR(ERR_PARSING);
