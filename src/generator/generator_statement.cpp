@@ -254,11 +254,11 @@ bool Generator::Statement::generate_return_statement(                 //
     builder.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0), error_ptr);
 
     // If we have a return value, store it in the struct
-    if (return_node != nullptr && return_node->return_value != nullptr) {
+    if (return_node != nullptr && return_node->return_value.has_value()) {
         // Generate the expression for the return value
         std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-        auto return_value = Expression::generate_expression(                                 //
-            builder, parent, scope, allocations, garbage, 0, return_node->return_value.get() //
+        auto return_value = Expression::generate_expression(                                         //
+            builder, parent, scope, allocations, garbage, 0, return_node->return_value.value().get() //
         );
 
         // Ensure the return value matches the function's return type
@@ -268,7 +268,7 @@ bool Generator::Statement::generate_return_statement(                 //
         }
 
         // If the rhs is of type `str`, delete the last "garbage", as thats the _actual_ return value
-        if (return_node->return_value->type->to_string() == "str" && garbage.count(0) > 0) {
+        if (return_node->return_value.value()->type->to_string() == "str" && garbage.count(0) > 0) {
             garbage.at(0).clear();
         }
         if (!clear_garbage(builder, garbage)) {

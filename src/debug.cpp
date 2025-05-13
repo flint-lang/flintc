@@ -521,8 +521,10 @@ namespace Debug {
             std::cout << "return";
             std::cout << std::endl;
 
-            empty.second = indent_lvl + 2;
-            print_expression(++indent_lvl, empty, return_node.return_value);
+            if (return_node.return_value.has_value()) {
+                empty.second = indent_lvl + 2;
+                print_expression(++indent_lvl, empty, return_node.return_value.value());
+            }
         }
 
         void print_if(unsigned int indent_lvl, uint2 empty, const IfNode &if_node) {

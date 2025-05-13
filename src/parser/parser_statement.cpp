@@ -71,12 +71,17 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, const token_slice 
         }
     }
     token_slice expression_tokens = {tokens.first + return_id + 1, tokens.second};
+    std::optional<std::unique_ptr<ExpressionNode>> return_expr;
+    if (std::next(expression_tokens.first) == expression_tokens.second) {
+        return ReturnNode(return_expr);
+    }
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
     if (!expr.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
-    return ReturnNode(expr.value());
+    return_expr = std::move(expr.value());
+    return ReturnNode(return_expr);
 }
 
 std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vector<std::pair<token_slice, token_slice>> &if_chain) {

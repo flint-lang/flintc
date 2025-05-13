@@ -33,7 +33,9 @@ void Generator::Allocation::generate_allocations(                    //
         } else if (const auto *group_assignment_node = dynamic_cast<const GroupAssignmentNode *>(statement_node.get())) {
             generate_expression_allocations(builder, parent, scope, allocations, group_assignment_node->expression.get());
         } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node.get())) {
-            generate_expression_allocations(builder, parent, scope, allocations, return_node->return_value.get());
+            if (return_node->return_value.has_value()) {
+                generate_expression_allocations(builder, parent, scope, allocations, return_node->return_value.value().get());
+            }
         } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement_node.get())) {
             generate_allocations(builder, parent, catch_node->scope.get(), allocations);
         } else if (const auto *array_assignment = dynamic_cast<const ArrayAssignmentNode *>(statement_node.get())) {

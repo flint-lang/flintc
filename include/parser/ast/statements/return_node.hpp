@@ -10,7 +10,7 @@
 /// @brief Represents return statements
 class ReturnNode : public StatementNode {
   public:
-    explicit ReturnNode(std::unique_ptr<ExpressionNode> &return_value) :
+    explicit ReturnNode(std::optional<std::unique_ptr<ExpressionNode>> &return_value) :
         return_value(std::move(return_value)) {}
 
     // constructor
@@ -25,6 +25,6 @@ class ReturnNode : public StatementNode {
     ReturnNode &operator=(ReturnNode &&) = default;
 
     /// @var `return_value`
-    /// @brief The return values expression
-    std::unique_ptr<ExpressionNode> return_value;
+    /// @brief The return values expression, nullopt if the function doesnt return anything
+    std::optional<std::unique_ptr<ExpressionNode>> return_value;
 };
