@@ -159,6 +159,10 @@ bool Matcher::token_match(const Token token, const PatternPtr &pattern) {
     return tokens_match({match_list.begin(), match_list.end()}, pattern);
 }
 
+bool Matcher::tokens_start_with(const token_slice &tokens, const PatternPtr &pattern) {
+    return pattern->match(tokens, 0).has_value();
+}
+
 bool Matcher::tokens_contain_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
     size_t tokens_size = std::distance(tokens.first, tokens.second);
     assert(range.second <= tokens_size);

@@ -73,6 +73,14 @@ class Matcher {
     /// @return `bool` Whether the given token list matches the given pattern
     static bool tokens_match(const token_slice &tokens, const PatternPtr &pattern);
 
+    /// @function `tokens_start_with`
+    /// @brief Checks if a given vector of TokenContext starts with a given pattern
+    ///
+    /// @param `tokens` The list of tokens to check
+    /// @param `pattern` The pattern to check for
+    /// @return `bool` Whether the given tokens start with the given pattern
+    static bool tokens_start_with(const token_slice &tokens, const PatternPtr &pattern);
+
     /// @function `token_match`
     /// @brief Checks if a given token matches with the given pattern
     ///
