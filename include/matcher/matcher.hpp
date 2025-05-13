@@ -5,6 +5,7 @@
 #include "matcher/alternative_matcher.hpp"
 #include "matcher/balanced_matcher.hpp"
 #include "matcher/balanced_until_matcher.hpp"
+#include "matcher/balanced_valid_until_matcher.hpp"
 #include "matcher/negative_lookahead_matcher.hpp"
 #include "matcher/not_matcher.hpp"
 #include "matcher/not_preceded_by_matcher.hpp"
@@ -453,6 +454,27 @@ class Matcher {
         return std::make_shared<BalancedUntilMatcher>(increment_pattern, until_pattern, decrement_pattern, start_depth);
     }
 
+    /// @function `balanced_match_valid_until`
+    /// @brief Returns the pattern to match the given patterns balanced while also requiring that all tokens outside any group must be a
+    /// valid pattern
+    ///
+    /// @param `increment_pattern` The pattern where the balance depth increases
+    /// @param `until_pattern` The pattern to match until
+    /// @param `valid_pattern` The pattern to require all tokens outside of groups match, note that this should be a match for single tokens
+    /// @param `decrement_pattern` The pattern where the balance depth decreases. If this is nullopt, the `until_pattern` will be both the
+    /// end and the decrementor
+    /// @param `start_depth` The depth to start at
+    /// @return `PatternPtr` The created pattern
+    static PatternPtr balanced_match_valid_until(    //
+        PatternPtr increment_pattern,                //
+        PatternPtr until_pattern,                    //
+        PatternPtr valid_pattern,                    //
+        std::optional<PatternPtr> decrement_pattern, //
+        const unsigned int start_depth               //
+    ) {
+        return std::make_shared<BalancedValidUntilMatcher>(increment_pattern, until_pattern, valid_pattern, decrement_pattern, start_depth);
+    }
+
   public:
     static const inline PatternPtr anytoken = std::make_shared<TokenTypeAnytoken>();
     static const inline PatternPtr type_prim = one_of({
@@ -600,7 +622,9 @@ class Matcher {
     });
     static const inline PatternPtr array_access = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_BRACKET), until_right_bracket});
     static const inline PatternPtr stacked_expression = sequence({
-        one_or_more(balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_DOT), token(TOK_RIGHT_PAREN), 0)), //
+        one_or_more(balanced_match_valid_until(                                                               //
+            token(TOK_LEFT_PAREN), token(TOK_DOT), one_of({token(TOK_IDENTIFIER)}), token(TOK_RIGHT_PAREN), 0 //
+            )),                                                                                               //
         one_of({
             token(TOK_IDENTIFIER), // Just a normal field access
             sequence({

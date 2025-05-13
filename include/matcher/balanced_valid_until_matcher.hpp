@@ -2,22 +2,27 @@
 
 #include "token_pattern_matcher.hpp"
 
-class BalancedUntilMatcher : public TokenPatternMatcher {
+#include <sstream>
+
+class BalancedValidUntilMatcher : public TokenPatternMatcher {
   private:
     PatternPtr increment_pattern;
     PatternPtr until_pattern;
+    PatternPtr valid_pattern;
     std::optional<PatternPtr> decrement_pattern;
     unsigned int start_depth;
 
   public:
-    explicit BalancedUntilMatcher(                                  //
+    explicit BalancedValidUntilMatcher(                             //
         PatternPtr &increment_pattern,                              //
         PatternPtr &until_pattern,                                  //
+        PatternPtr &valid_pattern,                                  //
         std::optional<PatternPtr> decrement_pattern = std::nullopt, //
         const unsigned int start_depth = 1                          //
         ) :
         increment_pattern(increment_pattern),
         until_pattern(until_pattern),
+        valid_pattern(valid_pattern),
         decrement_pattern(decrement_pattern),
         start_depth(start_depth) {}
 
@@ -56,6 +61,11 @@ class BalancedUntilMatcher : public TokenPatternMatcher {
                 }
                 return result;
             }
+
+            result = valid_pattern->match(tokens, pos);
+            if (depth == 0 && !result.has_value()) {
+                return std::nullopt;
+            }
             pos++;
         }
         // If we get here, we didn't find the ending pattern
@@ -63,11 +73,13 @@ class BalancedUntilMatcher : public TokenPatternMatcher {
     }
 
     std::string to_string() const override {
-        std::string result = "BalancedMatchUntil(" + increment_pattern->to_string() + ", ";
+        std::stringstream result;
+        result << "BalancedValidMatchUntil(" << increment_pattern->to_string() << ", ";
         if (decrement_pattern.has_value()) {
-            result += decrement_pattern.value()->to_string() + ", ";
+            result << decrement_pattern.value()->to_string() << ", ";
         }
-        result += until_pattern->to_string() + ")";
-        return result;
+        result << valid_pattern->to_string() << ", ";
+        result << until_pattern->to_string() << ")";
+        return result.str();
     }
 };
