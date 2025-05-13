@@ -743,6 +743,29 @@ namespace Debug {
             print_expression(++indent_lvl, empty, assignment.expression);
         }
 
+        void print_stacked_assignment(unsigned int indent_lvl, uint2 empty, [[maybe_unused]] const StackedAssignmentNode &assignment) {
+            Local::print_header(indent_lvl, empty, "Stacked Assignment ");
+            std::cout << "Field " << std::to_string(assignment.field_id) << " [" << assignment.field_name << " : "
+                      << assignment.field_type->to_string() << "] from";
+            std::cout << std::endl;
+
+            empty.first = indent_lvl + 1;
+            empty.second = indent_lvl + 1;
+            Local::print_header(indent_lvl + 1, empty, "Base Expression ");
+            std::cout << assignment.base_expression->type->to_string() << std::endl;
+            empty.first = indent_lvl + 2;
+            empty.second = indent_lvl + 3;
+            print_expression(indent_lvl + 2, empty, assignment.base_expression);
+
+            empty.first = indent_lvl + 1;
+            empty.second = indent_lvl + 2;
+            Local::print_header(indent_lvl + 1, empty, "RHS Expression ");
+            std::cout << "to be" << std::endl;
+            empty.first = indent_lvl + 2;
+            empty.second = indent_lvl + 3;
+            print_expression(indent_lvl + 2, empty, assignment.expression);
+        }
+
         void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement) {
             if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
                 print_return(indent_lvl, empty, *return_node);
@@ -774,6 +797,8 @@ namespace Debug {
                 print_grouped_data_field_assignment(indent_lvl, empty, *grouped_data_assignment);
             } else if (const auto *array_assignment = dynamic_cast<const ArrayAssignmentNode *>(statement.get())) {
                 print_array_assignment(indent_lvl, empty, *array_assignment);
+            } else if (const auto *stacked_assignment = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
+                print_stacked_assignment(indent_lvl, empty, *stacked_assignment);
             } else {
                 THROW_BASIC_ERR(ERR_DEBUG);
                 return;

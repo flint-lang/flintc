@@ -4,6 +4,8 @@
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/statements/stacked_assignment.hpp"
+#include "parser/type/data_type.hpp"
 #include "types.hpp"
 
 #include <iterator>
@@ -779,6 +781,72 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
     return ArrayAssignmentNode(variable_name, var_type.value(), array_type->type, indexing_expressions.value(), expression.value());
 }
 
+std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(Scope *scope, const token_slice &tokens) {
+    token_list toks = clone_from_slice(tokens);
+
+    if (!Matcher::tokens_contain(tokens, Matcher::token(TOK_EQUAL))) {
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return std::nullopt;
+    }
+    // Stacked statements cant be declarations, because sub-elements of a "stack" like `var.field.field` are already declared when one can
+    // write a statement like this. This means the stacked statement is definitely an assignment
+    // First, find the position of the equals sign
+    auto iterator = tokens.first;
+    while (iterator != tokens.second && iterator->type != TOK_EQUAL) {
+        ++iterator;
+    }
+    assert(iterator->type == TOK_EQUAL);
+    // Now, everything to the right of the iterator is the rhs expression
+    const token_slice rhs_expr_tokens = {iterator + 1, tokens.second};
+    auto rhs_expr = create_expression(scope, rhs_expr_tokens);
+    if (!rhs_expr.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_expr_tokens);
+        return std::nullopt;
+    }
+    --iterator;
+    if (iterator->type != TOK_IDENTIFIER) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const std::string field_name = iterator->lexme;
+    --iterator;
+    if (iterator->type != TOK_DOT) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Okay, now everything to the left of the iterator is the base expression
+    const token_slice base_expr_tokens = {tokens.first, iterator};
+    auto base_expr = create_expression(scope, base_expr_tokens);
+    if (!base_expr.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, base_expr_tokens);
+        return std::nullopt;
+    }
+    // The base expression should be a data type
+    const DataType *base_expr_type = dynamic_cast<const DataType *>(base_expr.value()->type.get());
+    if (base_expr_type == nullptr) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const DataNode *data_node = base_expr_type->data_node;
+    auto field_it = data_node->fields.begin();
+    while (field_it != data_node->fields.end()) {
+        if (std::get<0>(*field_it) == field_name) {
+            break;
+        }
+    }
+    if (field_it == data_node->fields.end()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    size_t field_id = std::distance(data_node->fields.begin(), field_it);
+    const std::shared_ptr<Type> field_type = std::get<1>(*field_it);
+
+    auto stacked_assignment = std::make_unique<StackedAssignmentNode>(        //
+        base_expr.value(), field_name, field_id, field_type, rhs_expr.value() //
+    );
+    return stacked_assignment;
+}
+
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, const token_slice &tokens) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
 
@@ -991,6 +1059,7 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
     std::optional<token_slice> for_tokens;
     while (auto next_match = Matcher::get_next_match_range(body_mut, Matcher::until_col_or_semicolon)) {
         token_slice statement_tokens = {body_mut.first + next_match.value().first, body_mut.first + next_match.value().second};
+        remove_leading_garbage(statement_tokens);
         body_mut.first = statement_tokens.second;
         if (Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_FOR))) {
             for_tokens = statement_tokens;
@@ -1007,6 +1076,8 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
         if (Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_COLON))) {
             // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
             next_statement = create_scoped_statement(scope, statement_tokens, body_mut, body_statements);
+        } else if (Matcher::tokens_start_with(statement_tokens, Matcher::stacked_expression)) {
+            next_statement = create_stacked_statement(scope, statement_tokens);
         } else {
             // --- NORMAL STATEMENT ---
             next_statement = create_statement(scope, statement_tokens);

@@ -13,3 +13,4 @@ def main():
     Vector2 dir = Vector2(1.3, 4.4);
     Transform t = Transform(pos, dir);
     print($"t.pos.x = {t.pos.x}\n");
+    t.pos.x = 4.2;

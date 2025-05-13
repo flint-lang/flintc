@@ -928,6 +928,14 @@ class Parser {
     /// @return `std::optional<ArrayAssignmentNode>` The created ArrayAssignmentNode, nullopt if its creation failed
     std::optional<ArrayAssignmentNode> create_array_assignment(Scope *scope, const token_slice &tokens);
 
+    /// @function `create_stacked_statement`
+    /// @brief Creates a stacked statement, like `a.b.c = sdf` for example
+    ///
+    /// @param `scope` The scope in which the stacked statement is defined
+    /// @param `tokens` The list of tokens representing the stacked statement
+    /// @return `std::optional<std::unique_ptr<StatementNode>>` The created stacked statement
+    std::optional<std::unique_ptr<StatementNode>> create_stacked_statement(Scope *scope, const token_slice &tokens);
+
     /// @function `create_statement`
     /// @brief Creates a StatementNode from the given list of tokens
     ///
