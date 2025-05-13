@@ -1,17 +1,6 @@
-data Vector2:
-    f32 x;
-    f32 y;
-    Vector2(x, y);
-
-data Transform:
-    Vector2 pos;
-    Vector2 dir;
-    Transform(pos, dir);
-
 def main():
-    Vector2 pos = Vector2(1.0, 2.0);
-    Vector2 dir = Vector2(1.3, 4.4);
-    Transform t = Transform(pos, dir);
-    print($"t.pos.x = {t.pos.x}\n");
-    t.pos.x = 4.2;
-    print($"t.pos.x = {t.pos.x}\n");
+    for u32 i = 0; i < 3; i++:
+        print($"{i}\n");
+
+    for u32 i = 0; i < 3; i++:
+        print($"{i}\n");

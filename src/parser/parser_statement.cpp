@@ -1059,7 +1059,6 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
     std::optional<token_slice> for_tokens;
     while (auto next_match = Matcher::get_next_match_range(body_mut, Matcher::until_col_or_semicolon)) {
         token_slice statement_tokens = {body_mut.first + next_match.value().first, body_mut.first + next_match.value().second};
-        remove_leading_garbage(statement_tokens);
         body_mut.first = statement_tokens.second;
         if (Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_FOR))) {
             for_tokens = statement_tokens;
@@ -1076,11 +1075,15 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
         if (Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_COLON))) {
             // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
             next_statement = create_scoped_statement(scope, statement_tokens, body_mut, body_statements);
-        } else if (Matcher::tokens_start_with(statement_tokens, Matcher::stacked_expression)) {
-            next_statement = create_stacked_statement(scope, statement_tokens);
         } else {
-            // --- NORMAL STATEMENT ---
-            next_statement = create_statement(scope, statement_tokens);
+            remove_leading_garbage(statement_tokens);
+            if (Matcher::tokens_start_with(statement_tokens, Matcher::stacked_expression)) {
+                // --- STACKED STATEMENT ---
+                next_statement = create_stacked_statement(scope, statement_tokens);
+            } else {
+                // --- NORMAL STATEMENT ---
+                next_statement = create_statement(scope, statement_tokens);
+            }
         }
 
         if (next_statement.has_value()) {
