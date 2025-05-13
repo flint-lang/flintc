@@ -52,6 +52,8 @@ bool Generator::Statement::generate_statement(                        //
         return generate_grouped_data_field_assignment(builder, parent, scope, allocations, grouped_assignment_node);
     } else if (const auto *array_assignment_node = dynamic_cast<const ArrayAssignmentNode *>(statement.get())) {
         return generate_array_assignment(builder, parent, scope, allocations, array_assignment_node);
+    } else if (const auto *stacked_assignment_node = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
+        return generate_stacked_assignment(builder, parent, scope, allocations, stacked_assignment_node);
     } else {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -101,6 +103,7 @@ bool Generator::Statement::clear_garbage(                                       
     if (DEBUG_MODE) {
         std::cout << std::endl;
     }
+    garbage.clear();
     return true;
 }
 
@@ -1068,7 +1071,7 @@ bool Generator::Statement::generate_array_assignment(                 //
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    llvm::Value *expression = expression_result.value().at(0);
+    llvm::Value *expression = expression_result.value().front();
     if (array_assignment->expression->type != array_assignment->value_type) {
         expression = Expression::generate_type_cast(builder, expression, array_assignment->expression->type, array_assignment->value_type);
     }
@@ -1117,6 +1120,60 @@ bool Generator::Statement::generate_array_assignment(                 //
         Module::Array::array_manip_functions.at("assign_arr_val_at"),         //
         {array_ptr, builder.getInt64(expr_bitwidth / 8), indices, expression} //
     );
+    return true;
+}
+
+bool Generator::Statement::generate_stacked_assignment(               //
+    llvm::IRBuilder<> &builder,                                       //
+    llvm::Function *parent,                                           //
+    const Scope *scope,                                               //
+    std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const StackedAssignmentNode *stacked_assignment                   //
+) {
+    // Generate the main expression
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
+    group_mapping expression_result = Expression::generate_expression(                        //
+        builder, parent, scope, allocations, garbage, 0, stacked_assignment->expression.get() //
+    );
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (!expression_result.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (expression_result.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *expression = expression_result.value().front();
+    if (stacked_assignment->expression->type != stacked_assignment->field_type) {
+        expression = Expression::generate_type_cast(                                                  //
+            builder, expression, stacked_assignment->expression->type, stacked_assignment->field_type //
+        );
+    }
+    // Now we can create the "base expression" which then gets accessed
+    group_mapping base_expr_res = Expression::generate_expression(                                 //
+        builder, parent, scope, allocations, garbage, 0, stacked_assignment->base_expression.get() //
+    );
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (!base_expr_res.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (base_expr_res.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *base_expr = base_expr_res.value().front();
+    // Now we can access the element of the data of the lhs and assign the rhs expression result to it
+    llvm::Type *base_type = IR::get_type(stacked_assignment->base_expression->type).first;
+    llvm::Value *field_ptr = builder.CreateStructGEP(base_type, base_expr, stacked_assignment->field_id, "field_ptr");
+    builder.CreateStore(expression, field_ptr);
     return true;
 }
 

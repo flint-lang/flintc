@@ -29,6 +29,7 @@
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
+#include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
@@ -1112,7 +1113,7 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the array assignment will be generated in
-        /// @param `scope` The scope the the array assignment is contained in
+        /// @param `scope` The scope the array assignment is contained in
         /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         /// @param `array_assignment` The array assignment to generate
         /// @return `bool` Whether the code genration of the array assignment was successful
@@ -1122,6 +1123,23 @@ class Generator {
             const Scope *scope,                                               //
             std::unordered_map<std::string, llvm::Value *const> &allocations, //
             const ArrayAssignmentNode *array_assignment                       //
+        );
+
+        /// @function `generate_stacked_assignment`
+        /// @brief Generates the stacked assignment from the given StackedAssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the stacked assignment will be generated in
+        /// @param `scope` The scope the stacked assignment is contained in
+        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `stacked_assignment` The stacked assignment to generate
+        /// @return `bool` Whether the code generation of the stacked assignment was successful
+        [[nodiscard]] static bool generate_stacked_assignment(                //
+            llvm::IRBuilder<> &builder,                                       //
+            llvm::Function *parent,                                           //
+            const Scope *scope,                                               //
+            std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const StackedAssignmentNode *stacked_assignment                   //
         );
 
         /// @function `generate_unary_op_statement`

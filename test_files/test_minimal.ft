@@ -14,3 +14,4 @@ def main():
     Transform t = Transform(pos, dir);
     print($"t.pos.x = {t.pos.x}\n");
     t.pos.x = 4.2;
+    print($"t.pos.x = {t.pos.x}\n");
