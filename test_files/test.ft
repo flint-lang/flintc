@@ -1,5 +1,6 @@
 use "tests/array.ft"
 use "tests/data.ft"
+use "tests/enum.ft"
 use "tests/error.ft"
 use "tests/loops.ft"
 use "tests/multi_types.ft"
@@ -10,6 +11,7 @@ use "tests/tests.ft"
 def main():
 	test_array();
 	test_data();
+	test_enum();
 	test_error();
 	test_multi_types();
 	test_loops();

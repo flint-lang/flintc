@@ -1,0 +1,18 @@
+enum CoolEnum:
+    VAL1, VAL2, VAL3;
+
+def test_enum():
+    CoolEnum e1 = CoolEnum.VAL1;
+    assert(e1 == CoolEnum.VAL1);
+    assert(e1 != CoolEnum.VAL2);
+    assert(e1 != CoolEnum.VAL3);
+
+    e1 = CoolEnum.VAL2;
+    assert(e1 != CoolEnum.VAL1);
+    assert(e1 == CoolEnum.VAL2);
+    assert(e1 != CoolEnum.VAL3);
+    
+    e1 = CoolEnum.VAL3;
+    assert(e1 != CoolEnum.VAL1);
+    assert(e1 != CoolEnum.VAL2);
+    assert(e1 == CoolEnum.VAL3);
