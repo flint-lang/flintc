@@ -725,7 +725,7 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *s
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
-    auto separator = tokens_mut.second;
+    auto separator = tokens_mut.second - 1;
     size_t depth = 0;
     for (; separator != tokens_mut.first; --separator) {
         if (separator->type == TOK_RIGHT_PAREN) {
