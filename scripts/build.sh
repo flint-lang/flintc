@@ -35,27 +35,13 @@ create_directories() {
     mkdir -p "$root/vendor"
 
     if [ "$build_windows" = "true" ]; then
-        # Create directories
-        if [ "$build_static" = "true" ]; then
-            mkdir -p "$root/build/llvm-mingw-static"
-            mkdir -p "$root/vendor/llvm-mingw-static"
-        fi
-        if [ "$build_dynamic" = "true" ]; then
-            mkdir -p "$root/build/llvm-mingw"
-            mkdir -p "$root/vendor/llvm-mingw"
-        fi
+        mkdir -p "$root/build/llvm-mingw"
+        mkdir -p "$root/vendor/llvm-mingw"
     fi
 
     if [ "$build_linux" = "true" ]; then
-        # Create directories
-        if [ "$build_static" = "true" ]; then
-            mkdir -p "$root/build/llvm-linux-static"
-            mkdir -p "$root/vendor/llvm-linux-static"
-        fi
-        if [ "$build_dynamic" = "true" ]; then
-            mkdir -p "$root/build/llvm-linux"
-            mkdir -p "$root/vendor/llvm-linux"
-        fi
+        mkdir -p "$root/build/llvm-linux"
+        mkdir -p "$root/vendor/llvm-linux"
     fi
 }
 
@@ -74,44 +60,33 @@ check_library_requirements() {
     check_lib "librt.a"
     [ -n "$(which clang)" ] || err_exit 1 "'clang' C compiler not found"
     [ -n "$(which clang++)" ] || err_exit 1 "'clang++' C++ compiler not found"
+    [ -n "$(which cmake)" ] || err_exit 1 "'cmake' is not installed"
 }
 
 # Builds llvm for windows
-# $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of llvm
 build_llvm_windows() {
     # Set build and install directories based on static flag
-    if [ "$1" = "true" ]; then
-        llvm_build_dir="$root/build/llvm-mingw-static"
-        llvm_install_dir="$root/vendor/llvm-mingw-static"
-        echo "-- Building static LLVM for Windows..."
-        if [ "$force_rebuild" = "true" ]; then
-            rm -r "$root/build/llvm-mingw-static"
-        fi
-    else
-        llvm_build_dir="build/llvm-mingw"
-        llvm_install_dir="$root/vendor/llvm-mingw"
-        echo "-- Building LLVM for Windows..."
-        if [ "$force_rebuild" = "true" ]; then
-            rm -r "$root/build/llvm-mingw"
-        fi
+    llvm_build_dir="$root/build/llvm-mingw"
+    llvm_install_dir="$root/vendor/llvm-mingw"
+    echo "-- Building static LLVM for Windows..."
+    if [ "$force_rebuild" = "true" ]; then
+        rm -r "$root/build/llvm-mingw"
     fi
 
     # Create directories
     mkdir -p "$llvm_build_dir"
     mkdir -p "$llvm_install_dir"
 
-    llvm_static_flags=""
-    if [ "$1" = "true" ]; then
-        llvm_static_flags="-DLLVM_BUILD_STATIC=ON \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DLLVM_ENABLE_PIC=OFF \
-            -DCMAKE_FIND_LIBRARY_SUFFIXES='.a'"
-        echo "-- Building LLVM with static libraries..."
-    fi
+    llvm_static_flags="-DLLVM_BUILD_STATIC=ON \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DLLVM_ENABLE_PIC=OFF \
+        -DCMAKE_FIND_LIBRARY_SUFFIXES='.a'"
+    echo "-- Building LLVM with static libraries..."
 
     cmake -S vendor/llvm-project/llvm -B "$llvm_build_dir" \
         -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_SKIP_INSTALL_RPATH=ON \
         -DLLVM_ENABLE_PROJECTS="lld" \
         -DCMAKE_SYSTEM_NAME=Windows \
         -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
@@ -138,42 +113,29 @@ build_llvm_windows() {
 }
 
 # Builds llvm for linux
-# $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of llvm
 build_llvm_linux() {
-    # Set build and install directories based on static flagx
-    if [ "$1" = "true" ]; then
-        llvm_build_dir="$root/build/llvm-linux-static"
-        llvm_install_dir="$root/vendor/llvm-linux-static"
-        echo "-- Building static LLVM for Linux..."
-        if [ "$force_rebuild" = "true" ]; then
-            rm -r "$root/build/llvm-linux-static"
-        fi
-    else
-        llvm_build_dir="$root/build/llvm-linux"
-        llvm_install_dir="$root/vendor/llvm-linux"
-        echo "-- Building LLVM for Linux..."
-        if [ "$force_rebuild" = "true" ]; then
-            rm -r "$root/build/llvm-linux"
-        fi
+    # Set build and install directories based on static flags
+    llvm_build_dir="$root/build/llvm-linux"
+    llvm_install_dir="$root/vendor/llvm-linux"
+    echo "-- Building static LLVM for Linux..."
+    if [ "$force_rebuild" = "true" ]; then
+        rm -r "$root/build/llvm-linux"
     fi
 
     # Create directories
     mkdir -p "$llvm_build_dir"
     mkdir -p "$llvm_install_dir"
 
-    llvm_static_flags=""
-    if [ "$1" = "true" ]; then
-        llvm_static_flags="-DLLVM_BUILD_STATIC=ON \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DLLVM_ENABLE_ZSTD=OFF \
-            -DLLVM_ENABLE_ZLIB=FORCE_ON \
-            -DZLIB_USE_STATIC_LIBS=ON \
-            -DLLVM_ENABLE_LIBXML2=OFF \
-            -DCMAKE_EXE_LINKER_FLAGS='-static' \
-            -DCMAKE_FIND_LIBRARY_SUFFIXES='.a' \
-            -DLLVM_ENABLE_PIC=OFF"
-        echo "-- Building LLVM with static libraries..."
-    fi
+    llvm_static_flags="-DLLVM_BUILD_STATIC=ON \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DLLVM_ENABLE_ZSTD=OFF \
+        -DLLVM_ENABLE_ZLIB=FORCE_ON \
+        -DZLIB_USE_STATIC_LIBS=ON \
+        -DLLVM_ENABLE_LIBXML2=OFF \
+        -DCMAKE_EXE_LINKER_FLAGS='-static' \
+        -DCMAKE_FIND_LIBRARY_SUFFIXES='.a' \
+        -DLLVM_ENABLE_PIC=OFF"
+    echo "-- Building LLVM with static libraries..."
 
     # Pre-locate the static zlib to ensure we use it
     STATIC_ZLIB="$(find /usr/lib -name "libz.a" | head -n 1)"
@@ -183,6 +145,7 @@ build_llvm_linux() {
     cmake -S vendor/llvm-project/llvm -B "$llvm_build_dir" \
         -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_SKIP_INSTALL_RPATH=ON \
         -DLLVM_ENABLE_PROJECTS="lld" \
         -DCMAKE_C_COMPILER="clang" \
         -DCMAKE_CXX_COMPILER="clang++" \
@@ -260,13 +223,11 @@ setup_build_windows() {
 
     static_flag=""
     build_dir="$root/build/windows"
+    llvm_lib_path="$root/vendor/llvm-mingw/lib"
     if [ "$1" = "true" ]; then
         static_flag="-DBUILD_STATIC=ON"
         build_dir="${build_dir}-static"
-        llvm_lib_path="$root/vendor/llvm-mingw-static/lib"
         echo "-- Building fully static executable..."
-    else
-        llvm_lib_path="$root/vendor/llvm-mingw/lib"
     fi
 
     debug_flag="-DDEBUG_MODE=OFF"
@@ -295,13 +256,11 @@ setup_build_linux() {
 
     static_flag=""
     build_dir="$root/build/linux"
+    llvm_lib_path="$root/vendor/llvm-linux/lib"
     if [ "$1" = "true" ]; then
         static_flag="-DBUILD_STATIC=ON"
         build_dir="${build_dir}-static"
-        llvm_lib_path="$root/vendor/llvm-linux-static/lib"
         echo "-- Building fully static executable..."
-    else
-        llvm_lib_path="$root/vendor/llvm-linux/lib"
     fi
 
     debug_flag="-DDEBUG_MODE=OFF"

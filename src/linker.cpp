@@ -214,8 +214,6 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         args.push_back("--allow-multiple-definition");
         args.push_back("--no-gc-sections"); // Prevent removal of unused sections
         args.push_back("--no-relax");       // Disable relocation relaxation
-        args.push_back("/usr/lib/crt1.o");
-        args.push_back("/usr/lib/crti.o");
         args_buffer[args_id] = obj_file.string();
         args.push_back(args_buffer[args_id++].c_str());
         args_buffer[args_id] = std::string("-L" + Generator::get_flintc_cache_path().string());
@@ -224,7 +222,9 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         args.push_back("-L/usr/lib");
         args.push_back("-L/usr/lib/x86_64-linux-gnu");
         args.push_back("-lc");
-        args.push_back("/usr/lib/crtn.o");
+        args.push_back("-l:crt1.o");
+        args.push_back("-l:crti.o");
+        args.push_back("-l:crtn.o");
         args.push_back("--dynamic-linker=/lib64/ld-linux-x86-64.so.2");
     }
 

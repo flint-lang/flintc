@@ -7,6 +7,10 @@ project(FlintCompiler VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Set the compiler to use clang / clang++
+set(CMAKE_C_COMPILER clang)
+set(CMAKE_CXX_COMPILER clang++)
+
 # Options
 option(BUILD_STATIC "Build a fully static executable" OFF)
 option(DEBUG_MODE "Enable debug build with DEBUG_BUILD definition" OFF)
@@ -91,31 +95,20 @@ endif()
 
 # Setting the default LLVM lib path based on platform and build type
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    if(BUILD_STATIC)
-        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw-static/lib" CACHE PATH "Path to LLVM libraries")
-    else()
-        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw/lib" CACHE PATH "Path to LLVM libraries")
-    endif()
-
-    # Get the LLVM include directory
-    get_filename_component(LLVM_INCLUDE_DIR "${LLVM_LIB_PATH}/../include" ABSOLUTE)
-
-    # Check if the include directory exists
-    if(NOT EXISTS ${LLVM_INCLUDE_DIR})
-        message(FATAL_ERROR "LLVM include directory does not exist: ${LLVM_INCLUDE_DIR}. Please check your LLVM installation.")
-    endif()
-
-    # Add the LLVM include directory to the include paths
-    include_directories(${LLVM_INCLUDE_DIR})
-
-    message(STATUS "Using LLVM include directory: ${LLVM_INCLUDE_DIR}")
-else()  # Linux
-    if(BUILD_STATIC)
-        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux-static/lib" CACHE PATH "Path to LLVM libraries")
-    else()
-        set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/lib" CACHE PATH "Path to LLVM libraries")
-    endif()
+    set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw/lib" CACHE PATH "Path to LLVM libraries")
+else()
+    set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/lib" CACHE PATH "Path to LLVM libraries")
 endif()
+
+# Get the LLVM include directory
+get_filename_component(LLVM_INCLUDE_DIR "${LLVM_LIB_PATH}/../include" ABSOLUTE)
+
+# Check if the include directory exists
+if(NOT EXISTS ${LLVM_INCLUDE_DIR})
+    message(FATAL_ERROR "LLVM include directory does not exist: ${LLVM_INCLUDE_DIR}. Please check your LLVM installation.")
+endif()
+
+message(STATUS "Using LLVM include directory: ${LLVM_INCLUDE_DIR}")
 
 # Include the vendor stuff (json-mini)
 include_directories(${CMAKE_SOURCE_DIR}/vendor/json-mini/include)
@@ -124,7 +117,7 @@ include_directories(${CMAKE_SOURCE_DIR}/vendor/json-mini/include)
 add_definitions(-DLLVM_DISABLE_ZLIB_SYMBOLS -DLLVM_ENABLE_ZSTD=0)
 
 # Find the Linux static llvm-config for use in both Linux and Windows builds
-get_filename_component(LINUX_STATIC_LLVM_BIN_DIR "${CMAKE_SOURCE_DIR}/vendor/llvm-linux-static/bin" ABSOLUTE)
+get_filename_component(LINUX_STATIC_LLVM_BIN_DIR "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/bin" ABSOLUTE)
 find_program(LINUX_LLVM_CONFIG llvm-config
     PATHS ${LINUX_STATIC_LLVM_BIN_DIR}
     NO_DEFAULT_PATH
@@ -376,6 +369,9 @@ function(create_executable target_name sources is_static)
 
     # Link libraries with platform-specific settings
     target_link_libraries(${target_name} PRIVATE ${FINAL_LINK_LIBS})
+
+    # Add the LLVM include directory to the include paths
+    target_include_directories(${target_name} SYSTEM PRIVATE ${LLVM_INCLUDE_DIR})
 
     # For Windows, set the required properties
     if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
