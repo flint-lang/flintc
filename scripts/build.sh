@@ -72,6 +72,8 @@ check_library_requirements() {
     check_lib "libdl.a"
     check_lib "libm.a"
     check_lib "librt.a"
+    [ -n "$(which clang)" ] || err_exit 1 "'clang' C compiler not found"
+    [ -n "$(which clang++)" ] || err_exit 1 "'clang++' C++ compiler not found"
 }
 
 # Builds llvm for windows
@@ -182,6 +184,8 @@ build_llvm_linux() {
         -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
         -DLLVM_ENABLE_PROJECTS="lld" \
+        -DCMAKE_C_COMPILER="clang" \
+        -DCMAKE_CXX_COMPILER="clang++" \
         -DLLVM_TARGET_ARCH=X86 \
         -DLLVM_TARGETS_TO_BUILD=X86 \
         -DLLVM_ENABLE_THREADS=ON \
