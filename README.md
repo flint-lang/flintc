@@ -30,7 +30,7 @@ Currently, only the most basic features are working:
 - `if` chains (`if`, `else if`, `else`)
 - `while` loops
 - `for` loops
-- Creating custom `data` types
+- Creating custom `data` types, also nested data works properly
 - Initialization of custom data types, grouped variable access (`v2.(x, y)`) of custom data types
 - Variables of custom `data` types are _always_ passed by reference to functions
 - With the `mut` keyword, function parameters now can become mutable, both primitive and `data` parameters
@@ -43,6 +43,7 @@ Currently, only the most basic features are working:
 - `bool` variables
 - rectangular n-dimensional arrays (`i32[]`, `i32[,]` ...) and accessing the length(s) via `.length` which returns n `u64` values, one for each dimension length
 - SIMD multi-types such as `i32x2`, `f32x3`, `i64x4`, `bool8`, etc. and native interoperability with groups
+- `enum` type
 
 ## What's not working
 
@@ -50,7 +51,6 @@ Currently, only the most basic features are working:
 - enhanced `for` loops (because DIMA doesnt exist yet)
 - The optional type
 - Custom `error` sets
-- `enum` type
 - `variant` type
 - The pow operator `**`
 - Everything about DIMA (`data` and `entity` types saved in dima blocks)
@@ -59,4 +59,4 @@ Currently, only the most basic features are working:
 
 ## Building
 
-Building is easy. There exists a single `build.sh` script in the `scripts` directory, with many cli options to choose from. Choose what you whish to do and the script will do it for you. The script works independently of the cwd.
+Building is easy. There exists a single `build.sh` script in the `scripts` directory, with many cli options to choose from. Choose what you whish to do and the script will do it for you. You must be in the root directory of the `flintc` repository for the build script to work properly (cause CMake). After compiling the compiler you need `base-devel` (Arch) or `build-essential` (Ubuntu) in order for the Flint compiler to be able to compile any program. It needs the `crt1.o`, `crti.o` and `crtn.o` files available to it.
