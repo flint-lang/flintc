@@ -7,10 +7,6 @@ project(FlintCompiler VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Set the compiler to use clang / clang++
-set(CMAKE_C_COMPILER clang)
-set(CMAKE_CXX_COMPILER clang++)
-
 # Options
 option(BUILD_STATIC "Build a fully static executable" OFF)
 option(DEBUG_MODE "Enable debug build with DEBUG_BUILD definition" OFF)
@@ -212,6 +208,9 @@ if(BUILD_STATIC)
         # For Windows, we use .a with MinGW
         set(CMAKE_FIND_LIBRARY_SUFFIXES ".a;.lib")
 
+        # Add the static flag to the linker
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static" CACHE STRING "static link flag" FORCE)
+
         # Find static zlib for Windows (optional)
         find_library(ZLIB_LIBRARY
             NAMES libz.a z.a zlib.a
@@ -377,11 +376,6 @@ function(create_executable target_name sources is_static)
     if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
         # Set output name with .exe extension explicitly
         set_target_properties(${target_name} PROPERTIES SUFFIX ".exe")
-
-        # Add static flag if needed
-        if(${is_static} AND BUILD_STATIC)
-            set_target_properties(${target_name} PROPERTIES LINK_FLAGS "-static")
-        endif()
     endif()
 endfunction()
 

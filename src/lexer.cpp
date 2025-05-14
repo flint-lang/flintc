@@ -16,12 +16,12 @@
 #include <vector>
 
 bool Lexer::file_exists_and_is_readable(const std::filesystem::path &file_path) {
-    std::ifstream file(file_path);
+    std::ifstream file(file_path.string());
     return file.is_open() && !file.fail();
 }
 
 std::string Lexer::load_file(const std::filesystem::path &file_path) {
-    std::ifstream file(file_path);
+    std::ifstream file(file_path.string());
     if (!file) {
         throw std::runtime_error("Failed to load file " + file_path.string());
     }

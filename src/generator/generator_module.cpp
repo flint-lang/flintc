@@ -307,7 +307,7 @@ void Generator::Module::save_metadata_json_file(int overflow_mode_value, int oob
     }
 
     // Save the main_object_string to the file
-    std::ofstream file_stream(metadata_file);
+    std::ofstream file_stream(metadata_file.string());
     file_stream << main_object_string;
     file_stream.flush();
     file_stream.close();
