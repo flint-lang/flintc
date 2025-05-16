@@ -1,6 +1,4 @@
 def main():
-    for u32 i = 0; i < 3; i++:
-        print($"{i}\n");
-
-    for u32 i = 0; i < 3; i++:
-        print($"{i}\n");
+    i32x2 x2 = (1, 2);
+    (x, y) := x2;
+    print($"x = {x}, y = {y}\n");

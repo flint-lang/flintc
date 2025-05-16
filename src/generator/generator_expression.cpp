@@ -862,8 +862,18 @@ Generator::group_mapping Generator::Expression::generate_type_cast(             
     if (const GroupType *group_type = dynamic_cast<const GroupType *>(type_cast_node->type.get())) {
         const std::vector<std::shared_ptr<Type>> &types = group_type->types;
         if (types.size() > 1) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
+            const MultiType *multi_type = dynamic_cast<const MultiType *>(type_cast_node->expr->type.get());
+            if (multi_type == nullptr) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            assert(expr.size() == 1);
+            llvm::Value *mult_expr = expr.front();
+            expr.clear();
+            for (size_t i = 0; i < multi_type->width; i++) {
+                expr.emplace_back(builder.CreateExtractElement(mult_expr, i, "name"));
+            }
+            return expr;
         }
         to_type = types.front();
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type_cast_node->type.get())) {

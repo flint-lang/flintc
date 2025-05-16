@@ -530,6 +530,42 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
         return std::nullopt;
     }
     const GroupType *group_type = dynamic_cast<const GroupType *>(expression.value()->type.get());
+    if (group_type == nullptr) {
+        // Rhs could be a multi-type
+        const MultiType *multi_type = dynamic_cast<const MultiType *>(expression.value()->type.get());
+        if (multi_type == nullptr) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        for (unsigned int i = 0; i < variables.size(); i++) {
+            variables.at(i).first = multi_type->base_type;
+            if (!scope->add_variable(variables.at(i).second, multi_type->base_type, scope->scope_id, true, false)) {
+                THROW_ERR(                                                                                                               //
+                    ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column, variables.at(i).second //
+                );
+                return std::nullopt;
+            }
+        }
+        std::string group_type_str = "(";
+        for (unsigned int i = 0; i < multi_type->width; i++) {
+            if (i > 0) {
+                group_type_str += ", ";
+            }
+            group_type_str += multi_type->base_type->to_string();
+        }
+        group_type_str += ")";
+        std::optional<std::shared_ptr<Type>> expr_group_type = Type::get_type_from_str(group_type_str);
+        if (!expr_group_type.has_value()) {
+            std::vector<std::shared_ptr<Type>> group_types;
+            for (unsigned int i = 0; i < multi_type->width; i++) {
+                group_types.emplace_back(multi_type->base_type);
+            }
+            expr_group_type.value() = std::make_shared<GroupType>(group_types);
+            Type::add_type(expr_group_type.value());
+        }
+        expression.value() = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
+        return GroupDeclarationNode(variables, expression.value());
+    }
     assert(group_type != nullptr);
     const std::vector<std::shared_ptr<Type>> &types = group_type->types;
     assert(variables.size() == types.size());
@@ -793,9 +829,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
     }
-    // Stacked statements cant be declarations, because sub-elements of a "stack" like `var.field.field` are already declared when one can
-    // write a statement like this. This means the stacked statement is definitely an assignment
-    // First, find the position of the equals sign
+    // Stacked statements cant be declarations, because sub-elements of a "stack" like `var.field.field` are already declared when one
+    // can write a statement like this. This means the stacked statement is definitely an assignment First, find the position of the
+    // equals sign
     auto iterator = tokens.first;
     while (iterator != tokens.second && iterator->type != TOK_EQUAL) {
         ++iterator;

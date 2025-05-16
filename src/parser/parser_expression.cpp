@@ -445,8 +445,9 @@ Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &t
 std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
-    std::optional<uint2> expr_range =
-        Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
+    std::optional<uint2> expr_range = Matcher::balanced_range_extraction(           //
+        tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+    );
     if (!expr_range.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;

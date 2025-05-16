@@ -245,7 +245,7 @@ class Parser {
     /// @brief Map containing the precedences of types. Lower types will always be cast to higher types, if possible.
     ///
     /// This map exists to ensure that in the expression (4 / 2.4) the left side will be implicitely cast to a float, and not the right side
-    /// to an int
+    /// to an int, for example
     static const inline std::unordered_map<std::string_view, unsigned int> type_precedence = {
         {"str", 7},
         {"f64", 6},
