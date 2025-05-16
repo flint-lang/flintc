@@ -12,6 +12,18 @@ void Generator::Module::TypeCast::generate_typecast_functions(llvm::IRBuilder<> 
     generate_u64_to_str(builder, module, only_declarations);
     generate_f32_to_str(builder, module, only_declarations);
     generate_f64_to_str(builder, module, only_declarations);
+    generate_multitype_to_str(builder, module, only_declarations, "i32", 2);
+    generate_multitype_to_str(builder, module, only_declarations, "i32", 3);
+    generate_multitype_to_str(builder, module, only_declarations, "i32", 4);
+    generate_multitype_to_str(builder, module, only_declarations, "i64", 2);
+    generate_multitype_to_str(builder, module, only_declarations, "i64", 3);
+    generate_multitype_to_str(builder, module, only_declarations, "i64", 4);
+    generate_multitype_to_str(builder, module, only_declarations, "f32", 2);
+    generate_multitype_to_str(builder, module, only_declarations, "f32", 3);
+    generate_multitype_to_str(builder, module, only_declarations, "f32", 4);
+    generate_multitype_to_str(builder, module, only_declarations, "f64", 2);
+    generate_multitype_to_str(builder, module, only_declarations, "f64", 3);
+    generate_multitype_to_str(builder, module, only_declarations, "f64", 4);
 }
 
 void Generator::Module::TypeCast::generate_count_digits_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
@@ -149,6 +161,92 @@ void Generator::Module::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builde
     llvm::Value *false_string = IR::generate_const_string(*builder, "false");
     llvm::Value *false_str = builder->CreateCall(init_str_fn, {false_string, builder->getInt64(5)}, "false_str");
     builder->CreateRet(false_str);
+}
+
+void Generator::Module::TypeCast::generate_multitype_to_str( //
+    llvm::IRBuilder<> *builder,                              //
+    llvm::Module *module,                                    //
+    const bool only_declarations,                            //
+    const std::string &type_str,                             //
+    const size_t width                                       //
+) {
+    // There exists no C function because C doesnt have multi-types. For now, we assume that `mult_val` is the passed in multi-value
+    // THE C IMPLEMENTATION:
+    // str *i32x2_to_str(int mult_val[2]) {
+    //     // Create the strings for each value
+    //     str *val_1_str = i32_to_str(mult_val[0]);
+    //     str *val_2_str = i32_to_str(mult_val[1]);
+    //     // Create and fill the result string
+    //     str *i32x2_str = init_str("(", 1);
+    //     append_str(i32x2_str, val_1_str);
+    //     append_lit(i32x2_str, ", ", 2);
+    //     append_str(i32x2_str, val_2_str);
+    //     append_lit(i32_x2_str, ")", 1);
+    //     free(val_1_str);
+    //     free(val_2_str);
+    //     return i32x2_str;
+    // }
+    const std::string multitype_string = type_str + "x" + std::to_string(width);
+    llvm::Type *multi_type = IR::get_type(Type::get_type_from_str(multitype_string).value()).first;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Function *elem_to_str_fn = typecast_functions.at(type_str + "_to_str");
+    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *append_str_fn = String::string_manip_functions.at("append_str");
+    llvm::Function *append_lit_fn = String::string_manip_functions.at("append_lit");
+    llvm::Function *free_fn = c_functions.at(FREE);
+
+    const std::string typecast_function_name = multitype_string + "_to_str";
+    llvm::FunctionType *multitype_to_str_type = llvm::FunctionType::get(str_type->getPointerTo(), {multi_type}, false);
+    llvm::Function *multitype_to_str_fn = llvm::Function::Create(                                           //
+        multitype_to_str_type, llvm::Function::ExternalLinkage, "__flint_" + typecast_function_name, module //
+    );
+    typecast_functions[typecast_function_name] = multitype_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", multitype_to_str_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Get the argument
+    llvm::Argument *arg_mult_val = multitype_to_str_fn->arg_begin();
+    arg_mult_val->setName("mult_val");
+
+    // Create the base strings of the multi-types values
+    std::vector<llvm::Value *> value_strings;
+    for (size_t i = 0; i < width; i++) {
+        llvm::Value *element_value = builder->CreateExtractElement(arg_mult_val, i, "elem_" + std::to_string(i));
+        value_strings.emplace_back(builder->CreateCall(elem_to_str_fn, {element_value}, "elem_" + std::to_string(i) + "_str"));
+    }
+
+    // Create the multi-type string with '(' in it
+    llvm::Value *lparen_chars = IR::generate_const_string(*builder, "(");
+    llvm::AllocaInst *multitype_str_alloca = builder->CreateAlloca(str_type->getPointerTo(), 0, nullptr, "mt_alloca");
+    llvm::Value *multitype_str = builder->CreateCall(init_str_fn, {lparen_chars, builder->getInt64(1)}, multitype_string + "_str");
+    builder->CreateStore(multitype_str, multitype_str_alloca);
+
+    // Fill the multi-type string with the value strings and `, ` separators between them
+    llvm::Value *comma_chars = IR::generate_const_string(*builder, ", ");
+    for (size_t i = 0; i < width; i++) {
+        if (i > 0) {
+            builder->CreateCall(append_lit_fn, {multitype_str_alloca, comma_chars, builder->getInt64(2)});
+        }
+        builder->CreateCall(append_str_fn, {multitype_str_alloca, value_strings[i]});
+    }
+
+    // Append the end of the string with a ')' symbol
+    llvm::Value *rparen_chars = IR::generate_const_string(*builder, ")");
+    builder->CreateCall(append_lit_fn, {multitype_str_alloca, rparen_chars, builder->getInt64(1)});
+
+    // Free the value strings
+    for (size_t i = 0; i < width; i++) {
+        builder->CreateCall(free_fn, {value_strings[i]});
+    }
+
+    // Return the result
+    multitype_str = builder->CreateLoad(str_type->getPointerTo(), multitype_str_alloca);
+    builder->CreateRet(multitype_str);
 }
 
 /******************************************************************************************************************************************

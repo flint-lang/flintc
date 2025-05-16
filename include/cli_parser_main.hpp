@@ -113,18 +113,18 @@ class CLIParserMain : public CLIParserBase {
                 HARD_CRASH = true;
             } else if (arg == "--no-generation") {
                 NO_GENERATION = true;
-            } else if (arg == "--print-ir-print") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PRINT);
-            } else if (arg == "--print-ir-str") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::STR);
-            } else if (arg == "--print-ir-cast") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::CAST);
             } else if (arg == "--print-ir-arithmetic") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
             } else if (arg == "--print-ir-array") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
+            } else if (arg == "--print-ir-print") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PRINT);
             } else if (arg == "--print-ir-read") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::READ);
+            } else if (arg == "--print-ir-str") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::STR);
+            } else if (arg == "--print-ir-cast") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::CAST);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);
@@ -192,12 +192,12 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --no-generation             Disables code generation entirely, the program exits after the parsing phase";
         std::cout << std::endl;
         std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
-        std::cout << "  --print-ir-print            Enables printing of the IR code for the print.o library\n";
-        std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library\n";
-        std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
         std::cout << "  --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
         std::cout << "  --print-ir-array            Enables printing of the IR code for the array.o library\n";
+        std::cout << "  --print-ir-print            Enables printing of the IR code for the print.o library\n";
         std::cout << "  --print-ir-read             Enables printing of the IR code for the read.o library\n";
+        std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library\n";
+        std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
         std::cout << "                              HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used.";
         std::cout << std::endl;
 #endif

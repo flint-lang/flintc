@@ -14,16 +14,28 @@
 #include <string>
 
 void Type::init_types() {
-    get_primitive_type("i32");
+    std::shared_ptr<Type> i32_type = get_primitive_type("i32");
     get_primitive_type("u32");
-    get_primitive_type("i64");
+    std::shared_ptr<Type> i64_type = get_primitive_type("i64");
     get_primitive_type("u64");
-    get_primitive_type("f32");
-    get_primitive_type("f64");
+    std::shared_ptr<Type> f32_type = get_primitive_type("f32");
+    std::shared_ptr<Type> f64_type = get_primitive_type("f64");
     get_primitive_type("bool");
     get_primitive_type("str");
     get_primitive_type("void");
     get_primitive_type("char");
+    add_type(std::make_shared<MultiType>(i32_type, 2));
+    add_type(std::make_shared<MultiType>(i32_type, 3));
+    add_type(std::make_shared<MultiType>(i32_type, 4));
+    add_type(std::make_shared<MultiType>(i64_type, 2));
+    add_type(std::make_shared<MultiType>(i64_type, 3));
+    add_type(std::make_shared<MultiType>(i64_type, 4));
+    add_type(std::make_shared<MultiType>(f32_type, 2));
+    add_type(std::make_shared<MultiType>(f32_type, 3));
+    add_type(std::make_shared<MultiType>(f32_type, 4));
+    add_type(std::make_shared<MultiType>(f64_type, 2));
+    add_type(std::make_shared<MultiType>(f64_type, 3));
+    add_type(std::make_shared<MultiType>(f64_type, 4));
 }
 
 bool Type::add_type(const std::shared_ptr<Type> &type_to_add) {

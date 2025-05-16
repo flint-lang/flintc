@@ -2326,7 +2326,7 @@ class Generator {
             ///
             /// @attention The functions are nullpointers until the `generate_helper_functions` function is called
             /// @attention The map is not being cleared after the program module has been generated
-            static inline std::unordered_map<std::string_view, llvm::Function *> typecast_functions = {
+            static inline std::unordered_map<std::string, llvm::Function *> typecast_functions = {
                 {"count_digits", nullptr},
                 {"i32_to_str", nullptr},
                 {"u32_to_str", nullptr},
@@ -2360,6 +2360,22 @@ class Generator {
             /// @param `module` The LLVM Module the function is generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_multitype_to_str`
+            /// @brief Generates the `typeXwidth_to_str` function which is used to convert multitype values to str values
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module in which the function is generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `type_str` The string of the base type, for example `i32` or `f32`
+            /// @param `width` The width of the multi-type, for example `2` or `4`
+            static void generate_multitype_to_str( //
+                llvm::IRBuilder<> *builder,        //
+                llvm::Module *module,              //
+                const bool only_declarations,      //
+                const std::string &type_str,       //
+                const size_t width                 //
+            );
 
             /**************************************************************************************************************************************
              * @region `I32`
