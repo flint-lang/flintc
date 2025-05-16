@@ -403,11 +403,10 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     llvm::Value *append_pos = builder->CreateGEP(builder->getInt8Ty(), value_ptr, dest_len, "append_pos");
 
     // Get the source data pointer: source->value
-    llvm::Value *source_value_ptr = builder->CreateStructGEP(str_type, arg_source, 1, "source_value_ptr");
-    llvm::Value *source_data = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), source_value_ptr, "source_data");
+    llvm::Value *source_value = builder->CreateStructGEP(str_type, arg_source, 1, "source_value_ptr");
 
     // Call memcpy to append the source string: memcpy(new_dest->value + dest_len, source->value, source_len)
-    builder->CreateCall(memcpy_fn, {append_pos, source_data, source_len}, "memcpy_result");
+    builder->CreateCall(memcpy_fn, {append_pos, source_value, source_len}, "memcpy_result");
 
     // Update the length of the destination string: new_dest->len += source_len
     llvm::Value *new_len = builder->CreateAdd(dest_len, source_len, "new_len");
