@@ -532,8 +532,7 @@ class Matcher {
 
     // --- DEFINITIONS ---
     static const inline PatternPtr use_reference = sequence({
-        one_of({token(TOK_FLINT), token(TOK_IDENTIFIER)}),              //
-        zero_or_more(sequence({token(TOK_DOT), token(TOK_IDENTIFIER)})) //
+        token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_DOT), token(TOK_IDENTIFIER)})) //
     });
     static const inline PatternPtr use_statement = sequence({token(TOK_USE), one_of({token(TOK_STR_VALUE), use_reference})});
     static const inline PatternPtr function_definition = sequence({

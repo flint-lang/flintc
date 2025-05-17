@@ -1,3 +1,6 @@
+use "tests/assert.ft" as ass
+use Core.read as r
+
 def main():
     i32x2 ix2 = (1, 2);
     print($"ix2 = {ix2}\n");

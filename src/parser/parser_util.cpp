@@ -31,15 +31,20 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             THROW_ERR(ErrUseStatementNotAtTopLevel, ERR_PARSING, file_name, definition_tokens);
             return false;
         }
-        ImportNode import_node = create_import(definition_tokens);
+        std::optional<ImportNode> import_node = create_import(definition_tokens);
+        if (!import_node.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
         for (const auto &imported_file : imported_files) {
-            if (imported_file->path == import_node.path) {
-                // The same use statemnt was written twice in the same file
+            if (imported_file->path == import_node.value().path) {
+                // The same use statement was written twice in the same file
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
         }
-        ImportNode *added_import = file_node.add_import(import_node);
+        // TODO: Check if the given alias is already taken
+        ImportNode *added_import = file_node.add_import(import_node.value());
         imported_files.emplace_back(added_import);
         return true;
     }

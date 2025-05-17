@@ -557,29 +557,49 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     return TestNode(file_name, test_name, body_scope);
 }
 
-ImportNode Parser::create_import(const token_slice &tokens) {
+std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
     std::variant<std::string, std::vector<std::string>> import_path;
+    std::optional<std::string> alias;
+    token_list toks = clone_from_slice(tokens);
 
+    auto iterator = tokens.first;
     if (Matcher::tokens_contain(tokens, Matcher::token(TOK_STR_VALUE))) {
-        for (auto tok = tokens.first; tok != tokens.second; ++tok) {
-            if (tok->type == TOK_STR_VALUE) {
-                import_path = tok->lexme;
+        for (; iterator != tokens.second; ++iterator) {
+            if (iterator->type == TOK_STR_VALUE) {
+                import_path = iterator->lexme;
+                ++iterator;
                 break;
             }
         }
     } else {
-        const auto matches = Matcher::get_match_ranges(tokens, Matcher::use_reference).at(0);
+        const auto matches = Matcher::get_match_ranges(tokens, Matcher::use_reference).front();
         std::vector<std::string> path;
-        if ((tokens.first + matches.first)->type == TOK_FLINT) {
-            path.emplace_back("flint");
-        }
         for (unsigned int i = matches.first; i < matches.second; i++) {
             if ((tokens.first + i)->type == TOK_IDENTIFIER) {
                 path.emplace_back((tokens.first + i)->lexme);
             }
         }
+        if (path.empty()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        iterator = tokens.first + matches.second;
         import_path = path;
     }
 
-    return ImportNode(import_path);
+    // Check if an alias follows
+    if (iterator->type == TOK_AS) {
+        ++iterator;
+        if (iterator == tokens.second) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (iterator->type != TOK_IDENTIFIER) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        alias = iterator->lexme;
+    }
+
+    return ImportNode(import_path, alias);
 }

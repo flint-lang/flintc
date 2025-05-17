@@ -951,11 +951,15 @@ namespace Debug {
                 auto iterator = path_vector.begin();
                 while (iterator != path_vector.end()) {
                     if (iterator != path_vector.begin()) {
-                        std::cout << "::";
+                        std::cout << ".";
                     }
                     std::cout << *iterator;
                     ++iterator;
                 }
+            }
+
+            if (import.alias.has_value()) {
+                std::cout << " as " << import.alias.value();
             }
 
             std::cout << std::endl;

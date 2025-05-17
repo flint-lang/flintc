@@ -1075,8 +1075,8 @@ class Parser {
     /// @brief Creates an ImportNode from the given list of tokens
     ///
     /// @param `tokens` The list of tokens containing the import node
-    /// @return `ImportNode` The created ImportNode
-    ImportNode create_import(const token_slice &tokens);
+    /// @return `std::optional<ImportNode>` The created ImportNode, nullopt if its creation failed
+    std::optional<ImportNode> create_import(const token_slice &tokens);
 
     /**************************************************************************************************************************************
      * @region `Definition` END
