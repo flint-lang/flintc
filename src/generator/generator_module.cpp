@@ -92,7 +92,6 @@ bool Generator::Module::generate_modules() {
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("arithmetic", context);
         Builtin::generate_c_functions(module.get());
-        Print::generate_print_functions(builder.get(), module.get(), true);
         Arithmetic::generate_arithmetic_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
@@ -115,7 +114,6 @@ bool Generator::Module::generate_modules() {
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("array", context);
         Builtin::generate_c_functions(module.get());
-        Print::generate_print_functions(builder.get(), module.get(), true);
         Array::generate_array_manip_functions(builder.get(), module.get(), false);
 
         // Print the module, if requested
@@ -138,7 +136,6 @@ bool Generator::Module::generate_modules() {
         builder = std::make_unique<llvm::IRBuilder<>>(context);
         module = std::make_unique<llvm::Module>("read", context);
         Builtin::generate_c_functions(module.get());
-        Print::generate_print_functions(builder.get(), module.get(), true);
         String::generate_string_manip_functions(builder.get(), module.get(), true);
         Read::generate_read_functions(builder.get(), module.get(), false);
 

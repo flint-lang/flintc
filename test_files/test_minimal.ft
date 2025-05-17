@@ -1,8 +1,13 @@
-use "tests/assert.ft" as ass
-use Core.read as r
+use "tests/assert.ft"
+
+use Core.print
+use Core.read
 
 def main():
     i32x2 ix2 = (1, 2);
     print($"ix2 = {ix2}\n");
     f32x3 fx3 = (2.2, 3.3, 4.4);
     print($"fx3 = {fx3}\n");
+    print("Enter a whole number: ");
+    i32 input = read_i32();
+    print($"input = {input}\n");

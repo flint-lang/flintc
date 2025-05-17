@@ -7,62 +7,64 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions(llvm::IRBuilde
         // Generate no arithmetic functions for the unsafe mode, as they are never called in unsafe mode annyway
         return;
     }
+    llvm::Type *i32_type = llvm::Type::getInt32Ty(context);
+    llvm::Type *i64_type = llvm::Type::getInt64Ty(context);
     // i32 functions
-    generate_int_safe_add(builder, module, only_declarations, builder->getInt32Ty(), "i32");
-    generate_int_safe_sub(builder, module, only_declarations, builder->getInt32Ty(), "i32");
-    generate_int_safe_mul(builder, module, only_declarations, builder->getInt32Ty(), "i32");
-    generate_int_safe_div(builder, module, only_declarations, builder->getInt32Ty(), "i32");
+    generate_int_safe_add(builder, module, only_declarations, i32_type, "i32");
+    generate_int_safe_sub(builder, module, only_declarations, i32_type, "i32");
+    generate_int_safe_mul(builder, module, only_declarations, i32_type, "i32");
+    generate_int_safe_div(builder, module, only_declarations, i32_type, "i32");
     // i64 functions
-    generate_int_safe_add(builder, module, only_declarations, builder->getInt64Ty(), "i64");
-    generate_int_safe_sub(builder, module, only_declarations, builder->getInt64Ty(), "i64");
-    generate_int_safe_mul(builder, module, only_declarations, builder->getInt64Ty(), "i64");
-    generate_int_safe_div(builder, module, only_declarations, builder->getInt64Ty(), "i64");
+    generate_int_safe_add(builder, module, only_declarations, i64_type, "i64");
+    generate_int_safe_sub(builder, module, only_declarations, i64_type, "i64");
+    generate_int_safe_mul(builder, module, only_declarations, i64_type, "i64");
+    generate_int_safe_div(builder, module, only_declarations, i64_type, "i64");
     // u32 functions
-    generate_uint_safe_add(builder, module, only_declarations, builder->getInt32Ty(), "u32");
-    generate_uint_safe_sub(builder, module, only_declarations, builder->getInt32Ty(), "u32");
-    generate_uint_safe_mul(builder, module, only_declarations, builder->getInt32Ty(), "u32");
-    generate_uint_safe_div(builder, module, only_declarations, builder->getInt32Ty(), "u32");
+    generate_uint_safe_add(builder, module, only_declarations, i32_type, "u32");
+    generate_uint_safe_sub(builder, module, only_declarations, i32_type, "u32");
+    generate_uint_safe_mul(builder, module, only_declarations, i32_type, "u32");
+    generate_uint_safe_div(builder, module, only_declarations, i32_type, "u32");
     // u64 functions
-    generate_uint_safe_add(builder, module, only_declarations, builder->getInt64Ty(), "u64");
-    generate_uint_safe_sub(builder, module, only_declarations, builder->getInt64Ty(), "u64");
-    generate_uint_safe_mul(builder, module, only_declarations, builder->getInt64Ty(), "u64");
-    generate_uint_safe_div(builder, module, only_declarations, builder->getInt64Ty(), "u64");
+    generate_uint_safe_add(builder, module, only_declarations, i64_type, "u64");
+    generate_uint_safe_sub(builder, module, only_declarations, i64_type, "u64");
+    generate_uint_safe_mul(builder, module, only_declarations, i64_type, "u64");
+    generate_uint_safe_div(builder, module, only_declarations, i64_type, "u64");
 
     // i32x2 functions
-    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
-    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
-    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
-    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 2, false), 2, "i32x2");
+    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "i32x2");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "i32x2");
+    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "i32x2");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "i32x2");
     // i32x3 functions
-    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
-    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
-    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
-    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 3, false), 3, "i32x3");
+    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 3, false), 3, "i32x3");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i32_type, 3, false), 3, "i32x3");
+    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i32_type, 3, false), 3, "i32x3");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i32_type, 3, false), 3, "i32x3");
     // i32x4 functions
-    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
-    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
-    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
-    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 4, false), 4, "i32x4");
+    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 4, false), 4, "i32x4");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i32_type, 4, false), 4, "i32x4");
+    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i32_type, 4, false), 4, "i32x4");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i32_type, 4, false), 4, "i32x4");
     // i32x8 functions
-    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
-    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
-    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
-    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt32Ty(), 8, false), 8, "i32x8");
+    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 8, false), 8, "i32x8");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i32_type, 8, false), 8, "i32x8");
+    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i32_type, 8, false), 8, "i32x8");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i32_type, 8, false), 8, "i32x8");
     // i64x2 functions
-    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
-    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
-    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
-    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 2, false), 2, "i64x2");
+    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i64_type, 2, false), 2, "i64x2");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i64_type, 2, false), 2, "i64x2");
+    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i64_type, 2, false), 2, "i64x2");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i64_type, 2, false), 2, "i64x2");
     // i64x3 functions
-    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
-    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
-    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
-    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 3, false), 3, "i64x3");
+    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i64_type, 3, false), 3, "i64x3");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i64_type, 3, false), 3, "i64x3");
+    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i64_type, 3, false), 3, "i64x3");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i64_type, 3, false), 3, "i64x3");
     // i64x4 functions
-    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
-    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
-    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
-    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(builder->getInt64Ty(), 4, false), 4, "i64x4");
+    generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i64_type, 4, false), 4, "i64x4");
+    generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i64_type, 4, false), 4, "i64x4");
+    generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i64_type, 4, false), 4, "i64x4");
+    generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i64_type, 4, false), 4, "i64x4");
 }
 
 void Generator::Module::Arithmetic::generate_int_safe_add( //
@@ -145,7 +147,7 @@ void Generator::Module::Arithmetic::generate_int_safe_add( //
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " add overflow caught\n");
         llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " add underflow caught\n");
         llvm::Value *message = builder->CreateSelect(overflow_happened, overflow_message, underflow_message);
-        builder->CreateCall(builtins.at(PRINT), {message});
+        builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
             default:
                 assert(false && "Not allowed overflow mode in 'generate_int_safe_add'");
@@ -247,7 +249,7 @@ void Generator::Module::Arithmetic::generate_int_safe_sub( //
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " sub overflow caught\n");
         llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " sub underflow caught\n");
         llvm::Value *message = builder->CreateSelect(overflow_happened, overflow_message, underflow_message);
-        builder->CreateCall(builtins.at(PRINT), {message});
+        builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
             default:
                 assert(false && "Not allowed overflow mode in 'generate_int_safe_sub'");
@@ -341,7 +343,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mul overflow caught\n");
         llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " mul underflow caught\n");
         llvm::Value *message = builder->CreateSelect(use_max, overflow_message, underflow_message);
-        builder->CreateCall(builtins.at(PRINT), {message});
+        builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
             default:
                 assert(false && "Not allowed overflow mode in 'generate_int_safe_mul'");
@@ -429,7 +431,7 @@ void Generator::Module::Arithmetic::generate_int_safe_div( //
         llvm::Value *div_zero_message = IR::generate_const_string(*builder, name + " division by zero caught\n");
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " division overflow caught\n");
         llvm::Value *message = builder->CreateSelect(div_by_zero, div_zero_message, overflow_message);
-        builder->CreateCall(builtins.at(PRINT), {message});
+        builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
             default:
                 assert(false && "Not allowed overflow mode in 'generate_int_safe_div'");
@@ -505,7 +507,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_add( //
 
         builder->SetInsertPoint(overflow_block);
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " add overflow caught\n");
-        builder->CreateCall(builtins.at(PRINT), {overflow_message});
+        builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
                 assert(false && "Not allowed overflow mode in 'generate_uint_safe_add'");
@@ -582,7 +584,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_sub( //
 
         builder->SetInsertPoint(underflow_block);
         llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " sub underflow caught\n");
-        builder->CreateCall(builtins.at(PRINT), {underflow_message});
+        builder->CreateCall(c_functions.at(PRINTF), {underflow_message});
         switch (overflow_mode) {
             default:
                 assert(false && "Not allowed overflow mode in 'generate_uint_safe_sub'");
@@ -665,7 +667,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
 
         builder->SetInsertPoint(overflow_block);
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mul overflow caught\n");
-        builder->CreateCall(builtins.at(PRINT), {overflow_message});
+        builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
                 assert(false && "Not allowed overflow mode in 'generate_uint_safe_mul'");
@@ -742,7 +744,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_div( //
 
         builder->SetInsertPoint(error_block);
         llvm::Value *div_zero_message = IR::generate_const_string(*builder, name + " division by zero caught\n");
-        builder->CreateCall(builtins.at(PRINT), {div_zero_message});
+        builder->CreateCall(c_functions.at(PRINTF), {div_zero_message});
         switch (overflow_mode) {
             default:
                 assert(false && "Not allowed overflow mode in 'generate_uint_safe_div'");
@@ -874,7 +876,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
         llvm::Value *any_pos_overflow = builder->CreateCall(reduce_or_fn_pos, {pos_overflow}, "any_pos_overflow");
 
         llvm::Value *message = builder->CreateSelect(any_pos_overflow, overflow_message, underflow_message);
-        builder->CreateCall(builtins.at(PRINT), {message});
+        builder->CreateCall(c_functions.at(PRINTF), {message});
 
         switch (overflow_mode) {
             default:
@@ -1009,7 +1011,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
         llvm::Value *any_pos_overflow = builder->CreateCall(reduce_or_fn_pos, {pos_overflow}, "any_pos_overflow");
 
         llvm::Value *message = builder->CreateSelect(any_pos_overflow, overflow_message, underflow_message);
-        builder->CreateCall(builtins.at(PRINT), {message});
+        builder->CreateCall(c_functions.at(PRINTF), {message});
 
         switch (overflow_mode) {
             default:
@@ -1134,7 +1136,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
         llvm::Value *any_use_max = builder->CreateCall(reduce_or_fn_max, {use_max}, "any_use_max");
 
         llvm::Value *message = builder->CreateSelect(any_use_max, overflow_message, underflow_message);
-        builder->CreateCall(builtins.at(PRINT), {message});
+        builder->CreateCall(c_functions.at(PRINTF), {message});
 
         switch (overflow_mode) {
             default:
@@ -1248,7 +1250,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
         llvm::Value *any_div_by_zero = builder->CreateCall(reduce_or_fn_zero, {div_by_zero}, "any_div_by_zero");
 
         llvm::Value *message = builder->CreateSelect(any_div_by_zero, div_zero_message, overflow_message);
-        builder->CreateCall(builtins.at(PRINT), {message});
+        builder->CreateCall(c_functions.at(PRINTF), {message});
 
         switch (overflow_mode) {
             default:

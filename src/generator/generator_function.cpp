@@ -37,7 +37,11 @@ llvm::FunctionType *Generator::Function::generate_function_type(FunctionNode *fu
     return function_type;
 }
 
-bool Generator::Function::generate_function(llvm::Module *module, FunctionNode *function_node) {
+bool Generator::Function::generate_function(                                        //
+    llvm::Module *module,                                                           //
+    FunctionNode *function_node,                                                    //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
+) {
     llvm::FunctionType *function_type = generate_function_type(function_node);
 
     // Creating the function itself
@@ -67,16 +71,16 @@ bool Generator::Function::generate_function(llvm::Module *module, FunctionNode *
     // The key is a combination of the scope id and the variable name, e.g. 1::var1, 2::var2
     std::unordered_map<std::string, llvm::Value *const> allocations;
     Allocation::generate_function_allocations(builder, function, allocations, function_node);
-    Allocation::generate_allocations(builder, function, function_node->scope.get(), allocations);
+    Allocation::generate_allocations(builder, function, function_node->scope.get(), allocations, imported_core_modules);
 
     // Generate all instructions of the functions body
-    if (!Statement::generate_body(builder, function, function_node->scope.get(), allocations)) {
+    if (!Statement::generate_body(builder, function, function_node->scope.get(), allocations, imported_core_modules)) {
         return false;
     }
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (!function->empty() && function->back().getTerminator() == nullptr) {
-        if (!Statement::generate_return_statement(builder, function, function_node->scope.get(), allocations, {})) {
+        if (!Statement::generate_return_statement(builder, function, function_node->scope.get(), allocations, imported_core_modules, {})) {
             return false;
         }
     }
@@ -84,7 +88,11 @@ bool Generator::Function::generate_function(llvm::Module *module, FunctionNode *
     return true;
 }
 
-std::optional<llvm::Function *> Generator::Function::generate_test_function(llvm::Module *module, const TestNode *test_node) {
+std::optional<llvm::Function *> Generator::Function::generate_test_function(        //
+    llvm::Module *module,                                                           //
+    const TestNode *test_node,                                                      //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
+) {
     llvm::StructType *void_type = IR::add_and_or_get_type({});
 
     // Create the function type
@@ -111,15 +119,15 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(llvm
     // The test function has no parameters when called, it just returns whether it has succeeded through the error value
     llvm::IRBuilder<> builder(entry_block);
     std::unordered_map<std::string, llvm::Value *const> allocations;
-    Allocation::generate_allocations(builder, test_function, test_node->scope.get(), allocations);
+    Allocation::generate_allocations(builder, test_function, test_node->scope.get(), allocations, imported_core_modules);
     // Normally generate the tests body
-    if (!Statement::generate_body(builder, test_function, test_node->scope.get(), allocations)) {
+    if (!Statement::generate_body(builder, test_function, test_node->scope.get(), allocations, imported_core_modules)) {
         return std::nullopt;
     }
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (!test_function->empty() && test_function->back().getTerminator() == nullptr) {
-        if (!Statement::generate_return_statement(builder, test_function, test_node->scope.get(), allocations, {})) {
+        if (!Statement::generate_return_statement(builder, test_function, test_node->scope.get(), allocations, imported_core_modules, {})) {
             return std::nullopt;
         }
     }

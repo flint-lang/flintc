@@ -1,6 +1,7 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
+#include "lexer/builtins.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/statements/call_node_statement.hpp"
@@ -13,47 +14,50 @@
 #include <llvm/IR/Metadata.h>
 #include <string>
 
-bool Generator::Statement::generate_statement(                        //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const std::unique_ptr<StatementNode> &statement                   //
+bool Generator::Statement::generate_statement(                                       //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const std::unique_ptr<StatementNode> &statement                                  //
 ) {
     if (const auto *call_node = dynamic_cast<const CallNodeStatement *>(statement.get())) {
-        group_mapping gm = Expression::generate_call(builder, parent, scope, allocations, dynamic_cast<const CallNodeBase *>(call_node));
+        group_mapping gm = Expression::generate_call(                                                                 //
+            builder, parent, scope, allocations, imported_core_modules, dynamic_cast<const CallNodeBase *>(call_node) //
+        );
         return gm.has_value();
     } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
-        return generate_return_statement(builder, parent, scope, allocations, return_node);
+        return generate_return_statement(builder, parent, scope, allocations, imported_core_modules, return_node);
     } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement.get())) {
         std::vector<llvm::BasicBlock *> blocks;
-        return generate_if_statement(builder, parent, allocations, blocks, 0, if_node);
+        return generate_if_statement(builder, parent, allocations, imported_core_modules, blocks, 0, if_node);
     } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement.get())) {
-        return generate_while_loop(builder, parent, allocations, while_node);
+        return generate_while_loop(builder, parent, allocations, imported_core_modules, while_node);
     } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
-        return generate_for_loop(builder, parent, allocations, for_node);
+        return generate_for_loop(builder, parent, allocations, imported_core_modules, for_node);
     } else if (const auto *group_assignment_node = dynamic_cast<const GroupAssignmentNode *>(statement.get())) {
-        return generate_group_assignment(builder, parent, scope, allocations, group_assignment_node);
+        return generate_group_assignment(builder, parent, scope, allocations, imported_core_modules, group_assignment_node);
     } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement.get())) {
-        return generate_assignment(builder, parent, scope, allocations, assignment_node);
+        return generate_assignment(builder, parent, scope, allocations, imported_core_modules, assignment_node);
     } else if (const auto *group_declaration_node = dynamic_cast<const GroupDeclarationNode *>(statement.get())) {
-        return generate_group_declaration(builder, parent, scope, allocations, group_declaration_node);
+        return generate_group_declaration(builder, parent, scope, allocations, imported_core_modules, group_declaration_node);
     } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement.get())) {
-        return generate_declaration(builder, parent, scope, allocations, declaration_node);
+        return generate_declaration(builder, parent, scope, allocations, imported_core_modules, declaration_node);
     } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement.get())) {
-        return generate_throw_statement(builder, parent, scope, allocations, throw_node);
+        return generate_throw_statement(builder, parent, scope, allocations, imported_core_modules, throw_node);
     } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
-        return generate_catch_statement(builder, parent, allocations, catch_node);
+        return generate_catch_statement(builder, parent, allocations, imported_core_modules, catch_node);
     } else if (const auto *unary_node = dynamic_cast<const UnaryOpStatement *>(statement.get())) {
         return generate_unary_op_statement(builder, scope, allocations, unary_node);
     } else if (const auto *field_assignment_node = dynamic_cast<const DataFieldAssignmentNode *>(statement.get())) {
-        return generate_data_field_assignment(builder, parent, scope, allocations, field_assignment_node);
+        return generate_data_field_assignment(builder, parent, scope, allocations, imported_core_modules, field_assignment_node);
     } else if (const auto *grouped_assignment_node = dynamic_cast<const GroupedDataFieldAssignmentNode *>(statement.get())) {
-        return generate_grouped_data_field_assignment(builder, parent, scope, allocations, grouped_assignment_node);
+        return generate_grouped_data_field_assignment(builder, parent, scope, allocations, imported_core_modules, grouped_assignment_node);
     } else if (const auto *array_assignment_node = dynamic_cast<const ArrayAssignmentNode *>(statement.get())) {
-        return generate_array_assignment(builder, parent, scope, allocations, array_assignment_node);
+        return generate_array_assignment(builder, parent, scope, allocations, imported_core_modules, array_assignment_node);
     } else if (const auto *stacked_assignment_node = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
-        return generate_stacked_assignment(builder, parent, scope, allocations, stacked_assignment_node);
+        return generate_stacked_assignment(builder, parent, scope, allocations, imported_core_modules, stacked_assignment_node);
     } else {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -107,15 +111,16 @@ bool Generator::Statement::clear_garbage(                                       
     return true;
 }
 
-bool Generator::Statement::generate_body(                            //
-    llvm::IRBuilder<> &builder,                                      //
-    llvm::Function *parent,                                          //
-    const Scope *scope,                                              //
-    std::unordered_map<std::string, llvm::Value *const> &allocations //
+bool Generator::Statement::generate_body(                                           //
+    llvm::IRBuilder<> &builder,                                                     //
+    llvm::Function *parent,                                                         //
+    const Scope *scope,                                                             //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,               //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
 ) {
     bool success = true;
     for (const auto &statement : scope->body) {
-        success &= generate_statement(builder, parent, scope, allocations, statement);
+        success &= generate_statement(builder, parent, scope, allocations, imported_core_modules, statement);
     }
     if (!success) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -231,12 +236,13 @@ bool Generator::Statement::generate_data_cleanup( //
     return true;
 }
 
-bool Generator::Statement::generate_return_statement(                 //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const ReturnNode *return_node                                     //
+bool Generator::Statement::generate_return_statement(                                //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const ReturnNode *return_node                                                    //
 ) {
     // Get the return type of the function
     auto *return_struct_type = llvm::cast<llvm::StructType>(parent->getReturnType());
@@ -257,8 +263,8 @@ bool Generator::Statement::generate_return_statement(                 //
     if (return_node != nullptr && return_node->return_value.has_value()) {
         // Generate the expression for the return value
         std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-        auto return_value = Expression::generate_expression(                                         //
-            builder, parent, scope, allocations, garbage, 0, return_node->return_value.value().get() //
+        auto return_value = Expression::generate_expression(                                                                //
+            builder, parent, scope, allocations, imported_core_modules, garbage, 0, return_node->return_value.value().get() //
         );
 
         // Ensure the return value matches the function's return type
@@ -311,12 +317,13 @@ bool Generator::Statement::generate_return_statement(                 //
     return true;
 }
 
-bool Generator::Statement::generate_throw_statement(                  //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const ThrowNode *throw_node                                       //
+bool Generator::Statement::generate_throw_statement(                                 //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const ThrowNode *throw_node                                                      //
 ) {
     // Get the return type of the function
     auto *throw_struct_type = llvm::cast<llvm::StructType>(parent->getReturnType());
@@ -331,8 +338,10 @@ bool Generator::Statement::generate_throw_statement(                  //
     llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
     // Generate the expression right of the throw statement, it has to be of type int
     std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    llvm::Value *err_value =
-        Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, throw_node->throw_value.get()).value().at(0);
+    auto expr_result = Expression::generate_expression(                                                       //
+        builder, parent, scope, allocations, imported_core_modules, garbage, 0, throw_node->throw_value.get() //
+    );
+    llvm::Value *err_value = expr_result.value().front();
     // Store the error value in the struct
     builder.CreateStore(err_value, error_ptr);
 
@@ -414,13 +423,14 @@ void Generator::Statement::generate_if_blocks( //
     blocks.push_back(llvm::BasicBlock::Create(context, "merge", parent));
 }
 
-bool Generator::Statement::generate_if_statement(                     //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    std::vector<llvm::BasicBlock *> &blocks,                          //
-    unsigned int nesting_level,                                       //
-    const IfNode *if_node                                             //
+bool Generator::Statement::generate_if_statement(                                    //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    std::vector<llvm::BasicBlock *> &blocks,                                         //
+    unsigned int nesting_level,                                                      //
+    const IfNode *if_node                                                            //
 ) {
     if (if_node == nullptr || if_node->condition == nullptr) {
         // Invalid IfNode: missing condition
@@ -447,7 +457,7 @@ bool Generator::Statement::generate_if_statement(                     //
     std::optional<std::vector<llvm::Value *>> condition_arr = Expression::generate_expression( //
         builder, parent,                                                                       //
         if_node->then_scope->parent_scope,                                                     //
-        allocations, garbage, 0,                                                               //
+        allocations, imported_core_modules, garbage, 0,                                        //
         if_node->condition.get()                                                               //
     );
     if (!condition_arr.has_value()) {
@@ -478,7 +488,7 @@ bool Generator::Statement::generate_if_statement(                     //
 
     // Generate then branch
     builder.SetInsertPoint(blocks[then_idx]);
-    if (!generate_body(builder, parent, if_node->then_scope.get(), allocations)) {
+    if (!generate_body(builder, parent, if_node->then_scope.get(), allocations, imported_core_modules)) {
         return false;
     }
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
@@ -496,6 +506,7 @@ bool Generator::Statement::generate_if_statement(                     //
                     builder,                                            //
                     parent,                                             //
                     allocations,                                        //
+                    imported_core_modules,                              //
                     blocks,                                             //
                     nesting_level + 1,                                  //
                     std::get<std::unique_ptr<IfNode>>(else_scope).get() //
@@ -508,7 +519,7 @@ bool Generator::Statement::generate_if_statement(                     //
             const auto &last_else_scope = std::get<std::unique_ptr<Scope>>(else_scope);
             if (!last_else_scope->body.empty()) {
                 builder.SetInsertPoint(blocks[next_idx]);
-                if (!generate_body(builder, parent, last_else_scope.get(), allocations)) {
+                if (!generate_body(builder, parent, last_else_scope.get(), allocations, imported_core_modules)) {
                     return false;
                 }
                 if (builder.GetInsertBlock()->getTerminator() == nullptr) {
@@ -526,11 +537,12 @@ bool Generator::Statement::generate_if_statement(                     //
     return true;
 }
 
-bool Generator::Statement::generate_while_loop(                       //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const WhileNode *while_node                                       //
+bool Generator::Statement::generate_while_loop(                                      //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const WhileNode *while_node                                                      //
 ) {
     // Get the current block, we need to add a branch instruction to this block to point to the while condition block
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
@@ -554,7 +566,7 @@ bool Generator::Statement::generate_while_loop(                       //
     std::optional<std::vector<llvm::Value *>> expression_arr = Expression::generate_expression( //
         builder, parent,                                                                        //
         while_node->scope->get_parent(),                                                        //
-        allocations, garbage, 0,                                                                //
+        allocations, imported_core_modules, garbage, 0,                                         //
         while_node->condition.get()                                                             //
     );
     llvm::Value *expression = expression_arr.value().at(0);
@@ -570,7 +582,7 @@ bool Generator::Statement::generate_while_loop(                       //
 
     // Create the while block's body
     builder.SetInsertPoint(while_blocks[1]);
-    if (!generate_body(builder, parent, while_node->scope.get(), allocations)) {
+    if (!generate_body(builder, parent, while_node->scope.get(), allocations, imported_core_modules)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -584,17 +596,18 @@ bool Generator::Statement::generate_while_loop(                       //
     return true;
 }
 
-bool Generator::Statement::generate_for_loop(                         //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const ForLoopNode *for_node                                       //
+bool Generator::Statement::generate_for_loop(                                        //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const ForLoopNode *for_node                                                      //
 ) {
     // Get the current block, we need to add a branch instruction to this block to point to the while condition block
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
 
     // Generate the instructions from the definition scope (it should only contain the initializer statement, for example 'i32 i = 0')
-    if (!generate_body(builder, parent, for_node->definition_scope.get(), allocations)) {
+    if (!generate_body(builder, parent, for_node->definition_scope.get(), allocations, imported_core_modules)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -609,7 +622,7 @@ bool Generator::Statement::generate_for_loop(                         //
 
     // Create the branch instruction in the predecessor block to point to the for_cond block
     builder.SetInsertPoint(pred_block);
-    if (!generate_body(builder, parent, for_node->definition_scope.get(), allocations)) {
+    if (!generate_body(builder, parent, for_node->definition_scope.get(), allocations, imported_core_modules)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -623,7 +636,7 @@ bool Generator::Statement::generate_for_loop(                         //
     std::optional<std::vector<llvm::Value *>> expression_arr = Expression::generate_expression( //
         builder, parent,                                                                        //
         for_node->definition_scope.get(),                                                       //
-        allocations, garbage, 0,                                                                //
+        allocations, imported_core_modules, garbage, 0,                                         //
         for_node->condition.get()                                                               //
     );
     llvm::Value *expression = expression_arr.value().at(0); // Conditions only are allowed to have one type, bool
@@ -639,7 +652,7 @@ bool Generator::Statement::generate_for_loop(                         //
 
     // Create the while block's body
     builder.SetInsertPoint(for_blocks[1]);
-    if (!generate_body(builder, parent, for_node->body.get(), allocations)) {
+    if (!generate_body(builder, parent, for_node->body.get(), allocations, imported_core_modules)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -656,11 +669,12 @@ bool Generator::Statement::generate_for_loop(                         //
     return true;
 }
 
-bool Generator::Statement::generate_catch_statement(                  //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const CatchNode *catch_node                                       //
+bool Generator::Statement::generate_catch_statement(                                 //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const CatchNode *catch_node                                                      //
 ) {
     // The catch statement is basically just an if check if the err value of the function return is != 0 or not
     const std::optional<CallNodeBase *> call_node = Parser::get_call_from_id(catch_node->call_id);
@@ -729,7 +743,7 @@ bool Generator::Statement::generate_catch_statement(                  //
 
     // Generate the body of the catch block
     builder.SetInsertPoint(catch_block);
-    if (!generate_body(builder, parent, catch_node->scope.get(), allocations)) {
+    if (!generate_body(builder, parent, catch_node->scope.get(), allocations, imported_core_modules)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -749,15 +763,18 @@ bool Generator::Statement::generate_catch_statement(                  //
     return true;
 }
 
-bool Generator::Statement::generate_group_declaration(                //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const GroupDeclarationNode *declaration_node                      //
+bool Generator::Statement::generate_group_declaration(                               //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const GroupDeclarationNode *declaration_node                                     //
 ) {
     std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    auto expression = Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, declaration_node->initializer.get());
+    auto expression = Expression::generate_expression(                                                              //
+        builder, parent, scope, allocations, imported_core_modules, garbage, 0, declaration_node->initializer.get() //
+    );
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -784,12 +801,13 @@ bool Generator::Statement::generate_group_declaration(                //
     return true;
 }
 
-bool Generator::Statement::generate_declaration(                      //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const DeclarationNode *declaration_node                           //
+bool Generator::Statement::generate_declaration(                                     //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const DeclarationNode *declaration_node                                          //
 ) {
     const unsigned int scope_id = std::get<1>(scope->variables.at(declaration_node->name));
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + declaration_node->name;
@@ -798,8 +816,9 @@ bool Generator::Statement::generate_declaration(                      //
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
         std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-        auto expr_val = Expression::generate_expression( //
-            builder, parent, scope, allocations, garbage, 0, declaration_node->initializer.value().get());
+        auto expr_val = Expression::generate_expression(                                                                        //
+            builder, parent, scope, allocations, imported_core_modules, garbage, 0, declaration_node->initializer.value().get() //
+        );
         if (!expr_val.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
@@ -886,49 +905,18 @@ bool Generator::Statement::generate_declaration(                      //
     return true;
 }
 
-bool Generator::Statement::generate_group_assignment(                 //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const GroupAssignmentNode *group_assignment                       //
+bool Generator::Statement::generate_assignment(                                      //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const AssignmentNode *assignment_node                                            //
 ) {
     std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    auto expression = Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, group_assignment->expression.get());
-    if (!expression.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-
-    // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
-    if (garbage.count(0) > 0) {
-        garbage.at(0).clear();
-    }
-    if (!clear_garbage(builder, garbage)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-
-    unsigned int elem_idx = 0;
-    for (const auto &assign : group_assignment->assignees) {
-        const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + assign.second;
-        llvm::Value *const alloca = allocations.at(var_name);
-        llvm::Value *elem_value = expression.value().at(elem_idx);
-        builder.CreateStore(elem_value, alloca);
-        elem_idx++;
-    }
-    return true;
-}
-
-bool Generator::Statement::generate_assignment(                       //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const AssignmentNode *assignment_node                             //
-) {
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    auto expr = Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, assignment_node->expression.get());
+    auto expr = Expression::generate_expression(                                                                  //
+        builder, parent, scope, allocations, imported_core_modules, garbage, 0, assignment_node->expression.get() //
+    );
     if (!expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -968,18 +956,55 @@ bool Generator::Statement::generate_assignment(                       //
     return true;
 }
 
-bool Generator::Statement::generate_data_field_assignment(            //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const DataFieldAssignmentNode *data_field_assignment              //
+bool Generator::Statement::generate_group_assignment(                                //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const GroupAssignmentNode *group_assignment                                      //
+) {
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
+    auto expression = Expression::generate_expression(                                                             //
+        builder, parent, scope, allocations, imported_core_modules, garbage, 0, group_assignment->expression.get() //
+    );
+    if (!expression.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+
+    // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
+    if (garbage.count(0) > 0) {
+        garbage.at(0).clear();
+    }
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+
+    unsigned int elem_idx = 0;
+    for (const auto &assign : group_assignment->assignees) {
+        const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + assign.second;
+        llvm::Value *const alloca = allocations.at(var_name);
+        llvm::Value *elem_value = expression.value().at(elem_idx);
+        builder.CreateStore(elem_value, alloca);
+        elem_idx++;
+    }
+    return true;
+}
+
+bool Generator::Statement::generate_data_field_assignment(                           //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const DataFieldAssignmentNode *data_field_assignment                             //
 ) {
     // Just save the result of the expression in the field of the data
     std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    group_mapping expression = Expression::generate_expression( //
-        builder, parent, scope, allocations, garbage, 0,        //
-        data_field_assignment->expression.get()                 //
+    group_mapping expression = Expression::generate_expression(                                                         //
+        builder, parent, scope, allocations, imported_core_modules, garbage, 0, data_field_assignment->expression.get() //
     );
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -1008,18 +1033,18 @@ bool Generator::Statement::generate_data_field_assignment(            //
     return true;
 }
 
-bool Generator::Statement::generate_grouped_data_field_assignment(    //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const GroupedDataFieldAssignmentNode *grouped_field_assignment    //
+bool Generator::Statement::generate_grouped_data_field_assignment(                   //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const GroupedDataFieldAssignmentNode *grouped_field_assignment                   //
 ) {
     // Just save the result of the expression in the field of the data
     std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    group_mapping expression = Expression::generate_expression( //
-        builder, parent, scope, allocations, garbage, 0,        //
-        grouped_field_assignment->expression.get()              //
+    group_mapping expression = Expression::generate_expression(                                                            //
+        builder, parent, scope, allocations, imported_core_modules, garbage, 0, grouped_field_assignment->expression.get() //
     );
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -1051,17 +1076,18 @@ bool Generator::Statement::generate_grouped_data_field_assignment(    //
     return true;
 }
 
-bool Generator::Statement::generate_array_assignment(                 //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const ArrayAssignmentNode *array_assignment                       //
+bool Generator::Statement::generate_array_assignment(                                //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const ArrayAssignmentNode *array_assignment                                      //
 ) {
     // Generate the main expression
     std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    group_mapping expression_result = Expression::generate_expression(                      //
-        builder, parent, scope, allocations, garbage, 0, array_assignment->expression.get() //
+    group_mapping expression_result = Expression::generate_expression(                                             //
+        builder, parent, scope, allocations, imported_core_modules, garbage, 0, array_assignment->expression.get() //
     );
     if (!expression_result.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -1078,7 +1104,9 @@ bool Generator::Statement::generate_array_assignment(                 //
     // Generate all the indexing expressions
     std::vector<llvm::Value *> idx_expressions;
     for (auto &idx_expression : array_assignment->indexing_expressions) {
-        group_mapping idx_expr = Expression::generate_expression(builder, parent, scope, allocations, garbage, 0, idx_expression.get());
+        group_mapping idx_expr = Expression::generate_expression(                                        //
+            builder, parent, scope, allocations, imported_core_modules, garbage, 0, idx_expression.get() //
+        );
         if (!idx_expr.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
@@ -1123,17 +1151,18 @@ bool Generator::Statement::generate_array_assignment(                 //
     return true;
 }
 
-bool Generator::Statement::generate_stacked_assignment(               //
-    llvm::IRBuilder<> &builder,                                       //
-    llvm::Function *parent,                                           //
-    const Scope *scope,                                               //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const StackedAssignmentNode *stacked_assignment                   //
+bool Generator::Statement::generate_stacked_assignment(                              //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const Scope *scope,                                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const StackedAssignmentNode *stacked_assignment                                  //
 ) {
     // Generate the main expression
     std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    group_mapping expression_result = Expression::generate_expression(                        //
-        builder, parent, scope, allocations, garbage, 0, stacked_assignment->expression.get() //
+    group_mapping expression_result = Expression::generate_expression(                                               //
+        builder, parent, scope, allocations, imported_core_modules, garbage, 0, stacked_assignment->expression.get() //
     );
     if (!clear_garbage(builder, garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -1154,8 +1183,8 @@ bool Generator::Statement::generate_stacked_assignment(               //
         );
     }
     // Now we can create the "base expression" which then gets accessed
-    group_mapping base_expr_res = Expression::generate_expression(                                 //
-        builder, parent, scope, allocations, garbage, 0, stacked_assignment->base_expression.get() //
+    group_mapping base_expr_res = Expression::generate_expression(                                                        //
+        builder, parent, scope, allocations, imported_core_modules, garbage, 0, stacked_assignment->base_expression.get() //
     );
     if (!clear_garbage(builder, garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);

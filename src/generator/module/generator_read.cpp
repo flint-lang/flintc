@@ -239,7 +239,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     //     return result;
     // }
     llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
-    llvm::Function *printf_fn = builtins.at(PRINT);
+    llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *abort_fn = c_functions.at(ABORT);
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memmove_fn = c_functions.at(MEMMOVE);
@@ -343,7 +343,7 @@ void Generator::Module::Read::generate_read_int_function( //
     //     }
     //     return (int32_t)value;
     // }
-    llvm::Function *printf_fn = builtins.at(PRINT);
+    llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *strtol_fn = c_functions.at(STRTOL);
     llvm::Function *abort_fn = c_functions.at(ABORT);
 
@@ -465,7 +465,7 @@ void Generator::Module::Read::generate_read_uint_function( //
     //     }
     //     return (uint32_t)value;
     // }
-    llvm::Function *printf_fn = builtins.at(PRINT);
+    llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *strtoul_fn = c_functions.at(STRTOUL);
     llvm::Function *abort_fn = c_functions.at(ABORT);
 
@@ -606,24 +606,18 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     //     }
     //     return value;
     // }
-    llvm::Function *printf_fn = builtins.at(PRINT);
+    llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *strtof_fn = c_functions.at(STRTOF);
     llvm::Function *abort_fn = c_functions.at(ABORT);
 
-    // Create f32 read function type (returns float, no parameters)
-    llvm::FunctionType *read_f32_type = llvm::FunctionType::get(builder->getFloatTy(), false);
-
-    // Create the function
+    llvm::FunctionType *read_f32_type = llvm::FunctionType::get(llvm::Type::getFloatTy(context), false);
     llvm::Function *read_f32_fn = llvm::Function::Create( //
         read_f32_type,                                    //
         llvm::Function::ExternalLinkage,                  //
         "__flint_read_f32",                               //
         module                                            //
     );
-
-    // Store in the read_functions map
     read_functions["read_f32"] = read_f32_fn;
-
     if (only_declarations) {
         return;
     }
@@ -711,24 +705,18 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     //     }
     //     return value;
     // }
-    llvm::Function *printf_fn = builtins.at(PRINT);
+    llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *strtod_fn = c_functions.at(STRTOD);
     llvm::Function *abort_fn = c_functions.at(ABORT);
 
-    // Create f64 read function type (returns double, no parameters)
-    llvm::FunctionType *read_f64_type = llvm::FunctionType::get(builder->getDoubleTy(), false);
-
-    // Create the function
+    llvm::FunctionType *read_f64_type = llvm::FunctionType::get(llvm::Type::getDoubleTy(context), false);
     llvm::Function *read_f64_fn = llvm::Function::Create( //
         read_f64_type,                                    //
         llvm::Function::ExternalLinkage,                  //
         "__flint_read_f64",                               //
         module                                            //
     );
-
-    // Store in the read_functions map
     read_functions["read_f64"] = read_f64_fn;
-
     if (only_declarations) {
         return;
     }
@@ -799,12 +787,14 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
 }
 
 void Generator::Module::Read::generate_read_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    llvm::Type *i32_type = llvm::Type::getInt32Ty(context);
+    llvm::Type *i64_type = llvm::Type::getInt64Ty(context);
     generate_getline_function(builder, module, only_declarations);
     generate_read_str_function(builder, module, only_declarations);
-    generate_read_int_function(builder, module, only_declarations, builder->getInt32Ty());
-    generate_read_int_function(builder, module, only_declarations, builder->getInt64Ty());
-    generate_read_uint_function(builder, module, only_declarations, builder->getInt32Ty());
-    generate_read_uint_function(builder, module, only_declarations, builder->getInt64Ty());
+    generate_read_int_function(builder, module, only_declarations, i32_type);
+    generate_read_int_function(builder, module, only_declarations, i64_type);
+    generate_read_uint_function(builder, module, only_declarations, i32_type);
+    generate_read_uint_function(builder, module, only_declarations, i64_type);
     generate_read_f32_function(builder, module, only_declarations);
     generate_read_f64_function(builder, module, only_declarations);
 }

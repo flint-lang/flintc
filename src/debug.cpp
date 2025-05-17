@@ -192,7 +192,7 @@ namespace Debug {
         void print_all_files() {
             std::lock_guard<std::mutex> lock(Resolver::file_map_mutex);
             for (const auto &file_pair : Resolver::file_map) {
-                print_file(file_pair.second);
+                print_file(*file_pair.second);
             }
         }
 

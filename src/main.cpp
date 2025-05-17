@@ -82,7 +82,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     Profiler::start_task("Parsing the program", true);
     Type::init_types();
     Resolver::add_path(source_file_path.filename().string(), source_file_path.parent_path());
-    std::optional<FileNode> file = Parser::create(source_file_path)->parse();
+    std::optional<FileNode *> file = Parser::create(source_file_path)->parse();
     if (!file.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << source_file_path.filename() << DEFAULT
                   << std::endl;
@@ -113,7 +113,6 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
         }
     }
     Profiler::end_task("Parsing the program");
-    Parser::clear_instances();
     if (PRINT_AST) {
         Debug::AST::print_all_files();
     }
@@ -209,6 +208,7 @@ int main(int argc, char *argv[]) {
     if (!program.has_value()) {
         return 1;
     }
+    Parser::clear_instances();
 
     if (!clp.build_exe) {
         // Output the built module and write it to the given file

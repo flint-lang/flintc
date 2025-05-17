@@ -73,11 +73,11 @@ class Parser {
     /// @brief Parses the file. It will tokenize it using the Lexer and then create the AST of the file and return the parsed FileNode
     ///
     /// @param `file` The path to the file to tokenize and parse
-    /// @return `std::optional<FileNode>` The parsed file, if it succeeded parsing
+    /// @return `std::optional<FileNode *>` The parsed file, if it succeeded parsing
     ///
     /// @note This function creates a new Lexer class to tokenize the given file, so no further tokenization has to be made, this function
     /// takes care of the tokenization too
-    std::optional<FileNode> parse();
+    std::optional<FileNode *> parse();
 
     /// @function `get_call_from_id`
     /// @brief Returns the call node from the given id
@@ -126,6 +126,11 @@ class Parser {
     /// @param `tokens` The list of tokens to convert
     /// @return `std::string` The type string
     static std::string get_type_string(const token_list &tokens);
+
+    static std::optional<std::pair<std::string, overloads>> get_builtin_function(       //
+        const std::string &function_name,                                               //
+        const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
+    );
 
     /// @var `main_function_has_args`
     /// @brief Whether the main function has an args list (str[] type)
@@ -296,6 +301,10 @@ class Parser {
     /// @var `imported_files`
     /// @brief The list of all files the file that is currently parsed can seee / has imported
     std::vector<ImportNode *> imported_files{};
+
+    /// @var `file_node_ptr`
+    /// @brief The file node this parser is currently parsing
+    std::unique_ptr<FileNode> file_node_ptr;
 
     /// @var `file`
     /// @brief The path to the file to parse

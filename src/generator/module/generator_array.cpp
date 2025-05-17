@@ -29,9 +29,9 @@ void Generator::Module::Array::generate_create_arr_function(llvm::IRBuilder<> *b
     llvm::FunctionType *create_arr_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                  // Return type: str*
         {
-            builder->getInt64Ty(),                // Argument size_t dimensionality
-            builder->getInt64Ty(),                // Argument size_t element_size
-            builder->getInt64Ty()->getPointerTo() // Argument size_t* lengths
+            llvm::Type::getInt64Ty(context),                // Argument size_t dimensionality
+            llvm::Type::getInt64Ty(context),                // Argument size_t element_size
+            llvm::Type::getInt64Ty(context)->getPointerTo() // Argument size_t* lengths
         },
         false // No vaargs
     );
@@ -170,11 +170,11 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *fill_arr_inline_type = llvm::FunctionType::get( //
-        builder->getVoidTy(),                                           // Return type: void
+        llvm::Type::getVoidTy(context),                                 // Return type: void
         {
-            str_type->getPointerTo(),            // Argument str* arr
-            builder->getInt64Ty(),               // Argument size_t element_size
-            builder->getVoidTy()->getPointerTo() // Argument void* value
+            str_type->getPointerTo(),                      // Argument str* arr
+            llvm::Type::getInt64Ty(context),               // Argument size_t element_size
+            llvm::Type::getVoidTy(context)->getPointerTo() // Argument void* value
         },
         false // No vaargs
     );
@@ -385,11 +385,11 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *fill_arr_deep_type = llvm::FunctionType::get( //
-        builder->getVoidTy(),                                         // Return type: void
+        llvm::Type::getVoidTy(context),                               // Return type: void
         {
-            str_type->getPointerTo(),            // Argument str* arr
-            builder->getInt64Ty(),               // Argument size_t value_size
-            builder->getVoidTy()->getPointerTo() // Argument void* value
+            str_type->getPointerTo(),                      // Argument str* arr
+            llvm::Type::getInt64Ty(context),               // Argument size_t value_size
+            llvm::Type::getVoidTy(context)->getPointerTo() // Argument void* value
         },
         false // No vaargs
     );
@@ -556,11 +556,11 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *fill_arr_val_type = llvm::FunctionType::get( //
-        builder->getVoidTy(),                                        // Return type: void
+        llvm::Type::getVoidTy(context),                              // Return type: void
         {
-            str_type->getPointerTo(), // Argument str* arr
-            builder->getInt64Ty(),    // Argument size_t element_size
-            builder->getInt64Ty()     // Argument size_t value
+            str_type->getPointerTo(),        // Argument str* arr
+            llvm::Type::getInt64Ty(context), // Argument size_t element_size
+            llvm::Type::getInt64Ty(context)  // Argument size_t value
         },
         false // No vaargs
     );
@@ -781,11 +781,11 @@ void Generator::Module::Array::generate_access_arr_function( //
     llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
 
     llvm::FunctionType *access_arr_type = llvm::FunctionType::get( //
-        builder->getInt8Ty()->getPointerTo(),                      // Return type: char*
+        llvm::Type::getInt8Ty(context)->getPointerTo(),            // Return type: char*
         {
-            str_type->getPointerTo(),             // Argument str* arr
-            builder->getInt64Ty(),                // Argument size_t element_size
-            builder->getInt64Ty()->getPointerTo() // Argument size_t* indices
+            str_type->getPointerTo(),                       // Argument str* arr
+            llvm::Type::getInt64Ty(context),                // Argument size_t element_size
+            llvm::Type::getInt64Ty(context)->getPointerTo() // Argument size_t* indices
         },
         false // No vaargs
     );
@@ -876,7 +876,7 @@ void Generator::Module::Array::generate_access_arr_function( //
         // Print to the console that an OOB happened
         if (oob_mode == ArrayOutOfBoundsMode::PRINT || oob_mode == ArrayOutOfBoundsMode::CRASH) {
             llvm::Value *format_str = IR::generate_const_string(*builder, "Out Of Bounds access occured: Arr Len: %lu, Index: %lu\n");
-            builder->CreateCall(builtins.at(PRINT), {format_str, current_dim_length, current_index});
+            builder->CreateCall(c_functions.at(PRINTF), {format_str, current_dim_length, current_index});
         }
         switch (oob_mode) {
             case ArrayOutOfBoundsMode::PRINT:
@@ -959,11 +959,11 @@ void Generator::Module::Array::generate_access_arr_val_function( //
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *access_arr_val_type = llvm::FunctionType::get( //
-        builder->getInt64Ty(),                                         // Return type: size_t
+        llvm::Type::getInt64Ty(context),                               // Return type: size_t
         {
-            str_type->getPointerTo(),             // Argument str* arr
-            builder->getInt64Ty(),                // Argument size_t element_size
-            builder->getInt64Ty()->getPointerTo() // Argument size_t* indices
+            str_type->getPointerTo(),                       // Argument str* arr
+            llvm::Type::getInt64Ty(context),                // Argument size_t element_size
+            llvm::Type::getInt64Ty(context)->getPointerTo() // Argument size_t* indices
         },
         false // No vaargs
     );
@@ -1013,12 +1013,12 @@ void Generator::Module::Array::generate_assign_arr_at_function( //
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *assign_arr_at_type = llvm::FunctionType::get( //
-        builder->getVoidTy(),                                         // Return type: void
+        llvm::Type::getVoidTy(context),                               // Return type: void
         {
-            str_type->getPointerTo(),              // Argument str* arr
-            builder->getInt64Ty(),                 // Argument size_t element_size
-            builder->getInt64Ty()->getPointerTo(), // Argument size_t* indices
-            builder->getVoidTy()->getPointerTo()   // Argument: void* value
+            str_type->getPointerTo(),                        // Argument str* arr
+            llvm::Type::getInt64Ty(context),                 // Argument size_t element_size
+            llvm::Type::getInt64Ty(context)->getPointerTo(), // Argument size_t* indices
+            llvm::Type::getVoidTy(context)->getPointerTo()   // Argument: void* value
         },
         false // No vaargs
     );
@@ -1070,12 +1070,12 @@ void Generator::Module::Array::generate_assign_arr_val_at_function( //
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *assign_arr_val_at_type = llvm::FunctionType::get( //
-        builder->getVoidTy(),                                             // Return type: void
+        llvm::Type::getVoidTy(context),                                   // Return type: void
         {
-            str_type->getPointerTo(),              // Argument str* arr
-            builder->getInt64Ty(),                 // Argument size_t element_size
-            builder->getInt64Ty()->getPointerTo(), // Argument size_t* indices
-            builder->getInt64Ty()                  // Argument: size_t value
+            str_type->getPointerTo(),                        // Argument str* arr
+            llvm::Type::getInt64Ty(context),                 // Argument size_t element_size
+            llvm::Type::getInt64Ty(context)->getPointerTo(), // Argument size_t* indices
+            llvm::Type::getInt64Ty(context)                  // Argument: size_t value
         },
         false // No vaargs
     );
@@ -1137,10 +1137,10 @@ void Generator::Module::Array::generate_free_arr_function(llvm::IRBuilder<> *bui
     llvm::Function *free_fn = c_functions.at(FREE);
 
     llvm::FunctionType *free_arr_type = llvm::FunctionType::get( //
-        builder->getVoidTy(),                                    // Return type: void
+        llvm::Type::getVoidTy(context),                          // Return type: void
         {
-            str_type->getPointerTo(), // Argument str* arr
-            builder->getInt64Ty()     // Argument size_t complexity
+            str_type->getPointerTo(),       // Argument str* arr
+            llvm::Type::getInt64Ty(context) // Argument size_t complexity
         },
         false // No vaargs
     );

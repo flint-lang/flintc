@@ -46,7 +46,7 @@ class Resolver {
 
     /// @var `file_map`
     /// @brief A map which contains all FileNodes of the whole program (This map owns the whole AST of all parsed files)
-    static inline std::unordered_map<std::string, FileNode> file_map;
+    static inline std::unordered_map<std::string, FileNode *> file_map;
 
     /// @var `file_map_mutex`
     /// @brief A mutex for the `file_map` variable, to make accessing the `file_map` thread-safe
@@ -60,10 +60,8 @@ class Resolver {
     /// @param `run_in_parallel` Whether to parse the files in parallel
     /// @return `std::optional<std::shared_ptr<DepNode>>` A shared pointer to the root of the created dependency graph, nullop if creation
     /// failed
-    ///
-    /// @attention Moves ownership of the `file_node` parameter, so it is considered unsafe to access it after this call
     static std::optional<std::shared_ptr<DepNode>> create_dependency_graph( //
-        FileNode &file_node,                                                //
+        FileNode *file_node,                                                //
         const std::filesystem::path &path,                                  //
         const bool run_in_parallel                                          //
     );
@@ -112,12 +110,8 @@ class Resolver {
     /// @brief Returns a reference to the file node from the given `file_name`
     ///
     /// @param `file_name` The name of the file from which to get the referece to the FileNode
-    /// @return `FileNode &` A reference to the FileNode within the `file_map`
-    ///
-    /// @attention Because its a reference to an element within the `file_map`, this reference could very well be invalidated when
-    /// the `file_map` gets changed after recieving a file from it. So, this function should only be called after it can be assurred, that
-    /// the `file_map` wont change
-    static FileNode &get_file_from_name(const std::string &file_name);
+    /// @return `FileNode *` A pointer to the FileNode saved within the `file_map`, owned by a `Parser` instance
+    static FileNode *get_file_from_name(const std::string &file_name);
 
   private:
     /// @var `generated_files`
@@ -190,9 +184,7 @@ class Resolver {
     /// @param `file_node` The file node to add to the maps
     /// @param `path` The directory the given `file_node` is contained in
     /// @return `std::optional<DepNode>` The added dependency node, nullopt if adding the dependency node failed
-    ///
-    /// @attention Moves ownership of the file_node, so it is considered unsafe to access it after this function call
-    static std::optional<DepNode> add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path);
+    static std::optional<DepNode> add_dependencies_and_file(FileNode *file_node, const std::filesystem::path &path);
 
     /// @function `extract_duplicates`
     /// @brief Extracts all duplicate dependencies (files to parse) from the given dependency map

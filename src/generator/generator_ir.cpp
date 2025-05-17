@@ -288,6 +288,6 @@ void Generator::IR::generate_debug_print( //
         return;
     }
     llvm::Value *msg_str = generate_const_string(*builder, "DEBUG: " + message);
-    llvm::Function *print_fn = builtins.at(PRINT);
+    llvm::Function *print_fn = c_functions.at(PRINTF);
     builder->CreateCall(print_fn, {msg_str});
 }

@@ -186,11 +186,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // First, get all the data definitions from the parser
     get_data_nodes();
 
-    // Generate built-in functions in the main module
-    Module::Print::generate_print_functions(builder.get(), module.get());
-
     // Generate all the c functions
     Builtin::generate_c_functions(module.get());
+
+    // Generate built-in functions in the main module
+    Module::Print::generate_print_functions(builder.get(), module.get());
 
     // Generate all the "hidden" string helper functions
     Module::String::generate_string_manip_functions(builder.get(), module.get());
@@ -274,8 +274,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             }
 
             // Generate the IR code from the given FileNode
-            const FileNode &file = Resolver::get_file_from_name(shared_tip->file_name);
-            std::optional<std::unique_ptr<llvm::Module>> file_module = generate_file_ir(shared_tip, file, is_test);
+            const FileNode *file = Resolver::get_file_from_name(shared_tip->file_name);
+            std::optional<std::unique_ptr<llvm::Module>> file_module = generate_file_ir(shared_tip, *file, is_test);
             if (!file_module.has_value()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
@@ -381,29 +381,26 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     PROFILE_SCOPE("Generate IR for '" + file.file_name + "'");
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(dep_node->file_name, context);
 
-    // Declare the built-in functions in the file module to reference the main module's versions
-    for (auto &builtin_func : builtins) {
-        if (builtin_func.second != nullptr) {
-            module->getOrInsertFunction(               //
-                builtin_func.second->getName(),        //
-                builtin_func.second->getFunctionType() //
-            );
+    // Declare all the core functions that are used in every file nonetheless
+    Builtin::generate_c_functions(module.get());
+    Module::Arithmetic::generate_arithmetic_functions(nullptr, module.get(), true);
+    Module::Array::generate_array_manip_functions(nullptr, module.get(), true);
+    Module::String::generate_string_manip_functions(nullptr, module.get(), true);
+    Module::TypeCast::generate_typecast_functions(nullptr, module.get(), true);
+
+    for (auto &imported_core_module : file.imported_core_modules) {
+        const std::string &core_module_name = imported_core_module.first;
+        if (core_module_name == "print") {
+            Module::Print::generate_print_functions(nullptr, module.get(), true);
+        } else if (core_module_name == "read") {
+            Module::Read::generate_read_functions(nullptr, module.get(), true);
         }
     }
-    // Declare the built-in print functions in the file module to reference the main module's versions
-    for (auto &prints : Module::Print::print_functions) {
-        if (prints.second != nullptr) {
-            module->getOrInsertFunction(         //
-                prints.second->getName(),        //
-                prints.second->getFunctionType() //
-            );
-        }
-    }
-    // Forward declare all functions from all files where this file has a wak reference to
+    // Forward declare all functions from all files where this file has a weak reference to
     for (const auto &dep : dep_node->dependencies) {
         if (std::holds_alternative<std::weak_ptr<DepNode>>(dep)) {
             std::weak_ptr<DepNode> weak_dep = std::get<std::weak_ptr<DepNode>>(dep);
-            IR::generate_forward_declarations(module.get(), Resolver::get_file_from_name(weak_dep.lock()->file_name));
+            IR::generate_forward_declarations(module.get(), *Resolver::get_file_from_name(weak_dep.lock()->file_name));
         }
     }
 
@@ -431,7 +428,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             if (is_test && function_node->name == "_main") {
                 continue;
             }
-            if (!Function::generate_function(module.get(), function_node)) {
+            if (!Function::generate_function(module.get(), function_node, file.imported_core_modules)) {
                 return std::nullopt;
             }
             // No return statement found despite the signature requires return OR
@@ -447,7 +444,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             if (!is_test) {
                 continue;
             }
-            std::optional<llvm::Function *> test_function = Function::generate_test_function(module.get(), test_node);
+            std::optional<llvm::Function *> test_function = Function::generate_test_function( //
+                module.get(), test_node, file.imported_core_modules                           //
+            );
             if (!test_function.has_value()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;

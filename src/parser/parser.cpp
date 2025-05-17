@@ -23,9 +23,9 @@ Parser *Parser::create(const std::filesystem::path &file) {
     return &instances.back();
 }
 
-std::optional<FileNode> Parser::parse() {
+std::optional<FileNode *> Parser::parse() {
     PROFILE_SCOPE("Parse file '" + file_name + "'");
-    FileNode file_node(file_name);
+    file_node_ptr = std::make_unique<FileNode>(file_name);
     token_list tokens = Lexer(file).scan();
     if (tokens.empty()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -38,14 +38,14 @@ std::optional<FileNode> Parser::parse() {
     // Consume all tokens and convert them to nodes
     bool had_failure = false;
     while (token_slice.first != token_slice.second) {
-        if (!add_next_main_node(file_node, token_slice)) {
+        if (!add_next_main_node(*(file_node_ptr.get()), token_slice)) {
             had_failure = true;
         }
     }
     if (had_failure) {
         return std::nullopt;
     }
-    return file_node;
+    return file_node_ptr.get();
 }
 
 std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
@@ -207,6 +207,20 @@ std::string Parser::get_type_string(const token_list &tokens) {
         stream << tok.lexme;
     }
     return stream.str();
+}
+
+std::optional<std::pair<std::string, overloads>> Parser::get_builtin_function(      //
+    const std::string &function_name,                                               //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
+) {
+    for (const auto &[module_name, import_node] : imported_core_modules) {
+        const auto &module_functions = core_module_functions.at(module_name);
+        if (module_functions.find(function_name) != module_functions.end()) {
+            const auto &function_variants = module_functions.at(function_name);
+            return std::make_pair(module_name, function_variants);
+        }
+    }
+    return std::nullopt;
 }
 
 std::optional<std::pair<FunctionNode *, std::string>> Parser::get_function_from_call( //

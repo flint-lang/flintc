@@ -150,12 +150,12 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Create the message that an error has occured
     llvm::Value *message_begin_ptr = IR::generate_const_string(*builder, "ERROR: Program exited with exit code '");
-    builder->CreateCall(builtins.at(PRINT), {message_begin_ptr});
+    builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr});
     // Print the actual error value
     builder->CreateCall(Module::Print::print_functions.at("i32"), {err_val});
     // Print the rest of the string
     llvm::Value *message_end_ptr = IR::generate_const_string(*builder, "'\n");
-    builder->CreateCall(builtins.at(PRINT), {message_end_ptr});
+    builder->CreateCall(c_functions.at(PRINTF), {message_end_ptr});
 
     builder->CreateBr(merge_block);
     builder->SetInsertPoint(merge_block);
@@ -164,6 +164,21 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 }
 
 void Generator::Builtin::generate_c_functions(llvm::Module *module) {
+    // printf
+    {
+        llvm::FunctionType *printf_type = llvm::FunctionType::get(        //
+            llvm::Type::getInt32Ty(context),                              // Return type: int
+            llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(context)), // Takes char*
+            true                                                          // Variadic arguments
+        );
+        llvm::Function *printf_func = llvm::Function::Create( //
+            printf_type,                                      //
+            llvm::Function::ExternalLinkage,                  //
+            "printf",                                         //
+            module                                            //
+        );
+        c_functions[PRINTF] = printf_func;
+    }
     // malloc
     {
         llvm::FunctionType *malloc_type = llvm::FunctionType::get( //
@@ -374,7 +389,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     // Handle the case that there are no tests to run
     if (tests.empty()) {
         llvm::Value *msg = builder->CreateGlobalStringPtr("There are no tests to run\n", "no_tests_msg", 0, module);
-        builder->CreateCall(builtins[PRINT], {msg});
+        builder->CreateCall(c_functions.at(PRINTF), {msg});
         builder->CreateCall(c_functions.at(EXIT), {zero});
         builder->CreateUnreachable();
         return;
@@ -401,8 +416,8 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         llvm::Value *success_fmt = builder->CreateGlobalStringPtr(" -> \"%s\" \033[32m✓ passed\033[0m\n", "success_str", 0, module);
         llvm::Value *fail_fmt = builder->CreateGlobalStringPtr(" -> \"%s\" \033[31m✗ failed\033[0m\n", "fail_str", 0, module);
         llvm::Value *file_name_value = builder->CreateGlobalStringPtr("\n" + file_name + ":\n");
-        builder->CreateCall(builtins[PRINT], //
-            {file_name_value}                //
+        builder->CreateCall(c_functions.at(PRINTF), //
+            {file_name_value}                       //
         );
 
         // Run all tests and print whether they succeeded
@@ -443,14 +458,14 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             builder->CreateCondBr(comparison, succeed_block, fail_block);
 
             builder->SetInsertPoint(succeed_block);
-            builder->CreateCall(builtins[PRINT], //
-                {success_fmt, test_name_value}   //
+            builder->CreateCall(c_functions.at(PRINTF), //
+                {success_fmt, test_name_value}          //
             );
             builder->CreateBr(merge_block);
 
             builder->SetInsertPoint(fail_block);
-            builder->CreateCall(builtins[PRINT], //
-                {fail_fmt, test_name_value}      //
+            builder->CreateCall(c_functions.at(PRINTF), //
+                {fail_fmt, test_name_value}             //
             );
             // Increment the fail counter only if the test has failed
             llvm::LoadInst *counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(context), counter, "counter_val");
@@ -481,13 +496,13 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     // Success block
     builder->SetInsertPoint(success_block);
     llvm::Value *success_fmt = builder->CreateGlobalStringPtr("\n\033[32m✓ All tests passed!\033[0m\n", "success_fmt", 0, module);
-    builder->CreateCall(builtins[PRINT], {success_fmt});
+    builder->CreateCall(c_functions.at(PRINTF), {success_fmt});
     builder->CreateBr(merge_block);
 
     // Fail block
     builder->SetInsertPoint(fail_block);
     llvm::Value *fail_fmt = builder->CreateGlobalStringPtr("\n\033[31m✗ %d tests failed!\033[0m\n", "fail_fmt", 0, module);
-    builder->CreateCall(builtins[PRINT], {fail_fmt, counter_value});
+    builder->CreateCall(c_functions.at(PRINTF), {fail_fmt, counter_value});
     builder->CreateStore(one, counter);
     builder->CreateBr(merge_block);
 

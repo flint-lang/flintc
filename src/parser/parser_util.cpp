@@ -1,4 +1,3 @@
-#include "lexer/builtins.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
@@ -44,8 +43,17 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             }
         }
         // TODO: Check if the given alias is already taken
-        ImportNode *added_import = file_node.add_import(import_node.value());
-        imported_files.emplace_back(added_import);
+        std::optional<ImportNode *> added_import = file_node.add_import(import_node.value());
+        if (!added_import.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        if (std::holds_alternative<std::string>(added_import.value()->path) ||                    //
+            (std::get<std::vector<std::string>>(added_import.value()->path).size() != 2 &&        //
+                std::get<std::vector<std::string>>(added_import.value()->path).front() != "Core") //
+        ) {
+            imported_files.emplace_back(added_import.value());
+        }
         return true;
     }
 
@@ -244,10 +252,10 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
     }
 
     // Check if its a call to a builtin function, if it is, get the return type of said function
-    const auto builtin_function = builtin_functions.find(function_name);
-    if (builtin_function != builtin_functions.end()) {
+    const auto builtin_function = get_builtin_function(function_name, file_node_ptr->imported_core_modules);
+    if (builtin_function.has_value()) {
         // Check if the function has the same arguments as the function expects
-        const auto &function_overloads = builtin_function_types.at(builtin_function->second);
+        const auto &function_overloads = builtin_function.value().second;
         // Check if any overloaded function exists
         std::optional<std::pair<std::vector<std::shared_ptr<Type>>, std::vector<std::shared_ptr<Type>>>> found_function = std::nullopt;
 
@@ -278,7 +286,10 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
         }
         if (!found_function.has_value()) {
             token_slice err_tokens = {tokens.first + arg_range.value().first - 2, tokens.first + arg_range.value().second + 1};
-            THROW_ERR(ErrExprCallWrongArgsBuiltin, ERR_PARSING, file_name, err_tokens, function_name, argument_types);
+            THROW_ERR(                                                                                          //
+                ErrExprCallWrongArgsBuiltin, ERR_PARSING, file_name, err_tokens, function_name, argument_types, //
+                file_node_ptr->imported_core_modules                                                            //
+            );
             return std::nullopt;
         }
         if (found_function.value().second.size() > 1) {

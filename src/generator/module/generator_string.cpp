@@ -128,7 +128,7 @@ void Generator::Module::String::generate_compare_str_function(llvm::IRBuilder<> 
     llvm::Function *memcmp_fn = c_functions.at(MEMCMP);
 
     llvm::FunctionType *compare_str_type = llvm::FunctionType::get( //
-        builder->getInt32Ty(),                                      // Return type: i32
+        llvm::Type::getInt32Ty(context),                            // Return type: i32
         {
             str_type->getPointerTo(), // Argument: str* (lhs)
             str_type->getPointerTo()  // Argument: str* (rhs)
@@ -348,7 +348,7 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *append_str_type = llvm::FunctionType::get( //
-        builder->getVoidTy(),                                      // Return Type: void
+        llvm::Type::getVoidTy(context),                            // Return Type: void
         {
             str_type->getPointerTo()->getPointerTo(), // Argument: str** dest
             str_type->getPointerTo()                  // Argument: str* source
@@ -431,7 +431,7 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *append_lit_type = llvm::FunctionType::get( //
-        builder->getVoidTy(),                                      // Return Type: void
+        llvm::Type::getVoidTy(context),                            // Return Type: void
         {
             str_type->getPointerTo()->getPointerTo(),       // Argument: str** dest
             llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* source

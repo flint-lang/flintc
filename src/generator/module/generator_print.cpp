@@ -1,18 +1,6 @@
 #include "generator/generator.hpp"
 
 void Generator::Module::Print::generate_print_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
-    llvm::FunctionType *printf_type = llvm::FunctionType::get(        //
-        llvm::Type::getInt32Ty(context),                              // Return type: int
-        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(context)), // Takes char*
-        true                                                          // Variadic arguments
-    );
-    llvm::Function *printf_func = llvm::Function::Create( //
-        printf_type,                                      //
-        llvm::Function::ExternalLinkage,                  //
-        "printf",                                         //
-        module                                            //
-    );
-    builtins[PRINT] = printf_func;
     generate_print_function(builder, module, only_declarations, "i32", "%d");
     generate_print_function(builder, module, only_declarations, "i64", "%ld");
     generate_print_function(builder, module, only_declarations, "u32", "%u");
@@ -71,8 +59,8 @@ void Generator::Module::Print::generate_print_function( //
 
     // Call printf with format string and argument
     llvm::Value *format_str = builder->CreateGlobalStringPtr(format);
-    builder->CreateCall(builtins[PRINT], //
-        {format_str, arg}                //
+    builder->CreateCall(c_functions.at(PRINTF), //
+        {format_str, arg}                       //
     );
 
     builder->CreateRetVoid();
@@ -121,8 +109,8 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
 
     // Call printf with format string and argument
     llvm::Value *format_str = builder->CreateGlobalStringPtr("%.*s");
-    builder->CreateCall(builtins[PRINT],       //
-        {format_str, str_len_val, str_val_ptr} //
+    builder->CreateCall(c_functions.at(PRINTF), //
+        {format_str, str_len_val, str_val_ptr}  //
     );
 
     builder->CreateRetVoid();
@@ -182,12 +170,12 @@ void Generator::Module::Print::generate_print_bool_function(llvm::IRBuilder<> *b
 
     // True block
     builder->SetInsertPoint(true_block);
-    builder->CreateCall(builtins[PRINT], {format_str, str_true});
+    builder->CreateCall(c_functions.at(PRINTF), {format_str, str_true});
     builder->CreateBr(merge_block);
 
     // False block
     builder->SetInsertPoint(false_block);
-    builder->CreateCall(builtins[PRINT], {format_str, str_false});
+    builder->CreateCall(c_functions.at(PRINTF), {format_str, str_false});
     builder->CreateBr(merge_block);
 
     // Merge block

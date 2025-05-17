@@ -36,14 +36,35 @@ class FileNode : public ASTNode {
     /// @brief The name of the file
     std::string file_name;
 
+    /// @var `imported_core_modules`
+    /// @brief A map containing all imported core modules together with a pointer to the ImportNode from which they got imported. The
+    /// ImportNode is used to check for import aliasing of the core modules.
+    std::unordered_map<std::string, ImportNode *const> imported_core_modules;
+
     /// @function `add_import`
     /// @brief Adds an import node to this file node
     ///
     /// @param `import` The import node to add
     /// @return `ImportNode *` A pointer to the added import node, because this function takes ownership of `import`
-    ImportNode *add_import(ImportNode &import) {
+    std::optional<ImportNode *> add_import(ImportNode &import) {
         definitions.emplace_back(std::make_unique<ImportNode>(std::move(import)));
-        return static_cast<ImportNode *>(definitions.back().get());
+        ImportNode *added_import = static_cast<ImportNode *>(definitions.back().get());
+        if (!std::holds_alternative<std::string>(added_import->path)) {
+            std::vector<std::string> &import_vec = std::get<std::vector<std::string>>(added_import->path);
+            if (import_vec.size() == 2 && import_vec.front() == "Core") {
+                // Check for imported core modules
+                const std::string &module_str = import_vec.back();
+                if (module_str == "print") {
+                    imported_core_modules.emplace("print", added_import);
+                } else if (module_str == "read") {
+                    imported_core_modules.emplace("read", added_import);
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            }
+        }
+        return added_import;
     }
 
     /// @function `add_data`

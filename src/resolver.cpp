@@ -15,13 +15,13 @@
 #include <variant>
 
 std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph( //
-    FileNode &file_node,                                                   //
+    FileNode *file_node,                                                   //
     const std::filesystem::path &path,                                     //
     const bool run_in_parallel                                             //
 ) {
     PROFILE_SCOPE("Create dependency graph");
     // Add the files path to the path map
-    const std::string file_name = file_node.file_name;
+    const std::string file_name = file_node->file_name;
     Resolver::add_path(file_name, path);
     // Add all dependencies of the file and the file itself to the file map and the dependency map
     // Also return a created DepNode, but its dependants are not created yet
@@ -124,7 +124,7 @@ std::filesystem::path Resolver::get_path(const std::string &file_name) {
     return path_map.at(file_name);
 }
 
-FileNode &Resolver::get_file_from_name(const std::string &file_name) {
+FileNode *Resolver::get_file_from_name(const std::string &file_name) {
     std::lock_guard<std::mutex> lock(file_map_mutex);
     return file_map.at(file_name);
 }
@@ -167,6 +167,10 @@ bool Resolver::process_dependency_file(                               //
         if (std::holds_alternative<std::vector<std::string>>(open_dep_dep)) {
             // Library reference
             auto lib_dep = std::get<std::vector<std::string>>(open_dep_dep);
+            if (lib_dep.size() == 2 && lib_dep.front() == "Core") {
+                // Core imports are not handled here
+                continue;
+            }
             // TODO: Implement the fetching (and pre-fetching into local cache) of FlintHub Libraries
             // TODO: Create FlintHub at all first, lol
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
@@ -186,13 +190,13 @@ bool Resolver::process_dependency_file(                               //
         // File is not yet part of the dependency tree, parse it
         std::filesystem::path dep_file_path = file_dep.first / file_dep.second;
         Resolver::add_path(dep_file_path.filename().string(), dep_file_path.parent_path());
-        std::optional<FileNode> file = Parser::create(dep_file_path)->parse();
+        std::optional<FileNode *> file = Parser::create(dep_file_path)->parse();
         if (!file.has_value()) {
             std::cerr << "Error: File '" << dep_file_path.filename() << "' could not be parsed!";
             return false;
         }
         // Save the file name, as the file itself moves its ownership in the call below
-        std::string parsed_file_name = file.value().file_name;
+        std::string parsed_file_name = file.value()->file_name;
         // Add all dependencies of the file and the file itself to the file map and the dependency map
         // Also return a created DepNode, but its dependants are not created yet
         std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file.value(), dep_file_path.parent_path());
@@ -239,24 +243,24 @@ dependency Resolver::create_dependency(const ImportNode &node, const std::filesy
     return dep;
 }
 
-std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode &file_node, const std::filesystem::path &path) {
+std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode *file_node, const std::filesystem::path &path) {
     std::lock_guard<std::mutex> lock_dep_map(dependency_map_mutex);
     std::lock_guard<std::mutex> lock_file_map(file_map_mutex);
 
-    std::string file_name = file_node.file_name;
+    std::string file_name = file_node->file_name;
     if (dependency_map.find(file_name) != dependency_map.end() || file_map.find(file_name) != file_map.end()) {
         return std::nullopt;
     }
     std::vector<dependency> dependencies;
 
-    for (const std::unique_ptr<ASTNode> &node : file_node.definitions) {
+    for (const std::unique_ptr<ASTNode> &node : file_node->definitions) {
         if (const auto *import_node = dynamic_cast<const ImportNode *>(node.get())) {
             dependencies.emplace_back(create_dependency(*import_node, path));
         }
     }
 
     dependency_map.emplace(file_name, dependencies);
-    file_map.emplace(file_name, std::move(file_node));
+    file_map.emplace(file_name, file_node);
     return DepNode{file_name, {}, {}};
 }
 
