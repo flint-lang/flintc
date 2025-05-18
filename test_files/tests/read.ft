@@ -1,3 +1,6 @@
+use Core.print
+use Core.read
+
 def test_read():
     print("Enter str input: ");
     str str_input = read_str();

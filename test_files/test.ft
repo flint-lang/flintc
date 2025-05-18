@@ -8,6 +8,8 @@ use "tests/read.ft"
 use "tests/str.ft"
 use "tests/tests.ft"
 
+use Core.print
+
 def main():
 	test_array();
 	test_data();
