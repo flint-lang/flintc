@@ -142,6 +142,26 @@ class Generator {
         {CFunction::STRLEN, nullptr},
     };
 
+    /// @struct `GenerationContext`
+    /// @brief The context of the Generation
+    struct GenerationContext {
+        /// @var `parent`
+        /// @brief The function the generation happens in
+        llvm::Function *parent;
+
+        /// @var `scope`
+        /// @brief The scope the generation happens in
+        const Scope *scope;
+
+        /// @var `allocations`
+        /// @brief The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        std::unordered_map<std::string, llvm::Value *const> allocations;
+
+        /// @var `imported_core_modules`
+        /// @brief The list of imported core modules
+        const std::unordered_map<std::string, ImportNode *const> imported_core_modules;
+    };
+
     /// @var `type_map`
     /// @brief Map containing all possible struct return types of function calls
     ///
@@ -818,19 +838,13 @@ class Generator {
         /// @brief Generates a single statement
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the statement will be generated in
-        /// @param `scope` The scope the statement is being generated in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `statement` The statement which will be generated
         /// @return `bool` Whether the generation of the statment was successful
-        [[nodiscard]] static bool generate_statement(                                        //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const std::unique_ptr<StatementNode> &statement                                  //
+        [[nodiscard]] static bool generate_statement(       //
+            llvm::IRBuilder<> &builder,                     //
+            GenerationContext &ctx,                         //
+            const std::unique_ptr<StatementNode> &statement //
         );
 
         /// @function `clear_garbage`
@@ -848,30 +862,22 @@ class Generator {
         /// @brief Generates a whole body
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the body will be generated in
-        /// @param `scope` The scope containing the body which will be generated
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @return `bool` Whether the generation of the whole body was successful
-        [[nodiscard]] static bool generate_body(                                            //
-            llvm::IRBuilder<> &builder,                                                     //
-            llvm::Function *parent,                                                         //
-            const Scope *scope,                                                             //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,               //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
+        [[nodiscard]] static bool generate_body( //
+            llvm::IRBuilder<> &builder,          //
+            GenerationContext &ctx               //
         );
 
         /// @function `generate_end_of_scope`
         /// @brief Generates the instructions that need to be applied at the end of a scope (variables going out of scope, for example)
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `scope` The scope that ends
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `ctx` The context of the statement generation
         /// @return `bool` Whether the code generation of the end of scope was successful
-        [[nodiscard]] static bool generate_end_of_scope(                     //
-            llvm::IRBuilder<> &builder,                                      //
-            const Scope *scope,                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations //
+        [[nodiscard]] static bool generate_end_of_scope( //
+            llvm::IRBuilder<> &builder,                  //
+            GenerationContext &ctx                       //
         );
 
         /// @function `generate_array_cleanup`
@@ -908,38 +914,26 @@ class Generator {
         /// @brief Generates the return statement from the given ReturnNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the return statement will be generated in
-        /// @param `scope` The scope the return statement will be generated in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `return_node` The return node to generated
         /// @return `bool` Whether the code generation of the return statement was successful
-        [[nodiscard]] static bool generate_return_statement(                                 //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const ReturnNode *return_node                                                    //
+        [[nodiscard]] static bool generate_return_statement( //
+            llvm::IRBuilder<> &builder,                      //
+            GenerationContext &ctx,                          //
+            const ReturnNode *return_node                    //
         );
 
         /// @function `generate_throw_statement`
         /// @brief Generates the throw statement from the given ThrowNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the return statement will be generated in
-        /// @param `scope` The scope the throw statement will be generated in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `throw_node` The throw node to generate
         /// @return `bool` Whether the code generation of the throw statement was successful
-        [[nodiscard]] static bool generate_throw_statement(                                  //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const ThrowNode *throw_node                                                      //
+        [[nodiscard]] static bool generate_throw_statement( //
+            llvm::IRBuilder<> &builder,                     //
+            GenerationContext &ctx,                         //
+            const ThrowNode *throw_node                     //
         );
 
         /// @function `generate_if_blocks`
@@ -958,239 +952,173 @@ class Generator {
         /// @brief Generates the if statement from the given IfNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the if chain will be generated in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `blocks` The list of all basic blocks the if bodies are contained in
         /// @param `nesting_level` The nesting level determines how "deep" one is inside the if-chain
         /// @param `if_node` The if node to generate
         /// @return `bool` Whether the code generation was successful
-        [[nodiscard]] static bool generate_if_statement(                                     //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            std::vector<llvm::BasicBlock *> &blocks,                                         //
-            unsigned int nesting_level,                                                      //
-            const IfNode *if_node                                                            //
+        [[nodiscard]] static bool generate_if_statement( //
+            llvm::IRBuilder<> &builder,                  //
+            GenerationContext &ctx,                      //
+            std::vector<llvm::BasicBlock *> &blocks,     //
+            unsigned int nesting_level,                  //
+            const IfNode *if_node                        //
         );
 
         /// @function `generate_while_loop`
         /// @brief Generates the while loop from the given WhileNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the while loop will be generated in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `while_node` The while node to generate
         /// @return `bool` Whether the code generation of the while loop was successful
-        [[nodiscard]] static bool generate_while_loop(                                       //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const WhileNode *while_node                                                      //
+        [[nodiscard]] static bool generate_while_loop( //
+            llvm::IRBuilder<> &builder,                //
+            GenerationContext &ctx,                    //
+            const WhileNode *while_node                //
         );
 
         /// @function `generate_for_loop`
         /// @brief Generates the for loop from the given ForLoopNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the for loop will be generated in
-        /// @param `allocations` The map of all allocations (from the preallcation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `for_node` The for loop node to generate
         /// @return `bool` Whether the code generation for the for loop was successful
-        [[nodiscard]] static bool generate_for_loop(                                         //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const ForLoopNode *for_node                                                      //
+        [[nodiscard]] static bool generate_for_loop( //
+            llvm::IRBuilder<> &builder,              //
+            GenerationContext &ctx,                  //
+            const ForLoopNode *for_node              //
         );
 
         /// @function `generate_catch_statement`
         /// @brief Generates the catch statement from the given CatchNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the catch statement will be generated in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `catch_node` The catch node to generate
         /// @return `bool` Whether the code generation of the catch statement was successful
-        [[nodiscard]] static bool generate_catch_statement(                                  //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const CatchNode *catch_node                                                      //
+        [[nodiscard]] static bool generate_catch_statement( //
+            llvm::IRBuilder<> &builder,                     //
+            GenerationContext &ctx,                         //
+            const CatchNode *catch_node                     //
         );
 
         /// @function `generate_group_declaration`
         /// @brief Generates the group declaration from the given GroupDeclarationNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the group declaration will be generated in
-        /// @param `scope` The scope the group declaration is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `declaration_node` The group declaration node to generate
         /// @return `bool` Whether the code generation of the group declaration was successful
-        [[nodiscard]] static bool generate_group_declaration(                                //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const GroupDeclarationNode *declaration_node                                     //
+        [[nodiscard]] static bool generate_group_declaration( //
+            llvm::IRBuilder<> &builder,                       //
+            GenerationContext &ctx,                           //
+            const GroupDeclarationNode *declaration_node      //
         );
 
         /// @function `generate_declaration`
         /// @brief Generates the declaration from the given DeclarationNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the declaration will be generated in
-        /// @param `scope` The scope the declaration is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `declaration_node` The declaration node to generate
         /// @return `bool` Whether the code generation of the declaration was successful
-        [[nodiscard]] static bool generate_declaration(                                      //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const DeclarationNode *declaration_node                                          //
+        [[nodiscard]] static bool generate_declaration( //
+            llvm::IRBuilder<> &builder,                 //
+            GenerationContext &ctx,                     //
+            const DeclarationNode *declaration_node     //
         );
 
         /// @function `generate_assignment`
         /// @brief Generates the assignment from the given AssignmentNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the assignment will be generated in
-        /// @param `scope` The scope the assignment is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `assignment_node` The assignment node to generate
         /// @return `bool` Whether the code generation of the assignment was successful
-        [[nodiscard]] static bool generate_assignment(                                       //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const AssignmentNode *assignment_node                                            //
+        [[nodiscard]] static bool generate_assignment( //
+            llvm::IRBuilder<> &builder,                //
+            GenerationContext &ctx,                    //
+            const AssignmentNode *assignment_node      //
         );
 
         /// @function `generate_group_assignment`
         /// @brief Generates the group assignment from the given GroupAssignmentNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the group assignment will be generated in
-        /// @param `scope` The scope the group assignment is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `group_assignment` The group assignemnt node to generate
         /// @return `bool` Whether the code generation for the group assignment was successful
-        [[nodiscard]] static bool generate_group_assignment(                                 //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const GroupAssignmentNode *group_assignment                                      //
+        [[nodiscard]] static bool generate_group_assignment( //
+            llvm::IRBuilder<> &builder,                      //
+            GenerationContext &ctx,                          //
+            const GroupAssignmentNode *group_assignment      //
         );
 
         /// @function `generate_data_field_assignment`
         /// @brief Generates the data field assignment from the given DataFieldAssignmentNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the data field assignemnt will be generated in
-        /// @param `scope` The scope the data field assignment is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `data_field_assignment` The data field assignment to generate
         /// @return `bool` Whether the code generation of the data field assignment was successful
-        [[nodiscard]] static bool generate_data_field_assignment(                            //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const DataFieldAssignmentNode *data_field_assignment                             //
+        [[nodiscard]] static bool generate_data_field_assignment( //
+            llvm::IRBuilder<> &builder,                           //
+            GenerationContext &ctx,                               //
+            const DataFieldAssignmentNode *data_field_assignment  //
         );
 
         /// @function `generate_grouped_data_field_assignment`
         /// @brief Generates the grouped field assignment from the given GroupedDataFieldAssignmentNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the grouped data field assignment will be generated in
-        /// @param `scope` The scope the grouped data field assignment is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `grouped_field_assignment` The grouped data field assignment to generate
         /// @return `bool` Whether the code generation of the grouped data field assingment was successful
-        [[nodiscard]] static bool generate_grouped_data_field_assignment(                    //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const GroupedDataFieldAssignmentNode *grouped_field_assignment                   //
+        [[nodiscard]] static bool generate_grouped_data_field_assignment(  //
+            llvm::IRBuilder<> &builder,                                    //
+            GenerationContext &ctx,                                        //
+            const GroupedDataFieldAssignmentNode *grouped_field_assignment //
         );
 
         /// @function `generate_array_assignment`
         /// @brief Generates the array assignment from the given ArrayAssignmentNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the array assignment will be generated in
-        /// @param `scope` The scope the array assignment is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `array_assignment` The array assignment to generate
         /// @return `bool` Whether the code genration of the array assignment was successful
-        [[nodiscard]] static bool generate_array_assignment(                                 //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const ArrayAssignmentNode *array_assignment                                      //
+        [[nodiscard]] static bool generate_array_assignment( //
+            llvm::IRBuilder<> &builder,                      //
+            GenerationContext &ctx,                          //
+            const ArrayAssignmentNode *array_assignment      //
         );
 
         /// @function `generate_stacked_assignment`
         /// @brief Generates the stacked assignment from the given StackedAssignmentNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the stacked assignment will be generated in
-        /// @param `scope` The scope the stacked assignment is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the statement generation
         /// @param `stacked_assignment` The stacked assignment to generate
         /// @return `bool` Whether the code generation of the stacked assignment was successful
-        [[nodiscard]] static bool generate_stacked_assignment(                               //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const StackedAssignmentNode *stacked_assignment                                  //
+        [[nodiscard]] static bool generate_stacked_assignment( //
+            llvm::IRBuilder<> &builder,                        //
+            GenerationContext &ctx,                            //
+            const StackedAssignmentNode *stacked_assignment    //
         );
 
         /// @function `generate_unary_op_statement`
         /// @brief Generates the unary operation value from the given UnaryOpStatement
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `scope` The scope the binary operation is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `ctx` The context of the statement generation
         /// @param `unary_op` The unary operation to generate
         /// @return `bool` Whether the code generation of the unary operator statement was successful
-        [[nodiscard]] static bool generate_unary_op_statement(                //
-            llvm::IRBuilder<> &builder,                                       //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const UnaryOpStatement *unary_op                                  //
+        [[nodiscard]] static bool generate_unary_op_statement( //
+            llvm::IRBuilder<> &builder,                        //
+            GenerationContext &ctx,                            //
+            const UnaryOpStatement *unary_op                   //
         );
     }; // subclass Statement
 
@@ -1202,43 +1130,26 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Expression() = delete;
 
-        /// @struct `ExpressionContext`
-        /// @brief The context of the Expression generation
-        struct ExpressionContext {
-            /// @var `parent`
-            /// @brief The function the expression will be generated in
-            llvm::Function *parent;
-
-            /// @var `scope`
-            /// @brief The scope the expression is generated in
-            const Scope *scope;
-
-            /// @var `allocations`
-            /// @brief The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-            std::unordered_map<std::string, llvm::Value *const> allocations;
-
-            /// @var `imported_core_modules`
-            /// @brief The list of imported core modules
-            const std::unordered_map<std::string, ImportNode *const> imported_core_modules;
-
-            /// @var `garbage`
-            /// @brief A list of all accumulated temporary variables that need cleanup
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-        };
+        /// @typedef `garbage_type`
+        /// @brief The type of the collected garbage, which is a map where the 'expr_depth' is the key and its value is a list of all values
+        /// that need to be cleaned up
+        using garbage_type = std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>>;
 
         /// @function `generate_expression`
         /// @brief Generates an expression from the given ExpressionNode
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `expression_node` The expression node to generate
-        /// @param `is_reference` Whether the result of the expression should be a reference. This is only possible for certain expressions
-        /// like variables for example, defaults to false
+        /// @param `is_reference` Whether the result of the expression should be a reference. This is only possible for certain
+        /// expressions like variables for example, defaults to false
         /// @return `group_mapping` The value(s) containing the result of the expression
         static group_mapping generate_expression(  //
             llvm::IRBuilder<> &builder,            //
-            ExpressionContext &ctx,                //
+            GenerationContext &ctx,                //
+            garbage_type &garbage,                 //
             const unsigned int expr_depth,         //
             const ExpressionNode *expression_node, //
             const bool is_reference = false        //
@@ -1265,7 +1176,7 @@ class Generator {
         /// @return `llvm::Value *` The value containing the result of the variable
         static llvm::Value *generate_variable( //
             llvm::IRBuilder<> &builder,        //
-            ExpressionContext &ctx,            //
+            GenerationContext &ctx,            //
             const VariableNode *variable_node, //
             const bool is_reference = false    //
         );
@@ -1275,12 +1186,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `interpol_node` The string interpolation node to generate
         /// @retrn `llvm::Value *` The result of the string interpolation expression
         static llvm::Value *generate_string_interpolation( //
             llvm::IRBuilder<> &builder,                    //
-            ExpressionContext &ctx,                        //
+            GenerationContext &ctx,                        //
+            garbage_type &garbage,                         //
             const unsigned int expr_depth,                 //
             const StringInterpolationNode *interpol_node   //
         );
@@ -1294,7 +1207,7 @@ class Generator {
         /// @return `group_mapping` The value(s) containing the result of the call
         static group_mapping generate_call( //
             llvm::IRBuilder<> &builder,     //
-            ExpressionContext &ctx,         //
+            GenerationContext &ctx,         //
             const CallNodeBase *call_node   //
         );
 
@@ -1306,7 +1219,7 @@ class Generator {
         /// @param `call_node` The call node which is used to generate the rethrow from
         static void generate_rethrow(     //
             llvm::IRBuilder<> &builder,   //
-            ExpressionContext &ctx,       //
+            GenerationContext &ctx,       //
             const CallNodeBase *call_node //
         );
 
@@ -1315,12 +1228,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `group_node` The group operation to generate
         /// @return `group_mapping` The value(s) containing the result of the group expression
         static group_mapping generate_group_expression( //
             llvm::IRBuilder<> &builder,                 //
-            ExpressionContext &ctx,                     //
+            GenerationContext &ctx,                     //
+            garbage_type &garbage,                      //
             const unsigned int expr_depth,              //
             const GroupExpressionNode *group_node       //
         );
@@ -1330,12 +1245,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `initializer` The initializer to generate
         /// @return `group_mapping` The loaded value(s) of the initializer, representing every field of the loaded data
         static group_mapping generate_initializer( //
             llvm::IRBuilder<> &builder,            //
-            ExpressionContext &ctx,                //
+            GenerationContext &ctx,                //
+            garbage_type &garbage,                 //
             const unsigned int expr_depth,         //
             const InitializerNode *initializer     //
         );
@@ -1345,12 +1262,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `initializer` The array initializer to generate
         /// @return `llvm::Value *` The initialized array
         static llvm::Value *generate_array_initializer( //
             llvm::IRBuilder<> &builder,                 //
-            ExpressionContext &ctx,                     //
+            GenerationContext &ctx,                     //
+            garbage_type &garbage,                      //
             const unsigned int expr_depth,              //
             const ArrayInitializerNode *initializer     //
         );
@@ -1360,12 +1279,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `access` The array access to generate
         /// @return `llvm::Value *` The accessed element
         static llvm::Value *generate_array_access( //
             llvm::IRBuilder<> &builder,            //
-            ExpressionContext &ctx,                //
+            GenerationContext &ctx,                //
+            garbage_type &garbage,                 //
             const unsigned int expr_depth,         //
             const ArrayAccessNode *access          //
         );
@@ -1375,12 +1296,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `data_access` The data access node to generate
         /// @return `group_mapping` The value containing the result of the data access, nullopt if generation failed
         static group_mapping generate_data_access( //
             llvm::IRBuilder<> &builder,            //
-            ExpressionContext &ctx,                //
+            GenerationContext &ctx,                //
+            garbage_type &garbage,                 //
             const unsigned int expr_depth,         //
             const DataAccessNode *data_access      //
         );
@@ -1394,7 +1317,7 @@ class Generator {
         /// @return `group_mapping` The value(s) containing the result of the grouped data access
         static group_mapping generate_grouped_data_access(   //
             llvm::IRBuilder<> &builder,                      //
-            ExpressionContext &ctx,                          //
+            GenerationContext &ctx,                          //
             const GroupedDataAccessNode *grouped_data_access //
         );
 
@@ -1403,12 +1326,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `type_cast_node` The type cast to generate
         /// @return `group_mapping` The value(s) containing the result of the type cast
         static group_mapping generate_type_cast( //
             llvm::IRBuilder<> &builder,          //
-            ExpressionContext &ctx,              //
+            GenerationContext &ctx,              //
+            garbage_type &garbage,               //
             const unsigned int expr_depth,       //
             const TypeCastNode *type_cast_node   //
         );
@@ -1433,12 +1358,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `unary_op` The unary operation to generate
         /// @return `group_mapping` The value containing the result of the unary operation
         static group_mapping generate_unary_op_expression( //
             llvm::IRBuilder<> &builder,                    //
-            ExpressionContext &ctx,                        //
+            GenerationContext &ctx,                        //
+            garbage_type &garbage,                         //
             const unsigned int expr_depth,                 //
             const UnaryOpExpression *unary_op              //
         );
@@ -1448,12 +1375,14 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `bin_op_node` The binary operation to generate
         /// @return `group_mapping` The value(s) containing the result of the binop
         static group_mapping generate_binary_op( //
             llvm::IRBuilder<> &builder,          //
-            ExpressionContext &ctx,              //
+            GenerationContext &ctx,              //
+            garbage_type &garbage,               //
             const unsigned int expr_depth,       //
             const BinaryOpNode *bin_op_node      //
         );
@@ -1463,6 +1392,7 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 every layer)
         /// @param `bin_op_node` The binary operation to generate
         /// @param `type_str` The string representation of the type
@@ -1471,7 +1401,8 @@ class Generator {
         /// @return `std::optional<llvm::Value *>` The result of the binary operation
         static std::optional<llvm::Value *> generate_binary_op_scalar( //
             llvm::IRBuilder<> &builder,                                //
-            ExpressionContext &ctx,                                    //
+            GenerationContext &ctx,                                    //
+            garbage_type &garbage,                                     //
             const unsigned int expr_depth,                             //
             const BinaryOpNode *bin_op_node,                           //
             const std::string &type_str,                               //

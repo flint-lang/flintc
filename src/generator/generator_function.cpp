@@ -74,13 +74,15 @@ bool Generator::Function::generate_function(                                    
     Allocation::generate_allocations(builder, function, function_node->scope.get(), allocations, imported_core_modules);
 
     // Generate all instructions of the functions body
-    if (!Statement::generate_body(builder, function, function_node->scope.get(), allocations, imported_core_modules)) {
+    GenerationContext ctx{function, function_node->scope.get(), allocations, imported_core_modules};
+    if (!Statement::generate_body(builder, ctx)) {
         return false;
     }
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (!function->empty() && function->back().getTerminator() == nullptr) {
-        if (!Statement::generate_return_statement(builder, function, function_node->scope.get(), allocations, imported_core_modules, {})) {
+        Expression::garbage_type garbage;
+        if (!Statement::generate_return_statement(builder, ctx, nullptr)) {
             return false;
         }
     }
@@ -121,13 +123,14 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     std::unordered_map<std::string, llvm::Value *const> allocations;
     Allocation::generate_allocations(builder, test_function, test_node->scope.get(), allocations, imported_core_modules);
     // Normally generate the tests body
-    if (!Statement::generate_body(builder, test_function, test_node->scope.get(), allocations, imported_core_modules)) {
+    GenerationContext ctx{test_function, test_node->scope.get(), allocations, imported_core_modules};
+    if (!Statement::generate_body(builder, ctx)) {
         return std::nullopt;
     }
 
     // Check if the function has a terminator, if not add an "empty" return (only the error return)
     if (!test_function->empty() && test_function->back().getTerminator() == nullptr) {
-        if (!Statement::generate_return_statement(builder, test_function, test_node->scope.get(), allocations, imported_core_modules, {})) {
+        if (!Statement::generate_return_statement(builder, ctx, nullptr)) {
             return std::nullopt;
         }
     }
