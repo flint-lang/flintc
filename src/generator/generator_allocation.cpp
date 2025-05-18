@@ -101,7 +101,7 @@ void Generator::Allocation::generate_call_allocations(                          
     // Check if the call targets any builtin functions
     auto builtin_function = Parser::get_builtin_function(call_node->function_name, imported_core_modules);
     if (builtin_function.has_value()) {
-        const std::string &module_name = builtin_function.value().first;
+        const std::string &module_name = std::get<0>(builtin_function.value());
         if (module_name == "print" && call_node->function_name == "print" && call_node->arguments.size() == 1 && //
             Module::Print::print_functions.find(call_node->arguments.front().first->type->to_string()) !=        //
                 Module::Print::print_functions.end()                                                             //
@@ -119,10 +119,6 @@ void Generator::Allocation::generate_call_allocations(                          
 
             // TODO: Implement a way that builtin functions can also return an error struct container
             return;
-
-            // if (call_node->function_name != "read_str") {
-            //     return;
-            // }
         }
     }
     // Get the function definition from any module

@@ -175,7 +175,7 @@ std::optional<std::tuple<                                          //
     std::shared_ptr<Type>,                                         //
     std::optional<bool>                                            //
     >>
-Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens) {
+Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens, const std::optional<std::string> &alias_base) {
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
         tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
     );
@@ -253,9 +253,9 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens)
 
     // Check if its a call to a builtin function, if it is, get the return type of said function
     const auto builtin_function = get_builtin_function(function_name, file_node_ptr->imported_core_modules);
-    if (builtin_function.has_value()) {
+    if (builtin_function.has_value() && (std::get<2>(builtin_function.value()) == alias_base)) {
         // Check if the function has the same arguments as the function expects
-        const auto &function_overloads = builtin_function.value().second;
+        const auto &function_overloads = std::get<1>(builtin_function.value());
         // Check if any overloaded function exists
         std::optional<std::pair<std::vector<std::shared_ptr<Type>>, std::vector<std::shared_ptr<Type>>>> found_function = std::nullopt;
 

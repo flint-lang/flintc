@@ -411,7 +411,7 @@ std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<
 Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
-    auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut);
+    auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut, std::nullopt);
     if (!call_or_init_node_args.has_value()) {
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;

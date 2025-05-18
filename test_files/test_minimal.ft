@@ -1,7 +1,7 @@
 use "tests/assert.ft"
 
 use Core.print
-use Core.read
+use Core.read as r
 
 def main():
     i32x2 ix2 = (1, 2);

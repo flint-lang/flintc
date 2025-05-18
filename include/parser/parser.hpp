@@ -127,9 +127,18 @@ class Parser {
     /// @return `std::string` The type string
     static std::string get_type_string(const token_list &tokens);
 
-    static std::optional<std::pair<std::string, overloads>> get_builtin_function(       //
-        const std::string &function_name,                                               //
-        const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
+    /// @function `get_builtin_function`
+    /// @brief Returns the module the builtin function is contained in, as well as the function overloads and possible aliases for it
+    ///
+    /// @param `function_name` The name of the function to check for
+    /// @param `imported_core_modules` The core modules that have been imported in this file
+    /// @return `std::optional<std::tuple<std::string, overloads, std::optional<std::string>>>` The builtin function match, nullopt if not
+    ///     - The first element is the name of the core module the function comes from
+    ///     - The second element are the overloads of the function from the module
+    ///     - The third element is the alias of the module, if there is any, nullopt if there is none
+    static std::optional<std::tuple<std::string, overloads, std::optional<std::string>>> get_builtin_function( //
+        const std::string &function_name,                                                                      //
+        const std::unordered_map<std::string, ImportNode *const> &imported_core_modules                        //
     );
 
     /// @var `main_function_has_args`
@@ -519,6 +528,7 @@ class Parser {
     ///
     /// @param `scope` The scope the call happens in
     /// @param `tokens` The tokens which will be interpreted as call
+    /// @param `alias_base` The alias base of the call, if there is any
     /// @return A optional value containing a tuple, where:
     ///     - the first value is the function or initializers name
     ///     - the second value is a list of all expressions (the argument expression) of the call / initializier and if the arg is expected
@@ -531,7 +541,7 @@ class Parser {
         std::shared_ptr<Type>,                                         //
         std::optional<bool>                                            //
         >>
-    create_call_or_initializer_base(Scope *scope, const token_slice &tokens);
+    create_call_or_initializer_base(Scope *scope, const token_slice &tokens, const std::optional<std::string> &alias_base);
 
     /// @function `create_unary_op_base`
     /// @brief Creates a UnaryOpBase from the given tokens

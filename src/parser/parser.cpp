@@ -209,15 +209,15 @@ std::string Parser::get_type_string(const token_list &tokens) {
     return stream.str();
 }
 
-std::optional<std::pair<std::string, overloads>> Parser::get_builtin_function(      //
-    const std::string &function_name,                                               //
-    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
+std::optional<std::tuple<std::string, overloads, std::optional<std::string>>> Parser::get_builtin_function( //
+    const std::string &function_name,                                                                       //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules                         //
 ) {
     for (const auto &[module_name, import_node] : imported_core_modules) {
         const auto &module_functions = core_module_functions.at(module_name);
         if (module_functions.find(function_name) != module_functions.end()) {
             const auto &function_variants = module_functions.at(function_name);
-            return std::make_pair(module_name, function_variants);
+            return std::make_tuple(module_name, function_variants, import_node->alias);
         }
     }
     return std::nullopt;

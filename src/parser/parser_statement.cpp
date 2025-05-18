@@ -15,7 +15,7 @@
 
 std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
-    auto call_node_args = create_call_or_initializer_base(scope, tokens_mut);
+    auto call_node_args = create_call_or_initializer_base(scope, tokens_mut, std::nullopt);
     if (!call_node_args.has_value()) {
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
