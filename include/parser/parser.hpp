@@ -686,7 +686,7 @@ class Parser {
     /// @return `std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>` A unique pointer to the
     /// created CallNodeExpression or InitializerNode, depending on if it was an call or initialization
     std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>>
-    create_call_or_initializer_expression(Scope *scope, const token_slice &tokens);
+    create_call_or_initializer_expression(Scope *scope, const token_slice &tokens, const std::optional<std::string> &alias_base);
 
     /// @function `create_type_cast`
     /// @brief Creates a TypeCastNode from the given tokens
@@ -791,8 +791,13 @@ class Parser {
     ///
     /// @param `scope` The scope in which the call statement is defined
     /// @param `tokens` The list of tokens representing the call statement
+    /// @param `alias_base` The alias base of the call, if any
     /// @return `std::optional<std::unique_ptr<CallNodeStatement>>` A unique pointer to the created CallNodeStatement
-    std::optional<std::unique_ptr<CallNodeStatement>> create_call_statement(Scope *scope, const token_slice &tokens);
+    std::optional<std::unique_ptr<CallNodeStatement>> create_call_statement( //
+        Scope *scope,                                                        //
+        const token_slice &tokens,                                           //
+        const std::optional<std::string> &alias_base                         //
+    );
 
     /// @function `create_throw`
     /// @brief Creates a ThrowNode from the given list of tokens

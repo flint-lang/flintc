@@ -606,6 +606,7 @@ class Matcher {
         until_right_paren                                                                                                //
     });
     static const inline PatternPtr function_call = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), until_right_paren});
+    static const inline PatternPtr aliased_function_call = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), function_call});
     static const inline PatternPtr type_cast = sequence({type_prim, token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr bin_op_expr = sequence({
         one_or_more(not_p(binary_operator)), binary_operator, one_or_more(not_p(binary_operator)) //

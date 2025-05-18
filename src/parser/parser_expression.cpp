@@ -408,10 +408,10 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
 }
 
 std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>> //
-Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &tokens) {
+Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &tokens, const std::optional<std::string> &alias_base) {
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
-    auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut, std::nullopt);
+    auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
     if (!call_or_init_node_args.has_value()) {
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
@@ -824,12 +824,37 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
         }
     }
 
+    if (Matcher::tokens_match(tokens_mut, Matcher::aliased_function_call)) {
+        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
+        if (range.has_value() && range.value().second == token_size) {
+            // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
+            // located on the right of the call still
+            // The first element should be an initializer for the alias
+            assert(tokens_mut.first->type == TOK_IDENTIFIER);
+            const std::string alias_base = tokens_mut.first->lexme;
+            tokens_mut.first++;
+            // Then a dot should follow
+            assert(tokens_mut.first->type == TOK_DOT);
+            tokens_mut.first++;
+            // The rest is the call itself
+            auto call_or_initializer_expression = create_call_or_initializer_expression(scope, tokens_mut, alias_base);
+            if (!call_or_initializer_expression.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (std::holds_alternative<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value())) {
+                return std::move(std::get<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value()));
+            } else {
+                return std::move(std::get<std::unique_ptr<InitializerNode>>(call_or_initializer_expression.value()));
+            }
+        }
+    }
     if (Matcher::tokens_match(tokens_mut, Matcher::function_call)) {
         auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
         if (range.has_value() && range.value().second == token_size) {
             // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
             // located on the right of the call still
-            auto call_or_initializer_expression = create_call_or_initializer_expression(scope, tokens_mut);
+            auto call_or_initializer_expression = create_call_or_initializer_expression(scope, tokens_mut, std::nullopt);
             if (!call_or_initializer_expression.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;

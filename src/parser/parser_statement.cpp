@@ -13,9 +13,13 @@
 #include <string>
 #include <variant>
 
-std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(Scope *scope, const token_slice &tokens) {
+std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement( //
+    Scope *scope,                                                                //
+    const token_slice &tokens,                                                   //
+    const std::optional<std::string> &alias_base                                 //
+) {
     token_slice tokens_mut = tokens;
-    auto call_node_args = create_call_or_initializer_base(scope, tokens_mut, std::nullopt);
+    auto call_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
     if (!call_node_args.has_value()) {
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
@@ -976,8 +980,15 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
             return std::nullopt;
         }
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
+    } else if (Matcher::tokens_contain(tokens, Matcher::aliased_function_call)) {
+        token_slice tokens_mut = tokens;
+        remove_leading_garbage(tokens_mut);
+        assert(tokens_mut.first->type == TOK_IDENTIFIER && std::next(tokens_mut.first)->type == TOK_DOT);
+        const std::string alias_base = tokens_mut.first->lexme;
+        tokens_mut.first += 2;
+        statement_node = create_call_statement(scope, tokens_mut, alias_base);
     } else if (Matcher::tokens_contain(tokens, Matcher::function_call)) {
-        statement_node = create_call_statement(scope, tokens);
+        statement_node = create_call_statement(scope, tokens, std::nullopt);
     } else if (Matcher::tokens_contain(tokens, Matcher::unary_op_expr)) {
         std::optional<UnaryOpStatement> unary_op = create_unary_op_statement(scope, tokens);
         if (!unary_op.has_value()) {
@@ -1084,8 +1095,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             return std::nullopt;
         }
         statement_node = std::move(catch_node.value());
+    } else if (Matcher::tokens_contain(definition, Matcher::aliased_function_call)) {
+        assert(definition.first->type == TOK_IDENTIFIER && std::next(definition.first)->type == TOK_DOT);
+        const std::string alias_base = definition.first->lexme;
+        statement_node = create_call_statement(scope, {definition.first + 2, definition.second}, alias_base);
     } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {
-        statement_node = create_call_statement(scope, definition);
+        statement_node = create_call_statement(scope, definition, std::nullopt);
     } else {
         THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, definition);
         return std::nullopt;
