@@ -23,9 +23,8 @@ bool Generator::Statement::generate_statement(                                  
     const std::unique_ptr<StatementNode> &statement                                  //
 ) {
     if (const auto *call_node = dynamic_cast<const CallNodeStatement *>(statement.get())) {
-        group_mapping gm = Expression::generate_call(                                                                 //
-            builder, parent, scope, allocations, imported_core_modules, dynamic_cast<const CallNodeBase *>(call_node) //
-        );
+        Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+        group_mapping gm = Expression::generate_call(builder, ctx, dynamic_cast<const CallNodeBase *>(call_node));
         return gm.has_value();
     } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
         return generate_return_statement(builder, parent, scope, allocations, imported_core_modules, return_node);
@@ -262,10 +261,8 @@ bool Generator::Statement::generate_return_statement(                           
     // If we have a return value, store it in the struct
     if (return_node != nullptr && return_node->return_value.has_value()) {
         // Generate the expression for the return value
-        std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-        auto return_value = Expression::generate_expression(                                                                //
-            builder, parent, scope, allocations, imported_core_modules, garbage, 0, return_node->return_value.value().get() //
-        );
+        Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+        auto return_value = Expression::generate_expression(builder, ctx, 0, return_node->return_value.value().get());
 
         // Ensure the return value matches the function's return type
         if (!return_value.has_value()) {
@@ -274,10 +271,10 @@ bool Generator::Statement::generate_return_statement(                           
         }
 
         // If the rhs is of type `str`, delete the last "garbage", as thats the _actual_ return value
-        if (return_node->return_value.value()->type->to_string() == "str" && garbage.count(0) > 0) {
-            garbage.at(0).clear();
+        if (return_node->return_value.value()->type->to_string() == "str" && ctx.garbage.count(0) > 0) {
+            ctx.garbage.at(0).clear();
         }
-        if (!clear_garbage(builder, garbage)) {
+        if (!clear_garbage(builder, ctx.garbage)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
@@ -337,16 +334,14 @@ bool Generator::Statement::generate_throw_statement(                            
     // Create the pointer to the error value (the 0th index of the struct)
     llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
     // Generate the expression right of the throw statement, it has to be of type int
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    auto expr_result = Expression::generate_expression(                                                       //
-        builder, parent, scope, allocations, imported_core_modules, garbage, 0, throw_node->throw_value.get() //
-    );
+    Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+    auto expr_result = Expression::generate_expression(builder, ctx, 0, throw_node->throw_value.get());
     llvm::Value *err_value = expr_result.value().front();
     // Store the error value in the struct
     builder.CreateStore(err_value, error_ptr);
 
     // Clean up the function's scope before throwing an error
-    if (!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -453,13 +448,8 @@ bool Generator::Statement::generate_if_statement(                               
     unsigned int next_idx = then_idx + 1;
 
     // Generate the condition
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    std::optional<std::vector<llvm::Value *>> condition_arr = Expression::generate_expression( //
-        builder, parent,                                                                       //
-        if_node->then_scope->parent_scope,                                                     //
-        allocations, imported_core_modules, garbage, 0,                                        //
-        if_node->condition.get()                                                               //
-    );
+    Expression::ExpressionContext ctx{parent, if_node->then_scope->parent_scope, allocations, imported_core_modules, {}};
+    std::optional<std::vector<llvm::Value *>> condition_arr = Expression::generate_expression(builder, ctx, 0, if_node->condition.get());
     if (!condition_arr.has_value()) {
         // Failed to generate condition expression
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -469,7 +459,7 @@ bool Generator::Statement::generate_if_statement(                               
     llvm::Value *condition = condition_arr.value().at(0);
 
     // Clear all garbage (temporary variables)
-    if (!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -562,15 +552,12 @@ bool Generator::Statement::generate_while_loop(                                 
 
     // Create the condition block's content
     builder.SetInsertPoint(while_blocks[0]);
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
+    Expression::ExpressionContext ctx{parent, while_node->scope->get_parent(), allocations, imported_core_modules, {}};
     std::optional<std::vector<llvm::Value *>> expression_arr = Expression::generate_expression( //
-        builder, parent,                                                                        //
-        while_node->scope->get_parent(),                                                        //
-        allocations, imported_core_modules, garbage, 0,                                         //
-        while_node->condition.get()                                                             //
+        builder, ctx, 0, while_node->condition.get()                                            //
     );
     llvm::Value *expression = expression_arr.value().at(0);
-    if (!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -632,15 +619,12 @@ bool Generator::Statement::generate_for_loop(                                   
 
     // Create the condition block's content
     builder.SetInsertPoint(for_blocks[0]);
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
+    Expression::ExpressionContext ctx{parent, for_node->definition_scope.get(), allocations, imported_core_modules, {}};
     std::optional<std::vector<llvm::Value *>> expression_arr = Expression::generate_expression( //
-        builder, parent,                                                                        //
-        for_node->definition_scope.get(),                                                       //
-        allocations, imported_core_modules, garbage, 0,                                         //
-        for_node->condition.get()                                                               //
+        builder, ctx, 0, for_node->condition.get()                                              //
     );
     llvm::Value *expression = expression_arr.value().at(0); // Conditions only are allowed to have one type, bool
-    if (!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -771,10 +755,8 @@ bool Generator::Statement::generate_group_declaration(                          
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
     const GroupDeclarationNode *declaration_node                                     //
 ) {
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    auto expression = Expression::generate_expression(                                                              //
-        builder, parent, scope, allocations, imported_core_modules, garbage, 0, declaration_node->initializer.get() //
-    );
+    Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+    auto expression = Expression::generate_expression(builder, ctx, 0, declaration_node->initializer.get());
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -782,10 +764,10 @@ bool Generator::Statement::generate_group_declaration(                          
     assert(declaration_node->variables.size() == expression.value().size());
 
     // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
-    if (garbage.count(0) > 0) {
-        garbage.at(0).clear();
+    if (ctx.garbage.count(0) > 0) {
+        ctx.garbage.at(0).clear();
     }
-    if (!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -815,19 +797,17 @@ bool Generator::Statement::generate_declaration(                                
 
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
-        std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-        auto expr_val = Expression::generate_expression(                                                                        //
-            builder, parent, scope, allocations, imported_core_modules, garbage, 0, declaration_node->initializer.value().get() //
-        );
+        Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+        auto expr_val = Expression::generate_expression(builder, ctx, 0, declaration_node->initializer.value().get());
         if (!expr_val.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
         // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
-        if (garbage.count(0) > 0) {
-            garbage.at(0).clear();
+        if (ctx.garbage.count(0) > 0) {
+            ctx.garbage.at(0).clear();
         }
-        if (!clear_garbage(builder, garbage)) {
+        if (!clear_garbage(builder, ctx.garbage)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
@@ -913,10 +893,8 @@ bool Generator::Statement::generate_assignment(                                 
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
     const AssignmentNode *assignment_node                                            //
 ) {
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    auto expr = Expression::generate_expression(                                                                  //
-        builder, parent, scope, allocations, imported_core_modules, garbage, 0, assignment_node->expression.get() //
-    );
+    Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+    auto expr = Expression::generate_expression(builder, ctx, 0, assignment_node->expression.get());
     if (!expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -924,10 +902,10 @@ bool Generator::Statement::generate_assignment(                                 
     llvm::Value *expression = expr.value().at(0);
 
     // If the rhs is of type `str`, delete tha last "garbage", as thats the _actual_ value
-    if (assignment_node->expression->type->to_string() == "str" && garbage.count(0) > 0) {
-        garbage.at(0).clear();
+    if (assignment_node->expression->type->to_string() == "str" && ctx.garbage.count(0) > 0) {
+        ctx.garbage.at(0).clear();
     }
-    if (!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -964,20 +942,18 @@ bool Generator::Statement::generate_group_assignment(                           
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
     const GroupAssignmentNode *group_assignment                                      //
 ) {
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    auto expression = Expression::generate_expression(                                                             //
-        builder, parent, scope, allocations, imported_core_modules, garbage, 0, group_assignment->expression.get() //
-    );
+    Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+    auto expression = Expression::generate_expression(builder, ctx, 0, group_assignment->expression.get());
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
 
     // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
-    if (garbage.count(0) > 0) {
-        garbage.at(0).clear();
+    if (ctx.garbage.count(0) > 0) {
+        ctx.garbage.at(0).clear();
     }
-    if (!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -1002,19 +978,17 @@ bool Generator::Statement::generate_data_field_assignment(                      
     const DataFieldAssignmentNode *data_field_assignment                             //
 ) {
     // Just save the result of the expression in the field of the data
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    group_mapping expression = Expression::generate_expression(                                                         //
-        builder, parent, scope, allocations, imported_core_modules, garbage, 0, data_field_assignment->expression.get() //
-    );
+    Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+    group_mapping expression = Expression::generate_expression(builder, ctx, 0, data_field_assignment->expression.get());
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
     // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
-    if (garbage.count(0) > 0) {
-        garbage.at(0).clear();
+    if (ctx.garbage.count(0) > 0) {
+        ctx.garbage.at(0).clear();
     }
-    if (!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -1042,19 +1016,17 @@ bool Generator::Statement::generate_grouped_data_field_assignment(              
     const GroupedDataFieldAssignmentNode *grouped_field_assignment                   //
 ) {
     // Just save the result of the expression in the field of the data
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    group_mapping expression = Expression::generate_expression(                                                            //
-        builder, parent, scope, allocations, imported_core_modules, garbage, 0, grouped_field_assignment->expression.get() //
-    );
+    Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+    group_mapping expression = Expression::generate_expression(builder, ctx, 0, grouped_field_assignment->expression.get());
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
     // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
-    if (garbage.count(0) > 0) {
-        garbage.at(0).clear();
+    if (ctx.garbage.count(0) > 0) {
+        ctx.garbage.at(0).clear();
     }
-    if (!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -1085,10 +1057,8 @@ bool Generator::Statement::generate_array_assignment(                           
     const ArrayAssignmentNode *array_assignment                                      //
 ) {
     // Generate the main expression
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    group_mapping expression_result = Expression::generate_expression(                                             //
-        builder, parent, scope, allocations, imported_core_modules, garbage, 0, array_assignment->expression.get() //
-    );
+    Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+    group_mapping expression_result = Expression::generate_expression(builder, ctx, 0, array_assignment->expression.get());
     if (!expression_result.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -1104,9 +1074,7 @@ bool Generator::Statement::generate_array_assignment(                           
     // Generate all the indexing expressions
     std::vector<llvm::Value *> idx_expressions;
     for (auto &idx_expression : array_assignment->indexing_expressions) {
-        group_mapping idx_expr = Expression::generate_expression(                                        //
-            builder, parent, scope, allocations, imported_core_modules, garbage, 0, idx_expression.get() //
-        );
+        group_mapping idx_expr = Expression::generate_expression(builder, ctx, 0, idx_expression.get());
         if (!idx_expr.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
@@ -1160,11 +1128,9 @@ bool Generator::Statement::generate_stacked_assignment(                         
     const StackedAssignmentNode *stacked_assignment                                  //
 ) {
     // Generate the main expression
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
-    group_mapping expression_result = Expression::generate_expression(                                               //
-        builder, parent, scope, allocations, imported_core_modules, garbage, 0, stacked_assignment->expression.get() //
-    );
-    if (!clear_garbage(builder, garbage)) {
+    Expression::ExpressionContext ctx{parent, scope, allocations, imported_core_modules, {}};
+    group_mapping expression_result = Expression::generate_expression(builder, ctx, 0, stacked_assignment->expression.get());
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -1183,10 +1149,8 @@ bool Generator::Statement::generate_stacked_assignment(                         
         );
     }
     // Now we can create the "base expression" which then gets accessed
-    group_mapping base_expr_res = Expression::generate_expression(                                                        //
-        builder, parent, scope, allocations, imported_core_modules, garbage, 0, stacked_assignment->base_expression.get() //
-    );
-    if (!clear_garbage(builder, garbage)) {
+    group_mapping base_expr_res = Expression::generate_expression(builder, ctx, 0, stacked_assignment->base_expression.get());
+    if (!clear_garbage(builder, ctx.garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }

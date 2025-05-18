@@ -1202,30 +1202,46 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Expression() = delete;
 
+        /// @struct `ExpressionContext`
+        /// @brief The context of the Expression generation
+        struct ExpressionContext {
+            /// @var `parent`
+            /// @brief The function the expression will be generated in
+            llvm::Function *parent;
+
+            /// @var `scope`
+            /// @brief The scope the expression is generated in
+            const Scope *scope;
+
+            /// @var `allocations`
+            /// @brief The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+            std::unordered_map<std::string, llvm::Value *const> allocations;
+
+            /// @var `imported_core_modules`
+            /// @brief The list of imported core modules
+            const std::unordered_map<std::string, ImportNode *const> imported_core_modules;
+
+            /// @var `garbage`
+            /// @brief A list of all accumulated temporary variables that need cleanup
+            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> garbage;
+        };
+
         /// @function `generate_expression`
         /// @brief Generates an expression from the given ExpressionNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the expression will be generated in
-        /// @param `scope` The scope the expression is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `expression_node` The expression node to generate
         /// @param `is_reference` Whether the result of the expression should be a reference. This is only possible for certain expressions
         /// like variables for example, defaults to false
         /// @return `group_mapping` The value(s) containing the result of the expression
-        static group_mapping generate_expression(                                                                         //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const ExpressionNode *expression_node,                                                                        //
-            const bool is_reference = false                                                                               //
+        static group_mapping generate_expression(  //
+            llvm::IRBuilder<> &builder,            //
+            ExpressionContext &ctx,                //
+            const unsigned int expr_depth,         //
+            const ExpressionNode *expression_node, //
+            const bool is_reference = false        //
         );
 
         /// @function `generate_literal`
@@ -1243,228 +1259,158 @@ class Generator {
         /// @brief Generates the variable from the given VariableNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the variable is generated in
-        /// @param `scope` The scope the variable is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `ctx` The context of the expression generation
         /// @param `variable_node` The variable node to generate
         /// @param `is_reference` Whether to return the value or the AllocaInst of the variable
         /// @return `llvm::Value *` The value containing the result of the variable
-        static llvm::Value *generate_variable(                                //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const VariableNode *variable_node,                                //
-            const bool is_reference = false                                   //
+        static llvm::Value *generate_variable( //
+            llvm::IRBuilder<> &builder,        //
+            ExpressionContext &ctx,            //
+            const VariableNode *variable_node, //
+            const bool is_reference = false    //
         );
 
         /// @function `generate_string_interpolation`
         /// @brief Generates the string interpolation expression from the given StringInterpolationNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the string interpolation is generated in
-        /// @param `scope` The scope the string interpolation is defined in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `interpol_node` The string interpolation node to generate
         /// @retrn `llvm::Value *` The result of the string interpolation expression
-        static llvm::Value *generate_string_interpolation(                                                                //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const StringInterpolationNode *interpol_node                                                                  //
+        static llvm::Value *generate_string_interpolation( //
+            llvm::IRBuilder<> &builder,                    //
+            ExpressionContext &ctx,                        //
+            const unsigned int expr_depth,                 //
+            const StringInterpolationNode *interpol_node   //
         );
 
         /// @function `generate_call`
         /// @brief Generates the call from the given CallNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the call is generated in
-        /// @param `scope` The scope the call is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `ctx` The context of the expression generation
         /// @param `call_node` The call node to generate
         /// @return `group_mapping` The value(s) containing the result of the call
-        static group_mapping generate_call(                                                  //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const CallNodeBase *call_node                                                    //
+        static group_mapping generate_call( //
+            llvm::IRBuilder<> &builder,     //
+            ExpressionContext &ctx,         //
+            const CallNodeBase *call_node   //
         );
 
         /// @function `generate_rethrow`
         /// @brief Generates a catch block which re-throws the error of the call, if the call had an error
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the rethrow is generated in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `ctx` The context of the expression generation
         /// @param `call_node` The call node which is used to generate the rethrow from
-        static void generate_rethrow(                                         //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const CallNodeBase *call_node                                     //
+        static void generate_rethrow(     //
+            llvm::IRBuilder<> &builder,   //
+            ExpressionContext &ctx,       //
+            const CallNodeBase *call_node //
         );
 
         /// @function `generate_group_expression`
         /// @brief Generates a group expression from the given GroupExpressionNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the group expression is generated in
-        /// @param `scope` The scope the group expression is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `group_node` The group operation to generate
         /// @return `group_mapping` The value(s) containing the result of the group expression
-        static group_mapping generate_group_expression(                                                                   //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const GroupExpressionNode *group_node                                                                         //
+        static group_mapping generate_group_expression( //
+            llvm::IRBuilder<> &builder,                 //
+            ExpressionContext &ctx,                     //
+            const unsigned int expr_depth,              //
+            const GroupExpressionNode *group_node       //
         );
 
         /// @function `generate_initializer`
         /// @brief Generates an initializer from the given InitializerNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the initializer is generated in
-        /// @param `scope` The scope the initializer is contained in
-        /// @param `allocations´`The map of all alloccations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `initializer` The initializer to generate
         /// @return `group_mapping` The loaded value(s) of the initializer, representing every field of the loaded data
-        static group_mapping generate_initializer(                                                                        //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const InitializerNode *initializer                                                                            //
+        static group_mapping generate_initializer( //
+            llvm::IRBuilder<> &builder,            //
+            ExpressionContext &ctx,                //
+            const unsigned int expr_depth,         //
+            const InitializerNode *initializer     //
         );
 
         /// @function `generate_array_initializer`
         /// @brief Generates an array initialization from a given ArrayInitializerNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the array initializer is generated in
-        /// @param `scope` The scope the initializer is contained in
-        /// @param `allocations` The map of all alloccations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `initializer` The array initializer to generate
         /// @return `llvm::Value *` The initialized array
-        static llvm::Value *generate_array_initializer(                                                                   //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const ArrayInitializerNode *initializer                                                                       //
+        static llvm::Value *generate_array_initializer( //
+            llvm::IRBuilder<> &builder,                 //
+            ExpressionContext &ctx,                     //
+            const unsigned int expr_depth,              //
+            const ArrayInitializerNode *initializer     //
         );
 
         /// @function `generate_array_access`
         /// @brief Generates an array access from a given ArrayAccessNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the array access is generated in
-        /// @param `scope` The scope the array access is contained in
-        /// @param `allocations` The map of all alloccations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `access` The array access to generate
         /// @return `llvm::Value *` The accessed element
-        static llvm::Value *generate_array_access(                                                                        //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const ArrayAccessNode *access                                                                                 //
+        static llvm::Value *generate_array_access( //
+            llvm::IRBuilder<> &builder,            //
+            ExpressionContext &ctx,                //
+            const unsigned int expr_depth,         //
+            const ArrayAccessNode *access          //
         );
 
         /// @function `generate_data_access`
         /// @brief Generates a data access from a given DataAccessNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the array access is generated in
-        /// @param `scope` The scope the data access is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `data_access` The data access node to generate
         /// @return `group_mapping` The value containing the result of the data access, nullopt if generation failed
-        static group_mapping generate_data_access(                                                                        //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const DataAccessNode *data_access                                                                             //
+        static group_mapping generate_data_access( //
+            llvm::IRBuilder<> &builder,            //
+            ExpressionContext &ctx,                //
+            const unsigned int expr_depth,         //
+            const DataAccessNode *data_access      //
         );
 
         /// @function `generate_grouped_data_access`
         /// @brief Generates a grouped data access from a given GroupedDataAccessNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `scope` The scope the grouped data access is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+        /// @param `ctx` The context of the expression generation
         /// @param `grouped_data_access` The grouped data access node to generate
         /// @return `group_mapping` The value(s) containing the result of the grouped data access
-        static group_mapping generate_grouped_data_access(                    //
-            llvm::IRBuilder<> &builder,                                       //
-            const Scope *scope,                                               //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const GroupedDataAccessNode *grouped_data_access                  //
+        static group_mapping generate_grouped_data_access(   //
+            llvm::IRBuilder<> &builder,                      //
+            ExpressionContext &ctx,                          //
+            const GroupedDataAccessNode *grouped_data_access //
         );
 
         /// @function `generate_type_cast`
         /// @brief Generates a type cast from a TypeCastNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the type cast is generated in
-        /// @param `scope` The scope the type cast is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `type_cast_node` The type cast to generate
         /// @return `group_mapping` The value(s) containing the result of the type cast
-        static group_mapping generate_type_cast(                                                                          //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const TypeCastNode *type_cast_node                                                                            //
+        static group_mapping generate_type_cast( //
+            llvm::IRBuilder<> &builder,          //
+            ExpressionContext &ctx,              //
+            const unsigned int expr_depth,       //
+            const TypeCastNode *type_cast_node   //
         );
 
         /// @function `generate_type_cast`
@@ -1486,73 +1432,51 @@ class Generator {
         /// @brief Generates the unary operation value from the given UnaryOpNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the unary operation is generated in
-        /// @param `scope` The scope the binary operation is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `unary_op` The unary operation to generate
         /// @return `group_mapping` The value containing the result of the unary operation
-        static group_mapping generate_unary_op_expression(                                                                //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const UnaryOpExpression *unary_op                                                                             //
+        static group_mapping generate_unary_op_expression( //
+            llvm::IRBuilder<> &builder,                    //
+            ExpressionContext &ctx,                        //
+            const unsigned int expr_depth,                 //
+            const UnaryOpExpression *unary_op              //
         );
 
         /// @function `generate_binary_op`
         /// @brief Generates a binary operation from the given BinaryOpNode
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the binary operation is generated in
-        /// @param `scope` The scope the binary operation is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `imported_core_modules` The list of imported core modules
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `bin_op_node` The binary operation to generate
         /// @return `group_mapping` The value(s) containing the result of the binop
-        static group_mapping generate_binary_op(                                                                          //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules,                              //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const BinaryOpNode *bin_op_node                                                                               //
+        static group_mapping generate_binary_op( //
+            llvm::IRBuilder<> &builder,          //
+            ExpressionContext &ctx,              //
+            const unsigned int expr_depth,       //
+            const BinaryOpNode *bin_op_node      //
         );
 
         /// @function `generate_binary_op_scalar`
         /// @brief Generates the binary operation for scalar binary ops
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the binary operation is generated in
-        /// @param `scope` The scope the binary operation is contained in
-        /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `ctx` The context of the expression generation
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 every layer)
         /// @param `bin_op_node` The binary operation to generate
         /// @param `type_str` The string representation of the type
         /// @param `lhs` The left hand side llvm instruction
         /// @param `rhs` The right hand side llvm instruction
         /// @return `std::optional<llvm::Value *>` The result of the binary operation
-        static std::optional<llvm::Value *> generate_binary_op_scalar(                                                    //
-            llvm::IRBuilder<> &builder,                                                                                   //
-            llvm::Function *parent,                                                                                       //
-            const Scope *scope,                                                                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                                             //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
-            const unsigned int expr_depth,                                                                                //
-            const BinaryOpNode *bin_op_node,                                                                              //
-            const std::string &type_str,                                                                                  //
-            llvm::Value *lhs,                                                                                             //
-            llvm::Value *rhs                                                                                              //
+        static std::optional<llvm::Value *> generate_binary_op_scalar( //
+            llvm::IRBuilder<> &builder,                                //
+            ExpressionContext &ctx,                                    //
+            const unsigned int expr_depth,                             //
+            const BinaryOpNode *bin_op_node,                           //
+            const std::string &type_str,                               //
+            llvm::Value *lhs,                                          //
+            llvm::Value *rhs                                           //
         );
 
         /// @function `generate_binary_op_vector`
