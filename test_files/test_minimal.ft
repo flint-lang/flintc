@@ -1,10 +1,10 @@
 use Core.print
 use Core.read
-use Core.assert
+use Core.fs
 
 def main():
-    print("Please enter '5': ");
-    i32 result = read_i32() catch err:
-        print($"Err is {err}\n");
-    assert(result == 5) catch err:
-        print("You have not entered 5!\n");
+    print("Enter a file to display: ");
+    str input = read_str();
+    print($"Content of file '{input}':\n");
+    str file_content = read_file(input);
+    print(file_content);

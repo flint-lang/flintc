@@ -284,6 +284,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
             Module::Assert::assert_functions.find(call_node->function_name) != Module::Assert::assert_functions.end()) {
             func_decl = Module::Assert::assert_functions.at(call_node->function_name);
             function_origin = FunctionOrigin::BUILTIN;
+        } else if (module_name == "fs" && Module::FS::fs_functions.find(call_node->function_name) != Module::FS::fs_functions.end()) {
+            func_decl = Module::FS::fs_functions.at(call_node->function_name);
+            function_origin = FunctionOrigin::BUILTIN;
         } else {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;

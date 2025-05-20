@@ -129,6 +129,8 @@ class CLIParserMain : public CLIParserBase {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::CAST);
             } else if (arg == "--print-ir-assert") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ASSERT);
+            } else if (arg == "--print-ir-fs") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::FS);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);
@@ -205,7 +207,8 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --print-ir-read             Enables printing of the IR code for the read.o library\n";
         std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library\n";
         std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
-        std::cout << "  --print-ir-assert           Enables printing of the IR code for the assert.o library";
+        std::cout << "  --print-ir-assert           Enables printing of the IR code for the assert.o library\n";
+        std::cout << "  --print-ir-fs               Enables printing of the IR code for the fs.o library";
         std::cout << std::endl;
 #endif
     }

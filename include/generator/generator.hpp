@@ -148,6 +148,11 @@ class Generator {
         {CFunction::STRTOF, nullptr},
         {CFunction::STRTOD, nullptr},
         {CFunction::STRLEN, nullptr},
+        {CFunction::FOPEN, nullptr},
+        {CFunction::FSEEK, nullptr},
+        {CFunction::FCLOSE, nullptr},
+        {CFunction::FTELL, nullptr},
+        {CFunction::FREAD, nullptr},
     };
 
     /// @struct `GenerationContext`
@@ -1888,6 +1893,15 @@ class Generator {
             // The constructor is deleted to make this class non-initializable
             Assert() = delete;
 
+            /// @var `assert_functions`
+            /// @brief Map containing references to all assert functions
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the function
+            /// - **Value** `llvm::Function *` - The reference to the genereated function
+            ///
+            /// @attention The functions are nullpointers until the `generate_assert_functions` function is called
+            /// @attention The map is not being cleared after the program module has been generated
             static inline std::unordered_map<std::string_view, llvm::Function *> assert_functions = {
                 {"assert", nullptr},
             };
@@ -1907,6 +1921,61 @@ class Generator {
             /// @param `module` The LLVM Module the assert function definition will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_assert_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+        };
+
+        /// @class `FS`
+        /// @brief The class which is responsible for generating everything related to filesystem
+        /// @note This class cannot be initialized and all functions within this class are static
+        class FS {
+          public:
+            // The constructor is deleted to make this class non-initializable
+            FS() = delete;
+
+            /// @var `fs_functions`
+            /// @brief Map containing references to all filesystem functions
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the function
+            /// - **Value** `llvm::Function *` - The reference to the genereated function
+            ///
+            /// @attention The functions are nullpointers until the `generate_filesystem_functions` function is called
+            /// @attention The map is not being cleared after the program module has been generated
+            static inline std::unordered_map<std::string_view, llvm::Function *> fs_functions = {
+                {"read_file", nullptr},
+                {"read_file_lines", nullptr},
+            };
+
+            /// @function `generate_filesystem_functions`
+            /// @brief Generates the builtin filesystem functions
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the filesystem functions definitions will be generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_filesystem_functions( //
+                llvm::IRBuilder<> *builder,            //
+                llvm::Module *module,                  //
+                const bool only_declarations = true    //
+            );
+
+            /// @function `generate_read_file_function`
+            /// @brief Function to generate the builtin 'read_file' function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the 'read_file' function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_read_file_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_read_file_lines_function`
+            /// @brief Function to generate the builtin 'read_file_lines' function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the 'read_file_lines' function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_read_file_lines_function( //
+                llvm::IRBuilder<> *builder,                //
+                llvm::Module *module,                      //
+                const bool only_declarations = true        //
+            );
         };
 
         /// @class `Print`

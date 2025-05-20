@@ -360,6 +360,68 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *strlen_fn = llvm::Function::Create(strlen_type, llvm::Function::ExternalLinkage, "strlen", module);
         c_functions[STRLEN] = strlen_fn;
     }
+    // fopen
+    {
+        llvm::FunctionType *fopen_type = llvm::FunctionType::get( //
+            llvm::Type::getVoidTy(context)->getPointerTo(),       // return FILE*
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* filename
+                llvm::Type::getInt8Ty(context)->getPointerTo()  // char* modes
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *fopen_fn = llvm::Function::Create(fopen_type, llvm::Function::ExternalLinkage, "fopen", module);
+        c_functions[FOPEN] = fopen_fn;
+    }
+    // fseek
+    {
+        llvm::FunctionType *fseek_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                      // return i32
+            {
+                llvm::Type::getVoidTy(context)->getPointerTo(), // FILE* stream
+                llvm::Type::getInt64Ty(context),                // i64 offset
+                llvm::Type::getInt32Ty(context)                 // i32 whence (whatever that means)
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *fseek_fn = llvm::Function::Create(fseek_type, llvm::Function::ExternalLinkage, "fseek", module);
+        c_functions[FSEEK] = fseek_fn;
+    }
+    // fclose
+    {
+        llvm::FunctionType *fclose_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                       // return i32
+            {llvm::Type::getVoidTy(context)->getPointerTo()},      // FILE* stream
+            false                                                  // No vaarg
+        );
+        llvm::Function *fclose_fn = llvm::Function::Create(fclose_type, llvm::Function::ExternalLinkage, "fclose", module);
+        c_functions[FCLOSE] = fclose_fn;
+    }
+    // ftell
+    {
+        llvm::FunctionType *ftell_type = llvm::FunctionType::get( //
+            llvm::Type::getInt64Ty(context),                      // return i64
+            {llvm::Type::getVoidTy(context)->getPointerTo()},     // FILE* stream
+            false                                                 // No vaarg
+        );
+        llvm::Function *ftell_fn = llvm::Function::Create(ftell_type, llvm::Function::ExternalLinkage, "ftell", module);
+        c_functions[FTELL] = ftell_fn;
+    }
+    // fread
+    {
+        llvm::FunctionType *fread_type = llvm::FunctionType::get( //
+            llvm::Type::getInt64Ty(context),                      // return u64
+            {
+                llvm::Type::getVoidTy(context)->getPointerTo(), // void* ptr
+                llvm::Type::getInt64Ty(context),                // u64 size
+                llvm::Type::getInt64Ty(context),                // u64 n
+                llvm::Type::getVoidTy(context)->getPointerTo()  // FILE* stream
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *fread_fn = llvm::Function::Create(fread_type, llvm::Function::ExternalLinkage, "fread", module);
+        c_functions[FREAD] = fread_fn;
+    }
 }
 
 void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {

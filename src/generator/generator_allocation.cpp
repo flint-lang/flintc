@@ -131,6 +131,8 @@ void Generator::Allocation::generate_call_allocations(                          
         } else if (module_name == "assert" && call_node->arguments.size() == 1 &&
             Module::Assert::assert_functions.find(call_node->function_name) != Module::Assert::assert_functions.end()) {
             function_return_type = IR::add_and_or_get_type(call_node->type);
+        } else if (module_name == "fs" && Module::FS::fs_functions.find(call_node->function_name) != Module::FS::fs_functions.end()) {
+            function_return_type = IR::add_and_or_get_type(call_node->type);
         } else {
             THROW_BASIC_ERR(ERR_GENERATING);
             return;

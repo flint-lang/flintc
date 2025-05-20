@@ -1,5 +1,6 @@
 #include "generator/generator.hpp"
 
+#include "globals.hpp"
 #include "linker/linker.hpp"
 #include "profiler.hpp"
 
@@ -174,6 +175,29 @@ bool Generator::Module::generate_modules() {
             return false;
         }
     }
+    // module 'fs'
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::FS)) {
+        PROFILE_SCOPE("Generating module 'fs'");
+        builder = std::make_unique<llvm::IRBuilder<>>(context);
+        module = std::make_unique<llvm::Module>("fs", context);
+        Builtin::generate_c_functions(module.get());
+        String::generate_string_manip_functions(builder.get(), module.get(), true);
+        FS::generate_filesystem_functions(builder.get(), module.get(), false);
+
+        // Print the module, if requested
+        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::FS))) {
+            std::cout << YELLOW << "[Debug Info] Generated module 'fs':\n"
+                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+        }
+        // Save the generated module at the module_path
+        bool compilation_successful = compile_module(module.get(), cache_path / "fs");
+        module.reset();
+        builder.reset();
+        if (!compilation_successful) {
+            std::cerr << "Error: Failed to generate builtin module 'fs'" << std::endl;
+            return false;
+        }
+    }
     // Then, save the new metadata file
     save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
 
@@ -193,6 +217,7 @@ bool Generator::Module::generate_modules() {
     libs.emplace_back(cache_path / ("array" + file_ending));
     libs.emplace_back(cache_path / ("read" + file_ending));
     libs.emplace_back(cache_path / ("assert" + file_ending));
+    libs.emplace_back(cache_path / ("fs" + file_ending));
 
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
@@ -300,6 +325,9 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     }
     if (!std::filesystem::exists(cache_path / ("assert" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ASSERT);
+    }
+    if (!std::filesystem::exists(cache_path / ("fs" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::FS);
     }
     return needed_rebuilds;
 }
