@@ -64,7 +64,15 @@ class Generator {
     ///
     /// @param `module` The module to compile
     /// @param `module_path` The path
+    /// @return `bool` Whether compilation was successful
     static bool compile_module(llvm::Module *module, const std::filesystem::path &module_path);
+
+    /// @function `verify_module`
+    /// @brief Verifies a given module
+    ///
+    /// @param `module` The module to verify
+    /// @return `bool` Whether the module is error-free
+    static bool verify_module(llvm::Module *module);
 
     /// @function `generate_program_ir`
     /// @brief Generates the llvm IR code for a complete program
@@ -1970,7 +1978,7 @@ class Generator {
             ///
             /// @attention The print functions are nullpointers until the `generate_read_functions` function is called
             /// @attention The map is not being cleared after the program module has been generated
-            static inline std::unordered_map<std::string_view, llvm::Function *> read_functions = {
+            static inline std::unordered_map<std::string, llvm::Function *> read_functions = {
                 {"read_str", nullptr},
                 {"read_i32", nullptr},
                 {"read_i64", nullptr},
@@ -2002,11 +2010,12 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `read_iX` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_read_int_function( //
-                llvm::IRBuilder<> *builder,         //
-                llvm::Module *module,               //
-                const bool only_declarations,       //
-                llvm::Type *result_type             //
+            /// @param `result_type_ptr` The type of the result type
+            static void generate_read_int_function(          //
+                llvm::IRBuilder<> *builder,                  //
+                llvm::Module *module,                        //
+                const bool only_declarations,                //
+                const std::shared_ptr<Type> &result_type_ptr //
             );
 
             /// @function `generate_read_uint_function`
@@ -2015,11 +2024,12 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `read_uX` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_read_uint_function( //
-                llvm::IRBuilder<> *builder,          //
-                llvm::Module *module,                //
-                const bool only_declarations,        //
-                llvm::Type *result_type              //
+            /// @param `result_type_ptr` The type of the result type
+            static void generate_read_uint_function(         //
+                llvm::IRBuilder<> *builder,                  //
+                llvm::Module *module,                        //
+                const bool only_declarations,                //
+                const std::shared_ptr<Type> &result_type_ptr //
             );
 
             /// @function `generate_read_f32_function`

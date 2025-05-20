@@ -324,7 +324,7 @@ void Generator::Module::Read::generate_read_int_function( //
     llvm::IRBuilder<> *builder,                           //
     llvm::Module *module,                                 //
     const bool only_declarations,                         //
-    llvm::Type *result_type                               //
+    const std::shared_ptr<Type> &result_type_ptr          //
 ) {
     // THE C IMPLEMENTATION:
     // int32_t read_i32() {
@@ -343,11 +343,11 @@ void Generator::Module::Read::generate_read_int_function( //
     //     }
     //     return (int32_t)value;
     // }
-    llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *strtol_fn = c_functions.at(STRTOL);
-    llvm::Function *abort_fn = c_functions.at(ABORT);
 
-    llvm::FunctionType *read_int_type = llvm::FunctionType::get(result_type, false);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::Type *result_type = IR::get_type(result_type_ptr).first;
+    llvm::FunctionType *read_int_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_int_fn = llvm::Function::Create(                     //
         read_int_type,                                                        //
         llvm::Function::ExternalLinkage,                                      //
@@ -380,12 +380,15 @@ void Generator::Module::Read::generate_read_int_function( //
     llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
     builder->CreateCondBr(is_null, error_block, continue_block);
 
-    // Error block: print error and abort
+    // Error block: throw an error with exit code 100 (allocation error)
     builder->SetInsertPoint(error_block);
-    llvm::Value *null_error_str = IR::generate_const_string(*builder, "Got a NULL from __flint_getline function call\n");
-    builder->CreateCall(printf_fn, {null_error_str});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable(); // This block never returns
+    llvm::AllocaInst *creation_ret_alloca = Allocation::generate_default_struct( //
+        *builder, function_result_type, "creation_ret_alloca", true              //
+    );
+    llvm::Value *creation_err_ptr = builder->CreateStructGEP(function_result_type, creation_ret_alloca, 0, "creation_err_ptr");
+    builder->CreateStore(builder->getInt32(100), creation_err_ptr);
+    llvm::Value *creation_ret_val = builder->CreateLoad(function_result_type, creation_ret_alloca, "creation_ret_val");
+    builder->CreateRet(creation_ret_val);
 
     // Continue with normal execution
     builder->SetInsertPoint(continue_block);
@@ -411,12 +414,13 @@ void Generator::Module::Read::generate_read_int_function( //
     llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, buffer_end, "endptr_lt_end");
     builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
 
-    // Parse error block: print error and abort
+    // Parse error block: parse error has a error value of 101
     builder->SetInsertPoint(parse_error_block);
-    llvm::Value *parse_error_str = IR::generate_const_string(*builder, "Not whole buffer read!\n");
-    builder->CreateCall(printf_fn, {parse_error_str});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable(); // This block never returns
+    llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
+    llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
+    builder->CreateStore(builder->getInt32(101), parse_err_ptr);
+    llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
+    builder->CreateRet(parse_ret_val);
 
     // Create exit block for the final return
     builder->SetInsertPoint(exit_block);
@@ -435,14 +439,18 @@ void Generator::Module::Read::generate_read_int_function( //
     }
 
     // Return the converted value
-    builder->CreateRet(result_value);
+    llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
+    llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
+    builder->CreateStore(result_value, val_ptr);
+    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloca, "ret_val");
+    builder->CreateRet(ret_val);
 }
 
 void Generator::Module::Read::generate_read_uint_function( //
     llvm::IRBuilder<> *builder,                            //
     llvm::Module *module,                                  //
     const bool only_declarations,                          //
-    llvm::Type *result_type                                //
+    const std::shared_ptr<Type> &result_type_ptr           //
 ) {
     // THE C IMPLEMENTATION:
     // uint32_t read_u32() {
@@ -465,11 +473,11 @@ void Generator::Module::Read::generate_read_uint_function( //
     //     }
     //     return (uint32_t)value;
     // }
-    llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *strtoul_fn = c_functions.at(STRTOUL);
-    llvm::Function *abort_fn = c_functions.at(ABORT);
 
-    llvm::FunctionType *read_uint_type = llvm::FunctionType::get(result_type, false);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::Type *result_type = IR::get_type(result_type_ptr).first;
+    llvm::FunctionType *read_uint_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_uint_fn = llvm::Function::Create(                    //
         read_uint_type,                                                       //
         llvm::Function::ExternalLinkage,                                      //
@@ -505,12 +513,13 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
     builder->CreateCondBr(is_null, error_block, continue_block);
 
-    // Error block: print error and abort
+    // Error block: return 100 error code
     builder->SetInsertPoint(error_block);
-    llvm::Value *null_error_str = IR::generate_const_string(*builder, "Got a NULL from __flint_getline function call\n");
-    builder->CreateCall(printf_fn, {null_error_str});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable(); // This block never returns
+    llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
+    llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
+    builder->CreateStore(builder->getInt32(100), create_err_ptr);
+    llvm::Value *create_ret_val = builder->CreateLoad(function_result_type, create_ret_alloca, "create_ret_val");
+    builder->CreateRet(create_ret_val);
 
     // Continue with normal execution
     builder->SetInsertPoint(continue_block);
@@ -533,12 +542,13 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::Value *is_negative = builder->CreateICmpEQ(first_char, builder->getInt8('-'), "is_negative");
     builder->CreateCondBr(is_negative, negative_error_block, parse_block);
 
-    // Negative error block: print error and abort
+    // Negative error block: return error code 102
     builder->SetInsertPoint(negative_error_block);
-    llvm::Value *negative_error_str = IR::generate_const_string(*builder, "Negative input not allowed for unsigned types!\n");
-    builder->CreateCall(printf_fn, {negative_error_str});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable(); // This block never returns
+    llvm::AllocaInst *neg_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "neg_ret_alloca", true);
+    llvm::Value *neg_err_ptr = builder->CreateStructGEP(function_result_type, neg_ret_alloca, 0, "neg_err_ptr");
+    builder->CreateStore(builder->getInt32(102), neg_err_ptr);
+    llvm::Value *neg_ret_val = builder->CreateLoad(function_result_type, neg_ret_alloca, "neg_ret_val");
+    builder->CreateRet(neg_ret_val);
 
     // Parse block: parse the string with strtoul
     builder->SetInsertPoint(parse_block);
@@ -563,10 +573,11 @@ void Generator::Module::Read::generate_read_uint_function( //
 
     // Parse error block: print error and abort
     builder->SetInsertPoint(parse_error_block);
-    llvm::Value *parse_error_str = IR::generate_const_string(*builder, "Not whole buffer read!\n");
-    builder->CreateCall(printf_fn, {parse_error_str});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable(); // This block never returns
+    llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
+    llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
+    builder->CreateStore(builder->getInt32(101), parse_err_ptr);
+    llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
+    builder->CreateRet(parse_ret_val);
 
     // Create exit block for the final return
     builder->SetInsertPoint(exit_block);
@@ -585,7 +596,11 @@ void Generator::Module::Read::generate_read_uint_function( //
     }
 
     // Return the converted value
-    builder->CreateRet(result_value);
+    llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
+    llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
+    builder->CreateStore(result_value, val_ptr);
+    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloca, "ret_val");
+    builder->CreateRet(ret_val);
 }
 
 void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
@@ -606,11 +621,11 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     //     }
     //     return value;
     // }
-    llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *strtof_fn = c_functions.at(STRTOF);
-    llvm::Function *abort_fn = c_functions.at(ABORT);
 
-    llvm::FunctionType *read_f32_type = llvm::FunctionType::get(llvm::Type::getFloatTy(context), false);
+    const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f32");
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::FunctionType *read_f32_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_f32_fn = llvm::Function::Create( //
         read_f32_type,                                    //
         llvm::Function::ExternalLinkage,                  //
@@ -643,12 +658,13 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
     builder->CreateCondBr(is_null, error_block, continue_block);
 
-    // Error block: print error and abort
+    // Error block: creation error is error code 100
     builder->SetInsertPoint(error_block);
-    llvm::Value *null_error_str = IR::generate_const_string(*builder, "Got a NULL from __flint_getline function call\n");
-    builder->CreateCall(printf_fn, {null_error_str});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable(); // This block never returns
+    llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
+    llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
+    builder->CreateStore(builder->getInt32(100), create_err_ptr);
+    llvm::Value *create_ret_val = builder->CreateLoad(function_result_type, create_ret_alloca, "create_ret_val");
+    builder->CreateRet(create_ret_val);
 
     // Continue with normal execution
     builder->SetInsertPoint(continue_block);
@@ -675,16 +691,21 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     // Branch if an parse error occured
     builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
 
-    // Parse warning block: print warning and continue
+    // Parse warning block is error code 101
     builder->SetInsertPoint(parse_error_block);
-    llvm::Value *parse_warning_str = IR::generate_const_string(*builder, "Not whole buffer read!\n");
-    builder->CreateCall(printf_fn, {parse_warning_str});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable();
+    llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
+    llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
+    builder->CreateStore(builder->getInt32(101), parse_err_ptr);
+    llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
+    builder->CreateRet(parse_ret_val);
 
     // Exit block: return the float value
     builder->SetInsertPoint(exit_block);
-    builder->CreateRet(value);
+    llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
+    llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
+    builder->CreateStore(value, val_ptr);
+    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloca, "ret_val");
+    builder->CreateRet(ret_val);
 }
 
 void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
@@ -697,7 +718,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     //         abort();
     //     }
     //     char *endptr = NULL;
-    //     double value = strtod(buffer, &endptr);
+    //     double value = strtod(buffer, &endptr, 10);
     //     // The whole string should have been parsed
     //     if (endptr < buffer + len) {
     //         printf("Not whole buffer read!\n");
@@ -705,11 +726,11 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     //     }
     //     return value;
     // }
-    llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *strtod_fn = c_functions.at(STRTOD);
-    llvm::Function *abort_fn = c_functions.at(ABORT);
 
-    llvm::FunctionType *read_f64_type = llvm::FunctionType::get(llvm::Type::getDoubleTy(context), false);
+    const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f64");
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::FunctionType *read_f64_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_f64_fn = llvm::Function::Create( //
         read_f64_type,                                    //
         llvm::Function::ExternalLinkage,                  //
@@ -742,12 +763,13 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
     builder->CreateCondBr(is_null, error_block, continue_block);
 
-    // Error block: print error and abort
+    // Error block: creation error is exit code 100
     builder->SetInsertPoint(error_block);
-    llvm::Value *null_error_str = IR::generate_const_string(*builder, "Got a NULL from __flint_getline function call\n");
-    builder->CreateCall(printf_fn, {null_error_str});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable(); // This block never returns
+    llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
+    llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
+    builder->CreateStore(builder->getInt32(100), create_err_ptr);
+    llvm::Value *create_ret_val = builder->CreateLoad(function_result_type, create_ret_alloca, "create_ret_val");
+    builder->CreateRet(create_ret_val);
 
     // Continue with normal execution
     builder->SetInsertPoint(continue_block);
@@ -759,8 +781,9 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
     builder->CreateStore(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
 
-    // Call strtod: double value = strtod(buffer, &endptr)
-    llvm::Value *value = builder->CreateCall(strtod_fn, {buffer, endptr_ptr}, "value");
+    // Call strtod: double value = strtod(buffer, &endptr, 10)
+    llvm::Value *base = builder->getInt32(10);
+    llvm::Value *value = builder->CreateCall(strtod_fn, {buffer, endptr_ptr, base}, "value");
 
     // Load the endptr value after strtod call
     llvm::Value *endptr = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
@@ -774,27 +797,30 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     // Branch if an parse error occured
     builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
 
-    // Parse warning block: print warning and continue
+    // Parse warning block is error code 101
     builder->SetInsertPoint(parse_error_block);
-    llvm::Value *parse_warning_str = IR::generate_const_string(*builder, "Not whole buffer read!\n");
-    builder->CreateCall(printf_fn, {parse_warning_str});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable();
+    llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
+    llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
+    builder->CreateStore(builder->getInt32(101), parse_err_ptr);
+    llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
+    builder->CreateRet(parse_ret_val);
 
     // Exit block: return the double value
     builder->SetInsertPoint(exit_block);
-    builder->CreateRet(value);
+    llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
+    llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
+    builder->CreateStore(value, val_ptr);
+    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloca, "ret_val");
+    builder->CreateRet(ret_val);
 }
 
 void Generator::Module::Read::generate_read_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
-    llvm::Type *i32_type = llvm::Type::getInt32Ty(context);
-    llvm::Type *i64_type = llvm::Type::getInt64Ty(context);
     generate_getline_function(builder, module, only_declarations);
     generate_read_str_function(builder, module, only_declarations);
-    generate_read_int_function(builder, module, only_declarations, i32_type);
-    generate_read_int_function(builder, module, only_declarations, i64_type);
-    generate_read_uint_function(builder, module, only_declarations, i32_type);
-    generate_read_uint_function(builder, module, only_declarations, i64_type);
+    generate_read_int_function(builder, module, only_declarations, Type::get_primitive_type("i32"));
+    generate_read_int_function(builder, module, only_declarations, Type::get_primitive_type("i64"));
+    generate_read_uint_function(builder, module, only_declarations, Type::get_primitive_type("u32"));
+    generate_read_uint_function(builder, module, only_declarations, Type::get_primitive_type("u64"));
     generate_read_f32_function(builder, module, only_declarations);
     generate_read_f64_function(builder, module, only_declarations);
 }

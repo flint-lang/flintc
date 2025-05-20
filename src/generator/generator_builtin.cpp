@@ -328,11 +328,10 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *strtof_type = llvm::FunctionType::get( //
             llvm::Type::getFloatTy(context),                       // return f32
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(),                 // char* buffer
-                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo(), // char** endptr
-                llvm::Type::getInt32Ty(context)                                 // i32 base
-            },                                                                  //
-            false                                                               // No vaarg
+                llvm::Type::getInt8Ty(context)->getPointerTo(),                // char* buffer
+                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo() // char** endptr
+            },                                                                 //
+            false                                                              // No vaarg
         );
         llvm::Function *strtof_fn = llvm::Function::Create(strtof_type, llvm::Function::ExternalLinkage, "strtof", module);
         c_functions[STRTOF] = strtof_fn;

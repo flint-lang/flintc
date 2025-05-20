@@ -98,6 +98,7 @@ void Generator::Allocation::generate_call_allocations(                          
     for (const auto &arg : call_node->arguments) {
         generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, arg.first.get());
     }
+    llvm::Type *function_return_type = nullptr;
     // Check if the call targets any builtin functions
     auto builtin_function = Parser::get_builtin_function(call_node->function_name, imported_core_modules);
     if (builtin_function.has_value()) {
@@ -116,23 +117,22 @@ void Generator::Allocation::generate_call_allocations(                          
             // when the entered input could not be parsed. When this is changed that the builtin functions also can return a { i32, RES }
             // struct, then we would need to pre-allocate the results of these calls too, but as it stands now, builtin read functions dont
             // return the structs
-
-            // TODO: Implement a way that builtin functions can also return an error struct container
+            function_return_type = IR::add_and_or_get_type(call_node->type);
+        }
+    } else {
+        // Get the function definition from any module
+        auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
+        if (!func_decl_res.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
             return;
         }
+        function_return_type = func_decl_res.value()->getReturnType();
     }
-    // Get the function definition from any module
-    auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
-    if (!func_decl_res.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return;
-    }
-    llvm::Function *func_decl = func_decl_res.value();
 
     // Temporary allocation for the entire return struct
     const std::string ret_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
     generate_allocation(builder, allocations, ret_alloca_name,                                                               //
-        func_decl->getReturnType(),                                                                                          //
+        function_return_type,                                                                                                //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "__RET",                                       //
         "Create alloc of struct for called function '" + call_node->function_name + "', called by '" + ret_alloca_name + "'" //
     );

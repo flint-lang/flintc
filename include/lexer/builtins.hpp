@@ -39,7 +39,7 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
         {
             {"read_str", // The 'read_str' function
                 {
-                    {{}, {"str"}, true}, // The single version of the 'read_str' function
+                    {{}, {"str"}, false}, // The single version of the 'read_str' function
                 }},
             {"read_i32", // The 'read_i32' function
                 {

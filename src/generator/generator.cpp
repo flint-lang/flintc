@@ -107,7 +107,7 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
 #endif
 
     if (DEBUG_MODE) {
-        std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << std::endl;
+        std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << "\n" << std::endl;
     }
     module->setTargetTriple(target_triple);
 
@@ -153,6 +153,10 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
         return false;
     }
 
+    if (DEBUG_MODE) {
+        verify_module(module);
+    }
+
     // Run the passes to generate machine code
     Profiler::start_task("Generate machine code");
     pass.run(*module);
@@ -162,6 +166,48 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] Code generation status" << DEFAULT << std::endl;
         std::cout << "-- Machine code generated: " << obj_file << "\n" << std::endl;
+    }
+    return true;
+}
+
+bool Generator::verify_module(llvm::Module *module) {
+    // Capture verification errors in a string
+    std::string errorOutput;
+    llvm::raw_string_ostream errorStream(errorOutput);
+
+    // Verify the module, capturing errors in errorStream
+    bool hasErrors = llvm::verifyModule(*module, &errorStream);
+    errorStream.flush(); // Make sure all output is written
+
+    // Process the errors - filter out "Referencing function in another module!" errors
+    std::istringstream ss(errorOutput);
+    std::string line;
+    bool hasRealErrors = false;
+    std::string filteredErrors;
+
+    unsigned char lines_to_skip = 0;
+    while (std::getline(ss, line)) {
+        if (line.find("Referencing function in another module!") != std::string::npos) {
+            lines_to_skip = 4;
+        } else if (lines_to_skip > 0) {
+            lines_to_skip--;
+        } else {
+            filteredErrors += line + "\n";
+            hasRealErrors = true;
+        }
+    }
+
+    // Only print the module if there are real errors
+    if (hasRealErrors) {
+        llvm::errs() << filteredErrors;
+        std::cout << "\n\n -------- MODULE WITH ERRORS -------- \n"
+                  << resolve_ir_comments(get_module_ir_string(module)) << "\n ---------------- \n"
+                  << std::endl;
+        return false;
+    } else if (hasErrors) {
+        // Optionally print a message indicating only reference "errors" were found
+        std::cout << YELLOW << "[Debug Info] Module verification for module '" << module->getName().str() << "' successful\n" << std::endl;
+        return true;
     }
     return true;
 }
@@ -285,43 +331,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             Resolver::file_generation_finished(shared_tip->file_name);
 
             if (DEBUG_MODE) {
-                // Capture verification errors in a string
-                std::string errorOutput;
-                llvm::raw_string_ostream errorStream(errorOutput);
-
-                // Verify the module, capturing errors in errorStream
-                bool hasErrors = llvm::verifyModule(*file_module.value(), &errorStream);
-                errorStream.flush(); // Make sure all output is written
-
-                // Process the errors - filter out "Referencing function in another module!" errors
-                std::istringstream ss(errorOutput);
-                std::string line;
-                bool hasRealErrors = false;
-                std::string filteredErrors;
-
-                unsigned char lines_to_skip = 0;
-                while (std::getline(ss, line)) {
-                    if (line.find("Referencing function in another module!") != std::string::npos) {
-                        lines_to_skip = 4;
-                    } else if (lines_to_skip > 0) {
-                        lines_to_skip--;
-                    } else {
-                        filteredErrors += line + "\n";
-                        hasRealErrors = true;
-                    }
-                }
-
-                // Only print the module if there are real errors
-                if (hasRealErrors) {
-                    llvm::errs() << filteredErrors;
-                    std::cout << "\n\n -------- MODULE WITH ERRORS -------- \n"
-                              << resolve_ir_comments(get_module_ir_string(file_module.value().get())) << "\n ---------------- \n"
-                              << std::endl;
-                } else if (hasErrors) {
-                    // Optionally print a message indicating only reference "errors" were found
-                    std::cout << YELLOW << "[Debug Info] Module verification for module '" << file_module.value()->getName().str()
-                              << "' successful\n"
-                              << std::endl;
+                if (!verify_module(file_module.value().get())) {
+                    THROW_BASIC_ERR(ERR_LINKING);
+                    return std::nullopt;
                 }
             }
 

@@ -234,7 +234,7 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     if (type->isIntegerTy()) {
         return llvm::ConstantInt::get(type, 0);
     }
-    if (type->isFloatTy()) {
+    if (type->isFloatTy() || type->isDoubleTy()) {
         return llvm::ConstantFP::get(type, 0.0);
     }
     if (type->isPointerTy()) {

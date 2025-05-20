@@ -245,6 +245,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
         args.emplace_back(expr_val);
     }
 
+    llvm::Function *func_decl = nullptr;
+    enum class FunctionOrigin { INTERN, EXTERN, BUILTIN };
+    FunctionOrigin function_origin = FunctionOrigin::INTERN;
     // First check which core modules have been imported
     auto builtin_function = Parser::get_builtin_function(call_node->function_name, ctx.imported_core_modules);
     if (builtin_function.has_value()) {
@@ -264,20 +267,19 @@ Generator::group_mapping Generator::Expression::generate_call( //
         } else if (module_name == "read" && call_node->arguments.size() == 0 &&                               //
             Module::Read::read_functions.find(call_node->function_name) != Module::Read::read_functions.end() //
         ) {
-            return_value.emplace_back(builder.CreateCall(                                                           //
-                Module::Read::read_functions.at(call_node->function_name), args, call_node->function_name + "_res") //
-            );
-            return return_value;
+            func_decl = Module::Read::read_functions.at(call_node->function_name);
+            function_origin = FunctionOrigin::BUILTIN;
         }
+    } else {
+        // Get the function definition from any module
+        auto result = Function::get_function_definition(ctx.parent, call_node);
+        if (!result.first.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        func_decl = result.first.value();
+        function_origin = result.second ? FunctionOrigin::EXTERN : FunctionOrigin::INTERN;
     }
-
-    // Get the function definition from any module
-    auto [func_decl_res, is_call_extern] = Function::get_function_definition(ctx.parent, call_node);
-    if (!func_decl_res.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return std::nullopt;
-    }
-    llvm::Function *func_decl = func_decl_res.value();
 
     // Create the call instruction using the original declaration
     llvm::CallInst *call = builder.CreateCall(                                  //
@@ -318,13 +320,13 @@ Generator::group_mapping Generator::Expression::generate_call( //
     }
 
     // Add the call instruction to the list of unresolved functions only if it was a module-intern call
-    if (!is_call_extern) {
+    if (function_origin == FunctionOrigin::INTERN) {
         if (unresolved_functions.find(call_node->function_name) == unresolved_functions.end()) {
             unresolved_functions[call_node->function_name] = {call};
         } else {
             unresolved_functions[call_node->function_name].push_back(call);
         }
-    } else {
+    } else if (function_origin == FunctionOrigin::EXTERN) {
         for (const auto &[file_name, function_list] : file_function_names) {
             if (std::find(function_list.begin(), function_list.end(), call_node->function_name) != function_list.end()) {
                 // Check if any unresolved function call from a function of that file even exists, if not create the first one
