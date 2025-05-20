@@ -65,6 +65,8 @@ class CLIParserMain : public CLIParserBase {
                 run = true;
             } else if (arg == "--parallel") {
                 parallel = true;
+            } else if (arg == "--rebuild-core") {
+                BUILTIN_LIBS_TO_PRINT = static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
             } else if (starts_with(arg, "--compiler=")) {
                 // Erase the '--compiler=' part of the string
                 compile_command = arg.substr(11, arg.length() - 11);
@@ -125,6 +127,8 @@ class CLIParserMain : public CLIParserBase {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::STR);
             } else if (arg == "--print-ir-cast") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::CAST);
+            } else if (arg == "--print-ir-assert") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ASSERT);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);
@@ -162,12 +166,13 @@ class CLIParserMain : public CLIParserBase {
         // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
         std::cout << "  --run                       Run the built binary directly without outputting it\n";
         std::cout << "  --parallel                  Compile in parallel (only recommended for bigger projects)\n";
+        std::cout << "  --static                    Build the executable as static\n";
+        std::cout << "  --rebuild-core              Rebuild all the core modules\n";
+        std::cout << "  --compiler=\"[command]\"      The external compiler command to use for code generation\n";
         std::cout << "  --flags=\"[flags]\"           The compile flags added to the external compile command\n";
         std::cout << "                              HINT: These flags have no effect when not using an external compiler\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code\n";
-        std::cout << "                              HINT: The compiler will not create an executable with this flag set\n";
-        std::cout << "  --static                    Build the executable as static\n";
-        std::cout << "  --compiler=\"[command]\"      The external compiler command to use for code generation";
+        std::cout << "                              HINT: The compiler will not create an executable with this flag set";
         std::cout << std::endl;
         std::cout << "\nArithmetic Options:\n";
         std::cout << "  --arithmetic-print          [Default] Prints a small message to the console whenever an overflow occurred\n";
@@ -189,16 +194,18 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --no-ir                     Disables the debug printing of the generated program IR code\n";
         std::cout << "  --no-profile                Disables the debug printing of the profiling results\n";
         std::cout << "  --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
-        std::cout << "  --no-generation             Disables code generation entirely, the program exits after the parsing phase";
+        std::cout << "  --no-generation             Disables code generation entirely, the program exits after the parsing phase\n";
+        std::cout << "                              HINT: Doesnt produce an executable";
         std::cout << std::endl;
         std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
         std::cout << "  --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
+        std::cout << "                              HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used\n";
         std::cout << "  --print-ir-array            Enables printing of the IR code for the array.o library\n";
         std::cout << "  --print-ir-print            Enables printing of the IR code for the print.o library\n";
         std::cout << "  --print-ir-read             Enables printing of the IR code for the read.o library\n";
         std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library\n";
         std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
-        std::cout << "                              HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used.";
+        std::cout << "  --print-ir-assert           Enables printing of the IR code for the assert.o library";
         std::cout << std::endl;
 #endif
     }
