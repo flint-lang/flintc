@@ -177,10 +177,11 @@ token_slice Parser::get_body_tokens(unsigned int definition_indentation, const t
 }
 
 std::optional<std::tuple<                                          //
-    std::string,                                                   //
-    std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, //
-    std::shared_ptr<Type>,                                         //
-    std::optional<bool>                                            //
+    std::string,                                                   // name
+    std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, // args
+    std::shared_ptr<Type>,                                         // type
+    std::optional<bool>,                                           // is data (true), entity (false) or call (nullopt)
+    bool                                                           // can_throw
     >>
 Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens, const std::optional<std::string> &alias_base) {
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
@@ -264,9 +265,9 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
         // Check if the function has the same arguments as the function expects
         const auto &function_overloads = std::get<1>(builtin_function.value());
         // Check if any overloaded function exists
-        std::optional<std::pair<std::vector<std::shared_ptr<Type>>, std::vector<std::shared_ptr<Type>>>> found_function = std::nullopt;
+        std::optional<std::tuple<std::vector<std::shared_ptr<Type>>, std::vector<std::shared_ptr<Type>>, bool>> found_function;
 
-        for (const auto &[param_types_str, return_types_str] : function_overloads) {
+        for (const auto &[param_types_str, return_types_str, can_throw] : function_overloads) {
             if (arguments.size() != param_types_str.size()) {
                 continue;
             }
@@ -288,7 +289,7 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
                 ++arg_it;
             }
             if (is_same) {
-                found_function = {param_types, return_types};
+                found_function = {param_types, return_types, can_throw};
             }
         }
         if (!found_function.has_value()) {
@@ -299,16 +300,17 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
             );
             return std::nullopt;
         }
-        if (found_function.value().second.size() > 1) {
-            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(found_function.value().second);
+        auto &fn = found_function.value();
+        if (std::get<1>(fn).size() > 1) {
+            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(std::get<1>(fn));
             if (!Type::add_type(group_type)) {
                 // The type was already present, so we set the type of the group expression to the already present type to minimize type
                 // duplication
                 group_type = Type::get_type_from_str(group_type->to_string()).value();
             }
-            return std::make_tuple(function_name, std::move(arguments), group_type, std::nullopt);
+            return std::make_tuple(function_name, std::move(arguments), group_type, std::nullopt, std::get<2>(fn));
         }
-        return std::make_tuple(function_name, std::move(arguments), found_function.value().second.front(), std::nullopt);
+        return std::make_tuple(function_name, std::move(arguments), std::get<1>(fn).front(), std::nullopt, std::get<2>(fn));
     }
 
     // Check if there exists a type with the name of the "function" call
@@ -334,7 +336,7 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
                     return std::nullopt;
                 }
             }
-            return std::make_tuple(data_node->name, std::move(arguments), complex_type.value(), true);
+            return std::make_tuple(data_node->name, std::move(arguments), complex_type.value(), true, false);
         }
     }
 
@@ -361,15 +363,15 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
 
     std::vector<std::shared_ptr<Type>> return_types = function.value().first->return_types;
     if (return_types.empty()) {
-        return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), std::nullopt);
+        return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), std::nullopt, true);
     } else if (return_types.size() > 1) {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(return_types);
         if (!Type::add_type(group_type)) {
             group_type = Type::get_type_from_str(group_type->to_string()).value();
         }
-        return std::make_tuple(function_name, std::move(arguments), group_type, std::nullopt);
+        return std::make_tuple(function_name, std::move(arguments), group_type, std::nullopt, true);
     }
-    return std::make_tuple(function_name, std::move(arguments), return_types.front(), std::nullopt);
+    return std::make_tuple(function_name, std::move(arguments), return_types.front(), std::nullopt, true);
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base( //

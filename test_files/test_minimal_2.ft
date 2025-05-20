@@ -1,7 +1,0 @@
-data Vector2:
-    f32 x;
-    f32 y;
-    Vector2(x, y);
-
-enum MyEnum:
-    VAL1, VAL2;

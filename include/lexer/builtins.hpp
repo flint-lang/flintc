@@ -9,8 +9,9 @@
 using type_list = std::vector<std::string_view>;
 
 /// @typedef `overloads`
-/// @brief This type is used for all overloads of a function, it contains the argument and return types of a function
-using overloads = std::vector<std::pair<type_list, type_list>>;
+/// @brief This type is used for all overloads of a function, it contains the argument and return types of a function and whether the
+/// function can return an error, for Flints internal error handling system
+using overloads = std::vector<std::tuple<type_list, type_list, bool>>;
 
 /// @typedef `function_list`
 /// @brief A function list is a list of functions together with its signature overloads
@@ -23,46 +24,46 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
         {
             {"print", // The 'print' function
                 {
-                    {{"i32"}, {"void"}},  // The 'i32' argument overload of the 'print' function
-                    {{"i64"}, {"void"}},  // The 'i64' argument overload of the 'print' function
-                    {{"u32"}, {"void"}},  // The 'u32' argument overload of the 'print' function
-                    {{"u64"}, {"void"}},  // The 'u64' argument overload of the 'print' function
-                    {{"f32"}, {"void"}},  // The 'f32' argument overload of the 'print' function
-                    {{"f64"}, {"void"}},  // The 'f64' argument overload of the 'print' function
-                    {{"char"}, {"void"}}, // The 'char' argument overload of the 'print' function
-                    {{"str"}, {"void"}},  // The 'str' argument overload of the 'print' function
-                    {{"bool"}, {"void"}}, // The 'bool' argument overload of the 'print' function
+                    {{"i32"}, {"void"}, false},  // The 'i32' argument overload of the 'print' function
+                    {{"i64"}, {"void"}, false},  // The 'i64' argument overload of the 'print' function
+                    {{"u32"}, {"void"}, false},  // The 'u32' argument overload of the 'print' function
+                    {{"u64"}, {"void"}, false},  // The 'u64' argument overload of the 'print' function
+                    {{"f32"}, {"void"}, false},  // The 'f32' argument overload of the 'print' function
+                    {{"f64"}, {"void"}, false},  // The 'f64' argument overload of the 'print' function
+                    {{"char"}, {"void"}, false}, // The 'char' argument overload of the 'print' function
+                    {{"str"}, {"void"}, false},  // The 'str' argument overload of the 'print' function
+                    {{"bool"}, {"void"}, false}, // The 'bool' argument overload of the 'print' function
                 }},
         }},  // End of the 'print' module,
     {"read", // The 'read' module
         {
             {"read_str", // The 'read_str' function
                 {
-                    {{}, {"str"}}, // The single version of the 'read_str' function
+                    {{}, {"str"}, true}, // The single version of the 'read_str' function
                 }},
             {"read_i32", // The 'read_i32' function
                 {
-                    {{}, {"i32"}}, // The single version of the 'read_i32' function
+                    {{}, {"i32"}, true}, // The single version of the 'read_i32' function
                 }},
             {"read_i64", // The 'read_i64' function
                 {
-                    {{}, {"i64"}}, // The single version of the 'read_i64' function
+                    {{}, {"i64"}, true}, // The single version of the 'read_i64' function
                 }},
             {"read_u32", // The 'read_u32' function
                 {
-                    {{}, {"u32"}}, // The single version of the 'read_u32' function
+                    {{}, {"u32"}, true}, // The single version of the 'read_u32' function
                 }},
             {"read_u64", // The 'read_u64' function
                 {
-                    {{}, {"u64"}}, // The single version of the 'read_u64' function
+                    {{}, {"u64"}, true}, // The single version of the 'read_u64' function
                 }},
             {"read_f32", // The 'read_f32' function
                 {
-                    {{}, {"f32"}}, // The single version of the 'read_f32' function
+                    {{}, {"f32"}, true}, // The single version of the 'read_f32' function
                 }},
             {"read_f64", // The 'read_f64' function
                 {
-                    {{}, {"f64"}}, // The single version of the 'read_f64' function
+                    {{}, {"f64"}, true}, // The single version of the 'read_f64' function
                 }},
 
         }}, // End of the 'read' module

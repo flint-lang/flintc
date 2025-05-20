@@ -434,6 +434,7 @@ Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &t
         std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
             std::get<0>(call_or_init_node_args.value()),                                      // name
             std::get<1>(call_or_init_node_args.value()),                                      // args
+            std::get<4>(call_or_init_node_args.value()),                                      // can_throw
             std::get<2>(call_or_init_node_args.value())                                       // type
         );
         call_node->scope_id = scope->scope_id;

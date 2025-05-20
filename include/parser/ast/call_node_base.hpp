@@ -14,10 +14,12 @@ class CallNodeBase {
     CallNodeBase(                                                                //
         std::string function_name,                                               //
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments, //
+        const bool can_throw,                                                    //
         const std::shared_ptr<Type> &type                                        //
         ) :
         function_name(std::move(function_name)),
         arguments(std::move(arguments)),
+        can_throw(can_throw),
         type(type) {}
 
     // deconstructor
@@ -37,6 +39,14 @@ class CallNodeBase {
     /// @brief The list of arguments of the function call and whether each argument is a reference or not
     std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments;
 
+    /// @var `can_throw`
+    /// @brief Whether this call can throw an error. All user-defined functions can throw, but not all Core functions can
+    bool can_throw;
+
+    /// @var `type`
+    /// @brief The type of the call`s return value(s)
+    std::shared_ptr<Type> type;
+
     /// @var `scope_id`
     /// @brief The id of the scope the call happens in
     unsigned int scope_id{0};
@@ -48,10 +58,6 @@ class CallNodeBase {
     /// @var `call_id`
     /// @brief The id of this function call. Used for Catch-referentiation of this CallNode
     const unsigned int call_id = get_next_call_id();
-
-    /// @var `type`
-    /// @brief The type of the call`s return value(s)
-    std::shared_ptr<Type> type;
 
   protected:
     CallNodeBase() = default;

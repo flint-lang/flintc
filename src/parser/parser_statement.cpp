@@ -32,6 +32,7 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
     std::unique_ptr<CallNodeStatement> call_node = std::make_unique<CallNodeStatement>( //
         std::get<0>(call_node_args.value()),                                            // name
         std::move(std::get<1>(call_node_args.value())),                                 // args
+        std::get<4>(call_node_args.value()),                                            // can_throw
         std::get<2>(call_node_args.value())                                             // type
     );
     call_node->scope_id = scope->scope_id;

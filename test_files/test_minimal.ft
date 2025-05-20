@@ -1,8 +1,9 @@
-use "tests/assert.ft" as a
-use "test_minimal_2.ft" as b
+use "tests/assert.ft"
 
 use Core.print
+use Core.read
 
 def main():
-    b.Vector2 v2 = b.Vector2(1.1, 2.2);
-    print($"v2.x = {v2.x}\n");
+    print("Enter an i32 value: ");
+    i32 result = read_i32();
+    print($"You have entered {result}\n");

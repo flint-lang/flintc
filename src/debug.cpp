@@ -316,6 +316,7 @@ namespace Debug {
 
         void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call) {
             Local::print_header(indent_lvl, empty, "Call ");
+            std::cout << "[" << (call.can_throw ? "throws" : "nothrow") << "] ";
             std::cout << "'" << call.function_name << "(";
             for (auto it = call.arguments.begin(); it != call.arguments.end(); ++it) {
                 if (it != call.arguments.begin()) {

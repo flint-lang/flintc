@@ -14,9 +14,10 @@ class CallNodeExpression : public CallNodeBase, public ExpressionNode {
     explicit CallNodeExpression(                                                  //
         std::string &function_name,                                               //
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+        const bool can_throw,                                                     //
         const std::shared_ptr<Type> &type                                         //
         ) :
-        CallNodeBase(function_name, std::move(arguments), type) {
+        CallNodeBase(function_name, std::move(arguments), can_throw, type) {
         ExpressionNode::type = type;
     }
 

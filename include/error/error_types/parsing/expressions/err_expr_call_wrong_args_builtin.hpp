@@ -41,7 +41,7 @@ class ErrExprCallWrongArgsBuiltin : public BaseError {
             return oss.str();
         }
         oss << " -- Available signatures are:";
-        for (const auto &[param_types_str, return_types_str] : function_overloads.value()) {
+        for (const auto &[param_types_str, return_types_str, can_throw] : function_overloads.value()) {
             std::vector<std::shared_ptr<Type>> param_types;
             std::transform(param_types_str.begin(), param_types_str.end(), param_types.begin(), Type::str_to_type);
             oss << "\n    " << GREEN << get_function_signature_string(function_name, param_types) << DEFAULT;
