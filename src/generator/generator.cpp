@@ -253,6 +253,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Gneerate all the "hidden" array helper functions
     Module::Array::generate_array_manip_functions(builder.get(), module.get());
 
+    // Generate all the "hidden" assert helper functions
+    Module::Assert::generate_assert_functions(builder.get(), module.get());
+
     if (!is_test) {
         // Generate main function in the main module
         Builtin::generate_builtin_main(builder.get(), module.get());
