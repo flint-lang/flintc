@@ -1,3 +1,5 @@
+use Core.assert
+
 enum CoolEnum:
     VAL1, VAL2, VAL3;
 

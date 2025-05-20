@@ -1,3 +1,0 @@
-def assert(bool condition):
-	if not condition:
-		throw 10;

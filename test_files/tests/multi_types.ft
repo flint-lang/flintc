@@ -1,4 +1,4 @@
-use "assert.ft"
+use Core.assert
 
 def test_mult_fn(i32x4 v4, i32 m) -> i32x4:
     return v4 * m;

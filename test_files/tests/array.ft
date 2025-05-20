@@ -1,4 +1,4 @@
-use "assert.ft"
+use Core.assert
 
 def test_array():
     i32[] arr_i32 = i32[10](-2);

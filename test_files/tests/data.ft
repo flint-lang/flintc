@@ -1,4 +1,4 @@
-use "assert.ft"
+use Core.assert
 
 data Vector2i:
     i32 x;
