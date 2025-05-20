@@ -117,7 +117,17 @@ void Generator::Allocation::generate_call_allocations(                          
             // when the entered input could not be parsed. When this is changed that the builtin functions also can return a { i32, RES }
             // struct, then we would need to pre-allocate the results of these calls too, but as it stands now, builtin read functions dont
             // return the structs
-            function_return_type = IR::add_and_or_get_type(call_node->type);
+            if (std::get<1>(builtin_function.value()).size() > 1) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return;
+            }
+            if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
+                // Function returns error
+                function_return_type = IR::add_and_or_get_type(call_node->type);
+            } else {
+                // Function does not return error
+                return;
+            }
         } else if (module_name == "assert" && call_node->arguments.size() == 1 &&
             Module::Assert::assert_functions.find(call_node->function_name) != Module::Assert::assert_functions.end()) {
             function_return_type = IR::add_and_or_get_type(call_node->type);
