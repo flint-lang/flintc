@@ -118,6 +118,12 @@ void Generator::Allocation::generate_call_allocations(                          
             // struct, then we would need to pre-allocate the results of these calls too, but as it stands now, builtin read functions dont
             // return the structs
             function_return_type = IR::add_and_or_get_type(call_node->type);
+        } else if (module_name == "assert" && call_node->arguments.size() == 1 &&
+            Module::Assert::assert_functions.find(call_node->function_name) != Module::Assert::assert_functions.end()) {
+            function_return_type = IR::add_and_or_get_type(call_node->type);
+        } else {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return;
         }
     } else {
         // Get the function definition from any module

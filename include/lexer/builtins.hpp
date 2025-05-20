@@ -20,6 +20,13 @@ using function_overload_list = std::unordered_map<std::string_view, overloads>;
 /// @var `core_module_functions`
 /// @brief A map containing all core modules and maps the module to its functions
 static inline std::unordered_map<std::string_view, function_overload_list> core_module_functions = {
+    {"assert", // The 'assert' module
+        {
+            {"assert", // The 'assert' function
+                {
+                    {{"bool"}, {"void"}, true}, // The single version of the 'assert' function
+                }},
+        }},   // End of the 'assert' module
     {"print", // The 'print' module
         {
             {"print", // The 'print' function
@@ -34,7 +41,7 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                     {{"str"}, {"void"}, false},  // The 'str' argument overload of the 'print' function
                     {{"bool"}, {"void"}, false}, // The 'bool' argument overload of the 'print' function
                 }},
-        }},  // End of the 'print' module,
+        }},  // End of the 'print' module
     {"read", // The 'read' module
         {
             {"read_str", // The 'read_str' function
@@ -65,7 +72,6 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                 {
                     {{}, {"f64"}, true}, // The single version of the 'read_f64' function
                 }},
-
         }}, // End of the 'read' module
 };
 

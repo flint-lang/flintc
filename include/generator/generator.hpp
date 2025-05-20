@@ -1880,6 +1880,35 @@ class Generator {
             );
         }; // subclass Array
 
+        /// @class `Assert`
+        /// @brief The class which is responsible for generating everything related to assert
+        /// @note This class cannot be initialized and all functions within this class are static
+        class Assert {
+          public:
+            // The constructor is deleted to make this class non-initializable
+            Assert() = delete;
+
+            static inline std::unordered_map<std::string_view, llvm::Function *> assert_functions = {
+                {"assert", nullptr},
+            };
+
+            /// @function `generate_assert_functions`
+            /// @brief Generates the builtin assert functions
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the assert functions definitions will be generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_assert_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_assert_function`
+            /// @brief Helper function to generate the builtin assert
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the assert function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_assert_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+        };
+
         /// @class `Print`
         /// @brief The class which is responsible for generating everything related to print
         /// @note This class cannot be initialized and all functions within this class are static

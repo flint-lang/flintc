@@ -269,6 +269,13 @@ Generator::group_mapping Generator::Expression::generate_call( //
         ) {
             func_decl = Module::Read::read_functions.at(call_node->function_name);
             function_origin = FunctionOrigin::BUILTIN;
+        } else if (module_name == "assert" && call_node->arguments.size() == 1 &&
+            Module::Assert::assert_functions.find(call_node->function_name) != Module::Assert::assert_functions.end()) {
+            func_decl = Module::Assert::assert_functions.at(call_node->function_name);
+            function_origin = FunctionOrigin::BUILTIN;
+        } else {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
         }
     } else {
         // Get the function definition from any module

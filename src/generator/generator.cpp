@@ -406,6 +406,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             Module::Print::generate_print_functions(nullptr, module.get(), true);
         } else if (core_module_name == "read") {
             Module::Read::generate_read_functions(nullptr, module.get(), true);
+        } else if (core_module_name == "assert") {
+            Module::Assert::generate_assert_functions(nullptr, module.get(), true);
         }
     }
     // Forward declare all functions from all files where this file has a weak reference to

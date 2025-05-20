@@ -17,7 +17,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     std::vector<std::shared_ptr<Type>> types;
     if (const GroupType *group_type = dynamic_cast<const GroupType *>(type.get())) {
         types = group_type->types;
-    } else {
+    } else if (type->to_string() != "void") {
         types.emplace_back(type);
     }
     std::string types_str = is_return_type ? "ret_" : "";

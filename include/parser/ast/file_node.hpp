@@ -58,6 +58,8 @@ class FileNode : public ASTNode {
                     imported_core_modules.emplace("print", added_import);
                 } else if (module_str == "read") {
                     imported_core_modules.emplace("read", added_import);
+                } else if (module_str == "assert") {
+                    imported_core_modules.emplace("assert", added_import);
                 } else {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;

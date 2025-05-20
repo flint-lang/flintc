@@ -153,6 +153,27 @@ bool Generator::Module::generate_modules() {
             return false;
         }
     }
+    // module 'assert'
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ASSERT)) {
+        PROFILE_SCOPE("Generating module 'assert'");
+        builder = std::make_unique<llvm::IRBuilder<>>(context);
+        module = std::make_unique<llvm::Module>("assert", context);
+        Assert::generate_assert_functions(builder.get(), module.get(), false);
+
+        // Print the module, if requested
+        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::ASSERT))) {
+            std::cout << YELLOW << "[Debug Info] Generated module 'assert':\n"
+                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+        }
+        // Save the generated module at the module_path
+        bool compilation_successful = compile_module(module.get(), cache_path / "assert");
+        module.reset();
+        builder.reset();
+        if (!compilation_successful) {
+            std::cerr << "Error: Failed to generate builtin module 'assert'" << std::endl;
+            return false;
+        }
+    }
     // Then, save the new metadata file
     save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
 
@@ -171,6 +192,7 @@ bool Generator::Module::generate_modules() {
     }
     libs.emplace_back(cache_path / ("array" + file_ending));
     libs.emplace_back(cache_path / ("read" + file_ending));
+    libs.emplace_back(cache_path / ("assert" + file_ending));
 
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
@@ -275,6 +297,9 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     }
     if (!std::filesystem::exists(cache_path / ("read" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::READ);
+    }
+    if (!std::filesystem::exists(cache_path / ("assert" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ASSERT);
     }
     return needed_rebuilds;
 }
