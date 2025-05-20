@@ -944,8 +944,13 @@ namespace Debug {
         void print_import(unsigned int indent_lvl, const ImportNode &import) {
             Local::print_header(indent_lvl, {0, 0}, "Import ");
 
-            if (std::holds_alternative<std::string>(import.path)) {
-                std::cout << "\"" << std::get<std::string>(import.path) << "\"";
+            if (std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(import.path)) {
+                const auto &path_pair = std::get<std::pair<std::optional<std::string>, std::string>>(import.path);
+                std::cout << "\"";
+                if (path_pair.first.has_value()) {
+                    std::cout << path_pair.first.value() << "/";
+                }
+                std::cout << path_pair.second << ".ft\"";
             } else if (std::holds_alternative<std::vector<std::string>>(import.path)) {
                 std::vector<std::string> path_vector = std::get<std::vector<std::string>>(import.path);
                 auto iterator = path_vector.begin();

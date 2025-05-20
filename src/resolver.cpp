@@ -234,11 +234,15 @@ bool Resolver::process_dependency_file(                               //
 
 dependency Resolver::create_dependency(const ImportNode &node, const std::filesystem::path &path) {
     dependency dep;
-    if (std::holds_alternative<std::string>(node.path)) {
-        std::string fileName = std::get<std::string>(node.path);
-        dep = std::make_pair(path, fileName);
-    } else {
+    if (std::holds_alternative<std::vector<std::string>>(node.path)) {
         dep = std::get<std::vector<std::string>>(node.path);
+    } else {
+        const auto &path_pair = std::get<std::pair<std::optional<std::string>, std::string>>(node.path);
+        if (path_pair.first.has_value()) {
+            dep = std::make_pair(path / path_pair.first.value(), path_pair.second);
+        } else {
+            dep = std::make_pair(path, path_pair.second);
+        }
     }
     return dep;
 }

@@ -621,6 +621,10 @@ std::optional<DeclarationNode> Parser::create_declaration( //
                     return std::nullopt;
                 }
                 token_slice type_tokens = {lhs_tokens.first, it};
+                if (!check_type_aliasing(type_tokens)) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
                 auto type_result = Type::get_type(type_tokens);
                 if (!type_result.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
@@ -670,6 +674,10 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     } else {
         token_slice type_tokens = {lhs_tokens.first, lhs_tokens.second - 2};
         lhs_tokens.first = type_tokens.second;
+        if (!check_type_aliasing(type_tokens)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
         auto type_result = Type::get_type(type_tokens);
         if (!type_result.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);

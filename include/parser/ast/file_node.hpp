@@ -49,8 +49,8 @@ class FileNode : public ASTNode {
     std::optional<ImportNode *> add_import(ImportNode &import) {
         definitions.emplace_back(std::make_unique<ImportNode>(std::move(import)));
         ImportNode *added_import = static_cast<ImportNode *>(definitions.back().get());
-        if (!std::holds_alternative<std::string>(added_import->path)) {
-            std::vector<std::string> &import_vec = std::get<std::vector<std::string>>(added_import->path);
+        if (std::holds_alternative<std::vector<std::string>>(added_import->path)) {
+            const std::vector<std::string> &import_vec = std::get<std::vector<std::string>>(added_import->path);
             if (import_vec.size() == 2 && import_vec.front() == "Core") {
                 // Check for imported core modules
                 const std::string &module_str = import_vec.back();

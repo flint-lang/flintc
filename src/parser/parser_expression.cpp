@@ -627,6 +627,10 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     // Get the element type of the array
     token_slice type_tokens = {tokens_mut.first, tokens_mut.first + length_expression_range.value().first};
     tokens_mut.first += length_expression_range.value().first;
+    if (!check_type_aliasing(type_tokens)) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
     std::optional<std::shared_ptr<Type>> element_type = Type::get_type(type_tokens);
     if (!element_type.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);

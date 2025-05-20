@@ -42,15 +42,22 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                 return false;
             }
         }
-        // TODO: Check if the given alias is already taken
+        // Check if the given alias is already taken
+        if (import_node.value().alias.has_value() && aliases.find(import_node.value().alias.value()) != aliases.end()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
         std::optional<ImportNode *> added_import = file_node.add_import(import_node.value());
         if (!added_import.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        if (std::holds_alternative<std::string>(added_import.value()->path) ||                    //
-            (std::get<std::vector<std::string>>(added_import.value()->path).size() != 2 &&        //
-                std::get<std::vector<std::string>>(added_import.value()->path).front() != "Core") //
+        if (added_import.value()->alias.has_value()) {
+            aliases[added_import.value()->alias.value()] = added_import.value();
+        }
+        if (std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(added_import.value()->path) || //
+            (std::get<std::vector<std::string>>(added_import.value()->path).size() != 2 &&                            //
+                std::get<std::vector<std::string>>(added_import.value()->path).front() != "Core")                     //
         ) {
             imported_files.emplace_back(added_import.value());
         }

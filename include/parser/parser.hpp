@@ -1,5 +1,6 @@
 #pragma once
 
+#include "resolver/resolver.hpp"
 #include "types.hpp"
 
 #include "ast/call_node_base.hpp"
@@ -315,6 +316,10 @@ class Parser {
     /// @brief The file node this parser is currently parsing
     std::unique_ptr<FileNode> file_node_ptr;
 
+    /// @var `aliases`
+    /// @brief All the aliases within this file
+    std::unordered_map<std::string, ImportNode *> aliases;
+
     /// @var `file`
     /// @brief The path to the file to parse
     const std::filesystem::path file;
@@ -485,6 +490,51 @@ class Parser {
     /// @return `size_t` The size of the slice
     static inline size_t get_slice_size(const token_slice &tokens) {
         return std::distance(tokens.first, tokens.second);
+    }
+
+    /// @function `check_type_aliasing`
+    /// @brief Checks if the type is aliased, if it is it checks if in the given file the given type does even exist
+    ///
+    /// @param `tokens` The type token slice to check
+    /// @return `bool` Whether something failed
+    bool check_type_aliasing(token_slice &tokens) {
+        if (std::distance(tokens.first, tokens.second) > 2 && tokens.first->type == TOK_IDENTIFIER &&
+            std::next(tokens.first)->type == TOK_DOT) {
+            const std::string alias = tokens.first->lexme;
+            // Check if this file even has the given alias
+            if (aliases.find(alias) == aliases.end()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            const std::string type_name = (tokens.first + 2)->lexme;
+            for (const auto &import : imported_files) {
+                if (import->alias.has_value() && import->alias.value() == alias &&                           //
+                    std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(import->path) //
+                ) {
+                    const auto &path_pair = std::get<std::pair<std::optional<std::string>, std::string>>(import->path);
+                    const FileNode *file_node = Resolver::file_map.at(path_pair.second);
+                    for (const auto &definition : file_node->definitions) {
+                        if (const DataNode *data_node = dynamic_cast<const DataNode *>(definition.get())) {
+                            if (data_node->name == type_name) {
+                                tokens.first += 2;
+                                return true;
+                            }
+                        } else if (const EnumNode *enum_node = dynamic_cast<const EnumNode *>(definition.get())) {
+                            if (enum_node->name == type_name) {
+                                tokens.first += 2;
+                                return true;
+                            }
+                        }
+                    }
+                    // The given type definition should have been in this file import from the alias, but it has not been found here
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+            }
+            // It should never come here, it must have returned earlier, otherwise there is a bug somewhere
+            assert(false);
+        }
+        return true;
     }
 
     /**************************************************************************************************************************************

@@ -558,7 +558,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
 }
 
 std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
-    std::variant<std::string, std::vector<std::string>> import_path;
+    std::variant<std::pair<std::optional<std::string>, std::string>, std::vector<std::string>> import_path;
     std::optional<std::string> alias;
     token_list toks = clone_from_slice(tokens);
 
@@ -566,7 +566,15 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
     if (Matcher::tokens_contain(tokens, Matcher::token(TOK_STR_VALUE))) {
         for (; iterator != tokens.second; ++iterator) {
             if (iterator->type == TOK_STR_VALUE) {
-                import_path = iterator->lexme;
+                const size_t path_separator = iterator->lexme.find_last_of('/');
+                if (path_separator == std::string::npos) {
+                    import_path = std::make_pair(std::nullopt, iterator->lexme.substr(0, iterator->lexme.length()));
+                } else {
+                    import_path = std::make_pair(                                                                 //
+                        iterator->lexme.substr(0, path_separator),                                                //
+                        iterator->lexme.substr(path_separator + 1, iterator->lexme.length() - path_separator - 1) //
+                    );
+                }
                 ++iterator;
                 break;
             }

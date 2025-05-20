@@ -1,9 +1,8 @@
 use "tests/assert.ft" as a
+use "test_minimal_2.ft" as b
 
 use Core.print
 
 def main():
-    print("Okay works...\n");
-    a.assert(true);
-    a.assert(false) catch err:
-        print($"Err is {err}\n");
+    b.Vector2 v2 = b.Vector2(1.1, 2.2);
+    print($"v2.x = {v2.x}\n");
