@@ -83,6 +83,10 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                 {
                     {{"str"}, {"str[]"}, true}, // The single version of the 'read_lines' function
                 }},
+            {"file_exists", // The 'file_exists' function
+                {
+                    {{"str"}, {"bool"}, false}, // The single version of the 'file_exists' function
+                }},
         }}, // End of the 'fs' module
 };
 
