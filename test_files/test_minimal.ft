@@ -9,5 +9,5 @@ def main():
     assert(input != "");
     print($"Content of file '{input}':\n");
     str file_content = read_file(input) catch err:
-        print($"Some File Error: {err}\n");
-    print(file_content);
+        print($"File '{input}' could not be found\n");
+    print($"{file_content}\n");

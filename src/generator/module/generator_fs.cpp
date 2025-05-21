@@ -127,11 +127,12 @@ void Generator::Module::FS::generate_read_file_function( //
 
     // Handle NULL file, throw 120
     builder->SetInsertPoint(file_null_block);
-    llvm::AllocaInst *ret_file_null_alloc = Allocation::generate_default_struct( //
-        *builder, function_result_type, "ret_file_null_alloc", true              //
-    );
+    llvm::AllocaInst *ret_file_null_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_null_alloc");
     llvm::Value *ret_file_null_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_null_alloc, 0, "ret_file_null_err_ptr");
     builder->CreateStore(builder->getInt32(120), ret_file_null_err_ptr);
+    llvm::Value *ret_file_null_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_file_null_empty_str");
+    llvm::Value *ret_file_null_val_ptr = builder->CreateStructGEP(function_result_type, ret_file_null_alloc, 1, "ret_file_null_val_ptr");
+    builder->CreateStore(ret_file_null_empty_str, ret_file_null_val_ptr);
     llvm::Value *ret_file_null_val = builder->CreateLoad(function_result_type, ret_file_null_alloc, "ret_file_null_val");
     builder->CreateRet(ret_file_null_val);
 
@@ -149,11 +150,12 @@ void Generator::Module::FS::generate_read_file_function( //
     // Handle fseek SEEK_END error, throw 121
     builder->SetInsertPoint(seek_end_error_block);
     builder->CreateCall(fclose_fn, {file});
-    llvm::AllocaInst *ret_seek_end_alloc = Allocation::generate_default_struct( //
-        *builder, function_result_type, "ret_seek_end_alloc", true              //
-    );
+    llvm::AllocaInst *ret_seek_end_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_seek_end_alloc");
     llvm::Value *ret_seek_end_err_ptr = builder->CreateStructGEP(function_result_type, ret_seek_end_alloc, 0, "ret_seek_end_err_ptr");
     builder->CreateStore(builder->getInt32(121), ret_seek_end_err_ptr);
+    llvm::Value *ret_seek_end_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_seek_end_empty_str");
+    llvm::Value *ret_seek_end_val_ptr = builder->CreateStructGEP(function_result_type, ret_seek_end_alloc, 1, "ret_seek_end_val_ptr");
+    builder->CreateStore(ret_seek_end_empty_str, ret_seek_end_val_ptr);
     llvm::Value *ret_seek_end_val = builder->CreateLoad(function_result_type, ret_seek_end_alloc, "ret_seek_end_val");
     builder->CreateRet(ret_seek_end_val);
 
@@ -169,9 +171,12 @@ void Generator::Module::FS::generate_read_file_function( //
     // Handle ftell error, throw 122
     builder->SetInsertPoint(ftell_error_block);
     builder->CreateCall(fclose_fn, {file});
-    llvm::AllocaInst *ret_ftell_alloc = Allocation::generate_default_struct(*builder, function_result_type, "ret_ftell_alloc", true);
+    llvm::AllocaInst *ret_ftell_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_ftell_alloc");
     llvm::Value *ret_ftell_err_ptr = builder->CreateStructGEP(function_result_type, ret_ftell_alloc, 0, "ret_ftell_err_ptr");
     builder->CreateStore(builder->getInt32(122), ret_ftell_err_ptr);
+    llvm::Value *ret_ftell_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_ftell_empty_str");
+    llvm::Value *ret_ftell_val_ptr = builder->CreateStructGEP(function_result_type, ret_ftell_alloc, 1, "ret_ftell_val_ptr");
+    builder->CreateStore(ret_ftell_empty_str, ret_ftell_val_ptr);
     llvm::Value *ret_ftell_val = builder->CreateLoad(function_result_type, ret_ftell_alloc, "ret_ftell_val");
     builder->CreateRet(ret_ftell_val);
 
@@ -187,9 +192,12 @@ void Generator::Module::FS::generate_read_file_function( //
     // Handle fseek SEEK_SET error, throw 123
     builder->SetInsertPoint(seek_set_error_block);
     builder->CreateCall(fclose_fn, {file});
-    llvm::AllocaInst *ret_seek_set_alloc = Allocation::generate_default_struct(*builder, function_result_type, "ret_seek_set_alloc", true);
+    llvm::AllocaInst *ret_seek_set_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_seek_set_alloc");
     llvm::Value *ret_seek_set_err_ptr = builder->CreateStructGEP(function_result_type, ret_seek_set_alloc, 0, "ret_seek_set_err_ptr");
     builder->CreateStore(builder->getInt32(123), ret_seek_set_err_ptr);
+    llvm::Value *ret_seek_set_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_seek_set_empty_str");
+    llvm::Value *ret_seek_set_val_ptr = builder->CreateStructGEP(function_result_type, ret_seek_set_alloc, 1, "ret_seek_set_val_ptr");
+    builder->CreateStore(ret_seek_set_empty_str, ret_seek_set_val_ptr);
     llvm::Value *ret_seek_set_val = builder->CreateLoad(function_result_type, ret_seek_set_alloc, "ret_seek_set_val");
     builder->CreateRet(ret_seek_set_val);
 
@@ -215,15 +223,20 @@ void Generator::Module::FS::generate_read_file_function( //
     // Handle read error, throw 124
     builder->SetInsertPoint(read_error_block);
     builder->CreateCall(free_fn, {content});
-    llvm::AllocaInst *ret_read_alloc = Allocation::generate_default_struct(*builder, function_result_type, "ret_read_alloc", true);
+    llvm::AllocaInst *ret_read_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_read_alloc");
     llvm::Value *ret_read_err_ptr = builder->CreateStructGEP(function_result_type, ret_read_alloc, 0, "ret_read_err_ptr");
     builder->CreateStore(builder->getInt32(124), ret_read_err_ptr);
+    llvm::Value *ret_read_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_read_empty_str");
+    llvm::Value *ret_read_val_ptr = builder->CreateStructGEP(function_result_type, ret_read_alloc, 1, "ret_read_val_ptr");
+    builder->CreateStore(ret_read_empty_str, ret_read_val_ptr);
     llvm::Value *ret_read_val = builder->CreateLoad(function_result_type, ret_read_alloc, "ret_read_val");
     builder->CreateRet(ret_read_val);
 
     // Success - return content
     builder->SetInsertPoint(read_ok_block);
-    llvm::AllocaInst *ret_alloc = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloc", false);
+    llvm::AllocaInst *ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
+    llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
+    builder->CreateStore(builder->getInt32(0), ret_err_ptr);
     llvm::Value *ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
     builder->CreateStore(content, ret_val_ptr);
     llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloc, "ret_val");
