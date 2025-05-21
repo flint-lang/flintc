@@ -1,19 +1,19 @@
 #include "generator/generator.hpp"
 
-void Generator::Module::FS::generate_filesystem_functions( //
-    llvm::IRBuilder<> *builder,                            //
-    llvm::Module *module,                                  //
-    const bool only_declarations                           //
+void Generator::Module::FileSystem::generate_filesystem_functions( //
+    llvm::IRBuilder<> *builder,                                    //
+    llvm::Module *module,                                          //
+    const bool only_declarations                                   //
 ) {
     generate_read_file_function(builder, module, only_declarations);
     generate_read_lines_function(builder, module, only_declarations);
     generate_file_exists_function(builder, module, only_declarations);
 }
 
-void Generator::Module::FS::generate_read_file_function( //
-    llvm::IRBuilder<> *builder,                          //
-    llvm::Module *module,                                //
-    const bool only_declarations                         //
+void Generator::Module::FileSystem::generate_read_file_function( //
+    llvm::IRBuilder<> *builder,                                  //
+    llvm::Module *module,                                        //
+    const bool only_declarations                                 //
 ) {
     // THE C IMPLEMENTATION:
     // str *read_file(const str *path) {
@@ -244,10 +244,10 @@ void Generator::Module::FS::generate_read_file_function( //
     builder->CreateRet(ret_val);
 }
 
-void Generator::Module::FS::generate_read_lines_function( //
-    llvm::IRBuilder<> *builder,                           //
-    llvm::Module *module,                                 //
-    const bool only_declarations                          //
+void Generator::Module::FileSystem::generate_read_lines_function( //
+    llvm::IRBuilder<> *builder,                                   //
+    llvm::Module *module,                                         //
+    const bool only_declarations                                  //
 ) {
     // THE C IMPLEMENTATION:
     // str *read_file_lines(const str *path) {
@@ -770,10 +770,10 @@ void Generator::Module::FS::generate_read_lines_function( //
     builder->CreateRet(ret_val);
 }
 
-void Generator::Module::FS::generate_file_exists_function( //
-    llvm::IRBuilder<> *builder,                            //
-    llvm::Module *module,                                  //
-    const bool only_declarations                           //
+void Generator::Module::FileSystem::generate_file_exists_function( //
+    llvm::IRBuilder<> *builder,                                    //
+    llvm::Module *module,                                          //
+    const bool only_declarations                                   //
 ) {
     // THE C IMPLEMENTATION:
     // bool file_exists(const str *path) {

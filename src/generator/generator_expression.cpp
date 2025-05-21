@@ -285,18 +285,19 @@ Generator::group_mapping Generator::Expression::generate_call( //
             Module::Assert::assert_functions.find(call_node->function_name) != Module::Assert::assert_functions.end()) {
             func_decl = Module::Assert::assert_functions.at(call_node->function_name);
             function_origin = FunctionOrigin::BUILTIN;
-        } else if (module_name == "fs" && Module::FS::fs_functions.find(call_node->function_name) != Module::FS::fs_functions.end()) {
+        } else if (module_name == "filesystem" &&
+            Module::FileSystem::fs_functions.find(call_node->function_name) != Module::FileSystem::fs_functions.end()) {
             if (std::get<1>(builtin_function.value()).size() > 1) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
                 // Function returns error
-                func_decl = Module::FS::fs_functions.at(call_node->function_name);
+                func_decl = Module::FileSystem::fs_functions.at(call_node->function_name);
                 function_origin = FunctionOrigin::BUILTIN;
             } else {
                 // Function does not return error
-                func_decl = Module::FS::fs_functions.at(call_node->function_name);
+                func_decl = Module::FileSystem::fs_functions.at(call_node->function_name);
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }

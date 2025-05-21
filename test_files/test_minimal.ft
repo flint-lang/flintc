@@ -1,5 +1,5 @@
 use Core.print
-use Core.fs as fs
+use Core.filesystem as fs
 
 def main():
     if not fs.file_exists("test_files/testiing.ft"):

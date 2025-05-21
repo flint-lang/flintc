@@ -257,7 +257,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     Module::Assert::generate_assert_functions(builder.get(), module.get());
 
     // Generate all the "hidden" filesystem helper functions
-    Module::FS::generate_filesystem_functions(builder.get(), module.get());
+    Module::FileSystem::generate_filesystem_functions(builder.get(), module.get());
 
     if (!is_test) {
         // Generate main function in the main module
@@ -419,8 +419,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             Module::Read::generate_read_functions(nullptr, module.get(), true);
         } else if (core_module_name == "assert") {
             Module::Assert::generate_assert_functions(nullptr, module.get(), true);
-        } else if (core_module_name == "fs") {
-            Module::FS::generate_filesystem_functions(nullptr, module.get(), true);
+        } else if (core_module_name == "filesystem") {
+            Module::FileSystem::generate_filesystem_functions(nullptr, module.get(), true);
         }
     }
     // Forward declare all functions from all files where this file has a weak reference to

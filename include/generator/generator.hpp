@@ -1938,13 +1938,13 @@ class Generator {
             static void generate_assert_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
         };
 
-        /// @class `FS`
+        /// @class `FileSystem`
         /// @brief The class which is responsible for generating everything related to filesystem
         /// @note This class cannot be initialized and all functions within this class are static
-        class FS {
+        class FileSystem {
           public:
             // The constructor is deleted to make this class non-initializable
-            FS() = delete;
+            FileSystem() = delete;
 
             /// @var `fs_functions`
             /// @brief Map containing references to all filesystem functions

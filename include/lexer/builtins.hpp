@@ -72,8 +72,8 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                 {
                     {{}, {"f64"}, true}, // The single version of the 'read_f64' function
                 }},
-        }}, // End of the 'read' module
-    {"fs",  // The 'fs' module
+        }},        // End of the 'read' module
+    {"filesystem", // The 'filesystem' module
         {
             {"read_file", // The 'read_file' function
                 {

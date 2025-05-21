@@ -22,7 +22,7 @@ enum class BuiltinLibrary : unsigned int {
     ARRAY = 16,
     READ = 32,
     ASSERT = 64,
-    FS = 128,
+    FILESYSTEM = 128,
 };
 extern unsigned int BUILTIN_LIBS_TO_PRINT;
 

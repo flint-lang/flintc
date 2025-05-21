@@ -44,11 +44,11 @@ bool Generator::Module::generate_module(     //
         case BuiltinLibrary::ASSERT:
             Assert::generate_assert_functions(builder.get(), module.get(), false);
             break;
-        case BuiltinLibrary::FS:
+        case BuiltinLibrary::FILESYSTEM:
             Builtin::generate_c_functions(module.get());
             String::generate_string_manip_functions(builder.get(), module.get(), true);
             Array::generate_array_manip_functions(builder.get(), module.get(), true);
-            FS::generate_filesystem_functions(builder.get(), module.get(), false);
+            FileSystem::generate_filesystem_functions(builder.get(), module.get(), false);
             break;
     }
 
@@ -100,8 +100,8 @@ bool Generator::Module::generate_modules() {
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ASSERT)) {
         success = success && generate_module(BuiltinLibrary::ASSERT, cache_path, "assert");
     }
-    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::FS)) {
-        success = success && generate_module(BuiltinLibrary::FS, cache_path, "fs");
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::FILESYSTEM)) {
+        success = success && generate_module(BuiltinLibrary::FILESYSTEM, cache_path, "filesystem");
     }
     if (!success) {
         return false;
@@ -126,7 +126,7 @@ bool Generator::Module::generate_modules() {
     libs.emplace_back(cache_path / ("array" + file_ending));
     libs.emplace_back(cache_path / ("read" + file_ending));
     libs.emplace_back(cache_path / ("assert" + file_ending));
-    libs.emplace_back(cache_path / ("fs" + file_ending));
+    libs.emplace_back(cache_path / ("filesystem" + file_ending));
 
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
@@ -235,8 +235,8 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     if (!std::filesystem::exists(cache_path / ("assert" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ASSERT);
     }
-    if (!std::filesystem::exists(cache_path / ("fs" + file_ending))) {
-        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::FS);
+    if (!std::filesystem::exists(cache_path / ("filesystem" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::FILESYSTEM);
     }
     return needed_rebuilds;
 }
