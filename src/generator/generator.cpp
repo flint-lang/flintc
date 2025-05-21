@@ -281,6 +281,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     if (tips.empty()) {
         tips.emplace_back(dep_graph);
     }
+    std::vector<std::string> added_file_names;
 
     while (!tips.empty()) {
         std::vector<std::weak_ptr<DepNode>> new_tips;
@@ -315,8 +316,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
                         }
                     }
                 }
-                if (dependants_compiled) {
+                if (dependants_compiled &&                                                                                             //
+                    std::find(added_file_names.begin(), added_file_names.end(), shared_tip->root->file_name) == added_file_names.end() //
+                ) {
                     new_tips.emplace_back(shared_tip->root);
+                    added_file_names.emplace_back(shared_tip->root->file_name);
                 }
             }
 
@@ -351,6 +355,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         }
 
         tips.assign(new_tips.begin(), new_tips.end());
+        added_file_names.clear();
     }
 
     // Resolve all inter-module calls
