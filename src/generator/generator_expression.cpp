@@ -431,7 +431,7 @@ void Generator::Expression::generate_rethrow( //
 
     // Check if the current block is the last block, if it is not, insert right after the current block
     bool will_insert_after = current_block == last_block || current_block != first_block;
-    llvm::BasicBlock *insert_before = will_insert_after ? (current_block->getNextNode()) : current_block;
+    llvm::BasicBlock *insert_before = will_insert_after ? current_block : (nullptr);
 
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                           //
         context,                                                                        //
