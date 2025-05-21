@@ -1,10 +1,13 @@
 use Core.print
 use Core.read
 use Core.fs
+use Core.assert
 
 def main():
     print("Enter a file to display: ");
     str input = read_str();
+    assert(input != "");
     print($"Content of file '{input}':\n");
-    str file_content = read_file(input);
+    str file_content = read_file(input) catch err:
+        print($"Some File Error: {err}\n");
     print(file_content);

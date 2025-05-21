@@ -6,6 +6,66 @@
 
 #include <json/parser.hpp>
 
+bool Generator::Module::generate_module(     //
+    const BuiltinLibrary lib_to_build,       //
+    const std::filesystem::path &cache_path, //
+    const std::string &module_name           //
+) {
+    PROFILE_SCOPE("Generating module '" + module_name + "'");
+    auto builder = std::make_unique<llvm::IRBuilder<>>(context);
+    auto module = std::make_unique<llvm::Module>(module_name, context);
+    switch (lib_to_build) {
+        case BuiltinLibrary::PRINT:
+            Builtin::generate_c_functions(module.get());
+            Print::generate_print_functions(builder.get(), module.get(), false);
+            break;
+        case BuiltinLibrary::STR:
+            Builtin::generate_c_functions(module.get());
+            String::generate_string_manip_functions(builder.get(), module.get(), false);
+            break;
+        case BuiltinLibrary::CAST:
+            Builtin::generate_c_functions(module.get());
+            String::generate_string_manip_functions(builder.get(), module.get(), true);
+            TypeCast::generate_typecast_functions(builder.get(), module.get(), false);
+            break;
+        case BuiltinLibrary::ARITHMETIC:
+            Builtin::generate_c_functions(module.get());
+            Arithmetic::generate_arithmetic_functions(builder.get(), module.get(), false);
+            break;
+        case BuiltinLibrary::ARRAY:
+            Builtin::generate_c_functions(module.get());
+            Array::generate_array_manip_functions(builder.get(), module.get(), false);
+            break;
+        case BuiltinLibrary::READ:
+            Builtin::generate_c_functions(module.get());
+            String::generate_string_manip_functions(builder.get(), module.get(), true);
+            Read::generate_read_functions(builder.get(), module.get(), false);
+            break;
+        case BuiltinLibrary::ASSERT:
+            Assert::generate_assert_functions(builder.get(), module.get(), false);
+            break;
+        case BuiltinLibrary::FS:
+            Builtin::generate_c_functions(module.get());
+            String::generate_string_manip_functions(builder.get(), module.get(), true);
+            FS::generate_filesystem_functions(builder.get(), module.get(), false);
+            break;
+    }
+
+    // Print the module, if requested
+    if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::PRINT))) {
+        std::cout << YELLOW << "[Debug Info] Generated module '" << module_name << "':\n"
+                  << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+    }
+    // Save the generated module at the module_path
+    bool compilation_successful = compile_module(module.get(), cache_path / module_name);
+    module.reset();
+    builder.reset();
+    if (!compilation_successful) {
+        std::cerr << "Error: Failed to generate builtin module '" << module_name << "'" << std::endl;
+    }
+    return compilation_successful;
+}
+
 bool Generator::Module::generate_modules() {
     std::filesystem::path cache_path = get_flintc_cache_path();
 
@@ -16,188 +76,36 @@ bool Generator::Module::generate_modules() {
         return true;
     }
 
-    std::unique_ptr<llvm::IRBuilder<>> builder = nullptr;
-    std::unique_ptr<llvm::Module> module = nullptr;
-    // module 'print'
+    bool success = true;
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::PRINT)) {
-        PROFILE_SCOPE("Generating module 'print'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("print", context);
-        Builtin::generate_c_functions(module.get());
-        Print::generate_print_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::PRINT))) {
-            std::cout << YELLOW << "[Debug Info] Generated module 'print':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "print");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'print'" << std::endl;
-            return false;
-        }
+        success = success && generate_module(BuiltinLibrary::PRINT, cache_path, "print");
     }
-    // module 'str'
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::STR)) {
-        PROFILE_SCOPE("Generating module 'str'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("str", context);
-        Builtin::generate_c_functions(module.get());
-        String::generate_string_manip_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::STR))) {
-            std::cout << YELLOW << "[Debug Info] Generated module 'str':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "str");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'str'" << std::endl;
-            return false;
-        }
+        success = success && generate_module(BuiltinLibrary::STR, cache_path, "str");
     }
-    // module 'cast'
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::CAST)) {
-        PROFILE_SCOPE("Generating module 'cast'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("cast", context);
-        Builtin::generate_c_functions(module.get());
-        // The typecast functions depend on the string manipulation functions, so we provide the declarations for them
-        String::generate_string_manip_functions(builder.get(), module.get(), true);
-        TypeCast::generate_typecast_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::CAST))) {
-            std::cout << YELLOW << "[Debug Info] Generated module 'cast':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "cast");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'cast'" << std::endl;
-            return false;
-        }
+        success = success && generate_module(BuiltinLibrary::CAST, cache_path, "cast");
     }
-    // module 'arithmetic'
     if (overflow_mode != ArithmeticOverflowMode::UNSAFE &&
         (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC))) {
-        PROFILE_SCOPE("Generating module 'arithmetic'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("arithmetic", context);
-        Builtin::generate_c_functions(module.get());
-        Arithmetic::generate_arithmetic_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC))) {
-            std::cout << YELLOW << "[Debug Info] Generated module: 'arithmetic':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "arithmetic");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'arithmetic'" << std::endl;
-            return false;
-        }
+        success = success && generate_module(BuiltinLibrary::ARITHMETIC, cache_path, "arithmetic");
     }
-    // module 'array'
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ARRAY)) {
-        PROFILE_SCOPE("Generating module 'array'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("array", context);
-        Builtin::generate_c_functions(module.get());
-        Array::generate_array_manip_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::ARRAY))) {
-            std::cout << YELLOW << "[Debug Info] Generated Module 'array':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module path
-        bool compilation_successful = compile_module(module.get(), cache_path / "array");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'array'" << std::endl;
-            return false;
-        }
+        success = success && generate_module(BuiltinLibrary::ARRAY, cache_path, "array");
     }
-    // module 'read'
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::READ)) {
-        PROFILE_SCOPE("Generating module 'read'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("read", context);
-        Builtin::generate_c_functions(module.get());
-        String::generate_string_manip_functions(builder.get(), module.get(), true);
-        Read::generate_read_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::READ))) {
-            std::cout << YELLOW << "[Debug Info] Generated Module 'read':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module path
-        bool compilation_successful = compile_module(module.get(), cache_path / "read");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'read'" << std::endl;
-            return false;
-        }
+        success = success && generate_module(BuiltinLibrary::READ, cache_path, "read");
     }
-    // module 'assert'
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ASSERT)) {
-        PROFILE_SCOPE("Generating module 'assert'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("assert", context);
-        Assert::generate_assert_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::ASSERT))) {
-            std::cout << YELLOW << "[Debug Info] Generated module 'assert':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "assert");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'assert'" << std::endl;
-            return false;
-        }
+        success = success && generate_module(BuiltinLibrary::ASSERT, cache_path, "assert");
     }
-    // module 'fs'
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::FS)) {
-        PROFILE_SCOPE("Generating module 'fs'");
-        builder = std::make_unique<llvm::IRBuilder<>>(context);
-        module = std::make_unique<llvm::Module>("fs", context);
-        Builtin::generate_c_functions(module.get());
-        String::generate_string_manip_functions(builder.get(), module.get(), true);
-        FS::generate_filesystem_functions(builder.get(), module.get(), false);
-
-        // Print the module, if requested
-        if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::FS))) {
-            std::cout << YELLOW << "[Debug Info] Generated module 'fs':\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
-        }
-        // Save the generated module at the module_path
-        bool compilation_successful = compile_module(module.get(), cache_path / "fs");
-        module.reset();
-        builder.reset();
-        if (!compilation_successful) {
-            std::cerr << "Error: Failed to generate builtin module 'fs'" << std::endl;
-            return false;
-        }
+        success = success && generate_module(BuiltinLibrary::FS, cache_path, "fs");
     }
+    if (!success) {
+        return false;
+    }
+
     // Then, save the new metadata file
     save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
 

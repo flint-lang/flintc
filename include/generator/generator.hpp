@@ -1449,6 +1449,19 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Module() = delete;
 
+        /// @function `generate_module`
+        /// @brief Generates a single module and compiles it to its .o file
+        ///
+        /// @param `lib_to_build` The library to build
+        /// @param `cache_path` The path to the cache directory
+        /// @param `module_name` The name of the generated module
+        /// @return `bool` Whether the module was able to be generated
+        static bool generate_module(                 //
+            const BuiltinLibrary lib_to_build,       //
+            const std::filesystem::path &cache_path, //
+            const std::string &module_name           //
+        );
+
         /// @function `generate_modules`
         /// @brief This function generates all modules and compiles them to their .o files
         ///
