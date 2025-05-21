@@ -387,7 +387,7 @@ void Generator::Statement::generate_if_blocks( //
     }
 
     // Create merge block (shared by all branches)
-    blocks.push_back(llvm::BasicBlock::Create(context, "merge", parent));
+    blocks.push_back(llvm::BasicBlock::Create(context, "merge"));
 }
 
 bool Generator::Statement::generate_if_statement( //
@@ -492,6 +492,9 @@ bool Generator::Statement::generate_if_statement( //
         }
     }
 
+    // Now add the merge block to the end of the function
+    blocks.back()->insertInto(ctx.parent);
+
     ctx.scope = current_scope;
     // Set the insert point to the merge block
     if (nesting_level == 0) {
@@ -513,7 +516,7 @@ bool Generator::Statement::generate_while_loop( //
     // Create then condition block (for the else if blocks)
     while_blocks[0] = llvm::BasicBlock::Create(context, "while_cond", ctx.parent);
     while_blocks[1] = llvm::BasicBlock::Create(context, "while_body", ctx.parent);
-    while_blocks[2] = llvm::BasicBlock::Create(context, "merge", ctx.parent);
+    while_blocks[2] = llvm::BasicBlock::Create(context, "merge");
 
     // Create the branch instruction in the predecessor block to point to the while_cond block
     builder.SetInsertPoint(pred_block);
@@ -549,6 +552,9 @@ bool Generator::Statement::generate_while_loop( //
         // Point back to the condition block to create the loop
         builder.CreateBr(while_blocks[0]);
     }
+
+    // Now add the merge block to the end of the function
+    while_blocks[2]->insertInto(ctx.parent);
 
     // Finally set the builder to the merge block again
     ctx.scope = current_scope;
@@ -673,7 +679,7 @@ bool Generator::Statement::generate_catch_statement( //
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                                           //
         context,                                                                                        //
         call_node.value()->function_name + "_" + std::to_string(call_node.value()->call_id) + "_merge", //
-        ctx.parent,                                                                                     //
+        nullptr,                                                                                        //
         insert_before                                                                                   //
     );
     builder.SetInsertPoint(current_block);
@@ -716,6 +722,9 @@ bool Generator::Statement::generate_catch_statement( //
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
         builder.CreateBr(merge_block);
     }
+
+    // Now add the merge block to the end of the function
+    merge_block->insertInto(ctx.parent);
 
     // Set the insert block to the merge block again
     ctx.scope = current_scope;

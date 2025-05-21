@@ -4,6 +4,7 @@
 #include "error/error_type.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/parser.hpp"
 
@@ -20,10 +21,15 @@ void Generator::Allocation::generate_allocations(                               
         if (auto *call_node = dynamic_cast<CallNodeStatement *>(statement_node.get())) {
             generate_call_allocations(builder, parent, scope, allocations, imported_core_modules, dynamic_cast<CallNodeBase *>(call_node));
         } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node.get())) {
+            generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, while_node->condition.get());
             generate_allocations(builder, parent, while_node->scope.get(), allocations, imported_core_modules);
         } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node.get())) {
             generate_if_allocations(builder, parent, allocations, imported_core_modules, if_node);
         } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node.get())) {
+            generate_expression_allocations(                                       //
+                builder, parent, for_loop_node->definition_scope.get(),            //
+                allocations, imported_core_modules, for_loop_node->condition.get() //
+            );
             generate_allocations(builder, parent, for_loop_node->definition_scope.get(), allocations, imported_core_modules);
             generate_allocations(builder, parent, for_loop_node->body.get(), allocations, imported_core_modules);
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node.get())) {
@@ -172,6 +178,9 @@ void Generator::Allocation::generate_if_allocations(                            
     const IfNode *if_node                                                            //
 ) {
     while (if_node != nullptr) {
+        generate_expression_allocations(                                                                                     //
+            builder, parent, if_node->then_scope->parent_scope, allocations, imported_core_modules, if_node->condition.get() //
+        );
         generate_allocations(builder, parent, if_node->then_scope.get(), allocations, imported_core_modules);
         if (if_node->else_scope.has_value()) {
             if (std::holds_alternative<std::unique_ptr<IfNode>>(if_node->else_scope.value())) {

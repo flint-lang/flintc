@@ -3,11 +3,13 @@ use Core.read
 use Core.fs
 use Core.assert
 
+def add(i32 x, i32 y) -> i32:
+    return x + y;
+
 def main():
-    print("Enter a file to display: ");
-    str input = read_str();
-    assert(input != "");
-    print($"Content of file '{input}':\n");
-    str file_content = read_file(input) catch err:
-        print($"File '{input}' could not be found\n");
-    print($"{file_content}\n");
+    bool condition = true;
+    while condition:
+        for i := 0; i < add(1, 2); i++:
+            print($"i = {i}\n");
+            if i == 2:
+                condition = false;
