@@ -277,7 +277,8 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 function_origin = FunctionOrigin::BUILTIN;
             } else {
                 // Function does not return error
-                return_value.emplace_back(builder.CreateCall(Module::Read::read_functions.at(call_node->function_name), args));
+                func_decl = Module::Read::read_functions.at(call_node->function_name);
+                return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
         } else if (module_name == "assert" && call_node->arguments.size() == 1 &&
@@ -285,8 +286,20 @@ Generator::group_mapping Generator::Expression::generate_call( //
             func_decl = Module::Assert::assert_functions.at(call_node->function_name);
             function_origin = FunctionOrigin::BUILTIN;
         } else if (module_name == "fs" && Module::FS::fs_functions.find(call_node->function_name) != Module::FS::fs_functions.end()) {
-            func_decl = Module::FS::fs_functions.at(call_node->function_name);
-            function_origin = FunctionOrigin::BUILTIN;
+            if (std::get<1>(builtin_function.value()).size() > 1) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
+                // Function returns error
+                func_decl = Module::FS::fs_functions.at(call_node->function_name);
+                function_origin = FunctionOrigin::BUILTIN;
+            } else {
+                // Function does not return error
+                func_decl = Module::FS::fs_functions.at(call_node->function_name);
+                return_value.emplace_back(builder.CreateCall(func_decl, args));
+                return return_value;
+            }
         } else {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;

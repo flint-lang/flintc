@@ -108,39 +108,16 @@ void Generator::Allocation::generate_call_allocations(                          
     // Check if the call targets any builtin functions
     auto builtin_function = Parser::get_builtin_function(call_node->function_name, imported_core_modules);
     if (builtin_function.has_value()) {
-        const std::string &module_name = std::get<0>(builtin_function.value());
-        if (module_name == "print" && call_node->function_name == "print" && call_node->arguments.size() == 1 && //
-            Module::Print::print_functions.find(call_node->arguments.front().first->type->to_string()) !=        //
-                Module::Print::print_functions.end()                                                             //
-        ) {
-            // Print functions dont return anything, so we dont need to allocate anything for them
+        // We only need to create an allocation of the call if it can return an error
+        if (std::get<1>(builtin_function.value()).size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
             return;
-        } else if (module_name == "read" && call_node->arguments.size() == 0 &&                               //
-            Module::Read::read_functions.find(call_node->function_name) != Module::Read::read_functions.end() //
-        ) {
-            // We only need to create an allocation of the call if its the `read_str` function
-            // But, for now, the `read_X` functions dont return a struct with the error value but only the value directly and hard-crash
-            // when the entered input could not be parsed. When this is changed that the builtin functions also can return a { i32, RES }
-            // struct, then we would need to pre-allocate the results of these calls too, but as it stands now, builtin read functions dont
-            // return the structs
-            if (std::get<1>(builtin_function.value()).size() > 1) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return;
-            }
-            if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
-                // Function returns error
-                function_return_type = IR::add_and_or_get_type(call_node->type);
-            } else {
-                // Function does not return error
-                return;
-            }
-        } else if (module_name == "assert" && call_node->arguments.size() == 1 &&
-            Module::Assert::assert_functions.find(call_node->function_name) != Module::Assert::assert_functions.end()) {
-            function_return_type = IR::add_and_or_get_type(call_node->type);
-        } else if (module_name == "fs" && Module::FS::fs_functions.find(call_node->function_name) != Module::FS::fs_functions.end()) {
+        }
+        if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
+            // Function returns error
             function_return_type = IR::add_and_or_get_type(call_node->type);
         } else {
-            THROW_BASIC_ERR(ERR_GENERATING);
+            // Function does not return error
             return;
         }
     } else {
