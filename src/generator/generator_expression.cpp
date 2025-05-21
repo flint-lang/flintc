@@ -431,8 +431,8 @@ void Generator::Expression::generate_rethrow( //
     llvm::BasicBlock *current_block = builder.GetInsertBlock();
 
     // Check if the current block is the last block, if it is not, insert right after the current block
-    bool will_insert_after = current_block == last_block || current_block != first_block;
-    llvm::BasicBlock *insert_before = will_insert_after ? current_block : (nullptr);
+    bool will_insert_after = current_block == last_block && current_block != first_block;
+    llvm::BasicBlock *insert_before = will_insert_after ? nullptr : current_block;
 
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                           //
         context,                                                                        //

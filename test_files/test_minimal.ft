@@ -2,9 +2,11 @@ use Core.print
 use Core.filesystem as fs
 
 def main():
-    if not fs.file_exists("test_files/testiing.ft"):
-        print("File 'test_files/testiing.ft' does not exst!\n");
+    if not fs.file_exists("test_files/test_minimal.ft"):
+        print("File 'test_files/test_minimal.ft' does not exst!\n");
         return;
     str[] lines = fs.read_lines("test_files/test_minimal.ft");
     for i := 0; i < lines.length; i++:
         print($"LINE_{i}:\t{lines[i]}\n");
+    fs.write_file("logfile", "wolololololasdjkf\nsdfsafd\n\tsdf\n");
+    print("Written file 'logfile'\n");

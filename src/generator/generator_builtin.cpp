@@ -446,6 +446,21 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *fgets_fn = llvm::Function::Create(fgets_type, llvm::Function::ExternalLinkage, "fgets", module);
         c_functions[FGETS] = fgets_fn;
     }
+    // fwrite
+    {
+        llvm::FunctionType *fwrite_type = llvm::FunctionType::get( //
+            llvm::Type::getInt64Ty(context),                       // return u64
+            {
+                llvm::Type::getVoidTy(context)->getPointerTo(), // void* ptr
+                llvm::Type::getInt64Ty(context),                // u64 size
+                llvm::Type::getInt64Ty(context),                // u64 n
+                llvm::Type::getVoidTy(context)->getPointerTo()  // FILE* stream
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *fwrite_fn = llvm::Function::Create(fwrite_type, llvm::Function::ExternalLinkage, "fwrite", module);
+        c_functions[FWRITE] = fwrite_fn;
+    }
 }
 
 void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {

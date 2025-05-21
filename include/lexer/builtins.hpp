@@ -87,6 +87,10 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                 {
                     {{"str"}, {"bool"}, false}, // The single version of the 'file_exists' function
                 }},
+            {"write_file", // The 'write_file' function
+                {
+                    {{"str", "str"}, {"void"}, true}, // The single version of the 'write_file' function
+                }},
         }}, // End of the 'fs' module
 };
 
@@ -116,6 +120,7 @@ enum CFunction {
     FREAD,
     REWIND,
     FGETS,
+    FWRITE,
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
