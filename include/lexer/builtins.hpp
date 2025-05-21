@@ -91,6 +91,10 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                 {
                     {{"str", "str"}, {"void"}, true}, // The single version of the 'write_file' function
                 }},
+            {"append_file", // The 'append_file' function
+                {
+                    {{"str", "str"}, {"void"}, true}, // The single version of the 'append_file' function
+                }},
         }}, // End of the 'fs' module
 };
 

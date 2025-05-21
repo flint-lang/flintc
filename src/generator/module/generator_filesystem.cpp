@@ -9,6 +9,7 @@ void Generator::Module::FileSystem::generate_filesystem_functions( //
     generate_read_lines_function(builder, module, only_declarations);
     generate_file_exists_function(builder, module, only_declarations);
     generate_write_file_function(builder, module, only_declarations);
+    generate_append_file_function(builder, module, only_declarations);
 }
 
 void Generator::Module::FileSystem::generate_read_file_function( //
@@ -1040,6 +1041,175 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
     llvm::Value *ret_err_val = builder->CreateSelect(write_check,
         builder->getInt32(132), // Error code for write failure
+        builder->getInt32(0)    // Success
+    );
+    builder->CreateStore(ret_err_val, ret_err_ptr);
+
+    // Return empty string in the data portion regardless of success/failure
+    llvm::Value *ret_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_empty_str");
+    llvm::Value *ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
+    builder->CreateStore(ret_empty_str, ret_val_ptr);
+    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloc, "ret_val");
+    builder->CreateRet(ret_val);
+}
+
+void Generator::Module::FileSystem::generate_append_file_function( //
+    llvm::IRBuilder<> *builder,                                    //
+    llvm::Module *module,                                          //
+    const bool only_declarations                                   //
+) {
+    // THE C IMPLEMENTATION:
+    // void append_file(const str *path, const str *content) {
+    //     // Convert str path to null-terminated C string
+    //     char *c_path = (char *)malloc(path->len + 1);
+    //     if (!c_path) {
+    //         return; // Memory allocation failure
+    //     }
+    //     memcpy(c_path, path->value, path->len);
+    //     c_path[path->len] = '\0';
+    //     // Open the file for appending
+    //     FILE *file = fopen(c_path, "ab");
+    //     free(c_path); // Free the path string
+    //     if (!file) {
+    //         return; // File open error
+    //     }
+    //     // Append content to the file
+    //     fwrite(content->value, 1, content->len, file);
+    //     // Close the file
+    //     fclose(file);
+    // }
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Function *malloc_fn = c_functions.at(MALLOC);
+    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+    llvm::Function *fopen_fn = c_functions.at(FOPEN);
+    llvm::Function *free_fn = c_functions.at(FREE);
+    llvm::Function *fwrite_fn = c_functions.at(FWRITE);
+    llvm::Function *fclose_fn = c_functions.at(FCLOSE);
+    llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
+
+    const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::FunctionType *append_file_type = llvm::FunctionType::get( //
+        function_result_type,                                       // return struct with error code
+        {str_type->getPointerTo(), str_type->getPointerTo()},       // Parameters: const str *path, const str *content
+        false                                                       // No vaarg
+    );
+    llvm::Function *append_file_fn = llvm::Function::Create(                             //
+        append_file_type, llvm::Function::ExternalLinkage, "__flint_append_file", module //
+    );
+    fs_functions["append_file"] = append_file_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get function parameters
+    llvm::Argument *path_arg = append_file_fn->arg_begin();
+    llvm::Argument *content_arg = append_file_fn->arg_begin() + 1;
+    path_arg->setName("path");
+    content_arg->setName("content");
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", append_file_fn);
+    llvm::BasicBlock *malloc_fail_block = llvm::BasicBlock::Create(context, "malloc_fail", append_file_fn);
+    llvm::BasicBlock *malloc_ok_block = llvm::BasicBlock::Create(context, "malloc_ok", append_file_fn);
+    llvm::BasicBlock *file_fail_block = llvm::BasicBlock::Create(context, "file_fail", append_file_fn);
+    llvm::BasicBlock *file_ok_block = llvm::BasicBlock::Create(context, "file_ok", append_file_fn);
+
+    // Set insertion point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Get path->len
+    llvm::Value *path_len_ptr = builder->CreateStructGEP(str_type, path_arg, 0, "path_len_ptr");
+    llvm::Value *path_len = builder->CreateLoad(builder->getInt64Ty(), path_len_ptr, "path_len");
+
+    // Calculate allocation size: path->len + 1 (for null terminator)
+    llvm::Value *c_path_size = builder->CreateAdd(path_len, builder->getInt64(1), "c_path_size");
+
+    // Allocate memory for C string: c_path = malloc(path->len + 1)
+    llvm::Value *c_path = builder->CreateCall(malloc_fn, {c_path_size}, "c_path");
+
+    // Check if malloc succeeded
+    llvm::Value *c_path_null = builder->CreateIsNull(c_path, "c_path_null");
+    builder->CreateCondBr(c_path_null, malloc_fail_block, malloc_ok_block);
+
+    // Handle malloc failure - return error 133
+    builder->SetInsertPoint(malloc_fail_block);
+    llvm::AllocaInst *ret_malloc_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_malloc_fail_alloc");
+    llvm::Value *ret_malloc_fail_err_ptr = builder->CreateStructGEP(              //
+        function_result_type, ret_malloc_fail_alloc, 0, "ret_malloc_fail_err_ptr" //
+    );
+    builder->CreateStore(builder->getInt32(133), ret_malloc_fail_err_ptr);
+    llvm::Value *ret_malloc_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_malloc_fail_empty_str");
+    llvm::Value *ret_malloc_fail_val_ptr = builder->CreateStructGEP(              //
+        function_result_type, ret_malloc_fail_alloc, 1, "ret_malloc_fail_val_ptr" //
+    );
+    builder->CreateStore(ret_malloc_fail_empty_str, ret_malloc_fail_val_ptr);
+    llvm::Value *ret_malloc_fail_val = builder->CreateLoad(function_result_type, ret_malloc_fail_alloc, "ret_malloc_fail_val");
+    builder->CreateRet(ret_malloc_fail_val);
+
+    // Continue with successful malloc
+    builder->SetInsertPoint(malloc_ok_block);
+
+    // Get path->value
+    llvm::Value *path_value_ptr = builder->CreateStructGEP(str_type, path_arg, 1, "path_value_ptr");
+
+    // Copy path content: memcpy(c_path, path->value, path->len)
+    builder->CreateCall(memcpy_fn, {c_path, path_value_ptr, path_len});
+
+    // Add null terminator: c_path[path->len] = '\0'
+    llvm::Value *null_ptr = builder->CreateGEP(builder->getInt8Ty(), c_path, path_len, "null_ptr");
+    builder->CreateStore(builder->getInt8(0), null_ptr);
+
+    // Create "ab" string constant for fopen mode (append binary)
+    llvm::Value *mode_str = builder->CreateGlobalStringPtr("ab", "ab_mode");
+
+    // Open file: file = fopen(c_path, "ab")
+    llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
+
+    // Free the c_path: free(c_path)
+    builder->CreateCall(free_fn, {c_path});
+
+    // Check if file is NULL
+    llvm::Value *file_null = builder->CreateIsNull(file, "file_null");
+    builder->CreateCondBr(file_null, file_fail_block, file_ok_block);
+
+    // Handle file open failure - return error 134
+    builder->SetInsertPoint(file_fail_block);
+    llvm::AllocaInst *ret_file_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_fail_alloc");
+    llvm::Value *ret_file_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 0, "ret_file_fail_err_ptr");
+    builder->CreateStore(builder->getInt32(134), ret_file_fail_err_ptr);
+    llvm::Value *ret_file_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_file_fail_empty_str");
+    llvm::Value *ret_file_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 1, "ret_file_fail_val_ptr");
+    builder->CreateStore(ret_file_fail_empty_str, ret_file_fail_val_ptr);
+    llvm::Value *ret_file_fail_val = builder->CreateLoad(function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
+    builder->CreateRet(ret_file_fail_val);
+
+    // Append content to file
+    builder->SetInsertPoint(file_ok_block);
+
+    // Get content->len
+    llvm::Value *content_len_ptr = builder->CreateStructGEP(str_type, content_arg, 0, "content_len_ptr");
+    llvm::Value *content_len = builder->CreateLoad(builder->getInt64Ty(), content_len_ptr, "content_len");
+
+    // Get content->value
+    llvm::Value *content_value_ptr = builder->CreateStructGEP(str_type, content_arg, 1, "content_value_ptr");
+
+    // Write to file: fwrite(content->value, 1, content->len, file)
+    llvm::Value *bytes_written = builder->CreateCall(                                            //
+        fwrite_fn, {content_value_ptr, builder->getInt64(1), content_len, file}, "bytes_written" //
+    );
+
+    // Close the file
+    builder->CreateCall(fclose_fn, {file});
+
+    // Check if write was successful (bytes_written == content_len)
+    llvm::Value *write_check = builder->CreateICmpNE(bytes_written, content_len, "write_check");
+
+    // Prepare return value based on write success/failure
+    llvm::AllocaInst *ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
+    llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
+    llvm::Value *ret_err_val = builder->CreateSelect(write_check,
+        builder->getInt32(135), // Error code for append failure
         builder->getInt32(0)    // Success
     );
     builder->CreateStore(ret_err_val, ret_err_ptr);

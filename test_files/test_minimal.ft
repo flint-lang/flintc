@@ -9,4 +9,5 @@ def main():
     for i := 0; i < lines.length; i++:
         print($"LINE_{i}:\t{lines[i]}\n");
     fs.write_file("logfile", "wolololololasdjkf\nsdfsafd\n\tsdf\n");
+    fs.append_file("logfile", "newlineadded\n");
     print("Written file 'logfile'\n");
