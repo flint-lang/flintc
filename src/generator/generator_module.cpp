@@ -52,7 +52,7 @@ bool Generator::Module::generate_module(     //
     }
 
     // Print the module, if requested
-    if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(BuiltinLibrary::PRINT))) {
+    if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(lib_to_build))) {
         std::cout << YELLOW << "[Debug Info] Generated module '" << module_name << "':\n"
                   << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
     }
