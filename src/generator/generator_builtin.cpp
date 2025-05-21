@@ -422,6 +422,30 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *fread_fn = llvm::Function::Create(fread_type, llvm::Function::ExternalLinkage, "fread", module);
         c_functions[FREAD] = fread_fn;
     }
+    // rewind
+    {
+        llvm::FunctionType *rewind_type = llvm::FunctionType::get( //
+            llvm::Type::getVoidTy(context),                        // return void
+            {llvm::Type::getVoidTy(context)->getPointerTo()},      // FILE* stream
+            false                                                  // No vaarg
+        );
+        llvm::Function *rewind_fn = llvm::Function::Create(rewind_type, llvm::Function::ExternalLinkage, "rewind", module);
+        c_functions[REWIND] = rewind_fn;
+    }
+    // fgets
+    {
+        llvm::FunctionType *fgets_type = llvm::FunctionType::get( //
+            llvm::Type::getInt8Ty(context)->getPointerTo(),       // return char*
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* s
+                llvm::Type::getInt32Ty(context),                // i32 n
+                llvm::Type::getVoidTy(context)->getPointerTo()  // FILE* stream
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *fgets_fn = llvm::Function::Create(fgets_type, llvm::Function::ExternalLinkage, "fgets", module);
+        c_functions[FGETS] = fgets_fn;
+    }
 }
 
 void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {

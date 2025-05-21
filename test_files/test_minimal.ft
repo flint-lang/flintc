@@ -1,15 +1,7 @@
 use Core.print
-use Core.read
-use Core.fs
-use Core.assert
-
-def add(i32 x, i32 y) -> i32:
-    return x + y;
+use Core.fs as fs
 
 def main():
-    bool condition = true;
-    while condition:
-        for i := 0; i < add(1, 2); i++:
-            print($"i = {i}\n");
-            if i == 2:
-                condition = false;
+    str[] lines = fs.read_lines("test_files/test_minimal.ft");
+    for i := 0; i < lines.length; i++:
+        print($"LINE_{i}:\t{lines[i]}\n");

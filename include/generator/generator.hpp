@@ -153,6 +153,8 @@ class Generator {
         {CFunction::FCLOSE, nullptr},
         {CFunction::FTELL, nullptr},
         {CFunction::FREAD, nullptr},
+        {CFunction::REWIND, nullptr},
+        {CFunction::FGETS, nullptr},
     };
 
     /// @struct `GenerationContext`
@@ -1978,16 +1980,16 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_read_file_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
-            /// @function `generate_read_file_lines_function`
-            /// @brief Function to generate the builtin 'read_file_lines' function
+            /// @function `generate_read_lines_function`
+            /// @brief Function to generate the builtin 'read_lines' function
             ///
             /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the 'read_file_lines' function definition will be generated in
+            /// @param `module` The LLVM Module the 'read_lines' function definition will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_read_file_lines_function( //
-                llvm::IRBuilder<> *builder,                //
-                llvm::Module *module,                      //
-                const bool only_declarations = true        //
+            static void generate_read_lines_function( //
+                llvm::IRBuilder<> *builder,           //
+                llvm::Module *module,                 //
+                const bool only_declarations = true   //
             );
         };
 

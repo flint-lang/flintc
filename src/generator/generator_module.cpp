@@ -47,6 +47,7 @@ bool Generator::Module::generate_module(     //
         case BuiltinLibrary::FS:
             Builtin::generate_c_functions(module.get());
             String::generate_string_manip_functions(builder.get(), module.get(), true);
+            Array::generate_array_manip_functions(builder.get(), module.get(), true);
             FS::generate_filesystem_functions(builder.get(), module.get(), false);
             break;
     }

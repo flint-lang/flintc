@@ -79,6 +79,10 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                 {
                     {{"str"}, {"str"}, true}, // The single version of the 'read_file' function
                 }},
+            {"read_lines", // The 'read_lines' function
+                {
+                    {{"str"}, {"str[]"}, true}, // The single version of the 'read_lines' function
+                }},
         }}, // End of the 'fs' module
 };
 
@@ -106,6 +110,8 @@ enum CFunction {
     FCLOSE,
     FTELL,
     FREAD,
+    REWIND,
+    FGETS,
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
