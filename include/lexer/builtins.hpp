@@ -95,7 +95,11 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                 {
                     {{"str", "str"}, {"void"}, true}, // The single version of the 'append_file' function
                 }},
-        }}, // End of the 'fs' module
+            {"is_file", // The 'is_file' function
+                {
+                    {{"str"}, {"bool"}, false}, // The single version of the 'is_file' function
+                }},
+        }}, // End of the 'filesystem' module
 };
 
 /// @enum `CFunctions`

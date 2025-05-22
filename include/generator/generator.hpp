@@ -1962,6 +1962,7 @@ class Generator {
                 {"file_exists", nullptr},
                 {"write_file", nullptr},
                 {"append_file", nullptr},
+                {"is_file", nullptr},
             };
 
             /// @function `generate_filesystem_functions`
@@ -2030,6 +2031,18 @@ class Generator {
                 llvm::IRBuilder<> *builder,            //
                 llvm::Module *module,                  //
                 const bool only_declarations = true    //
+            );
+
+            /// @function `generate_is_file_function`
+            /// @brief Function to generate the builtin `is_file` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `is_file` function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_is_file_function( //
+                llvm::IRBuilder<> *builder,        //
+                llvm::Module *module,              //
+                const bool only_declarations       //
             );
         };
 

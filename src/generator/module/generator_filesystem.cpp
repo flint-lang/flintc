@@ -10,6 +10,7 @@ void Generator::Module::FileSystem::generate_filesystem_functions( //
     generate_file_exists_function(builder, module, only_declarations);
     generate_write_file_function(builder, module, only_declarations);
     generate_append_file_function(builder, module, only_declarations);
+    generate_is_file_function(builder, module, only_declarations);
 }
 
 void Generator::Module::FileSystem::generate_read_file_function( //
@@ -1220,4 +1221,142 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     builder->CreateStore(ret_empty_str, ret_val_ptr);
     llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloc, "ret_val");
     builder->CreateRet(ret_val);
+}
+
+void Generator::Module::FileSystem::generate_is_file_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
+    // THE C IMPLEMENTATION:
+    // bool is_file(const str *path) {
+    //     // Convert str path to null-terminated C string
+    //     char *c_path = (char *)malloc(path->len + 1);
+    //     if (!c_path) {
+    //         return FALSE; // Memory allocation failure
+    //     }
+    //
+    //     memcpy(c_path, path->value, path->len);
+    //     c_path[path->len] = '\0';
+    //
+    //     // Try to open as a file
+    //     FILE *file = fopen(c_path, "rb");
+    //     free(c_path);
+    //
+    //     if (file) {
+    //         // Check if it's actually a file by trying to read from it
+    //         char buffer[1];
+    //         size_t read_result = fread(buffer, 1, 1, file);
+    //         // Seek back to the beginning
+    //         fseek(file, 0, SEEK_SET);
+    //         fclose(file);
+    //
+    //         // If we can read from it or it's an empty file, it's a regular file
+    //         return TRUE;
+    //     }
+    //
+    //     return FALSE;
+    // }
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Function *malloc_fn = c_functions.at(MALLOC);
+    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+    llvm::Function *fopen_fn = c_functions.at(FOPEN);
+    llvm::Function *free_fn = c_functions.at(FREE);
+    llvm::Function *fread_fn = c_functions.at(FREAD);
+    llvm::Function *fseek_fn = c_functions.at(FSEEK);
+    llvm::Function *fclose_fn = c_functions.at(FCLOSE);
+
+    llvm::FunctionType *is_file_type = llvm::FunctionType::get( //
+        llvm::Type::getInt1Ty(context),                         // return bool
+        {str_type->getPointerTo()},                             // str *path
+        false                                                   // No vaarg
+    );
+    llvm::Function *is_file_fn = llvm::Function::Create(                         //
+        is_file_type, llvm::Function::ExternalLinkage, "__flint_is_file", module //
+    );
+    fs_functions["is_file"] = is_file_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get function parameter
+    llvm::Argument *path_arg = is_file_fn->arg_begin();
+    path_arg->setName("path");
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", is_file_fn);
+    llvm::BasicBlock *malloc_fail_block = llvm::BasicBlock::Create(context, "malloc_fail", is_file_fn);
+    llvm::BasicBlock *malloc_ok_block = llvm::BasicBlock::Create(context, "malloc_ok", is_file_fn);
+    llvm::BasicBlock *file_fail_block = llvm::BasicBlock::Create(context, "file_fail", is_file_fn);
+    llvm::BasicBlock *file_ok_block = llvm::BasicBlock::Create(context, "file_ok", is_file_fn);
+
+    // Set insertion point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Get path->len
+    llvm::Value *path_len_ptr = builder->CreateStructGEP(str_type, path_arg, 0, "path_len_ptr");
+    llvm::Value *path_len = builder->CreateLoad(builder->getInt64Ty(), path_len_ptr, "path_len");
+
+    // Calculate allocation size: path->len + 1 (for null terminator)
+    llvm::Value *c_path_size = builder->CreateAdd(path_len, builder->getInt64(1), "c_path_size");
+
+    // Allocate memory for C string: c_path = malloc(path->len + 1)
+    llvm::Value *c_path = builder->CreateCall(malloc_fn, {c_path_size}, "c_path");
+
+    // Check if malloc succeeded
+    llvm::Value *c_path_null = builder->CreateIsNull(c_path, "c_path_null");
+    builder->CreateCondBr(c_path_null, malloc_fail_block, malloc_ok_block);
+
+    // Handle malloc failure - return false
+    builder->SetInsertPoint(malloc_fail_block);
+    builder->CreateRet(builder->getFalse());
+
+    // Continue with successful malloc
+    builder->SetInsertPoint(malloc_ok_block);
+
+    // Get path->value
+    llvm::Value *path_value_ptr = builder->CreateStructGEP(str_type, path_arg, 1, "path_value_ptr");
+
+    // Copy path content: memcpy(c_path, path->value, path->len)
+    builder->CreateCall(memcpy_fn, {c_path, path_value_ptr, path_len});
+
+    // Add null terminator: c_path[path->len] = '\0'
+    llvm::Value *null_ptr = builder->CreateGEP(builder->getInt8Ty(), c_path, path_len, "null_ptr");
+    builder->CreateStore(builder->getInt8(0), null_ptr);
+
+    // Create "rb" string constant for fopen mode (read binary)
+    llvm::Value *mode_str = builder->CreateGlobalStringPtr("rb", "rb_mode");
+
+    // Open file: file = fopen(c_path, "rb")
+    llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
+
+    // Free the c_path: free(c_path)
+    builder->CreateCall(free_fn, {c_path});
+
+    // Check if file is NULL
+    llvm::Value *file_null = builder->CreateIsNull(file, "file_null");
+    builder->CreateCondBr(file_null, file_fail_block, file_ok_block);
+
+    // Handle file open failure - return false
+    builder->SetInsertPoint(file_fail_block);
+    builder->CreateRet(builder->getFalse());
+
+    // File opened successfully, check if it's a real file
+    builder->SetInsertPoint(file_ok_block);
+
+    // Create a buffer to read one byte
+    llvm::AllocaInst *buffer = builder->CreateAlloca(builder->getInt8Ty(), nullptr, "buffer");
+
+    // Try to read 1 byte: fread(buffer, 1, 1, file)
+    builder->CreateCall(fread_fn, {buffer, builder->getInt64(1), builder->getInt64(1), file}, "read_result");
+
+    // Seek back to beginning: fseek(file, 0, SEEK_SET)
+    llvm::Value *seek_set = builder->getInt32(0);
+    builder->CreateCall(fseek_fn, {file, builder->getInt64(0), seek_set});
+
+    // Close the file: fclose(file)
+    builder->CreateCall(fclose_fn, {file});
+
+    // If we got here, it's a file - return true
+    builder->CreateRet(builder->getTrue());
 }
