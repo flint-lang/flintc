@@ -46,9 +46,10 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         lib_paths.push_back("/LIBPATH:\"" + cache_path + "\"");
     }
     const char *lib_env = std::getenv("LIB");
-    std::string lib_env_str(lib_env);
+    std::string lib_env_str = "";
 
     if (lib_env != nullptr) {
+        lib_env_str = std::string(lib_env);
         if (DEBUG_MODE) {
             std::cout << YELLOW << "[Debug Info] Found LIB environment variable: " << DEFAULT << lib_env_str << std::endl;
         }

@@ -12,5 +12,7 @@ ft_test
 c_test
 scripts/profiling
 main.pdb
+main.obj
 main.o
 test.o
+logfile
