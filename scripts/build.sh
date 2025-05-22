@@ -8,15 +8,16 @@ print_usage() {
 Options:
     -h, --help              Print this help message
     -a, --all               Build all possible versions (dynamic and static for linux and windows)
+    -l, --linux             Build the executable for linux
+    -w, --windows           Cross compile the executable for windows
+    -s, --static            Build the executable as static
     -d, --dynamic           Build the executable as dynamic (default)
     -D  --debug             Compile the compiler in debug mode
-    -l, --linux             Build the executable for linux
-        --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')
-        --rebuild           Forces rebuilding of all source files (both llvm and the compiler)
-    -s, --static            Build the executable as static
+    -r  --rebuild           Forces rebuilding of the compiler
+    -R  --rebuild-llvm      Forces rebuilding of llvm
     -t, --test              Run the tests after compilation
     -v, --verbose           Toggle verbosity on
-    -w, --windows           Cross compile the executable for windows"
+        --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')"
 }
 
 # Prints an given error message and returns with the given error code
@@ -69,7 +70,7 @@ build_llvm_windows() {
     llvm_build_dir="$root/build/llvm-mingw"
     llvm_install_dir="$root/vendor/llvm-mingw"
     echo "-- Building static LLVM for Windows..."
-    if [ "$force_rebuild" = "true" ]; then
+    if [ "$force_rebuild_llvm" = "true" ]; then
         rm -r "$root/build/llvm-mingw"
     fi
 
@@ -118,7 +119,7 @@ build_llvm_linux() {
     llvm_build_dir="$root/build/llvm-linux"
     llvm_install_dir="$root/vendor/llvm-linux"
     echo "-- Building static LLVM for Linux..."
-    if [ "$force_rebuild" = "true" ]; then
+    if [ "$force_rebuild_llvm" = "true" ]; then
         rm -r "$root/build/llvm-linux"
     fi
 
@@ -393,6 +394,7 @@ build_static=false
 build_windows=false
 build_linux=false
 force_rebuild=false
+force_rebuild_llvm=false
 run_tests=false
 debug_mode=false
 llvm_version="llvmorg-19.1.7"
@@ -439,6 +441,10 @@ while [ "$#" -gt 0 ]; do
         force_rebuild=true
         shift
         ;;
+    --rebuild-llvm)
+        force_rebuild_llvm=true
+        shift
+        ;;
     --static)
         build_static=true
         shift
@@ -481,6 +487,12 @@ while [ "$#" -gt 0 ]; do
                 ;;
             l)
                 build_linux=true
+                ;;
+            r)
+                force_rebuild=true
+                ;;
+            R)
+                force_rebuild_llvm=true
                 ;;
             s)
                 build_static=true
