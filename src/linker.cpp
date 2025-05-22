@@ -79,6 +79,19 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
             char buffer[4096];
             if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
                 std::string lib_str(buffer);
+                if (lib_str == "%LIB%") {
+                    // We are in a power-shell
+                    #ifdef _MSC_VER
+                        _pclose(pipe);
+                        pipe = _popen("cmd /c echo $Env:LIB", "r");
+                    #else
+                        pclose(pipe);
+                        pipe = popen("cmd /c echo $Env:LIB", "r");
+                    #endif
+                    if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                        lib_str = std::string(buffer);
+                    }
+                }
 
                 // Remove trailing newline if present
                 if (!lib_str.empty() && lib_str.back() == '\n') {
