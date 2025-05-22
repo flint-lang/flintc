@@ -1501,7 +1501,7 @@ class Generator {
             ///
             /// @attention The functions are nullpointers until the `generate_arithmetic_functions` function is called
             /// @attention The map is not being cleared after the program module has been generated
-            static inline std::unordered_map<std::string_view, llvm::Function *> arithmetic_functions = {
+            static inline std::unordered_map<std::string, llvm::Function *> arithmetic_functions = {
                 // Signed Integer Types
                 {"i32_safe_add", nullptr},
                 {"i32_safe_sub", nullptr},

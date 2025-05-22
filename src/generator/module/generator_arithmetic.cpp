@@ -88,8 +88,8 @@ void Generator::Module::Arithmetic::generate_int_safe_add( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_safe_add_fn);
-    llvm::BasicBlock *overflow_block;
-    llvm::BasicBlock *no_overflow_block;
+    llvm::BasicBlock *overflow_block = nullptr;
+    llvm::BasicBlock *no_overflow_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         overflow_block = llvm::BasicBlock::Create(context, "overflow", int_safe_add_fn);
         no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", int_safe_add_fn);
@@ -190,8 +190,8 @@ void Generator::Module::Arithmetic::generate_int_safe_sub( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_safe_sub_fn);
-    llvm::BasicBlock *overflow_block;
-    llvm::BasicBlock *no_overflow_block;
+    llvm::BasicBlock *overflow_block = nullptr;
+    llvm::BasicBlock *no_overflow_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         overflow_block = llvm::BasicBlock::Create(context, "overflow", int_safe_sub_fn);
         no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", int_safe_sub_fn);
@@ -292,8 +292,8 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_safe_mul_fn);
-    llvm::BasicBlock *overflow_block;
-    llvm::BasicBlock *no_overflow_block;
+    llvm::BasicBlock *overflow_block = nullptr;
+    llvm::BasicBlock *no_overflow_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         overflow_block = llvm::BasicBlock::Create(context, "overflow", int_safe_mul_fn);
         no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", int_safe_mul_fn);
@@ -386,8 +386,8 @@ void Generator::Module::Arithmetic::generate_int_safe_div( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_safe_div_fn);
-    llvm::BasicBlock *error_block;
-    llvm::BasicBlock *no_error_block;
+    llvm::BasicBlock *error_block = nullptr;
+    llvm::BasicBlock *no_error_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         error_block = llvm::BasicBlock::Create(context, "error", int_safe_div_fn);
         no_error_block = llvm::BasicBlock::Create(context, "no_error", int_safe_div_fn);
@@ -472,8 +472,8 @@ void Generator::Module::Arithmetic::generate_uint_safe_add( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", uint_safe_add_fn);
-    llvm::BasicBlock *overflow_block;
-    llvm::BasicBlock *no_overflow_block;
+    llvm::BasicBlock *overflow_block = nullptr;
+    llvm::BasicBlock *no_overflow_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         overflow_block = llvm::BasicBlock::Create(context, "overflow", uint_safe_add_fn);
         no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", uint_safe_add_fn);
@@ -548,8 +548,8 @@ void Generator::Module::Arithmetic::generate_uint_safe_sub( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", uint_safe_sub_fn);
-    llvm::BasicBlock *underflow_block;
-    llvm::BasicBlock *no_underflow_block;
+    llvm::BasicBlock *underflow_block = nullptr;
+    llvm::BasicBlock *no_underflow_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         underflow_block = llvm::BasicBlock::Create(context, "underflow", uint_safe_sub_fn);
         no_underflow_block = llvm::BasicBlock::Create(context, "no_underflow", uint_safe_sub_fn);
@@ -625,8 +625,8 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", uint_safe_mul_fn);
-    llvm::BasicBlock *overflow_block;
-    llvm::BasicBlock *no_overflow_block;
+    llvm::BasicBlock *overflow_block = nullptr;
+    llvm::BasicBlock *no_overflow_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         overflow_block = llvm::BasicBlock::Create(context, "overflow", uint_safe_mul_fn);
         no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", uint_safe_mul_fn);
@@ -708,8 +708,8 @@ void Generator::Module::Arithmetic::generate_uint_safe_div( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", uint_safe_div_fn);
-    llvm::BasicBlock *error_block;
-    llvm::BasicBlock *no_error_block;
+    llvm::BasicBlock *error_block = nullptr;
+    llvm::BasicBlock *no_error_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         error_block = llvm::BasicBlock::Create(context, "error", uint_safe_div_fn);
         no_error_block = llvm::BasicBlock::Create(context, "no_error", uint_safe_div_fn);
@@ -786,8 +786,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_vector_safe_add_fn);
-    llvm::BasicBlock *overflow_block;
-    llvm::BasicBlock *no_overflow_block;
+    llvm::BasicBlock *overflow_block = nullptr;
+    llvm::BasicBlock *no_overflow_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         overflow_block = llvm::BasicBlock::Create(context, "overflow", int_vector_safe_add_fn);
         no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", int_vector_safe_add_fn);
@@ -921,8 +921,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_vector_safe_sub_fn);
-    llvm::BasicBlock *overflow_block;
-    llvm::BasicBlock *no_overflow_block;
+    llvm::BasicBlock *overflow_block = nullptr;
+    llvm::BasicBlock *no_overflow_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         overflow_block = llvm::BasicBlock::Create(context, "overflow", int_vector_safe_sub_fn);
         no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", int_vector_safe_sub_fn);
@@ -1056,8 +1056,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_vector_safe_mul_fn);
-    llvm::BasicBlock *overflow_block;
-    llvm::BasicBlock *no_overflow_block;
+    llvm::BasicBlock *overflow_block = nullptr;
+    llvm::BasicBlock *no_overflow_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         overflow_block = llvm::BasicBlock::Create(context, "overflow", int_vector_safe_mul_fn);
         no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", int_vector_safe_mul_fn);
@@ -1181,8 +1181,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_vector_safe_div_fn);
-    llvm::BasicBlock *error_block;
-    llvm::BasicBlock *no_error_block;
+    llvm::BasicBlock *error_block = nullptr;
+    llvm::BasicBlock *no_error_block = nullptr;
     if (overflow_mode != ArithmeticOverflowMode::SILENT) {
         error_block = llvm::BasicBlock::Create(context, "error", int_vector_safe_div_fn);
         no_error_block = llvm::BasicBlock::Create(context, "no_error", int_vector_safe_div_fn);
