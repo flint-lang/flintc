@@ -168,6 +168,7 @@ bool Lexer::scan_token() {
             }
             start = current;
             add_token(TOK_CHAR_VALUE);
+            break;
         // calculational tokens
         case '+':
             add_token_options(TOK_PLUS, {{'+', TOK_INCREMENT}, {'=', TOK_PLUS_EQUALS}});
