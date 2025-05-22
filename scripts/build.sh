@@ -94,6 +94,7 @@ build_llvm_windows() {
         -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
         -DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-w64-mingw32 \
         -DLLVM_TARGET_ARCH=X86 \
+        -DLLVM_ENABLE_OPAQUE_POINTERS=ON \
         -DLLVM_TARGETS_TO_BUILD=X86 \
         -DLLVM_ENABLE_THREADS=ON \
         -DLLVM_ENABLE_ZLIB=OFF \
