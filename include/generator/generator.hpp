@@ -360,7 +360,7 @@ class Generator {
         ///
         /// @param `type` The type from which to get the llvm type from
         /// @return `std::pair<llvm::Type *, bool>` A pair containing a pointer to the correct llvm Type from the given string and a boolean
-        /// value to determine if the given data type is a complex type (data, entity etc)
+        /// value to determine if the given data type is a complex type (data, entity, tuple etc)
         ///
         /// @throws ErrGenerating when the type could not be created from the passed type
         static std::pair<llvm::Type *, bool> get_type(const std::shared_ptr<Type> &type);

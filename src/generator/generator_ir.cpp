@@ -8,6 +8,7 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
+#include "parser/type/tuple_type.hpp"
 #include "llvm/IR/Constants.h"
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
@@ -216,6 +217,19 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
         return {vector_type, false};
     } else if (dynamic_cast<const EnumType *>(type.get())) {
         return {llvm::Type::getInt32Ty(context), false};
+    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(type.get())) {
+        std::string tuple_str = "tuple";
+        std::vector<llvm::Type *> type_vector;
+        for (const auto &tup_type : tuple_type->types) {
+            type_vector.emplace_back(get_type(tup_type).first);
+            tuple_str += "_" + tup_type->to_string();
+        }
+        if (type_map.find(tuple_str) == type_map.end()) {
+            llvm::ArrayRef<llvm::Type *> type_array(type_vector);
+            llvm::StructType *llvm_tuple_type = llvm::StructType::create(context, type_array, tuple_str, false);
+            type_map[tuple_str] = llvm_tuple_type;
+        }
+        return {type_map.at(tuple_str), true};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);

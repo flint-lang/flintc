@@ -9,6 +9,7 @@
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/primitive_type.hpp"
+#include "parser/type/tuple_type.hpp"
 
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Metadata.h>
@@ -790,14 +791,24 @@ bool Generator::Statement::generate_declaration( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
-        if (const auto *initializer_node = dynamic_cast<const InitializerNode *>(declaration_node->initializer.value().get())) {
-            if (!initializer_node->is_data) {
+        const auto *initializer_node = dynamic_cast<const InitializerNode *>(declaration_node->initializer.value().get());
+        const auto *tuple_type = dynamic_cast<const TupleType *>(declaration_node->type.get());
+        if (initializer_node != nullptr || tuple_type != nullptr) {
+            if (initializer_node != nullptr && !initializer_node->is_data) {
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return false;
             }
             // If the rhs is a InitializerNode, it returns all element values from the initializer expression
             // First, get the struct type of the data
             llvm::Type *data_type = IR::get_type(declaration_node->type).first;
+            std::vector<std::shared_ptr<Type>> types;
+            if (initializer_node != nullptr) {
+                for (const auto &arg : initializer_node->args) {
+                    types.emplace_back(arg->type);
+                }
+            } else if (tuple_type != nullptr) {
+                types = tuple_type->types;
+            }
             for (size_t i = 0; i < expr_val.value().size(); i++) {
                 llvm::Value *elem_ptr = builder.CreateStructGEP(              //
                     data_type,                                                //
@@ -807,13 +818,14 @@ bool Generator::Statement::generate_declaration( //
                 );
                 // If the data field is a complex field we need to allocate memory for it, then store the "real" result in the allocated
                 // memory region and then store the pointer to the allocated memory region in the 'elem_ptr' GEP
-                const DataType *field_data_type = dynamic_cast<const DataType *>(initializer_node->args[i]->type.get());
-                const ArrayType *field_array_type = dynamic_cast<const ArrayType *>(initializer_node->args[i]->type.get());
-                const bool field_str_type = initializer_node->args[i]->type->to_string() == "str";
+                const std::shared_ptr<Type> &elem_type = types[i];
+                const DataType *field_data_type = dynamic_cast<const DataType *>(elem_type.get());
+                const ArrayType *field_array_type = dynamic_cast<const ArrayType *>(elem_type.get());
+                const bool field_str_type = elem_type->to_string() == "str";
                 const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr || field_str_type;
                 if (field_is_complex) {
                     // For complex types, allocate memory and store a pointer
-                    llvm::Type *field_type = IR::get_type(initializer_node->args[i]->type).first;
+                    llvm::Type *field_type = IR::get_type(elem_type).first;
                     const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
                     llvm::Value *field_size = builder.getInt64(data_layout.getTypeAllocSize(field_type));
                     llvm::Value *field_alloca = builder.CreateCall(                                                      //
