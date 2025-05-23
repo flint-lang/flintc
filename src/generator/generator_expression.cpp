@@ -425,26 +425,17 @@ void Generator::Expression::generate_rethrow( //
             llvm::MDString::get(context,
                 "Load err val of call '" + call_node->function_name + "::" + std::to_string(call_node->call_id) + "'")));
 
-    llvm::BasicBlock *last_block = &ctx.parent->back();
-    llvm::BasicBlock *first_block = &ctx.parent->front();
     // Create basic block for the catch block
     llvm::BasicBlock *current_block = builder.GetInsertBlock();
-
-    // Check if the current block is the last block, if it is not, insert right after the current block
-    bool will_insert_after = current_block == last_block && current_block != first_block;
-    llvm::BasicBlock *insert_before = will_insert_after ? nullptr : current_block;
-
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                           //
         context,                                                                        //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_catch", //
-        ctx.parent,                                                                     //
-        insert_before                                                                   //
+        ctx.parent                                                                      //
     );
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                           //
         context,                                                                        //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_merge", //
-        ctx.parent,                                                                     //
-        insert_before                                                                   //
+        ctx.parent                                                                      //
     );
     builder.SetInsertPoint(current_block);
 
