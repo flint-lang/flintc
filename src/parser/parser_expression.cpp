@@ -14,6 +14,7 @@
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/group_type.hpp"
+#include "parser/type/tuple_type.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -1057,6 +1058,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
             if (std::find(to_types.begin(), to_types.end(), expected_type.value()->to_string()) != to_types.end()) {
                 expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
             } else {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
+            }
+        } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(expected_type.value().get())) {
+            const GroupType *group_type = dynamic_cast<const GroupType *>(expression.value()->type.get());
+            if (group_type == nullptr) {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
+            }
+            if (tuple_type->types != group_type->types) {
                 THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
                 return std::nullopt;
             }

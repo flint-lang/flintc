@@ -1,17 +1,4 @@
 use Core.print
-use Core.filesystem as fs
 
 def main():
-    if not fs.file_exists("test_files/test_minimal.ft"):
-        print("File 'test_files/test_minimal.ft' does not exst!\n");
-        return;
-    str[] lines = fs.read_lines("test_files/test_minimal.ft");
-    for i := 0; i < lines.length; i++:
-        print($"LINE_{i}:\t{lines[i]}\n");
-    bool logfile_exists = fs.file_exists("logfile");
-    print($"lgofile does exist? {logfile_exists}\n");
-    fs.write_file("logfile", "wolololololasdjkf\nsdfsafd\n\tsdf\n");
-    fs.append_file("logfile", "newlineadded\n");
-    print("Written file 'logfile'\n");
-    bool logfile_is_file = fs.is_file("logfile");
-    print($"logfile is file? {logfile_is_file}\n");
+    data<i32, f32> tuple = (1, 2.2);

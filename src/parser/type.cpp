@@ -7,6 +7,7 @@
 #include "parser/type/array_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
+#include "parser/type/tuple_type.hpp"
 #include "parser/type/unknown_type.hpp"
 
 #include <mutex>
@@ -21,7 +22,7 @@ void Type::init_types() {
     std::shared_ptr<Type> f32_type = get_primitive_type("f32");
     std::shared_ptr<Type> f64_type = get_primitive_type("f64");
     get_primitive_type("bool");
-    get_primitive_type("str");
+    std::shared_ptr<Type> str_type = get_primitive_type("str");
     get_primitive_type("void");
     get_primitive_type("char");
     add_type(std::make_shared<MultiType>(i32_type, 2));
@@ -36,6 +37,7 @@ void Type::init_types() {
     add_type(std::make_shared<MultiType>(f64_type, 2));
     add_type(std::make_shared<MultiType>(f64_type, 3));
     add_type(std::make_shared<MultiType>(f64_type, 4));
+    add_type(std::make_shared<ArrayType>(1, str_type));
 }
 
 bool Type::add_type(const std::shared_ptr<Type> &type_to_add) {
@@ -183,6 +185,92 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
         } else {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
+        }
+    } else if (std::prev(tokens_mut.second)->type == TOK_GREATER) {
+        // Its a nested type
+        if (tokens_mut.first->type == TOK_DATA) {
+            // Its a tuple type
+            tokens_mut.first++;
+            // Now should come a '<' token
+            if (tokens_mut.first->type != TOK_LESS) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            tokens_mut.first++;
+            // The last token should be a '>' token
+            if (std::prev(tokens_mut.second)->type != TOK_GREATER) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            tokens_mut.second--;
+            // Now get all sub-types balancedly
+            std::vector<std::shared_ptr<Type>> subtypes;
+            int depth = 0;
+            auto type_start = tokens_mut.first;
+            while (tokens_mut.first != tokens_mut.second) {
+                if (tokens_mut.first->type == TOK_LESS || tokens_mut.first->type == TOK_LEFT_BRACKET) {
+                    depth++;
+                    tokens_mut.first++;
+                } else if (std::next(tokens_mut.first)->type == TOK_GREATER || std::next(tokens_mut.first)->type == TOK_RIGHT_BRACKET) {
+                    depth--;
+                    tokens_mut.first++;
+                    if (depth < 0 && tokens_mut.first != tokens_mut.second) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    if (depth <= 0) {
+                        auto type_result = get_type({type_start, tokens_mut.first}, mutex_already_locked);
+                        if (!type_result.has_value()) {
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        subtypes.emplace_back(type_result.value());
+                    }
+                } else if (depth == 0 && tokens_mut.first->type == TOK_COMMA) {
+                    auto type_result = get_type({type_start, tokens_mut.first}, mutex_already_locked);
+                    if (!type_result.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    subtypes.emplace_back(type_result.value());
+                    tokens_mut.first++;
+                    type_start = tokens_mut.first;
+                } else {
+                    tokens_mut.first++;
+                }
+            }
+            if (subtypes.empty()) {
+                // Empty tuples are not allowed
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            } else if (subtypes.size() == 1) {
+                // Tuples of size 1 are not allowed
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            // Check if the tuple is the same type as a multi-type, such tuples are not allowed either
+            const std::shared_ptr<Type> &first_type = subtypes.front();
+            const std::string front_type_str = first_type->to_string();
+            if (front_type_str == "bool" || front_type_str == "i32" || front_type_str == "f32" || front_type_str == "i64" ||
+                front_type_str == "f64") {
+                const size_t subtypes_size = subtypes.size();
+                if (subtypes_size == 2 || subtypes_size == 3 || subtypes_size == 4 || subtypes_size == 8) {
+                    // Now check if all types are equal
+                    bool all_types_same = true;
+                    for (const auto &subtype : subtypes) {
+                        if (subtype != first_type) {
+                            all_types_same = false;
+                            break;
+                        }
+                    }
+                    if (all_types_same) {
+                        // Its a multi-type but defined as a tuple, which is not valid
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                }
+            }
+            return std::make_shared<TupleType>(subtypes);
         }
     }
     // If its not a primitive type and not an array type its a complex type, e.g. Opt<..> for example. This is not supported yet

@@ -499,7 +499,7 @@ class Matcher {
     });
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
     static const inline PatternPtr type = sequence({
-        simple_type,                                                                                                // Single type
+        one_of({simple_type, token(TOK_DATA)}),                                                                     // Single type
         optional(balanced_match(token(TOK_LESS), token(TOK_GREATER))),                                              // <..> Type group
         zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})) // [][,][,,] Arrays
     });
