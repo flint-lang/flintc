@@ -71,7 +71,9 @@ bool Generator::Function::generate_function(                                    
     // The key is a combination of the scope id and the variable name, e.g. 1::var1, 2::var2
     std::unordered_map<std::string, llvm::Value *const> allocations;
     Allocation::generate_function_allocations(builder, function, allocations, function_node);
-    Allocation::generate_allocations(builder, function, function_node->scope.get(), allocations, imported_core_modules);
+    if (!Allocation::generate_allocations(builder, function, function_node->scope.get(), allocations, imported_core_modules)) {
+        return false;
+    }
 
     // Generate all instructions of the functions body
     GenerationContext ctx{function, function_node->scope.get(), allocations, imported_core_modules};
@@ -121,7 +123,9 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     // The test function has no parameters when called, it just returns whether it has succeeded through the error value
     llvm::IRBuilder<> builder(entry_block);
     std::unordered_map<std::string, llvm::Value *const> allocations;
-    Allocation::generate_allocations(builder, test_function, test_node->scope.get(), allocations, imported_core_modules);
+    if (!Allocation::generate_allocations(builder, test_function, test_node->scope.get(), allocations, imported_core_modules)) {
+        return std::nullopt;
+    }
     // Normally generate the tests body
     GenerationContext ctx{test_function, test_node->scope.get(), allocations, imported_core_modules};
     if (!Statement::generate_body(builder, ctx)) {

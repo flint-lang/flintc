@@ -10,7 +10,7 @@
 
 #include <string>
 
-void Generator::Allocation::generate_allocations(                                   //
+bool Generator::Allocation::generate_allocations(                                   //
     llvm::IRBuilder<> &builder,                                                     //
     llvm::Function *parent,                                                         //
     const Scope *scope,                                                             //
@@ -19,41 +19,87 @@ void Generator::Allocation::generate_allocations(                               
 ) {
     for (const auto &statement_node : scope->body) {
         if (auto *call_node = dynamic_cast<CallNodeStatement *>(statement_node.get())) {
-            generate_call_allocations(builder, parent, scope, allocations, imported_core_modules, dynamic_cast<CallNodeBase *>(call_node));
+            if (!generate_call_allocations(builder, parent, scope, allocations,     //
+                    imported_core_modules, dynamic_cast<CallNodeBase *>(call_node)) //
+            ) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node.get())) {
-            generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, while_node->condition.get());
-            generate_allocations(builder, parent, while_node->scope.get(), allocations, imported_core_modules);
+            if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, while_node->condition.get())) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            if (!generate_allocations(builder, parent, while_node->scope.get(), allocations, imported_core_modules)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node.get())) {
-            generate_if_allocations(builder, parent, allocations, imported_core_modules, if_node);
+            if (!generate_if_allocations(builder, parent, allocations, imported_core_modules, if_node)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node.get())) {
-            generate_expression_allocations(                                       //
-                builder, parent, for_loop_node->definition_scope.get(),            //
-                allocations, imported_core_modules, for_loop_node->condition.get() //
-            );
-            generate_allocations(builder, parent, for_loop_node->definition_scope.get(), allocations, imported_core_modules);
-            generate_allocations(builder, parent, for_loop_node->body.get(), allocations, imported_core_modules);
+            if (!generate_expression_allocations(                                       //
+                    builder, parent, for_loop_node->definition_scope.get(),             //
+                    allocations, imported_core_modules, for_loop_node->condition.get()) //
+            ) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            if (!generate_allocations(builder, parent, for_loop_node->definition_scope.get(), allocations, imported_core_modules)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            if (!generate_allocations(builder, parent, for_loop_node->body.get(), allocations, imported_core_modules)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node.get())) {
-            generate_declaration_allocations(builder, parent, scope, allocations, imported_core_modules, declaration_node);
+            if (!generate_declaration_allocations(builder, parent, scope, allocations, imported_core_modules, declaration_node)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         } else if (const auto *group_declaration_node = dynamic_cast<const GroupDeclarationNode *>(statement_node.get())) {
-            generate_group_declaration_allocations(builder, parent, scope, allocations, imported_core_modules, group_declaration_node);
+            if (!generate_group_declaration_allocations(builder, parent, scope, allocations, //
+                    imported_core_modules, group_declaration_node)                           //
+            ) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node.get())) {
-            generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, assignment_node->expression.get());
+            if (!generate_expression_allocations(builder, parent, scope, allocations, //
+                    imported_core_modules, assignment_node->expression.get())         //
+            ) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         } else if (const auto *group_assignment_node = dynamic_cast<const GroupAssignmentNode *>(statement_node.get())) {
-            generate_expression_allocations(                                                                        //
-                builder, parent, scope, allocations, imported_core_modules, group_assignment_node->expression.get() //
-            );
+            if (!generate_expression_allocations(                                                                        //
+                    builder, parent, scope, allocations, imported_core_modules, group_assignment_node->expression.get()) //
+            ) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node.get())) {
             if (return_node->return_value.has_value()) {
-                generate_expression_allocations(                                                                        //
-                    builder, parent, scope, allocations, imported_core_modules, return_node->return_value.value().get() //
-                );
+                if (!generate_expression_allocations(                                                                        //
+                        builder, parent, scope, allocations, imported_core_modules, return_node->return_value.value().get()) //
+                ) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
             }
         } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement_node.get())) {
-            generate_allocations(builder, parent, catch_node->scope.get(), allocations, imported_core_modules);
+            if (!generate_allocations(builder, parent, catch_node->scope.get(), allocations, imported_core_modules)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         } else if (const auto *array_assignment = dynamic_cast<const ArrayAssignmentNode *>(statement_node.get())) {
             generate_array_indexing_allocation(builder, allocations, array_assignment->indexing_expressions.size());
         }
     }
+    return true;
 }
 
 void Generator::Allocation::generate_function_allocations(            //
@@ -92,7 +138,7 @@ void Generator::Allocation::generate_function_allocations(            //
     }
 }
 
-void Generator::Allocation::generate_call_allocations(                               //
+bool Generator::Allocation::generate_call_allocations(                               //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
     const Scope *scope,                                                              //
@@ -102,30 +148,57 @@ void Generator::Allocation::generate_call_allocations(                          
 ) {
     // First, generate the allocations of all the parameter expressions of the call node
     for (const auto &arg : call_node->arguments) {
-        generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, arg.first.get());
+        if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, arg.first.get())) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
     }
     llvm::Type *function_return_type = nullptr;
     // Check if the call targets any builtin functions
     auto builtin_function = Parser::get_builtin_function(call_node->function_name, imported_core_modules);
     if (builtin_function.has_value()) {
         // We only need to create an allocation of the call if it can return an error
+        auto &overload = std::get<1>(builtin_function.value()).front();
         if (std::get<1>(builtin_function.value()).size() > 1) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return;
+            // Go through the overloads and check if we find a match, if we do then thats our target function
+            bool found_overload = false;
+            for (auto &ov : std::get<1>(builtin_function.value())) {
+                auto &args = std::get<0>(ov);
+                if (args.size() != call_node->arguments.size()) {
+                    continue;
+                }
+                bool all_match = true;
+                for (size_t i = 0; i < args.size(); i++) {
+                    if (call_node->arguments[i].first->type->to_string() != args[i]) {
+                        all_match = false;
+                        break;
+                    }
+                }
+                if (!all_match) {
+                    continue;
+                }
+                overload = ov;
+                found_overload = true;
+                break;
+            }
+            if (!found_overload) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         }
-        if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
+        if (std::get<2>(overload)) {
             // Function returns error
             function_return_type = IR::add_and_or_get_type(call_node->type);
         } else {
             // Function does not return error
-            return;
+            return true;
         }
     } else {
         // Get the function definition from any module
         auto [func_decl_res, is_call_extern] = Function::get_function_definition(parent, call_node);
         if (!func_decl_res.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return;
+            return false;
         }
         function_return_type = func_decl_res.value()->getReturnType();
     }
@@ -145,9 +218,10 @@ void Generator::Allocation::generate_call_allocations(                          
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "__ERR", //
         "Create alloc of err ret var '" + err_alloca_name + "'"                        //
     );
+    return true;
 }
 
-void Generator::Allocation::generate_if_allocations(                                 //
+bool Generator::Allocation::generate_if_allocations(                                 //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
     std::unordered_map<std::string, llvm::Value *const> &allocations,                //
@@ -155,25 +229,35 @@ void Generator::Allocation::generate_if_allocations(                            
     const IfNode *if_node                                                            //
 ) {
     while (if_node != nullptr) {
-        generate_expression_allocations(                                                                                     //
-            builder, parent, if_node->then_scope->parent_scope, allocations, imported_core_modules, if_node->condition.get() //
-        );
-        generate_allocations(builder, parent, if_node->then_scope.get(), allocations, imported_core_modules);
+        if (!generate_expression_allocations(                                                                                     //
+                builder, parent, if_node->then_scope->parent_scope, allocations, imported_core_modules, if_node->condition.get()) //
+        ) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        if (!generate_allocations(builder, parent, if_node->then_scope.get(), allocations, imported_core_modules)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
         if (if_node->else_scope.has_value()) {
             if (std::holds_alternative<std::unique_ptr<IfNode>>(if_node->else_scope.value())) {
                 if_node = std::get<std::unique_ptr<IfNode>>(if_node->else_scope.value()).get();
             } else {
                 Scope *else_scope = std::get<std::unique_ptr<Scope>>(if_node->else_scope.value()).get();
-                generate_allocations(builder, parent, else_scope, allocations, imported_core_modules);
+                if (!generate_allocations(builder, parent, else_scope, allocations, imported_core_modules)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
                 if_node = nullptr;
             }
         } else {
             if_node = nullptr;
         }
     }
+    return true;
 }
 
-void Generator::Allocation::generate_declaration_allocations(                        //
+bool Generator::Allocation::generate_declaration_allocations(                        //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
     const Scope *scope,                                                              //
@@ -185,13 +269,19 @@ void Generator::Allocation::generate_declaration_allocations(                   
     if (declaration_node->initializer.has_value()) {
         call_node_expr = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.value().get());
         if (call_node_expr == nullptr) {
-            generate_expression_allocations(                                                                            //
-                builder, parent, scope, allocations, imported_core_modules, declaration_node->initializer.value().get() //
-            );
+            if (!generate_expression_allocations(                                                                            //
+                    builder, parent, scope, allocations, imported_core_modules, declaration_node->initializer.value().get()) //
+            ) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         }
     }
     if (call_node_expr != nullptr) {
-        generate_call_allocations(builder, parent, scope, allocations, imported_core_modules, call_node_expr);
+        if (!generate_call_allocations(builder, parent, scope, allocations, imported_core_modules, call_node_expr)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
 
         // Create the actual variable allocation with the declared type
         const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
@@ -209,9 +299,10 @@ void Generator::Allocation::generate_declaration_allocations(                   
             "Create alloc of var '" + alloca_name + "'"        //
         );
     }
+    return true;
 }
 
-void Generator::Allocation::generate_group_declaration_allocations(                  //
+bool Generator::Allocation::generate_group_declaration_allocations(                  //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
     const Scope *scope,                                                              //
@@ -219,7 +310,12 @@ void Generator::Allocation::generate_group_declaration_allocations(             
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
     const GroupDeclarationNode *group_declaration_node                               //
 ) {
-    generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, group_declaration_node->initializer.get());
+    if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, //
+            group_declaration_node->initializer.get())                                               //
+    ) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
 
     // Allocating the actual variable values from the LHS
     for (const auto &variable : group_declaration_node->variables) {
@@ -230,6 +326,7 @@ void Generator::Allocation::generate_group_declaration_allocations(             
             "Create alloc of var '" + alloca_name + "'"        //
         );
     }
+    return true;
 }
 
 void Generator::Allocation::generate_array_indexing_allocation(       //
@@ -248,7 +345,7 @@ void Generator::Allocation::generate_array_indexing_allocation(       //
     );
 }
 
-void Generator::Allocation::generate_expression_allocations(                         //
+bool Generator::Allocation::generate_expression_allocations(                         //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
     const Scope *scope,                                                              //
@@ -257,25 +354,46 @@ void Generator::Allocation::generate_expression_allocations(                    
     const ExpressionNode *expression                                                 //
 ) {
     if (const auto *binary_op = dynamic_cast<const BinaryOpNode *>(expression)) {
-        generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, binary_op->left.get());
-        generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, binary_op->right.get());
+        if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, binary_op->left.get())) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, binary_op->right.get())) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
     } else if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expression)) {
-        generate_call_allocations(                                                                                    //
-            builder, parent, scope, allocations, imported_core_modules, dynamic_cast<const CallNodeBase *>(call_node) //
-        );
+        if (!generate_call_allocations(builder, parent, scope, allocations, imported_core_modules, //
+                dynamic_cast<const CallNodeBase *>(call_node))                                     //
+        ) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
     } else if (const auto *group_expression = dynamic_cast<const GroupExpressionNode *>(expression)) {
         for (const auto &expr : group_expression->expressions) {
-            generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, expr.get());
+            if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, expr.get())) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         }
     } else if (const auto *type_cast = dynamic_cast<const TypeCastNode *>(expression)) {
-        generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, type_cast->expr.get());
+        if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, type_cast->expr.get())) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
     } else if (const auto *unary_op = dynamic_cast<const UnaryOpExpression *>(expression)) {
-        generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, unary_op->operand.get());
+        if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, unary_op->operand.get())) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
     } else if (const auto *interpol = dynamic_cast<const StringInterpolationNode *>(expression)) {
         for (const auto &val : interpol->string_content) {
             if (std::holds_alternative<std::unique_ptr<TypeCastNode>>(val)) {
                 const ExpressionNode *expr = std::get<std::unique_ptr<TypeCastNode>>(val).get();
-                generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, expr);
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, expr)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
             }
         }
     } else if (const auto *array_initializer = dynamic_cast<const ArrayInitializerNode *>(expression)) {
@@ -283,6 +401,7 @@ void Generator::Allocation::generate_expression_allocations(                    
     } else if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expression)) {
         generate_array_indexing_allocation(builder, allocations, array_access->indexing_expressions.size());
     }
+    return true;
 }
 
 void Generator::Allocation::generate_allocation(                      //

@@ -591,10 +591,11 @@ class Generator {
         /// @param `scope` The Scope from which all allocations are collected and allocated at the start of the scope
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `imported_core_modules` The list of imported core modules
+        /// @return `bool` Whether all allocations were successful
         ///
         /// @attention The allocations map will be modified (new entries are added), but it will not be cleared. If you want a clear
         /// allocations map before calling this function, you need to clear it yourself.
-        static void generate_allocations(                                                   //
+        [[nodiscard]] static bool generate_allocations(                                     //
             llvm::IRBuilder<> &builder,                                                     //
             llvm::Function *parent,                                                         //
             const Scope *scope,                                                             //
@@ -625,9 +626,10 @@ class Generator {
         /// @param `imported_core_modules` The list of imported core modules
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `call_node` The CallNode used to generate the allocations from
+        /// @return `bool` Whether the call allocations were all successful
         ///
         /// @attention The allocations map will be modified
-        static void generate_call_allocations(                                               //
+        [[nodiscard]] static bool generate_call_allocations(                                 //
             llvm::IRBuilder<> &builder,                                                      //
             llvm::Function *parent,                                                          //
             const Scope *scope,                                                              //
@@ -644,9 +646,10 @@ class Generator {
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `imported_core_modules` The list of imported core modules
         /// @param `if_node` The IfNode used to generate the allocations from
+        /// @return `bool` Whether the if allocations were all successful
         ///
         /// @attention The allocations map will be modified
-        static void generate_if_allocations(                                                 //
+        [[nodiscard]] static bool generate_if_allocations(                                   //
             llvm::IRBuilder<> &builder,                                                      //
             llvm::Function *parent,                                                          //
             std::unordered_map<std::string, llvm::Value *const> &allocations,                //
@@ -663,9 +666,10 @@ class Generator {
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `imported_core_modules` The list of imported core modules
         /// @param `declaration_node` The DeclarationNode used to generate the allocations from
+        /// @return `bool` Whether all declaration allocations succeeded
         ///
         /// @attention The allocations map will be modified
-        static void generate_declaration_allocations(                                        //
+        [[nodiscard]] static bool generate_declaration_allocations(                          //
             llvm::IRBuilder<> &builder,                                                      //
             llvm::Function *parent,                                                          //
             const Scope *scope,                                                              //
@@ -683,9 +687,10 @@ class Generator {
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `imported_core_modules` The list of imported core modules
         /// @param `group_declaration_node` The GroupDeclarationNode used to generate the allocations from
+        /// @return `bool` Whether all group declaration allocations were successful
         ///
         /// @attention The allocations map will be modified
-        static void generate_group_declaration_allocations(                                  //
+        [[nodiscard]] static bool generate_group_declaration_allocations(                    //
             llvm::IRBuilder<> &builder,                                                      //
             llvm::Function *parent,                                                          //
             const Scope *scope,                                                              //
@@ -715,9 +720,10 @@ class Generator {
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc in encoded
         /// @param `imported_core_modules` The list of imported core modules
         /// @param `expression` The expression to search for calls for
+        /// @param `bool` Whether all expression allocations were successful
         ///
         /// @attention The allocations map will be modified
-        static void generate_expression_allocations(                                         //
+        [[nodiscard]] static bool generate_expression_allocations(                           //
             llvm::IRBuilder<> &builder,                                                      //
             llvm::Function *parent,                                                          //
             const Scope *scope,                                                              //
