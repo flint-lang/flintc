@@ -9,6 +9,7 @@
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/tuple_type.hpp"
 #include <algorithm>
 
 bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
@@ -423,7 +424,7 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     return std::make_tuple(operator_token, std::move(expression.value()), is_left);
 }
 
-std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::string, unsigned int, std::shared_ptr<Type>>>
+std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
 Parser::create_field_access_base( //
     Scope *scope,                 //
     token_slice &tokens           //
@@ -439,10 +440,26 @@ Parser::create_field_access_base( //
     assert(tokens.first->type == TOK_DOT);
     tokens.first++;
 
-    // Then there should be the name of the field to access
-    assert(tokens.first->type == TOK_IDENTIFIER);
-    const std::string field_name = tokens.first->lexme;
-    tokens.first++;
+    // Then there should be the name of the field to access, or a $N instead of it
+    std::string field_name = "";
+    unsigned int field_id = 0;
+    if (tokens.first->type == TOK_IDENTIFIER) {
+        field_name = tokens.first->lexme;
+        tokens.first++;
+    } else if (tokens.first->type == TOK_DOLLAR) {
+        tokens.first++;
+        assert(tokens.first->type == TOK_INT_VALUE);
+        long int_value = std::stol(tokens.first->lexme);
+        if (int_value < 0) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        field_id = static_cast<unsigned int>(int_value);
+        tokens.first++;
+    } else {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
 
     // Is the variable name itself a type string?
     std::optional<std::shared_ptr<Type>> variable_type = Type::get_type_from_str(var_name);
@@ -497,6 +514,9 @@ Parser::create_field_access_base( //
         }
         return std::make_tuple(variable_type.value(), var_name, "length", 1, Type::get_primitive_type("u64"));
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(variable_type.value().get())) {
+        if (field_name == "") {
+            field_name = "$" + std::to_string(field_id);
+        }
         auto access = create_multi_type_access(multi_type, field_name);
         if (!access.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -514,7 +534,7 @@ Parser::create_field_access_base( //
         const DataNode *data_node = data_type->data_node;
 
         // Now we can check if the given field name exists in the data
-        unsigned int field_id = 0;
+        field_id = 0;
         for (const auto &field : data_node->fields) {
             if (std::get<0>(field) == field_name) {
                 break;
@@ -527,6 +547,13 @@ Parser::create_field_access_base( //
         }
         const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields.at(field_id));
         return std::make_tuple(variable_type.value(), var_name, field_name, field_id, field_type);
+    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(variable_type.value().get())) {
+        if (field_id >= tuple_type->types.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const std::shared_ptr<Type> field_type = tuple_type->types.at(field_id);
+        return std::make_tuple(variable_type.value(), var_name, std::nullopt, field_id, field_type);
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return std::nullopt;

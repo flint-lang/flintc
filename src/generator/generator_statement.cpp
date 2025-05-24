@@ -1003,7 +1003,8 @@ bool Generator::Statement::generate_data_field_assignment( //
     store->setMetadata("comment",
         llvm::MDNode::get(context,
             llvm::MDString::get(context,
-                "Store result of expr in field '" + data_field_assignment->var_name + "." + data_field_assignment->field_name + "'")));
+                "Store result of expr in field '" + data_field_assignment->var_name + "." + data_field_assignment->field_name.value() +
+                    "'")));
     return true;
 }
 

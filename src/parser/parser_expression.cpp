@@ -905,7 +905,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
         }
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::data_access)) {
-        if (token_size == 3) {
+        if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->type == TOK_INT_VALUE)) {
             std::optional<DataAccessNode> data_access = create_data_access(scope, tokens_mut);
             if (!data_access.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);

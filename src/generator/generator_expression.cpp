@@ -771,10 +771,13 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         const bool field_str_type = data_access->type->to_string() == "str";
         const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr || field_str_type;
         llvm::Type *field_base_type = IR::get_type(data_access->type).first;
+        const std::string field_name = data_access->field_name.has_value() //
+            ? data_access->field_name.value()                              //
+            : "$" + std::to_string(data_access->field_id);
         llvm::LoadInst *loaded_value = builder.CreateLoad(                        //
             field_is_complex ? field_base_type->getPointerTo() : field_base_type, //
             value_ptr,                                                            //
-            access_var_name + "_" + data_access->field_name + "_val"              //
+            access_var_name + "_" + field_name + "_val"                           //
         );
         std::vector<llvm::Value *> values;
         values.emplace_back(loaded_value);
@@ -814,10 +817,13 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         }
 
         llvm::Value *value_ptr = builder.CreateStructGEP(data_type, expr_val, data_access->field_id);
-        llvm::LoadInst *loaded_value = builder.CreateLoad(           //
-            IR::get_type(data_access->type).first,                   //
-            value_ptr,                                               //
-            "__flint_expr_stack_" + data_access->field_name + "_val" //
+        const std::string field_name = data_access->field_name.has_value() //
+            ? data_access->field_name.value()                              //
+            : "$" + std::to_string(data_access->field_id);
+        llvm::LoadInst *loaded_value = builder.CreateLoad( //
+            IR::get_type(data_access->type).first,         //
+            value_ptr,                                     //
+            "__flint_expr_stack_" + field_name + "_val"    //
         );
         std::vector<llvm::Value *> values;
         values.emplace_back(loaded_value);

@@ -11,13 +11,13 @@
 /// @brief Represents assignments to a single data field
 class DataFieldAssignmentNode : public StatementNode {
   public:
-    DataFieldAssignmentNode(                        //
-        const std::shared_ptr<Type> &data_type,     //
-        const std::string &var_name,                //
-        const std::string &field_name,              //
-        const unsigned int field_id,                //
-        const std::shared_ptr<Type> &field_type,    //
-        std::unique_ptr<ExpressionNode> &expression //
+    DataFieldAssignmentNode(                          //
+        const std::shared_ptr<Type> &data_type,       //
+        const std::string &var_name,                  //
+        const std::optional<std::string> &field_name, //
+        const unsigned int field_id,                  //
+        const std::shared_ptr<Type> &field_type,      //
+        std::unique_ptr<ExpressionNode> &expression   //
         ) :
         data_type(data_type),
         var_name(var_name),
@@ -47,7 +47,7 @@ class DataFieldAssignmentNode : public StatementNode {
 
     /// @var `field_name`
     /// @brief The name of the field to assign to
-    std::string field_name;
+    std::optional<std::string> field_name;
 
     /// @var `field_id`
     /// @brief The id of the field to assign to

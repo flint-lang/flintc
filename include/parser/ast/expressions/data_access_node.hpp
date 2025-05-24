@@ -12,7 +12,7 @@ class DataAccessNode : public ExpressionNode {
     DataAccessNode(                                                           //
         const std::shared_ptr<Type> &data_type,                               //
         std::variant<std::string, std::unique_ptr<ExpressionNode>> &variable, //
-        const std::string &field_name,                                        //
+        const std::optional<std::string> &field_name,                         //
         const unsigned int field_id,                                          //
         const std::shared_ptr<Type> &field_type                               //
         ) :
@@ -32,8 +32,9 @@ class DataAccessNode : public ExpressionNode {
     std::variant<std::string, std::unique_ptr<ExpressionNode>> variable;
 
     /// @var `field_name`
-    /// @brief The name of the accessed field
-    std::string field_name;
+    /// @brief The name of the accessed field, if the accessed field has no name it means its accessed via `.$N` instead, for tuples or
+    /// multi-types
+    std::optional<std::string> field_name;
 
     /// @var `field_id`
     /// @brief The index of the field in the data

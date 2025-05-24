@@ -612,10 +612,10 @@ class Parser {
     /// @return A optional value containing a tuple, where the
     ///     - first value is the type of the accessed data variable
     ///     - second value is the name of the accessed data variable
-    ///     - third value is the name of the accessed field
+    ///     - third value is the name of the accessed field, nullopt if tis a $N access
     ///     - fourth value is the id of the field
     ///     - fifth value is the type of the field
-    std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::string, unsigned int, std::shared_ptr<Type>>>
+    std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
     create_field_access_base( //
         Scope *scope,         //
         token_slice &tokens   //

@@ -435,11 +435,21 @@ namespace Debug {
             Local::print_header(indent_lvl, empty, "Data Access ");
             std::cout << "[" << access.data_type->to_string() << "]: ";
             if (std::holds_alternative<std::string>(access.variable)) {
-                std::cout << std::get<std::string>(access.variable) << "." << access.field_name << " at ID " << access.field_id
-                          << " with type " << access.type->to_string() << std::endl;
+                std::cout << std::get<std::string>(access.variable) << ".";
+                if (access.field_name.has_value()) {
+                    std::cout << access.field_name.value() << " at ID " << access.field_id;
+                } else {
+                    std::cout << "$" << access.field_id;
+                }
+                std::cout << " with type " << access.type->to_string() << std::endl;
             } else {
-                std::cout << "stacked access of field " << access.field_name << " at ID " << access.field_id << " with type "
-                          << access.type->to_string() << " of stack:" << std::endl;
+                std::cout << "stacked access of field ";
+                if (access.field_name.has_value()) {
+                    std::cout << access.field_name.value() << " at ID " << access.field_id;
+                } else {
+                    std::cout << "$" << access.field_id;
+                }
+                std::cout << " with type " << access.type->to_string() << " of stack:" << std::endl;
                 empty.second = indent_lvl + 1;
                 print_expression(indent_lvl + 1, empty, std::get<std::unique_ptr<ExpressionNode>>(access.variable));
             }
@@ -703,8 +713,13 @@ namespace Debug {
 
         void print_data_field_assignment(unsigned int indent_lvl, uint2 empty, const DataFieldAssignmentNode &assignment) {
             Local::print_header(indent_lvl, empty, "Data Field Assignment ");
-            std::cout << "assign [" << assignment.data_type->to_string() << "] " << assignment.var_name << "." << assignment.field_name
-                      << " at IDs " << assignment.field_id << " of types " << assignment.field_type->to_string() << " to be";
+            std::cout << "assign [" << assignment.data_type->to_string() << "] " << assignment.var_name << ".";
+            if (assignment.field_name.has_value()) {
+                std::cout << assignment.field_name.value() << " at ID " << assignment.field_id;
+            } else {
+                std::cout << "$" << assignment.field_id;
+            }
+            std::cout << " of types " << assignment.field_type->to_string() << " to be";
             std::cout << std::endl;
             empty.first++;
             empty.second = indent_lvl + 2;

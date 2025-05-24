@@ -3,3 +3,7 @@ use Core.print
 def main():
     data<i32, f32> tuple = (1, 2.2);
     tuple = (2, 3.3);
+    i32 x = tuple.$0;
+    i32x2 x2 = (3, 9);
+    x = x2.$0;
+    print($"x = {x}\n");
