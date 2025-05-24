@@ -1,8 +1,8 @@
 # flintc
 
-This project contains the custom **Flint Compiler** built in C++. Flint is a statically typed, conpiled and fully deterministic lanfuage which has code clarity, ease of use and performance at its very top.
+This project contains the custom **Flint Compiler** built in C++. Flint is a statically typed, compiled and fully deterministic language which sets code clarity, ease of use and performance as its very top priorities.
 
-The Compiler is not done yet, as many planned features are still missing. The whole compiler pipeline is fully working and the core of the Flint compiler is getting closer to its finished state, but we are not there yet. You can look at the Wiki page to get a grasp of Flint's syntax but some parts of the wiki are already deprecated, as the design of Flint became more clear.
+The Compiler is not done yet because a lot of planned features are still missing. The whole compiler pipeline is fully working and the core of the Flint compiler is getting closer to its finished state, but we are not there yet. You can look at the Wiki page to get a grasp of Flint's syntax but some parts of the wiki are already deprecated, as the design of Flint became much clearer during its developement.
 
 ## Todos
 
@@ -19,7 +19,7 @@ The Compiler is not done yet, as many planned features are still missing. The wh
 
 ## What's working
 
-Currently, only the most basic features are working:
+Nearly all Core features are already working:
 
 - Declaring functions (main and custom ones)
 - Calling functions (n arguments, m return values)
@@ -44,6 +44,14 @@ Currently, only the most basic features are working:
 - rectangular n-dimensional arrays (`i32[]`, `i32[,]` ...) and accessing the length(s) via `.length` which returns n `u64` values, one for each dimension length
 - SIMD multi-types such as `i32x2`, `f32x3`, `i64x4`, `bool8`, etc. and native interoperability with groups
 - `enum` type
+- declaring and using tuple types `data<i32, f32, str> t = (1, 3.3, "yes");`, `f32 x = t.$1` etc.
+
+## Available Core modules
+- `print` (`use Core.print`) for the print function with its 9 overloads (`i32`, `i64`, `u32`, `u64`, `f32`, `f64`, `str`, `char` and `bool`
+- `read` (`use Core.read`) for the 7 `read_str`, `read_i32`, `read_i64`, `read_u32`, `read_u64`, `read_f32` and `read_f64` functions
+- `assert` (`use Core.assert`) for the `assert` function
+- `filesystem` (`Use Core.filesystem`) for the `read_file`, `read_lines`, `file_exists`, `write_file`, `append_file` and `is_filr` functions
+
 
 ## What's not working
 
