@@ -1,10 +1,78 @@
 #include "generator/generator.hpp"
 #include "lexer/builtins.hpp"
-#include "llvm/IR/DerivedTypes.h"
-#include <cstdint>
 
-void Generator::Module::String::generate_create_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+#include <cstdint>
+#include <llvm/IR/DerivedTypes.h>
+
+void Generator::Module::String::generate_get_c_str_function( //
+    llvm::IRBuilder<> *builder,                              //
+    llvm::Module *module,                                    //
+    const bool only_declarations                             //
+) {
+    // THE C IMPLEMENTATION:
+    // char *get_c_str(const str *string) {
+    //     char *c_string = (char *)malloc(string->len + 1);
+    //     memcpy(c_string, string->value, string->len);
+    //     c_string[string->len] = '\0';
+    //     return c_string;
+    // }
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Function *malloc_fn = c_functions.at(MALLOC);
+    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+
+    llvm::FunctionType *get_c_str_type = llvm::FunctionType::get( //
+        llvm::Type::getInt8Ty(context)->getPointerTo(),           // Return type: char*
+        {str_type->getPointerTo()},                               // Argument: const str* string
+        false                                                     // No varargs
+    );
+    llvm::Function *get_c_str_fn = llvm::Function::Create( //
+        get_c_str_type,                                    //
+        llvm::Function::ExternalLinkage,                   //
+        "__flint_get_c_str",                               //
+        module                                             //
+    );
+    string_manip_functions["get_c_str"] = get_c_str_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", get_c_str_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Get the parameter (string)
+    llvm::Argument *string_arg = get_c_str_fn->arg_begin();
+    string_arg->setName("string");
+
+    // Get string->len
+    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, string_arg, 0, "len_ptr");
+    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+
+    // Calculate malloc size: string->len + 1
+    llvm::Value *malloc_size = builder->CreateAdd(len, builder->getInt64(1), "malloc_size");
+
+    // Call malloc to allocate memory for c_string
+    llvm::Value *c_string_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "c_string_ptr");
+
+    // Get string->value
+    llvm::Value *string_value_ptr = builder->CreateStructGEP(str_type, string_arg, 1, "string_value_ptr");
+
+    // Call memcpy to copy the string content
+    builder->CreateCall(memcpy_fn, {c_string_ptr, string_value_ptr, len});
+
+    // Set null terminator: c_string[string->len] = '\0'
+    llvm::Value *null_terminator_ptr = builder->CreateGEP(builder->getInt8Ty(), c_string_ptr, len, "null_terminator_ptr");
+    builder->CreateStore(builder->getInt8(0), null_terminator_ptr);
+
+    // Return the c_string pointer
+    builder->CreateRet(c_string_ptr);
+}
+
+void Generator::Module::String::generate_create_str_function( //
+    llvm::IRBuilder<> *builder,                               //
+    llvm::Module *module,                                     //
+    const bool only_declarations                              //
+) {
     // THE C IMPLEMENTATION:
     // str *create_str(const size_t len) {
     //     str *string = (str *)malloc(sizeof(str) + len);
@@ -734,6 +802,7 @@ void Generator::Module::String::generate_add_lit_str_function(llvm::IRBuilder<> 
 
 void Generator::Module::String::generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
     const bool only_declarations) {
+    generate_get_c_str_function(builder, module, only_declarations);
     generate_create_str_function(builder, module, only_declarations);
     generate_init_str_function(builder, module, only_declarations);
     generate_compare_str_function(builder, module, only_declarations);
