@@ -16,12 +16,15 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     const bool is_return_type                         //
 ) {
     std::vector<std::shared_ptr<Type>> types;
+    std::string types_str = is_return_type ? "ret_" : "";
     if (const GroupType *group_type = dynamic_cast<const GroupType *>(type.get())) {
         types = group_type->types;
+    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(type.get())) {
+        types_str = "tuple_";
+        types = tuple_type->types;
     } else if (type->to_string() != "void") {
         types.emplace_back(type);
     }
-    std::string types_str = is_return_type ? "ret_" : "";
     for (auto it = types.begin(); it < types.end(); ++it) {
         types_str.append((*it)->to_string());
         if (std::distance(it, types.end()) > 1) {

@@ -887,8 +887,6 @@ bool Generator::Statement::generate_assignment( //
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    llvm::Value *expression = expr.value().at(0);
-
     // If the rhs is of type `str`, delete tha last "garbage", as thats the _actual_ value
     if (assignment_node->expression->type->to_string() == "str" && garbage.count(0) > 0) {
         garbage.at(0).clear();
@@ -908,6 +906,26 @@ bool Generator::Statement::generate_assignment( //
     const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(assignment_node->name));
     llvm::Value *const lhs = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
+    // If its a group type we have to handle it differently than when its a single value
+    if (const GroupType *group_type = dynamic_cast<const GroupType *>(assignment_node->expression->type.get())) {
+        if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(assignment_node->type.get())) {
+            if (group_type->types != tuple_type->types) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            llvm::StructType *tuple_struct_type = IR::add_and_or_get_type(assignment_node->type, false);
+            for (size_t i = 0; i < tuple_type->types.size(); i++) {
+                llvm::Value *element_ptr = builder.CreateStructGEP(tuple_struct_type, lhs, i, "tuple_elem_" + std::to_string(i));
+                builder.CreateStore(expr.value()[i], element_ptr);
+            }
+            return true;
+        } else {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+    }
+    // Its definitely a single value
+    llvm::Value *expression = expr.value().at(0);
     if (assignment_node->type->to_string() == "str") {
         // Only generate the string assignment if its not a shorthand
         if (!assignment_node->is_shorthand) {
