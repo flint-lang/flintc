@@ -131,6 +131,8 @@ class CLIParserMain : public CLIParserBase {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ASSERT);
             } else if (arg == "--print-ir-filesystem") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::FILESYSTEM);
+            } else if (arg == "--print-ir-env") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ENV);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);
@@ -202,13 +204,14 @@ class CLIParserMain : public CLIParserBase {
         std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
         std::cout << "  --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
         std::cout << "                              HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used\n";
+        std::cout << "  --print-ir-assert           Enables printing of the IR code for the assert.o library\n";
         std::cout << "  --print-ir-array            Enables printing of the IR code for the array.o library\n";
+        std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
+        std::cout << "  --print-ir-env              Enables printing of the IR code for the env.o library\n";
+        std::cout << "  --print-ir-filesystem       Enables printing of the IR code for the fs.o library\n";
         std::cout << "  --print-ir-print            Enables printing of the IR code for the print.o library\n";
         std::cout << "  --print-ir-read             Enables printing of the IR code for the read.o library\n";
-        std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library\n";
-        std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
-        std::cout << "  --print-ir-assert           Enables printing of the IR code for the assert.o library\n";
-        std::cout << "  --print-ir-filesystem       Enables printing of the IR code for the fs.o library";
+        std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library";
         std::cout << std::endl;
 #endif
     }

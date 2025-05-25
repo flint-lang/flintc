@@ -50,6 +50,11 @@ bool Generator::Module::generate_module(     //
             Array::generate_array_manip_functions(builder.get(), module.get(), true);
             FileSystem::generate_filesystem_functions(builder.get(), module.get(), false);
             break;
+        case BuiltinLibrary::ENV:
+            Builtin::generate_c_functions(module.get());
+            String::generate_string_manip_functions(builder.get(), module.get(), true);
+            Env::generate_env_functions(builder.get(), module.get(), false);
+            break;
     }
 
     // Print the module, if requested
@@ -103,6 +108,9 @@ bool Generator::Module::generate_modules() {
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::FILESYSTEM)) {
         success = success && generate_module(BuiltinLibrary::FILESYSTEM, cache_path, "filesystem");
     }
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ENV)) {
+        success = success && generate_module(BuiltinLibrary::ENV, cache_path, "env");
+    }
     if (!success) {
         return false;
     }
@@ -127,6 +135,7 @@ bool Generator::Module::generate_modules() {
     libs.emplace_back(cache_path / ("read" + file_ending));
     libs.emplace_back(cache_path / ("assert" + file_ending));
     libs.emplace_back(cache_path / ("filesystem" + file_ending));
+    libs.emplace_back(cache_path / ("env" + file_ending));
 
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
@@ -237,6 +246,9 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     }
     if (!std::filesystem::exists(cache_path / ("filesystem" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::FILESYSTEM);
+    }
+    if (!std::filesystem::exists(cache_path / ("env" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ENV);
     }
     return needed_rebuilds;
 }

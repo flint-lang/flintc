@@ -259,6 +259,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate all the "hidden" filesystem helper functions
     Module::FileSystem::generate_filesystem_functions(builder.get(), module.get());
 
+    // Generate all the "hidden" env helper functions
+    Module::Env::generate_env_functions(builder.get(), module.get());
+
     if (!is_test) {
         // Generate main function in the main module
         Builtin::generate_builtin_main(builder.get(), module.get());
@@ -421,6 +424,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             Module::Assert::generate_assert_functions(nullptr, module.get(), true);
         } else if (core_module_name == "filesystem") {
             Module::FileSystem::generate_filesystem_functions(nullptr, module.get(), true);
+        } else if (core_module_name == "env") {
+            Module::Env::generate_env_functions(nullptr, module.get(), true);
         }
     }
     // Forward declare all functions from all files where this file has a weak reference to

@@ -156,6 +156,8 @@ class Generator {
         {CFunction::REWIND, nullptr},
         {CFunction::FGETS, nullptr},
         {CFunction::FWRITE, nullptr},
+        {CFunction::GETENV, nullptr},
+        {CFunction::SETENV, nullptr},
     };
 
     /// @struct `GenerationContext`
@@ -1943,6 +1945,53 @@ class Generator {
             /// @param `module` The LLVM Module the assert function definition will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_assert_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+        };
+
+        /// @class `Env`
+        /// @brief The class which is responsible for generating everything related to environment variables
+        /// @note This class cannot be initialized and all functions within this class are static
+        class Env {
+          public:
+            // The constructor is deleted to make this class non-initializable
+            Env() = delete;
+
+            /// @var `env_functions`
+            /// @brief Map containing references to all env functions
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the function
+            /// - **Value** `llvm::Function *` - The reference to the genereated function
+            ///
+            /// @attention The functions are nullpointers until the `generate_env_functions` function is called
+            /// @attention The map is not being cleared after the program module has been generated
+            static inline std::unordered_map<std::string_view, llvm::Function *> env_functions = {
+                {"get_env", nullptr},
+                {"set_env", nullptr},
+            };
+
+            /// @function `generate_env_functions`
+            /// @brief Generates the builtin env functions
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the env functions definitions will be generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_env_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_get_env_function`
+            /// @brief Helper function to generate the builtin 'get_env' function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the 'get_env' function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_get_env_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_set_env_function`
+            /// @brief Helper function to generate the builtin 'set_env' function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the 'set_env' function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_set_env_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
         };
 
         /// @class `FileSystem`

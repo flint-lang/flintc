@@ -100,6 +100,17 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                     {{"str"}, {"bool"}, false}, // The single version of the 'is_file' function
                 }},
         }}, // End of the 'filesystem' module
+    {"env", // The 'env' module
+        {
+            {"get_env", // The 'get_env' function
+                {
+                    {{"str"}, {"str"}, true}, // The single version of the 'get_env' function
+                }},
+            {"set_env", // The 'set_env' function
+                {
+                    {{"str", "str", "bool"}, {"bool"}, false}, // The single version of the 'set_env' function
+                }},
+        }}, // End of the 'env' module
 };
 
 /// @enum `CFunctions`
@@ -129,6 +140,8 @@ enum CFunction {
     REWIND,
     FGETS,
     FWRITE,
+    GETENV,
+    SETENV,
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {

@@ -461,6 +461,30 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *fwrite_fn = llvm::Function::Create(fwrite_type, llvm::Function::ExternalLinkage, "fwrite", module);
         c_functions[FWRITE] = fwrite_fn;
     }
+    // getenv
+    {
+        llvm::FunctionType *getenv_type = llvm::FunctionType::get( //
+            llvm::Type::getInt8Ty(context)->getPointerTo(),        // return char*
+            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // char* name
+            false                                                  // No vaarg
+        );
+        llvm::Function *getenv_fn = llvm::Function::Create(getenv_type, llvm::Function::ExternalLinkage, "getenv", module);
+        c_functions[GETENV] = getenv_fn;
+    }
+    // setenv
+    {
+        llvm::FunctionType *setenv_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                       // return i32
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* name
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* value
+                llvm::Type::getInt32Ty(context)                 // i32 replace
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *setenv_fn = llvm::Function::Create(setenv_type, llvm::Function::ExternalLinkage, "setenv", module);
+        c_functions[SETENV] = setenv_fn;
+    }
 }
 
 void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {
