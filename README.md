@@ -50,8 +50,8 @@ Nearly all Core features are already working:
 - `print` (`use Core.print`) for the print function with its 9 overloads (`i32`, `i64`, `u32`, `u64`, `f32`, `f64`, `str`, `char` and `bool`
 - `read` (`use Core.read`) for the 7 `read_str`, `read_i32`, `read_i64`, `read_u32`, `read_u64`, `read_f32` and `read_f64` functions
 - `assert` (`use Core.assert`) for the `assert` function
-- `filesystem` (`Use Core.filesystem`) for the `read_file`, `read_lines`, `file_exists`, `write_file`, `append_file` and `is_filr` functions
-
+- `filesystem` (`use Core.filesystem`) for the `read_file`, `read_lines`, `file_exists`, `write_file`, `append_file` and `is_filr` functions
+- `env` (`use Core.env`) for the `get_env` and `set_env` functions
 
 ## What's not working
 
