@@ -95,15 +95,29 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
     llvm::Value *buf_init = builder->CreateBitCast(buf_malloc, builder->getInt8Ty()->getPointerTo(), "buf");
     builder->CreateStore(buf_init, buf_ptr_alloca);
 
+#ifdef __WIN32__
+    // Windows: call the UCRT helper __acrt_iob_func() to get the FILE' array, then index element 0 to get stdin
+    // Declare or look up __acrt_iob_func
+    llvm::Type *iobuf_ty = builder->getInt8Ty()->getPointerTo()->getPointerTo();
+    llvm::FunctionCallee ac_rt_iob = module->getOrInsertFunction("__acrt_iob_func", llvm::FunctionType::get(iobuf_ty, {}, false));
+    // call it
+    llvm::Value *io_array = builder->CreateCall(ac_rt_iob, {}, "io_array");
+    // GEP [0] to pick stdin
+    llvm::Value *zero = builder->getInt32(0);
+    llvm::Value *stdin_ptr = builder->CreateInBoundsGEP(iobuf_ty, io_array, {zero}, "stdin_ptr");
+    // Load the actual FILE*
+    llvm::Value *stdin_val = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), stdin_ptr, "stdin");
+#else
+    // Get file* stdin - needs to access global stdin
+    llvm::Value *stdin_ptr = module->getOrInsertGlobal("stdin", builder->getInt8Ty()->getPointerTo()->getPointerTo());
+    llvm::Value *stdin_val = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), stdin_ptr, "stdin");
+#endif
+
     // Branch to the loop entry
     builder->CreateBr(loop_entry);
 
     // Loop entry: while ((c = fgetc(stdin)) != EOF)
     builder->SetInsertPoint(loop_entry);
-
-    // Get file* stdin - needs to access global stdin
-    llvm::Value *stdin_ptr = module->getOrInsertGlobal("stdin", builder->getInt8Ty()->getPointerTo()->getPointerTo());
-    llvm::Value *stdin_val = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), stdin_ptr, "stdin");
 
     // Read a character: c = fgetc(stdin)
     llvm::Value *c_val = builder->CreateCall(fgetc_fn, {stdin_val}, "c");
