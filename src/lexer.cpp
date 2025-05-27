@@ -168,6 +168,8 @@ bool Lexer::scan_token() {
             }
             start = current;
             add_token(TOK_CHAR_VALUE);
+            // Eat the '
+            advance();
             break;
         // calculational tokens
         case '+':

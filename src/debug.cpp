@@ -264,6 +264,8 @@ namespace Debug {
                 std::cout << std::get<float>(lit.value);
             } else if (std::holds_alternative<bool>(lit.value)) {
                 std::cout << (std::get<bool>(lit.value) ? "true" : "false");
+            } else if (std::holds_alternative<char>(lit.value)) {
+                std::cout << "'" << std::string(1, std::get<char>(lit.value)) << "'";
             } else if (std::holds_alternative<std::string>(lit.value)) {
                 const std::string &lit_val = std::get<std::string>(lit.value);
                 std::cout << "\"";
