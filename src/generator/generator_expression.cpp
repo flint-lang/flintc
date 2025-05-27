@@ -967,120 +967,109 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     } else if (from_type_str == "i32") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");
-        }
-        if (to_type_str == "u32") {
+        } else if (to_type_str == "u32") {
             return Module::TypeCast::i32_to_u32(builder, expr);
-        }
-        if (to_type_str == "i64") {
+        } else if (to_type_str == "i64") {
             return Module::TypeCast::i32_to_i64(builder, expr);
-        }
-        if (to_type_str == "u64") {
+        } else if (to_type_str == "u64") {
             return Module::TypeCast::i32_to_u64(builder, expr);
-        }
-        if (to_type_str == "f32") {
+        } else if (to_type_str == "f32") {
             return Module::TypeCast::i32_to_f32(builder, expr);
-        }
-        if (to_type_str == "f64") {
+        } else if (to_type_str == "f64") {
             return Module::TypeCast::i32_to_f64(builder, expr);
         }
     } else if (from_type_str == "u32") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("u32_to_str"), {expr}, "u32_to_str_res");
-        }
-        if (to_type_str == "i32") {
+        } else if (to_type_str == "i32") {
             return Module::TypeCast::u32_to_i32(builder, expr);
-        }
-        if (to_type_str == "i64") {
+        } else if (to_type_str == "i64") {
             return Module::TypeCast::u32_to_i64(builder, expr);
-        }
-        if (to_type_str == "u64") {
+        } else if (to_type_str == "u64") {
             return Module::TypeCast::u32_to_u64(builder, expr);
-        }
-        if (to_type_str == "f32") {
+        } else if (to_type_str == "f32") {
             return Module::TypeCast::u32_to_f32(builder, expr);
-        }
-        if (to_type_str == "f64") {
+        } else if (to_type_str == "f64") {
             return Module::TypeCast::u32_to_f64(builder, expr);
         }
     } else if (from_type_str == "i64") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("i64_to_str"), {expr}, "i64_to_str_res");
-        }
-        if (to_type_str == "i32") {
+        } else if (to_type_str == "i32") {
             return Module::TypeCast::i64_to_i32(builder, expr);
-        }
-        if (to_type_str == "u32") {
+        } else if (to_type_str == "u32") {
             return Module::TypeCast::i64_to_u32(builder, expr);
-        }
-        if (to_type_str == "u64") {
+        } else if (to_type_str == "u64") {
             return Module::TypeCast::i64_to_u64(builder, expr);
-        }
-        if (to_type_str == "f32") {
+        } else if (to_type_str == "f32") {
             return Module::TypeCast::i64_to_f32(builder, expr);
-        }
-        if (to_type_str == "f64") {
+        } else if (to_type_str == "f64") {
             return Module::TypeCast::i64_to_f64(builder, expr);
         }
     } else if (from_type_str == "u64") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("u64_to_str"), {expr}, "u64_to_str_res");
-        }
-        if (to_type_str == "i32") {
+        } else if (to_type_str == "i32") {
             return Module::TypeCast::u64_to_i32(builder, expr);
-        }
-        if (to_type_str == "u32") {
+        } else if (to_type_str == "u32") {
             return Module::TypeCast::u64_to_u32(builder, expr);
-        }
-        if (to_type_str == "i64") {
+        } else if (to_type_str == "i64") {
             return Module::TypeCast::u64_to_i64(builder, expr);
-        }
-        if (to_type_str == "f32") {
+        } else if (to_type_str == "f32") {
             return Module::TypeCast::u64_to_f32(builder, expr);
-        }
-        if (to_type_str == "f64") {
+        } else if (to_type_str == "f64") {
             return Module::TypeCast::u64_to_f64(builder, expr);
         }
     } else if (from_type_str == "f32") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("f32_to_str"), {expr}, "f32_to_str_res");
-        }
-        if (to_type_str == "i32") {
+        } else if (to_type_str == "i32") {
             return Module::TypeCast::f32_to_i32(builder, expr);
-        }
-        if (to_type_str == "u32") {
+        } else if (to_type_str == "u32") {
             return Module::TypeCast::f32_to_u32(builder, expr);
-        }
-        if (to_type_str == "i64") {
+        } else if (to_type_str == "i64") {
             return Module::TypeCast::f32_to_i64(builder, expr);
-        }
-        if (to_type_str == "u64") {
+        } else if (to_type_str == "u64") {
             return Module::TypeCast::f32_to_u64(builder, expr);
-        }
-        if (to_type_str == "f64") {
+        } else if (to_type_str == "f64") {
             return Module::TypeCast::f32_to_f64(builder, expr);
         }
     } else if (from_type_str == "f64") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("f64_to_str"), {expr}, "f64_to_str_res");
-        }
-        if (to_type_str == "i32") {
+        } else if (to_type_str == "i32") {
             return Module::TypeCast::f64_to_i32(builder, expr);
-        }
-        if (to_type_str == "u32") {
+        } else if (to_type_str == "u32") {
             return Module::TypeCast::f64_to_u32(builder, expr);
-        }
-        if (to_type_str == "i64") {
+        } else if (to_type_str == "i64") {
             return Module::TypeCast::f64_to_i64(builder, expr);
-        }
-        if (to_type_str == "u64") {
+        } else if (to_type_str == "u64") {
             return Module::TypeCast::f64_to_u64(builder, expr);
-        }
-        if (to_type_str == "f32") {
+        } else if (to_type_str == "f32") {
             return Module::TypeCast::f64_to_f32(builder, expr);
         }
     } else if (from_type_str == "bool") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("bool_to_str"), {expr}, "bool_to_str_res");
+        }
+    } else if (from_type_str == "char") {
+        if (to_type_str == "str") {
+            // Create a new string of size 1 and set its first byte to the char
+            llvm::Value *str_value = builder.CreateCall(                                                   //
+                Module::String::string_manip_functions.at("create_str"), {builder.getInt64(1)}, "char_val" //
+            );
+            llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Value *val_ptr = builder.CreateStructGEP(str_type, str_value, 1);
+            builder.CreateStore(expr, val_ptr);
+            return str_value;
+        } else if (to_type_str == "i32") {
+            return builder.CreateSExt(expr, builder.getInt32Ty());
+        } else if (to_type_str == "i64") {
+            return builder.CreateSExt(expr, builder.getInt64Ty());
+        } else if (to_type_str == "u32") {
+            return builder.CreateZExt(expr, builder.getInt32Ty());
+        } else if (to_type_str == "u64") {
+            return builder.CreateZExt(expr, builder.getInt64Ty());
         }
     }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;

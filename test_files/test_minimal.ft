@@ -4,3 +4,7 @@ def main():
     char c = 'C';
     print(c);
     print("\n");
+    i32 x = c;
+    print($"x = {x}\n");
+    str c_str = c;
+    print($"c_str = {c_str}\n");
