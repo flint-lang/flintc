@@ -131,6 +131,25 @@ std::vector<uint2> Matcher::balanced_ranges_vec(const std::string &src, const st
         // Ignore decrements with no matching increment
     }
 
+    // Remove nested ranges (ranges that are completely contained within other ranges)
+    for (auto it = result.begin(); it != result.end();) {
+        bool is_nested = false;
+
+        for (const auto &other : result) {
+            // Check if current range is completely contained within another range
+            if (&(*it) != &other && other.first <= it->first && it->second <= other.second) {
+                is_nested = true;
+                break;
+            }
+        }
+
+        if (is_nested) {
+            it = result.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     return result;
 }
 

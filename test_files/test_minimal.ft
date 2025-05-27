@@ -6,4 +6,4 @@ def get_str(str value) -> str:
 def main():
     i32 x = 5;
     f32 y = 3.3;
-    print($"x = {x} + {get_str($"{12}")}\n");
+    print($"x = {x} + {get_str("{12}")}\n");
