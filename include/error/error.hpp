@@ -25,6 +25,7 @@
 #include "error_types/parsing/definitions/data/err_def_data_wrong_constructor_name.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_wrong_constructor_name.hpp"
 #include "error_types/parsing/definitions/err_def_err_only_one_parent.hpp"
+#include "error_types/parsing/definitions/err_def_no_main_function.hpp"
 #include "error_types/parsing/definitions/err_unexpected_definition.hpp"
 #include "error_types/parsing/definitions/err_use_statement_not_at_top_level.hpp"
 #include "error_types/parsing/definitions/func/err_def_func_creation.hpp"

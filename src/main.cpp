@@ -95,7 +95,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     }
     if (!Parser::main_function_parsed) {
         // No main function found
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrDefNoMainFunction, ERR_PARSING, source_file_path.filename().string());
         return std::nullopt;
     }
     Parser::resolve_all_unknown_types();

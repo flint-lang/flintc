@@ -1,15 +1,4 @@
 use Core.print
-use Core.env
 
-def main():
-    str home = get_env("HOME") catch err:
-        print($"Environemnt variable 'HOME' not available: {err}\n");
-    print($"$HOME = {home}\n");
-    if not set_env("NEW_ENV_VARIABLE", "env_value", true):
-        print("Something went wrong!\n");
-    str new_env_variable = get_env("NEW_ENV_VARIABLE") catch err:
-        print($"Environment variable 'NEW_ENV_VARIABLE' not available: {err}\n");
-    print($"$NEW_ENV_VARIABLE = {new_env_variable}\n");
-    str unused_env_variable = get_env("UNUSED_ENV_VARIABLE") catch err:
-        print($"Environemnt variable 'UNUSED_ENV_VARIABLE' not available: {err}\n");
-    print($"$UNUSED_ENV_VARIABLE = {unused_env_variable}\n");
+def somefunction():
+    print("Hello, World!");
