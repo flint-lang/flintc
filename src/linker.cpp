@@ -33,6 +33,9 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
     std::string out_arg = "/OUT:" + output_exe;
     args.push_back(out_arg.c_str());
     args.push_back("/VERBOSE:LIB");
+    args.push_back("/DEBUG");
+    std::string pdb_flag = "/PDB:" + output_file.string() + ".pdb";
+    args.push_back(pdb_flag.c_str());
     args.push_back("/SUBSYSTEM:CONSOLE");
     args.push_back("/NODEFAULTLIB:msvcrt.lib");
 
@@ -228,6 +231,7 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         args.push_back("--allow-multiple-definition");
         args.push_back("--no-gc-sections"); // Prevent removal of unused sections
         args.push_back("--no-relax");       // Disable relocation relaxation
+        args.push_back("-g");
         args_buffer[args_id] = obj_file.string();
         args.push_back(args_buffer[args_id++].c_str());
         args_buffer[args_id] = std::string("-L" + Generator::get_flintc_cache_path().string());
