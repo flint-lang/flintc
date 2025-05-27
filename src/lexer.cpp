@@ -323,8 +323,28 @@ void Lexer::number() {
 }
 
 void Lexer::str() {
+    bool is_interpolation = !tokens.empty() && tokens.back().type == TOK_DOLLAR;
     start = current + 1;
-    while ((peek_next() != '"' || (peek() == '\\' && peek_next() == '"')) && !is_at_end()) {
+    unsigned int depth = 1;
+    bool is_interpolating = false;
+    while (true) {
+        if (is_interpolation) {
+            const char next = peek_next();
+            const char now = peek();
+            if (!is_interpolating && next == '{' && now != '\\') {
+                depth = 1;
+                is_interpolating = true;
+            } else if (!is_interpolating && next == '"' && now != '\\') {
+                break;
+            } else if (is_interpolating && next == '{' && now != '\\') {
+                depth++;
+            } else if (is_interpolating && next == '}' && now != '\\') {
+                depth--;
+                is_interpolating = depth != 0;
+            }
+        } else if ((peek_next() == '"' && peek() != '\\') || is_at_end()) {
+            break;
+        }
         if (peek() == '\n') {
             line++;
             column = 0;

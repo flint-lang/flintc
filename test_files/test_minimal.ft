@@ -1,4 +1,9 @@
 use Core.print
 
-def somefunction():
-    print("Hello, World!");
+def get_str(str value) -> str:
+    return value;
+
+def main():
+    i32 x = 5;
+    f32 y = 3.3;
+    print($"x = {x} + {get_str($"{12}")}\n");
