@@ -98,7 +98,7 @@ enum Token {
     TOK_VOID = -65,
     TOK_BOOL = -66,
     TOK_OPT = -67,
-    TOK_CHAR = -68,
+    TOK_U8 = -68,
     TOK_STR = -69,
     TOK_FLINT = -70,
     TOK_U32 = -71,

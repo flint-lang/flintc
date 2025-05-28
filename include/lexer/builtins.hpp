@@ -37,7 +37,7 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                     {{"u64"}, {"void"}, false},  // The 'u64' argument overload of the 'print' function
                     {{"f32"}, {"void"}, false},  // The 'f32' argument overload of the 'print' function
                     {{"f64"}, {"void"}, false},  // The 'f64' argument overload of the 'print' function
-                    {{"char"}, {"void"}, false}, // The 'char' argument overload of the 'print' function
+                    {{"u8"}, {"void"}, false},   // The 'u8' argument overload of the 'print' function
                     {{"str"}, {"void"}, false},  // The 'str' argument overload of the 'print' function
                     {{"bool"}, {"void"}, false}, // The 'bool' argument overload of the 'print' function
                 }},
@@ -145,10 +145,10 @@ enum CFunction {
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
-    {"i32", {"str", "char", "i64", "f32", "f64", "u32", "u64"}},
-    {"i64", {"str", "char", "i32", "f32", "f64", "u32", "u64"}},
-    {"u32", {"str", "char", "i32", "i64", "f32", "f64", "u64"}},
-    {"u64", {"str", "char", "i32", "i64", "f32", "f64", "u32"}},
+    {"i32", {"str", "u8", "i64", "f32", "f64", "u32", "u64"}},
+    {"i64", {"str", "u8", "i32", "f32", "f64", "u32", "u64"}},
+    {"u32", {"str", "u8", "i32", "i64", "f32", "f64", "u64"}},
+    {"u64", {"str", "u8", "i32", "i64", "f32", "f64", "u32"}},
     {"f32", {"str", "i32", "i64", "f64", "u32", "u64"}},
     {"f64", {"str", "i32", "i64", "f32", "u32", "u64"}},
     {"bool", {"str"}},
@@ -163,8 +163,8 @@ static inline std::unordered_map<std::string_view, std::vector<std::string_view>
     {"f32", {"str", "f64", "f32x2", "f32x3", "f32x4", "f32x8"}},
     {"f64", {"str", "f64x2", "f64x3", "f64x4"}},
     {"bool", {"str", "bool8"}},
-    {"char", {"bool8", "str", "i32", "u32", "i64", "u64"}},
-    {"bool8", {"char"}},
+    {"u8", {"bool8", "str", "i32", "u32", "i64", "u64"}},
+    {"bool8", {"u8"}},
     {"(i32, i32)", {"i32x2"}},
     {"(i32, i32, i32)", {"i32x3"}},
     {"(i32, i32, i32, i32)", {"i32x4"}},

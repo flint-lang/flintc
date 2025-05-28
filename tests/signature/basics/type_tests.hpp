@@ -65,7 +65,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_match_type_char", false);
         token_list tokens = create_token_vector({//
-            TOK_CHAR});
+            TOK_U8});
         bool result = Matcher::tokens_match({tokens.begin(), tokens.end()}, Matcher::type);
         test_result.ok_or_not(result);
         if (!result) {
@@ -158,7 +158,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_contain_type_char", false);
         token_list tokens = create_token_vector({//
-            TOK_COLON, TOK_CHAR, TOK_DATA});
+            TOK_COLON, TOK_U8, TOK_DATA});
         bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::type);
         test_result.ok_or_not(result);
         if (!result) {
@@ -254,7 +254,7 @@ namespace {
         Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, &test_result);
         test_result.append_test_name("test_extract_type_char", false);
         token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_IDENTIFIER, TOK_CHAR, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
+            TOK_INDENT, TOK_IDENTIFIER, TOK_U8, TOK_EQUAL, TOK_IDENTIFIER, TOK_SEMICOLON});
         std::vector<uint2> result_vec = Matcher::get_match_ranges({tokens.begin(), tokens.end()}, Matcher::type);
         bool result = !result_vec.empty() && result_vec.at(1).first == 2 && result_vec.at(1).second == 3;
         test_result.ok_or_not(result);

@@ -1,7 +1,7 @@
 use Core.print
 
 def main():
-    char c = 'C';
+    u8 c = 'C';
     print(c);
     print("\n");
     i32 x = c;

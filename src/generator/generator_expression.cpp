@@ -1052,7 +1052,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("bool_to_str"), {expr}, "bool_to_str_res");
         }
-    } else if (from_type_str == "char") {
+    } else if (from_type_str == "u8") {
         if (to_type_str == "str") {
             // Create a new string of size 1 and set its first byte to the char
             llvm::Value *str_value = builder.CreateCall(                                                   //

@@ -93,7 +93,7 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     {"void", TOK_VOID},   // -65
     {"bool", TOK_BOOL},   // -66
     {"Opt", TOK_OPT},     // -67
-    {"char", TOK_CHAR},   // -68
+    {"u8", TOK_U8},       // -68
     {"str", TOK_STR},     // -69
     {"flint", TOK_FLINT}, // -70
     {"u32", TOK_U32},     // -71

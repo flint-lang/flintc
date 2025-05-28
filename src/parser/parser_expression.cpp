@@ -344,7 +344,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
             }
             case TOK_CHAR_VALUE: {
                 std::variant<int, float, std::string, bool, char> value = tok->lexme[0];
-                return LiteralNode(value, Type::get_primitive_type("char"));
+                return LiteralNode(value, Type::get_primitive_type("u8"));
             }
         }
     }

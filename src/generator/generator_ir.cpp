@@ -159,7 +159,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
                 case TOK_FLINT:
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return {nullptr, false};
-                case TOK_CHAR:
+                case TOK_U8:
                     return {llvm::Type::getInt8Ty(context), false};
                 case TOK_STR: {
                     // A string is a struct of type 'type { i64, [0 x i8] }'

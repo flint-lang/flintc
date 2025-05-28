@@ -24,7 +24,7 @@ void Type::init_types() {
     get_primitive_type("bool");
     std::shared_ptr<Type> str_type = get_primitive_type("str");
     get_primitive_type("void");
-    get_primitive_type("char");
+    get_primitive_type("u8");
     add_type(std::make_shared<MultiType>(i32_type, 2));
     add_type(std::make_shared<MultiType>(i32_type, 3));
     add_type(std::make_shared<MultiType>(i32_type, 4));

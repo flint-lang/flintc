@@ -7,7 +7,7 @@ void Generator::Module::Print::generate_print_functions(llvm::IRBuilder<> *build
     generate_print_function(builder, module, only_declarations, "u64", "%lu");
     generate_print_function(builder, module, only_declarations, "f32", "%f");
     generate_print_function(builder, module, only_declarations, "f64", "%lf");
-    generate_print_function(builder, module, only_declarations, "char", "%c");
+    generate_print_function(builder, module, only_declarations, "u8", "%c");
     generate_print_function(builder, module, only_declarations, "__flint_type_str_lit", "%s");
     generate_print_str_var_function(builder, module, only_declarations);
     generate_print_bool_function(builder, module, only_declarations);

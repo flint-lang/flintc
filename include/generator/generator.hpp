@@ -2129,7 +2129,7 @@ class Generator {
                 {"f32", nullptr},
                 {"f64", nullptr},
                 {"flint", nullptr},
-                {"char", nullptr},
+                {"u8", nullptr},
                 {"str", nullptr},
                 {"bool", nullptr},
             };
