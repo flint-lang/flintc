@@ -9,7 +9,6 @@
 
 /// @class `ForLoopNode`
 /// @brief Represents traditional for loops
-
 class ForLoopNode : public StatementNode {
   public:
     /// @note Takes ownership of all its constructor arguments

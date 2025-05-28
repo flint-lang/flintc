@@ -661,8 +661,18 @@ class Matcher {
     static const inline PatternPtr array_assignment = sequence({array_access, token(TOK_EQUAL)});
     static const inline PatternPtr for_loop = sequence({token(TOK_FOR), until_semicolon, until_semicolon, until_colon});
     static const inline PatternPtr enhanced_for_loop = sequence({
-        token(TOK_FOR), one_of({token(TOK_UNDERSCORE), token(TOK_IDENTIFIER)}), token(TOK_COMMA),
-        one_of({token(TOK_UNDERSCORE), token(TOK_IDENTIFIER)}), token(TOK_IN), until_colon //
+        token(TOK_FOR),
+        one_of({
+            sequence({
+                token(TOK_LEFT_PAREN),                                  //
+                one_of({token(TOK_UNDERSCORE), token(TOK_IDENTIFIER)}), //
+                token(TOK_COMMA),                                       //
+                one_of({token(TOK_UNDERSCORE), token(TOK_IDENTIFIER)}), //
+                token(TOK_RIGHT_PAREN)                                  //
+            }),                                                         //
+            token(TOK_IDENTIFIER)                                       //
+        }),                                                             //
+        token(TOK_IN), until_colon                                      //
     });
     static const inline PatternPtr par_for_loop = sequence({token(TOK_PARALLEL), enhanced_for_loop});
     static const inline PatternPtr while_loop = sequence({token(TOK_WHILE), until_colon});

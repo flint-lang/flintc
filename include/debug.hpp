@@ -33,6 +33,7 @@
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/enhanced_for_loop_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
 #include "parser/ast/statements/group_declaration_node.hpp"
@@ -128,6 +129,7 @@ namespace Debug {
         void print_if(unsigned int indent_lvl, uint2 empty, const IfNode &if_node);
         void print_while(unsigned int indent_lvl, uint2 empty, const WhileNode &while_node);
         void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node);
+        void print_enh_for(unsigned int indent_lvl, uint2 empty, const EnhForLoopNode &for_node);
         void print_catch(unsigned int indent_lvl, uint2 empty, const CatchNode &catch_node);
         void print_group_assignment(unsigned int indent_lvl, uint2 empty, const GroupAssignmentNode &assign);
         void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign);

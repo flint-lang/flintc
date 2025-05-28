@@ -6,6 +6,8 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/primitive_type.hpp"
+#include "parser/type/tuple_type.hpp"
 #include "types.hpp"
 
 #include <iterator>
@@ -286,13 +288,122 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     return std::make_unique<ForLoopNode>(condition.value(), definition_scope, body_scope);
 }
 
-std::optional<std::unique_ptr<ForLoopNode>> Parser::create_enh_for_loop( //
-    [[maybe_unused]] Scope *scope,                                       //
-    [[maybe_unused]] const token_slice &definition,                      //
-    [[maybe_unused]] const token_slice &body                             //
+std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
+    [[maybe_unused]] Scope *scope,                                          //
+    const token_slice &definition,                                          //
+    const token_slice &body                                                 //
 ) {
-    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-    return std::nullopt;
+    token_slice definition_mut = definition;
+    remove_leading_garbage(definition_mut);
+    remove_trailing_garbage(definition_mut);
+
+    token_list def_toks = clone_from_slice(definition_mut);
+    token_list body_toks = clone_from_slice(body);
+
+    // Now the first token should be the `for` token
+    assert(definition_mut.first->type == TOK_FOR);
+    definition_mut.first++;
+
+    // The next token should either be a `(` or an identifer. If its an identifier we use the "tupled" enhanced for loop approach
+    std::variant<std::pair<std::optional<std::string>, std::optional<std::string>>, std::string> iterators;
+    if (definition_mut.first->type == TOK_IDENTIFIER) {
+        // Its a tuple, e.g. `for t in iterable:` where `t` is of type `data<u64, T>`
+        iterators = definition_mut.first->lexme;
+        definition_mut.first++;
+    } else {
+        // Its a group, e.g. `for (index, element) in iterable:`
+        assert(definition_mut.first->type == TOK_LEFT_PAREN);
+        definition_mut.first++;
+        std::optional<std::string> index_identifier;
+        if (definition_mut.first->type == TOK_IDENTIFIER) {
+            index_identifier = definition_mut.first->lexme;
+        }
+        definition_mut.first++;
+        assert(definition_mut.first->type == TOK_COMMA);
+        definition_mut.first++;
+        std::optional<std::string> element_identifier;
+        if (definition_mut.first->type == TOK_IDENTIFIER) {
+            element_identifier = definition_mut.first->lexme;
+        }
+        definition_mut.first++;
+        assert(definition_mut.first->type == TOK_RIGHT_PAREN);
+        definition_mut.first++;
+        iterators = std::make_pair(index_identifier, element_identifier);
+    }
+    assert(definition_mut.first->type == TOK_IN);
+    definition_mut.first++;
+
+    // Create the definition scope
+    std::unique_ptr<Scope> definition_scope = std::make_unique<Scope>(scope);
+
+    // The rest of the definition is the iterable expression
+    std::optional<std::unique_ptr<ExpressionNode>> iterable = create_expression(definition_scope.get(), definition_mut);
+    if (!iterable.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, definition_mut);
+        return std::nullopt;
+    }
+    // Now that the iterable is parsed we know its type and we can check if its an iterable. For now, only arrays and strings are considered
+    // as being iterable
+    std::shared_ptr<Type> element_type;
+    if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(iterable.value()->type.get())) {
+        if (primitive_type->type_name != "str") {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        element_type = Type::get_primitive_type("u8");
+    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(iterable.value()->type.get())) {
+        element_type = array_type->type;
+    } else {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Add the variable(s) to the definition scope
+    if (std::holds_alternative<std::string>(iterators)) {
+        // We add the tuple variable to the definition scope
+        const std::string tuple_name = std::get<std::string>(iterators);
+        std::vector<std::shared_ptr<Type>> tuple_types = {Type::get_primitive_type("u64"), element_type};
+        std::shared_ptr<Type> tuple_type = std::make_shared<TupleType>(tuple_types);
+        if (!Type::add_type(tuple_type)) {
+            tuple_type = Type::get_type_from_str(tuple_type->to_string()).value();
+        }
+        if (!definition_scope->add_variable(tuple_name, tuple_type, definition_scope->scope_id, false, true)) {
+            auto tuple_it = definition_mut.first - 2;
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tuple_it->line, tuple_it->column, tuple_name);
+            return std::nullopt;
+        }
+    } else {
+        // We add the index and element variable to the definition scope
+        std::shared_ptr<Type> index_type = Type::get_primitive_type("u64");
+        const auto its = std::get<std::pair<std::optional<std::string>, std::optional<std::string>>>(iterators);
+        const std::optional<std::string> index_name = its.first;
+        const std::optional<std::string> element_name = its.second;
+        if (index_name.has_value()) {
+            auto index_it = definition_mut.first - 5;
+            if (!definition_scope->add_variable(index_name.value(), index_type, definition_scope->scope_id, false, true)) {
+                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, index_it->line, index_it->column, index_name.value());
+                return std::nullopt;
+            }
+        }
+        if (element_name.has_value()) {
+            auto element_it = definition_mut.first - 3;
+            if (!definition_scope->add_variable(element_name.value(), element_type, definition_scope->scope_id, false, true)) {
+                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, element_it->line, element_it->column, element_name.value());
+                return std::nullopt;
+            }
+        }
+    }
+
+    // Now create the body scope and parse the body
+    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(definition_scope.get());
+    auto body_statements = create_body(body_scope.get(), body);
+    if (!body_statements.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    body_scope->body = std::move(body_statements.value());
+
+    return std::make_unique<EnhForLoopNode>(iterators, iterable.value(), definition_scope, body_scope);
 }
 
 std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
@@ -340,7 +451,11 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
     if (err_var.has_value()) {
-        body_scope->add_variable(err_var.value(), Type::get_primitive_type("i32"), body_scope->scope_id, false, false);
+        if (!body_scope->add_variable(err_var.value(), Type::get_primitive_type("i32"), body_scope->scope_id, false, false)) {
+            THROW_ERR(                                                                                                                //
+                ErrVarRedefinition, ERR_PARSING, file_name, right_of_catch.first->line, right_of_catch.first->column, err_var.value() //
+            );
+        }
     }
     auto body_statements = create_body(body_scope.get(), body);
     if (!body_statements.has_value()) {
@@ -1084,7 +1199,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         statement_node = std::move(for_loop.value());
     } else if (Matcher::tokens_contain(definition, Matcher::par_for_loop) ||
         Matcher::tokens_contain(definition, Matcher::enhanced_for_loop)) {
-        std::optional<std::unique_ptr<ForLoopNode>> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body);
+        std::optional<std::unique_ptr<EnhForLoopNode>> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body);
         if (!enh_for_loop.has_value()) {
             THROW_ERR(ErrStmtForCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;

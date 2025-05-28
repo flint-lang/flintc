@@ -22,6 +22,7 @@
 #include "ast/statements/call_node_statement.hpp"
 #include "ast/statements/data_field_assignment_node.hpp"
 #include "ast/statements/declaration_node.hpp"
+#include "ast/statements/enhanced_for_loop_node.hpp"
 #include "ast/statements/for_loop_node.hpp"
 #include "ast/statements/group_assignment_node.hpp"
 #include "ast/statements/group_declaration_node.hpp"
@@ -899,13 +900,13 @@ class Parser {
     /// @param `scope` The scope in which the enhanced for loop is defined
     /// @param `definition` The list of tokens representing the enhanced for loop definition
     /// @param `body` The list of tokens representing the enhanced for loop body
-    /// @return `std::optional<std::unique_ptr<ForLoopNode>>` An optional unique pointer to the created enhanced ForLoopNode
+    /// @return `std::optional<std::unique_ptr<EnhForLoopNode>>` An optional unique pointer to the created enhanced ForLoopNode
     ///
     /// @attention This function is currently not implemented and will throw an error if called
-    std::optional<std::unique_ptr<ForLoopNode>> create_enh_for_loop( //
-        Scope *scope,                                                //
-        const token_slice &definition,                               //
-        const token_slice &body                                      //
+    std::optional<std::unique_ptr<EnhForLoopNode>> create_enh_for_loop( //
+        Scope *scope,                                                   //
+        const token_slice &definition,                                  //
+        const token_slice &body                                         //
     );
 
     /// @function `create_catch`

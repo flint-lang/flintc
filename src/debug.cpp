@@ -596,6 +596,43 @@ namespace Debug {
             print_body(indent_lvl + 1, empty, for_node.body->body);
         }
 
+        void print_enh_for(unsigned int indent_lvl, uint2 empty, const EnhForLoopNode &for_node) {
+            Local::print_header(indent_lvl, empty, "Enh For ");
+            std::cout << "[s" << for_node.definition_scope->scope_id << "] for ";
+            if (std::holds_alternative<std::string>(for_node.iterators)) {
+                std::cout << std::get<std::string>(for_node.iterators);
+            } else {
+                auto iterators = std::get<std::pair<std::optional<std::string>, std::optional<std::string>>>(for_node.iterators);
+                std::cout << "(";
+                if (iterators.first.has_value()) {
+                    const auto idx_type = for_node.definition_scope->get_variable_type(iterators.first.value()).value();
+                    std::cout << iterators.first.value() << " [" << idx_type->to_string() << "]";
+                } else {
+                    std::cout << "_";
+                }
+                std::cout << ", ";
+                if (iterators.second.has_value()) {
+                    const auto elem_type = for_node.definition_scope->get_variable_type(iterators.second.value()).value();
+                    std::cout << iterators.second.value() << " [" << elem_type->to_string() << "]";
+                } else {
+                    std::cout << "_";
+                }
+                std::cout << ")";
+            }
+            std::cout << " in ";
+            std::cout << std::endl;
+
+            empty.second = indent_lvl + 1;
+            print_expression(++indent_lvl, empty, for_node.iterable);
+
+            empty.second = indent_lvl;
+            Local::print_header(indent_lvl, empty, "Body ");
+            std::cout << "[s" << for_node.body->scope_id << "] body" << std::endl;
+
+            empty.second = indent_lvl + 1;
+            print_body(indent_lvl + 1, empty, for_node.body->body);
+        }
+
         void print_catch(unsigned int indent_lvl, uint2 empty, const CatchNode &catch_node) {
             std::optional<CallNodeBase *> call_node = Parser::get_call_from_id(catch_node.call_id);
             if (!call_node.has_value()) {
@@ -795,6 +832,8 @@ namespace Debug {
                 print_while(indent_lvl, empty, *while_node);
             } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
                 print_for(indent_lvl, empty, *for_node);
+            } else if (const auto *enh_for_node = dynamic_cast<const EnhForLoopNode *>(statement.get())) {
+                print_enh_for(indent_lvl, empty, *enh_for_node);
             } else if (const auto *group_assignment = dynamic_cast<const GroupAssignmentNode *>(statement.get())) {
                 print_group_assignment(indent_lvl, empty, *group_assignment);
             } else if (const auto *assignment = dynamic_cast<const AssignmentNode *>(statement.get())) {
