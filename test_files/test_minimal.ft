@@ -8,3 +8,4 @@ def main():
     print($"x = {x}\n");
     str c_str = c;
     print($"c_str = {c_str}\n");
+    print($"c_str < 100 ? {c_str < 100}\n");

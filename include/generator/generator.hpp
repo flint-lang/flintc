@@ -1520,6 +1520,10 @@ class Generator {
                 {"i64_safe_mul", nullptr},
                 {"i64_safe_div", nullptr},
                 // Unsigned Integer Types
+                {"u8_safe_add", nullptr},
+                {"u8_safe_sub", nullptr},
+                {"u8_safe_mul", nullptr},
+                {"u8_safe_div", nullptr},
                 {"u32_safe_add", nullptr},
                 {"u32_safe_sub", nullptr},
                 {"u32_safe_mul", nullptr},

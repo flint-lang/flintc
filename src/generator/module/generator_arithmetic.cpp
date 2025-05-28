@@ -7,6 +7,7 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions(llvm::IRBuilde
         // Generate no arithmetic functions for the unsafe mode, as they are never called in unsafe mode annyway
         return;
     }
+    llvm::Type *i8_type = llvm::Type::getInt8Ty(context);
     llvm::Type *i32_type = llvm::Type::getInt32Ty(context);
     llvm::Type *i64_type = llvm::Type::getInt64Ty(context);
     // i32 functions
@@ -19,6 +20,11 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions(llvm::IRBuilde
     generate_int_safe_sub(builder, module, only_declarations, i64_type, "i64");
     generate_int_safe_mul(builder, module, only_declarations, i64_type, "i64");
     generate_int_safe_div(builder, module, only_declarations, i64_type, "i64");
+    // u8 functions
+    generate_uint_safe_add(builder, module, only_declarations, i8_type, "u8");
+    generate_uint_safe_sub(builder, module, only_declarations, i8_type, "u8");
+    generate_uint_safe_mul(builder, module, only_declarations, i8_type, "u8");
+    generate_uint_safe_div(builder, module, only_declarations, i8_type, "u8");
     // u32 functions
     generate_uint_safe_add(builder, module, only_declarations, i32_type, "u32");
     generate_uint_safe_sub(builder, module, only_declarations, i32_type, "u32");

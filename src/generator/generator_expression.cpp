@@ -1269,7 +1269,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
                 return builder.CreateAdd(lhs, rhs, "add_res");
             }
-            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64") {
+            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_add"), {lhs, rhs}, "safe_add_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFAdd(lhs, rhs, "faddtmp");
@@ -1290,7 +1290,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
                 return builder.CreateSub(lhs, rhs, "sub_res");
             }
-            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64") {
+            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_sub"), {lhs, rhs}, "safe_sub_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFSub(lhs, rhs, "fsubtmp");
@@ -1303,7 +1303,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
                 return builder.CreateMul(lhs, rhs, "mul_res");
             }
-            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64") {
+            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_mul"), {lhs, rhs}, "safe_mul_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFMul(lhs, rhs, "fmultmp");
@@ -1317,7 +1317,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 return overflow_mode == ArithmeticOverflowMode::UNSAFE //
                     ? builder.CreateSDiv(lhs, rhs, "sdiv_res")         //
                     : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_sdiv_res");
-            } else if (type_str == "u32" || type_str == "u64") {
+            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return overflow_mode == ArithmeticOverflowMode::UNSAFE //
                     ? builder.CreateUDiv(lhs, rhs, "udiv_res")         //
                     : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_udiv_res");
@@ -1334,7 +1334,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
         case TOK_LESS:
             if (type_str == "i32" || type_str == "i64") {
                 return builder.CreateICmpSLT(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64") {
+            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateICmpULT(lhs, rhs, "ucmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOLT(lhs, rhs, "fcmptmp");
@@ -1348,7 +1348,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
         case TOK_GREATER:
             if (type_str == "i32" || type_str == "i64") {
                 return builder.CreateICmpSGT(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64") {
+            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateICmpUGT(lhs, rhs, "ucmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOGT(lhs, rhs, "fcmptmp");
@@ -1362,7 +1362,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
         case TOK_LESS_EQUAL:
             if (type_str == "i32" || type_str == "i64") {
                 return builder.CreateICmpSLE(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64") {
+            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateICmpULE(lhs, rhs, "ucmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOLE(lhs, rhs, "fcmptmp");
@@ -1376,7 +1376,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
         case TOK_GREATER_EQUAL:
             if (type_str == "i32" || type_str == "i64") {
                 return builder.CreateICmpSGE(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64") {
+            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateICmpUGE(lhs, rhs, "ucmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOGE(lhs, rhs, "fcmptmp");
@@ -1390,7 +1390,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
         case TOK_EQUAL_EQUAL:
             if (type_str == "i32" || type_str == "i64") {
                 return builder.CreateICmpEQ(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64") {
+            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateICmpEQ(lhs, rhs, "ucmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOEQ(lhs, rhs, "fcmptmp");
@@ -1407,7 +1407,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
         case TOK_NOT_EQUAL:
             if (type_str == "i32" || type_str == "i64") {
                 return builder.CreateICmpNE(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64") {
+            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateICmpNE(lhs, rhs, "ucmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpONE(lhs, rhs, "fcmptmp");
