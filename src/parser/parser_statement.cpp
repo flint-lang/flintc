@@ -1126,7 +1126,7 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
     while (auto next_match = Matcher::get_next_match_range(body_mut, Matcher::until_col_or_semicolon)) {
         token_slice statement_tokens = {body_mut.first + next_match.value().first, body_mut.first + next_match.value().second};
         body_mut.first = statement_tokens.second;
-        if (Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_FOR))) {
+        if (Matcher::tokens_contain(statement_tokens, Matcher::for_loop)) {
             for_tokens = statement_tokens;
             continue;
         } else if (for_tokens.has_value()) {
