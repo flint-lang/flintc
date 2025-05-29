@@ -213,6 +213,7 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
             if (metadata_oob_mode->number != static_cast<int>(oob_mode)) {
                 // We need to rebuild the arithmetic.o file if the overflow modes dont match up
                 needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
+                needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::STR);
             }
         }
     }

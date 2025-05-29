@@ -2,19 +2,5 @@ use Core.print
 
 def main():
     str my_string = "Hello, World!\n";
-    print("The string with element unpacking...\n");
-    for (index, element) in my_string:
-        print($"{index}: {element}\n");
-    
-    print("The string with iterator tuple...\n");
-    for tuple in my_string:
-        print($"{tuple.$0}: {tuple.$1}\n");
-
-    i32[] arr = i32[5](69);
-    print("The arr with element unpacking...\n");
-    for (index, element) in arr:
-        print($"{index}: {element}\n");
-    
-    print("The arr with iterator tuple...\n");
-    for tuple in arr:
-        print($"{tuple.$0}: {tuple.$1}\n");
+    print(my_string);
+    print($"[5] = '{my_string[5]}'\n");

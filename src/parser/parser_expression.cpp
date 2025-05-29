@@ -697,11 +697,15 @@ std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, const t
         return std::nullopt;
     }
     const ArrayType *array_variable_type = dynamic_cast<const ArrayType *>(variable_type.value().get());
-    if (array_variable_type == nullptr) {
+    std::shared_ptr<Type> result_type = nullptr;
+    if (array_variable_type != nullptr) {
+        result_type = array_variable_type->type;
+    } else if (variable_type.value()->to_string() == "str") {
+        result_type = Type::get_primitive_type("u8");
+    } else {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    std::shared_ptr<Type> result_type = array_variable_type->type;
     tokens_mut.first++;
 
     // Now the tokens should begin with a left bracket and end with a right bracket, otherwise we did something wrong elsewhere

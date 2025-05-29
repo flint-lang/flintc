@@ -688,6 +688,17 @@ llvm::Value *Generator::Expression::generate_array_access( //
     const unsigned int var_decl_scope = std::get<1>(ctx.scope->variables.at(access->variable_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + access->variable_name;
     llvm::Value *const array_alloca = ctx.allocations.at(var_name);
+    if (access->variable_type->to_string() == "str") {
+        // "Array" accesses on strings dont need all the things below, they are much simpler to handle
+        if (index_expressions.size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+        llvm::Value *str_value = builder.CreateLoad(str_type->getPointerTo(), array_alloca, "str_value");
+        llvm::Function *access_str_at_fn = Module::String::string_manip_functions.at("access_str_at");
+        return builder.CreateCall(access_str_at_fn, {str_value, index_expressions.front()});
+    }
     llvm::Value *const temp_array_indices = ctx.allocations.at("arr::idx::" + std::to_string(index_expressions.size()));
     // Save all the indices in the temp array
     for (size_t i = 0; i < index_expressions.size(); i++) {

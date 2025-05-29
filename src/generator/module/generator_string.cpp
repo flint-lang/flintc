@@ -1,4 +1,5 @@
 #include "generator/generator.hpp"
+#include "globals.hpp"
 #include "lexer/builtins.hpp"
 
 #include <cstdint>
@@ -66,6 +67,110 @@ void Generator::Module::String::generate_get_c_str_function( //
 
     // Return the c_string pointer
     builder->CreateRet(c_string_ptr);
+}
+
+void Generator::Module::String::generate_access_str_at_function( //
+    llvm::IRBuilder<> *builder,                                  //
+    llvm::Module *module,                                        //
+    const bool only_declarations                                 //
+) {
+    // THE C IMPLEMENTATION:
+    // char access_str_at(const str *string, const size_t idx) {
+    //     const size_t len = string->len;
+    //     if (idx >= string->len) {
+    //         // Out of bounds access
+    //         // Depending on the flangs `--array-...` here are different code blocks
+    //     }
+    //     return string->value[idx];
+    // }
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+
+    llvm::FunctionType *access_str_at_type = llvm::FunctionType::get( //
+        llvm::Type::getInt8Ty(context),                               // Return type: char (i8)
+        {
+            str_type->getPointerTo(),       // Argument const str* string
+            llvm::Type::getInt64Ty(context) // Argument size_t idx
+        },
+        false // No vaargs
+    );
+    llvm::Function *access_str_at_fn = llvm::Function::Create( //
+        access_str_at_type,                                    //
+        llvm::Function::ExternalLinkage,                       //
+        "__flint_access_str_at",                               //
+        module                                                 //
+    );
+    string_manip_functions["access_str_at"] = access_str_at_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the parameters
+    llvm::Argument *arg_string = access_str_at_fn->arg_begin();
+    arg_string->setName("string");
+    llvm::Argument *arg_idx = access_str_at_fn->arg_begin() + 1;
+    arg_idx->setName("idx");
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", access_str_at_fn);
+    llvm::BasicBlock *out_of_bounds_block = nullptr;
+    if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
+        out_of_bounds_block = llvm::BasicBlock::Create(context, "out_of_bounds", access_str_at_fn);
+    }
+    llvm::BasicBlock *in_bounds_block = llvm::BasicBlock::Create(context, "in_bounds", access_str_at_fn);
+    builder->SetInsertPoint(entry_block);
+    llvm::AllocaInst *local_idx_ptr = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "local_idx_ptr");
+    builder->CreateStore(arg_idx, local_idx_ptr);
+
+    // Get the length: string->len
+    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_string, 0, "len_ptr");
+    llvm::Value *string_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "string_len");
+
+    if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
+        // Check if idx >= string->len
+        llvm::Value *out_of_bounds_cond = builder->CreateICmpUGE(arg_idx, string_len, "out_of_bounds_cond");
+        builder->CreateCondBr(out_of_bounds_cond, out_of_bounds_block, in_bounds_block);
+
+        // Out of bounds block
+        builder->SetInsertPoint(out_of_bounds_block);
+
+        if (oob_mode == ArrayOutOfBoundsMode::PRINT || oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            llvm::Value *format_str = IR::generate_const_string(*builder, "Out Of Bounds string access occured: len: %lu, idx: %lu\n");
+            builder->CreateCall(c_functions.at(PRINTF), {format_str, string_len, arg_idx});
+        }
+        switch (oob_mode) {
+            case ArrayOutOfBoundsMode::PRINT:
+                [[fallthrough]];
+            case ArrayOutOfBoundsMode::SILENT: {
+                // Apply index clamping and update our LOCAL copy
+                llvm::Value *clamped_index = builder->CreateSub(string_len, builder->getInt64(1), "clamped_index");
+                builder->CreateStore(clamped_index, local_idx_ptr); // Update our local copy
+                builder->CreateBr(in_bounds_block);
+                break;
+            }
+            case ArrayOutOfBoundsMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+            case ArrayOutOfBoundsMode::UNSAFE:
+                assert(false); // This should never be happening
+                break;
+        }
+    }
+
+    // In bounds block - normal access
+    builder->SetInsertPoint(in_bounds_block);
+
+    // Get pointer to string->value (the char array)
+    llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_string, 1, "value_ptr");
+
+    // For strings, value is directly a char array, so we can access it directly
+    // Calculate the address: &string->value[idx]
+    llvm::Value *local_idx = builder->CreateLoad(builder->getInt64Ty(), local_idx_ptr, "local_idx");
+    llvm::Value *char_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, local_idx, "char_ptr");
+
+    // Load and return the character
+    llvm::Value *result_char = builder->CreateLoad(builder->getInt8Ty(), char_ptr, "result_char");
+    builder->CreateRet(result_char);
 }
 
 void Generator::Module::String::generate_create_str_function( //
@@ -803,6 +908,7 @@ void Generator::Module::String::generate_add_lit_str_function(llvm::IRBuilder<> 
 void Generator::Module::String::generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
     const bool only_declarations) {
     generate_get_c_str_function(builder, module, only_declarations);
+    generate_access_str_at_function(builder, module, only_declarations);
     generate_create_str_function(builder, module, only_declarations);
     generate_init_str_function(builder, module, only_declarations);
     generate_compare_str_function(builder, module, only_declarations);
@@ -851,8 +957,8 @@ void Generator::Module::String::generate_string_assignment( //
     const ExpressionNode *expression_node,                  //
     llvm::Value *expression                                 //
 ) {
-    // If the rhs is a string literal we need to do different code than if it is a string variable. The expression contains a pointer to the
-    // str in memory if its a variable, otherwise it will contain a pointer to the chars (char*).
+    // If the rhs is a string literal we need to do different code than if it is a string variable. The expression contains a pointer to
+    // the str in memory if its a variable, otherwise it will contain a pointer to the chars (char*).
     if (const LiteralNode *lit = dynamic_cast<const LiteralNode *>(expression_node)) {
         // Get the `assign_lit` function
         llvm::Function *assign_lit_fn = string_manip_functions.at("assign_lit");
