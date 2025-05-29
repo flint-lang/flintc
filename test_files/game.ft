@@ -53,14 +53,14 @@ const def get_rand_pos() -> Vector3:
 
 def update_positions():
 	center := Vector3(x, y, z);
-	sync SyncGroup::MAIN;
-	while(true):
+	sync SyncGroup.MAIN;
+	while true:
 		// Only let the entities move which are within a given radius of the center
 		// This center could also be the player, and entities outside the cameras view wont move, for example
 		map_on_all(Movement, Movement::get_dist_sqr(center))
-			|> filter_on_all(Movement, (f32 x) -> x < 20, _)
-			|> run_on_all(Movement, Movement::move, _);
-		sync SyncGroup::MAIN;
+			|> filter_on_all(Movement, (f32 x) -> x < 20, $)
+			|> run_on_all(Movement, Movement::move, $);
+		sync SyncGroup.MAIN;
 
 /**
  * This function updates the health of all entities.
@@ -68,14 +68,14 @@ def update_positions():
  */
 def update_health(List<Entity> entities):
 	i32 dps = 1;
-	sync SyncGroup::MAIN;
-	while(true):
+	sync SyncGroup.MAIN;
+	while true:
 		// Decrease the health of each entity per iteration
 		run_on_all(HealthUtils, HealthUtils::damage(dps));
 		// Filter out the entities which are dead and free them (delte them)
 		filter_on_all(Entity, Entity::is_dead)
-			|> entites.remove_all(_);
-		sync SyncGroup::MAIN;
+			|> entites.remove_all($);
+		sync SyncGroup.MAIN;
 
 def create_entities(i32 n) -> List<Entities>:
 	// Create n entites with default values
@@ -88,10 +88,9 @@ def create_entities(i32 n) -> List<Entities>:
 	return List<Entity>(entitites);
 
 def main():
-
 	spawn "position_thread" update_positions();
 	spawn "health_thread" update_health(create_entities(100000));
-	sync SyncGroup::MAIN;
-	while(true):
+	sync SyncGroup.MAIN;
+	while true:
 		// Game loop
-		sync SyncGroup::MAIN;
+		sync SyncGroup.MAIN;
