@@ -32,6 +32,8 @@ bool Generator::Statement::generate_statement(      //
         return generate_while_loop(builder, ctx, while_node);
     } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
         return generate_for_loop(builder, ctx, for_node);
+    } else if (const auto *enh_for_node = dynamic_cast<const EnhForLoopNode *>(statement.get())) {
+        return generate_enh_for_loop(builder, ctx, enh_for_node);
     } else if (const auto *group_assignment_node = dynamic_cast<const GroupAssignmentNode *>(statement.get())) {
         return generate_group_assignment(builder, ctx, group_assignment_node);
     } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement.get())) {
@@ -611,11 +613,146 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     return true;
 }
 
-bool Generator::Statement::generate_catch_statement( //
-    llvm::IRBuilder<> &builder,                      //
-    GenerationContext &ctx,                          //
-    const CatchNode *catch_node                      //
-) {
+bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const EnhForLoopNode *for_node) {
+    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+
+    // Create the basic blocks for the condition check, the loop body and the merge block
+    std::array<llvm::BasicBlock *, 3> for_blocks{};
+    // Create then condition block and the body of the loop
+    for_blocks[0] = llvm::BasicBlock::Create(context, "for_cond", ctx.parent);
+    for_blocks[1] = llvm::BasicBlock::Create(context, "for_body", ctx.parent);
+    // Create the merge block but don't add it to the parent function yet
+    for_blocks[2] = llvm::BasicBlock::Create(context, "merge");
+
+    // Generate the iterable expression
+    builder.SetInsertPoint(pred_block);
+    Expression::garbage_type garbage{};
+    group_mapping iterable = Expression::generate_expression(builder, ctx, garbage, 0, for_node->iterable.get());
+    if (!iterable.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (iterable.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *iterable_expr = iterable.value().front();
+    const ArrayType *array_type = dynamic_cast<const ArrayType *>(for_node->iterable->type.get());
+    const bool is_array = array_type != nullptr;
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Value *length = nullptr;
+    llvm::Value *value_ptr = nullptr;
+    llvm::Type *element_type = nullptr;
+    if (is_array) {
+        llvm::Value *dim_ptr = builder.CreateStructGEP(str_type, iterable_expr, 0, "dim_ptr");
+        llvm::Value *dimensionality = builder.CreateLoad(builder.getInt64Ty(), dim_ptr, "dimensionality");
+        llvm::AllocaInst *length_alloca = builder.CreateAlloca(builder.getInt64Ty(), 0, nullptr, "length_alloca");
+        builder.CreateStore(builder.getInt64(1), length_alloca);
+        llvm::Value *len_ptr = builder.CreateStructGEP(str_type, iterable_expr, 1, "len_ptr");
+        for (size_t i = 0; i < array_type->dimensionality; i++) {
+            llvm::Value *single_len_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, builder.getInt64(i));
+            llvm::Value *single_len = builder.CreateLoad(builder.getInt64Ty(), single_len_ptr, "len_" + std::to_string(i));
+            llvm::Value *len_val = builder.CreateLoad(builder.getInt64Ty(), length_alloca);
+            len_val = builder.CreateMul(len_val, single_len);
+            builder.CreateStore(len_val, length_alloca);
+        }
+        length = builder.CreateLoad(builder.getInt64Ty(), length_alloca, "length");
+        // The values start right after the lengths
+        value_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, dimensionality);
+        element_type = IR::get_type(array_type->type).first;
+    } else {
+        // Is 'str' type
+        llvm::Value *len_ptr = builder.CreateStructGEP(str_type, iterable_expr, 0, "len_ptr");
+        length = builder.CreateLoad(builder.getInt64Ty(), len_ptr, "length");
+        value_ptr = builder.CreateStructGEP(str_type, iterable_expr, 1, "value_ptr");
+        element_type = builder.getInt8Ty();
+    }
+
+    llvm::Value *tuple_alloca = nullptr;
+    llvm::Type *tuple_type = nullptr;
+    llvm::Value *index_alloca = nullptr;
+    llvm::Value *element_alloca = nullptr;
+    if (std::holds_alternative<std::string>(for_node->iterators)) {
+        const unsigned int scope_id = for_node->definition_scope->scope_id;
+        const std::string tuple_alloca_name = "s" + std::to_string(scope_id) + "::" + std::get<std::string>(for_node->iterators);
+        tuple_alloca = ctx.allocations.at(tuple_alloca_name);
+        const auto tuple_var = for_node->definition_scope->variables.at(std::get<std::string>(for_node->iterators));
+        tuple_type = IR::get_type(std::get<0>(tuple_var)).first;
+        llvm::Value *idx_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 0, "idx_ptr");
+        builder.CreateStore(builder.getInt64(0), idx_ptr);
+    } else {
+        const auto iterators = std::get<std::pair<std::optional<std::string>, std::optional<std::string>>>(for_node->iterators);
+        const unsigned int scope_id = for_node->definition_scope->scope_id;
+        if (iterators.first.has_value()) {
+            const std::string index_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.first.value();
+            index_alloca = ctx.allocations.at(index_alloca_name);
+            builder.CreateStore(builder.getInt64(0), index_alloca);
+        } else {
+            const std::string index_alloca_name = "s" + std::to_string(scope_id) + "::IDX";
+            index_alloca = ctx.allocations.at(index_alloca_name);
+            builder.CreateStore(builder.getInt64(0), index_alloca);
+        }
+        if (iterators.second.has_value()) {
+            const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.second.value();
+            element_alloca = ctx.allocations.at(element_alloca_name);
+        }
+    }
+    builder.CreateBr(for_blocks[0]);
+
+    // Create the condition
+    builder.SetInsertPoint(for_blocks[0]);
+    // Check if the current index is smaller than the length to iterate through
+    // First, get the current index
+    llvm::Value *current_index = nullptr;
+    llvm::Value *idx_ptr = nullptr;
+    if (std::holds_alternative<std::string>(for_node->iterators)) {
+        idx_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 0, "idx_ptr");
+        current_index = builder.CreateLoad(builder.getInt64Ty(), idx_ptr, "current_index");
+    } else {
+        current_index = builder.CreateLoad(builder.getInt64Ty(), index_alloca, "current_index");
+    }
+    // Then check if the index is still smaller than the length and branch accordingly
+    llvm::Value *in_range = builder.CreateICmpULT(current_index, length, "in_range");
+    builder.CreateCondBr(in_range, for_blocks[1], for_blocks[2]);
+
+    // Now to the body itself. First we need to store the current element in its respective alloca / inside the tuple before we generate the
+    // body
+    builder.SetInsertPoint(for_blocks[1]);
+    // Load the current element from the iterable
+    llvm::Value *current_element_ptr = builder.CreateGEP(element_type, value_ptr, current_index, "current_element_ptr");
+    llvm::Value *current_element = builder.CreateLoad(element_type, current_element_ptr, "current_element");
+    // We need to store the element in the tuple / in the element alloca
+    if (std::holds_alternative<std::string>(for_node->iterators)) {
+        llvm::Value *elem_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 1, "elem_ptr");
+        builder.CreateStore(current_element, elem_ptr);
+    } else {
+        builder.CreateStore(current_element, element_alloca);
+    }
+    // Then we generate the body itself
+    auto old_scope = ctx.scope;
+    ctx.scope = for_node->body.get();
+    if (!generate_body(builder, ctx)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    ctx.scope = old_scope;
+
+    // At the end of the body we increment the index and branch back to the condition
+    llvm::Value *new_index = builder.CreateAdd(current_index, builder.getInt64(1), "new_index");
+    if (std::holds_alternative<std::string>(for_node->iterators)) {
+        builder.CreateStore(new_index, idx_ptr);
+    } else {
+        builder.CreateStore(new_index, index_alloca);
+    }
+    builder.CreateBr(for_blocks[0]);
+
+    // Finally set the insert point to the merge block and return
+    ctx.parent->insert(ctx.parent->end(), for_blocks[2]);
+    builder.SetInsertPoint(for_blocks[2]);
+    return true;
+}
+
+bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const CatchNode *catch_node) {
     // The catch statement is basically just an if check if the err value of the function return is != 0 or not
     const std::optional<CallNodeBase *> call_node = Parser::get_call_from_id(catch_node->call_id);
     if (!call_node.has_value()) {

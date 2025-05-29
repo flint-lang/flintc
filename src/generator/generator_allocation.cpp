@@ -7,6 +7,7 @@
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/parser.hpp"
+#include "parser/type/primitive_type.hpp"
 
 #include <string>
 
@@ -52,6 +53,11 @@ bool Generator::Allocation::generate_allocations(                               
                 return false;
             }
             if (!generate_allocations(builder, parent, for_loop_node->body.get(), allocations, imported_core_modules)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+        } else if (const auto *enh_for_loop_node = dynamic_cast<const EnhForLoopNode *>(statement_node.get())) {
+            if (!generate_enh_for_allocations(builder, parent, allocations, imported_core_modules, enh_for_loop_node)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
@@ -252,6 +258,73 @@ bool Generator::Allocation::generate_if_allocations(                            
             }
         } else {
             if_node = nullptr;
+        }
+    }
+    return true;
+}
+
+bool Generator::Allocation::generate_enh_for_allocations(                            //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const EnhForLoopNode *for_node                                                   //
+) {
+    if (!generate_expression_allocations(                                 //
+            builder, parent, for_node->definition_scope.get(),            //
+            allocations, imported_core_modules, for_node->iterable.get()) //
+    ) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    std::shared_ptr<Type> element_type_ptr = nullptr;
+    if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(for_node->iterable->type.get())) {
+        if (primitive_type->type_name != "str") {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        element_type_ptr = Type::get_primitive_type("u8");
+    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(for_node->iterable->type.get())) {
+        element_type_ptr = array_type->type;
+    } else {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Type *element_type = IR::get_type(element_type_ptr).first;
+    if (std::holds_alternative<std::string>(for_node->iterators)) {
+        // A single iterator tuple
+        const std::string it_name = std::get<std::string>(for_node->iterators);
+        const auto it_variable = for_node->definition_scope->variables.at(it_name);
+        std::shared_ptr<Type> it_type_ptr = std::get<0>(it_variable);
+        llvm::Type *it_type = IR::add_and_or_get_type(it_type_ptr);
+        const unsigned int scope_id = for_node->definition_scope->scope_id;
+        std::string alloca_name = "s" + std::to_string(scope_id) + "::" + it_name;
+        generate_allocation(builder, allocations, alloca_name, it_type, it_name + "__ITER_TUPL",        //
+            "Create iterator tuple '" + it_name + "' of enh for loop in s::" + std::to_string(scope_id) //
+        );
+    } else {
+        // One index and one element iterator
+        const auto iterators = std::get<std::pair<std::optional<std::string>, std::optional<std::string>>>(for_node->iterators);
+        const unsigned int scope_id = for_node->definition_scope->scope_id;
+        if (iterators.first.has_value()) {
+            const std::string index_name = iterators.first.value();
+            const std::string index_alloca_name = "s" + std::to_string(scope_id) + "::" + index_name;
+            generate_allocation(builder, allocations, index_alloca_name, builder.getInt64Ty(), index_name + "__ITER_IDX", //
+                "Create index iter alloca '" + index_name + "' of enh for loop in s::" + std::to_string(scope_id)         //
+            );
+        } else {
+            const std::string index_alloca_name = "s" + std::to_string(scope_id) + "::IDX";
+            generate_allocation(builder, allocations, index_alloca_name, builder.getInt64Ty(), "__ITER_IDX", //
+                "Create index iter alloca of enh for loop in s::" + std::to_string(scope_id)                 //
+            );
+        }
+        if (iterators.second.has_value()) {
+            const std::string element_name = iterators.second.value();
+            const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + element_name;
+            generate_allocation(builder, allocations, element_alloca_name, element_type,
+                element_name + "__ITER_ELEM",                                                                         //
+                "Create element iter alloca '" + element_name + "' of enh for loop in s::" + std::to_string(scope_id) //
+            );
         }
     }
     return true;

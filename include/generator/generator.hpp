@@ -23,6 +23,7 @@
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/enhanced_for_loop_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
 #include "parser/ast/statements/group_declaration_node.hpp"
@@ -659,6 +660,25 @@ class Generator {
             const IfNode *if_node                                                            //
         );
 
+        /// @function `generate_enh_for_allocations`
+        /// @brief Generates the allocations for enhanced for loops
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the allocations are generated in
+        /// @param `allocations` The map of allocations, where tin the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `for_node` The enhanced for loop node to generate allocations for
+        /// @return `bool` Whether the allocations were all successfull
+        ///
+        /// @attention The allocations map will be modified
+        [[nodiscard]] static bool generate_enh_for_allocations(                              //
+            llvm::IRBuilder<> &builder,                                                      //
+            llvm::Function *parent,                                                          //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+            const EnhForLoopNode *for_node                                                   //
+        );
+
         /// @funnction `generate_declaration_allcoations`
         /// @brief Generates the allocations for a normal declaration
         ///
@@ -1013,6 +1033,19 @@ class Generator {
             llvm::IRBuilder<> &builder,              //
             GenerationContext &ctx,                  //
             const ForLoopNode *for_node              //
+        );
+
+        /// @function `generate_enh_for_loop`
+        /// @brief Generates the enhanced for loop from the given EnhForloopNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `for_node` The enhanced for loop node to generate
+        /// @return `bool` Whether the code generation of the enhanced for loop node was successful
+        [[nodiscard]] static bool generate_enh_for_loop( //
+            llvm::IRBuilder<> &builder,                  //
+            GenerationContext &ctx,                      //
+            const EnhForLoopNode *for_node               //
         );
 
         /// @function `generate_catch_statement`
