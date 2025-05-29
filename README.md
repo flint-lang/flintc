@@ -52,11 +52,12 @@ Nearly all Core features are already working:
 - `assert` (`use Core.assert`) for the `assert` function
 - `filesystem` (`use Core.filesystem`) for the `read_file`, `read_lines`, `file_exists`, `write_file`, `append_file` and `is_filr` functions
 - `env` (`use Core.env`) for the `get_env` and `set_env` functions
+- enhanced for loops: `for (index, element) in iterable:` with direct index and element unpacking (and not using them through `_`) or `for pair in iterable:` where the pair is a tuple of the index and element
+- accessing strings as if they were arrays with `string[idx]` which returns an `u8`
 
 ## What's not working
 
 - `flint` variables dont behave as expected and are always wrong
-- enhanced `for` loops (because DIMA doesnt exist yet)
 - The optional type
 - Custom `error` sets
 - `variant` type
