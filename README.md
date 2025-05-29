@@ -45,6 +45,8 @@ Nearly all Core features are already working:
 - SIMD multi-types such as `i32x2`, `f32x3`, `i64x4`, `bool8`, etc. and native interoperability with groups
 - `enum` type
 - declaring and using tuple types `data<i32, f32, str> t = (1, 3.3, "yes");`, `f32 x = t.$1` etc.
+- enhanced for loops: `for (index, element) in iterable:` with direct index and element unpacking (and not using them through `_`) or `for pair in iterable:` where the pair is a tuple of the index and element
+- accessing strings as if they were arrays with `string[idx]` which returns an `u8`
 
 ## Available Core modules
 - `print` (`use Core.print`) for the print function with its 9 overloads (`i32`, `i64`, `u32`, `u64`, `f32`, `f64`, `str`, `char` and `bool`
@@ -52,8 +54,6 @@ Nearly all Core features are already working:
 - `assert` (`use Core.assert`) for the `assert` function
 - `filesystem` (`use Core.filesystem`) for the `read_file`, `read_lines`, `file_exists`, `write_file`, `append_file` and `is_filr` functions
 - `env` (`use Core.env`) for the `get_env` and `set_env` functions
-- enhanced for loops: `for (index, element) in iterable:` with direct index and element unpacking (and not using them through `_`) or `for pair in iterable:` where the pair is a tuple of the index and element
-- accessing strings as if they were arrays with `string[idx]` which returns an `u8`
 
 ## What's not working
 
