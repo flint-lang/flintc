@@ -353,7 +353,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
 
 std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope *scope, const std::string &interpol_string) {
     // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
-    std::vector<uint2> ranges = Matcher::balanced_ranges_vec(interpol_string, "([^\\\\]|)\\{", "[^\\\\]\\}");
+    std::vector<uint2> ranges = Matcher::balanced_ranges_vec(interpol_string, "([^\\\\]|^)\\{", "[^\\\\]\\}");
     std::vector<std::variant<std::unique_ptr<TypeCastNode>, std::unique_ptr<LiteralNode>>> interpol_content;
     // If the ranges are empty, the interpolation does not contain any groups
     if (ranges.empty()) {
@@ -362,27 +362,31 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
     }
     // First, add all the strings from the begin to the first ranges begin to the interpolation content
     for (auto it = ranges.begin(); it != ranges.end(); ++it) {
-        // If its at the very beginning the conditions differs
-        if (it->first > 0 ? (it->second - it->first <= 1) : (it->second == 0)) {
-            // Empty expression
+        // Check for empty expression: { and } are adjacent
+        if (it->second - it->first <= 1) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+
+        // Add string before first { or between } and {
         if (it == ranges.begin() && it->first > 0) {
-            // Add string thats present before the first { symbol
-            token_list lit_toks = {{TOK_STR_VALUE, interpol_string.substr(0, it->first + 1), 0, 0}};
+            // Add string that's present before the first { symbol
+            token_list lit_toks = {{TOK_STR_VALUE, interpol_string.substr(0, it->first), 0, 0}};
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         } else if (it != ranges.begin() && it->first - std::prev(it)->second > 1) {
-            // Add string in between } { symbols
-            token_list lit_toks = {
-                {TOK_STR_VALUE, interpol_string.substr(std::prev(it)->second + 2, it->first - std::prev(it)->second - 1), 0, 0} //
-            };
+            // Add string in between } and { symbols
+            size_t start_pos = std::prev(it)->second + 1; // Position after previous }
+            size_t length = it->first - start_pos;        // Length until current {
+            token_list lit_toks = {{TOK_STR_VALUE, interpol_string.substr(start_pos, length), 0, 0}};
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
-        Lexer lexer = (it->first == 0) ? Lexer("string_intepolation", interpol_string.substr(1, it->second))
-                                       : Lexer("string_interpolation", interpol_string.substr(it->first + 2, (it->second - it->first - 1)));
+
+        // Extract the expression between { and }
+        size_t expr_start = it->first + 1;               // Position after {
+        size_t expr_length = it->second - it->first - 1; // Length between { and }
+        Lexer lexer("string_interpolation", interpol_string.substr(expr_start, expr_length));
         token_list expr_tokens = lexer.scan();
         if (expr_tokens.empty()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -396,11 +400,11 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
         }
         // Cast every expression inside to a str type
         interpol_content.emplace_back(std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expr.value()));
-        if (std::next(it) == ranges.end() && it->second + 2 < interpol_string.length()) {
-            // Add string after last } symbol
-            token_list lit_toks = {
-                {TOK_STR_VALUE, interpol_string.substr(it->second + 2, (interpol_string.length() - it->second - 1)), 0, 0} //
-            };
+
+        // Add string after last } symbol
+        if (std::next(it) == ranges.end() && it->second + 1 < interpol_string.length()) {
+            size_t start_pos = it->second + 1; // Position after }
+            token_list lit_toks = {{TOK_STR_VALUE, interpol_string.substr(start_pos), 0, 0}};
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }

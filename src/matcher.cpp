@@ -92,23 +92,26 @@ std::vector<uint2> Matcher::balanced_ranges_vec(const std::string &src, const st
     std::vector<uint2> result;
     std::regex inc_regex(inc), dec_regex(dec);
 
-    // Keep track of positions of opening increments
     std::stack<size_t> stack;
-
-    // Scan through the string looking for matches
     std::sregex_iterator end;
-
-    // Find all increment and decrement positions
-    std::vector<std::pair<size_t, bool>> positions; // position and isIncrement flag
+    std::vector<std::pair<size_t, bool>> positions;
 
     // Collect increment positions
     for (std::sregex_iterator it(src.begin(), src.end(), inc_regex); it != end; ++it) {
-        positions.push_back({it->position(), true});
+        size_t match_start = it->position();
+        size_t match_length = it->length();
+        // The { is always at the last position of the match
+        size_t brace_pos = match_start + match_length - 1;
+        positions.push_back({brace_pos, true});
     }
 
     // Collect decrement positions
     for (std::sregex_iterator it(src.begin(), src.end(), dec_regex); it != end; ++it) {
-        positions.push_back({it->position(), false});
+        size_t match_start = it->position();
+        size_t match_length = it->length();
+        // The } is always at the last position of the match
+        size_t brace_pos = match_start + match_length - 1;
+        positions.push_back({brace_pos, false});
     }
 
     // Sort positions by their location in the string
