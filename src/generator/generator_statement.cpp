@@ -167,11 +167,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
     return true;
 }
 
-bool Generator::Statement::generate_array_cleanup( //
-    llvm::IRBuilder<> &builder,                    //
-    llvm::Value *arr_ptr,                          //
-    const ArrayType *array_type                    //
-) {
+bool Generator::Statement::generate_array_cleanup(llvm::IRBuilder<> &builder, llvm::Value *arr_ptr, const ArrayType *array_type) {
     // Now get the complexity of the array
     size_t complexity = 0;
     while (true) {
@@ -222,11 +218,7 @@ bool Generator::Statement::generate_data_cleanup( //
     return true;
 }
 
-bool Generator::Statement::generate_return_statement( //
-    llvm::IRBuilder<> &builder,                       //
-    GenerationContext &ctx,                           //
-    const ReturnNode *return_node                     //
-) {
+bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const ReturnNode *return_node) {
     // Get the return type of the function
     auto *return_struct_type = llvm::cast<llvm::StructType>(ctx.parent->getReturnType());
 
@@ -294,11 +286,7 @@ bool Generator::Statement::generate_return_statement( //
     return true;
 }
 
-bool Generator::Statement::generate_throw_statement( //
-    llvm::IRBuilder<> &builder,                      //
-    GenerationContext &ctx,                          //
-    const ThrowNode *throw_node                      //
-) {
+bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const ThrowNode *throw_node) {
     // Get the return type of the function
     auto *throw_struct_type = llvm::cast<llvm::StructType>(ctx.parent->getReturnType());
 
@@ -336,11 +324,7 @@ bool Generator::Statement::generate_throw_statement( //
     return true;
 }
 
-void Generator::Statement::generate_if_blocks( //
-    llvm::Function *parent,                    //
-    std::vector<llvm::BasicBlock *> &blocks,   //
-    const IfNode *if_node                      //
-) {
+void Generator::Statement::generate_if_blocks(llvm::Function *parent, std::vector<llvm::BasicBlock *> &blocks, const IfNode *if_node) {
     // Count total number of branches and create blocks
     const IfNode *current = if_node;
     unsigned int branch_count = 0;
@@ -504,11 +488,7 @@ bool Generator::Statement::generate_if_statement( //
     return true;
 }
 
-bool Generator::Statement::generate_while_loop( //
-    llvm::IRBuilder<> &builder,                 //
-    GenerationContext &ctx,                     //
-    const WhileNode *while_node                 //
-) {
+bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const WhileNode *while_node) {
     // Get the current block, we need to add a branch instruction to this block to point to the while condition block
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
 
@@ -563,11 +543,7 @@ bool Generator::Statement::generate_while_loop( //
     return true;
 }
 
-bool Generator::Statement::generate_for_loop( //
-    llvm::IRBuilder<> &builder,               //
-    GenerationContext &ctx,                   //
-    const ForLoopNode *for_node               //
-) {
+bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const ForLoopNode *for_node) {
     // Get the current block, we need to add a branch instruction to this block to point to the while condition block
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
 
@@ -876,11 +852,7 @@ bool Generator::Statement::generate_declaration( //
     return true;
 }
 
-bool Generator::Statement::generate_assignment( //
-    llvm::IRBuilder<> &builder,                 //
-    GenerationContext &ctx,                     //
-    const AssignmentNode *assignment_node       //
-) {
+bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, GenerationContext &ctx, const AssignmentNode *assignment_node) {
     Expression::garbage_type garbage;
     auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get());
     if (!expr.has_value()) {
