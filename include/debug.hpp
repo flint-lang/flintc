@@ -58,14 +58,19 @@
 #endif
 
 namespace Debug {
-    enum TreeType { VERT, BRANCH, BRANCH_L, SINGLE, HOR, NONE };
-    static const std::unordered_map<TreeType, std::string> tree_characters = {
-        {VERT, "\u2502"},     // │
-        {BRANCH, "\u251C"},   // ├
-        {BRANCH_L, "\u2524"}, // ┤
-        {SINGLE, "\u2514"},   // └
-        {HOR, "\u2500"},      // ─
+    enum TreeType { NONE = 0, VERT = 1, BRANCH = 2, SINGLE = 3 };
+    static const std::unordered_map<TreeType, std::string> tree_blocks = {
+        {NONE, "    "},             // '    '
+        {VERT, " \u2502  "},        // ' │  '
+        {BRANCH, " \u251C\u2500 "}, // ' ├─ '
+        {SINGLE, " \u2514\u2500 "}, // ' └─ '
     };
+    static const std::unordered_map<TreeType, std::string> tree_characters = {
+        {VERT, "\u2502"},   // '│'
+        {BRANCH, "\u251C"}, // '├'
+        {SINGLE, "\u2514"}, // '└'
+    };
+    static const std::string HOR = "\u2500";
 
     namespace TextFormat {
         const inline std::string UNDERLINE_START = "\033[4m";
@@ -98,60 +103,94 @@ namespace Debug {
     } // namespace Dep
 
     namespace AST {
+        struct TreeBits {
+            // Four bit arrays, one for each branch type
+            std::array<uint32_t, 4> bits = {0}; // NONE, VERT, BRANCH, SINGLE
+
+            // Set a specific branch type at a specific level
+            void set(TreeType type, unsigned int level) {
+                bits[type] |= (1u << level);
+            }
+
+            // Check if a specific branch type is set at a specific level
+            bool is(TreeType type, unsigned int level) const {
+                return (bits[type] & (1u << level)) != 0;
+            }
+
+            // Get the branch type at a specific level
+            TreeType get(unsigned int level) const {
+                for (int type = 0; type < 4; type++) {
+                    if (bits[type] & (1u << level)) {
+                        return static_cast<TreeType>(type);
+                    }
+                }
+                return NONE; // Default
+            }
+
+            // Create a modified copy for a child node
+            TreeBits child(unsigned int parent_level, bool is_last) const {
+                TreeBits result = *this;
+                result.set(is_last ? SINGLE : BRANCH, parent_level);
+                return result;
+            }
+        };
+
         namespace Local {
-            void print_header(unsigned int indent_lvl, uint2 empty, const std::string &header);
-            void print_type(const std::variant<std::string, std::vector<std::string>> &type);
+            void print_tree_line(TreeBits &bits, unsigned int max_level);
+            void print_header(unsigned int indent_lvl, TreeBits &bits, const std::string &header);
         } // namespace Local
 
         void print_all_files();
         void print_file(const FileNode &file);
 
         // --- EXPRESSIONS ---
-        void print_variable(unsigned int indent_lvl, uint2 empty, const VariableNode &var);
-        void print_unary_op(unsigned int indent_lvl, uint2 empty, const UnaryOpBase &unary);
-        void print_literal(unsigned int indent_lvl, uint2 empty, const LiteralNode &lit);
-        void print_string_interpolation(unsigned int indent_lvl, uint2 empty, const StringInterpolationNode &interpol);
-        void print_call(unsigned int indent_lvl, uint2 empty, const CallNodeBase &call);
-        void print_binary_op(unsigned int indent_lvl, uint2 empty, const BinaryOpNode &bin);
-        void print_type_cast(unsigned int indent_lvl, uint2 empty, const TypeCastNode &cast);
-        void print_initializer(unsigned int indent_lvl, uint2 empty, const InitializerNode &initializer);
-        void print_group_expression(unsigned int indent_lvl, uint2 empty, const GroupExpressionNode &group);
-        void print_array_initializer(unsigned int indent_lvl, uint2 empty, const ArrayInitializerNode &init);
-        void print_array_access(unsigned int indent_lvl, uint2 empty, const ArrayAccessNode &access);
-        void print_data_access(unsigned int indent_lvl, uint2 empty, const DataAccessNode &access);
-        void print_grouped_data_access(unsigned int indent_lvl, uint2 empty, const GroupedDataAccessNode &access);
-        void print_default(unsigned int indent_lvl, uint2 empty, const DefaultNode &default_node);
-        void print_expression(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<ExpressionNode> &expr);
+        void print_variable(unsigned int indent_lvl, TreeBits &bits, const VariableNode &var);
+        void print_unary_op(unsigned int indent_lvl, TreeBits &bits, const UnaryOpBase &unary);
+        void print_literal(unsigned int indent_lvl, TreeBits &bits, const LiteralNode &lit);
+        void print_string_interpolation(unsigned int indent_lvl, TreeBits &bits, const StringInterpolationNode &interpol);
+        void print_call(unsigned int indent_lvl, TreeBits &bits, const CallNodeBase &call);
+        void print_binary_op(unsigned int indent_lvl, TreeBits &bits, const BinaryOpNode &bin);
+        void print_type_cast(unsigned int indent_lvl, TreeBits &bits, const TypeCastNode &cast);
+        void print_initializer(unsigned int indent_lvl, TreeBits &bits, const InitializerNode &initializer);
+        void print_group_expression(unsigned int indent_lvl, TreeBits &bits, const GroupExpressionNode &group);
+        void print_array_initializer(unsigned int indent_lvl, TreeBits &bits, const ArrayInitializerNode &init);
+        void print_array_access(unsigned int indent_lvl, TreeBits &bits, const ArrayAccessNode &access);
+        void print_data_access(unsigned int indent_lvl, TreeBits &bits, const DataAccessNode &access);
+        void print_grouped_data_access(unsigned int indent_lvl, TreeBits &bits, const GroupedDataAccessNode &access);
+        void print_default(unsigned int indent_lvl, TreeBits &bits, const DefaultNode &default_node);
+        void print_expression(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<ExpressionNode> &expr);
 
         // --- STATEMENTS ---
-        void print_throw(unsigned int indent_lvl, uint2 empty, const ReturnNode &return_node);
-        void print_return(unsigned int indent_lvl, uint2 empty, const ThrowNode &return_node);
-        void print_if(unsigned int indent_lvl, uint2 empty, const IfNode &if_node);
-        void print_while(unsigned int indent_lvl, uint2 empty, const WhileNode &while_node);
-        void print_for(unsigned int indent_lvl, uint2 empty, const ForLoopNode &for_node);
-        void print_enh_for(unsigned int indent_lvl, uint2 empty, const EnhForLoopNode &for_node);
-        void print_catch(unsigned int indent_lvl, uint2 empty, const CatchNode &catch_node);
-        void print_group_assignment(unsigned int indent_lvl, uint2 empty, const GroupAssignmentNode &assign);
-        void print_assignment(unsigned int indent_lvl, uint2 empty, const AssignmentNode &assign);
-        void print_array_assignment(unsigned int indent_lvl, uint2 empty, const ArrayAssignmentNode &assign);
-        void print_group_declaration(unsigned int indent_lvl, uint2 empty, const GroupDeclarationNode &decl);
-        void print_declaration(unsigned int indent_lvl, uint2 empty, const DeclarationNode &decl);
-        void print_data_field_assignment(unsigned int indent_lvl, uint2 empty, const DataFieldAssignmentNode &assignment);
-        void print_grouped_data_field_assignment(unsigned int indent_lvl, uint2 empty, const GroupedDataFieldAssignmentNode &assignment);
-        void print_stacked_assignment(unsigned int indent_lvl, uint2 empty, const StackedAssignmentNode &assignment);
-        void print_statement(unsigned int indent_lvl, uint2 empty, const std::unique_ptr<StatementNode> &statement);
-        void print_body(unsigned int indent_lvl, uint2 empty, const std::vector<std::unique_ptr<StatementNode>> &body);
+        void print_throw(unsigned int indent_lvl, TreeBits &bits, const ReturnNode &return_node);
+        void print_return(unsigned int indent_lvl, TreeBits &bits, const ThrowNode &return_node);
+        void print_if(unsigned int indent_lvl, TreeBits &bits, const IfNode &if_node);
+        void print_while(unsigned int indent_lvl, TreeBits &bits, const WhileNode &while_node);
+        void print_for(unsigned int indent_lvl, TreeBits &bits, const ForLoopNode &for_node);
+        void print_enh_for(unsigned int indent_lvl, TreeBits &bits, const EnhForLoopNode &for_node);
+        void print_catch(unsigned int indent_lvl, TreeBits &bits, const CatchNode &catch_node);
+        void print_group_assignment(unsigned int indent_lvl, TreeBits &bits, const GroupAssignmentNode &assign);
+        void print_assignment(unsigned int indent_lvl, TreeBits &bits, const AssignmentNode &assign);
+        void print_array_assignment(unsigned int indent_lvl, TreeBits &bits, const ArrayAssignmentNode &assign);
+        void print_group_declaration(unsigned int indent_lvl, TreeBits &bits, const GroupDeclarationNode &decl);
+        void print_declaration(unsigned int indent_lvl, TreeBits &bits, const DeclarationNode &decl);
+        void print_data_field_assignment(unsigned int indent_lvl, TreeBits &bits, const DataFieldAssignmentNode &assignment);
+        void print_grouped_data_field_assignment(                                                     //
+            unsigned int indent_lvl, TreeBits &bits, const GroupedDataFieldAssignmentNode &assignment //
+        );
+        void print_stacked_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedAssignmentNode &assignment);
+        void print_statement(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<StatementNode> &statement);
+        void print_body(unsigned int indent_lvl, TreeBits &bits, const std::vector<std::unique_ptr<StatementNode>> &body);
 
         // --- DEFINITIONS ---
-        void print_data(unsigned int indent_lvl, uint2 empty, const DataNode &data);
-        void print_entity(unsigned int indent_lvl, const EntityNode &entity);
-        void print_enum(unsigned int indent_lvl, uint2 empty, const EnumNode &enum_node);
-        void print_error(unsigned int indent_lvl, const ErrorNode &error);
-        void print_func(unsigned int indent_lvl, const FuncNode &func);
-        void print_function(unsigned int indent_lvl, uint2 empty, const FunctionNode &function);
-        void print_import(unsigned int indent_lvl, const ImportNode &import);
-        void print_link(unsigned int indent_lvl, uint2 empty, const LinkNode &link);
-        void print_variant(unsigned int indent_lvl, const VariantNode &variant);
-        void print_test(unsigned int indent_lvl, uint2 empty, const TestNode &test);
+        void print_data(unsigned int indent_lvl, TreeBits &bits, const DataNode &data);
+        void print_entity(unsigned int indent_lvl, TreeBits &bits, const EntityNode &entity);
+        void print_enum(unsigned int indent_lvl, TreeBits &bits, const EnumNode &enum_node);
+        void print_error(unsigned int indent_lvl, TreeBits &bits, const ErrorNode &error);
+        void print_func(unsigned int indent_lvl, TreeBits &bits, const FuncNode &func);
+        void print_function(unsigned int indent_lvl, TreeBits &bits, const FunctionNode &function);
+        void print_import(unsigned int indent_lvl, TreeBits &bits, const ImportNode &import);
+        void print_link(unsigned int indent_lvl, TreeBits &bits, const LinkNode &link);
+        void print_variant(unsigned int indent_lvl, TreeBits &bits, const VariantNode &variant);
+        void print_test(unsigned int indent_lvl, TreeBits &bits, const TestNode &test);
     } // namespace AST
 } // namespace Debug

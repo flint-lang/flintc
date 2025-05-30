@@ -141,15 +141,15 @@ class Profiler {
         // Add the branch character for this node - single character plus a space
         if (!prefix_branches.empty()) { // Not a root node
             if (is_last) {
-                line_prefix += Debug::tree_characters.at(Debug::SINGLE) + Debug::tree_characters.at(Debug::HOR) + " ";
+                line_prefix += Debug::tree_characters.at(Debug::SINGLE) + Debug::HOR + " ";
             } else {
-                line_prefix += Debug::tree_characters.at(Debug::BRANCH) + Debug::tree_characters.at(Debug::HOR) + " ";
+                line_prefix += Debug::tree_characters.at(Debug::BRANCH) + Debug::HOR + " ";
             }
         }
 
         // Format the duration with color (optional) and arrow to task name
-        std::string formatted_duration = format_with_separator(duration.count(), '.') + " " + std::string(unit) + " " +
-            Debug::tree_characters.at(Debug::HOR) + "> " + Debug::TextFormat::BOLD_START + node->name + Debug::TextFormat::BOLD_END;
+        std::string formatted_duration = format_with_separator(duration.count(), '.') + " " + std::string(unit) + " " + Debug::HOR + "> " +
+            Debug::TextFormat::BOLD_START + node->name + Debug::TextFormat::BOLD_END;
 
         // Print node with duration
         std::cout << line_prefix << formatted_duration << "\n";
