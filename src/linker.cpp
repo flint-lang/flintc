@@ -1,16 +1,25 @@
 #include "linker/linker.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
-#include "cli_parser_base.hpp"
-#include "profiler.hpp"
 
 #include <lld/Common/Driver.h>
 #include <llvm/Object/ArchiveWriter.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <fstream>
 #include <iostream>
+
+// #define __WIN32__
+
+#ifdef __WIN32__
+#include "cli_parser_base.hpp"
+#include "colors.hpp"
+#include "profiler.hpp"
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
+
+LLD_HAS_DRIVER(coff)
 
 static const char *fetch_crt_bat_content = R"(@echo off
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0fetch_crt.ps1" %*
@@ -78,14 +87,6 @@ if (Test-Path $installer) {
     Write-Host "'vs_BuildTools.exe' has been removed."
 }
 )DELIM";
-
-// #define __WIN32__
-
-#ifdef __WIN32__
-#include "colors.hpp"
-#include <cstdlib>
-#include <sstream>
-LLD_HAS_DRIVER(coff)
 #else
 LLD_HAS_DRIVER(elf)
 #endif
@@ -146,7 +147,8 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         const auto [res, output] = CLIParserBase::get_command_output(bat_file_str.c_str());
         Profiler::end_task("Fetching crt libraries");
         if (res != 0) {
-            std::cout << RED << "Error: " << DEFAULT << "Fetching the required crt libraries failed! Command output:\n" << output << std::endl;
+            std::cout << RED << "Error: " << DEFAULT << "Fetching the required crt libraries failed! Command output:\n"
+                      << output << std::endl;
             return false;
         }
     }
@@ -178,14 +180,14 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
             if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
                 std::string lib_str(buffer);
                 if (lib_str == "%LIB%") {
-                    // We are in a power-shell
-                    #ifdef _MSC_VER
-                        _pclose(pipe);
-                        pipe = _popen("cmd /c echo $Env:LIB", "r");
-                    #else
-                        pclose(pipe);
-                        pipe = popen("cmd /c echo $Env:LIB", "r");
-                    #endif
+// We are in a power-shell
+#ifdef _MSC_VER
+                    _pclose(pipe);
+                    pipe = _popen("cmd /c echo $Env:LIB", "r");
+#else
+                    pclose(pipe);
+                    pipe = popen("cmd /c echo $Env:LIB", "r");
+#endif
                     if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
                         lib_str = std::string(buffer);
                     }
