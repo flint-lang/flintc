@@ -1,13 +1,83 @@
 #include "linker/linker.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
+#include "cli_parser_base.hpp"
+#include "profiler.hpp"
 
 #include <lld/Common/Driver.h>
 #include <llvm/Object/ArchiveWriter.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <fstream>
 #include <iostream>
+
+static const char *fetch_crt_bat_content = R"(@echo off
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0fetch_crt.ps1" %*
+)";
+
+static const char *fetch_crt_ps1_content = R"DELIM($Destination = Join-Path $Env:LocalAppData 'Flint\Cache\flintc\crt'
+$x86path = "$Env:ProgramFiles (x86)"
+
+# Ensure output folder exists
+New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+
+# Paths based on environment variables
+$vsBuildToolsRoot = Join-Path $x86path 'Microsoft Visual Studio\\2022\\BuildTools'
+$installer         = Join-Path $Destination      'vs_BuildTools.exe'
+
+# 1) Check if MSVC tools are already installed
+$msvcInstallDir = Join-Path $vsBuildToolsRoot 'VC\Tools\MSVC'
+if (Test-Path $msvcInstallDir) {
+    Write-Host "MSVC toolset already installed at $msvcInstallDir, skipping download and install."
+} else {
+    # 2) Download VS Build Tools bootstrapper if missing
+    if (-Not (Test-Path $installer)) {
+        Invoke-WebRequest \
+          -Uri 'https://aka.ms/vs/17/release/vs_BuildTools.exe' \
+          -OutFile $installer
+    }
+
+    # 3) Install only VCTools + MSVC toolset + UCRT headers & libs
+    Start-Process $installer -Wait -NoNewWindow -ArgumentList @(
+      '--quiet','--wait','--norestart','--nocache',
+      '--add','Microsoft.VisualStudio.Workload.VCTools',
+      '--add','Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
+      '--add','Microsoft.VisualStudio.Component.Windows10SDK.UCRTHeadersAndLibraries'
+    )
+}
+
+# 4) Copy the libraries we need from MSVC, UCRT and UM
+
+# MSVC import-libs folder
+$msvcLibRoot = Join-Path $vsBuildToolsRoot 'VC\Tools\MSVC'
+Get-ChildItem "$msvcLibRoot\*\lib\x64\*" `
+  -Include msvcrt.lib, vcruntime.lib, libvcruntime.lib, libcmt.lib, legacy_stdio_definitions.lib, legacy_stdio_wide_specifiers.lib, kernel32.lib `
+  -Recurse |
+  Copy-Item -Destination $Destination -Force
+
+# UCRT import-lib folder
+$ucrtLibRoot = Join-Path $x86path 'Windows Kits\10\Lib'
+Get-ChildItem "$ucrtLibRoot\*\ucrt\x64" `
+  -Include ucrt.lib `
+  -Recurse |
+  Copy-Item -Destination $Destination -Force
+
+# UM import-lib folder
+$ucrtLibRoot = Join-Path $x86path 'Windows Kits\10\Lib'
+Get-ChildItem "$ucrtLibRoot\*\um\x64" `
+  -Include kernel32.lib `
+  -Recurse |
+  Copy-Item -Destination $Destination -Force
+
+Write-Host "All .lib files have been placed in $Destination"
+
+# 5) Remove the 'vs_BuildTools.exe' file
+if (Test-Path $installer) {
+    Remove-Item $installer -Force
+    Write-Host "'vs_BuildTools.exe' has been removed."
+}
+)DELIM";
 
 // #define __WIN32__
 
@@ -39,39 +109,64 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
     args.push_back("/SUBSYSTEM:CONSOLE");
     args.push_back("/NODEFAULTLIB:msvcrt.lib");
 
+    // Get the cache path
+    std::filesystem::path cache_path = Generator::get_flintc_cache_path();
+
+    // Check if the crt path exists in the cache path, and if it exists whether all the libraries we need are present in it
+    std::filesystem::path crt_path = cache_path / "crt";
+    bool crt_libs_present = std::filesystem::exists(crt_path);
+    if (crt_libs_present) {
+        crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "kernel32.lib");
+        crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "legacy_stdio_definitions.lib");
+        crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "legacy_stdio_wide_specifiers.lib");
+        crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "libcmt.lib");
+        crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "libvcruntime.lib");
+        crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "msvcrt.lib");
+        crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "ucrt.lib");
+        crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "vcruntime.lib");
+    }
+    if (!crt_libs_present) {
+        // One or more lib is missing, call the bash script
+        if (DEBUG_MODE) {
+            std::cout << YELLOW << "[Debug Info] " << DEFAULT << "One or more crt libraries are missing" << std::endl;
+        }
+        Profiler::start_task("Fetching crt libraries");
+        std::filesystem::create_directories(crt_path);
+        std::filesystem::path bat_file = crt_path / "fetch_crt.bat";
+        if (!std::filesystem::exists(bat_file)) {
+            std::ofstream ofs(bat_file, std::ios::binary);
+            ofs << fetch_crt_bat_content;
+        }
+        std::filesystem::path ps1_file = crt_path / "fetch_crt.ps1";
+        if (!std::filesystem::exists(ps1_file)) {
+            std::ofstream ofs(ps1_file, std::ios::binary);
+            ofs << fetch_crt_ps1_content;
+        }
+        const std::string bat_file_str = bat_file.string();
+        const auto [res, output] = CLIParserBase::get_command_output(bat_file_str.c_str());
+        Profiler::end_task("Fetching crt libraries");
+        if (res != 0) {
+            std::cout << RED << "Error: " << DEFAULT << "Fetching the required crt libraries failed! Command output:\n" << output << std::endl;
+            return false;
+        }
+    }
+
     // Get the lib environment variable
     std::vector<std::string> lib_paths;
-    std::string cache_path = Generator::get_flintc_cache_path().string();
-    if (cache_path.find(' ') == std::string::npos) {
-        lib_paths.push_back("/LIBPATH:" + cache_path);
+    if (cache_path.string().find(' ') == std::string::npos) {
+        lib_paths.push_back("/LIBPATH:" + cache_path.string());
+        lib_paths.push_back("/LIBPATH:" + crt_path.string());
     } else {
         // Only add the " ... " if the path contains any spaces
-        lib_paths.push_back("/LIBPATH:\"" + cache_path + "\"");
+        lib_paths.push_back("/LIBPATH:\"" + cache_path.string() + "\"");
+        lib_paths.push_back("/LIBPATH:\"" + crt_path.string() + "\"");
     }
     const char *lib_env = std::getenv("LIB");
     std::string lib_env_str = "";
 
     if (lib_env != nullptr) {
         lib_env_str = std::string(lib_env);
-        if (DEBUG_MODE) {
-            std::cout << YELLOW << "[Debug Info] Found LIB environment variable: " << DEFAULT << lib_env_str << std::endl;
-        }
-
-        // Split by semicolons
-        std::stringstream ss(lib_env_str);
-        std::string path;
-        while (std::getline(ss, path, ';')) {
-            std::filesystem::path lib_path(path);
-            lib_path = lib_path.parent_path() / "x64";
-            if (std::filesystem::exists(lib_path)) {
-                lib_paths.push_back("/LIBPATH:\"" + lib_path.string() + "\"");
-            }
-        }
     } else {
-        if (DEBUG_MODE) {
-            std::cout << YELLOW << "[Debug Info] Lib environment variable not found, trying system call..." << DEFAULT << std::endl;
-        }
-
 // Fallback: try to get it via system call
 #ifdef _MSC_VER
         FILE *pipe = _popen("cmd /c echo %LIB%", "r");
@@ -100,19 +195,7 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
                 if (!lib_str.empty() && lib_str.back() == '\n') {
                     lib_str.pop_back();
                 }
-
-                if (DEBUG_MODE) {
-                    std::cout << YELLOW << "[Debug Info] Got LIB paths via system call: " << DEFAULT << lib_str << std::endl;
-                }
-
-                // Split by semicolons
-                std::stringstream ss(lib_str);
-                std::string path;
-                while (std::getline(ss, path, ';')) {
-                    if (!path.empty()) {
-                        lib_paths.push_back(path);
-                    }
-                }
+                lib_env_str = lib_str;
             }
 #ifdef _MSC_VER
             _pclose(pipe);
