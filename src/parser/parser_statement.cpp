@@ -1107,6 +1107,10 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         remove_leading_garbage(tokens_mut);
         assert(tokens_mut.first->type == TOK_IDENTIFIER && std::next(tokens_mut.first)->type == TOK_DOT);
         const std::string alias_base = tokens_mut.first->lexme;
+        if (aliases.find(alias_base) == aliases.end()) {
+            THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, alias_base);
+            return std::nullopt;
+        }
         tokens_mut.first += 2;
         statement_node = create_call_statement(scope, tokens_mut, alias_base);
     } else if (Matcher::tokens_contain(tokens, Matcher::function_call)) {

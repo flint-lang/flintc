@@ -464,7 +464,7 @@ class Parser {
             const std::string alias = tokens.first->lexme;
             // Check if this file even has the given alias
             if (aliases.find(alias) == aliases.end()) {
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, alias);
                 return false;
             }
             const std::string type_name = (tokens.first + 2)->lexme;
@@ -488,7 +488,10 @@ class Parser {
                         }
                     }
                     // The given type definition should have been in this file import from the alias, but it has not been found here
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(                                                                         //
+                        ErrDefNotFoundInAliasedFile, ERR_PARSING, file_name, (tokens.first + 2)->line, //
+                        (tokens.first + 2)->column, alias, path_pair.second, type_name                 //
+                    );
                     return false;
                 }
             }
