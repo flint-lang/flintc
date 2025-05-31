@@ -97,7 +97,7 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     const TestNode *test_node,                                                      //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
 ) {
-    llvm::StructType *void_type = IR::add_and_or_get_type({});
+    llvm::StructType *void_type = IR::add_and_or_get_type(Type::get_primitive_type("void"));
 
     // Create the function type
     llvm::FunctionType *test_type = llvm::FunctionType::get( //

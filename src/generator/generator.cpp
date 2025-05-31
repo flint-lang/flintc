@@ -154,7 +154,10 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     }
 
     if (DEBUG_MODE) {
-        verify_module(module);
+        if (!verify_module(module)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
     }
 
     // Run the passes to generate machine code
@@ -350,6 +353,10 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
                 }
             }
 
+            // std::cout << " -------- " << file_module.value()->getName().str() << " -------- \n"
+            //           << resolve_ir_comments(get_module_ir_string(file_module.value().get())) << "\n ---------------- \n"
+            //           << std::endl;
+
             // Link the generated module in the main module
             if (linker.linkInModule(std::move(file_module.value()))) {
                 THROW_BASIC_ERR(ERR_LINKING);
@@ -369,6 +376,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
                 llvm::Function *actual_function = module->getFunction(fn_name + "." + mangle_id_string);
                 if (actual_function == nullptr) {
                     THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
                 }
                 call->getCalledOperandUse().set(actual_function);
             }
@@ -377,6 +385,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
 
     // Finally, create the entry point of the tests _or_ check if a main function is present
     if (is_test) {
+        // Refresh the pointers to the functions
+        Builtin::refresh_c_functions(module.get());
+        Module::Arithmetic::refresh_arithmetic_functions(module.get());
         // Generate the entry point of the program when in test mode
         Builtin::generate_builtin_test(builder.get(), module.get());
     } else {
@@ -385,17 +396,22 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         if (main_function == nullptr) {
             // No main function defined
             THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
         }
         main_call_array[0]->getCalledOperandUse().set(main_function);
     }
 
+    // Verify and emit the module
+    if (!verify_module(module.get())) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+
+    // Print the module if requested
     if (DEBUG_MODE && PRINT_IR_PROGRAM) {
         std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program\n"
                   << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
     }
-
-    // Verify and emit the module
-    llvm::verifyModule(*module, &llvm::errs());
     return module;
 }
 

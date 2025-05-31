@@ -487,6 +487,41 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     }
 }
 
+bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
+    c_functions[PRINTF] = module->getFunction("printf");
+    c_functions[MALLOC] = module->getFunction("malloc");
+    c_functions[FREE] = module->getFunction("free");
+    c_functions[MEMCPY] = module->getFunction("memcpy");
+    c_functions[REALLOC] = module->getFunction("realloc");
+    c_functions[SNPRINTF] = module->getFunction("snprintf");
+    c_functions[MEMCMP] = module->getFunction("memcmp");
+    c_functions[EXIT] = module->getFunction("exit");
+    c_functions[ABORT] = module->getFunction("abort");
+    c_functions[FGETC] = module->getFunction("fgetc");
+    c_functions[MEMMOVE] = module->getFunction("memmove");
+    c_functions[STRTOL] = module->getFunction("strtol");
+    c_functions[STRTOUL] = module->getFunction("strtoul");
+    c_functions[STRTOF] = module->getFunction("strtof");
+    c_functions[STRTOD] = module->getFunction("strtod");
+    c_functions[STRLEN] = module->getFunction("strlen");
+    c_functions[FOPEN] = module->getFunction("fopen");
+    c_functions[FSEEK] = module->getFunction("fseek");
+    c_functions[FCLOSE] = module->getFunction("fclose");
+    c_functions[FTELL] = module->getFunction("ftell");
+    c_functions[FREAD] = module->getFunction("fread");
+    c_functions[REWIND] = module->getFunction("rewind");
+    c_functions[FGETS] = module->getFunction("fgets");
+    c_functions[FWRITE] = module->getFunction("fwrite");
+    c_functions[GETENV] = module->getFunction("getenv");
+    c_functions[SETENV] = module->getFunction("setenv");
+    for (auto &c_function : c_functions) {
+        if (c_function.second == nullptr) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {
     llvm::Value *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
     llvm::Value *one = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 1);
@@ -528,10 +563,10 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     builder->CreateStore(zero, counter);
 
     // Create the return struct of the test call. It only needs to be allocated once and will be reused by all test calls
-    llvm::AllocaInst *test_alloca = builder->CreateAlloca( //
-        IR::add_and_or_get_type({}),                       //
-        nullptr,                                           //
-        "test_alloca"                                      //
+    llvm::AllocaInst *test_alloca = builder->CreateAlloca(         //
+        IR::add_and_or_get_type(Type::get_primitive_type("void")), //
+        nullptr,                                                   //
+        "test_alloca"                                              //
     );
 
     // Go through all files for all tests
@@ -576,7 +611,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
                 "test_er_val"                             //
             );
 
-            // Create branching condition. Go to succeed block if the test_err_val is != 0, to the fail_block otherwise
+            // Create branching condition. Go to succeed block if the test_err_val is == 0, to the fail_block otherwise
             llvm::Value *comparison = builder->CreateICmpEQ(err_value, zero, "errcmp");
             // Branch to the succeed block or the fail block depending on the condition
             builder->CreateCondBr(comparison, succeed_block, fail_block);

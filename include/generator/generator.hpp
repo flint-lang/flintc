@@ -445,6 +445,13 @@ class Generator {
         /// @param `module` The LLVM Module the c functions will be defined in
         static void generate_c_functions(llvm::Module *module);
 
+        /// @function `refresh_c_functions`
+        /// @brief Refreshes all references to the external c functions which have already been generated in this module before
+        ///
+        /// @param `module` The LLVM Module the c functions are already defined in
+        /// @return `bool` Whether all functions were able to be refreshed
+        static bool refresh_c_functions(llvm::Module *module);
+
         /// @function `generate_builtin_test`
         /// @brief Generates the entry point of the program when compiled with the `--test` flag enabled
         ///
@@ -1605,8 +1612,18 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the arithmetic functions will be generated in (or in which the declarations are added)
             /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
-            static void generate_arithmetic_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
-                const bool only_declarations = true);
+            static void generate_arithmetic_functions( //
+                llvm::IRBuilder<> *builder,            //
+                llvm::Module *module,                  //
+                const bool only_declarations = true    //
+            );
+
+            /// @function `refresh_arithmetic_functions`
+            /// @brief Refreshes the pointers to the arithmetic functions
+            ///
+            /// @param `module` The LLVM Module the arithmetic functions should already be defined in
+            /// @return `bool` Whether all refreshs were successful
+            static bool refresh_arithmetic_functions(llvm::Module *module);
 
             /// @function `generate_int_safe_add`
             /// @brief Creates a safe addition of two int types

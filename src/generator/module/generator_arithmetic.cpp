@@ -1,8 +1,11 @@
 #include "generator/generator.hpp"
 #include "globals.hpp"
 
-void Generator::Module::Arithmetic::generate_arithmetic_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::Arithmetic::generate_arithmetic_functions( //
+    llvm::IRBuilder<> *builder,                                    //
+    llvm::Module *module,                                          //
+    const bool only_declarations                                   //
+) {
     if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
         // Generate no arithmetic functions for the unsafe mode, as they are never called in unsafe mode annyway
         return;
@@ -71,6 +74,16 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions(llvm::IRBuilde
     generate_int_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i64_type, 4, false), 4, "i64x4");
     generate_int_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i64_type, 4, false), 4, "i64x4");
     generate_int_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i64_type, 4, false), 4, "i64x4");
+}
+
+bool Generator::Module::Arithmetic::refresh_arithmetic_functions(llvm::Module *module) {
+    for (auto &arithmetic_function : arithmetic_functions) {
+        arithmetic_function.second = module->getFunction("__flint_" + arithmetic_function.first);
+        if (arithmetic_function.second == nullptr) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void Generator::Module::Arithmetic::generate_int_safe_add( //
