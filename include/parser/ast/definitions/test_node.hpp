@@ -81,6 +81,8 @@ class TestNode : public ASTNode {
     /// @return `unsigned int` The next unique test id
     static inline unsigned int get_next_test_id() {
         static unsigned int test_id = 0;
+        static std::mutex test_id_mutex;
+        std::lock_guard<std::mutex> lock(test_id_mutex);
         return test_id++;
     }
 };

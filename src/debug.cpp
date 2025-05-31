@@ -4,8 +4,10 @@
 #include "error/error_type.hpp"
 #include "globals.hpp"
 #include "lexer/lexer_utils.hpp"
+#include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/scope.hpp"
-#include "parser/parser.hpp"
+#include "parser/ast/statements/unary_op_statement.hpp"
 #include "persistent_thread_pool.hpp"
 
 bool PRINT_TOK_STREAM = true;
@@ -663,20 +665,16 @@ namespace Debug {
         }
 
         void print_catch(unsigned int indent_lvl, TreeBits &bits, const CatchNode &catch_node) {
-            std::optional<CallNodeBase *> call_node = Parser::get_call_from_id(catch_node.call_id);
-            if (!call_node.has_value()) {
-                return;
-            }
             Local::print_header(indent_lvl, bits, "Catch ");
             std::cout << "catch '";
-            std::cout << call_node.value()->function_name;
+            std::cout << catch_node.call_node->function_name;
             std::cout << "'";
             if (catch_node.var_name.has_value()) {
                 std::cout << " in '";
                 std::cout << catch_node.var_name.value();
                 std::cout << "'";
             }
-            std::cout << " [s" << catch_node.scope->scope_id << "] [c" << catch_node.call_id << "]" << std::endl;
+            std::cout << " [s" << catch_node.scope->scope_id << "] [c" << catch_node.call_node->call_id << "]" << std::endl;
 
             print_body(indent_lvl + 1, bits, catch_node.scope->body);
         }

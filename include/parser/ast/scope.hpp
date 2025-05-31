@@ -130,6 +130,8 @@ class Scope {
     /// @brief Returns the next scope id. Ensures that each scope gets its own id for the lifetime of the program
     static unsigned inline int get_next_scope_id() {
         static unsigned int scope_id = 0;
+        static std::mutex scope_id_mutex;
+        std::lock_guard<std::mutex> lock(scope_id_mutex);
         return scope_id++;
     }
 };

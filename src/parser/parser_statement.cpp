@@ -38,7 +38,7 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
         std::get<2>(call_node_args.value())                                             // type
     );
     call_node->scope_id = scope->scope_id;
-    set_last_parsed_call(call_node->call_id, call_node.get());
+    last_parsed_call = call_node.get();
     return call_node;
 }
 
@@ -433,13 +433,11 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     }
     statements.emplace_back(std::move(lhs.value()));
     // Get the last parsed call and set the 'has_catch' property of the call node
-    const unsigned int last_call_id = get_last_parsed_call_id();
-    const std::optional<CallNodeBase *> last_call = get_call_from_id(last_call_id);
-    if (!last_call.has_value()) {
+    if (!last_parsed_call.has_value()) {
         THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_name, definition);
         return std::nullopt;
     }
-    last_call.value()->has_catch = true;
+    last_parsed_call.value()->has_catch = true;
 
     const token_slice right_of_catch = {catch_id.value(), std::prev(definition.second)};
     std::optional<std::string> err_var = std::nullopt;
@@ -464,7 +462,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     }
     body_scope->body = std::move(body_statements.value());
 
-    return std::make_unique<CatchNode>(err_var, body_scope, last_call_id);
+    return std::make_unique<CatchNode>(err_var, body_scope, last_parsed_call.value());
 }
 
 std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope, const token_slice &tokens) {

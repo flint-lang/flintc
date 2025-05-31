@@ -443,7 +443,7 @@ Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &t
             std::get<2>(call_or_init_node_args.value())                                       // type
         );
         call_node->scope_id = scope->scope_id;
-        set_last_parsed_call(call_node->call_id, call_node.get());
+        last_parsed_call = call_node.get();
         return call_node;
     }
 }

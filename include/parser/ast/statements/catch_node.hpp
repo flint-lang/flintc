@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/ast/call_node_base.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 
@@ -11,10 +12,10 @@
 /// @brief Represents Catch statements
 class CatchNode : public StatementNode {
   public:
-    explicit CatchNode(std::optional<std::string> &var_name, std::unique_ptr<Scope> &scope, unsigned int call_id) :
+    explicit CatchNode(std::optional<std::string> &var_name, std::unique_ptr<Scope> &scope, CallNodeBase *call_node) :
         var_name(std::move(var_name)),
         scope(std::move(scope)),
-        call_id(call_id) {}
+        call_node(call_node) {}
 
     // constructor
     CatchNode() = default;
@@ -35,7 +36,7 @@ class CatchNode : public StatementNode {
     /// @brief The scope of the catch block
     std::unique_ptr<Scope> scope;
 
-    /// @var `call_id`
-    /// @brief The id of the call
-    unsigned int call_id{0};
+    /// @var `call_node`
+    /// @brief The call this catch belongs to
+    CallNodeBase *call_node;
 };

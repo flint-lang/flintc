@@ -54,7 +54,6 @@
 #include <atomic>
 #include <cassert>
 #include <filesystem>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -80,13 +79,6 @@ class Parser {
     /// @note This function creates a new Lexer class to tokenize the given file, so no further tokenization has to be made, this function
     /// takes care of the tokenization too
     std::optional<FileNode *> parse();
-
-    /// @function `get_call_from_id`
-    /// @brief Returns the call node from the given id
-    ///
-    /// @param `call_id` The id from which the call node will be returned
-    /// @return `std::optional<CallNodeBase *>` An optional pointer to the CallNodeBase, nullopt if no call with the given call id exists
-    static std::optional<CallNodeBase *> get_call_from_id(unsigned int call_id);
 
     /// @function `resolve_all_unknown_types`
     /// @brief Resolves all unknown types to point to real types
@@ -273,17 +265,9 @@ class Parser {
         {"bool", 0},
     };
 
-    /// @var `parsed_calls`
-    /// @brief Stores all the calls that have been parsed
-    ///
-    /// @details This map exists to keep track of all parsed call nodes. This map is not allowed to be changed to an unordered_map, because
-    /// the elements of the map are required to perserve their ordering. Most of times only the last element from this map is searched for,
-    /// this is the reason to why the ordering is important.
-    static inline std::map<unsigned int, CallNodeBase *> parsed_calls;
-
-    /// @var `parsed_calls_nodes_mutex`
-    /// @brief A mutex for the `parsed_calls` variable, which is used to provide thread-safe access to the map
-    static inline std::mutex parsed_calls_mutex;
+    /// @var `last_parsed_call`
+    /// @brief Stores a pointer to the last parsed call of this parser
+    std::optional<CallNodeBase *> last_parsed_call;
 
     /// @var `parsed_functions`
     /// @brief Stores all the functions that have been parsed
@@ -328,30 +312,6 @@ class Parser {
     /// @var `file_name`
     /// @brief The name of the file to be parsed
     const std::string file_name;
-
-    /// @function `set_last_parsed_call`
-    /// @brief Sets the last parsed call
-    ///
-    /// @param `call_id` The call ID of the CallNode to add
-    /// @param `call` The pointer to the base of the CallNode to add
-    static inline void set_last_parsed_call(unsigned int call_id, CallNodeBase *call) {
-        // The mutex will unlock by itself when it goes out of scope
-        std::lock_guard<std::mutex> lock(parsed_calls_mutex);
-        parsed_calls.emplace(call_id, call);
-    }
-
-    /// @function `get_last_parsed_call_id`
-    /// @brief Returns the ID of the last parsed call
-    ///
-    /// @return The ID of the last parsed call
-    ///
-    /// @attention Asserts that the call_nodes map contains at least one element
-    static inline unsigned int get_last_parsed_call_id() {
-        // The mutex will unlock by itself when it goes out of scope
-        std::lock_guard<std::mutex> lock(parsed_calls_mutex);
-        assert(!parsed_calls.empty());
-        return parsed_calls.rbegin()->first;
-    }
 
     /// @function `add_parsed_function`
     /// @brief Adds a given function combined with the file it is contained in

@@ -45,6 +45,8 @@ class GroupExpressionNode : public ExpressionNode {
     /// @brief Returns the next group id. Ensures that each group gets its own id for the lifetime of the program
     static inline unsigned int get_next_group_id() {
         static unsigned int group_id = 0;
+        static std::mutex group_id_mutex;
+        std::lock_guard<std::mutex> lock(group_id_mutex);
         return group_id++;
     }
 };

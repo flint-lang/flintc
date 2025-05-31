@@ -69,6 +69,8 @@ class CallNodeBase {
     /// @return `unsigned int` The next unique call id
     static inline unsigned int get_next_call_id() {
         static unsigned int call_id = 0;
+        static std::mutex call_id_mutex;
+        std::lock_guard<std::mutex> lock(call_id_mutex);
         return call_id++;
     }
 };

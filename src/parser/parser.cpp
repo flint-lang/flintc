@@ -12,7 +12,6 @@
 #include <cassert>
 #include <filesystem>
 #include <iterator>
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -46,15 +45,6 @@ std::optional<FileNode *> Parser::parse() {
         return std::nullopt;
     }
     return file_node_ptr.get();
-}
-
-std::optional<CallNodeBase *> Parser::get_call_from_id(unsigned int call_id) {
-    // The mutex will unlock by itself when it goes out of scope
-    std::lock_guard<std::mutex> lock(parsed_calls_mutex);
-    if (parsed_calls.find(call_id) != parsed_calls.end()) {
-        return parsed_calls.at(call_id);
-    }
-    return std::nullopt;
 }
 
 bool Parser::resolve_all_unknown_types() {
