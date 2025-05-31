@@ -205,7 +205,7 @@ build_llvm() {
 
 fetch_json_mini() {
     if [ ! -d "$root/vendor/json-mini" ]; then
-        echo "-- Fetching json-mini from GtiHub..."
+        echo "-- Fetching json-mini from GitHub..."
         cd "$root/vendor"
         git clone "https://github.com/flint-lang/json-mini.git"
         cd "$root"
@@ -399,12 +399,8 @@ force_rebuild_llvm=false
 run_tests=false
 debug_mode=false
 llvm_version="llvmorg-19.1.7"
-if [ "$(which bc)" != "" ]; then
-    # Dont fully peg the CPU, only use half its cores, this is stil plenty fast
-    core_count="$(echo "$(nproc)/2" | bc)"
-else
-    core_count="$(nproc)"
-fi
+# Dont fully peg the CPU, use one core less
+core_count="$(($(nproc) - 1))"
 verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=OFF"
 
 # Parse all CLI arguments
