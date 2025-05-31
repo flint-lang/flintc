@@ -52,15 +52,7 @@ class FileNode : public ASTNode {
         if (std::holds_alternative<std::vector<std::string>>(added_import->path)) {
             const std::vector<std::string> &import_vec = std::get<std::vector<std::string>>(added_import->path);
             if (import_vec.size() == 2 && import_vec.front() == "Core") {
-                // Check for imported core modules
-                const std::string &module_str = import_vec.back();
-                if (module_str == "print" || module_str == "read" || module_str == "assert" || module_str == "filesystem" ||
-                    module_str == "env") {
-                    imported_core_modules.emplace(module_str, added_import);
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
+                imported_core_modules.emplace(import_vec.back(), added_import);
             }
         }
         return added_import;

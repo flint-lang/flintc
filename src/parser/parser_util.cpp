@@ -48,6 +48,19 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
+        if (std::holds_alternative<std::vector<std::string>>(import_node.value().path)) {
+            const std::vector<std::string> &import_vec = std::get<std::vector<std::string>>(import_node.value().path);
+            if (import_vec.size() == 2 && import_vec.front() == "Core") {
+                // Check for imported core modules
+                const std::string &module_str = import_vec.back();
+                if (module_str != "print" && module_str != "read" && module_str != "assert" && module_str != "filesystem" &&
+                    module_str != "env") {
+                    const auto &tok = definition_tokens.first + 3;
+                    THROW_ERR(ErrDefUnexpectedCoreModule, ERR_PARSING, file_name, tok->line, tok->column, module_str);
+                    return false;
+                }
+            }
+        }
         std::optional<ImportNode *> added_import = file_node.add_import(import_node.value());
         if (!added_import.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
