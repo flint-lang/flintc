@@ -7,7 +7,6 @@
 
 #include <sstream>
 #include <string>
-#include <variant>
 
 /// @class `BaseError`
 /// @brief The base class which represents all possible error types in flint
@@ -60,13 +59,6 @@ class BaseError {
     /// @param `tokens` The token stream to get the string from
     /// @return `std::string` The string representation of the given token stream
     [[nodiscard]] std::string get_token_string(const std::vector<Token> &tokens) const;
-
-    /// @function `get_type_string`
-    /// @brief Returns the string representation of a given type (group)
-    ///
-    /// @param `type` The type to get the string from
-    /// @return `str::string` The string representation of the type
-    [[nodiscard]] std::string get_type_string(const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &type) const;
 
     /// @function `get_token_string`
     /// @brief Returns the string representation of a given list of tokens, and tries to format it correctly too

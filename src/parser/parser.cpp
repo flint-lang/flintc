@@ -191,14 +191,6 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
     return result;
 }
 
-std::string Parser::get_type_string(const token_list &tokens) {
-    std::stringstream stream;
-    for (const auto &tok : tokens) {
-        stream << tok.lexme;
-    }
-    return stream.str();
-}
-
 std::optional<std::tuple<std::string, overloads, std::optional<std::string>>> Parser::get_builtin_function( //
     const std::string &function_name,                                                                       //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules                         //

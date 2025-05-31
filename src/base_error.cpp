@@ -33,23 +33,6 @@ std::string BaseError::get_token_string(const std::vector<Token> &tokens) const 
     return oss.str();
 }
 
-std::string BaseError::get_type_string(const std::variant<std::shared_ptr<Type>, std::vector<std::shared_ptr<Type>>> &type) const {
-    if (std::holds_alternative<std::shared_ptr<Type>>(type)) {
-        return std::get<std::shared_ptr<Type>>(type)->to_string();
-    } else {
-        std::string type_str = "(";
-        const std::vector<std::shared_ptr<Type>> &types = std::get<std::vector<std::shared_ptr<Type>>>(type);
-        for (auto it = types.begin(); it != types.end(); ++it) {
-            if (it != types.begin()) {
-                type_str += ", ";
-            }
-            type_str += (*it)->to_string();
-        }
-        type_str += ")";
-        return type_str;
-    }
-}
-
 [[nodiscard]] std::string BaseError::get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens) const {
     std::stringstream token_str;
     for (auto it = tokens.first; it != tokens.second; it++) {
