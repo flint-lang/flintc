@@ -367,7 +367,7 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
 
     // Handle INT32_MIN special case
     builder->SetInsertPoint(min_value_block);
-    llvm::Value *min_str_ptr = builder->CreateGlobalStringPtr("-2147483648", "min_str");
+    llvm::Value *min_str_ptr = IR::generate_const_string(*builder, "-2147483648");
     llvm::Value *min_result = builder->CreateCall(init_str_fn, {min_str_ptr, builder->getInt64(11)}, "min_result");
     builder->CreateRet(min_result);
 
@@ -739,7 +739,7 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
 
     // Handle INT32_MIN special case
     builder->SetInsertPoint(min_value_block);
-    llvm::Value *min_str_ptr = builder->CreateGlobalStringPtr("-9223372036854775808", "min_str");
+    llvm::Value *min_str_ptr = IR::generate_const_string(*builder, "-9223372036854775808");
     llvm::Value *min_result = builder->CreateCall(init_str_fn, {min_str_ptr, builder->getInt64(21)}, "min_result");
     builder->CreateRet(min_result);
 

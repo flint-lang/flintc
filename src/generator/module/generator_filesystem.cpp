@@ -97,7 +97,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
 
     // Create "rb" string constant
-    llvm::Value *mode_str = builder->CreateGlobalStringPtr("rb", "rb_mode");
+    llvm::Value *mode_str = IR::generate_const_string(*builder, "rb");
 
     // Open file: file = fopen(c_path, "rb")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
@@ -370,7 +370,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
 
     // Create "r" string constant for fopen mode
-    llvm::Value *mode_str = builder->CreateGlobalStringPtr("r", "r_mode");
+    llvm::Value *mode_str = IR::generate_const_string(*builder, "r");
 
     // Open file: file = fopen(c_path, "r")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
@@ -762,7 +762,7 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
     llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
 
     // Create "r" string constant for fopen mode
-    llvm::Value *mode_str = builder->CreateGlobalStringPtr("r", "r_mode");
+    llvm::Value *mode_str = IR::generate_const_string(*builder, "r");
 
     // Open file: file = fopen(c_path, "r")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
@@ -843,7 +843,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
 
     // Create "wb" string constant for fopen mode
-    llvm::Value *mode_str = builder->CreateGlobalStringPtr("wb", "wb_mode");
+    llvm::Value *mode_str = IR::generate_const_string(*builder, "wb");
 
     // Open file: file = fopen(c_path, "wb")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
@@ -965,7 +965,7 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
 
     // Create "ab" string constant for fopen mode (append binary)
-    llvm::Value *mode_str = builder->CreateGlobalStringPtr("ab", "ab_mode");
+    llvm::Value *mode_str = IR::generate_const_string(*builder, "ab");
 
     // Open file: file = fopen(c_path, "ab")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
@@ -1090,7 +1090,7 @@ void Generator::Module::FileSystem::generate_is_file_function( //
     llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
 
     // Create "rb" string constant for fopen mode (read binary)
-    llvm::Value *mode_str = builder->CreateGlobalStringPtr("rb", "rb_mode");
+    llvm::Value *mode_str = IR::generate_const_string(*builder, "rb");
 
     // Open file: file = fopen(c_path, "rb")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
