@@ -13,7 +13,7 @@ class ErrDefErrOnlyOneParent : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "error set can only extend a single other error set: " << YELLOW << get_token_string(tokens, {})
+        oss << BaseError::to_string() << "Error sets can only extend a single other error set: " << YELLOW << get_token_string(tokens, {})
             << DEFAULT;
         return oss.str();
     }

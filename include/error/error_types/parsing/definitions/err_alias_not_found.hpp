@@ -13,7 +13,7 @@ class ErrAliasNotFound : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "the alias '" << YELLOW << alias << DEFAULT << "' was not defined in this file";
+        oss << BaseError::to_string() << "The alias '" << YELLOW << alias << DEFAULT << "' was not defined in this file";
         return oss.str();
     }
 

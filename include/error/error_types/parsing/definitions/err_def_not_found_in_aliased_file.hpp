@@ -15,7 +15,7 @@ class ErrDefNotFoundInAliasedFile : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "the definition '" << YELLOW << definition << DEFAULT
+        oss << BaseError::to_string() << "The definition '" << YELLOW << definition << DEFAULT
             << "' could not be found from the aliased file \"" << YELLOW << aliased_file_name << "\" as " << alias << DEFAULT;
         return oss.str();
     }
