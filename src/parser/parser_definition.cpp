@@ -553,6 +553,11 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     // Create the body scope
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>();
 
+    // Check if this test already exists within this file
+    if (!TestNode::check_test_name(file_name, test_name)) {
+        return std::nullopt;
+    }
+
     // Dont parse the body yet, it will be parsed as part of the second pass of the parser
     return TestNode(file_name, test_name, body_scope);
 }

@@ -5,7 +5,8 @@ xml2/xml2
 build
 vendor
 main
-test
+.flintc
+/test
 output.ll
 output.bc
 ft_test

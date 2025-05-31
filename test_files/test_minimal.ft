@@ -1,12 +1,14 @@
 use Core.print
 use Core.assert
-use Core.something
 
 test "assert(false)":
     assert(false);
 
 test "assert(true)":
     assert(true);
+
+test "assert(false)":
+    assert(false);
 
 def main():
     str my_string = "Hello, World!\n";
