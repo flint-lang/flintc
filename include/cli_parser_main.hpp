@@ -61,6 +61,8 @@ class CLIParserMain : public CLIParserBase {
                 if (out_file_path == "main") {
                     out_file_path = "test";
                 }
+            } else if (arg == "--version") {
+                print_version = true;
             } else if (arg == "--run") {
                 run = true;
             } else if (arg == "--parallel") {
@@ -139,7 +141,7 @@ class CLIParserMain : public CLIParserBase {
                 return 1;
             }
         }
-        if (source_file_path.empty()) {
+        if (source_file_path.empty() && !print_version) {
             print_err("There is no file to compile!");
             return 1;
         }
@@ -156,6 +158,7 @@ class CLIParserMain : public CLIParserBase {
     bool test{false};
     bool parallel{false};
     bool is_static{false};
+    bool print_version{false};
 
   private:
     void print_help() override {
@@ -165,6 +168,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --help, -h                  Show help\n";
         std::cout << "  --file, -f <file>           The file to compile\n";
         std::cout << "  --out, -o <file>            The name and path of the built output file\n";
+        std::cout << "  --version                   Print the version of the compiler\n";
         // If the --test flag is set, the compiler will output a test binary. The default name "main" is overwritten to "test" in that case
         std::cout << "  --test                      Output a test binary instad of the normal binary\n";
         // If the --run flag is set, the compiler will output the built binary into the .flintc directory.

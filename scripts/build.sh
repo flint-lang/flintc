@@ -243,9 +243,11 @@ setup_build_windows() {
     fi
 
     mkdir -p "$build_dir"
+    COMMIT_HASH="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
     cmake -S "$root" -B "$build_dir" \
         -DCMAKE_TOOLCHAIN_FILE="$root/cmake/toolchain-mingw64.cmake" \
         -DLLVM_LIB_PATH="$llvm_lib_path" \
+        -DCOMMIT_HASH="\"$COMMIT_HASH\"" \
         "$static_flag" \
         "$debug_flag" \
         "$verbosity_flag"
@@ -276,9 +278,11 @@ setup_build_linux() {
     fi
 
     mkdir -p "$build_dir"
+    COMMIT_HASH="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
     cmake -S "$root" -B "$build_dir" \
         -DCMAKE_TOOLCHAIN_FILE="$root/cmake/toolchain-linux.cmake" \
         -DLLVM_LIB_PATH="$llvm_lib_path" \
+        -DCOMMIT_HASH="$COMMIT_HASH" \
         "$static_flag" \
         "$debug_flag" \
         "$verbosity_flag"

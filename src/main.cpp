@@ -193,7 +193,7 @@ void compile_program(const std::filesystem::path &binary_file, llvm::Module *mod
 }
 
 int main(int argc, char *argv[]) {
-    Profiler::start_task("ALL");
+    // Parse all the cli arguments
     CLIParserMain clp(argc, argv);
     int result = clp.parse();
     if (result != 0) {
@@ -204,6 +204,17 @@ int main(int argc, char *argv[]) {
     SetConsoleOutputCP(CP_UTF8);
 #endif
 
+    // Print the version if requested
+    if (clp.print_version) {
+        std::cout << "flintc " << VERSION << "-" << MAJOR << "." << MINOR << " (commit " << COMMIT_HASH << ")";
+        if (DEBUG_MODE) {
+            std::cout << " [debug]";
+        }
+        std::cout << std::endl;
+        return 0;
+    }
+
+    Profiler::start_task("ALL");
     auto program = generate_program(clp.source_file_path, clp.test, clp.parallel);
     if (!program.has_value()) {
         return 1;

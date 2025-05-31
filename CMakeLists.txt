@@ -34,6 +34,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+# Add the Commit hash definition
+add_compile_definitions(
+    COMMIT_HASH="${COMMIT_HASH}"
+)
+
 # Platform-specific settings
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     message(STATUS "Compiling for Windows target")
