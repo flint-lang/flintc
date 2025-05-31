@@ -206,7 +206,8 @@ int main(int argc, char *argv[]) {
 
     // Print the version if requested
     if (clp.print_version) {
-        std::cout << "flintc " << VERSION << "-" << MAJOR << "." << MINOR << " (commit " << COMMIT_HASH << ")";
+        std::cout << "flintc " << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION << " (" << COMMIT_HASH << ", " << BUILD_DATE
+                  << ")";
         if (DEBUG_MODE) {
             std::cout << " [debug]";
         }

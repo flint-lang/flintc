@@ -244,10 +244,12 @@ setup_build_windows() {
 
     mkdir -p "$build_dir"
     COMMIT_HASH="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    BUILD_DATE="$(date +%Y-%m-%d)"
     cmake -S "$root" -B "$build_dir" \
         -DCMAKE_TOOLCHAIN_FILE="$root/cmake/toolchain-mingw64.cmake" \
         -DLLVM_LIB_PATH="$llvm_lib_path" \
-        -DCOMMIT_HASH="\"$COMMIT_HASH\"" \
+        -DCOMMIT_HASH="$COMMIT_HASH" \
+        -DBUILD_DATE="$BUILD_DATE" \
         "$static_flag" \
         "$debug_flag" \
         "$verbosity_flag"
@@ -279,10 +281,12 @@ setup_build_linux() {
 
     mkdir -p "$build_dir"
     COMMIT_HASH="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    BUILD_DATE="$(date +%Y-%m-%d)"
     cmake -S "$root" -B "$build_dir" \
         -DCMAKE_TOOLCHAIN_FILE="$root/cmake/toolchain-linux.cmake" \
         -DLLVM_LIB_PATH="$llvm_lib_path" \
         -DCOMMIT_HASH="$COMMIT_HASH" \
+        -DBUILD_DATE="$BUILD_DATE" \
         "$static_flag" \
         "$debug_flag" \
         "$verbosity_flag"

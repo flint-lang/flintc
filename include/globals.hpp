@@ -6,16 +6,20 @@ constexpr inline bool DEBUG_MODE = true;
 constexpr inline bool DEBUG_MODE = false;
 #endif
 
-#ifndef VERSION
-#define VERSION "Core"
-#endif
-
 #ifndef MAJOR
 #define MAJOR "0"
 #endif
 
 #ifndef MINOR
 #define MINOR "1"
+#endif
+
+#ifndef PATCH
+#define PATCH "0"
+#endif
+
+#ifndef VERSION
+#define VERSION "core"
 #endif
 
 extern bool PRINT_TOK_STREAM;
