@@ -1,6 +1,5 @@
 #pragma once
 
-#include "error/error.hpp"
 #include "expression_node.hpp"
 #include "parser/type/group_type.hpp"
 
@@ -15,11 +14,6 @@ class GroupExpressionNode : public ExpressionNode {
         expressions(std::move(expressions)) {
         std::vector<std::shared_ptr<Type>> types;
         for (auto it = this->expressions.begin(); it != this->expressions.end(); ++it) {
-            if (dynamic_cast<const GroupType *>((*it)->type.get())) {
-                // Nested groups are not allowed
-                THROW_BASIC_ERR(ERR_PARSING);
-                return;
-            }
             types.emplace_back((*it)->type);
         }
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(types);

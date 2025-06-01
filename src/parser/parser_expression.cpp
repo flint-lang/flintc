@@ -570,6 +570,13 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
             return std::nullopt;
         }
     }
+    for (auto it = expressions.begin(); it != expressions.end(); ++it) {
+        if (dynamic_cast<const GroupType *>((*it)->type.get())) {
+            // Nested groups are not allowed
+            THROW_ERR(ErrExprNestedGroup, ERR_PARSING, file_name, tokens);
+            return std::nullopt;
+        }
+    }
     return GroupExpressionNode(expressions);
 }
 

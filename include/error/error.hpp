@@ -43,6 +43,7 @@
 #include "error_types/parsing/expressions/err_expr_call_wrong_args_builtin.hpp"
 #include "error_types/parsing/expressions/err_expr_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_lit_creation_failed.hpp"
+#include "error_types/parsing/expressions/err_expr_nested_group.hpp"
 #include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_unop_creation_failed.hpp"
 #include "error_types/parsing/expressions/err_expr_variable_creation_failed.hpp"
