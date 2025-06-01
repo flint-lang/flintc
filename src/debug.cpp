@@ -228,8 +228,7 @@ namespace Debug {
                 } else if (const auto *test_node = dynamic_cast<const TestNode *>(node.get())) {
                     print_test(0, bits, *test_node);
                 } else {
-                    THROW_BASIC_ERR(ERR_DEBUG);
-                    return;
+                    assert(false);
                 }
             }
             std::cout << std::endl;
@@ -535,8 +534,7 @@ namespace Debug {
             } else if (const auto *default_node = dynamic_cast<const DefaultNode *>(expr.get())) {
                 print_default(indent_lvl, bits, *default_node);
             } else {
-                THROW_BASIC_ERR(ERR_DEBUG);
-                return;
+                assert(false);
             }
         }
 
@@ -889,8 +887,7 @@ namespace Debug {
             } else if (const auto *stacked_assignment = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
                 print_stacked_assignment(indent_lvl, bits, *stacked_assignment);
             } else {
-                THROW_BASIC_ERR(ERR_DEBUG);
-                return;
+                assert(false);
             }
         }
 
