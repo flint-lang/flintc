@@ -7,18 +7,17 @@
 // All error types are included here to make using the error header file easier
 #include "error_types/base_error.hpp"
 
-#include "error_types/lexing/err_lexing.hpp"
-
+// --- LEXING ERRORS ---
 #include "error_types/lexing/comments/err_comment_unterm_multiline.hpp"
-
+#include "error_types/lexing/identifiers/err_invalid_identifier.hpp"
 #include "error_types/lexing/literals/err_lit_char_longer_than_single_character.hpp"
 #include "error_types/lexing/literals/err_lit_expected_char_value.hpp"
 #include "error_types/lexing/literals/err_lit_unterminated_string.hpp"
-
 #include "error_types/lexing/unexpected/err_unexpected_token.hpp"
 #include "error_types/lexing/unexpected/err_unexpected_token_number.hpp"
 #include "error_types/lexing/unexpected/err_unexpected_token_pipe.hpp"
 
+// --- PARSING ERRORS ---
 #include "error_types/parsing/definitions/data/err_def_data_creation.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_redefinition.hpp"

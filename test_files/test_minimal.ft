@@ -1,4 +1,8 @@
 use Core.print
 
+def _function():
+    print("Hello there!\n");
+
 def main():
-    data<data<i32, f32>, str> something = ((1, 3.3), "str");
+    i32 __flint_identifier = 3;
+    _function();

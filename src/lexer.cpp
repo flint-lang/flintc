@@ -147,7 +147,9 @@ bool Lexer::scan_token() {
             break;
         case '_':
             if (is_alpha_num(peek_next())) {
-                str();
+                if (!identifier()) {
+                    return false;
+                }
             } else {
                 add_token(TOK_UNDERSCORE);
             }
@@ -293,7 +295,7 @@ bool Lexer::identifier() {
     std::string identifier = source.substr(start, current - start + 1);
     // Check if the name starts with __flint_ as these names are not permitted for user-defined functions
     if (identifier.length() > 8 && identifier.substr(0, 8) == "__flint_") {
-        THROW_BASIC_ERR(ERR_LEXING);
+        THROW_ERR(ErrInvalidIdentifier, ERR_LEXING, file, line, column, identifier);
         return false;
     }
     Token type = (keywords.count(identifier) > 0) ? keywords.at(identifier) : TOK_IDENTIFIER;

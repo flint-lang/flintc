@@ -88,7 +88,7 @@ class Lexer {
     ///
     /// @param `file_path` The file path to check
     /// @return `bool` Whether the file exists and is readable
-    static bool file_exists_and_is_readable(const std::filesystem::path &file_path);
+    [[nodiscard]] static bool file_exists_and_is_readable(const std::filesystem::path &file_path);
 
     /// @function `load_file`
     /// @brief Loads a given file from a file path and returns the files content
@@ -101,13 +101,13 @@ class Lexer {
     /// @brief Scans the current character and creates tokens depending on the current character
     ///
     /// @return `bool` Whether scanning for the next token was successful
-    bool scan_token();
+    [[nodiscard]] bool scan_token();
 
     /// @function `identifier`
     /// @brief Lexes an identifier
     ///
     /// @return `bool` Whether lexing the identifier failed (When it started with __flint_)
-    bool identifier();
+    [[nodiscard]] bool identifier();
 
     /// @function `number`
     /// @brief Lexes a number
@@ -121,47 +121,47 @@ class Lexer {
     /// @brief Peeks at the current character whithout advancing the current index
     ///
     /// @return `char` The character we are currently at
-    char peek();
+    [[nodiscard]] char peek();
 
     /// @function `peek_next`
     /// @brief Peeks at the next character without advancing the current index
     ///
     /// @return `char` The next character
-    char peek_next();
+    [[nodiscard]] char peek_next();
 
     /// @function `match`
     /// @brief Checks if the next character aligns with the expected character
     ///
     /// @param `expected` The expected character
     /// @return `bool` Whether the next character matches the expected character
-    bool match(char expected);
+    [[nodiscard]] bool match(char expected);
 
     /// @function `is_alpha`
     /// @brief Determines whether the given character is allowed to be used in identifiers('[a-zA-Z_]')
     ///
     /// @param `c` The character to check
     /// @return `bool` Whether the given character is alpha
-    static bool is_alpha(char c);
+    [[nodiscard]] static bool is_alpha(char c);
 
     /// @function `is_digit`
     /// @brief Determines whther the given character is a digit
     ///
     /// @param `c` The character to check
     /// @return `bool` Whether the character is a digit
-    static inline bool is_digit(char c);
+    [[nodiscard]] static inline bool is_digit(char c);
 
     /// @function `is_alpha_num`
     /// @brief Determines whether the given character is alpha or a number
     ///
     /// @param `c` The character to check
     /// @return `bool` Whetehr the given character is alpha or a number
-    static inline bool is_alpha_num(char c);
+    [[nodiscard]] static inline bool is_alpha_num(char c);
 
     /// @function `is_at_end`
     /// @brief Determines whether the scanner has reached the end of the file string
     ///
     /// @return `bool` Determines whether the scanner has reached the end of the file string
-    bool is_at_end();
+    [[nodiscard]] bool is_at_end();
 
     /// @function `advance`
     /// @brief Returns the next character while also incrementing the index counter for the current character
