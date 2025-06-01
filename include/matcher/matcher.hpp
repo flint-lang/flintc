@@ -591,8 +591,8 @@ class Matcher {
     // --- UNTILS ---
     static const inline PatternPtr until_right_paren = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1);
     static const inline PatternPtr until_right_bracket =
-        balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_PAREN), 1);
-    static const inline PatternPtr until_comma = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_COMMA), token(TOK_RIGHT_PAREN), 1);
+        balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_PAREN), 0);
+    static const inline PatternPtr until_comma = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_COMMA), token(TOK_RIGHT_PAREN), 0);
     static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
     static const inline PatternPtr until_semicolon = match_until(token(TOK_SEMICOLON));
     static const inline PatternPtr until_colon_equal = match_until(token(TOK_COLON_EQUAL));

@@ -557,7 +557,7 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
+            token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second - 1};
             tokens_mut.first += expr_range.value().second;
             auto expr = create_expression(scope, expr_tokens);
             if (!expr.has_value()) {

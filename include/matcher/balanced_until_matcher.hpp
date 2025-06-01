@@ -51,10 +51,13 @@ class BalancedUntilMatcher : public TokenPatternMatcher {
 
             result = until_pattern->match(tokens, pos);
             if (result.has_value()) {
-                if (depth > 1) {
-                    return std::nullopt;
+                // Only return the match if we're at the correct depth
+                if (depth == 0) {
+                    return result;
                 }
-                return result;
+                // Otherwise, just move past the token and continue matching
+                pos = *result;
+                continue;
             }
             pos++;
         }
