@@ -202,23 +202,29 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            tokens_mut.second--;
             // Now get all sub-types balancedly
             std::vector<std::shared_ptr<Type>> subtypes;
-            int depth = 0;
+            int depth = 1;
             auto type_start = tokens_mut.first;
             while (tokens_mut.first != tokens_mut.second) {
                 if (tokens_mut.first->type == TOK_LESS || tokens_mut.first->type == TOK_LEFT_BRACKET) {
                     depth++;
                     tokens_mut.first++;
-                } else if (std::next(tokens_mut.first)->type == TOK_GREATER || std::next(tokens_mut.first)->type == TOK_RIGHT_BRACKET) {
+                } else if (tokens_mut.first->type == TOK_GREATER || tokens_mut.first->type == TOK_RIGHT_BRACKET) {
                     depth--;
                     tokens_mut.first++;
                     if (depth < 0 && tokens_mut.first != tokens_mut.second) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    if (depth <= 0) {
+                    if (depth == 0) {
+                        auto type_result = get_type({type_start, tokens_mut.first - 1}, mutex_already_locked);
+                        if (!type_result.has_value()) {
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        subtypes.emplace_back(type_result.value());
+                    } else if (depth == 1) {
                         auto type_result = get_type({type_start, tokens_mut.first}, mutex_already_locked);
                         if (!type_result.has_value()) {
                             THROW_BASIC_ERR(ERR_PARSING);
@@ -226,7 +232,7 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
                         }
                         subtypes.emplace_back(type_result.value());
                     }
-                } else if (depth == 0 && tokens_mut.first->type == TOK_COMMA) {
+                } else if (depth == 1 && tokens_mut.first->type == TOK_COMMA) {
                     auto type_result = get_type({type_start, tokens_mut.first}, mutex_already_locked);
                     if (!type_result.has_value()) {
                         THROW_BASIC_ERR(ERR_PARSING);
