@@ -152,10 +152,10 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             assert(false);
             break;
         case TOK_PLUS:
-            if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(std::get<int>(lhs->value) + std::get<int>(rhs->value), lhs->type, true);
-            } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(std::get<float>(lhs->value) + std::get<float>(rhs->value), lhs->type, true);
+            if (std::holds_alternative<long>(lhs->value)) {
+                return std::make_unique<LiteralNode>(std::get<long>(lhs->value) + std::get<long>(rhs->value), lhs->type, true);
+            } else if (std::holds_alternative<double>(lhs->value)) {
+                return std::make_unique<LiteralNode>(std::get<double>(lhs->value) + std::get<double>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<std::string>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                                                      //
                     std::get<std::string>(lhs->value) + std::get<std::string>(rhs->value), lhs->type, true //
@@ -165,39 +165,39 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             }
             break;
         case TOK_MINUS:
-            if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(std::get<int>(lhs->value) - std::get<int>(rhs->value), lhs->type, true);
-            } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(std::get<float>(lhs->value) - std::get<float>(rhs->value), lhs->type, true);
+            if (std::holds_alternative<long>(lhs->value)) {
+                return std::make_unique<LiteralNode>(std::get<long>(lhs->value) - std::get<long>(rhs->value), lhs->type, true);
+            } else if (std::holds_alternative<double>(lhs->value)) {
+                return std::make_unique<LiteralNode>(std::get<double>(lhs->value) - std::get<double>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<char>(lhs->value)) {
                 return std::make_unique<LiteralNode>(std::get<char>(lhs->value) - std::get<char>(rhs->value), lhs->type, true);
             }
             break;
         case TOK_MULT:
-            if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(std::get<int>(lhs->value) * std::get<int>(rhs->value), lhs->type, true);
-            } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(std::get<float>(lhs->value) * std::get<float>(rhs->value), lhs->type, true);
+            if (std::holds_alternative<long>(lhs->value)) {
+                return std::make_unique<LiteralNode>(std::get<long>(lhs->value) * std::get<long>(rhs->value), lhs->type, true);
+            } else if (std::holds_alternative<double>(lhs->value)) {
+                return std::make_unique<LiteralNode>(std::get<double>(lhs->value) * std::get<double>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<char>(lhs->value)) {
                 return std::make_unique<LiteralNode>(std::get<char>(lhs->value) * std::get<char>(rhs->value), lhs->type, true);
             }
             break;
         case TOK_DIV:
-            if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(std::get<int>(lhs->value) / std::get<int>(rhs->value), lhs->type, true);
-            } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(std::get<float>(lhs->value) / std::get<float>(rhs->value), lhs->type, true);
+            if (std::holds_alternative<long>(lhs->value)) {
+                return std::make_unique<LiteralNode>(std::get<long>(lhs->value) / std::get<long>(rhs->value), lhs->type, true);
+            } else if (std::holds_alternative<double>(lhs->value)) {
+                return std::make_unique<LiteralNode>(std::get<double>(lhs->value) / std::get<double>(rhs->value), lhs->type, true);
             } else if (std::holds_alternative<char>(lhs->value)) {
                 return std::make_unique<LiteralNode>(std::get<char>(lhs->value) / std::get<char>(rhs->value), lhs->type, true);
             }
             break;
         case TOK_POW:
-            if (std::holds_alternative<int>(lhs->value)) {
-                return std::make_unique<LiteralNode>(static_cast<int>(std::pow(std::get<int>(lhs->value), std::get<int>(rhs->value))),
+            if (std::holds_alternative<long>(lhs->value)) {
+                return std::make_unique<LiteralNode>(static_cast<long>(std::pow(std::get<long>(lhs->value), std::get<long>(rhs->value))),
                     lhs->type, true);
-            } else if (std::holds_alternative<float>(lhs->value)) {
-                return std::make_unique<LiteralNode>(                                                                       //
-                    static_cast<float>(std::pow(std::get<float>(lhs->value), std::get<float>(rhs->value))), lhs->type, true //
+            } else if (std::holds_alternative<double>(lhs->value)) {
+                return std::make_unique<LiteralNode>(                                                                          //
+                    static_cast<double>(std::pow(std::get<double>(lhs->value), std::get<double>(rhs->value))), lhs->type, true //
                 );
             } else if (std::holds_alternative<char>(lhs->value)) {
                 return std::make_unique<LiteralNode>(                                                                    //
@@ -283,25 +283,26 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 break;
             case TOK_INT_VALUE: {
                 if (front_token == TOK_MINUS) {
-                    std::variant<int, float, std::string, bool, char> value = std::stoi(tok->lexme) * -1;
+                    std::variant<unsigned long, long, double, std::string, bool, char> value = std::stol(tok->lexme) * -1;
                     return LiteralNode(value, Type::get_primitive_type("i32"));
                 } else {
-                    std::variant<int, float, std::string, bool, char> value = std::stoi(tok->lexme);
-                    return LiteralNode(value, Type::get_primitive_type("i32"));
+                    std::variant<unsigned long, long, double, std::string, bool, char> value =
+                        static_cast<unsigned long>(std::stol(tok->lexme));
+                    return LiteralNode(value, Type::get_primitive_type("u32"));
                 }
             }
             case TOK_FLINT_VALUE: {
                 if (front_token == TOK_MINUS) {
-                    std::variant<int, float, std::string, bool, char> value = std::stof(tok->lexme) * -1;
+                    std::variant<unsigned long, long, double, std::string, bool, char> value = std::stof(tok->lexme) * -1;
                     return LiteralNode(value, Type::get_primitive_type("f32"));
                 } else {
-                    std::variant<int, float, std::string, bool, char> value = std::stof(tok->lexme);
+                    std::variant<unsigned long, long, double, std::string, bool, char> value = std::stof(tok->lexme);
                     return LiteralNode(value, Type::get_primitive_type("f32"));
                 }
             }
             case TOK_STR_VALUE: {
                 if (front_token == TOK_DOLLAR) {
-                    std::variant<int, float, std::string, bool, char> value = tok->lexme;
+                    std::variant<unsigned long, long, double, std::string, bool, char> value = tok->lexme;
                     return LiteralNode(value, Type::get_primitive_type("str"));
                 } else {
                     const std::string &str = tok->lexme;
@@ -330,20 +331,20 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                             processed_str << str[i];
                         }
                     }
-                    std::variant<int, float, std::string, bool, char> value = processed_str.str();
+                    std::variant<unsigned long, long, double, std::string, bool, char> value = processed_str.str();
                     return LiteralNode(value, Type::get_primitive_type("__flint_type_str_lit"));
                 }
             }
             case TOK_TRUE: {
-                std::variant<int, float, std::string, bool, char> value = true;
+                std::variant<unsigned long, long, double, std::string, bool, char> value = true;
                 return LiteralNode(value, Type::get_primitive_type("bool"));
             }
             case TOK_FALSE: {
-                std::variant<int, float, std::string, bool, char> value = false;
+                std::variant<unsigned long, long, double, std::string, bool, char> value = false;
                 return LiteralNode(value, Type::get_primitive_type("bool"));
             }
             case TOK_CHAR_VALUE: {
-                std::variant<int, float, std::string, bool, char> value = tok->lexme[0];
+                std::variant<unsigned long, long, double, std::string, bool, char> value = tok->lexme[0];
                 return LiteralNode(value, Type::get_primitive_type("u8"));
             }
         }

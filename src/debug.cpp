@@ -1,7 +1,5 @@
 #include "debug.hpp"
 
-#include "error/error.hpp"
-#include "error/error_type.hpp"
 #include "globals.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
@@ -256,10 +254,12 @@ namespace Debug {
             Local::print_header(indent_lvl, bits, "Lit ");
             std::cout << lit.type->to_string();
             std::cout << ": ";
-            if (std::holds_alternative<int>(lit.value)) {
-                std::cout << std::get<int>(lit.value);
-            } else if (std::holds_alternative<float>(lit.value)) {
-                std::cout << std::get<float>(lit.value);
+            if (std::holds_alternative<unsigned long>(lit.value)) {
+                std::cout << std::get<unsigned long>(lit.value);
+            } else if (std::holds_alternative<long>(lit.value)) {
+                std::cout << std::get<long>(lit.value);
+            } else if (std::holds_alternative<double>(lit.value)) {
+                std::cout << std::get<double>(lit.value);
             } else if (std::holds_alternative<bool>(lit.value)) {
                 std::cout << (std::get<bool>(lit.value) ? "true" : "false");
             } else if (std::holds_alternative<char>(lit.value)) {
