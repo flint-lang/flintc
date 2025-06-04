@@ -1,5 +1,6 @@
 #pragma once
 
+#include "matcher/matcher.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
 
@@ -431,7 +432,9 @@ class Parser {
     ///
     /// @param `tokens` The tokens in which to remove the surrounding parens, if they exist
     static void remove_surrounding_paren(token_slice &tokens) {
-        if (tokens.first->type == TOK_LEFT_PAREN && std::prev(tokens.second)->type == TOK_RIGHT_PAREN) {
+        // Us the Matcher to check if the first and last paren are not parens by accident, for example in '(1 + 2) * (3 + 4)', because if we
+        // would not check for that the expression would become '1 + 2) * (3 + 4' and that is definitely wrong
+        if (tokens.first->type == TOK_LEFT_PAREN && Matcher::tokens_match({tokens.first + 1, tokens.second}, Matcher::until_right_paren)) {
             tokens.first++;
             tokens.second--;
         }
