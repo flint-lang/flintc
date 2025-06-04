@@ -969,7 +969,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
     // Start at the first index because the first token is never a unary operator
     for (auto it = std::next(tokens_mut.first); it != tokens_mut.second; ++it) {
         // Skip tokens inside parentheses or function calls
-        if (it->type == TOK_LEFT_PAREN) {
+        if (std::prev(it)->type == TOK_LEFT_PAREN) {
             int paren_depth = 1;
             while (++it != tokens_mut.second && paren_depth > 0) {
                 if (it->type == TOK_LEFT_PAREN) {
@@ -1008,6 +1008,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
     // Extract the left and right parts of the expression
     token_slice lhs_tokens = {tokens_mut.first, tokens_mut.first + pivot_pos};
     token_slice rhs_tokens = {tokens_mut.first + pivot_pos + 1, tokens_mut.second};
+
+    token_list lhs_toks = clone_from_slice(lhs_tokens);
+    token_list rhs_toks = clone_from_slice(rhs_tokens);
 
     // Recursively parse both sides
     auto lhs = create_pivot_expression(scope, lhs_tokens);

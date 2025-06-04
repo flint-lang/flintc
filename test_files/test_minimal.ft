@@ -1,18 +1,10 @@
 use Core.print
 
 def main():
-    bool t_eq_f = true == false;
-    print($"t_eq_f = {t_eq_f}\n");
+    // Evaluates to 'true' ('and' happens first)
+    bool condition = true or false and false;
+    print($"condition = {condition}\n");
 
-    bool t_neq_f = true != false;
-    print($"t_neq_f = {t_neq_f}\n");
-
-    bool t_eq_t = true == true;
-    print($"t_eq_t = {t_eq_t}\n");
-    bool t_neq_t = true != true;
-    print($"t_neq_t = {t_neq_t}\n");
-
-    bool f_eq_f = false == false;
-    print($"f_eq_f = {f_eq_f}\n");
-    bool f_neq_f = false != false;
-    print($"f_neq_f = {f_neq_f}\n");
+    // Evaluates to 'false' ('and' happens second)
+    bool clarified = (true or false) and false;
+    print($"clarified = {clarified}\n");
