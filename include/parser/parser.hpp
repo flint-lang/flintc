@@ -621,6 +621,14 @@ class Parser {
      *************************************************************************************************************************************/
 
     /// @function `check_castability`
+    /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast
+    ///
+    /// @param `lhs` The lhs type to check
+    /// @param `rhs` The rhs type to check
+    /// @return `std::optional<bool>` nullopt if not castable, 'true' if rhs -> lhs, 'false' if lhs -> rhs
+    static std::optional<bool> check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type);
+
+    /// @function `check_castability`
     /// @brief Checks if one of the two expression can be implicitely cast to the other expression. If yes, it wraps the expression in a
     /// type cast
     ///

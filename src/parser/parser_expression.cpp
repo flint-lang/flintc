@@ -21,90 +21,96 @@
 #include <memory>
 #include <variant>
 
-bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
-    const GroupType *lhs_group = dynamic_cast<const GroupType *>(lhs->type.get());
-    const GroupType *rhs_group = dynamic_cast<const GroupType *>(rhs->type.get());
+std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type) {
+    const GroupType *lhs_group = dynamic_cast<const GroupType *>(lhs_type.get());
+    const GroupType *rhs_group = dynamic_cast<const GroupType *>(rhs_type.get());
     if (lhs_group == nullptr && rhs_group == nullptr) {
         // Both single type
         // If one of them is a multi-type, the other one has to be a single value with the same type as the base type of the mutli-type
-        const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs->type.get());
-        const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs->type.get());
-        if (lhs_mult != nullptr && rhs_mult == nullptr && lhs_mult->base_type == rhs->type) {
-            rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
+        const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get());
+        const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs_type.get());
+        if (lhs_mult != nullptr && rhs_mult == nullptr && lhs_mult->base_type == rhs_type) {
             return true;
-        } else if (lhs_mult == nullptr && rhs_mult != nullptr && lhs->type == rhs_mult->base_type) {
-            lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
-            return true;
-        }
-        if (lhs->type->to_string() == "__flint_type_str_lit" && rhs->type->to_string() == "str") {
-            lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
-            return true;
-        } else if (lhs->type->to_string() == "str" && rhs->type->to_string() == "__flint_type_str_lit") {
-            rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
-            return true;
-        }
-        if (type_precedence.find(lhs->type->to_string()) == type_precedence.end() ||
-            type_precedence.find(rhs->type->to_string()) == type_precedence.end()) {
-            // Not castable, wrong arg types
-            THROW_BASIC_ERR(ERR_PARSING);
+        } else if (lhs_mult == nullptr && rhs_mult != nullptr && lhs_type == rhs_mult->base_type) {
             return false;
         }
-        const unsigned int lhs_precedence = type_precedence.at(lhs->type->to_string());
-        const unsigned int rhs_precedence = type_precedence.at(rhs->type->to_string());
-        if (lhs_precedence > rhs_precedence) {
-            // The right type needs to be cast to the left type
-            rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
-        } else {
-            // The left type needs to be cast to the right type
-            lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
+        if (lhs_type->to_string() == "__flint_type_str_lit" && rhs_type->to_string() == "str") {
+            return false;
+        } else if (lhs_type->to_string() == "str" && rhs_type->to_string() == "__flint_type_str_lit") {
+            return true;
         }
+        if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
+            type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
+            // Not castable, wrong arg types
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
+        const unsigned int rhs_precedence = type_precedence.at(rhs_type->to_string());
+        return lhs_precedence > rhs_precedence;
     } else if (lhs_group == nullptr && rhs_group != nullptr) {
         // Left is no group, right is group
         // Check if left is a multi-type, then the right is castable to the left
-        const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs->type.get());
+        const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get());
         if (lhs_mult == nullptr) {
             THROW_BASIC_ERR(ERR_PARSING);
-            return false;
+            return std::nullopt;
         }
         // The group must have the same size as the multi-type
         if (lhs_mult->width != rhs_group->types.size()) {
             THROW_BASIC_ERR(ERR_PARSING);
-            return false;
+            return std::nullopt;
         }
         // All elements in the group must have the same type as the multi-type
         for (size_t i = 0; i < lhs_mult->width; i++) {
             if (lhs_mult->base_type != rhs_group->types[i]) {
                 THROW_BASIC_ERR(ERR_PARSING);
-                return false;
+                return std::nullopt;
             }
         }
-        rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
+        return true;
     } else if (lhs_group != nullptr && rhs_group == nullptr) {
         // Left is group, right is no group
         // Check if right is a multi-type, then the left is castable to the right
-        const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs->type.get());
+        const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs_type.get());
         if (rhs_mult == nullptr) {
             THROW_BASIC_ERR(ERR_PARSING);
-            return false;
+            return std::nullopt;
         }
         // The group must have the same size as the multi-type
         if (rhs_mult->width != lhs_group->types.size()) {
             THROW_BASIC_ERR(ERR_PARSING);
-            return false;
+            return std::nullopt;
         }
         // All elements in the group must have the same type as the multi-type
         for (size_t i = 0; i < rhs_mult->width; i++) {
             if (rhs_mult->base_type != lhs_group->types[i]) {
                 THROW_BASIC_ERR(ERR_PARSING);
-                return false;
+                return std::nullopt;
             }
         }
-        lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
+        return false;
     } else {
         // Both group
         // TODO
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return false;
+    }
+    return true;
+}
+
+bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
+    std::optional<bool> castability = check_castability(lhs->type, rhs->type);
+    if (!castability.has_value()) {
+        // Not castable
+        return false;
+    }
+    if (castability.value()) {
+        // The right type needs to be cast to the left type
+        rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
+    } else {
+        // The left type needs to be cast to the right type
+        lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
     }
     return true;
 }
