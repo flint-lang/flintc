@@ -214,8 +214,8 @@ class Parser {
         {TOK_EQUAL_EQUAL, 4},
         {TOK_NOT_EQUAL, 4},
         {TOK_NOT, 3},
-        {TOK_OR, 2},
-        {TOK_AND, 1},
+        {TOK_AND, 2},
+        {TOK_OR, 1},
         {TOK_EQUAL, 0},
     };
 

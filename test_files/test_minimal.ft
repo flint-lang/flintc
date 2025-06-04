@@ -1,4 +1,5 @@
 use Core.print
 
 def main():
-	print($"((1.0 / 3.0) + (1.0 / 3.0) + (1.0 / 3.0)) == 1.0 ? {(1.0 / 3.0) + (1.0 / 3.0) + (1.0 / 3.0) == 1.0}\n");
+	// This should print 'condition is true'
+    print($"condition is {true or false and false}\n");
