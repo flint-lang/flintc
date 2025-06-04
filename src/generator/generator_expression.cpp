@@ -1413,6 +1413,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 return builder.CreateICmpEQ(lhs, rhs, "ucmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOEQ(lhs, rhs, "fcmptmp");
+            } else if (type_str == "bool") {
+                return builder.CreateICmpEQ(lhs, rhs, "bcmptmp");
             } else if (type_str == "flint") {
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
@@ -1430,6 +1432,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 return builder.CreateICmpNE(lhs, rhs, "ucmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpONE(lhs, rhs, "fcmptmp");
+            } else if (type_str == "bool") {
+                return builder.CreateICmpNE(lhs, rhs, "bcmptmp");
             } else if (type_str == "flint") {
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
