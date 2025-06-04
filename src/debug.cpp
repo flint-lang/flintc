@@ -258,8 +258,14 @@ namespace Debug {
                 std::cout << std::get<unsigned long>(lit.value);
             } else if (std::holds_alternative<long>(lit.value)) {
                 std::cout << std::get<long>(lit.value);
+            } else if (std::holds_alternative<unsigned int>(lit.value)) {
+                std::cout << std::get<unsigned int>(lit.value);
+            } else if (std::holds_alternative<int>(lit.value)) {
+                std::cout << std::get<int>(lit.value);
             } else if (std::holds_alternative<double>(lit.value)) {
                 std::cout << std::get<double>(lit.value);
+            } else if (std::holds_alternative<float>(lit.value)) {
+                std::cout << std::get<float>(lit.value);
             } else if (std::holds_alternative<bool>(lit.value)) {
                 std::cout << (std::get<bool>(lit.value) ? "true" : "false");
             } else if (std::holds_alternative<char>(lit.value)) {

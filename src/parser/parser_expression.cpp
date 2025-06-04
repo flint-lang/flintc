@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <variant>
 
@@ -282,6 +283,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     }
 
     if (Matcher::tokens_match({tok, tok + 1}, Matcher::literal)) {
+        std::variant<unsigned long, long, unsigned int, int, double, float, std::string, bool, char> value;
         switch (tok->type) {
             default:
                 THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, tok->lexme);
@@ -289,26 +291,46 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 break;
             case TOK_INT_VALUE: {
                 if (front_token == TOK_MINUS) {
-                    std::variant<unsigned long, long, double, std::string, bool, char> value = std::stol(tok->lexme) * -1;
-                    return LiteralNode(value, Type::get_primitive_type("i32"));
+                    const long long lit_value = std::stoll(tok->lexme) * -1;
+                    if (lit_value > static_cast<long long>(INT32_MAX) || lit_value < static_cast<long long>(INT32_MIN)) {
+                        value = static_cast<long>(lit_value);
+                        return LiteralNode(value, Type::get_primitive_type("i64"));
+                    } else {
+                        value = static_cast<int>(lit_value);
+                        return LiteralNode(value, Type::get_primitive_type("i32"));
+                    }
                 } else {
-                    std::variant<unsigned long, long, double, std::string, bool, char> value =
-                        static_cast<unsigned long>(std::stol(tok->lexme));
-                    return LiteralNode(value, Type::get_primitive_type("u32"));
+                    const unsigned long long lit_value = std::stoll(tok->lexme);
+                    if (lit_value > static_cast<long long>(UINT64_MAX)) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    } else if (lit_value > static_cast<long long>(INT64_MAX)) {
+                        value = static_cast<unsigned long>(lit_value);
+                        return LiteralNode(value, Type::get_primitive_type("u64"));
+                    } else if (lit_value > static_cast<long long>(UINT32_MAX)) {
+                        value = static_cast<long>(lit_value);
+                        return LiteralNode(value, Type::get_primitive_type("i64"));
+                    } else if (lit_value > static_cast<long long>(INT32_MAX)) {
+                        value = static_cast<unsigned int>(lit_value);
+                        return LiteralNode(value, Type::get_primitive_type("u32"));
+                    } else {
+                        value = static_cast<int>(lit_value);
+                        return LiteralNode(value, Type::get_primitive_type("i32"));
+                    }
                 }
             }
             case TOK_FLINT_VALUE: {
                 if (front_token == TOK_MINUS) {
-                    std::variant<unsigned long, long, double, std::string, bool, char> value = std::stof(tok->lexme) * -1;
+                    value = std::stof(tok->lexme) * -1;
                     return LiteralNode(value, Type::get_primitive_type("f32"));
                 } else {
-                    std::variant<unsigned long, long, double, std::string, bool, char> value = std::stof(tok->lexme);
+                    value = std::stof(tok->lexme);
                     return LiteralNode(value, Type::get_primitive_type("f32"));
                 }
             }
             case TOK_STR_VALUE: {
                 if (front_token == TOK_DOLLAR) {
-                    std::variant<unsigned long, long, double, std::string, bool, char> value = tok->lexme;
+                    value = tok->lexme;
                     return LiteralNode(value, Type::get_primitive_type("str"));
                 } else {
                     const std::string &str = tok->lexme;
@@ -337,20 +359,20 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                             processed_str << str[i];
                         }
                     }
-                    std::variant<unsigned long, long, double, std::string, bool, char> value = processed_str.str();
+                    value = processed_str.str();
                     return LiteralNode(value, Type::get_primitive_type("__flint_type_str_lit"));
                 }
             }
             case TOK_TRUE: {
-                std::variant<unsigned long, long, double, std::string, bool, char> value = true;
+                value = true;
                 return LiteralNode(value, Type::get_primitive_type("bool"));
             }
             case TOK_FALSE: {
-                std::variant<unsigned long, long, double, std::string, bool, char> value = false;
+                value = false;
                 return LiteralNode(value, Type::get_primitive_type("bool"));
             }
             case TOK_CHAR_VALUE: {
-                std::variant<unsigned long, long, double, std::string, bool, char> value = tok->lexme[0];
+                value = tok->lexme[0];
                 return LiteralNode(value, Type::get_primitive_type("u8"));
             }
         }
