@@ -345,9 +345,15 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                if (std::get<1>(fields.at(i)) != arg_type) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
+                const auto &field_type = std::get<1>(fields.at(i));
+                if (field_type != arg_type) {
+                    std::optional<bool> castability = check_castability(field_type, arg_type);
+                    if (castability.has_value() && castability.value()) {
+                        arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
+                    } else {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
                 }
             }
             return std::make_tuple(data_node->name, std::move(arguments), complex_type.value(), true, false);
@@ -368,9 +374,9 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
         THROW_ERR(ErrExprCallWrongArgCount, ERR_PARSING, file_name, tokens, function_name, param_count, arg_count);
         return std::nullopt;
     }
-    // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been found
-    // Lastly, update the arguments of the call with the information of the function definition, if the arguments should be references
-    // Every non-primitive type is always a reference (for now)
+    // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been
+    // found Lastly, update the arguments of the call with the information of the function definition, if the arguments should be
+    // references Every non-primitive type is always a reference (for now)
     for (auto &arg : arguments) {
         arg.second = keywords.find(arg.first->type->to_string()) == keywords.end();
     }
@@ -631,8 +637,8 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
     }
 }
 
-std::optional<
-    std::tuple<std::shared_ptr<Type>, std::string, std::vector<std::string>, std::vector<unsigned int>, std::vector<std::shared_ptr<Type>>>>
+std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::vector<std::string>, std::vector<unsigned int>,
+    std::vector<std::shared_ptr<Type>>>>
 Parser::create_grouped_access_base( //
     Scope *scope,                   //
     token_slice &tokens             //
