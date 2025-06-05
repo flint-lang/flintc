@@ -391,17 +391,25 @@ bool Generator::Statement::generate_if_statement( //
 
     // First call (nesting_level == 0): Create all blocks for entire if-chain
     if (nesting_level == 0) {
+        llvm::BasicBlock *current_block = builder.GetInsertBlock();
         generate_if_blocks(ctx.parent, blocks, if_node);
+        builder.SetInsertPoint(current_block);
     }
 
     // Index calculation for current blocks
-    unsigned int then_idx = nesting_level;
-    // Check if this is the if and the next index is not the last index. This needs to be done for the elif branches
-    if (then_idx != 0 && then_idx + 1 < blocks.size()) {
-        then_idx++;
+    unsigned int next_idx;
+    unsigned int then_idx;
+
+    if (nesting_level == 0) {
+        // The initial if statement, branch between the initial if scope and the merge block / the next condition check
+        then_idx = 0;
+        next_idx = 1;
+    } else {
+        // An else if statement, branch between the next if scope (nesting_level * 2) or the next check, if present, or the merge block
+        // afterwards
+        then_idx = nesting_level * 2;
+        next_idx = then_idx + 1;
     }
-    // Defaults to the block after the current block
-    unsigned int next_idx = then_idx + 1;
 
     // Generate the condition
     const Scope *current_scope = ctx.scope;
@@ -451,13 +459,13 @@ bool Generator::Statement::generate_if_statement( //
         if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope)) {
             // Recursive call for else-if
             builder.SetInsertPoint(blocks[next_idx]);
-            if (!generate_if_statement(                                 //
-                    builder,                                            //
-                    ctx,                                                //
-                    blocks,                                             //
-                    nesting_level + 1,                                  //
-                    std::get<std::unique_ptr<IfNode>>(else_scope).get() //
-                    )) {
+            if (!generate_if_statement(                                  //
+                    builder,                                             //
+                    ctx,                                                 //
+                    blocks,                                              //
+                    nesting_level + 1,                                   //
+                    std::get<std::unique_ptr<IfNode>>(else_scope).get()) //
+            ) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
@@ -478,12 +486,11 @@ bool Generator::Statement::generate_if_statement( //
         }
     }
 
-    // Now add the merge block to the end of the function
-    blocks.back()->insertInto(ctx.parent);
-
     ctx.scope = current_scope;
     // Set the insert point to the merge block
     if (nesting_level == 0) {
+        // Now add the merge block to the end of the function
+        blocks.back()->insertInto(ctx.parent);
         builder.SetInsertPoint(blocks.back());
     }
     return true;
