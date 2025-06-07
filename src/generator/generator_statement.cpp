@@ -934,8 +934,7 @@ bool Generator::Statement::generate_declaration( //
                 const std::shared_ptr<Type> &elem_type = types[i];
                 const DataType *field_data_type = dynamic_cast<const DataType *>(elem_type.get());
                 const ArrayType *field_array_type = dynamic_cast<const ArrayType *>(elem_type.get());
-                const bool field_str_type = elem_type->to_string() == "str";
-                const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr || field_str_type;
+                const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr;
                 if (field_is_complex) {
                     // For complex types, allocate memory and store a pointer
                     llvm::Type *field_type = IR::get_type(elem_type).first;
