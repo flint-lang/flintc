@@ -805,6 +805,12 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     // Remove all \n and \t from the lhs tokens
     remove_leading_garbage(lhs_tokens);
 
+    // Check if the first token of the declaration is a `const` or `mut` token and set the mutability accordingly
+    const bool is_mutable = lhs_tokens.first->type != TOK_CONST;
+    if (lhs_tokens.first->type == TOK_CONST || lhs_tokens.first->type == TOK_MUT) {
+        lhs_tokens.first++;
+    }
+
     if (!has_rhs) {
         for (auto it = lhs_tokens.first; it != lhs_tokens.second; ++it) {
             if (std::next(it) != lhs_tokens.second && std::next(it)->type == TOK_SEMICOLON) {
@@ -829,7 +835,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
                 break;
             }
         }
-        if (!scope->add_variable(name, type, scope->scope_id, true, false)) {
+        if (!scope->add_variable(name, type, scope->scope_id, is_mutable, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column, name);
             return std::nullopt;
@@ -860,7 +866,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
                 break;
             }
         }
-        if (!scope->add_variable(name, expr.value()->type, scope->scope_id, true, false)) {
+        if (!scope->add_variable(name, expr.value()->type, scope->scope_id, is_mutable, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens_mut.first->line, tokens_mut.first->column, name);
             return std::nullopt;
@@ -880,7 +886,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         }
         type = type_result.value();
         name = lhs_tokens.first->lexme;
-        if (!scope->add_variable(name, type, scope->scope_id, true, false)) {
+        if (!scope->add_variable(name, type, scope->scope_id, is_mutable, false)) {
             // Variable shadowing
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens_mut.first->line, tokens_mut.first->column, name);
             return std::nullopt;
