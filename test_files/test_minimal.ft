@@ -1,11 +1,20 @@
 use Core.print
 
-def main():
-    i32 age = 16;
+data Vector3:
+    f32 x;
+    f32 y;
+    f32 z;
+    Vector3(x, y, z);
 
-    if age >= 65:
-        print("You qualify for senior discounts.\n");
-    else if age >= 18:
-        print("You can vote but no senior discounts yet!\n");
-    else:
-        print("You are too young to vote.\n");
+def main():
+    Vector3 v3 = Vector3(1.0, 2.0, 3.0);
+    print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");
+
+    v3.(x, y, z) += (1.0, 1.0, 1.0);
+    print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");
+
+    i32 x = 5;
+    i32 y = 6;
+    i32 z = 7;
+    (x, y, z) += (1, 1, 1);
+    print($"(x, y, z) = ({x}, {y}, {z})\n");

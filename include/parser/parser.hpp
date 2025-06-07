@@ -904,6 +904,14 @@ class Parser {
     /// @return `std::optional<std::unique_ptr<GroupAssignmentNode>>` An optional unique pointer to the created GroupAssignmentNode
     std::optional<GroupAssignmentNode> create_group_assignment(Scope *scope, const token_slice &tokens);
 
+    /// @function `create_group_assignment_shorthand`
+    /// @brief Creates an GroupAssignmentNode from the given list of tokens where the group assignment itself is a shorthand
+    ///
+    /// @param `scope` The scope in which the assignment is defined
+    /// @param `tokens` The list of tokens representing the assignment
+    /// @return `std::optional<std::unique_ptr<GroupAssignmentNode>>` An optional unique pointer to the created GroupAssignmentNode
+    std::optional<GroupAssignmentNode> create_group_assignment_shorthand(Scope *scope, const token_slice &tokens);
+
     /// @function `create_assignment`
     /// @brief Creates an AssignmentNode from the given list of tokens
     ///

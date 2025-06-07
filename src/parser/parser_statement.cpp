@@ -521,6 +521,94 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
     return GroupAssignmentNode(assignees, expr.value());
 }
 
+std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand(Scope *scope, const token_slice &tokens) {
+    token_slice tokens_mut = tokens;
+    remove_leading_garbage(tokens_mut);
+    assert(tokens_mut.first != tokens_mut.second);
+    // Now a left paren is expected as the start of the group assignment
+    if (tokens_mut.first->type != TOK_LEFT_PAREN) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Remove the left paren
+    tokens_mut.first++;
+    // Extract all assignees, we expect assingees to follow the strict pattern of: \( (\W+,)+ \W \)
+    // or if you're super correct with the regex it matches this exact pattern: \(\W*(\w+\W*,\W*)+\w+\W*\)
+    std::vector<std::pair<std::shared_ptr<Type>, std::string>> assignees;
+    unsigned int index = 0;
+    for (auto it = tokens_mut.first; it != tokens_mut.second; it += 2) {
+        // The next element has to be either a comma or the right paren
+        if (std::next(it) == tokens_mut.second || (std::next(it)->type != TOK_COMMA && std::next(it)->type != TOK_RIGHT_PAREN)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        // This element is the assignee
+        if (scope->variables.find(it->lexme) == scope->variables.end()) {
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+            return std::nullopt;
+        }
+        if (!std::get<2>(scope->variables.at(it->lexme))) {
+            // Mutating an immutable variable
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it->lexme));
+        assignees.emplace_back(expected_type, it->lexme);
+        index += 2;
+        if (std::next(it)->type == TOK_RIGHT_PAREN) {
+            break;
+        }
+    }
+    // Erase all the assignment tokens
+    tokens_mut.first += index;
+
+    // Get the operation of the assignment shorthand
+    Token operation = TOK_EOF;
+    switch (tokens_mut.first->type) {
+        case TOK_PLUS_EQUALS:
+            operation = TOK_PLUS;
+            break;
+        case TOK_MINUS_EQUALS:
+            operation = TOK_MINUS;
+            break;
+        case TOK_MULT_EQUALS:
+            operation = TOK_MULT;
+            break;
+        case TOK_DIV_EQUALS:
+            operation = TOK_DIV;
+            break;
+        default:
+            assert(false);
+            break;
+    }
+    tokens_mut.first++;
+
+    // The rest of the tokens now is the expression
+    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, tokens_mut);
+    if (!expr.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
+        return std::nullopt;
+    }
+
+    // The expression now is the group of all assignees within a binop with the rhs expr
+    std::vector<std::unique_ptr<ExpressionNode>> lhs_expressions;
+    for (const auto &[type, name] : assignees) {
+        lhs_expressions.emplace_back(std::make_unique<VariableNode>(name, type));
+    }
+    std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(lhs_expressions);
+
+    // The "real" expression of the assignment is a binop between the lhs and the "real" expression
+    expr.value() = std::make_unique<BinaryOpNode>( //
+        operation,                                 //
+        lhs_expr,                                  //
+        expr.value(),                              //
+        lhs_expr->type,                            //
+        true                                       //
+    );
+
+    return GroupAssignmentNode(assignees, expr.value());
+}
+
 std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, const token_slice &tokens) {
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->type == TOK_IDENTIFIER) {
@@ -1144,6 +1232,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         statement_node = std::make_unique<GroupedDataFieldAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::group_assignment)) {
         std::optional<GroupAssignmentNode> assign = create_group_assignment(scope, tokens);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<GroupAssignmentNode>(std::move(assign.value()));
+    } else if (Matcher::tokens_contain(tokens, Matcher::group_assignment_shorthand)) {
+        std::optional<GroupAssignmentNode> assign = create_group_assignment_shorthand(scope, tokens);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
