@@ -565,7 +565,6 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
 std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
     std::variant<std::pair<std::optional<std::string>, std::string>, std::vector<std::string>> import_path;
     std::optional<std::string> alias;
-    token_list toks = clone_from_slice(tokens);
 
     auto iterator = tokens.first;
     if (Matcher::tokens_contain(tokens, Matcher::token(TOK_STR_VALUE))) {

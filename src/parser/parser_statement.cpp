@@ -297,9 +297,6 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     remove_leading_garbage(definition_mut);
     remove_trailing_garbage(definition_mut);
 
-    token_list def_toks = clone_from_slice(definition_mut);
-    token_list body_toks = clone_from_slice(body);
-
     // Now the first token should be the `for` token
     assert(definition_mut.first->type == TOK_FOR);
     definition_mut.first++;
