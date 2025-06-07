@@ -604,6 +604,8 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
             // Nested groups are not allowed
             THROW_ERR(ErrExprNestedGroup, ERR_PARSING, file_name, tokens);
             return std::nullopt;
+        } else if ((*it)->type->to_string() == "__flint_type_str_lit") {
+            *it = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), *it);
         }
     }
     return GroupExpressionNode(expressions);
