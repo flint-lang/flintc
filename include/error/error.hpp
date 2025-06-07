@@ -70,6 +70,7 @@
 #include "error_types/parsing/values/err_val_unknown_literal.hpp"
 
 #include "error_types/parsing/variables/err_var_from_requires_list.hpp"
+#include "error_types/parsing/variables/err_var_mutating_const.hpp"
 #include "error_types/parsing/variables/err_var_not_declared.hpp"
 #include "error_types/parsing/variables/err_var_redefinition.hpp"
 

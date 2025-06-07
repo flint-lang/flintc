@@ -1,20 +1,14 @@
 use Core.print
 
-data Vector3:
-    f32 x;
-    f32 y;
-    f32 z;
-    Vector3(x, y, z);
+data Point:
+    i32 x;
+    i32 y;
+    Point(x, y);
+
+def increment_by(Point p, i32 value):
+    p.(x, y) += (value, value);
 
 def main():
-    Vector3 v3 = Vector3(1.0, 2.0, 3.0);
-    print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");
-
-    v3.(x, y, z) += (1.0, 1.0, 1.0);
-    print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");
-
-    i32 x = 5;
-    i32 y = 6;
-    i32 z = 7;
-    (x, y, z) += (1, 1, 1);
-    print($"(x, y, z) = ({x}, {y}, {z})\n");
+    Point p = Point(3, 4);
+    increment_by(p, 3);
+    print($"Point(x: {p.x}, y: {p.y})\n");

@@ -489,8 +489,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
             return std::nullopt;
         }
         if (!std::get<2>(scope->variables.at(it->lexme))) {
-            // Mutating an immutable variable
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it->lexme);
             return std::nullopt;
         }
         const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it->lexme));
@@ -545,8 +544,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand(Sco
             return std::nullopt;
         }
         if (!std::get<2>(scope->variables.at(it->lexme))) {
-            // Mutating an immutable variable
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it->lexme);
             return std::nullopt;
         }
         const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it->lexme));
@@ -615,8 +613,7 @@ std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, const toke
                     return std::nullopt;
                 }
                 if (!std::get<2>(scope->variables.at(it->lexme))) {
-                    // Mutating an immutable variable
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it->lexme);
                     return std::nullopt;
                 }
                 std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it->lexme));
@@ -646,8 +643,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand(Scope *scope, 
                     return std::nullopt;
                 }
                 if (!std::get<2>(scope->variables.at(it->lexme))) {
-                    // Mutating an immutable variable
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it->lexme);
                     return std::nullopt;
                 }
                 std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it->lexme));
@@ -931,15 +927,15 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment(Scop
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    if (!std::get<2>(scope->variables.at(std::get<1>(field_access_base.value())))) {
-        // Mutating an immutable data variable
-        THROW_BASIC_ERR(ERR_PARSING);
+    const std::string &var_name = std::get<1>(field_access_base.value());
+    if (!std::get<2>(scope->variables.at(var_name))) {
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_name);
         return std::nullopt;
     }
 
     return DataFieldAssignmentNode(             //
         std::get<0>(field_access_base.value()), // data_type
-        std::get<1>(field_access_base.value()), // var_name
+        var_name,                               // var_name
         std::get<2>(field_access_base.value()), // field_name
         std::get<3>(field_access_base.value()), // field_id
         std::get<4>(field_access_base.value()), // field_type
@@ -965,15 +961,15 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    if (!std::get<2>(scope->variables.at(std::get<1>(grouped_field_access_base.value())))) {
-        // Mutating an immutable data variable
-        THROW_BASIC_ERR(ERR_PARSING);
+    const std::string &var_name = std::get<1>(grouped_field_access_base.value());
+    if (!std::get<2>(scope->variables.at(var_name))) {
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_name);
         return std::nullopt;
     }
 
     return GroupedDataFieldAssignmentNode(              //
         std::get<0>(grouped_field_access_base.value()), // data_type
-        std::get<1>(grouped_field_access_base.value()), // var_name
+        var_name,                                       // var_name
         std::get<2>(grouped_field_access_base.value()), // field_names
         std::get<3>(grouped_field_access_base.value()), // field_ids
         std::get<4>(grouped_field_access_base.value()), // field_types
@@ -1021,16 +1017,16 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     }
 
     // Check if the data variable we try to mutate is marked as immutable
-    if (!std::get<2>(scope->variables.at(std::get<1>(grouped_field_access_base.value())))) {
-        // Mutating an immutable data variable
-        THROW_BASIC_ERR(ERR_PARSING);
+    const std::string &var_name = std::get<1>(grouped_field_access_base.value());
+    if (!std::get<2>(scope->variables.at(var_name))) {
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_name);
         return std::nullopt;
     }
 
     // Create the lhs of the binary op of the right side, which is the grouped data field access
     std::unique_ptr<ExpressionNode> binop_lhs = std::make_unique<GroupedDataAccessNode>( //
         std::get<0>(grouped_field_access_base.value()),                                  // data_type
-        std::get<1>(grouped_field_access_base.value()),                                  // var_name
+        var_name,                                                                        // var_name
         std::get<2>(grouped_field_access_base.value()),                                  // field_names
         std::get<3>(grouped_field_access_base.value()),                                  // field_ids
         std::get<4>(grouped_field_access_base.value())                                   // field_types
