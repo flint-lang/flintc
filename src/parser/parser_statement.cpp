@@ -939,12 +939,26 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment(Scop
         return std::nullopt;
     }
 
+    const auto &field_type = std::get<4>(field_access_base.value());
+    if (field_type != expression.value()->type) {
+        const auto castability = check_castability(field_type, expression.value()->type);
+        if (!castability.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (!castability.value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        expression.value() = std::make_unique<TypeCastNode>(field_type, expression.value());
+    }
+
     return DataFieldAssignmentNode(             //
         std::get<0>(field_access_base.value()), // data_type
         var_name,                               // var_name
         std::get<2>(field_access_base.value()), // field_name
         std::get<3>(field_access_base.value()), // field_id
-        std::get<4>(field_access_base.value()), // field_type
+        field_type,                             // field_type
         expression.value()                      //
     );
 }
