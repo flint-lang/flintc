@@ -964,6 +964,14 @@ class Parser {
     /// @return `std::optional<GroupedDataFieldAssignmentNode>` The created GroupedDataFieldAssignmentNode, nullopt if its creation failed
     std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment(Scope *scope, const token_slice &tokens);
 
+    /// @function `create_grouped_data_field_assignment_shorthand`
+    /// @brief Creates a GroupedDataFieldAssignmentNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the grouped data field assignment is defined
+    /// @param `tokens` The list of tokens representing the grouped data field assignment
+    /// @return `std::optional<GroupedDataFieldAssignmentNode>` The created GroupedDataFieldAssignmentNode, nullopt if its creation failed
+    std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment_shorthand(Scope *scope, const token_slice &tokens);
+
     /// @function `create_array_assignment`
     /// @brief Creates an ArrayAssignmentNode from the given tokens
     ///

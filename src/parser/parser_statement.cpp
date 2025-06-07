@@ -555,7 +555,7 @@ std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, const toke
 std::optional<AssignmentNode> Parser::create_assignment_shorthand(Scope *scope, const token_slice &tokens) {
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->type == TOK_IDENTIFIER) {
-            if (Matcher::tokens_match({it + 1, it + 2}, Matcher::assignment_operator) && (it + 2) != tokens.second) {
+            if (Matcher::tokens_match({it + 1, it + 2}, Matcher::assignment_shorthand_operator) && (it + 2) != tokens.second) {
                 if (scope->variables.find(it->lexme) == scope->variables.end()) {
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
                     return std::nullopt;
@@ -896,6 +896,81 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     );
 }
 
+std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_assignment_shorthand( //
+    Scope *scope,                                                                                     //
+    const token_slice &tokens                                                                         //
+) {
+    token_slice tokens_mut = tokens;
+    auto grouped_field_access_base = create_grouped_access_base(scope, tokens_mut);
+    if (!grouped_field_access_base.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Get the operation of the assignment shorthand
+    Token operation = TOK_EOF;
+    switch (tokens_mut.first->type) {
+        case TOK_PLUS_EQUALS:
+            operation = TOK_PLUS;
+            break;
+        case TOK_MINUS_EQUALS:
+            operation = TOK_MINUS;
+            break;
+        case TOK_MULT_EQUALS:
+            operation = TOK_MULT;
+            break;
+        case TOK_DIV_EQUALS:
+            operation = TOK_DIV;
+            break;
+        default:
+            assert(false);
+            break;
+    }
+    tokens_mut.first++;
+
+    // The rest of the tokens is the expression to parse
+    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, tokens_mut);
+    if (!expression.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Check if the data variable we try to mutate is marked as immutable
+    if (!std::get<2>(scope->variables.at(std::get<1>(grouped_field_access_base.value())))) {
+        // Mutating an immutable data variable
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Create the lhs of the binary op of the right side, which is the grouped data field access
+    std::unique_ptr<ExpressionNode> binop_lhs = std::make_unique<GroupedDataAccessNode>( //
+        std::get<0>(grouped_field_access_base.value()),                                  // data_type
+        std::get<1>(grouped_field_access_base.value()),                                  // var_name
+        std::get<2>(grouped_field_access_base.value()),                                  // field_names
+        std::get<3>(grouped_field_access_base.value()),                                  // field_ids
+        std::get<4>(grouped_field_access_base.value())                                   // field_types
+    );
+
+    // The expression already is the rhs of the binop, so now we only need to check whether the types of the expression matches the types of
+    // the assignment
+    expression.value() = std::make_unique<BinaryOpNode>( //
+        operation,                                       //
+        binop_lhs,                                       //
+        expression.value(),                              //
+        binop_lhs->type,                                 //
+        true                                             //
+    );
+
+    return GroupedDataFieldAssignmentNode(              //
+        std::get<0>(grouped_field_access_base.value()), // data_type
+        std::get<1>(grouped_field_access_base.value()), // var_name
+        std::get<2>(grouped_field_access_base.value()), // field_names
+        std::get<3>(grouped_field_access_base.value()), // field_ids
+        std::get<4>(grouped_field_access_base.value()), // field_types
+        expression.value()                              //
+    );
+}
+
 std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     remove_leading_garbage(tokens_mut);
@@ -1055,6 +1130,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         statement_node = std::make_unique<DataFieldAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::grouped_data_assignment)) {
         std::optional<GroupedDataFieldAssignmentNode> assign = create_grouped_data_field_assignment(scope, tokens);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<GroupedDataFieldAssignmentNode>(std::move(assign.value()));
+    } else if (Matcher::tokens_contain(tokens, Matcher::grouped_data_assignment_shorthand)) {
+        std::optional<GroupedDataFieldAssignmentNode> assign = create_grouped_data_field_assignment_shorthand(scope, tokens);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;

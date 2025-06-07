@@ -503,7 +503,7 @@ class Matcher {
         optional(balanced_match(token(TOK_LESS), token(TOK_GREATER))),                                              // <..> Type group
         zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})) // [][,][,,] Arrays
     });
-    static const inline PatternPtr assignment_operator = one_of({
+    static const inline PatternPtr assignment_shorthand_operator = one_of({
         token(TOK_PLUS_EQUALS), token(TOK_MINUS_EQUALS), token(TOK_MULT_EQUALS), token(TOK_DIV_EQUALS) //
     });
     static const inline PatternPtr operational_binop = one_of({
@@ -652,12 +652,13 @@ class Matcher {
     static const inline PatternPtr declaration_explicit = sequence({type, token(TOK_IDENTIFIER), token(TOK_EQUAL)});
     static const inline PatternPtr declaration_inferred = sequence({token(TOK_IDENTIFIER), token(TOK_COLON_EQUAL)});
     static const inline PatternPtr assignment = sequence({token(TOK_IDENTIFIER), token(TOK_EQUAL)});
-    static const inline PatternPtr assignment_shorthand = sequence({token(TOK_IDENTIFIER), assignment_operator});
+    static const inline PatternPtr assignment_shorthand = sequence({token(TOK_IDENTIFIER), assignment_shorthand_operator});
     static const inline PatternPtr group_assignment = not_preceded_by(TOK_DOT, //
         sequence({token(TOK_LEFT_PAREN), until_right_paren, token(TOK_EQUAL)}) //
     );
     static const inline PatternPtr data_field_assignment = sequence({data_access, token(TOK_EQUAL)});
     static const inline PatternPtr grouped_data_assignment = sequence({grouped_data_access, token(TOK_EQUAL)});
+    static const inline PatternPtr grouped_data_assignment_shorthand = sequence({grouped_data_access, assignment_shorthand_operator});
     static const inline PatternPtr array_assignment = sequence({array_access, token(TOK_EQUAL)});
     static const inline PatternPtr for_loop = sequence({token(TOK_FOR), until_semicolon, until_semicolon, until_colon});
     static const inline PatternPtr enhanced_for_loop = sequence({
