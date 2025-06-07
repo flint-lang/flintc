@@ -377,8 +377,18 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
     // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been
     // found Lastly, update the arguments of the call with the information of the function definition, if the arguments should be
     // references Every non-primitive type is always a reference (for now)
-    for (auto &arg : arguments) {
-        arg.second = keywords.find(arg.first->type->to_string()) == keywords.end();
+    for (size_t i = 0; i < arguments.size(); i++) {
+        arguments[i].second = keywords.find(arguments[i].first->type->to_string()) == keywords.end();
+        // Also, we check here if the variable is immutable but the function expects an mutable reference instead
+        if (arguments[i].second) {
+            // Its a complex data type, so its a reference
+            if (const VariableNode *variable_node = dynamic_cast<const VariableNode *>(arguments[i].first.get())) {
+                if (!std::get<2>(scope->variables.at(variable_node->name)) && std::get<2>(function.value().first->parameters[i])) {
+                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, 1, 1, variable_node->name);
+                    return std::nullopt;
+                }
+            }
+        }
     }
 
     std::vector<std::shared_ptr<Type>> return_types = function.value().first->return_types;
