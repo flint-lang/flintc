@@ -210,11 +210,16 @@ fetch_json_mini() {
         git clone "https://github.com/flint-lang/json-mini.git"
         cd "$root"
     else
-        echo "-- Updating json-mini repository..."
-        cd "$root/vendor/json-mini"
-        git fetch
-        git pull
-        cd "$root"
+        # Checking for internet connection
+        if ping google.com > /dev/null 2>&1; then
+            echo "-- Updating json-mini repository..."
+            cd "$root/vendor/json-mini"
+            git fetch
+            git pull
+            cd "$root"
+        else
+            echo "-- No internet connection, skipping updating the json-mini repository..."
+        fi
     fi
 }
 
