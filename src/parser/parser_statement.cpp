@@ -593,12 +593,12 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand(Sco
     std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(lhs_expressions);
 
     // The "real" expression of the assignment is a binop between the lhs and the "real" expression
-    expr.value() = std::make_unique<BinaryOpNode>( //
-        operation,                                 //
-        lhs_expr,                                  //
-        expr.value(),                              //
-        lhs_expr->type,                            //
-        true                                       //
+    expr = std::make_unique<BinaryOpNode>( //
+        operation,                         //
+        lhs_expr,                          //
+        expr.value(),                      //
+        lhs_expr->type,                    //
+        true                               //
     );
 
     return GroupAssignmentNode(assignees, expr.value());
@@ -759,10 +759,10 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
             for (unsigned int i = 0; i < multi_type->width; i++) {
                 group_types.emplace_back(multi_type->base_type);
             }
-            expr_group_type.value() = std::make_shared<GroupType>(group_types);
+            expr_group_type = std::make_shared<GroupType>(group_types);
             Type::add_type(expr_group_type.value());
         }
-        expression.value() = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
+        expression = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
         return GroupDeclarationNode(variables, expression.value());
     }
     assert(group_type != nullptr);
@@ -950,7 +950,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment(Scop
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        expression.value() = std::make_unique<TypeCastNode>(field_type, expression.value());
+        expression = std::make_unique<TypeCastNode>(field_type, expression.value());
     }
 
     return DataFieldAssignmentNode(             //
@@ -1054,12 +1054,12 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
 
     // The expression already is the rhs of the binop, so now we only need to check whether the types of the expression matches the types of
     // the assignment
-    expression.value() = std::make_unique<BinaryOpNode>( //
-        operation,                                       //
-        binop_lhs,                                       //
-        expression.value(),                              //
-        binop_lhs->type,                                 //
-        true                                             //
+    expression = std::make_unique<BinaryOpNode>( //
+        operation,                               //
+        binop_lhs,                               //
+        expression.value(),                      //
+        binop_lhs->type,                         //
+        true                                     //
     );
 
     return GroupedDataFieldAssignmentNode(              //

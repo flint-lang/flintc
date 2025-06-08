@@ -1068,10 +1068,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
 
     // Finally check if one of the two sides are string literals, if they are they need to become a string variable
     if (lhs.value()->type->to_string() == "__flint_type_str_lit") {
-        lhs.value() = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), lhs.value());
+        lhs = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), lhs.value());
     }
     if (rhs.value()->type->to_string() == "__flint_type_str_lit") {
-        rhs.value() = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), rhs.value());
+        rhs = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), rhs.value());
     }
 
     // Create the binary operator node
