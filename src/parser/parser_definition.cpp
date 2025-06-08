@@ -3,6 +3,7 @@
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
+#include "parser/type/tuple_type.hpp"
 
 #include <algorithm>
 #include <optional>
@@ -73,6 +74,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     }
     // Skip the right paren
     tok_it++;
+
     // Now the token should be an arrow, if not there are no return values
     if (tok_it->type == TOK_ARROW) {
         tok_it++;
@@ -89,6 +91,10 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             token_slice type_tokens = {begin_it, tok_it};
             const auto return_type = Type::get_type(type_tokens);
             if (!return_type.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (dynamic_cast<const TupleType *>(return_type.value().get())) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
