@@ -211,7 +211,8 @@ fetch_json_mini() {
         cd "$root"
     else
         # Checking for internet connection
-        if ping google.com > /dev/null 2>&1; then
+        echo "-- Checking for internet connection..."
+        if ping -w 5 -c 2 google.com > /dev/null 2>&1; then
             echo "-- Updating json-mini repository..."
             cd "$root/vendor/json-mini"
             git fetch
