@@ -6,16 +6,18 @@ class BalancedMatcher : public TokenPatternMatcher {
   private:
     PatternPtr increment_pattern;
     PatternPtr decrement_pattern;
+    unsigned int start_depth;
 
   public:
-    explicit BalancedMatcher(PatternPtr &increment_pattern, PatternPtr decrement_pattern) :
+    explicit BalancedMatcher(PatternPtr &increment_pattern, PatternPtr decrement_pattern, const unsigned int start_depth) :
         increment_pattern(increment_pattern),
-        decrement_pattern(decrement_pattern) {}
+        decrement_pattern(decrement_pattern),
+        start_depth(start_depth) {}
 
     MatchResult match(const token_slice &tokens, size_t start_pos) const override {
         size_t pos = start_pos;
         size_t tokens_size = std::distance(tokens.first, tokens.second);
-        unsigned int depth = 0;
+        unsigned int depth = start_depth;
 
         // Find the ending pattern
         while (pos < tokens_size) {

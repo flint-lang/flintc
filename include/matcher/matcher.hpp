@@ -440,9 +440,10 @@ class Matcher {
     ///
     /// @param `increment_pattern` The pattern where the balance depth increases
     /// @param `decrement_pattern` The pattern where the balance depth decreases
+    /// @param `start_depth` The depth to start at
     /// @return `PatternPtr` The created pattern
-    static PatternPtr balanced_match(PatternPtr increment_pattern, PatternPtr decrement_pattern) {
-        return std::make_shared<BalancedMatcher>(increment_pattern, decrement_pattern);
+    static PatternPtr balanced_match(PatternPtr increment_pattern, PatternPtr decrement_pattern, const unsigned int start_depth) {
+        return std::make_shared<BalancedMatcher>(increment_pattern, decrement_pattern, start_depth);
     }
 
     /// @function `balanced_match_until`
@@ -500,7 +501,7 @@ class Matcher {
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
     static const inline PatternPtr type = sequence({
         one_of({simple_type, token(TOK_DATA)}),                                                                     // Single type
-        optional(balanced_match(token(TOK_LESS), token(TOK_GREATER))),                                              // <..> Type group
+        optional(sequence({token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1)})),              // <..> Type group
         zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})) // [][,][,,] Arrays
     });
     static const inline PatternPtr assignment_shorthand_operator = one_of({
