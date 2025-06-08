@@ -673,6 +673,9 @@ Parser::create_grouped_access_base( //
     while (tokens.first != tokens.second && tokens.first->type != TOK_RIGHT_PAREN) {
         if (tokens.first->type == TOK_IDENTIFIER) {
             field_names.emplace_back(tokens.first->lexme);
+        } else if (tokens.first->type == TOK_DOLLAR && std::next(tokens.first)->type == TOK_INT_VALUE) {
+            field_names.emplace_back("$" + std::next(tokens.first)->lexme);
+            tokens.first++;
         }
         tokens.first++;
     }
@@ -728,6 +731,19 @@ Parser::create_grouped_access_base( //
                 field_ids[group_id] = field_id;
             }
             field_id++;
+        }
+        return std::make_tuple(variable_type.value(), var_name, field_names, field_ids, field_types);
+    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(variable_type.value().get())) {
+        std::vector<std::shared_ptr<Type>> field_types;
+        std::vector<unsigned int> field_ids;
+        for (size_t i = 0; i < field_names.size(); i++) {
+            size_t field_id = std::stoul(field_names.at(i).substr(1, field_names.at(i).length() - 1));
+            if (field_id >= tuple_type->types.size()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            field_types.emplace_back(tuple_type->types.at(field_id));
+            field_ids.emplace_back(field_id);
         }
         return std::make_tuple(variable_type.value(), var_name, field_names, field_ids, field_types);
     }
