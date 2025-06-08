@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 set -e
 
 print_usage() {
@@ -475,14 +475,8 @@ while [ "$#" -gt 0 ]; do
         err_exit 1 "Unknown cli argument: '$1'"
         ;;
     -*) # Handle short options, including combined ones
-        arg="${1#-}"
-        shift
-
-        while [ -n "$arg" ]; do
-            opt="${arg:0:1}" # Extract first character
-            arg="${arg:1}"   # Remove first character
-
-            case "$opt" in
+        while getopts "adDlrRstwv" arg; do
+            case "$arg" in
             a)
                 build_linux=true
                 build_windows=true
@@ -517,10 +511,11 @@ while [ "$#" -gt 0 ]; do
                 verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=ON"
                 ;;
             *)
-                err_exit 1 "Unknown option: -$opt"
+                err_exit 1 "Unknown option: -$arg"
                 ;;
             esac
         done
+        shift
         ;;
     *)
         err_exit 1 "Unknown cli argument: '$1'"
