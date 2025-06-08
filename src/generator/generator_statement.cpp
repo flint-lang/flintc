@@ -240,8 +240,6 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
         // Generate the expression for the return value
         Expression::garbage_type garbage;
         auto return_value = Expression::generate_expression(builder, ctx, garbage, 0, return_node->return_value.value().get());
-
-        // Ensure the return value matches the function's return type
         if (!return_value.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;

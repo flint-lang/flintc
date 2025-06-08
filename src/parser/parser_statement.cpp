@@ -77,15 +77,34 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, const token_slice 
             return_id = std::distance(tokens.first, it);
         }
     }
+    // Get the return type of the function
+    std::shared_ptr<Type> return_type = scope->get_variable_type("__flint_return_type").value();
+
     token_slice expression_tokens = {tokens.first + return_id + 1, tokens.second};
     std::optional<std::unique_ptr<ExpressionNode>> return_expr;
     if (std::next(expression_tokens.first) == expression_tokens.second) {
+        if (return_type->to_string() != "void") {
+            // Void return on non-void function
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
         return ReturnNode(return_expr);
     }
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
     if (!expr.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
+    }
+    if (expr.value()->type->to_string() != return_type->to_string()) {
+        // Check for implicit castability, if not implicitely castable, throw an error
+        std::optional<bool> castability = check_castability(return_type, expr.value()->type);
+        if (!castability.has_value() || !castability.value()) {
+            // Its either not implicitely castable or only castable in the direction return_type -> expr_type
+            // but for the return expression to be implicitely castable we need the direction expr_type -> return_type
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        expr = std::make_unique<TypeCastNode>(return_type, expr.value());
     }
     return_expr = std::move(expr.value());
     return ReturnNode(return_expr);

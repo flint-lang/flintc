@@ -435,10 +435,10 @@ Generator::group_mapping Generator::Expression::generate_call( //
             i,                                                                                                           //
             call_node->function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value_ptr" //
         );
-        llvm::LoadInst *elem_value = builder.CreateLoad(                                                       //
-            return_type->getElementType(i),                                                                    //
-            elem_ptr,                                                                                          //
-            call_node->function_name + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
+        llvm::LoadInst *elem_value = builder.CreateLoad(                                                             //
+            return_type->getElementType(i),                                                                          //
+            elem_ptr,                                                                                                //
+            call_node->function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
         );
         return_value.emplace_back(elem_value);
     }

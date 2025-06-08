@@ -151,6 +151,20 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
 
     // Create the body scope
     std::unique_ptr<Scope> body_scope = std::make_unique<Scope>();
+    std::shared_ptr<Type> return_type = nullptr;
+    if (return_types.size() > 1) {
+        return_type = std::make_shared<GroupType>(return_types);
+        if (Type::get_type_from_str(return_type->to_string()).has_value()) {
+            return_type = Type::get_type_from_str(return_type->to_string()).value();
+        } else {
+            Type::add_type(return_type);
+        }
+    } else if (return_types.empty()) {
+        return_type = Type::get_primitive_type("void");
+    } else {
+        return_type = return_types.front();
+    }
+    body_scope->add_variable("__flint_return_type", return_type, 0, false, false);
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
