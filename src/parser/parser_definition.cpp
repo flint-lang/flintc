@@ -164,7 +164,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     } else {
         return_type = return_types.front();
     }
-    body_scope->add_variable("__flint_return_type", return_type, 0, false, false);
+    body_scope->add_variable("__flint_return_type", return_type, 0, false, true);
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
