@@ -542,6 +542,7 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, const token_s
 
 std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
+    token_list toks = clone_from_slice(tokens_mut);
     // First, remove all leading and trailing garbage from the expression tokens
     remove_leading_garbage(tokens_mut);
     remove_trailing_garbage(tokens_mut);
@@ -551,57 +552,46 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
     // Remove the open and closing parenthesis
     tokens_mut.first++;
     tokens_mut.second--;
-    std::vector<std::unique_ptr<ExpressionNode>> expressions;
-    while (tokens_mut.first != tokens_mut.second) {
-        // Check if the tokens contain any opening / closing parenthesis. If it doesnt, the group parsing can be simplified a lot
-        if (!Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_LEFT_PAREN))) {
-            // Extract all tokens until the comma if it contains a comma. If it does not contain a comma, we are at the end of the group
-            if (!Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_COMMA))) {
-                auto expr = create_expression(scope, tokens_mut);
-                if (!expr.has_value()) {
-                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
-                    return std::nullopt;
-                }
-                expressions.emplace_back(std::move(expr.value()));
-                break;
-            } else {
-                std::optional<uint2> expr_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_comma);
-                if (!expr_range.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
-                tokens_mut.first += expr_range.value().second;
-                // If the last token is a comma, it is removed
-                if (std::prev(expr_tokens.second)->type == TOK_COMMA) {
-                    expr_tokens.second--;
-                }
-                auto expr = create_expression(scope, expr_tokens);
-                if (!expr.has_value()) {
-                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
-                    return std::nullopt;
-                }
-                expressions.emplace_back(std::move(expr.value()));
-            }
-        } else if (Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_COMMA))) {
-            std::optional<uint2> expr_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_comma);
-            if (!expr_range.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second - 1};
-            tokens_mut.first += expr_range.value().second;
-            auto expr = create_expression(scope, expr_tokens);
-            if (!expr.has_value()) {
-                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
-                return std::nullopt;
-            }
-            expressions.emplace_back(std::move(expr.value()));
+
+    // Get all balanced match ranges of commas in the group expression
+    toks = clone_from_slice(tokens_mut);
+    std::vector<uint2> match_ranges = Matcher::get_match_ranges(tokens_mut, Matcher::until_comma);
+    // Its not a group expression, there is only one expression inside the parenthesis, this should never happen
+    assert(!match_ranges.empty());
+    // Remove all duplicates, because when the fourth token is a comma we get the ranges 0-3, 1-3 and 2-3, and we only care about the first
+    // one, not all later ones
+    unsigned int last_second = UINT32_MAX;
+    for (auto it = match_ranges.begin(); it != match_ranges.end();) {
+        if (it->second == last_second) {
+            match_ranges.erase(it);
         } else {
-            // THIS IS NOT A GROUPED EXPRESSION
-            return std::nullopt;
+            last_second = it->second;
+            ++it;
         }
     }
+    // All tokens from the end of the second range up to the end are the last expression of the group
+    assert(tokens_mut.first + match_ranges.back().second < tokens_mut.second);
+    match_ranges.emplace_back(match_ranges.back().second, std::distance(tokens_mut.first, tokens_mut.second));
+
+    // Decrement all second matches ranges to exclude all commas from the expression (except for the last match range, it has no comma at
+    // its last position
+    for (auto it = match_ranges.begin(); it != match_ranges.end() - 1; ++it) {
+        it->second--;
+    }
+
+    // Parse all expressions in the group
+    std::vector<std::unique_ptr<ExpressionNode>> expressions;
+    for (const uint2 &match_range : match_ranges) {
+        token_slice expression_tokens = {tokens_mut.first + match_range.first, tokens_mut.first + match_range.second};
+        auto expr = create_expression(scope, expression_tokens);
+        if (!expr.has_value()) {
+            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
+            return std::nullopt;
+        }
+        expressions.emplace_back(std::move(expr.value()));
+    }
+
+    // Check if the types in the group are correct
     for (auto it = expressions.begin(); it != expressions.end(); ++it) {
         if (dynamic_cast<const GroupType *>((*it)->type.get())) {
             // Nested groups are not allowed
