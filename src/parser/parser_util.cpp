@@ -330,7 +330,7 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
     // Check if there exists a type with the name of the "function" call
     std::optional<std::shared_ptr<Type>> complex_type = Type::get_type_from_str(function_name);
     if (complex_type.has_value()) {
-        // Its a data, entity or enum type
+        // Its a data or entity type
         if (const DataType *data_type = dynamic_cast<const DataType *>(complex_type.value().get())) {
             DataNode *const data_node = data_type->data_node;
             auto &fields = data_node->fields;
@@ -376,9 +376,13 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
     }
     // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been
     // found Lastly, update the arguments of the call with the information of the function definition, if the arguments should be
-    // references Every non-primitive type is always a reference (for now)
+    // references Every non-primitive type is always a reference (except enum types, for now)
     for (size_t i = 0; i < arguments.size(); i++) {
-        arguments[i].second = keywords.find(arguments[i].first->type->to_string()) == keywords.end();
+        if (dynamic_cast<const EnumType *>(arguments[i].first->type.get()) != nullptr) {
+            arguments[i].second = false;
+        } else {
+            arguments[i].second = keywords.find(arguments[i].first->type->to_string()) == keywords.end();
+        }
         // Also, we check here if the variable is immutable but the function expects an mutable reference instead
         if (arguments[i].second) {
             // Its a complex data type, so its a reference
