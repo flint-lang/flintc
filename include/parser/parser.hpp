@@ -626,7 +626,7 @@ class Parser {
     /// @param `lhs` The lhs type to check
     /// @param `rhs` The rhs type to check
     /// @return `std::optional<bool>` nullopt if not castable, 'true' if rhs -> lhs, 'false' if lhs -> rhs
-    static std::optional<bool> check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type);
+    std::optional<bool> check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type);
 
     /// @function `check_castability`
     /// @brief Checks if one of the two expression can be implicitely cast to the other expression. If yes, it wraps the expression in a
@@ -637,7 +637,7 @@ class Parser {
     /// @return `bool` Whether the casting was sucessful
     ///
     /// @attention Modifies the `lhs` or `rhs` expressions, depending on castablity, or throws an error if its not castable
-    static bool check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs);
+    bool check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs);
 
     /// @function `check_const_folding`
     /// @brief Checks if the lhs and rhs of a binary operation are able to be constant folded, if they can it returns the result of the

@@ -43,7 +43,10 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
         if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
             type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
             // Not castable, wrong arg types
-            THROW_BASIC_ERR(ERR_PARSING);
+            // TODO: Make the token list ant column and line the actual line and column the type mismatch occurs at
+            token_list token_list = {TokenContext{TOK_EOF, "EOF", 1, 1}};
+            token_slice tokens = {token_list.begin(), token_list.end()};
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, lhs_type, rhs_type);
             return std::nullopt;
         }
         const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
