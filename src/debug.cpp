@@ -576,12 +576,11 @@ namespace Debug {
             print_expression(indent_lvl, condition_bits, if_node.condition);
 
             // Print "Then" branch
-            TreeBits then_bits = bits.child(indent_lvl, false);
+            TreeBits then_bits = bits.child(indent_lvl, !if_node.else_scope.has_value());
             Local::print_header(indent_lvl, then_bits, "Then ");
             std::cout << "then [s" << if_node.then_scope->scope_id << "]" << std::endl;
 
-            TreeBits then_body_bits = bits.child(indent_lvl, !if_node.else_scope.has_value());
-            print_body(indent_lvl + 1, then_body_bits, if_node.then_scope->body);
+            print_body(indent_lvl + 1, then_bits, if_node.then_scope->body);
 
             // Print "Else" branch
             if (if_node.else_scope.has_value()) {
