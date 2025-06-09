@@ -44,8 +44,17 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     if (tok_it->type != TOK_RIGHT_PAREN) {
         // Set the last_param_begin to + 1 to skip the left paren
         token_list::iterator last_param_begin = tok_it;
+        unsigned int depth = 0;
         while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->type != TOK_RIGHT_PAREN) {
-            if (std::next(tok_it)->type == TOK_COMMA || std::next(tok_it)->type == TOK_RIGHT_PAREN) {
+            if (tok_it->type == TOK_LESS || tok_it->type == TOK_LEFT_BRACKET) {
+                depth++;
+                tok_it++;
+                continue;
+            } else if (tok_it->type == TOK_GREATER || tok_it->type == TOK_RIGHT_BRACKET) {
+                depth--;
+                tok_it++;
+            }
+            if (depth == 0 && (std::next(tok_it)->type == TOK_COMMA || std::next(tok_it)->type == TOK_RIGHT_PAREN)) {
                 // The current token is the parameter type
                 const std::string param_name = tok_it->lexme;
                 // The type is everything from the last param begin

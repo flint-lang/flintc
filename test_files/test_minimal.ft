@@ -1,36 +1,8 @@
 use Core.print
 
-enum Operation:
-    PLUS, MINUS, MULT, DIV;
-
-data NumberContainer:
-    i32 a;
-    f32 b;
-    u64 c;
-    NumberContainer(a, b, c);
-
-def apply_operation(mut NumberContainer container, Operation op, f32 value):
-    if op == Operation.PLUS:
-        container.(a, b, c) += (i32(value), value, u64(value));
-    else if op == Operation.MINUS:
-        container.(a, b, c) -= (i32(value), value, u64(value));
-    else if op == Operation.MULT:
-        container.(a, b, c) *= (i32(value), value, u64(value));
-    else if op == Operation.DIV:
-        container.(a, b, c) /= (i32(value), value, u64(value));
+def print_tuple(data<i32, f32, str> tuple):
+    print($"tuple.(i32, f32, str) = ({tuple.$0}, {tuple.$1}, \"{tuple.$2}\")\n");
 
 def main():
-    NumberContainer container = NumberContainer(-10, 22.5, u64(889));
-    print($"container.(a, b, c) = ({container.a}, {container.b}, {container.c})\n");
-
-    apply_operation(container, Operation.PLUS, 3.4);
-    print($"container.(a, b, c) = ({container.a}, {container.b}, {container.c})\n");
-
-    apply_operation(container, Operation.MULT, 7.2);
-    print($"container.(a, b, c) = ({container.a}, {container.b}, {container.c})\n");
-
-    apply_operation(container, Operation.MINUS, 22.1);
-    print($"container.(a, b, c) = ({container.a}, {container.b}, {container.c})\n");
-
-    apply_operation(container, Operation.DIV, 6.9);
-    print($"container.(a, b, c) = ({container.a}, {container.b}, {container.c})\n");
+    data<i32, f32, str> tuple = (1, 2.2, "three");
+    print_tuple(tuple);
