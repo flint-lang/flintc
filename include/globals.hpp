@@ -22,6 +22,14 @@ constexpr inline bool DEBUG_MODE = false;
 #define VERSION "core"
 #endif
 
+#ifndef COMMIT_HASH
+#define COMMIT_HASH "unknown"
+#endif
+
+#ifndef BUILD_DATE
+#define BUILD_DATE "unknown"
+#endif
+
 extern bool PRINT_TOK_STREAM;
 extern bool PRINT_DEP_TREE;
 extern bool PRINT_AST;
