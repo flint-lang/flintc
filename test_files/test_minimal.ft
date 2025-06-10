@@ -1,6 +1,11 @@
 use Core.print
 
+def print_str(str input):
+    u64 len = input.length;
+    for i := 0; i < len; i++:
+        print($"{i}: '{input[i]}'\n");
+
 def main():
-    str name = "Marc";
-    u8 third = name[2];
-    print($"third = '{third}' at idx {i32(third)}\n");
+    print_str("Hello");
+    print_str(", ");
+    print_str("World!\n");

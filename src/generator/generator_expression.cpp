@@ -723,7 +723,12 @@ llvm::Value *Generator::Expression::generate_array_access( //
             return nullptr;
         }
         llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
-        llvm::Value *str_value = builder.CreateLoad(str_type->getPointerTo(), array_alloca, "str_value");
+        // Check if the variable is a function parameter, if it is we do not need to load the pointer, as the array alloca, e.g. the
+        // parameter variable, is the pointer to the string struct directly
+        llvm::Value *str_value = array_alloca;
+        if (!std::get<3>(ctx.scope->variables.at(access->variable_name))) {
+            str_value = builder.CreateLoad(str_type->getPointerTo(), array_alloca, "str_value");
+        }
         llvm::Function *access_str_at_fn = Module::String::string_manip_functions.at("access_str_at");
         return builder.CreateCall(access_str_at_fn, {str_value, index_expressions.front()});
     }
@@ -792,7 +797,13 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         llvm::Type *data_type;
         if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
             data_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
-            var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, access_var_name + "_str_val");
+            // Check if the accessed variable is a function parameter, if it is we dont need to change the alloca at all
+            if (std::holds_alternative<std::string>(data_access->variable)) {
+                std::string variable_name = std::get<std::string>(data_access->variable);
+                if (!std::get<3>(ctx.scope->variables.at(variable_name))) {
+                    var_alloca = builder.CreateLoad(data_type->getPointerTo(), var_alloca, access_var_name + "_str_val");
+                }
+            }
         } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
             if (data_access->field_name != "length") {
                 THROW_BASIC_ERR(ERR_GENERATING);
