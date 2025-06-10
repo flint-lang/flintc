@@ -73,48 +73,6 @@ namespace {
         }
         return test_result;
     }
-
-    TestResult test_match_use_statement_flint_package_single() {
-        TestResult test_result;
-        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
-        test_result.append_test_name("test_match_use_statement_flint_package_single", false);
-        token_list tokens = create_token_vector({//
-            TOK_USE, TOK_FLINT});
-        bool result = Matcher::tokens_match({tokens.begin(), tokens.end()}, Matcher::use_statement);
-        test_result.ok_or_not(result);
-        if (!result) {
-            test_result.increment();
-        }
-        return test_result;
-    }
-
-    TestResult test_match_use_statement_flint_package_dual() {
-        TestResult test_result;
-        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
-        test_result.append_test_name("test_match_use_statement_flint_package_dual", false);
-        token_list tokens = create_token_vector({//
-            TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER});
-        bool result = Matcher::tokens_match({tokens.begin(), tokens.end()}, Matcher::use_statement);
-        test_result.ok_or_not(result);
-        if (!result) {
-            test_result.increment();
-        }
-        return test_result;
-    }
-
-    TestResult test_match_use_statement_flint_package_multiple() {
-        TestResult test_result;
-        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, &test_result);
-        test_result.append_test_name("test_match_use_statement_flint_package_multiple", false);
-        token_list tokens = create_token_vector({//
-            TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER});
-        bool result = Matcher::tokens_match({tokens.begin(), tokens.end()}, Matcher::use_statement);
-        test_result.ok_or_not(result);
-        if (!result) {
-            test_result.increment();
-        }
-        return test_result;
-    }
 } // namespace
 // --- CONTAIN TEST USE STATEMENT ---
 namespace {
@@ -173,48 +131,6 @@ namespace {
         test_result.append_test_name("test_contain_use_statement_package_multiple", false);
         token_list tokens = create_token_vector({//
             TOK_INDENT, TOK_USE, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::use_statement);
-        test_result.ok_or_not(result);
-        if (!result) {
-            test_result.increment();
-        }
-        return test_result;
-    }
-
-    TestResult test_contain_use_statement_flint_package_single() {
-        TestResult test_result;
-        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
-        test_result.append_test_name("test_contain_use_statement_flint_package_single", false);
-        token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON});
-        bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::use_statement);
-        test_result.ok_or_not(result);
-        if (!result) {
-            test_result.increment();
-        }
-        return test_result;
-    }
-
-    TestResult test_contain_use_statement_flint_package_dual() {
-        TestResult test_result;
-        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::BRANCH}, &test_result);
-        test_result.append_test_name("test_contain_use_statement_flint_package_dual", false);
-        token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::use_statement);
-        test_result.ok_or_not(result);
-        if (!result) {
-            test_result.increment();
-        }
-        return test_result;
-    }
-
-    TestResult test_contain_use_statement_flint_package_multiple() {
-        TestResult test_result;
-        Debug::print_tree_row({Debug::VERT, Debug::VERT, Debug::SINGLE}, &test_result);
-        test_result.append_test_name("test_contain_use_statement_flint_package_multiple", false);
-        token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
         bool result = Matcher::tokens_contain({tokens.begin(), tokens.end()}, Matcher::use_statement);
         test_result.ok_or_not(result);
         if (!result) {
@@ -291,51 +207,6 @@ namespace {
         }
         return test_result;
     }
-
-    TestResult test_extract_use_statement_flint_package_single() {
-        TestResult test_result;
-        Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, &test_result);
-        test_result.append_test_name("test_extract_use_statement_flint_package_single", false);
-        token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_USE, TOK_FLINT, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Matcher::get_match_ranges({tokens.begin(), tokens.end()}, Matcher::use_statement);
-        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 3;
-        test_result.ok_or_not(result);
-        if (!result) {
-            test_result.increment();
-        }
-        return test_result;
-    }
-
-    TestResult test_extract_use_statement_flint_package_dual() {
-        TestResult test_result;
-        Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::BRANCH}, &test_result);
-        test_result.append_test_name("test_extract_use_statement_flint_package_dual", false);
-        token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Matcher::get_match_ranges({tokens.begin(), tokens.end()}, Matcher::use_statement);
-        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 5;
-        test_result.ok_or_not(result);
-        if (!result) {
-            test_result.increment();
-        }
-        return test_result;
-    }
-
-    TestResult test_extract_use_statement_flint_package_multiple() {
-        TestResult test_result;
-        Debug::print_tree_row({Debug::VERT, Debug::NONE, Debug::SINGLE}, &test_result);
-        test_result.append_test_name("test_extract_use_statement_flint_package_multiple", false);
-        token_list tokens = create_token_vector({//
-            TOK_INDENT, TOK_USE, TOK_FLINT, TOK_DOT, TOK_IDENTIFIER, TOK_DOT, TOK_IDENTIFIER, TOK_SEMICOLON});
-        std::vector<uint2> result_vec = Matcher::get_match_ranges({tokens.begin(), tokens.end()}, Matcher::use_statement);
-        bool result = !result_vec.empty() && result_vec.at(0).first == 1 && result_vec.at(0).second == 7;
-        test_result.ok_or_not(result);
-        if (!result) {
-            test_result.increment();
-        }
-        return test_result;
-    }
 } // namespace
 
 function_list get_use_statement_tests() {
@@ -346,27 +217,18 @@ function_list get_use_statement_tests() {
         test_match_use_statement_package_single,
         test_match_use_statement_package_dual,
         test_match_use_statement_package_multiple,
-        test_match_use_statement_flint_package_single,
-        test_match_use_statement_flint_package_dual,
-        test_match_use_statement_flint_package_multiple,
         // Contain Tests
         test_contain_use_statement,
         test_contain_use_statement_string,
         test_contain_use_statement_package_single,
         test_contain_use_statement_package_dual,
         test_contain_use_statement_package_multiple,
-        test_contain_use_statement_flint_package_single,
-        test_contain_use_statement_flint_package_dual,
-        test_contain_use_statement_flint_package_multiple,
         // Extract Tests
         test_extract_use_statement,
         test_extract_use_statement_string,
         test_extract_use_statement_package_single,
         test_extract_use_statement_package_dual,
         test_extract_use_statement_package_multiple,
-        test_extract_use_statement_flint_package_single,
-        test_extract_use_statement_flint_package_dual,
-        test_extract_use_statement_flint_package_multiple,
     };
     return use_statement_tests;
 }
