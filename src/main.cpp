@@ -20,49 +20,6 @@
 #include <memory>
 #include <string>
 
-/// @function `compile_extern`
-/// @brief Compiles the program using an external tool like clang or zig cc
-///
-/// @param `binary_path` The path to the binary output of the compilation
-/// @param `compile_command` The compile command with which to compile the program
-/// @param `flags` The flags added to the compile command
-/// @param `module` The llvm module to compile
-void compile_extern(                          //
-    const std::filesystem::path &binary_path, //
-    const std::string &compile_command,       //
-    const std::string &flags,                 //
-    llvm::Module *module                      //
-) {
-    PROFILE_SCOPE("Compile extern with '" + compile_command + "'");
-    // First, write the module to the .bc file
-    std::error_code EC;
-    const std::filesystem::path bc_path = binary_path.root_path() / "program.bc";
-    llvm::raw_fd_ostream bc_file(bc_path.string(), EC);
-    if (!EC) {
-        llvm::WriteBitcodeToFile(*module, bc_file);
-        bc_file.close();
-    }
-
-    std::cout << "Using '" + compile_command + "' to build the executable '" << binary_path.filename().string() << "' ..." << std::endl;
-    std::string compile_command_str = compile_command + " " + flags + " " + bc_path.string() + " -o " + binary_path.string();
-    const auto [res, output] = CLIParserBase::get_command_output(compile_command_str.c_str());
-    if (res != 0) {
-        // Throw an error stating that compilation failed
-        std::cerr << "The compilation using the command '" << compile_command_str << "' failed.\n"
-                  << "\nThe output of the compilation:\n"
-                  << output << std::endl;
-        return;
-    } else {
-        // Only remove the ll file if it has compiled successfully. If it did fail compilation, keep the file for further investigations
-        std::filesystem::remove(bc_path);
-        // Print the compile output if in debug mode
-        if (DEBUG_MODE) {
-            std::cout << YELLOW << "[Debug Info] Compiler output: \n" << DEFAULT << output << std::endl;
-        }
-    }
-    std::cout << "Build successful" << std::endl;
-}
-
 /// @function `generate_program`
 /// @brief Generates the whole program from a given source file
 ///
@@ -228,9 +185,6 @@ int main(int argc, char *argv[]) {
         // } else if (clp.run) {
         // Run the IR code idrectly through JIT compilation
         // TODO
-    } else if (!clp.compile_command.empty()) {
-        // Compile the module with the correct compiler
-        compile_extern(clp.out_file_path, clp.compile_command, clp.compile_flags, program.value().get());
     } else {
         // Compile the program and output the binary
         compile_program(clp.out_file_path, program.value().get(), clp.is_static);
