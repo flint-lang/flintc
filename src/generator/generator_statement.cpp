@@ -728,12 +728,14 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     } else {
         // If we have a elem variable the elem variable is actually just the iterable element itself
         const auto iterators = std::get<std::pair<std::optional<std::string>, std::optional<std::string>>>(for_node->iterators);
-        const unsigned int scope_id = for_node->definition_scope->scope_id;
-        const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.second.value();
-        // Replace the old nullptr alloca with the new alloca
-        assert(ctx.allocations.at(element_alloca_name) == nullptr);
-        ctx.allocations.erase(element_alloca_name);
-        ctx.allocations.emplace(element_alloca_name, current_element_ptr);
+        if (iterators.second.has_value()) {
+            const unsigned int scope_id = for_node->definition_scope->scope_id;
+            const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.second.value();
+            // Replace the old nullptr alloca with the new alloca
+            assert(ctx.allocations.at(element_alloca_name) == nullptr);
+            ctx.allocations.erase(element_alloca_name);
+            ctx.allocations.emplace(element_alloca_name, current_element_ptr);
+        }
     }
     // Then we generate the body itself
     auto old_scope = ctx.scope;
