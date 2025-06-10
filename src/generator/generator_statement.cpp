@@ -675,7 +675,6 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     llvm::Value *tuple_alloca = nullptr;
     llvm::Type *tuple_type = nullptr;
     llvm::Value *index_alloca = nullptr;
-    llvm::Value *element_alloca = nullptr;
     if (std::holds_alternative<std::string>(for_node->iterators)) {
         const unsigned int scope_id = for_node->definition_scope->scope_id;
         const std::string tuple_alloca_name = "s" + std::to_string(scope_id) + "::" + std::get<std::string>(for_node->iterators);
@@ -696,10 +695,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
             index_alloca = ctx.allocations.at(index_alloca_name);
             builder.CreateStore(builder.getInt64(0), index_alloca);
         }
-        if (iterators.second.has_value()) {
-            const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.second.value();
-            element_alloca = ctx.allocations.at(element_alloca_name);
-        }
+        // The second element will be handled later
     }
     builder.CreateBr(for_blocks[0]);
 
@@ -724,13 +720,20 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     builder.SetInsertPoint(for_blocks[1]);
     // Load the current element from the iterable
     llvm::Value *current_element_ptr = builder.CreateGEP(element_type, value_ptr, current_index, "current_element_ptr");
-    llvm::Value *current_element = builder.CreateLoad(element_type, current_element_ptr, "current_element");
     // We need to store the element in the tuple / in the element alloca
     if (std::holds_alternative<std::string>(for_node->iterators)) {
         llvm::Value *elem_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 1, "elem_ptr");
+        llvm::Value *current_element = builder.CreateLoad(element_type, current_element_ptr, "current_element");
         builder.CreateStore(current_element, elem_ptr);
     } else {
-        builder.CreateStore(current_element, element_alloca);
+        // If we have a elem variable the elem variable is actually just the iterable element itself
+        const auto iterators = std::get<std::pair<std::optional<std::string>, std::optional<std::string>>>(for_node->iterators);
+        const unsigned int scope_id = for_node->definition_scope->scope_id;
+        const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.second.value();
+        // Replace the old nullptr alloca with the new alloca
+        assert(ctx.allocations.at(element_alloca_name) == nullptr);
+        ctx.allocations.erase(element_alloca_name);
+        ctx.allocations.emplace(element_alloca_name, current_element_ptr);
     }
     // Then we generate the body itself
     auto old_scope = ctx.scope;

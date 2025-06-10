@@ -277,20 +277,6 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    std::shared_ptr<Type> element_type_ptr = nullptr;
-    if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(for_node->iterable->type.get())) {
-        if (primitive_type->type_name != "str") {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
-        element_type_ptr = Type::get_primitive_type("u8");
-    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(for_node->iterable->type.get())) {
-        element_type_ptr = array_type->type;
-    } else {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    llvm::Type *element_type = IR::get_type(element_type_ptr).first;
     if (std::holds_alternative<std::string>(for_node->iterators)) {
         // A single iterator tuple
         const std::string it_name = std::get<std::string>(for_node->iterators);
@@ -321,10 +307,8 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
         if (iterators.second.has_value()) {
             const std::string element_name = iterators.second.value();
             const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + element_name;
-            generate_allocation(builder, allocations, element_alloca_name, element_type,
-                element_name + "__ITER_ELEM",                                                                         //
-                "Create element iter alloca '" + element_name + "' of enh for loop in s::" + std::to_string(scope_id) //
-            );
+            // There is no allocation for the iterable, the allocation is actually a loaded pointer in the enh for loops body
+            allocations.emplace(element_alloca_name, nullptr);
         }
     }
     return true;

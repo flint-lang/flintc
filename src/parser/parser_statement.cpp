@@ -403,7 +403,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         }
         if (element_name.has_value()) {
             auto element_it = definition_mut.first - 3;
-            if (!definition_scope->add_variable(element_name.value(), element_type, definition_scope->scope_id, false, true)) {
+            if (!definition_scope->add_variable(element_name.value(), element_type, definition_scope->scope_id, true, true)) {
                 THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, element_it->line, element_it->column, element_name.value());
                 return std::nullopt;
             }
