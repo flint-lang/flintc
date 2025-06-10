@@ -151,6 +151,7 @@ static inline std::unordered_map<std::string_view, std::vector<std::string_view>
     {"u64", {"str", "u8", "i32", "i64", "f32", "f64", "u32"}},
     {"f32", {"str", "i32", "i64", "f64", "u32", "u64"}},
     {"f64", {"str", "i32", "i64", "f32", "u32", "u64"}},
+    {"u8", {"str", "i32", "i64", "u32", "u64"}},
     {"bool", {"str"}},
 };
 
@@ -162,7 +163,7 @@ static inline std::unordered_map<std::string_view, std::vector<std::string_view>
     {"u64", {"str"}},
     {"f32", {"str", "f64", "f32x2", "f32x3", "f32x4", "f32x8"}},
     {"f64", {"str", "f64x2", "f64x3", "f64x4"}},
-    {"bool", {"str", "bool8"}},
+    {"bool", {"str"}},
     {"u8", {"bool8", "str", "i32", "u32", "i64", "u64"}},
     {"bool8", {"u8"}},
     {"(i32, i32)", {"i32x2"}},

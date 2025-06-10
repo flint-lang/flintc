@@ -1,8 +1,6 @@
 use Core.print
 
-def print_tuple(data<i32, f32, str> tuple):
-    print($"tuple.(i32, f32, str) = ({tuple.$0}, {tuple.$1}, \"{tuple.$2}\")\n");
-
 def main():
-    data<i32, f32, str> tuple = (1, 2.2, "three");
-    print_tuple(tuple);
+    str name = "Marc";
+    u8 third = name[2];
+    print($"third = '{third}' at idx {i32(third)}\n");
