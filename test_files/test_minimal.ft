@@ -1,15 +1,10 @@
 use Core.print
 
 def main():
-    i32[] arr = i32[5](0);
-    // Just fill the array with stuff
-    for (idx, elem) in arr:
-        elem = idx * 2;
+    str my_string = "something useful";
+    for (idx, elem) in my_string:
+        if idx == 2 or idx == 4:
+            // The difference between upcase and lowercase is 32
+            elem -= u8(32);
 
-    // Ignoring the index value in the enhanced for loop
-    for (_, elem) in arr:
-        print($"elem is {elem}\n");
-
-    // Ignoring the elem in the enhanced for loop
-    for (idx, _) in arr:
-        print($"Iteration {idx}\n");
+    print($"my_string = '{my_string}'\n");

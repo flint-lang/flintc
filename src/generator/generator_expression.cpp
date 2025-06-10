@@ -1017,6 +1017,8 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     } else if (from_type_str == "i32") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");
+        } else if (to_type_str == "u8") {
+            return Module::TypeCast::i32_to_u8(builder, expr);
         } else if (to_type_str == "u32") {
             return Module::TypeCast::i32_to_u32(builder, expr);
         } else if (to_type_str == "i64") {
@@ -1031,6 +1033,8 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     } else if (from_type_str == "u32") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("u32_to_str"), {expr}, "u32_to_str_res");
+        } else if (to_type_str == "u8") {
+            return Module::TypeCast::u32_to_u8(builder, expr);
         } else if (to_type_str == "i32") {
             return Module::TypeCast::u32_to_i32(builder, expr);
         } else if (to_type_str == "i64") {
@@ -1045,6 +1049,8 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     } else if (from_type_str == "i64") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("i64_to_str"), {expr}, "i64_to_str_res");
+        } else if (to_type_str == "u8") {
+            return Module::TypeCast::i64_to_u8(builder, expr);
         } else if (to_type_str == "i32") {
             return Module::TypeCast::i64_to_i32(builder, expr);
         } else if (to_type_str == "u32") {
@@ -1059,6 +1065,8 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     } else if (from_type_str == "u64") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("u64_to_str"), {expr}, "u64_to_str_res");
+        } else if (to_type_str == "u8") {
+            return Module::TypeCast::u64_to_u8(builder, expr);
         } else if (to_type_str == "i32") {
             return Module::TypeCast::u64_to_i32(builder, expr);
         } else if (to_type_str == "u32") {

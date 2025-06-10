@@ -253,6 +253,22 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
  * @region `I32`
  *****************************************************************************************************************************************/
 
+llvm::Value *Generator::Module::TypeCast::i32_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+    auto zero = llvm::ConstantInt::get(int_value->getType(), 0);
+    auto uint8_max_32 = llvm::ConstantInt::get(int_value->getType(), 255);
+
+    // Clamp to 0 if negative
+    auto is_negative = builder.CreateICmpSLT(int_value, zero);
+    auto clamped_negative = builder.CreateSelect(is_negative, zero, int_value);
+
+    // Clamp to 255 if too large
+    auto is_too_large = builder.CreateICmpSGT(clamped_negative, uint8_max_32);
+    auto clamped = builder.CreateSelect(is_too_large, uint8_max_32, clamped_negative);
+
+    // Finally truncate to 8 bits
+    return builder.CreateTrunc(clamped, llvm::Type::getInt8Ty(context));
+}
+
 llvm::Value *Generator::Module::TypeCast::i32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     // Compare with 0
     auto zero = llvm::ConstantInt::get(int_value->getType(), 0);
@@ -454,6 +470,13 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
  * @region `U32`
  *****************************************************************************************************************************************/
 
+llvm::Value *Generator::Module::TypeCast::u32_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+    auto uint8_max_32 = llvm::ConstantInt::get(int_value->getType(), 255);
+    auto too_large = builder.CreateICmpUGT(int_value, uint8_max_32);
+    auto clamped = builder.CreateSelect(too_large, uint8_max_32, int_value);
+    return builder.CreateTrunc(clamped, llvm::Type::getInt8Ty(context));
+}
+
 llvm::Value *Generator::Module::TypeCast::u32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     auto int_max = llvm::ConstantInt::get(int_value->getType(), llvm::APInt::getSignedMaxValue(32));
     auto too_large = builder.CreateICmpUGT(int_value, int_max);
@@ -624,6 +647,22 @@ void Generator::Module::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder
 /******************************************************************************************************************************************
  * @region `I64`
  *****************************************************************************************************************************************/
+
+llvm::Value *Generator::Module::TypeCast::i64_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+    auto zero = llvm::ConstantInt::get(int_value->getType(), 0);
+    auto uint8_max_64 = llvm::ConstantInt::get(int_value->getType(), 255);
+
+    // Clamp to 0 if negative
+    auto is_negative = builder.CreateICmpSLT(int_value, zero);
+    auto clamped_negative = builder.CreateSelect(is_negative, zero, int_value);
+
+    // Clamp to 255 if too large
+    auto is_too_large = builder.CreateICmpSGT(clamped_negative, uint8_max_64);
+    auto clamped = builder.CreateSelect(is_too_large, uint8_max_64, clamped_negative);
+
+    // Finally truncate to 8 bits
+    return builder.CreateTrunc(clamped, llvm::Type::getInt8Ty(context));
+}
 
 llvm::Value *Generator::Module::TypeCast::i64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     return builder.CreateTrunc(int_value, llvm::Type::getInt32Ty(context), "trunc");
@@ -828,6 +867,13 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
 /******************************************************************************************************************************************
  * @region `U64`
  *****************************************************************************************************************************************/
+
+llvm::Value *Generator::Module::TypeCast::u64_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
+    auto uint8_max_64 = llvm::ConstantInt::get(int_value->getType(), 255);
+    auto too_large = builder.CreateICmpUGT(int_value, uint8_max_64);
+    auto clamped = builder.CreateSelect(too_large, uint8_max_64, int_value);
+    return builder.CreateTrunc(clamped, llvm::Type::getInt8Ty(context));
+}
 
 llvm::Value *Generator::Module::TypeCast::u64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value) {
     auto int32_max_64 = llvm::ConstantInt::get(int_value->getType(), 0x7FFFFFFF);

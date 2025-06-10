@@ -2597,6 +2597,14 @@ class Generator {
              * @region `I32`
              *************************************************************************************************************************************/
 
+            /// @function `i32_to_u8`
+            /// @brief Converts a i32 value to an u8 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `int_value` The i32 value to convert
+            /// @return `llvm::Value *` The converted u8 value
+            static llvm::Value *i32_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
             /// @function `i32_to_u32`
             /// @brief Converts an i32 value to a u32 value
             ///
@@ -2648,6 +2656,14 @@ class Generator {
             /**************************************************************************************************************************************
              * @region `U32`
              *************************************************************************************************************************************/
+
+            /// @function `u32_to_u8`
+            /// @brief Converts a u32 value to an u8 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `int_value` The u32 value to convert
+            /// @return `llvm::Value *` The converted u8 value
+            static llvm::Value *u32_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value);
 
             /// @function `u32_to_i32`
             /// @brief Converts a u32 value to an i32 value
@@ -2701,6 +2717,14 @@ class Generator {
              * @region `I64`
              *************************************************************************************************************************************/
 
+            /// @function `i64_to_u8`
+            /// @brief Converts an i64 value to an u8 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `int_value` The i64 value to convert
+            /// @return `llvm::Value *` The converted u8 value
+            static llvm::Value *i64_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value);
+
             /// @function `i64_to_i32`
             /// @brief Converts an i64 value to an i32 value
             ///
@@ -2752,6 +2776,14 @@ class Generator {
             /**************************************************************************************************************************************
              * @region `U64`
              *************************************************************************************************************************************/
+
+            /// @function `u64_to_u8`
+            /// @brief Converts a u64 value to an u8 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `int_value` The u64 value to convert
+            /// @return `llvm::Value *` The converted u8 value
+            static llvm::Value *u64_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value);
 
             /// @function `u64_to_i32`
             /// @brief Converts a u64 value to an i32 value
