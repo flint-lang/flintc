@@ -453,7 +453,8 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_name, definition);
         return std::nullopt;
     }
-    last_parsed_call.value()->has_catch = true;
+    CallNodeBase *catch_base_call = last_parsed_call.value();
+    catch_base_call->has_catch = true;
 
     const token_slice right_of_catch = {catch_id.value(), std::prev(definition.second)};
     std::optional<std::string> err_var = std::nullopt;
@@ -478,7 +479,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     }
     body_scope->body = std::move(body_statements.value());
 
-    return std::make_unique<CatchNode>(err_var, body_scope, last_parsed_call.value());
+    return std::make_unique<CatchNode>(err_var, body_scope, catch_base_call);
 }
 
 std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope, const token_slice &tokens) {

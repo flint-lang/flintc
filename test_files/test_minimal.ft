@@ -1,10 +1,11 @@
 use Core.print
 
-def main():
-    str my_string = "something useful";
-    for (idx, elem) in my_string:
-        if idx == 2 or idx == 4:
-            // The difference between upcase and lowercase is 32
-            elem -= u8(32);
+def err_div(i32 x, i32 y) -> i32:
+    if y == 0:
+        throw 69;
+    return x / y;
 
-    print($"my_string = '{my_string}'\n");
+def main():
+    i32 result = err_div(10, 0) catch err:
+        print($"err = {err}\n");
+    print($"result = {result}\n");
