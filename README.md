@@ -63,6 +63,8 @@ You need `base-devel` (Arch) or `build-essential` (Ubuntu) in order for the Flin
 
 ### Windows
 
+It is actively worked on an installer (`.msi` file) which will download the compiler for you and will set the `PATH` variable accordingly. Until then, the path to the executable (`flintc.exe`) needs to be specified manually when compiling a Flint program.
+
 ## Building
 
 Building is easy. You obviously first need to clone this repository. There exists a single `build.sh` script in the `scripts` directory, with many cli options to choose from. Choose what you whish to do and the script will do it for you. You must be in the root directory of the `flintc` repository for the build script to work properly (cause CMake). After compiling the compiler you need `base-devel` (Arch) or `build-essential` (Ubuntu) in order for the Flint compiler to be able to compile any program. It needs the `crt1.o`, `crti.o` and `crtn.o` files available to it.
