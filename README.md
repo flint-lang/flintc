@@ -1,5 +1,3 @@
-# flintc
-
 <div align="center">
 <p>
     <img width="100" src="https://raw.githubusercontent.com/flint-lang/logo/main/logo.svg">
@@ -10,6 +8,7 @@
 An approachable programming language to make power and performance accessible without bloat, in a high level package.
 
 This repository is contains the Flint compiler itself.
+
 </p>
 
 <p>
@@ -63,8 +62,6 @@ chmod +x $HOME/.local/bin/flintc
 You need `base-devel` (Arch) or `build-essential` (Ubuntu) in order for the Flint compiler to be able to compile any program. It needs the `crt1.o`, `crti.o` and `crtn.o` files available to it.
 
 ### Windows
-
-
 
 ## Building
 
