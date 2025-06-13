@@ -304,16 +304,16 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                     }
                 } else {
                     const unsigned long long lit_value = std::stoll(tok->lexme);
-                    if (lit_value > static_cast<long long>(UINT64_MAX)) {
+                    if (lit_value > static_cast<unsigned long long>(UINT64_MAX)) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
-                    } else if (lit_value > static_cast<long long>(INT64_MAX)) {
+                    } else if (lit_value > static_cast<unsigned long long>(INT64_MAX)) {
                         value = static_cast<unsigned long>(lit_value);
                         return LiteralNode(value, Type::get_primitive_type("u64"));
-                    } else if (lit_value > static_cast<long long>(UINT32_MAX)) {
+                    } else if (lit_value > static_cast<unsigned long long>(UINT32_MAX)) {
                         value = static_cast<long>(lit_value);
                         return LiteralNode(value, Type::get_primitive_type("i64"));
-                    } else if (lit_value > static_cast<long long>(INT32_MAX)) {
+                    } else if (lit_value > static_cast<unsigned long long>(INT32_MAX)) {
                         value = static_cast<unsigned int>(lit_value);
                         return LiteralNode(value, Type::get_primitive_type("u32"));
                     } else {
