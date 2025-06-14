@@ -7,7 +7,6 @@
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/parser.hpp"
-#include "parser/type/primitive_type.hpp"
 
 #include <string>
 

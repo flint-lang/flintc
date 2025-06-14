@@ -95,6 +95,12 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, const token_slice 
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
+    if (const VariableNode *variable_node = dynamic_cast<const VariableNode *>(expr.value().get())) {
+        std::vector<unsigned int> &return_scopes = std::get<4>(scope->variables.at(variable_node->name));
+        // Duplicate Return statement within the same scope, every scope should only have one return value
+        assert(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
+        return_scopes.push_back(scope->scope_id);
+    }
     if (expr.value()->type->to_string() != return_type->to_string()) {
         // Check for implicit castability, if not implicitely castable, throw an error
         std::optional<bool> castability = check_castability(return_type, expr.value()->type);

@@ -48,7 +48,8 @@ class Scope {
     /// @return `bool` Whether the cloning was successful
     bool clone_variables(const Scope *other) {
         for (const auto &[name, type_scope] : other->variables) {
-            if (!add_variable(name, std::get<0>(type_scope), std::get<1>(type_scope), std::get<2>(type_scope), std::get<3>(type_scope))) {
+            if (!add_variable(name, std::get<0>(type_scope), std::get<1>(type_scope), std::get<2>(type_scope), std::get<3>(type_scope),
+                    std::get<4>(type_scope))) {
                 // Duplicate definition / shadowing
                 return false;
             }
@@ -64,15 +65,17 @@ class Scope {
     /// @param `scope_id` The id of the scope the variable is declared in
     /// @param `is_mutable` Whether the variable is mutable
     /// @param `is_param` Whether the variable is a function parameter
+    /// @param `return_scope` The scope(s) in which the variable is returned from the function, if any
     /// @return `bool` Whether insertion of the variable type was successful. If not, this means a variable is shadowed
-    bool add_variable(                     //
-        const std::string &var,            //
-        const std::shared_ptr<Type> &type, //
-        const unsigned int sid,            //
-        const bool is_mutable,             //
-        const bool is_param                //
+    bool add_variable(                                     //
+        const std::string &var,                            //
+        const std::shared_ptr<Type> &type,                 //
+        const unsigned int sid,                            //
+        const bool is_mutable,                             //
+        const bool is_param,                               //
+        const std::vector<unsigned int> &return_scope = {} //
     ) {
-        return variables.insert({var, {type, sid, is_mutable, is_param}}).second;
+        return variables.insert({var, {type, sid, is_mutable, is_param, return_scope}}).second;
     }
 
     /// @function `get_variable_type`
@@ -91,8 +94,10 @@ class Scope {
     /// @brief Returns all variable definitions which are unique to this scope, and not present in the parent scope. This function is used
     /// for easy handling for variables when they go out of scope
     ///
-    /// @return `std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool>>` The variable map thats unique to this scope
-    std::unordered_map<std::string, std::tuple<std::shared_ptr<Type>, unsigned int, bool, bool>> get_unique_variables() const {
+    /// @return `std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool, std::vector<unsigned int>>>` The variable map
+    /// thats unique to this scope
+    std::unordered_map<std::string, std::tuple<std::shared_ptr<Type>, unsigned int, bool, bool, std::vector<unsigned int>>>
+    get_unique_variables() const {
         if (parent_scope == nullptr) {
             return variables;
         }
@@ -123,7 +128,8 @@ class Scope {
     ///         2. the scope it was declared in
     ///         3. if the variable is mutable
     ///         4. if the variable is a parameter of the function
-    std::unordered_map<std::string, std::tuple<std::shared_ptr<Type>, unsigned int, bool, bool>> variables;
+    ///         5. in which scope the variable is returned as its value, if any
+    std::unordered_map<std::string, std::tuple<std::shared_ptr<Type>, unsigned int, bool, bool, std::vector<unsigned int>>> variables;
 
   private:
     /// @function `get_next_scope_id`

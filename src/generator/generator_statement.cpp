@@ -134,6 +134,11 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         if (std::get<3>(var_info)) {
             continue;
         }
+        // Check if the variable is returned within this scope, if it is we do not free it
+        const std::vector<unsigned int> &returned_scopes = std::get<4>(var_info);
+        if (std::find(returned_scopes.begin(), returned_scopes.end(), ctx.scope->scope_id) != returned_scopes.end()) {
+            continue;
+        }
         // Check if the variable is of type str
         std::shared_ptr<Type> var_type = std::get<0>(var_info);
         if (const auto primitive_type = dynamic_cast<const PrimitiveType *>(var_type.get())) {
