@@ -22,8 +22,14 @@ constexpr inline bool DEBUG_MODE = false;
 #define VERSION "core"
 #endif
 
+#include <string>
+#define STRINGIFY(x) #x
+#define STR_EXPAND(x) STRINGIFY(x)
+
 #ifndef COMMIT_HASH
-#define COMMIT_HASH "unknown"
+const inline std::string COMMIT_HASH_VALUE = "unknown";
+#else
+const inline std::string COMMIT_HASH_VALUE = STR_EXPAND(COMMIT_HASH);
 #endif
 
 #ifndef BUILD_DATE

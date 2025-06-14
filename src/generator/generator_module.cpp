@@ -184,8 +184,20 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
         // Set all bits to 1, e.g. rebuild everything
         return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
     }
-    for (const auto &group : main_group->fields) {
-        const auto group_value = dynamic_cast<const JsonGroup *>(group.get());
+    for (const auto &field : main_group->fields) {
+        if (const JsonString *json_string = dynamic_cast<const JsonString *>(field.get())) {
+            if (json_string->name == "commit_hash") {
+                if (json_string->value != COMMIT_HASH_VALUE) {
+                    return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+                }
+                continue;
+            } else {
+                // Unknown bare string field in the metadata.json file
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+            }
+        }
+        const auto group_value = dynamic_cast<const JsonGroup *>(field.get());
         if (group_value == nullptr) {
             THROW_BASIC_ERR(ERR_GENERATING);
             // Set all bits to 1, e.g. rebuild everything
@@ -255,6 +267,8 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
 }
 
 void Generator::Module::save_metadata_json_file(int overflow_mode_value, int oob_mode_value) {
+    std::unique_ptr<JsonObject> commit_hash_object = std::make_unique<JsonString>("commit_hash", COMMIT_HASH_VALUE);
+
     std::unique_ptr<JsonObject> overflow_mode_object = std::make_unique<JsonNumber>("overflow_mode", overflow_mode_value);
     std::vector<std::unique_ptr<JsonObject>> arithmetic_group_content;
     arithmetic_group_content.emplace_back(std::move(overflow_mode_object));
@@ -266,6 +280,7 @@ void Generator::Module::save_metadata_json_file(int overflow_mode_value, int oob
     std::unique_ptr<JsonObject> array_group = std::make_unique<JsonGroup>("array", array_group_content);
 
     std::vector<std::unique_ptr<JsonObject>> main_object_content;
+    main_object_content.emplace_back(std::move(commit_hash_object));
     main_object_content.emplace_back(std::move(arithmetic_group));
     main_object_content.emplace_back(std::move(array_group));
     std::unique_ptr<JsonObject> main_object = std::make_unique<JsonGroup>("__ROOT__", main_object_content);
