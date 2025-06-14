@@ -310,6 +310,10 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
             allocations.emplace(element_alloca_name, nullptr);
         }
     }
+    if (!generate_allocations(builder, parent, for_node->body.get(), allocations, imported_core_modules)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
     return true;
 }
 
