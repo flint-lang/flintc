@@ -101,6 +101,16 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, const token_slice 
         assert(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
         return_scopes.push_back(scope->scope_id);
     }
+    if (const GroupExpressionNode *group_node = dynamic_cast<const GroupExpressionNode *>(expr.value().get())) {
+        for (auto &group_expr : group_node->expressions) {
+            if (const VariableNode *variable_node = dynamic_cast<const VariableNode *>(group_expr.get())) {
+                std::vector<unsigned int> &return_scopes = std::get<4>(scope->variables.at(variable_node->name));
+                // Duplicate Return statement within the same scope, every scope should only have one return value
+                assert(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
+                return_scopes.push_back(scope->scope_id);
+            }
+        }
+    }
     if (expr.value()->type->to_string() != return_type->to_string()) {
         // Check for implicit castability, if not implicitely castable, throw an error
         std::optional<bool> castability = check_castability(return_type, expr.value()->type);
