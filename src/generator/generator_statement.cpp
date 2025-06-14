@@ -1079,7 +1079,8 @@ bool Generator::Statement::generate_group_assignment( //
 
     unsigned int elem_idx = 0;
     for (const auto &assign : group_assignment->assignees) {
-        const std::string var_name = "s" + std::to_string(ctx.scope->scope_id) + "::" + assign.second;
+        const unsigned int var_decl_scope = std::get<1>(ctx.scope->variables.at(assign.second));
+        const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + assign.second;
         llvm::Value *const alloca = ctx.allocations.at(var_name);
         llvm::Value *elem_value = expression.value().at(elem_idx);
         builder.CreateStore(elem_value, alloca);
