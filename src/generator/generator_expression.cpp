@@ -257,7 +257,12 @@ Generator::group_mapping Generator::Expression::generate_call( //
     args.reserve(call_node->arguments.size());
     garbage_type garbage;
     for (const auto &arg : call_node->arguments) {
-        group_mapping expression = generate_expression(builder, ctx, garbage, 0, arg.first.get(), arg.second);
+        // Complex rguments of function calls are always passed as references, but if the data type is complex this "reference" is a pointer
+        // to the actual data of the variable, not a pointer to its allocation. So, in this case we are not allowed to pass in any variable
+        // as "reference" because then a double pointer is passed to the function where a single pointer is expected This behaviour should
+        // only effect array types, as data and strings are handled differently
+        bool is_reference = arg.second && dynamic_cast<const ArrayType *>(arg.first->type.get()) == nullptr;
+        group_mapping expression = generate_expression(builder, ctx, garbage, 0, arg.first.get(), is_reference);
         if (!expression.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
