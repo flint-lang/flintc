@@ -125,11 +125,22 @@ void compile_program(const std::filesystem::path &binary_file, llvm::Module *mod
         return;
     }
 
+    std::string obj_file = binary_file.string();
+    switch (COMPILATION_TARGET) {
+        case Target::NATIVE:
 #ifdef __WIN32__
-    const std::string obj_file = binary_file.string() + ".obj";
+            obj_file += ".obj";
 #else
-    const std::string obj_file = binary_file.string() + ".o";
+            obj_file += ".o";
 #endif
+            break;
+        case Target::LINUX:
+            obj_file += ".o";
+            break;
+        case Target::WINDOWS:
+            obj_file += ".obj";
+            break;
+    }
 
     Profiler::start_task("Linking " + obj_file + " to a binary");
     bool link_success = Linker::link(obj_file, // input object file

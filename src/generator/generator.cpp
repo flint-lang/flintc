@@ -73,6 +73,9 @@ std::filesystem::path Generator::get_flintc_cache_path() {
     std::filesystem::path home_path = std::filesystem::path(home);
     std::filesystem::path cache_path = home_path / ".cache" / "flintc";
 #endif
+    if (COMPILATION_TARGET != Target::NATIVE) {
+        cache_path /= "cross_compile";
+    }
     // Check if the cache path exists, if not create directories, like `mkdir -p`
     try {
         if (!std::filesystem::exists(cache_path)) {
@@ -100,11 +103,22 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     }
 
     // Get the target triple (architecture, OS, etc.)
+    std::string target_triple = "";
+    switch (COMPILATION_TARGET) {
+        case Target::NATIVE:
 #ifdef __WIN32__
-    std::string target_triple = "x86_64-pc-windows-msvc";
+            target_triple = "x86_64-pc-windows-msvc";
 #else
-    std::string target_triple = llvm::sys::getDefaultTargetTriple();
+            target_triple = llvm::sys::getDefaultTargetTriple();
 #endif
+            break;
+        case Target::WINDOWS:
+            target_triple = "x86_64-pc-windows-gnu";
+            break;
+        case Target::LINUX:
+            target_triple = "x86_64-pc-linux-gnu";
+            break;
+    }
 
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << "\n" << std::endl;
@@ -134,11 +148,22 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
 
     // Create an output file
     std::error_code EC;
+    std::string obj_file = module_path.string();
+    switch (COMPILATION_TARGET) {
+        case Target::NATIVE:
 #ifdef __WIN32__
-    const std::string obj_file = module_path.string() + ".obj";
+            obj_file += ".obj";
 #else
-    const std::string obj_file = module_path.string() + ".o";
+            obj_file += ".o";
 #endif
+            break;
+        case Target::LINUX:
+            obj_file += ".o";
+            break;
+        case Target::WINDOWS:
+            obj_file += ".obj";
+            break;
+    }
     llvm::raw_fd_ostream dest(obj_file, EC, llvm::sys::fs::OF_None);
     if (EC) {
         llvm::errs() << "Could not open file: " << EC.message() << "\n";

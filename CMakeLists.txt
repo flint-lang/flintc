@@ -187,6 +187,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
         endif()
     endforeach()
     list(APPEND WINDOWS_COMPONENTS_LIST "lldCOFF")
+    list(APPEND WINDOWS_COMPONENTS_LIST "lldELF")
     list(APPEND WINDOWS_COMPONENTS_LIST "lldCommon")
 
     # Use the filtered list for Windows
@@ -199,6 +200,7 @@ else()
     string(REPLACE " " ";" LLVM_STATIC_LIBS_LIST "${LINUX_LLVM_LIBS}")
     list(APPEND LLVM_STATIC_LIBS_LIST "-llldCommon")
     list(APPEND LLVM_STATIC_LIBS_LIST "-llldELF")
+    list(APPEND LLVM_STATIC_LIBS_LIST "lldCOFF")
     string(REPLACE " " ";" LLVM_SYSTEM_LIBS_LIST "${LINUX_SYSTEM_LIBS}")
 
     message(STATUS "Linux LLVM libraries: ${LLVM_STATIC_LIBS_LIST}")

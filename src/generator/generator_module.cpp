@@ -119,11 +119,22 @@ bool Generator::Module::generate_modules() {
     save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
 
     // Now, merge together all object files into one single .o / .obj file
+    std::string file_ending = "";
+    switch (COMPILATION_TARGET) {
+        case Target::NATIVE:
 #ifdef __WIN32__
-    const std::string file_ending = ".obj";
+            file_ending = ".obj";
 #else
-    const std::string file_ending = ".o";
+            file_ending = ".o";
 #endif
+            break;
+        case Target::LINUX:
+            file_ending = ".o";
+            break;
+        case Target::WINDOWS:
+            file_ending = ".obj";
+            break;
+    }
     std::vector<std::filesystem::path> libs;
     libs.emplace_back(cache_path / ("print" + file_ending));
     libs.emplace_back(cache_path / ("str" + file_ending));

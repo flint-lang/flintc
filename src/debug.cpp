@@ -17,6 +17,7 @@ bool HARD_CRASH = false;
 bool NO_GENERATION = false;
 
 unsigned int BUILTIN_LIBS_TO_PRINT = 0;
+Target COMPILATION_TARGET = Target::NATIVE;
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
 ArrayOutOfBoundsMode oob_mode = ArrayOutOfBoundsMode::PRINT;
 

@@ -19,8 +19,6 @@
 #include <fstream>
 #include <sstream>
 
-LLD_HAS_DRIVER(coff)
-
 static const char *fetch_crt_bat_content = R"(@echo off
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0fetch_crt.ps1" %*
 )";
@@ -87,32 +85,78 @@ if (Test-Path $installer) {
     Write-Host "'vs_BuildTools.exe' has been removed."
 }
 )DELIM";
-#else
-LLD_HAS_DRIVER(elf)
 #endif
 
+LLD_HAS_DRIVER(coff)
+LLD_HAS_DRIVER(elf)
+
 bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static) {
-    std::vector<const char *> args;
+    switch (COMPILATION_TARGET) {
+        case Target::NATIVE:
 #ifdef __WIN32__
-    // Windows COFF linking arguments
-    std::string output_exe = output_file.string() + ".exe";
-    std::string obj_file_str = obj_file.string();
+            return link_windows(obj_file, output_file, is_static);
+#else
+            return link_linux(obj_file, output_file, is_static);
+#endif
+            break;
+        case Target::LINUX:
+            return link_linux(obj_file, output_file, is_static);
+            break;
+        case Target::WINDOWS:
+            return link_windows(obj_file, output_file, is_static);
+            break;
+    }
+}
 
-    args.push_back("lld-link");
-    args.push_back(obj_file_str.c_str());
+bool Linker::create_static_library(const std::vector<std::filesystem::path> &obj_files, const std::filesystem::path &output_file) {
+    // Create archive members from object files
+    std::vector<llvm::NewArchiveMember> newMembers;
 
-    std::string out_arg = "/OUT:" + output_exe;
-    args.push_back(out_arg.c_str());
-    args.push_back("/VERBOSE:LIB");
-    args.push_back("/DEBUG");
-    std::string pdb_flag = "/PDB:" + output_file.string() + ".pdb";
-    args.push_back(pdb_flag.c_str());
-    args.push_back("/SUBSYSTEM:CONSOLE");
-    args.push_back("/NODEFAULTLIB:msvcrt.lib");
+    for (const auto &obj_file : obj_files) {
+        // Create archive member from file
+        auto memberOrErr = llvm::NewArchiveMember::getFile(obj_file.string(), /*Deterministic=*/true);
 
-    // Get the cache path
+        if (!memberOrErr) {
+            std::cerr << "Error: Unable to create archive member from " << obj_file << llvm::toString(memberOrErr.takeError()) << std::endl;
+            return false;
+        }
+
+        newMembers.push_back(std::move(*memberOrErr));
+    }
+
+    // Write the archive file
+    std::string file_ending = "";
+    switch (COMPILATION_TARGET) {
+        case Target::NATIVE:
+#ifdef __WIN32__
+            file_ending = ".lib";
+#else
+            file_ending = ".a";
+#endif
+            break;
+        case Target::LINUX:
+            file_ending = ".a";
+            break;
+        case Target::WINDOWS:
+            file_ending = ".lib";
+            break;
+    }
+    llvm::Error err = llvm::writeArchive(output_file.string() + file_ending, newMembers,
+        /*WriteSymtab=*/llvm::SymtabWritingMode::NormalSymtab,
+        /*Kind=*/llvm::object::Archive::K_GNU,
+        /*Deterministic=*/true,
+        /*Thin=*/false, /*OldArchiveBuf=*/nullptr);
+
+    if (err) {
+        std::cerr << "Error: Failed to write archive: " << llvm::toString(std::move(err)) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+void Linker::fetch_crt_libs() {
     std::filesystem::path cache_path = Generator::get_flintc_cache_path();
-
     // Check if the crt path exists in the cache path, and if it exists whether all the libraries we need are present in it
     std::filesystem::path crt_path = cache_path / "crt";
     bool crt_libs_present = std::filesystem::exists(crt_path);
@@ -127,6 +171,7 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "vcruntime.lib");
     }
     if (!crt_libs_present) {
+#ifdef __WIN32__
         // One or more lib is missing, call the bash script
         if (DEBUG_MODE) {
             std::cout << YELLOW << "[Debug Info] " << DEFAULT << "One or more crt libraries are missing" << std::endl;
@@ -151,18 +196,14 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
                       << output << std::endl;
             return false;
         }
+#else
+        // One or more libs are missing, re-fetch them and put them into the crt path
+#endif
     }
+}
 
+std::string Linker::get_lib_env_win() {
     // Get the lib environment variable
-    std::vector<std::string> lib_paths;
-    if (cache_path.string().find(' ') == std::string::npos) {
-        lib_paths.push_back("/LIBPATH:" + cache_path.string());
-        lib_paths.push_back("/LIBPATH:" + crt_path.string());
-    } else {
-        // Only add the " ... " if the path contains any spaces
-        lib_paths.push_back("/LIBPATH:\"" + cache_path.string() + "\"");
-        lib_paths.push_back("/LIBPATH:\"" + crt_path.string() + "\"");
-    }
     const char *lib_env = std::getenv("LIB");
     std::string lib_env_str = "";
 
@@ -206,10 +247,42 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
 #endif
         }
     }
+    return lib_env_str;
+}
 
-    // Add all library paths to lld
-    for (const auto &path : lib_paths) {
-        args.push_back(path.c_str());
+std::vector<std::string> Linker::get_windows_args( //
+    const std::filesystem::path &obj_file,         //
+    const std::filesystem::path &output_file,      //
+    const bool is_static                           //
+) {
+    std::vector<std::string> args;
+    std::string output_exe = output_file.string() + ".exe";
+
+    args.push_back("lld-link");
+    args.push_back(obj_file.string());
+
+    args.push_back("/OUT:" + output_exe);
+    args.push_back("/VERBOSE:LIB");
+    args.push_back("/DEBUG");
+    args.push_back("/PDB:" + output_file.string() + ".pdb");
+    args.push_back("/SUBSYSTEM:CONSOLE");
+    args.push_back("/NODEFAULTLIB:msvcrt.lib");
+
+    // Get the cache path
+    std::filesystem::path cache_path = Generator::get_flintc_cache_path();
+
+    // Fetch the crt libs
+    std::filesystem::path crt_path = cache_path / "crt";
+    fetch_crt_libs();
+
+    // Get the lib environment variable
+    if (cache_path.string().find(' ') == std::string::npos) {
+        args.push_back("/LIBPATH:" + cache_path.string());
+        args.push_back("/LIBPATH:" + crt_path.string());
+    } else {
+        // Only add the " ... " if the path contains any spaces
+        args.push_back("/LIBPATH:\"" + cache_path.string() + "\"");
+        args.push_back("/LIBPATH:\"" + crt_path.string() + "\"");
     }
 
     // Link against the builtins library
@@ -225,6 +298,13 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         args.push_back("ucrt.lib");
         args.push_back("msvcrt.lib");
     }
+    return args;
+}
+
+bool Linker::link_windows(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static) {
+#ifdef __WIN32__
+    // Get the 'LIB' environment variable
+    std::string lib_env_str = get_lib_env_win();
 
     // Set the 'LIB' environment variable to nothing so lld-link ignores all of it
     if (DEBUG_MODE) {
@@ -235,7 +315,14 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
 #else
     putenv(const_cast<char *>("LIB="));
 #endif
+#endif
 
+    // Get the arguments with which to call the linker
+    std::vector<std::string> arguments = get_windows_args(obj_file, output_file, is_static);
+    std::vector<const char *> args;
+    for (const auto &arg : arguments) {
+        args.push_back(arg.c_str());
+    }
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] " << (is_static ? "Static" : "Dynamic") << " Windows linking with arguments:" << DEFAULT
                   << std::endl;
@@ -244,6 +331,8 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         }
     }
     bool result = lld::coff::link(args, llvm::outs(), llvm::errs(), false, false);
+
+#ifdef __WIN32__
     // Set the 'LIB' environemnt variable back to what it was originally
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] Putting the original content of the 'LIB' environment variable back into it: " << DEFAULT
@@ -255,16 +344,21 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
 #else
     putenv(const_cast<char *>(lib_env_str.c_str()));
 #endif
+#endif
     return result;
-#else
-    // Unix ELF linking arguments
+}
+
+std::optional<std::vector<std::string>> Linker::get_linux_args( //
+    const std::filesystem::path &obj_file,                      //
+    const std::filesystem::path &output_file,                   //
+    const bool is_static                                        //
+) {
+    std::vector<std::string> args;
     args.push_back("ld.lld");
 
-    std::array<std::string, 30> args_buffer;
-    unsigned int args_id = 0;
     if (is_static) {
         // For static builds with musl
-        args_buffer[args_id++] = "-static";
+        args.push_back("-static");
 
         // Find musl libc.a - check multiple possible locations
         std::vector<std::string> possible_musl_paths = {
@@ -284,9 +378,8 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
 
         if (musl_libc_path.empty()) {
             std::cerr << "Error: Could not find musl libc.a. Please install musl-dev or equivalent." << std::endl;
-            return false;
+            return std::nullopt;
         }
-
         if (DEBUG_MODE) {
             std::cout << "-- Using musl libc from: " << musl_libc_path << "\n" << std::endl;
         }
@@ -296,31 +389,25 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
         std::string musl_crt1 = musl_dir + "/crt1.o";
 
         if (std::filesystem::exists(musl_crt1)) {
-            args_buffer[args_id++] = musl_crt1;
+            args.push_back(musl_crt1);
         } else {
             // Fall back to system crt1.o
-            args_buffer[args_id++] = "/usr/lib/crt1.o";
+            args.push_back("/usr/lib/crt1.o");
         }
 
         // Add object file
-        args_buffer[args_id++] = obj_file.string();
+        args.push_back(obj_file.string());
 
         // Use musl libc.a directly by path (not with -l flag)
-        args_buffer[args_id++] = std::string(musl_libc_path);
-
-        for (unsigned int i = 0; i < args_id; i++) {
-            args.emplace_back(args_buffer[i].c_str());
-        }
+        args.push_back(std::string(musl_libc_path));
     } else {
         // For dynamic builds, use regular glibc
         args.push_back("--allow-multiple-definition");
         args.push_back("--no-gc-sections"); // Prevent removal of unused sections
         args.push_back("--no-relax");       // Disable relocation relaxation
         args.push_back("-g");
-        args_buffer[args_id] = obj_file.string();
-        args.push_back(args_buffer[args_id++].c_str());
-        args_buffer[args_id] = std::string("-L" + Generator::get_flintc_cache_path().string());
-        args.push_back(args_buffer[args_id++].c_str());
+        args.push_back(obj_file.string());
+        args.push_back("-L" + Generator::get_flintc_cache_path().string());
         args.push_back("-lbuiltins");
         args.push_back("-L/usr/lib");
         args.push_back("-L/usr/lib/x86_64-linux-gnu");
@@ -333,53 +420,27 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
 
     // Output file
     args.push_back("-o");
-    args_buffer[args_id] = output_file.string();
-    args.push_back(args_buffer[args_id++].c_str());
+    args.push_back(output_file.string());
+    return args;
+}
 
+bool Linker::link_linux(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static) {
+    // Get the arguments for linking
+    std::optional<std::vector<std::string>> arguments = get_linux_args(obj_file, output_file, is_static);
+    if (!arguments.has_value()) {
+        return false;
+    }
     if (DEBUG_MODE) {
         std::cout << "-- " << (is_static ? "Static (musl) " : "Dynamic ") << "ELF linking with arguments:" << std::endl;
-        for (const auto &arg : args) {
+        for (const auto &arg : arguments.value()) {
             std::cout << "  " << arg << "\n";
         }
         std::cout << std::endl;
     }
+    std::vector<const char *> args;
+    for (const auto &arg : arguments.value()) {
+        args.push_back(arg.c_str());
+    }
 
     return lld::elf::link(args, llvm::outs(), llvm::errs(), false, false);
-#endif
-}
-
-bool Linker::create_static_library(const std::vector<std::filesystem::path> &obj_files, const std::filesystem::path &output_file) {
-    // Create archive members from object files
-    std::vector<llvm::NewArchiveMember> newMembers;
-
-    for (const auto &obj_file : obj_files) {
-        // Create archive member from file
-        auto memberOrErr = llvm::NewArchiveMember::getFile(obj_file.string(), /*Deterministic=*/true);
-
-        if (!memberOrErr) {
-            std::cerr << "Error: Unable to create archive member from " << obj_file << llvm::toString(memberOrErr.takeError()) << std::endl;
-            return false;
-        }
-
-        newMembers.push_back(std::move(*memberOrErr));
-    }
-
-    // Write the archive file
-#ifdef __WIN32__
-    const std::string file_ending = ".lib";
-#else
-    const std::string file_ending = ".a";
-#endif
-    llvm::Error err = llvm::writeArchive(output_file.string() + file_ending, newMembers,
-        /*WriteSymtab=*/llvm::SymtabWritingMode::NormalSymtab,
-        /*Kind=*/llvm::object::Archive::K_GNU,
-        /*Deterministic=*/true,
-        /*Thin=*/false, /*OldArchiveBuf=*/nullptr);
-
-    if (err) {
-        std::cerr << "Error: Failed to write archive: " << llvm::toString(std::move(err)) << std::endl;
-        return false;
-    }
-
-    return true;
 }

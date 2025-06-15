@@ -70,6 +70,26 @@ class CLIParserMain : public CLIParserBase {
                 parallel = true;
             } else if (arg == "--rebuild-core") {
                 BUILTIN_LIBS_TO_PRINT = static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+            } else if (arg == "--target") {
+                if (!n_args_follow(i + 1, "<TARGET>", arg)) {
+                    return 1;
+                }
+                const std::string target_str = args.at(i + 1);
+                if (target_str == "--help" || target_str == "-h") {
+                    print_help_targets();
+                    return 1;
+                }
+                if (target_str == "native") {
+                    COMPILATION_TARGET = Target::NATIVE;
+                } else if (target_str == "linux") {
+                    COMPILATION_TARGET = Target::LINUX;
+                } else if (target_str == "windows") {
+                    COMPILATION_TARGET = Target::WINDOWS;
+                } else {
+                    print_err("Unknown Target: " + target_str);
+                    return 1;
+                }
+                i++;
             } else if (starts_with(arg, "--arithmetic-")) {
                 // Erase the '--arithmetic-' part of the string
                 const std::string arithmetic_overflow_behaviour = arg.substr(13, arg.length() - 13);
@@ -165,10 +185,12 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --file, -f <file>           The file to compile\n";
         std::cout << "  --out, -o <file>            The name and path of the built output file\n";
         std::cout << "  --version                   Print the version of the compiler\n";
-        // If the --test flag is set, the compiler will output a test binary. The default name "main" is overwritten to "test" in that case
+        // If the --test flag is set, the compiler will output a test binary. The default name "main" is overwritten to
+        // "test" in that case
         std::cout << "  --test                      Output a test binary instad of the normal binary\n";
         // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
         std::cout << "  --run                       Run the built binary directly without outputting it\n";
+        std::cout << "  --target <TARGET>           Targets the given target platform (run --help after --target for more information)\n";
         std::cout << "  --parallel                  Compile in parallel (only recommended for bigger projects)\n";
         std::cout << "  --static                    Build the executable as static\n";
         std::cout << "  --rebuild-core              Rebuild all the core modules\n";
@@ -212,5 +234,15 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library";
         std::cout << std::endl;
 #endif
+    }
+
+    void print_help_targets() {
+        std::cout << "Usage: flintc --target <TARGET>\n";
+        std::cout << "\n";
+        std::cout << "Available Targets:\n";
+        std::cout << "  native                      [Default] The native target truple of the platform the compiler is executed on\n";
+        std::cout << "  linux                       Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
+        std::cout << "  windows                     Targetting Windows (target triple 'x86_64-pc-windows-gnu')";
+        std::cout << std::endl;
     }
 };

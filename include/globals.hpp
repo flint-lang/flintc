@@ -57,6 +57,13 @@ enum class BuiltinLibrary : unsigned int {
 };
 extern unsigned int BUILTIN_LIBS_TO_PRINT;
 
+enum class Target {
+    NATIVE,
+    LINUX,
+    WINDOWS,
+};
+extern Target COMPILATION_TARGET;
+
 enum class ArithmeticOverflowMode : unsigned int { PRINT = 0, SILENT = 1, CRASH = 2, UNSAFE = 3 };
 extern ArithmeticOverflowMode overflow_mode;
 
