@@ -1,37 +1,9 @@
 use Core.print
 
-def contains_one_of(str input, u8[] chars) -> bool:
-    print("contains_one_of...\n");
-    print($"chars.length = {chars.length}\n");
-    for i := 0; i < 4; i++:
-        print($"chars[{i}] = {chars[i]}\n");
-    
-    for (i, elem) in input:
-        print($"input[{i}] = {elem}\n");
-        for (j, char) in chars:
-            print($"chars[{j}] = {char}\n");
-            if elem == char:
-                return true;
-    return false;
-
-def get_bin_ops() -> u8[]:
-    u8[] bin_ops = u8[4](_);
-    bin_ops[0] = '+';
-    bin_ops[1] = '-';
-    bin_ops[2] = '*';
-    bin_ops[3] = '/';
-    return bin_ops;
+def double_free(str input):
+    print($"{input}");
 
 def main():
-    // u8[] bin_ops = get_bin_ops();
-    u8[] bin_ops = u8[4](_);
-    bin_ops[0] = '+';
-    bin_ops[1] = '-';
-    bin_ops[2] = '*';
-    bin_ops[3] = '/';
-
-    // for (i, char) in bin_ops:
-    //     print($"bin_ops[{i}] = {char}\n");
-
-    if contains_one_of("22 + 33", bin_ops):
-        print("RHS contains more bin ops!\n");
+    str string = "hello";
+    double_free(string);
+    print("\n");

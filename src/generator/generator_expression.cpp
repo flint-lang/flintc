@@ -221,6 +221,11 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
         }
         assert(res.value().size() == 1);
         str_value = res.value().front();
+        // Skip collecting the garbage of the string interpolation if the only content of it is a string variable, this would lead to a
+        // double free bug
+        if (std::next(it) == interpol_node->string_content.end() && dynamic_cast<const VariableNode *>(expr) != nullptr) {
+            return str_value;
+        }
     }
     ++it;
 
