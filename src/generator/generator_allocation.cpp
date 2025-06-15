@@ -448,8 +448,8 @@ bool Generator::Allocation::generate_expression_allocations(                    
         }
     } else if (const auto *interpol = dynamic_cast<const StringInterpolationNode *>(expression)) {
         for (const auto &val : interpol->string_content) {
-            if (std::holds_alternative<std::unique_ptr<TypeCastNode>>(val)) {
-                const ExpressionNode *expr = std::get<std::unique_ptr<TypeCastNode>>(val).get();
+            if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(val)) {
+                const ExpressionNode *expr = std::get<std::unique_ptr<ExpressionNode>>(val).get();
                 if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, expr)) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;

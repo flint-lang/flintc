@@ -314,7 +314,7 @@ namespace Debug {
                 if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*var)) {
                     print_literal(indent_lvl, child_bits, *std::get<std::unique_ptr<LiteralNode>>(*var));
                 } else {
-                    print_type_cast(indent_lvl, child_bits, *std::get<std::unique_ptr<TypeCastNode>>(*var));
+                    print_expression(indent_lvl, child_bits, std::get<std::unique_ptr<ExpressionNode>>(*var));
                 }
             }
         }

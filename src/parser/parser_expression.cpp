@@ -11,6 +11,7 @@
 #include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/group_type.hpp"
@@ -104,6 +105,9 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
 }
 
 bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
+    if (lhs->type == rhs->type) {
+        return true;
+    }
     std::optional<bool> castability = check_castability(lhs->type, rhs->type);
     if (!castability.has_value()) {
         // Not castable
@@ -386,7 +390,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
 std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope *scope, const std::string &interpol_string) {
     // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
     std::vector<uint2> ranges = Matcher::balanced_ranges_vec(interpol_string, "([^\\\\]|^)\\{", "[^\\\\]\\}");
-    std::vector<std::variant<std::unique_ptr<TypeCastNode>, std::unique_ptr<LiteralNode>>> interpol_content;
+    std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> interpol_content;
     // If the ranges are empty, the interpolation does not contain any groups
     if (ranges.empty()) {
         interpol_content.emplace_back(std::make_unique<LiteralNode>(interpol_string, Type::get_primitive_type("str")));
@@ -430,8 +434,12 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
             THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens_slice);
             return std::nullopt;
         }
-        // Cast every expression inside to a str type
-        interpol_content.emplace_back(std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expr.value()));
+        // Cast every expression inside to a str type (if it isn't already)
+        if (expr.value()->type->to_string() == "str") {
+            interpol_content.emplace_back(std::move(expr.value()));
+        } else {
+            interpol_content.emplace_back(std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expr.value()));
+        }
 
         // Add string after last } symbol
         if (std::next(it) == ranges.end() && it->second + 1 < interpol_string.length()) {
@@ -480,7 +488,7 @@ Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &t
     }
 }
 
-std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, const token_slice &tokens) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
     std::optional<uint2> expr_range = Matcher::balanced_range_extraction(           //
@@ -536,8 +544,12 @@ std::optional<TypeCastNode> Parser::create_type_cast(Scope *scope, const token_s
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
+    // Check if the expression already is the desired type, in that case just return the expression directly
+    if (expression.value()->type == Type::get_primitive_type(type_token.lexme)) {
+        return expression;
+    }
 
-    return TypeCastNode(Type::get_primitive_type(type_token.lexme), expression.value());
+    return std::make_unique<TypeCastNode>(Type::get_primitive_type(type_token.lexme), expression.value());
 }
 
 std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope, const token_slice &tokens) {
@@ -923,12 +935,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
         }
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::type_cast)) {
-        std::optional<TypeCastNode> type_cast = create_type_cast(scope, tokens_mut);
+        std::optional<std::unique_ptr<ExpressionNode>> type_cast = create_type_cast(scope, tokens_mut);
         if (!type_cast.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_unique<TypeCastNode>(std::move(type_cast.value()));
+        return type_cast;
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::unary_op_expr)) {
         // For it to be considered an unary operation, either right after the operator needs to come a paren group, or no other binop

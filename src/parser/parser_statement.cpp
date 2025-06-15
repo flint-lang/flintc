@@ -4,6 +4,7 @@
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/primitive_type.hpp"

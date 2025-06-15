@@ -44,7 +44,6 @@
 #include "ast/expressions/initializer_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/string_interpolation_node.hpp"
-#include "ast/expressions/type_cast_node.hpp"
 #include "ast/expressions/unary_op_expression.hpp"
 #include "ast/expressions/variable_node.hpp"
 #include "ast/statements/catch_node.hpp"
@@ -709,12 +708,12 @@ class Parser {
     create_call_or_initializer_expression(Scope *scope, const token_slice &tokens, const std::optional<std::string> &alias_base);
 
     /// @function `create_type_cast`
-    /// @brief Creates a TypeCastNode from the given tokens
+    /// @brief Creates a TypeCastNode from the given tokens, if the expression already is the wanted type it returns the expression directly
     ///
     /// @param `scope` The scope in which the type cast is defined
     /// @param `tokens` The list of tokens representing the type cast
-    /// @return `std::optional<TypeCastNode>` An optional TypeCastNode if creation is successful, nullopt otherwise
-    std::optional<TypeCastNode> create_type_cast(Scope *scope, const token_slice &tokens);
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An ExpressionNode if creation is successful, nullopt otherwise
+    std::optional<std::unique_ptr<ExpressionNode>> create_type_cast(Scope *scope, const token_slice &tokens);
 
     /// @function `create_group_expression`
     /// @brief Creates a GroupExpressionNode from the given tokens

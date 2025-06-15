@@ -212,12 +212,15 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
         str_value = builder.CreateCall(init_str_fn, {lit_str, builder.getInt64(lit_string.length())}, "init_str_value");
     } else {
         // Currently only the first output of a group is supported in string interpolation, as there currently is no group printing yet
-        group_mapping res = generate_type_cast(builder, ctx, garbage, expr_depth + 1, std::get<std::unique_ptr<TypeCastNode>>(*it).get());
+        ExpressionNode *expr = std::get<std::unique_ptr<ExpressionNode>>(*it).get();
+        assert(expr->type->to_string() == "str");
+        group_mapping res = generate_expression(builder, ctx, garbage, expr_depth, expr);
         if (!res.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        str_value = res.value().at(0);
+        assert(res.value().size() == 1);
+        str_value = res.value().front();
     }
     ++it;
 
@@ -229,9 +232,9 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
             llvm::Value *lit_str = IR::generate_const_string(builder, lit_string);
             str_value = builder.CreateCall(add_str_lit, {str_value, lit_str, builder.getInt64(lit_string.length())});
         } else {
-            group_mapping res = generate_type_cast(                                                       //
-                builder, ctx, garbage, expr_depth + 1, std::get<std::unique_ptr<TypeCastNode>>(*it).get() //
-            );
+            ExpressionNode *expr = std::get<std::unique_ptr<ExpressionNode>>(*it).get();
+            assert(expr->type->to_string() == "str");
+            group_mapping res = generate_expression(builder, ctx, garbage, expr_depth, expr);
             if (!res.has_value()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
