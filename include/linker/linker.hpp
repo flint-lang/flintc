@@ -30,7 +30,7 @@ class Linker {
   private:
     /// @function `fetch_crt_libs`
     /// @brief Fetches the needed crt libs for windows
-    static void fetch_crt_libs();
+    static bool fetch_crt_libs();
 
     /// @function `get_lib_env_win`
     /// @brief Get the content of the 'LIB' environment variable on Windows
@@ -44,11 +44,12 @@ class Linker {
     /// @param `obj_file` The path to the object file to link to the executable
     /// @param `output_file` The output file of the link
     /// @param `is_static` Whether the output file should be linked as static
-    /// @return `std::vector<std::string>` The list of all arguments with which lld will be called
-    static std::vector<std::string> get_windows_args( //
-        const std::filesystem::path &obj_file,        //
-        const std::filesystem::path &output_file,     //
-        const bool is_static                          //
+    /// @return `std::optional<std::vector<std::string>>` The list of all arguments with which lld will be called, nullopt if something
+    /// failed
+    static std::optional<std::vector<std::string>> get_windows_args( //
+        const std::filesystem::path &obj_file,                       //
+        const std::filesystem::path &output_file,                    //
+        const bool is_static                                         //
     );
 
     /// @function `link_windows`

@@ -106,6 +106,8 @@ bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::
             return link_windows(obj_file, output_file, is_static);
             break;
     }
+    assert(false);
+    return false;
 }
 
 bool Linker::create_static_library(const std::vector<std::filesystem::path> &obj_files, const std::filesystem::path &output_file) {
@@ -155,7 +157,7 @@ bool Linker::create_static_library(const std::vector<std::filesystem::path> &obj
     return true;
 }
 
-void Linker::fetch_crt_libs() {
+bool Linker::fetch_crt_libs() {
     std::filesystem::path cache_path = Generator::get_flintc_cache_path();
     // Check if the crt path exists in the cache path, and if it exists whether all the libraries we need are present in it
     std::filesystem::path crt_path = cache_path / "crt";
@@ -200,6 +202,7 @@ void Linker::fetch_crt_libs() {
         // One or more libs are missing, re-fetch them and put them into the crt path
 #endif
     }
+    return true;
 }
 
 std::string Linker::get_lib_env_win() {
@@ -250,10 +253,10 @@ std::string Linker::get_lib_env_win() {
     return lib_env_str;
 }
 
-std::vector<std::string> Linker::get_windows_args( //
-    const std::filesystem::path &obj_file,         //
-    const std::filesystem::path &output_file,      //
-    const bool is_static                           //
+std::optional<std::vector<std::string>> Linker::get_windows_args( //
+    const std::filesystem::path &obj_file,                        //
+    const std::filesystem::path &output_file,                     //
+    const bool is_static                                          //
 ) {
     std::vector<std::string> args;
     std::string output_exe = output_file.string() + ".exe";
@@ -273,7 +276,9 @@ std::vector<std::string> Linker::get_windows_args( //
 
     // Fetch the crt libs
     std::filesystem::path crt_path = cache_path / "crt";
-    fetch_crt_libs();
+    if (!fetch_crt_libs()) {
+        return std::nullopt;
+    }
 
     // Get the lib environment variable
     if (cache_path.string().find(' ') == std::string::npos) {
@@ -318,9 +323,12 @@ bool Linker::link_windows(const std::filesystem::path &obj_file, const std::file
 #endif
 
     // Get the arguments with which to call the linker
-    std::vector<std::string> arguments = get_windows_args(obj_file, output_file, is_static);
+    std::optional<std::vector<std::string>> arguments = get_windows_args(obj_file, output_file, is_static);
+    if (!arguments.has_value()) {
+        return false;
+    }
     std::vector<const char *> args;
-    for (const auto &arg : arguments) {
+    for (const auto &arg : arguments.value()) {
         args.push_back(arg.c_str());
     }
     if (DEBUG_MODE) {
