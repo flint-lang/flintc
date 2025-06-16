@@ -113,7 +113,7 @@ endif()
 message(STATUS "Using LLVM include directory: ${LLVM_INCLUDE_DIR}")
 
 # Include the vendor stuff (json-mini)
-include_directories(${CMAKE_SOURCE_DIR}/vendor/json-mini/include)
+include_directories(${CMAKE_SOURCE_DIR}/vendor/sources/json-mini/include)
 
 # Always add this definition to prevent LLVM from using zstd
 add_definitions(-DLLVM_DISABLE_ZLIB_SYMBOLS -DLLVM_ENABLE_ZSTD=0)
@@ -261,19 +261,11 @@ if(BUILD_STATIC)
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
         set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
 
-        # Find static zlib for Linux
-        find_library(ZLIB_LIBRARY NAMES libz.a)
-        if(NOT ZLIB_LIBRARY)
-            message(FATAL_ERROR "Static zlib library not found for Linux")
-        else()
-            message(STATUS "Using static zlib for Linux: ${ZLIB_LIBRARY}")
-        endif()
-
         # Create the final link libraries list for Linux
         set(FINAL_LINK_LIBS
             -Wl,--start-group
             ${LLVM_STATIC_LIBS_LIST}
-            ${ZLIB_LIBRARY}
+            -Lvendor/zlib/lib
             -Wl,--end-group
             ${LLVM_SYSTEM_LIBS_LIST}
         )
@@ -318,29 +310,15 @@ else()
             -Wl,--end-group
         )
     else()
-        # For Linux dynamic builds
-        find_package(ZLIB REQUIRED)
-        set(ZLIB_LIBRARY ${ZLIB_LIBRARIES})
-
         # Find Threads package for dynamic builds
         find_package(Threads REQUIRED)
-
-        # Find zstd library for dynamic builds
-        find_library(ZSTD_LIBRARY NAMES zstd libzstd libzstd.so.1)
-        if(ZSTD_LIBRARY)
-            message(STATUS "Found zstd library: ${ZSTD_LIBRARY}")
-        else()
-            message(STATUS "Zstd library not found, will try to continue without it")
-            set(ZSTD_LIBRARY "")
-        endif()
 
         # Set final link libraries for dynamic Linux builds
         set(FINAL_LINK_LIBS
             ${PLATFORM_LIBS}
             -Wl,--start-group
             ${LLVM_STATIC_LIBS_LIST}
-            ${ZLIB_LIBRARY}
-            ${ZSTD_LIBRARY}
+            -Lvendor/zlib/lib
             -Wl,--end-group
             Threads::Threads
         )

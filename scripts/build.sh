@@ -33,7 +33,7 @@ err_exit() {
 create_directories() {
     mkdir -p "$root/build"
     mkdir -p "$root/build/out"
-    mkdir -p "$root/vendor"
+    mkdir -p "$root/vendor/sources"
 
     if [ "$build_windows" = "true" ]; then
         mkdir -p "$root/build/llvm-mingw"
@@ -55,13 +55,33 @@ check_lib() {
 
 # Checks if all needed libraries are present
 check_library_requirements() {
-    check_lib "libz.a"
     check_lib "libdl.a"
     check_lib "libm.a"
     check_lib "librt.a"
     [ -n "$(which clang)" ] || err_exit 1 "'clang' C compiler not found"
     [ -n "$(which clang++)" ] || err_exit 1 "'clang++' C++ compiler not found"
     [ -n "$(which cmake)" ] || err_exit 1 "'cmake' is not installed"
+}
+
+fetch_zlib() {
+    if [ ! -d "$root/vendor/sources/zlib" ]; then
+        echo "-- Fetching zlib version $zlib_version from GitHub..."
+        cd "$root/vendor/sources"
+        git clone --depth 1 --branch "$zlib_version" "https://github.com/madler/zlib.git"
+        cd "$root"
+    fi
+}
+
+build_zlib() {
+    zlib_build_dir="$root/build/zlib"
+    zlib_install_dir="$root/vendor/zlib"
+
+    cmake -S "$root/vendor/sources/zlib" -B "$zlib_build_dir" \
+        -DCMAKE_INSTALL_PREFIX="$zlib_install_dir" \
+        -DCMAKE_BUILD_TYPE=None
+
+    cmake --build "$zlib_build_dir" -j"$core_count"
+    cmake --install "$zlib_build_dir" --prefix="$zlib_install_dir"
 }
 
 # Builds llvm for windows
@@ -78,13 +98,7 @@ build_llvm_windows() {
     mkdir -p "$llvm_build_dir"
     mkdir -p "$llvm_install_dir"
 
-    llvm_static_flags="-DLLVM_BUILD_STATIC=ON \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DLLVM_ENABLE_PIC=OFF \
-        -DCMAKE_FIND_LIBRARY_SUFFIXES='.a'"
-    echo "-- Building LLVM with static libraries..."
-
-    cmake -S vendor/llvm-project/llvm -B "$llvm_build_dir" \
+    cmake -S vendor/sources/llvm-project/llvm -B "$llvm_build_dir" \
         -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_SKIP_INSTALL_RPATH=ON \
@@ -108,7 +122,10 @@ build_llvm_windows() {
         -DLLVM_BUILD_RUNTIME=OFF \
         -DLLVM_INCLUDE_UTILS=OFF \
         -DLLVM_INCLUDE_RUNTIME=OFF \
-        "$llvm_static_flags"
+        -DLLVM_BUILD_STATIC=ON \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DLLVM_ENABLE_PIC=OFF \
+        -DCMAKE_FIND_LIBRARY_SUFFIXES='.a'
 
     cmake --build "$llvm_build_dir" -j"$core_count"
     cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir"
@@ -128,23 +145,7 @@ build_llvm_linux() {
     mkdir -p "$llvm_build_dir"
     mkdir -p "$llvm_install_dir"
 
-    llvm_static_flags="-DLLVM_BUILD_STATIC=ON \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DLLVM_ENABLE_ZSTD=OFF \
-        -DLLVM_ENABLE_ZLIB=FORCE_ON \
-        -DZLIB_USE_STATIC_LIBS=ON \
-        -DLLVM_ENABLE_LIBXML2=OFF \
-        -DCMAKE_EXE_LINKER_FLAGS='-static' \
-        -DCMAKE_FIND_LIBRARY_SUFFIXES='.a' \
-        -DLLVM_ENABLE_PIC=OFF"
-    echo "-- Building LLVM with static libraries..."
-
-    # Pre-locate the static zlib to ensure we use it
-    STATIC_ZLIB="$(find /usr/lib -name "libz.a" | head -n 1)"
-    [ -n "$STATIC_ZLIB" ] || print_err 1 "Static zlib (libz.a) not found. Please install it first."
-    echo "Using static zlib: $STATIC_ZLIB"
-
-    cmake -S vendor/llvm-project/llvm -B "$llvm_build_dir" \
+    cmake -S vendor/sources/llvm-project/llvm -B "$llvm_build_dir" \
         -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_SKIP_INSTALL_RPATH=ON \
@@ -164,9 +165,16 @@ build_llvm_linux() {
         -DLLVM_BUILD_RUNTIME=OFF \
         -DLLVM_INCLUDE_UTILS=OFF \
         -DLLVM_INCLUDE_RUNTIME=OFF \
-        -DZLIB_LIBRARY="$STATIC_ZLIB" \
-        -DZLIB_INCLUDE_DIR="/usr/include" \
-        "$llvm_static_flags"
+        -DZLIB_LIBRARY="$root/vendor/zlib/lib/libz.a" \
+        -DLLVM_BUILD_STATIC=ON \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DLLVM_ENABLE_ZSTD=OFF \
+        -DLLVM_ENABLE_ZLIB=FORCE_ON \
+        -DZLIB_USE_STATIC_LIBS=ON \
+        -DLLVM_ENABLE_LIBXML2=OFF \
+        -DCMAKE_EXE_LINKER_FLAGS='-static' \
+        -DCMAKE_FIND_LIBRARY_SUFFIXES='.a' \
+        -DLLVM_ENABLE_PIC=OFF
 
     cmake --build "$llvm_build_dir" -j"$core_count"
     cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir"
@@ -174,9 +182,9 @@ build_llvm_linux() {
 
 # Checks if llvm has been cloned, if not does clone it
 fetch_llvm() {
-    if [ ! -d "$root/vendor/llvm-project" ]; then
+    if [ ! -d "$root/vendor/sources/llvm-project" ]; then
         echo "-- Fetching llvm version $llvm_version from GitHub..."
-        cd "$root/vendor"
+        cd "$root/vendor/sources"
         git clone --depth 1 --branch "$llvm_version" "https://github.com/llvm/llvm-project.git"
         cd "$root"
     fi
@@ -204,17 +212,17 @@ build_llvm() {
 }
 
 fetch_json_mini() {
-    if [ ! -d "$root/vendor/json-mini" ]; then
+    if [ ! -d "$root/vendor/sources/json-mini" ]; then
         echo "-- Fetching json-mini from GitHub..."
-        cd "$root/vendor"
+        cd "$root/vendor/sources"
         git clone "https://github.com/flint-lang/json-mini.git"
         cd "$root"
     else
         # Checking for internet connection
         echo "-- Checking for internet connection..."
-        if ping -w 5 -c 2 google.com > /dev/null 2>&1; then
+        if ping -w 5 -c 2 google.com >/dev/null 2>&1; then
             echo "-- Updating json-mini repository..."
-            cd "$root/vendor/json-mini"
+            cd "$root/vendor/sources/json-mini"
             git fetch
             git pull
             cd "$root"
@@ -413,6 +421,7 @@ force_rebuild_llvm=false
 run_tests=false
 debug_mode=false
 llvm_version="llvmorg-19.1.7"
+zlib_version="v1.3.1"
 # Dont fully peg the CPU, use one core less
 core_count="$(($(nproc) - 1))"
 verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=OFF"
@@ -539,6 +548,12 @@ create_directories
 
 echo "-- Checking Library requirements..."
 check_library_requirements
+
+echo "-- Checking if zlib has been fetched yet..."
+fetch_zlib
+
+echo "-- Building zlib..."
+build_zlib
 
 echo "-- Checking if LLVM has been fetched yet..."
 fetch_llvm
