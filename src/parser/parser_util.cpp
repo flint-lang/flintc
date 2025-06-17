@@ -276,6 +276,16 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
     // Check if its a call to a builtin function, if it is, get the return type of said function
     const auto builtin_function = get_builtin_function(function_name, file_node_ptr->imported_core_modules);
     if (builtin_function.has_value() && (std::get<2>(builtin_function.value()) == alias_base)) {
+        if (function_name == "print" && argument_types.size() == 1 && argument_types.front()->to_string() == "str") {
+            // Check if the string is a typecast of a string literal, if yes its a special print call
+            if (TypeCastNode *type_cast = dynamic_cast<TypeCastNode *>(arguments.front().first.get())) {
+                if (type_cast->expr->type->to_string() == "__flint_type_str_lit") {
+                    arguments.front().first = std::move(type_cast->expr);
+                    argument_types.front() = arguments.front().first->type;
+                    return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), std::nullopt, false);
+                }
+            }
+        }
         // Check if the function has the same arguments as the function expects
         const auto &function_overloads = std::get<1>(builtin_function.value());
         // Check if any overloaded function exists

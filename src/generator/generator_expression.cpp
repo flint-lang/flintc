@@ -280,9 +280,6 @@ Generator::group_mapping Generator::Expression::generate_call( //
             return std::nullopt;
         }
         llvm::Value *expr_val = expression.value().front();
-        if (arg.first->type->to_string() == "__flint_type_str_lit") {
-            expr_val = Module::String::generate_string_declaration(builder, expr_val, arg.first.get());
-        }
         args.emplace_back(expr_val);
     }
 

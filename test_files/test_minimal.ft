@@ -1,9 +1,16 @@
 use Core.print
 
-def double_free(str input):
-    print($"{input}");
-
 def main():
-    str string = "hello";
-    double_free(string);
-    print("\n");
+    print("Here is the first line\n");
+    print("All counting lines below will repeat in the single line...\n");
+    print("The third line is atmost important!\n");
+    // Save the current cursor position
+    print("\x1B[s");
+    i32 x = 0;
+    while x < 10:
+        // Reset the cursor
+        print("\x1B[u");
+        // Print the value of x
+        print($"{x}\n");
+        // Increment x
+        x++;

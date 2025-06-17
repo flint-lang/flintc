@@ -31,15 +31,16 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
         {
             {"print", // The 'print' function
                 {
-                    {{"i32"}, {"void"}, false},  // The 'i32' argument overload of the 'print' function
-                    {{"i64"}, {"void"}, false},  // The 'i64' argument overload of the 'print' function
-                    {{"u32"}, {"void"}, false},  // The 'u32' argument overload of the 'print' function
-                    {{"u64"}, {"void"}, false},  // The 'u64' argument overload of the 'print' function
-                    {{"f32"}, {"void"}, false},  // The 'f32' argument overload of the 'print' function
-                    {{"f64"}, {"void"}, false},  // The 'f64' argument overload of the 'print' function
-                    {{"u8"}, {"void"}, false},   // The 'u8' argument overload of the 'print' function
-                    {{"str"}, {"void"}, false},  // The 'str' argument overload of the 'print' function
-                    {{"bool"}, {"void"}, false}, // The 'bool' argument overload of the 'print' function
+                    {{"i32"}, {"void"}, false},                  // The 'i32' argument overload of the 'print' function
+                    {{"i64"}, {"void"}, false},                  // The 'i64' argument overload of the 'print' function
+                    {{"u32"}, {"void"}, false},                  // The 'u32' argument overload of the 'print' function
+                    {{"u64"}, {"void"}, false},                  // The 'u64' argument overload of the 'print' function
+                    {{"f32"}, {"void"}, false},                  // The 'f32' argument overload of the 'print' function
+                    {{"f64"}, {"void"}, false},                  // The 'f64' argument overload of the 'print' function
+                    {{"u8"}, {"void"}, false},                   // The 'u8' argument overload of the 'print' function
+                    {{"str"}, {"void"}, false},                  // The 'str' argument overload of the 'print' function
+                    {{"__flint_type_str_lit"}, {"void"}, false}, // The 'str' literal argument overload of the 'print' function
+                    {{"bool"}, {"void"}, false},                 // The 'bool' argument overload of the 'print' function
                 }},
         }},  // End of the 'print' module
     {"read", // The 'read' module

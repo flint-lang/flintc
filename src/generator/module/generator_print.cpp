@@ -8,7 +8,7 @@ void Generator::Module::Print::generate_print_functions(llvm::IRBuilder<> *build
     generate_print_function(builder, module, only_declarations, "f32", "%f");
     generate_print_function(builder, module, only_declarations, "f64", "%lf");
     generate_print_function(builder, module, only_declarations, "u8", "%c");
-    generate_print_function(builder, module, only_declarations, "__flint_type_str_lit", "%s");
+    generate_print_str_lit_function(builder, module, only_declarations);
     generate_print_str_var_function(builder, module, only_declarations);
     generate_print_bool_function(builder, module, only_declarations);
 }
@@ -62,6 +62,47 @@ void Generator::Module::Print::generate_print_function( //
     builder->CreateCall(c_functions.at(PRINTF), //
         {format_str, arg}                       //
     );
+
+    builder->CreateRetVoid();
+}
+
+void Generator::Module::Print::generate_print_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module,
+    const bool only_declarations) {
+    llvm::Type *str_lit_type = IR::get_type(Type::get_primitive_type("__flint_type_str_lit")).first;
+
+    // Create print function type
+    llvm::FunctionType *print_str_lit_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(context),                               // Return type: void
+        {str_lit_type},                                               // Argument: char* literal
+        false                                                         // No vaargs
+    );
+    // Create the print_str_lit function
+    llvm::Function *print_str_lit_function = llvm::Function::Create( //
+        print_str_lit_type,                                          //
+        llvm::Function::ExternalLinkage,                             //
+        "__flint_print_str_lit",                                     //
+        module                                                       //
+    );
+    print_functions["__flint_type_str_lit"] = print_str_lit_function;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::BasicBlock *block = llvm::BasicBlock::Create( //
+        context,                                        //
+        "entry",                                        //
+        print_str_lit_function                          //
+    );
+
+    // Set insert point to the current block
+    builder->SetInsertPoint(block);
+
+    // Set the argument name of the function
+    llvm::Value *arg_literal = print_str_lit_function->getArg(0);
+    arg_literal->setName("literal");
+
+    // Call printf with the literal directly
+    builder->CreateCall(c_functions.at(PRINTF), {arg_literal});
 
     builder->CreateRetVoid();
 }

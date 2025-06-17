@@ -2185,6 +2185,7 @@ class Generator {
                 {"flint", nullptr},
                 {"u8", nullptr},
                 {"str", nullptr},
+                {"__flint_str_type_lit", nullptr},
                 {"bool", nullptr},
             };
 
@@ -2211,6 +2212,14 @@ class Generator {
                 const std::string &type,         //
                 const std::string &format        //
             );
+
+            /// @function `generate_print_str_lit_function`
+            /// @brief Generates the builtin print_str_lit function which prints the value of a string literal (null-terminated)
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the print function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_print_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /// @function `generate_print_str_var_function`
             /// @brief Generates the builtin print_str_var function which prints the value of a string variable

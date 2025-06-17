@@ -360,6 +360,21 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                                 case '0':
                                     processed_str << '\0';
                                     break;
+                                case 'x': {
+                                    // Hex value follows
+                                    if ((i + 3) >= str.length()) {
+                                        THROW_BASIC_ERR(ERR_PARSING);
+                                        return std::nullopt;
+                                    }
+                                    std::string hex_digits = str.substr(i + 2, 2);
+                                    int hex_value = std::stoi(hex_digits, nullptr, 16);
+                                    processed_str << static_cast<char>(hex_value);
+                                    i += 2; // Skip the two hex digits
+                                    break;
+                                }
+                                default:
+                                    THROW_BASIC_ERR(ERR_PARSING);
+                                    return std::nullopt;
                             }
                             i++; // Skip the next character
                         } else {
