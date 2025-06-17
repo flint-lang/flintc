@@ -17,3 +17,5 @@ main.obj
 main.o
 test.o
 logfile
+.zig-cache
+zig-out
