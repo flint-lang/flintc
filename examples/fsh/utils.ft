@@ -1,0 +1,96 @@
+/// @brief Determines whether the given input string starts with the given match string
+/// @param `input` The input string
+/// @param `matcher` The match string to match for
+/// @return `bool` Whether the `input` starts with `matcher`
+def starts_with(str input, str matcher) -> bool:
+    if input.length < matcher.length:
+        return false;
+
+    for i := 0; i < matcher.length; i++:
+        if matcher[i] != input[i]:
+            return false;
+        
+    return true;
+
+/// @brief Returns a substring of the input [from, to)
+/// @param `input` The input to get a substring from
+/// @param `from` The start index to start the substring from
+/// @param `to` The index the substring goes exclusively
+/// @return `str` The substring [from, to)
+///
+/// @note Once ranges (`..`) work, this entire function will no longer be needed
+def substring(str input, mut i32 from, mut i32 to) -> str:
+    if from == to:
+        return "";
+
+    if from > to:
+        (from, to) = (to, from);
+    
+    str substr = "";
+    for i32 i = from; i < to; i++:
+        substr += str(input[i]);
+    return substr;
+
+/// @brief Checks whether the given input string contains the given character
+/// @param `input` The input to check for the given character
+/// @param `char` The character to search for
+/// @return `bool` Whether the given input contains the given character
+def contains(str input, u8 char) -> bool:
+    for (_, elem) in input:
+        if elem == char:
+            return true;
+    return false;
+
+/// @brief Checks whether the given input contains one of the given char arrays
+/// @param `input` The input to check
+/// @param `chars` The characters to search for
+/// @return `(bool, u64, u8)` A group stating:
+///     1. If a match was found
+///     2. The index of the match in the `input` string 
+def contains_one_of(str input, u8[] chars) -> (bool, u64):
+    for (i, elem) in input:
+        for (j, char) in chars:
+            if elem == char:
+                return (true, i);
+    return (false, input.length);
+
+/// @brief Removes all occurences of the given character from the given input
+/// @param `input` The input to remove all occurences of the chacacter from
+/// @param `char` The character to remove from the input
+/// @return `str` 
+def remove_chars(str input, u8 char) -> str:
+    str output = "";
+    for (_, elem) in input:
+        if elem != char:
+            output += str(elem);
+    return output;
+
+def get_first_pos_of_char(str input, u8 char) -> u64:
+    for pair in input:
+        if pair.$1 == char:
+            return pair.$0;
+    return input.length;
+
+def get_binary_op_sides(str input, u8 char) -> (str, str):
+    // Get the index of the symbol
+    u64 pos = get_first_pos_of_char(input, char);
+
+    // Get everything left of the symbol as the lhs
+    str lhs = substring(input, 0, i32(pos));
+    // Remove all spaces from the lhs string
+    lhs = remove_chars(lhs, ' ');
+
+    // Get everything right of the symbol as the rhs
+    str rhs = substring(input, pos + 1, i32(input.length));
+    // Remove all spaces from the rhs string
+    rhs = remove_chars(rhs, ' ');
+
+    return (lhs, rhs);
+
+/// Splits the given string at the position pos so that the result is [0,pos) (pos,input.length)
+def split_at(str input, u64 pos) -> (str, str):
+    str lhs = substring(input, 0, i32(pos));
+    lhs = remove_chars(lhs, ' ');
+    str rhs = substring(input, pos + 1, i32(input.length));
+    rhs = remove_chars(rhs, ' ');
+    return (lhs, rhs);

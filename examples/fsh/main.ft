@@ -1,0 +1,82 @@
+use Core.print
+use Core.read
+
+use "utils.ft"
+
+def print_help():
+    print("Available Commads are:\n");
+    print(" help            Prints this message\n");
+    print(" exit            Exits the REPL\n");
+    print(" print(...)      Prints the text in between the parenthesis\n");
+
+// Alternative version using strings, is to just use the "+-*/" literal instead
+def get_bin_ops() -> u8[]:
+    u8[] bin_ops = u8[4](_);
+    bin_ops[0] = '+';
+    bin_ops[1] = '-';
+    bin_ops[2] = '*';
+    bin_ops[3] = '/';
+    return bin_ops;
+
+/// Returns whether the left or right operator has the higher precedence
+/// @return `bool` Returns true when the left is higher, false when right is higher 
+def get_precendence(u8 left, u8 right) -> bool:
+    if left == '+':
+        // Everything has a higher precedence than + on the left
+        return right != '-';
+    else if left == '*':
+        // Everything has lower precendence than * on left
+        return true;
+    else if left == '/':
+        if right == '+' or right == '-' or right == '*':
+            return true;
+        else if right == '/':
+            return false; 
+    else if left == '-':
+        if right == '+' or right == '-':
+            return true;
+        else if right == '/' or right == '*':
+            return false;
+
+def print_bin_op(str input):
+    u8[] bin_ops = get_bin_ops();
+    (contains, idx) := contains_one_of(input, bin_ops);
+    if not contains:
+        print($"{input}");
+        return;
+    u8 operator = input[idx];
+
+    (lhs, rhs) := get_binary_op_sides(input, operator);
+    (contains, idx) = contains_one_of(rhs, bin_ops);
+    if contains:
+        if get_precendence(operator, rhs[idx]):
+            // Left has higher precedence
+            (rhs_l, rhs_r) := split_at(rhs, idx);
+            print($"({lhs} {operator} {rhs_l}) {rhs[idx]} ");
+            print_bin_op(rhs_r);
+        else:
+            // Right has higher precedence
+            print($"{lhs} {operator} ");
+            print_bin_op(rhs);
+    else:
+        print($"({lhs} {operator} {rhs})");
+
+def main():
+    bool run = true;
+    while run:
+        print("> ");
+        str input = read_str();
+        
+        if input == "help":
+            print_help();
+        else if input == "exit":
+            run = false;
+        else if contains(input, '+') or contains(input, '-') or contains(input, '*') or contains(input, '/'):
+            print_bin_op(input);
+            print("\n");
+        else if starts_with(input, "print(") and input[input.length - 1] == ')':
+            str content = substring(input, 6, input.length - 1);
+            print($"{content}\n");
+        else:
+            print($"Unknown command: '{input}'\n");
+            print_help();

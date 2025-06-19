@@ -1,0 +1,34 @@
+data Pedal:
+    i32 pos;
+    i32 size;
+    u8 texture; // The texture is the character with which to print the pedal
+    Pedal(pos, size, texture);
+
+data Ball:
+    i32x2 pos;
+    i32x2 dir;
+    i32x2 size;
+    u8 texture; // The texture is the character with which to print the ball
+    Ball(pos, dir, size, texture);
+
+data Screen:
+    i32 width;   // The width of the screen
+    i32 height;  // The height of the rendered screen
+    u8 delim_lr; // Left & Right delimiter character to print
+    u8 delim_ud; // Up & Down delimiter character to print
+    Screen(width, height, delim_lr, delim_ud);
+
+data KeyMap:
+    u8 up_key;
+    u8 down_key;
+    u8 exit_key;
+    KeyMap(up_key, down_key, exit_key);
+
+data GameData:
+    Pedal left;
+    Pedal right;
+    Ball ball;
+    Screen screen;
+    KeyMap keymap;
+    bool8 user_input; // 0: exit | 1: game_over | 2: left pedal up | 3: left pedal down | 4: right pedal up | 5: right pedal down
+    GameData(left, right, ball, screen, keymap, user_input);
