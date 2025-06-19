@@ -275,6 +275,7 @@ class Matcher {
         {TOK_FLINT, std::make_shared<TokenTypeMatcher>(TOK_FLINT)},
         {TOK_U32, std::make_shared<TokenTypeMatcher>(TOK_U32)},
         {TOK_I32, std::make_shared<TokenTypeMatcher>(TOK_I32)},
+        {TOK_BOOL8, std::make_shared<TokenTypeMatcher>(TOK_BOOL8)},
         {TOK_I32X2, std::make_shared<TokenTypeMatcher>(TOK_I32X2)},
         {TOK_I32X3, std::make_shared<TokenTypeMatcher>(TOK_I32X3)},
         {TOK_I32X4, std::make_shared<TokenTypeMatcher>(TOK_I32X4)},
@@ -492,6 +493,7 @@ class Matcher {
         token(TOK_F64), token(TOK_FLINT), token(TOK_STR), token(TOK_U8), token(TOK_BOOL) //
     });
     static const inline PatternPtr type_prim_mult = one_of({
+        token(TOK_BOOL8),                                                                                                             //
         token(TOK_I32X2), token(TOK_I32X3), token(TOK_I32X4), token(TOK_I32X8), token(TOK_I64X2), token(TOK_I64X3), token(TOK_I64X4), //
         token(TOK_F32X2), token(TOK_F32X3), token(TOK_F32X4), token(TOK_F32X8), token(TOK_F64X2), token(TOK_F64X3), token(TOK_F64X4)  //
     });

@@ -964,6 +964,13 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
         }
         to_type = types.front();
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type_cast_node->type.get())) {
+        if (type_cast_node->type->to_string() == "bool8") {
+            assert(type_cast_node->expr->type->to_string() == "u8");
+            assert(expr.size() == 1);
+            std::vector<llvm::Value *> result;
+            result.emplace_back(expr.at(0));
+            return result;
+        }
         // The expression now must be a group type, so the `expr` size must be the multi-type width
         if (expr.size() != multi_type->width) {
             // If the sizes dont match, the rhs must have size 1 and its type must match the element type of the multi-type
@@ -1138,6 +1145,8 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return builder.CreateZExt(expr, builder.getInt32Ty());
         } else if (to_type_str == "u64") {
             return builder.CreateZExt(expr, builder.getInt64Ty());
+        } else if (to_type_str == "bool8") {
+            return expr;
         }
     }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;

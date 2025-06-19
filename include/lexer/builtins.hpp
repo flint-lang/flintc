@@ -166,7 +166,7 @@ static inline std::unordered_map<std::string_view, std::vector<std::string_view>
     {"f64", {"str", "f64x2", "f64x3", "f64x4"}},
     {"bool", {"str"}},
     {"u8", {"bool8", "str", "i32", "u32", "i64", "u64"}},
-    {"bool8", {"u8"}},
+    {"bool8", {"u8", "str"}},
     {"(i32, i32)", {"i32x2"}},
     {"(i32, i32, i32)", {"i32x3"}},
     {"(i32, i32, i32, i32)", {"i32x4"}},

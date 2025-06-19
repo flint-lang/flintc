@@ -215,6 +215,9 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
         }
         return {type_map.at("type_str")->getPointerTo(), false};
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
+        if (type->to_string() == "bool8") {
+            return {llvm::Type::getInt8Ty(context), false};
+        }
         llvm::Type *element_type = get_type(multi_type->base_type).first;
         llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
         return {vector_type, false};
