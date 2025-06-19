@@ -1085,7 +1085,13 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         // Call the `init_str` function
         return builder.CreateCall(init_str_fn, {expr, str_len}, "str_init");
     } else if (dynamic_cast<const MultiType *>(from_type.get())) {
-        if (to_type_str == "str") {
+        if (from_type_str == "bool8") {
+            if (to_type_str == "str") {
+                return builder.CreateCall(Module::TypeCast::typecast_functions.at("bool8_to_str"), {expr}, "b8_to_str_val");
+            } else if (to_type_str == "u8") {
+                return expr;
+            }
+        } else if (to_type_str == "str") {
             llvm::Function *cast_fn = Module::TypeCast::typecast_functions.at(from_type_str + "_to_str");
             return builder.CreateCall(cast_fn, {expr}, from_type_str + "_to_str_res");
         }
