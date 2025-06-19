@@ -784,6 +784,30 @@ llvm::Value *Generator::Expression::generate_array_access( //
     return nullptr;
 }
 
+llvm::Value *Generator::Expression::get_bool8_element_at(llvm::IRBuilder<> &builder, llvm::Value *b8_val, unsigned int elem_idx) {
+    // Shift right by i bits and AND with 1 to extract the i-th bit
+    llvm::Value *bit_i = builder.CreateAnd(builder.CreateLShr(b8_val, builder.getInt8(elem_idx)), builder.getInt8(1), "extract_bit");
+    // Convert the result (i8 with value 0 or 1) to i1 (boolean)
+    llvm::Value *bool_bit = builder.CreateTrunc(bit_i, builder.getInt1Ty(), "to_bool");
+    return bool_bit;
+}
+
+llvm::Value *Generator::Expression::set_bool8_element_at(llvm::IRBuilder<> &builder, llvm::Value *b8_val, llvm::Value *bit_value,
+    unsigned int elem_idx) {
+    // Create a bit mask for the specific position (this is a compile-time constant)
+    llvm::Value *bit_mask = builder.getInt8(1 << elem_idx);
+    // Create the inverse mask (also compile-time)
+    llvm::Value *inverse_mask = builder.getInt8(~(1 << elem_idx));
+    // Check if the bit value is true
+    llvm::Value *is_true = builder.CreateICmpNE(bit_value, builder.getFalse(), "is_true");
+    // If bit_value is true, OR with mask to set the bit
+    llvm::Value *set_value = builder.CreateOr(b8_val, bit_mask, "set_bit");
+    // If bit_value is false, AND with inverse mask to clear the bit
+    llvm::Value *clear_value = builder.CreateAnd(b8_val, inverse_mask, "clear_bit");
+    // Select the appropriate value based on whether bit_value is true
+    return builder.CreateSelect(is_true, set_value, clear_value, "new_value");
+}
+
 Generator::group_mapping Generator::Expression::generate_data_access( //
     llvm::IRBuilder<> &builder,                                       //
     GenerationContext &ctx,                                           //

@@ -1355,6 +1355,25 @@ class Generator {
             const ArrayAccessNode *access          //
         );
 
+        /// @function `get_bool8_eleemnt_at`
+        /// @brief Generates all the IR code to access a single element of an bool8 variable and returns the read value
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `b8_val` The loaded bool8 (u8) value
+        /// @param `elem_idx` The index to access from the b8_val
+        /// @return `llvm::Value *` The loaded element of the bool8 value at the given index
+        static llvm::Value *get_bool8_element_at(llvm::IRBuilder<> &builder, llvm::Value *b8_val, unsigned int elem_idx);
+
+        /// @function `set_bool8_element_at`
+        /// @brief Sets the bit at the given index inside the given bool8 variable
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `b8_val` The loaded bool8 (u8) value to modify
+        /// @param `bit` The value the bit gets set to
+        /// @param `elem_idx` The index of the bit to set
+        /// @return `llvm::Value *` The modified b8_val which needs to be stored back on the original variable
+        static llvm::Value *set_bool8_element_at(llvm::IRBuilder<> &builder, llvm::Value *b8_val, llvm::Value *bit, unsigned int elem_idx);
+
         /// @function `generate_data_access`
         /// @brief Generates a data access from a given DataAccessNode
         ///
