@@ -1327,7 +1327,18 @@ bool Generator::Statement::generate_stacked_assignment( //
         return false;
     }
     llvm::Value *base_expr = base_expr_res.value().front();
+    if (stacked_assignment->base_expression->type->to_string() == "bool8") {
+        // TODO: Find a way how to store the return value of the `set_bool8_element_at` function back at the value the stacked expression
+        // came from (we need a pointer to the data field, if the bool8 variable is stored in another data, for example). We currently only
+        // get the actual loaded value of bool8, and there is no way to get a pointer to where it came from. This definitely needs to be
+        // done, otherwise stacked assignments for the bool8 type will not work. It still works for tuple types and other multi-types, so
+        // this is a bool8-specific issue
+        //
+        // Expression::set_bool8_element_at(builder, base_expr, expression, stacked_assignment->field_id);
+        return false;
+    }
     // Now we can access the element of the data of the lhs and assign the rhs expression result to it
+    // TOOD: Stacked assignments do not work for any multi-types yet, as the vector type is loaded as a "normal" value still.
     llvm::Type *base_type = IR::get_type(stacked_assignment->base_expression->type).first;
     llvm::Value *field_ptr = builder.CreateStructGEP(base_type, base_expr, stacked_assignment->field_id, "field_ptr");
     builder.CreateStore(expression, field_ptr);

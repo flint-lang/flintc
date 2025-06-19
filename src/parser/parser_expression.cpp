@@ -813,53 +813,93 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
     // Okay, so now the rhs is only an identifier or a $N
     const std::shared_ptr<Type> left_expr_type = left_expr.value()->type;
     ++separator;
-    if (separator->type == TOK_DOLLAR && std::next(separator)->type == TOK_INT_VALUE) {
+    if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(left_expr_type.get())) {
+        if (separator->type != TOK_DOLLAR || std::next(separator)->type != TOK_INT_VALUE) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
         // Handle the special case of tuple / multi-type accesses in a stacked expression
         size_t field_id = std::stoul(std::next(separator)->lexme);
         std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
         const std::string field_name = "$" + std::to_string(field_id);
-        if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(left_expr_type.get())) {
-            if (field_id >= tuple_type->types.size()) {
+        if (field_id >= tuple_type->types.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, tuple_type->types.at(field_id));
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(left_expr_type.get())) {
+        if (separator->type == TOK_IDENTIFIER) {
+            if (multi_type->width > 4) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, tuple_type->types.at(field_id));
-        } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(left_expr_type.get())) {
+            size_t field_id = 0;
+            const std::string &field_name = separator->lexme;
+            if (multi_type->width == 4) {
+                if (field_name == "r") {
+                    field_id = 0;
+                } else if (field_name == "g") {
+                    field_id = 1;
+                } else if (field_name == "b") {
+                    field_id = 2;
+                } else if (field_name == "w") {
+                    field_id = 3;
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            } else {
+                if (field_name == "x") {
+                    field_id = 0;
+                } else if (field_name == "y") {
+                    field_id = 1;
+                } else if (field_name == "z") {
+                    field_id = 2;
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            }
+            std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
+            return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, multi_type->base_type);
+        } else if (separator->type == TOK_DOLLAR && std::next(separator)->type == TOK_INT_VALUE) {
+            // Handle the special case of tuple / multi-type accesses in a stacked expression
+            size_t field_id = std::stoul(std::next(separator)->lexme);
+            std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
+            const std::string field_name = "$" + std::to_string(field_id);
             if (field_id >= multi_type->width) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, multi_type->base_type);
         } else {
+            assert(false);
+        }
+    } else if (const DataType *data_type = dynamic_cast<const DataType *>(left_expr_type.get())) {
+        if (separator->type != TOK_IDENTIFIER) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-    }
-    if (separator->type != TOK_IDENTIFIER) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const DataType *data_type = dynamic_cast<const DataType *>(left_expr_type.get());
-    if (data_type == nullptr) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const DataNode *data_node = data_type->data_node;
-    const std::string field_name = separator->lexme;
-    size_t field_id = 0;
-    for (const auto &field : data_node->fields) {
-        if (std::get<0>(field) == field_name) {
-            break;
+        const DataNode *data_node = data_type->data_node;
+        const std::string field_name = separator->lexme;
+        size_t field_id = 0;
+        for (const auto &field : data_node->fields) {
+            if (std::get<0>(field) == field_name) {
+                break;
+            }
+            field_id++;
         }
-        field_id++;
-    }
-    if (field_id == data_node->fields.size()) {
+        if (field_id == data_node->fields.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields[field_id]);
+        std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
+        return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, field_type);
+    } else {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields[field_id]);
-    std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
-    return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, field_type);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(Scope *scope, const token_slice &tokens) {

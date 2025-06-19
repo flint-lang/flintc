@@ -917,11 +917,6 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         llvm::Type *data_type;
         if (data_access->data_type->to_string() == "str" && data_access->field_name == "length") {
             data_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
-        } else if (data_access->data_type->to_string() == "bool8") {
-            // Special case for accessing an "element" on a bool8 type
-            std::vector<llvm::Value *> values;
-            values.emplace_back(get_bool8_element_at(builder, expr_val, data_access->field_id));
-            return values;
         } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->data_type.get())) {
             if (data_access->field_name != "length") {
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -937,6 +932,15 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
                 length_values.emplace_back(length_value);
             }
             return length_values;
+        } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(data_access->data_type.get())) {
+            std::vector<llvm::Value *> values;
+            if (multi_type->base_type->to_string() == "bool") {
+                // Special case for accessing an "element" on a bool8 type
+                values.emplace_back(get_bool8_element_at(builder, expr_val, data_access->field_id));
+            } else {
+                values.emplace_back(builder.CreateExtractElement(expr_val, data_access->field_id));
+            }
+            return values;
         } else {
             data_type = IR::get_type(data_access->data_type).first;
         }

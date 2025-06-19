@@ -1183,16 +1183,17 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_expr_tokens);
         return std::nullopt;
     }
+    // Okay, so now we find the dot token for the last stack and create an expression with everything to the left of it
     --iterator;
-    if (iterator->type != TOK_IDENTIFIER) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const std::string field_name = iterator->lexme;
-    --iterator;
-    if (iterator->type != TOK_DOT) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+    size_t depth = 0;
+    for (; iterator != tokens.first; --iterator) {
+        if (iterator->type == TOK_RIGHT_PAREN) {
+            depth++;
+        } else if (iterator->type == TOK_LEFT_PAREN) {
+            depth--;
+        } else if (iterator->type == TOK_DOT && depth == 0) {
+            break;
+        }
     }
     // Okay, now everything to the left of the iterator is the base expression
     const token_slice base_expr_tokens = {tokens.first, iterator};
@@ -1201,31 +1202,98 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, base_expr_tokens);
         return std::nullopt;
     }
-    // The base expression should be a data type
-    const DataType *base_expr_type = dynamic_cast<const DataType *>(base_expr.value()->type.get());
-    if (base_expr_type == nullptr) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const DataNode *data_node = base_expr_type->data_node;
-    auto field_it = data_node->fields.begin();
-    while (field_it != data_node->fields.end()) {
-        if (std::get<0>(*field_it) == field_name) {
-            break;
+    ++iterator;
+    const std::shared_ptr<Type> base_expr_type = base_expr.value()->type;
+    if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(base_expr_type.get())) {
+        if (iterator->type != TOK_DOLLAR || std::next(iterator)->type != TOK_INT_VALUE) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
-        ++field_it;
-    }
-    if (field_it == data_node->fields.end()) {
+        // Handle the special case of tuple / multi-type accesses in a stacked expression
+        size_t field_id = std::stoul(std::next(iterator)->lexme);
+        const std::string field_name = "$" + std::to_string(field_id);
+        if (field_id >= tuple_type->types.size()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_unique<StackedAssignmentNode>(                                               //
+            base_expr.value(), field_name, field_id, tuple_type->types.at(field_id), rhs_expr.value() //
+        );
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(base_expr_type.get())) {
+        if (iterator->type == TOK_IDENTIFIER) {
+            if (multi_type->width > 4) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            size_t field_id = 0;
+            const std::string &field_name = iterator->lexme;
+            if (multi_type->width == 4) {
+                if (field_name == "r") {
+                    field_id = 0;
+                } else if (field_name == "g") {
+                    field_id = 1;
+                } else if (field_name == "b") {
+                    field_id = 2;
+                } else if (field_name == "w") {
+                    field_id = 3;
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            } else {
+                if (field_name == "x") {
+                    field_id = 0;
+                } else if (field_name == "y") {
+                    field_id = 1;
+                } else if (field_name == "z") {
+                    field_id = 2;
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            }
+            return std::make_unique<StackedAssignmentNode>(                                      //
+                base_expr.value(), field_name, field_id, multi_type->base_type, rhs_expr.value() //
+            );
+        } else if (iterator->type == TOK_DOLLAR && std::next(iterator)->type == TOK_INT_VALUE) {
+            // Handle the special case of tuple / multi-type accesses in a stacked expression
+            size_t field_id = std::stoul(std::next(iterator)->lexme);
+            const std::string field_name = "$" + std::to_string(field_id);
+            if (field_id >= multi_type->width) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<StackedAssignmentNode>(                                      //
+                base_expr.value(), field_name, field_id, multi_type->base_type, rhs_expr.value() //
+            );
+        } else {
+            assert(false);
+        }
+    } else if (const DataType *data_type = dynamic_cast<const DataType *>(base_expr_type.get())) {
+        if (iterator->type != TOK_IDENTIFIER) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const std::string field_name = iterator->lexme;
+        const DataNode *data_node = data_type->data_node;
+        auto field_it = data_node->fields.begin();
+        while (field_it != data_node->fields.end()) {
+            if (std::get<0>(*field_it) == field_name) {
+                break;
+            }
+            ++field_it;
+        }
+        if (field_it == data_node->fields.end()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        size_t field_id = std::distance(data_node->fields.begin(), field_it);
+        const std::shared_ptr<Type> field_type = std::get<1>(*field_it);
+        return std::make_unique<StackedAssignmentNode>(base_expr.value(), field_name, field_id, field_type, rhs_expr.value());
+    } else {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    size_t field_id = std::distance(data_node->fields.begin(), field_it);
-    const std::shared_ptr<Type> field_type = std::get<1>(*field_it);
-
-    auto stacked_assignment = std::make_unique<StackedAssignmentNode>(        //
-        base_expr.value(), field_name, field_id, field_type, rhs_expr.value() //
-    );
-    return stacked_assignment;
 }
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *scope, const token_slice &tokens) {
