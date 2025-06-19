@@ -157,22 +157,43 @@ bool Lexer::scan_token() {
         case '#':
             add_token(TOK_FLAG);
             break;
-        case '\'':
-            advance(false);
-            if (isascii(peek()) == 0) {
-                THROW_ERR(ErrLitExpectedCharValue, ERR_LEXING, file, line, column, std::to_string(peek()));
-                return false;
+        case '\'': {
+            advance();
+            char char_value = peek();
+            if (char_value == '\\') {
+                char next_val = peek_next();
+                // Skip '\\'
+                advance();
+                switch (next_val) {
+                    case 'n':
+                        char_value = '\n';
+                        break;
+                    case 't':
+                        char_value = '\t';
+                        break;
+                    case 'r':
+                        char_value = '\r';
+                        break;
+                    case '\\':
+                        char_value = '\\';
+                        break;
+                    case '0':
+                        char_value = '\0';
+                        break;
+                }
             }
             if (peek_next() != '\'') {
                 THROW_ERR(ErrLitCharLongerThanSingleCharacter, ERR_LEXING, file, line, column,
                     std::to_string(peek()) + std::to_string(peek_next()));
                 return false;
             }
-            start = current;
-            add_token(TOK_CHAR_VALUE);
+            std::string char_value_str = " ";
+            char_value_str[0] = char_value;
+            add_token(TOK_CHAR_VALUE, char_value_str);
             // Eat the '
             advance();
             break;
+        }
         // calculational tokens
         case '+':
             add_token_options(TOK_PLUS, {{'+', TOK_INCREMENT}, {'=', TOK_PLUS_EQUALS}});
