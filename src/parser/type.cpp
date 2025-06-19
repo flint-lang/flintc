@@ -23,6 +23,7 @@ void Type::init_types() {
     std::shared_ptr<Type> f64_type = get_primitive_type("f64");
     get_primitive_type("bool");
     std::shared_ptr<Type> str_type = get_primitive_type("str");
+    get_primitive_type("__flint_type_str_lit");
     get_primitive_type("void");
     get_primitive_type("u8");
     add_type(std::make_shared<MultiType>(i32_type, 2));

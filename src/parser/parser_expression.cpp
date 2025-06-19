@@ -539,14 +539,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(Scope *s
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
         return std::nullopt;
     }
-    // if (!std::holds_alternative<std::shared_ptr<Type>>(expression.value()->type)) {
-    //     if (std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type).size() == 1) {
-    //         expression.value()->type = std::get<std::vector<std::shared_ptr<Type>>>(expression.value()->type).at(0);
-    //     } else {
-    //         THROW_BASIC_ERR(ERR_PARSING);
-    //         return std::nullopt;
-    //     }
-    // }
 
     // Check if the type of the expression is castable at all
     if (primitive_casting_table.find(expression.value()->type->to_string()) == primitive_casting_table.end()) {
