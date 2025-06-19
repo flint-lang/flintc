@@ -1113,8 +1113,27 @@ bool Generator::Statement::generate_data_field_assignment( //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_field_assignment->var_name;
     llvm::Value *const var_alloca = ctx.allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type(data_field_assignment->data_type).first;
+    if (data_field_assignment->data_type->to_string() == "bool8") {
+        // The 'field access' is actually the bit at the given field index
+        // Load the current value of the bool8 (i8)
+        llvm::Value *current_value = builder.CreateLoad(builder.getInt8Ty(), var_alloca, var_name + "_val");
+        // Get the boolean value from the expression
+        llvm::Value *bool_value = expression.value().front();
+        // Set or clear the specific bit based on the bool value
+        unsigned int bit_index = data_field_assignment->field_id;
+        // Get the new value of the bool8 value
+        llvm::Value *new_value = Expression::set_bool8_element_at(builder, current_value, bool_value, bit_index);
+        // Store the new value back
+        llvm::StoreInst *store = builder.CreateStore(new_value, var_alloca);
+        store->setMetadata("comment",
+            llvm::MDNode::get(context,
+                llvm::MDString::get(context,
+                    "Store result of expr in field '" + data_field_assignment->var_name + ".$" +
+                        std::to_string(data_field_assignment->field_id) + "'")));
+        return true;
+    }
 
+    llvm::Type *data_type = IR::get_type(data_field_assignment->data_type).first;
     llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, data_field_assignment->field_id);
     llvm::StoreInst *store = builder.CreateStore(expression.value().at(0), field_ptr);
     if (data_field_assignment->field_name.has_value()) {
@@ -1157,8 +1176,36 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_field_assignment->var_name;
     llvm::Value *const var_alloca = ctx.allocations.at(var_name);
 
-    llvm::Type *data_type = IR::get_type(grouped_field_assignment->data_type).first;
+    if (grouped_field_assignment->data_type->to_string() == "bool8") {
+        // Load the current value of the bool8 (i8)
+        llvm::Value *current_value = builder.CreateLoad(builder.getInt8Ty(), var_alloca, var_name + "_val");
+        llvm::Value *new_value = current_value;
 
+        // Process each field in the grouped assignment
+        for (size_t i = 0; i < grouped_field_assignment->field_ids.size(); i++) {
+            unsigned int bit_index = grouped_field_assignment->field_ids.at(i);
+            llvm::Value *bool_value = expression.value().at(i);
+            new_value = Expression::set_bool8_element_at(builder, new_value, bool_value, bit_index);
+        }
+
+        // Store the final value back
+        llvm::StoreInst *store = builder.CreateStore(new_value, var_alloca);
+
+        // Add metadata comment
+        std::string fields_str;
+        for (size_t i = 0; i < grouped_field_assignment->field_ids.size(); i++) {
+            if (i > 0)
+                fields_str += ", ";
+            fields_str += "$" + std::to_string(grouped_field_assignment->field_ids.at(i));
+        }
+        store->setMetadata("comment",
+            llvm::MDNode::get(context,
+                llvm::MDString::get(context,
+                    "Store result of expr in fields '" + grouped_field_assignment->var_name + ".(" + fields_str + ")'")));
+        return true;
+    }
+
+    llvm::Type *data_type = IR::get_type(grouped_field_assignment->data_type).first;
     for (size_t i = 0; i < expression.value().size(); i++) {
         llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_field_assignment->field_ids.at(i));
         llvm::StoreInst *store = builder.CreateStore(expression.value().at(i), field_ptr);
