@@ -180,6 +180,21 @@ bool Lexer::scan_token() {
                     case '0':
                         char_value = '\0';
                         break;
+                    case 'x': {
+                        // Hex value follows
+                        // Skip 'x'
+                        advance();
+                        if (peek() == '\'' || peek_next() == '\'') {
+                            THROW_BASIC_ERR(ERR_LEXING);
+                            return false;
+                        }
+                        std::string hex_digits = source.substr(current, 2);
+                        int hex_value = std::stoi(hex_digits, nullptr, 16);
+                        char_value = static_cast<char>(hex_value);
+                        // Skip one of the two hex digits
+                        advance();
+                        break;
+                    }
                 }
             }
             if (peek_next() != '\'') {
