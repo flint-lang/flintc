@@ -810,13 +810,35 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    // Okay, so now the rhs is only an identifier
+    // Okay, so now the rhs is only an identifier or a $N
+    const std::shared_ptr<Type> left_expr_type = left_expr.value()->type;
     ++separator;
+    if (separator->type == TOK_DOLLAR && std::next(separator)->type == TOK_INT_VALUE) {
+        // Handle the special case of tuple / multi-type accesses in a stacked expression
+        size_t field_id = std::stoul(std::next(separator)->lexme);
+        std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
+        const std::string field_name = "$" + std::to_string(field_id);
+        if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(left_expr_type.get())) {
+            if (field_id >= tuple_type->types.size()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, tuple_type->types.at(field_id));
+        } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(left_expr_type.get())) {
+            if (field_id >= multi_type->width) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, multi_type->base_type);
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    }
     if (separator->type != TOK_IDENTIFIER) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::shared_ptr<Type> left_expr_type = left_expr.value()->type;
     const DataType *data_type = dynamic_cast<const DataType *>(left_expr_type.get());
     if (data_type == nullptr) {
         THROW_BASIC_ERR(ERR_PARSING);

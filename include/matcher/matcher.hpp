@@ -639,7 +639,8 @@ class Matcher {
             token(TOK_LEFT_PAREN), token(TOK_DOT), one_of({token(TOK_IDENTIFIER)}), token(TOK_RIGHT_PAREN), 0 //
             )),                                                                                               //
         one_of({
-            token(TOK_IDENTIFIER), // Just a normal field access
+            token(TOK_IDENTIFIER),                               // Just a normal field access
+            sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)}), // A tuple or multi-type field access
             sequence({
                 token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN),                                        //
                 balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1) //
