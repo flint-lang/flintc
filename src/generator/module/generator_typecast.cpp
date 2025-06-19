@@ -12,6 +12,7 @@ void Generator::Module::TypeCast::generate_typecast_functions(llvm::IRBuilder<> 
     generate_u64_to_str(builder, module, only_declarations);
     generate_f32_to_str(builder, module, only_declarations);
     generate_f64_to_str(builder, module, only_declarations);
+    generate_bool8_to_str_function(builder, module, only_declarations);
     generate_multitype_to_str(builder, module, only_declarations, "i32", 2);
     generate_multitype_to_str(builder, module, only_declarations, "i32", 3);
     generate_multitype_to_str(builder, module, only_declarations, "i32", 4);
@@ -247,6 +248,68 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     // Return the result
     multitype_str = builder->CreateLoad(str_type->getPointerTo(), multitype_str_alloca);
     builder->CreateRet(multitype_str);
+}
+
+/******************************************************************************************************************************************
+ * @region `MultiTypes`
+ *****************************************************************************************************************************************/
+
+void Generator::Module::TypeCast::generate_bool8_to_str_function( //
+    llvm::IRBuilder<> *builder,                                   //
+    llvm::Module *module,                                         //
+    const bool only_declarations                                  //
+) {
+    // The string result of the bool8 value will always be of size 8. Each character of the string is either '0' or '1', depending of the
+    // bit value of each element
+    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
+
+    llvm::FunctionType *bool8_to_str_type = llvm::FunctionType::get( //
+        str_type->getPointerTo(),                                    // Return type: str*
+        {llvm::Type::getInt8Ty(context)},                            // Argument: bool8 b8
+        false                                                        // No varargs
+    );
+    llvm::Function *bool8_to_str_fn = llvm::Function::Create( //
+        bool8_to_str_type,                                    //
+        llvm::Function::ExternalLinkage,                      //
+        "__flint_bool8_to_str",                               //
+        module                                                //
+    );
+    typecast_functions["bool8_to_str"] = bool8_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create entry point
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", bool8_to_str_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Get the function parameter
+    llvm::Argument *arg_b8 = bool8_to_str_fn->arg_begin();
+    arg_b8->setName("b8");
+
+    // Create a string of size 8
+    llvm::Value *b8_str = builder->CreateCall(create_str_fn, {builder->getInt64(8)}, "b8_str");
+    llvm::Value *zero_char = builder->getInt8(48);
+    llvm::Value *one_char = builder->getInt8(49);
+
+    // Get the pointer to the actual data of the string
+    llvm::Value *str_data_ptr = builder->CreateStructGEP(str_type, b8_str, 1, "str_data_ptr");
+
+    // Set all characters of the string
+    for (unsigned int i = 0; i < 8; i++) {
+        // Shift right by i bits and AND with 1 to extract the i-th bit
+        llvm::Value *bit_i = builder->CreateAnd(builder->CreateLShr(arg_b8, builder->getInt8(i)), builder->getInt8(1), "extract_bit");
+        // Convert the result (i8 with value 0 or 1) to i1 (boolean)
+        llvm::Value *bool_bit = builder->CreateTrunc(bit_i, builder->getInt1Ty(), "to_bool");
+        // Get the pointer to the current character
+        llvm::Value *char_ptr = builder->CreateGEP(builder->getInt8Ty(), str_data_ptr, builder->getInt32(7 - i), "char_ptr");
+        // Store either one or zero at the given character depending on the bool bit
+        builder->CreateStore(builder->CreateSelect(bool_bit, one_char, zero_char), char_ptr);
+    }
+
+    // Return the created string
+    builder->CreateRet(b8_str);
 }
 
 /******************************************************************************************************************************************

@@ -2560,6 +2560,19 @@ class Generator {
                 {"f32_to_str", nullptr},
                 {"f64_to_str", nullptr},
                 {"bool_to_str", nullptr},
+                {"bool8_to_str", nullptr},
+                {"i32x2_to_str", nullptr},
+                {"i32x3_to_str", nullptr},
+                {"i32x4_to_str", nullptr},
+                {"i64x2_to_str", nullptr},
+                {"i64x3_to_str", nullptr},
+                {"i64x4_to_str", nullptr},
+                {"f32x2_to_str", nullptr},
+                {"f32x3_to_str", nullptr},
+                {"f32x4_to_str", nullptr},
+                {"f64x2_to_str", nullptr},
+                {"f64x3_to_str", nullptr},
+                {"f64x4_to_str", nullptr},
             };
 
             /// @function `generate_typecast_functions`
@@ -2601,6 +2614,18 @@ class Generator {
                 const std::string &type_str,       //
                 const size_t width                 //
             );
+
+            /**************************************************************************************************************************************
+             * @region `MultiTypes`
+             *************************************************************************************************************************************/
+
+            /// @function `generate_bool8_to_str_function`
+            /// @brief Generates the function with which conversions of the bool8 to string variables take place
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `int_value` The i32 value to convert
+            /// @return `llvm::Value *` The converted u8 value
+            static void generate_bool8_to_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /**************************************************************************************************************************************
              * @region `I32`
