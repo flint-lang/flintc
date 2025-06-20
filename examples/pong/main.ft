@@ -123,7 +123,7 @@ def move_game_objects(mut GameData game_data):
     if game_data.ball.pos.y == 1 or game_data.ball.pos.y == game_data.screen.height - 2:
         // The ball reflects off the top or bottom of the screen
         game_data.ball.dir = game_data.ball.dir * (1, -1);
-    
+
     bool ball_pos_ge_left = game_data.ball.pos.y >= game_data.left.pos - 2 - game_data.left.size / 2;
     bool ball_pos_le_left = game_data.ball.pos.y <= game_data.left.pos - 2 + game_data.left.size / 2;
     bool ball_pos_ge_right = game_data.ball.pos.y >= game_data.right.pos - 2 - game_data.right.size / 2;
@@ -176,7 +176,7 @@ def main():
 
         // Render the available inputs
         render_input_display(game_data);
-        
+
         // Store the end position of the screen to reset to after exiting the game
         if not is_running:
             save_cursor();

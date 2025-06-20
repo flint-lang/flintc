@@ -9,7 +9,7 @@ def starts_with(str input, str matcher) -> bool:
     for i := 0; i < matcher.length; i++:
         if matcher[i] != input[i]:
             return false;
-        
+
     return true;
 
 /// @brief Returns a substring of the input [from, to)
@@ -25,7 +25,7 @@ def substring(str input, mut i32 from, mut i32 to) -> str:
 
     if from > to:
         (from, to) = (to, from);
-    
+
     str substr = "";
     for i32 i = from; i < to; i++:
         substr += str(input[i]);
