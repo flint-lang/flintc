@@ -1,0 +1,80 @@
+use Core.print
+use Core.assert
+
+/// @rationale Optionals are pretty essential to any more complex program.
+/// They allow us to express the concept of "absence" or "nothing" for
+/// varibales. You maybe have a variable that's possible to be nothing, thats
+/// where optionals come into play. In this file you will have a collection of
+/// every possible syntax for optionals.
+
+def greet(str? name) -> str:
+	// This is an optional unwrap. If the optional value has a value stored in
+	// it then the stored value is used, if it's 'none', the default value is
+	// used
+	str realname = name ?? "Guest";
+	return $"Hello, {realname}!";
+
+test "test_greet":
+	assert(greet(none) == "Hello, Guest!");
+	assert(greet("Johnson") == "Hello, Johnson!");
+
+
+data IntList:
+	i32 value;
+	IntList? next;
+	IntList(value, next);
+
+def list_to_str(IntList list) -> str:
+	str list_string = str(list.value);
+	print(list.value);
+	// Optionals can be compared to the 'none' literal to check if they contain
+	// a value
+	if list.next != none:
+		list_string += " -> ";
+		// An optional can be force-unwrapped using the '!' operator. If the
+		// optional is 'none' this will crash the program
+		list_string += list_to_str(list.next!);
+	return list_string;
+
+test "test_list":
+	IntList list = IntList(22, none);
+	list.next = IntList(12, none);
+	assert(list_to_str(list) == "22 -> 12");
+
+
+entity List<T>:
+	data:
+		T value;
+		List<T>? next;
+	func:
+		def append(T value):
+			if next != none:
+				next!.append(value);
+			else:
+				next = List<T>(value, none);
+
+		def get_value() -> T:
+			return value;
+
+		def get_next() -> List<T>?:
+			return next;
+	List<T>(value, next);
+
+test "test_list_entity":
+	list := List<i32>(10, none);
+	assert(list.get_value() == 10);
+	list.append(20);
+	assert(list.get_next()!.get_value() == 20);
+	list.append(30);
+	assert(list.get_next()!.get_next()!.get_value() == 30);
+	// The '?.' operator is used for optional chaining.
+	list.get_next()?.append(40);
+	assert(list.get_next()!.get_next()!.get_next()!.get_value() == 40);
+	// The result of an optional chain is always T?, where T is the type of
+	// the last segment of the expression. The function 'get_value' returns
+	// 'T' or 'i32' in this case. But if the 'list' has no next (the case
+	// when 'get_next' returns 'none') the whole expression will
+	// "short-circuit" and return 'none' before calling 'get_value'
+	i32? value = list.get_next()?.get_value();
+	// Default values can be provided for optional chains too
+	i32 val = list.get_next()?.get_value() ?? 0;
