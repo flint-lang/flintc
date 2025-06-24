@@ -134,13 +134,24 @@ bool Lexer::scan_token() {
             add_token_options(TOK_COLON, {{'=', TOK_COLON_EQUAL}, {':', TOK_REFERENCE}});
             break;
         case '?':
-            add_token(TOK_QUESTION);
+            if (peek() == '?') {
+                add_token(TOK_OPT_DEFAULT);
+                advance();
+            } else {
+                add_token(TOK_QUESTION);
+            }
+            break;
+        case '%':
+            add_token(TOK_MOD);
             break;
         case '$':
             add_token(TOK_DOLLAR);
             break;
         case '^':
             add_token(TOK_BIT_XOR);
+            break;
+        case '~':
+            add_token(TOK_BIT_NEG);
             break;
         case '&':
             add_token(TOK_BIT_OR);
