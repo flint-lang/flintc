@@ -7,143 +7,147 @@
 #include <unordered_map>
 
 static const std::unordered_map<std::string_view, Token> symbols = {
-    {"", TOK_EOF}, // -1
+    {"", TOK_EOF},
     // single character tokens
-    {"(", TOK_LEFT_PAREN},    // -2
-    {")", TOK_RIGHT_PAREN},   // -3
-    {"[", TOK_LEFT_BRACKET},  // -4
-    {"]", TOK_RIGHT_BRACKET}, // -5
-    {"{", TOK_LEFT_BRACE},    // -6
-    {"}", TOK_RIGHT_BRACE},   // -7
-    {",", TOK_COMMA},         // -8
-    {".", TOK_DOT},           // -9
-    {";", TOK_SEMICOLON},     // -10
-    {":", TOK_COLON},         // -11
-    {"?", TOK_QUESTION},      // -12
-    {"_", TOK_UNDERSCORE},    // -13
-    {"#", TOK_FLAG},          // -14
-    {"$", TOK_DOLLAR},        // -15
+    {"(", TOK_LEFT_PAREN},
+    {")", TOK_RIGHT_PAREN},
+    {"[", TOK_LEFT_BRACKET},
+    {"]", TOK_RIGHT_BRACKET},
+    {"{", TOK_LEFT_BRACE},
+    {"}", TOK_RIGHT_BRACE},
+    {",", TOK_COMMA},
+    {".", TOK_DOT},
+    {";", TOK_SEMICOLON},
+    {":", TOK_COLON},
+    {"?", TOK_QUESTION},
+    {"!", TOK_EXCLAMATION},
+    {"_", TOK_UNDERSCORE},
+    {"#", TOK_FLAG},
+    {"$", TOK_DOLLAR},
+    // dual character tokens
+    {"->", TOK_ARROW},
+    {"|>", TOK_PIPE},
+    {"::", TOK_REFERENCE},
+    {"??", TOK_OPT_DEFAULT},
     // calculational tokens
-    {"+", TOK_PLUS},  // -16
-    {"-", TOK_MINUS}, // -17
-    {"*", TOK_MULT},  // -18
-    {"/", TOK_DIV},   // -19
-    {"**", TOK_POW},  // -20
+    {"+", TOK_PLUS},
+    {"-", TOK_MINUS},
+    {"*", TOK_MULT},
+    {"/", TOK_DIV},
+    {"%", TOK_MOD},
+    {"**", TOK_POW},
     // assign tokens
-    {"++", TOK_INCREMENT},    // -21
-    {"--", TOK_DECREMENT},    // -22
-    {"+=", TOK_PLUS_EQUALS},  // -23
-    {"-=", TOK_MINUS_EQUALS}, // -24
-    {"*=", TOK_MULT_EQUALS},  // -25
-    {"/=", TOK_DIV_EQUALS},   // -26
-    {":=", TOK_COLON_EQUAL},  // -27
-    {"=", TOK_EQUAL},         // -28
+    {"++", TOK_INCREMENT},
+    {"--", TOK_DECREMENT},
+    {"+=", TOK_PLUS_EQUALS},
+    {"-=", TOK_MINUS_EQUALS},
+    {"*=", TOK_MULT_EQUALS},
+    {"/=", TOK_DIV_EQUALS},
+    {":=", TOK_COLON_EQUAL},
+    {"=", TOK_EQUAL},
     // relational symbols
-    {"==", TOK_EQUAL_EQUAL},   // -29
-    {"!=", TOK_NOT_EQUAL},     // -30
-    {"<", TOK_LESS},           // -31
-    {"<=", TOK_LESS_EQUAL},    // -32
-    {">", TOK_GREATER},        // -33
-    {">=", TOK_GREATER_EQUAL}, // -34
+    {"==", TOK_EQUAL_EQUAL},
+    {"!=", TOK_NOT_EQUAL},
+    {"<", TOK_LESS},
+    {"<=", TOK_LESS_EQUAL},
+    {">", TOK_GREATER},
+    {">=", TOK_GREATER_EQUAL},
     // bitwise operators
-    {"<<", TOK_SHIFT_LEFT},  // -35
-    {">>", TOK_SHIFT_RIGHT}, // -36
-    {"&", TOK_BIT_AND},      // -37
-    {"|", TOK_BIT_OR},       // -38
-    {"^", TOK_BIT_XOR},      // -39
-    // function symbols
-    {"->", TOK_ARROW},     // -54
-    {"|>", TOK_PIPE},      // -55
-    {"::", TOK_REFERENCE}, // -56
+    {"<<", TOK_SHIFT_LEFT},
+    {">>", TOK_SHIFT_RIGHT},
+    {"&", TOK_BIT_AND},
+    {"|", TOK_BIT_OR},
+    {"^", TOK_BIT_XOR},
+    {"~", TOK_BIT_NEG},
     // other tokens
-    {"\t", TOK_INDENT}, // -115
-    {"\n", TOK_EOL}     // -116
+    {"\t", TOK_INDENT},
+    {"\n", TOK_EOL},
 };
 
 static const std::unordered_map<std::string_view, Token> keywords = {
     // relational keywords
-    {"and", TOK_AND}, // -40
-    {"or", TOK_OR},   // -41
-    {"not", TOK_NOT}, // -42
+    {"and", TOK_AND},
+    {"or", TOK_OR},
+    {"not", TOK_NOT},
     // branching keywords
-    {"if", TOK_IF},         // -43
-    {"else", TOK_ELSE},     // -44
-    {"switch", TOK_SWITCH}, // -45
+    {"if", TOK_IF},
+    {"else", TOK_ELSE},
+    {"switch", TOK_SWITCH},
     // looping keywords
-    {"for", TOK_FOR},           // -46
-    {"while", TOK_WHILE},       // -47
-    {"parallel", TOK_PARALLEL}, // -48
-    {"in", TOK_IN},             // -49
-    {"break", TOK_BREAK},       // -50
+    {"for", TOK_FOR},
+    {"while", TOK_WHILE},
+    {"parallel", TOK_PARALLEL},
+    {"in", TOK_IN},
+    {"break", TOK_BREAK},
+    {"continue", TOK_CONTINUE},
     // function keywords
-    {"def", TOK_DEF},       // -51
-    {"return", TOK_RETURN}, // -52
-    {"fn", TOK_FN},         // -53
+    {"def", TOK_DEF},
+    {"return", TOK_RETURN},
+    {"fn", TOK_FN},
+    {"bp", TOK_BP},
     // error keywords
-    {"error", TOK_ERROR}, // -57
-    {"throw", TOK_THROW}, // -58
-    {"catch", TOK_CATCH}, // -59
+    {"error", TOK_ERROR},
+    {"throw", TOK_THROW},
+    {"catch", TOK_CATCH},
     // variant keywords
-    {"variant", TOK_VARIANT}, // -60
-    {"enum", TOK_ENUM},       // -61
+    {"variant", TOK_VARIANT},
+    {"enum", TOK_ENUM},
     // import keywords
-    {"use", TOK_USE}, // -62
-    {"as", TOK_AS},   // -63
+    {"use", TOK_USE},
+    {"as", TOK_AS},
     // primitives
-    {"void", TOK_VOID},   // -65
-    {"bool", TOK_BOOL},   // -66
-    {"Opt", TOK_OPT},     // -67
-    {"u8", TOK_U8},       // -68
-    {"str", TOK_STR},     // -69
-    {"flint", TOK_FLINT}, // -70
-    {"u32", TOK_U32},     // -71
-    {"i32", TOK_I32},     // -72
-    {"bool8", TOK_BOOL8}, // -73
-    {"i32x2", TOK_I32X2}, // -74
-    {"i32x3", TOK_I32X3}, // -75
-    {"i32x4", TOK_I32X4}, // -76
-    {"i32x8", TOK_I32X8}, // -77
-    {"u64", TOK_U64},     // -78
-    {"i64", TOK_I64},     // -79
-    {"i64x2", TOK_I64X2}, // -80
-    {"i64x3", TOK_I64X3}, // -81
-    {"i64x4", TOK_I64X4}, // -82
-    {"f32", TOK_F32},     // -83
-    {"f32x2", TOK_F32X2}, // -84
-    {"f32x3", TOK_F32X3}, // -85
-    {"f32x4", TOK_F32X4}, // -86
-    {"f32x8", TOK_F32X8}, // -87
-    {"f64", TOK_F64},     // -88
-    {"f64x2", TOK_F64X2}, // -89
-    {"f64x3", TOK_F64X3}, // -90
-    {"f64x4", TOK_F64X4}, // -91
+    {"void", TOK_VOID},
+    {"bool", TOK_BOOL},
+    {"u8", TOK_U8},
+    {"str", TOK_STR},
+    {"flint", TOK_FLINT},
+    {"u32", TOK_U32},
+    {"i32", TOK_I32},
+    {"bool8", TOK_BOOL8},
+    {"i32x2", TOK_I32X2},
+    {"i32x3", TOK_I32X3},
+    {"i32x4", TOK_I32X4},
+    {"i32x8", TOK_I32X8},
+    {"u64", TOK_U64},
+    {"i64", TOK_I64},
+    {"i64x2", TOK_I64X2},
+    {"i64x3", TOK_I64X3},
+    {"i64x4", TOK_I64X4},
+    {"f32", TOK_F32},
+    {"f32x2", TOK_F32X2},
+    {"f32x3", TOK_F32X3},
+    {"f32x4", TOK_F32X4},
+    {"f32x8", TOK_F32X8},
+    {"f64", TOK_F64},
+    {"f64x2", TOK_F64X2},
+    {"f64x3", TOK_F64X3},
+    {"f64x4", TOK_F64X4},
     // builtin values
-    {"true", TOK_TRUE},   // -96
-    {"false", TOK_FALSE}, // -97
-    {"None", TOK_NONE},   // -98
-    {"Some", TOK_SOME},   // -99
+    {"true", TOK_TRUE},
+    {"false", TOK_FALSE},
+    {"none", TOK_NONE},
     // data keywords
-    {"data", TOK_DATA},           // -100
-    {"shared", TOK_SHARED},       // -101
-    {"immutable", TOK_IMMUTABLE}, // -102
-    {"aligned", TOK_ALIGNED},     // -103
+    {"data", TOK_DATA},
+    {"shared", TOK_SHARED},
+    {"immutable", TOK_IMMUTABLE},
+    {"aligned", TOK_ALIGNED},
     // func keywords
-    {"func", TOK_FUNC},         // -104
-    {"requires", TOK_REQUIRES}, // -105
+    {"func", TOK_FUNC},
+    {"requires", TOK_REQUIRES},
     // entity keywords
-    {"entity", TOK_ENTITY},   // -106
-    {"extends", TOK_EXTENDS}, // -107
-    {"link", TOK_LINK},       // -108
+    {"entity", TOK_ENTITY},
+    {"extends", TOK_EXTENDS},
+    {"link", TOK_LINK},
     // threading keywords
-    {"spawn", TOK_SPAWN}, // -109
-    {"sync", TOK_SYNC},   // -110
-    {"lock", TOK_LOCK},   // -111
+    {"spawn", TOK_SPAWN},
+    {"sync", TOK_SYNC},
+    {"lock", TOK_LOCK},
     // other modifiers
-    {"const", TOK_CONST},           // -112
-    {"mut", TOK_MUT},               // -113
-    {"persistent", TOK_PERSISTENT}, // -114
+    {"const", TOK_CONST},
+    {"mut", TOK_MUT},
+    {"persistent", TOK_PERSISTENT},
     // other tokens
-    {"test", TOK_TEST}, // -115
+    {"test", TOK_TEST},
 };
 
 static std::string get_token_name(Token token) {

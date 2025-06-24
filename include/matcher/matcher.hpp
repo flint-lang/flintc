@@ -269,7 +269,6 @@ class Matcher {
         // primitives
         {TOK_VOID, std::make_shared<TokenTypeMatcher>(TOK_VOID)},
         {TOK_BOOL, std::make_shared<TokenTypeMatcher>(TOK_BOOL)},
-        {TOK_OPT, std::make_shared<TokenTypeMatcher>(TOK_OPT)},
         {TOK_U8, std::make_shared<TokenTypeMatcher>(TOK_U8)},
         {TOK_STR, std::make_shared<TokenTypeMatcher>(TOK_STR)},
         {TOK_FLINT, std::make_shared<TokenTypeMatcher>(TOK_FLINT)},
@@ -305,7 +304,6 @@ class Matcher {
         {TOK_TRUE, std::make_shared<TokenTypeMatcher>(TOK_TRUE)},
         {TOK_FALSE, std::make_shared<TokenTypeMatcher>(TOK_FALSE)},
         {TOK_NONE, std::make_shared<TokenTypeMatcher>(TOK_NONE)},
-        {TOK_SOME, std::make_shared<TokenTypeMatcher>(TOK_SOME)},
 
         // data keywords
         {TOK_DATA, std::make_shared<TokenTypeMatcher>(TOK_DATA)},
