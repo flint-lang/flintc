@@ -1,13 +1,7 @@
 use Core.print
 
 def main():
-    bool8 flags = u8(0);
-    print($"flags = {flags}\n");
-    flags.$2 = true;
-    flags.($4, $6) = (true, true);
-    print($"flags = {flags}\n");
-    u8 char = flags;
-    print($"char = {char}\n");
-    (third, fourth) := flags.($2, $3);
-    bool sixth = flags.$5;
-    print($"third = {third}, fourth = {fourth}, sixth = {sixth}\n");
+	i32 x = 10;
+	i32 y = 3;
+	i32 z = x % y % 2;
+	print($"z = {z}\n"); // Expected result of 1

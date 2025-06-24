@@ -1476,6 +1476,17 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
         case TOK_POW:
             return IR::generate_pow_instruction(builder, ctx.parent, lhs, rhs);
             break;
+        case TOK_MOD:
+            if (type_str == "i32" || type_str == "i64") {
+                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
+                    ? builder.CreateSRem(lhs, rhs, "srem_res")         //
+                    : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_mod"), {lhs, rhs}, "safe_smod_res");
+            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
+                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
+                    ? builder.CreateURem(lhs, rhs, "urem_res")         //
+                    : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_mod"), {lhs, rhs}, "safe_umod_res");
+            }
+            break;
         case TOK_LESS:
             if (type_str == "i32" || type_str == "i64") {
                 return builder.CreateICmpSLT(lhs, rhs, "icmptmp");
