@@ -290,6 +290,43 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
     llvm::IntegerType *int_type,                           //
     const std::string &name                                //
 ) {
+    // int64_t i64_safe_mul(int64_t lhs, int64_t rhs) {
+    //     // Handle simple cases
+    //     if (lhs == 0 || rhs == 0)
+    //         return 0;
+    //     if (lhs == 1)
+    //         return rhs;
+    //     if (lhs == -1) {
+    //         // Careful with INT64_MIN
+    //         if (rhs == INT64_MIN)
+    //             return INT64_MAX;
+    //         return -rhs;
+    //     }
+    //     if (rhs == 1)
+    //         return lhs;
+    //     if (rhs == -1) {
+    //         // Careful with INT64_MIN
+    //         if (lhs == INT64_MIN)
+    //             return INT64_MAX;
+    //         return -lhs;
+    //     }
+    //     // Perform multiplication
+    //     int64_t result = lhs * rhs;
+    //     // Check for overflow by doing reverse division
+    //     // We do not need to check if lhs == 0, as this case has been handled earlier already
+    //     if (result / lhs != rhs) {
+    //         // Determine if it's positive or negative overflow
+    //         if ((lhs < 0) == (rhs < 0)) {
+    //             printf("i64 mul overflow caught\n");
+    //             return INT64_MAX;
+    //         } else {
+    //             printf("i64 mul underflow caught\n");
+    //             return INT64_MIN;
+    //         }
+    //     }
+    //
+    //     return result;
+    // }
     llvm::FunctionType *int_safe_mul_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *int_safe_mul_fn = llvm::Function::Create( //
         int_safe_mul_type,                                    //
@@ -302,68 +339,246 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
         return;
     }
 
-    // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_safe_mul_fn);
-    llvm::BasicBlock *overflow_block = nullptr;
-    llvm::BasicBlock *no_overflow_block = nullptr;
-    if (overflow_mode != ArithmeticOverflowMode::SILENT) {
-        overflow_block = llvm::BasicBlock::Create(context, "overflow", int_safe_mul_fn);
-        no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", int_safe_mul_fn);
-    }
-    builder->SetInsertPoint(entry_block);
-
     // Get the parameters
     llvm::Argument *arg_lhs = int_safe_mul_fn->arg_begin();
     arg_lhs->setName("lhs");
     llvm::Argument *arg_rhs = int_safe_mul_fn->arg_begin() + 1;
     arg_rhs->setName("rhs");
 
+    // Check if the bit width is below or equal to 32 bits, in this case we can cast to an i64 and just calculate it that way
+    if (int_type->getBitWidth() <= 32) {
+        generate_int_safe_mul_small(builder, int_safe_mul_fn, int_type, name, arg_lhs, arg_rhs);
+        return;
+    }
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_safe_mul_fn);
+    llvm::BasicBlock *one_side_zero_block = llvm::BasicBlock::Create(context, "one_side_zero", int_safe_mul_fn);
+    llvm::BasicBlock *lhs_one_check_block = llvm::BasicBlock::Create(context, "lhs_one_check", int_safe_mul_fn);
+    llvm::BasicBlock *lhs_one_block = llvm::BasicBlock::Create(context, "lhs_one", int_safe_mul_fn);
+    llvm::BasicBlock *lhs_minus_one_check_block = llvm::BasicBlock::Create(context, "lhs_minus_one_check", int_safe_mul_fn);
+    llvm::BasicBlock *lhs_minus_one_block = llvm::BasicBlock::Create(context, "lhs_minus_one", int_safe_mul_fn);
+    llvm::BasicBlock *rhs_min_block = llvm::BasicBlock::Create(context, "rhs_min", int_safe_mul_fn);
+    llvm::BasicBlock *rhs_not_min_block = llvm::BasicBlock::Create(context, "rhs_not_min", int_safe_mul_fn);
+    llvm::BasicBlock *rhs_one_check_block = llvm::BasicBlock::Create(context, "rhs_one_check", int_safe_mul_fn);
+    llvm::BasicBlock *rhs_one_block = llvm::BasicBlock::Create(context, "rhs_one", int_safe_mul_fn);
+    llvm::BasicBlock *rhs_minus_one_check_block = llvm::BasicBlock::Create(context, "rhs_minus_one_check", int_safe_mul_fn);
+    llvm::BasicBlock *rhs_minus_one_block = llvm::BasicBlock::Create(context, "rhs_minus_one", int_safe_mul_fn);
+    llvm::BasicBlock *lhs_min_block = llvm::BasicBlock::Create(context, "lhs_min", int_safe_mul_fn);
+    llvm::BasicBlock *lhs_not_min_block = llvm::BasicBlock::Create(context, "lhs_not_min", int_safe_mul_fn);
+    llvm::BasicBlock *calculation_block = llvm::BasicBlock::Create(context, "calculation", int_safe_mul_fn);
+    llvm::BasicBlock *overflow_block = llvm::BasicBlock::Create(context, "overflow", int_safe_mul_fn);
+    llvm::BasicBlock *pos_overflow_block = llvm::BasicBlock::Create(context, "pos_overflow", int_safe_mul_fn);
+    llvm::BasicBlock *neg_overflow_block = llvm::BasicBlock::Create(context, "neg_overflow", int_safe_mul_fn);
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", int_safe_mul_fn);
+
+    // The constants we need
     llvm::Value *int_min = llvm::ConstantInt::get(int_type, llvm::APInt::getSignedMinValue(int_type->getIntegerBitWidth()));
     llvm::Value *int_max = llvm::ConstantInt::get(int_type, llvm::APInt::getSignedMaxValue(int_type->getIntegerBitWidth()));
     llvm::Value *zero = llvm::ConstantInt::get(int_type, 0);
+    llvm::Value *one = llvm::ConstantInt::get(int_type, 1);
+    llvm::Value *minus_one = llvm::ConstantInt::get(int_type, -1);
 
-    // Basic multiplication
-    llvm::Value *mult = builder->CreateMul(arg_lhs, arg_rhs, "imultmp");
+    // First, check if either the lhs or rhs is 0
+    builder->SetInsertPoint(entry_block);
+    llvm::Value *lhs_zero = builder->CreateICmpEQ(arg_lhs, zero, "lhs_zero");
+    llvm::Value *rhs_zero = builder->CreateICmpEQ(arg_rhs, zero, "rhs_zero");
+    llvm::Value *zero_block_check = builder->CreateOr(lhs_zero, rhs_zero, "one_side_zero");
+    builder->CreateCondBr(zero_block_check, one_side_zero_block, lhs_one_check_block, IR::generate_weights(1, 100));
 
-    // Check signs
-    llvm::Value *lhs_is_neg = builder->CreateICmpSLT(arg_lhs, zero);
-    llvm::Value *rhs_is_neg = builder->CreateICmpSLT(arg_rhs, zero);
-    llvm::Value *result_should_be_pos = builder->CreateICmpEQ(lhs_is_neg, rhs_is_neg);
+    // Return 0 if one side is zero
+    builder->SetInsertPoint(one_side_zero_block);
+    builder->CreateRet(zero);
 
-    // Check if result has wrong sign (indicates overflow)
-    llvm::Value *result_is_neg = builder->CreateICmpSLT(mult, zero);
-    llvm::Value *wrong_sign = builder->CreateICmpNE(result_should_be_pos, builder->CreateNot(result_is_neg));
+    // Check if rhs is 1
+    builder->SetInsertPoint(lhs_one_check_block);
+    llvm::Value *lhs_one = builder->CreateICmpEQ(arg_lhs, one, "lhs_one");
+    builder->CreateCondBr(lhs_one, lhs_one_block, lhs_minus_one_check_block, IR::generate_weights(1, 100));
 
-    // Select appropriate result
-    llvm::Value *use_max = builder->CreateAnd(wrong_sign, result_should_be_pos);
-    llvm::Value *use_min = builder->CreateAnd(wrong_sign, builder->CreateNot(result_should_be_pos));
-    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
-        llvm::Value *temp = builder->CreateSelect(use_max, int_max, mult);
-        llvm::Value *result = builder->CreateSelect(use_min, int_min, temp);
+    // Return rhs if lhs is one
+    builder->SetInsertPoint(lhs_one_block);
+    builder->CreateRet(arg_rhs);
+
+    // Check if lhs is -1
+    builder->SetInsertPoint(lhs_minus_one_check_block);
+    llvm::Value *lhs_minus_one = builder->CreateICmpEQ(arg_lhs, minus_one, "lhs_minus_one");
+    builder->CreateCondBr(lhs_minus_one, lhs_minus_one_block, rhs_one_check_block, IR::generate_weights(1, 100));
+
+    {
+        // Check if rhs is equal to int min
+        builder->SetInsertPoint(lhs_minus_one_block);
+        llvm::Value *rhs_eq_min = builder->CreateICmpEQ(arg_rhs, int_min, "rhs_eq_min");
+        builder->CreateCondBr(rhs_eq_min, rhs_min_block, rhs_not_min_block, IR::generate_weights(1, 100));
+
+        // Return int max in this case
+        builder->SetInsertPoint(rhs_min_block);
+        builder->CreateRet(int_max);
+
+        // Just return the result in this case
+        builder->SetInsertPoint(rhs_not_min_block);
+        llvm::Value *result = builder->CreateMul(arg_lhs, arg_rhs, "result");
         builder->CreateRet(result);
-    } else {
-        // Change branch prediction, as no overflow is much more likely to happen than an overflow
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),                                   //
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
-            });
-        builder->CreateCondBr(wrong_sign, overflow_block, no_overflow_block, branch_weights);
+    }
 
+    // Check if the rhs is 1
+    builder->SetInsertPoint(rhs_one_check_block);
+    llvm::Value *rhs_one = builder->CreateICmpEQ(arg_rhs, one, "rhs_one");
+    builder->CreateCondBr(rhs_one, rhs_one_block, rhs_minus_one_check_block, IR::generate_weights(1, 100));
+
+    // Just return the lhs if the rhs is one
+    builder->SetInsertPoint(rhs_one_block);
+    builder->CreateRet(arg_lhs);
+
+    // Check if the rhs is minus one
+    builder->SetInsertPoint(rhs_minus_one_check_block);
+    llvm::Value *rhs_minus_one = builder->CreateICmpEQ(arg_rhs, minus_one, "rhs_minus_one");
+    builder->CreateCondBr(rhs_minus_one, rhs_minus_one_block, calculation_block, IR::generate_weights(1, 100));
+
+    {
+        // Check if lhs is equal to int min
+        builder->SetInsertPoint(rhs_minus_one_block);
+        llvm::Value *lhs_eq_min = builder->CreateICmpEQ(arg_lhs, int_min, "lhs_eq_min");
+        builder->CreateCondBr(lhs_eq_min, lhs_min_block, lhs_not_min_block, IR::generate_weights(1, 100));
+
+        // Return int max in this case
+        builder->SetInsertPoint(lhs_min_block);
+        builder->CreateRet(int_max);
+
+        // Just return the result in this case
+        builder->SetInsertPoint(lhs_not_min_block);
+        llvm::Value *result = builder->CreateMul(arg_lhs, arg_rhs, "result");
+        builder->CreateRet(result);
+    }
+
+    // Calculate the actual result of the multiplication and then check if an overflow has occured
+    builder->SetInsertPoint(calculation_block);
+    llvm::Value *result = builder->CreateMul(arg_lhs, arg_rhs, "result");
+    llvm::Value *result_div_lhs = builder->CreateSDiv(result, arg_lhs, "result_div_lhs");
+    llvm::Value *overflow_check = builder->CreateICmpNE(result_div_lhs, arg_rhs, "overflow_check");
+    builder->CreateCondBr(overflow_check, overflow_block, merge_block, IR::generate_weights(1, 100));
+
+    {
+        // An overflow occured, check if the overflow was positive (overflow) or negative (underflow)
         builder->SetInsertPoint(overflow_block);
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mul overflow caught\n");
-        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " mul underflow caught\n");
-        llvm::Value *message = builder->CreateSelect(use_max, overflow_message, underflow_message);
-        builder->CreateCall(c_functions.at(PRINTF), {message});
+        llvm::Value *lhs_lt_zero = builder->CreateICmpSLT(arg_lhs, zero, "lhs_lt_zero");
+        llvm::Value *rhs_lt_zero = builder->CreateICmpSLT(arg_rhs, zero, "rhs_lt_zero");
+        llvm::Value *overflow_kind_check = builder->CreateICmpEQ(lhs_lt_zero, rhs_lt_zero, "overflow_kind_check");
+        builder->CreateCondBr(overflow_kind_check, pos_overflow_block, neg_overflow_block);
+
+        // Positive overflow, return int max and print the message to the console
+        builder->SetInsertPoint(pos_overflow_block);
+        if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+            builder->CreateRet(int_max);
+        } else {
+            llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mult overflow caught\n");
+            builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
+            switch (overflow_mode) {
+                default:
+                    assert(false && "Not allowed overflow mode in 'generate_int_safe_mul'");
+                    return;
+                case ArithmeticOverflowMode::PRINT: {
+                    builder->CreateRet(int_max);
+                    break;
+                }
+                case ArithmeticOverflowMode::CRASH:
+                    builder->CreateCall(c_functions.at(ABORT));
+                    builder->CreateUnreachable();
+                    break;
+            }
+        }
+
+        // Underflow, return int min and print message to the console
+        builder->SetInsertPoint(neg_overflow_block);
+        if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+            builder->CreateRet(int_min);
+        } else {
+            llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mult underflow caught\n");
+            builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
+            switch (overflow_mode) {
+                default:
+                    assert(false && "Not allowed overflow mode in 'generate_int_safe_mul'");
+                    return;
+                case ArithmeticOverflowMode::PRINT: {
+                    builder->CreateRet(int_min);
+                    break;
+                }
+                case ArithmeticOverflowMode::CRASH:
+                    builder->CreateCall(c_functions.at(ABORT));
+                    builder->CreateUnreachable();
+                    break;
+            }
+        }
+    }
+
+    // No overflow happens, return the calculated number
+    builder->SetInsertPoint(merge_block);
+    builder->CreateRet(result);
+}
+
+void Generator::Module::Arithmetic::generate_int_safe_mul_small( //
+    llvm::IRBuilder<> *builder,                                  //
+    llvm::Function *int_safe_mul_fn,                             //
+    llvm::IntegerType *int_type,                                 //
+    const std::string &name,                                     //
+    llvm::Argument *arg_lhs,                                     //
+    llvm::Argument *arg_rhs                                      //
+) {
+    // THE C IMPLEMENTATION:
+    // int32_t i32_safe_mul(int32_t lhs, int32_t rhs) {
+    //     // Cast to i64, multiply, then check range
+    //     int64_t result = (int64_t)lhs * (int64_t)rhs;
+    //
+    //     if (result > INT32_MAX) {
+    //         printf("i32 mul overflow caught\n");
+    //         return INT32_MAX;
+    //     }
+    //     if (result < INT32_MIN) {
+    //         printf("i32 mul underflow caught\n");
+    //         return INT32_MIN;
+    //     }
+    //
+    //     return (int32_t)result;
+    // }
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_safe_mul_fn);
+    llvm::BasicBlock *overflow_block = llvm::BasicBlock::Create(context, "overflow", int_safe_mul_fn);
+    llvm::BasicBlock *no_overflow_block = llvm::BasicBlock::Create(context, "no_overflow", int_safe_mul_fn);
+    llvm::BasicBlock *underflow_block = llvm::BasicBlock::Create(context, "underflow", int_safe_mul_fn);
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", int_safe_mul_fn);
+    builder->SetInsertPoint(entry_block);
+
+    llvm::Value *int_max = llvm::ConstantInt::get(                              //
+        builder->getInt64Ty(),                                                  //
+        llvm::APInt::getSignedMaxValue(int_type->getIntegerBitWidth()).sext(64) //
+    );
+    llvm::Value *int_min = llvm::ConstantInt::get(                              //
+        builder->getInt64Ty(),                                                  //
+        llvm::APInt::getSignedMinValue(int_type->getIntegerBitWidth()).sext(64) //
+    );
+
+    // First, cast both the lhs and rhs to an i64
+    llvm::Value *lhs_i64 = builder->CreateSExt(arg_lhs, builder->getInt64Ty(), "lhs_i64");
+    llvm::Value *rhs_i64 = builder->CreateSExt(arg_rhs, builder->getInt64Ty(), "rhs_i64");
+
+    // Then, do the multiplication and overflow check
+    llvm::Value *result = builder->CreateMul(lhs_i64, rhs_i64, "result");
+    llvm::Value *res_gt_max = builder->CreateICmpSGT(result, int_max, "res_gt_max");
+    builder->CreateCondBr(res_gt_max, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
+
+    // An overflow occured. Depending on the arithmetics mode we crash, clamp and or print
+    builder->SetInsertPoint(overflow_block);
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *int_max_cast = builder->CreateTrunc(int_max, int_type, "int_max_cast");
+        builder->CreateRet(int_max_cast);
+    } else {
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mult overflow caught\n");
+        builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_safe_mul'");
+                assert(false && "Not allowed overflow mode in 'generate_int_safe_mul_small'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
-                llvm::Value *temp = builder->CreateSelect(use_max, int_max, mult);
-                llvm::Value *selection = builder->CreateSelect(use_min, int_min, temp);
-                builder->CreateRet(selection);
+                llvm::Value *int_max_cast = builder->CreateTrunc(int_max, int_type, "int_max_cast");
+                builder->CreateRet(int_max_cast);
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
@@ -371,10 +586,41 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
                 builder->CreateUnreachable();
                 break;
         }
-
-        builder->SetInsertPoint(no_overflow_block);
-        builder->CreateRet(mult);
     }
+
+    // Check if its an underflow
+    builder->SetInsertPoint(no_overflow_block);
+    llvm::Value *res_lt_min = builder->CreateICmpSLT(result, int_min, "res_lt_min");
+    builder->CreateCondBr(res_lt_min, underflow_block, merge_block, IR::generate_weights(1, 100));
+
+    // An underflow occured. Depending on the arithmetics mode we crash, clamp and or print
+    builder->SetInsertPoint(underflow_block);
+    if (overflow_mode == ArithmeticOverflowMode::SILENT) {
+        llvm::Value *int_min_cast = builder->CreateTrunc(int_min, int_type, "int_min_cast");
+        builder->CreateRet(int_min_cast);
+    } else {
+        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " mult underflow caught\n");
+        builder->CreateCall(c_functions.at(PRINTF), {underflow_message});
+        switch (overflow_mode) {
+            default:
+                assert(false && "Not allowed overflow mode in 'generate_int_safe_mul_small'");
+                return;
+            case ArithmeticOverflowMode::PRINT: {
+                llvm::Value *int_min_cast = builder->CreateTrunc(int_min, int_type, "int_min_cast");
+                builder->CreateRet(int_min_cast);
+                break;
+            }
+            case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(ABORT));
+                builder->CreateUnreachable();
+                break;
+        }
+    }
+
+    // No over- or underflow occured, so we can simply cast and return the result
+    builder->SetInsertPoint(merge_block);
+    llvm::Value *result_cast = builder->CreateTrunc(result, int_type, "result_cast");
+    builder->CreateRet(result_cast);
 }
 
 void Generator::Module::Arithmetic::generate_int_safe_div( //

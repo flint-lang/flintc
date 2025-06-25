@@ -1713,6 +1713,24 @@ class Generator {
                 const std::string &name        //
             );
 
+            /// @function `generate_int_safe_mul_small`
+            /// @brief Creates a safe multiplication of two signed integer types for all types <= 32 bit width
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `int_safe_mul_fn` The to-be-created int safe mul function
+            /// @param `int_type` The type of the integer arguments the safe mul function will be created with
+            /// @param `name` The name of the integer type
+            /// @param `arg_lhs` The lhs argument of the function to create
+            /// @param `arg_rhs` The rhs argument of the function to create
+            static void generate_int_safe_mul_small( //
+                llvm::IRBuilder<> *builder,          //
+                llvm::Function *int_safe_mul_fn,     //
+                llvm::IntegerType *int_type,         //
+                const std::string &name,             //
+                llvm::Argument *arg_lhs,             //
+                llvm::Argument *arg_rhs              //
+            );
+
             /// @function `generate_int_safe_div`
             /// @brief Creates a safe division of two signed integer types
             ///
