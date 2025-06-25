@@ -1722,19 +1722,21 @@ class Generator {
             );
 
             /// @function `generate_int_safe_mod`
-            /// @brief Creates a safe modulo of two signed integer types
+            /// @brief Creates a safe modulo of two integer types
             ///
             /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `iX_safe_mod` function will be generated in
+            /// @param `module` The LLVM Module the `iX_safe_mod` / `uX_safe_mod` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `int_type` The integer type to generate the function for
-            /// @param `name` The name of the generated function, is `i32` or `i64` at the moment
+            /// @param `name` The name of the generated function, is `i32`, `i64`, `u32` or `u64` at the moment
+            /// @param `is_signed` Whether the given int type is signed
             static void generate_int_safe_mod( //
                 llvm::IRBuilder<> *builder,    //
                 llvm::Module *module,          //
                 const bool only_declarations,  //
                 llvm::Type *int_type,          //
-                const std::string &name        //
+                const std::string &name,       //
+                const bool is_signed           //
             );
 
             /// @function `generate_uint_safe_add`
@@ -1794,22 +1796,6 @@ class Generator {
             /// @param `int_type` The integer type to generate the function for
             /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
             static void generate_uint_safe_div( //
-                llvm::IRBuilder<> *builder,     //
-                llvm::Module *module,           //
-                const bool only_declarations,   //
-                llvm::Type *int_type,           //
-                const std::string &name         //
-            );
-
-            /// @function `generate_uint_safe_mod`
-            /// @brief Creates a safe modulo of two unsigned integer types
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `uX_safe_mod` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            /// @param `int_type` The integer type to generate the function for
-            /// @param `name` The name of the generated function, is `u32` or `u64` at the moment
-            static void generate_uint_safe_mod( //
                 llvm::IRBuilder<> *builder,     //
                 llvm::Module *module,           //
                 const bool only_declarations,   //

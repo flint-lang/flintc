@@ -18,31 +18,31 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions( //
     generate_int_safe_sub(builder, module, only_declarations, i32_type, "i32");
     generate_int_safe_mul(builder, module, only_declarations, i32_type, "i32");
     generate_int_safe_div(builder, module, only_declarations, i32_type, "i32");
-    generate_int_safe_mod(builder, module, only_declarations, i32_type, "i32");
+    generate_int_safe_mod(builder, module, only_declarations, i32_type, "i32", true);
     // i64 functions
     generate_int_safe_add(builder, module, only_declarations, i64_type, "i64");
     generate_int_safe_sub(builder, module, only_declarations, i64_type, "i64");
     generate_int_safe_mul(builder, module, only_declarations, i64_type, "i64");
     generate_int_safe_div(builder, module, only_declarations, i64_type, "i64");
-    generate_int_safe_mod(builder, module, only_declarations, i64_type, "i64");
+    generate_int_safe_mod(builder, module, only_declarations, i64_type, "i64", true);
     // u8 functions
     generate_uint_safe_add(builder, module, only_declarations, i8_type, "u8");
     generate_uint_safe_sub(builder, module, only_declarations, i8_type, "u8");
     generate_uint_safe_mul(builder, module, only_declarations, i8_type, "u8");
     generate_uint_safe_div(builder, module, only_declarations, i8_type, "u8");
-    generate_uint_safe_mod(builder, module, only_declarations, i8_type, "u8");
+    generate_int_safe_mod(builder, module, only_declarations, i8_type, "u8", false);
     // u32 functions
     generate_uint_safe_add(builder, module, only_declarations, i32_type, "u32");
     generate_uint_safe_sub(builder, module, only_declarations, i32_type, "u32");
     generate_uint_safe_mul(builder, module, only_declarations, i32_type, "u32");
     generate_uint_safe_div(builder, module, only_declarations, i32_type, "u32");
-    generate_uint_safe_mod(builder, module, only_declarations, i32_type, "u32");
+    generate_int_safe_mod(builder, module, only_declarations, i32_type, "u32", false);
     // u64 functions
     generate_uint_safe_add(builder, module, only_declarations, i64_type, "u64");
     generate_uint_safe_sub(builder, module, only_declarations, i64_type, "u64");
     generate_uint_safe_mul(builder, module, only_declarations, i64_type, "u64");
     generate_uint_safe_div(builder, module, only_declarations, i64_type, "u64");
-    generate_uint_safe_mod(builder, module, only_declarations, i64_type, "u64");
+    generate_int_safe_mod(builder, module, only_declarations, i64_type, "u64", false);
 
     // i32x2 functions
     generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "i32x2");
@@ -480,7 +480,8 @@ void Generator::Module::Arithmetic::generate_int_safe_mod( //
     llvm::Module *module,                                  //
     const bool only_declarations,                          //
     llvm::Type *int_type,                                  //
-    const std::string &name                                //
+    const std::string &name,                               //
+    const bool is_signed                                   //
 ) {
     llvm::FunctionType *int_safe_mod_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
     llvm::Function *int_safe_mod_fn = llvm::Function::Create( //
@@ -515,7 +516,12 @@ void Generator::Module::Arithmetic::generate_int_safe_mod( //
     builder->CreateRet(zero);
 
     builder->SetInsertPoint(merge_block);
-    llvm::Value *mod_res = builder->CreateSRem(arg_lhs, arg_rhs, "mod_res");
+    llvm::Value *mod_res = nullptr;
+    if (is_signed) {
+        mod_res = builder->CreateSRem(arg_lhs, arg_rhs, "mod_res");
+    } else {
+        mod_res = builder->CreateURem(arg_lhs, arg_rhs, "mod_res");
+    }
     builder->CreateRet(mod_res);
 }
 
@@ -753,50 +759,6 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
         builder->SetInsertPoint(no_overflow_block);
         builder->CreateRet(mult);
     }
-}
-
-void Generator::Module::Arithmetic::generate_uint_safe_mod( //
-    llvm::IRBuilder<> *builder,                            //
-    llvm::Module *module,                                  //
-    const bool only_declarations,                          //
-    llvm::Type *int_type,                                  //
-    const std::string &name                                //
-) {
-    llvm::FunctionType *int_safe_mod_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
-    llvm::Function *int_safe_mod_fn = llvm::Function::Create( //
-        int_safe_mod_type,                                    //
-        llvm::Function::ExternalLinkage,                      //
-        "__flint_" + name + "_safe_mod",                      //
-        module                                                //
-    );
-    arithmetic_functions[name + "_safe_mod"] = int_safe_mod_fn;
-    if (only_declarations) {
-        return;
-    }
-
-    // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", int_safe_mod_fn);
-    llvm::BasicBlock *rhs_null_block = llvm::BasicBlock::Create(context, "rhs_null", int_safe_mod_fn);
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", int_safe_mod_fn);
-    builder->SetInsertPoint(entry_block);
-
-    // Get the parameters
-    llvm::Argument *arg_lhs = int_safe_mod_fn->arg_begin();
-    arg_lhs->setName("lhs");
-    llvm::Argument *arg_rhs = int_safe_mod_fn->arg_begin() + 1;
-    arg_rhs->setName("rhs");
-
-    // Check if rhs is 0
-    llvm::Value *zero = llvm::ConstantInt::get(int_type, 0);
-    llvm::Value *is_rhs_null = builder->CreateICmpEQ(arg_rhs, zero, "rhs_is_null");
-    builder->CreateCondBr(is_rhs_null, rhs_null_block, merge_block);
-
-    builder->SetInsertPoint(rhs_null_block);
-    builder->CreateRet(zero);
-
-    builder->SetInsertPoint(merge_block);
-    llvm::Value *mod_res = builder->CreateURem(arg_lhs, arg_rhs, "mod_res");
-    builder->CreateRet(mod_res);
 }
 
 void Generator::Module::Arithmetic::generate_uint_safe_div( //
