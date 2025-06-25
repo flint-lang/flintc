@@ -561,7 +561,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_add( //
     arg_rhs->setName("rhs");
 
     // Check if sum would overflow: if rhs > max - lhs
-    auto max = llvm::ConstantInt::get(int_type, -1); // All bits set to 1
+    auto max = llvm::ConstantInt::get(int_type, llvm::APInt::getMaxValue(int_type->getBitWidth())); // All bits set to 1
     auto diff = builder->CreateSub(max, arg_lhs, "diff");
     auto would_overflow = builder->CreateICmpUGT(arg_rhs, diff, "overflow_check");
     auto sum = builder->CreateAdd(arg_lhs, arg_rhs, "uaddtmp");
@@ -718,7 +718,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
     llvm::Value *is_zero = builder->CreateOr(builder->CreateICmpEQ(arg_lhs, zero), builder->CreateICmpEQ(arg_rhs, zero));
 
     // Check for overflow: if rhs > max/lhs
-    llvm::Value *max = llvm::ConstantInt::get(int_type, -1);
+    llvm::Value *max = llvm::ConstantInt::get(int_type, llvm::APInt::getMaxValue(int_type->getBitWidth())); // All bits set to 1
     llvm::Value *udiv = builder->CreateUDiv(max, arg_lhs);
     llvm::Value *would_overflow = builder->CreateICmpUGT(arg_rhs, udiv);
 
@@ -801,7 +801,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_div( //
     llvm::Value *div_by_zero = builder->CreateICmpEQ(arg_rhs, zero);
 
     llvm::Value *div = builder->CreateUDiv(arg_lhs, arg_rhs, "udivtmp");
-    llvm::Value *max = llvm::ConstantInt::get(int_type, -1);
+    llvm::Value *max = llvm::ConstantInt::get(int_type, llvm::APInt::getMaxValue(int_type->getBitWidth())); // All bits set to 1
 
     if (overflow_mode == ArithmeticOverflowMode::SILENT) {
         llvm::Value *result = builder->CreateSelect(div_by_zero, max, div, "safe_udivtmp");
