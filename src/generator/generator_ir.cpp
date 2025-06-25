@@ -102,6 +102,15 @@ llvm::Value *Generator::IR::generate_bitwidth_change( //
     return correct_bitwidth_value;
 }
 
+llvm::MDNode *Generator::IR::generate_weights(unsigned int true_weight, unsigned int false_weight) {
+    return llvm::MDNode::get(context,
+        {
+            llvm::MDString::get(context, "branch_weights"),                                                      //
+            llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), true_weight)), // weight of overflow
+            llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), false_weight)) // weight of no overflow
+        });
+}
+
 void Generator::IR::generate_forward_declarations(llvm::Module *module, const FileNode &file_node) {
     unsigned int mangle_id = 1;
     file_function_mangle_ids[file_node.file_name] = {};

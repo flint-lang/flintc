@@ -350,6 +350,14 @@ class Generator {
             llvm::Type *to_type                       //
         );
 
+        /// @function `generate_weights`
+        /// @brief Generates the weights to be used for branch prediction
+        ///
+        /// @param `true_weight` The weight of the true branch
+        /// @param `false_weight` The weight of the false branch
+        /// @return `llvm::MDNode *` The created branch weights
+        static llvm::MDNode *generate_weights(unsigned int true_weight, unsigned int false_weight);
+
         /// @function `generate_forward_declarations`
         /// @brief Generates the forward-declarations of all constructs in the given FileNode, except the 'use' constructs to make another
         /// module able to use them. This function is also essential for Flint's support of circular dependency resolution

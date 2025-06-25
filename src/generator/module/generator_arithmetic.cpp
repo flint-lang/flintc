@@ -159,13 +159,7 @@ void Generator::Module::Arithmetic::generate_int_safe_add( //
         // Check if any overflow occurred
         llvm::Value *overflow_happened = builder->CreateOr(pos_overflow, neg_overflow);
         // Change branch prediction, as no overflow is much more likely to happen than an overflow
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),                                   //
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
-            });
-        builder->CreateCondBr(overflow_happened, overflow_block, no_overflow_block, branch_weights);
+        builder->CreateCondBr(overflow_happened, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " add overflow caught\n");
@@ -261,13 +255,7 @@ void Generator::Module::Arithmetic::generate_int_safe_sub( //
         // Check if any overflow occurred
         llvm::Value *overflow_happened = builder->CreateOr(pos_overflow, neg_overflow);
         // Change branch prediction, as no overflow is much more likely to happen than an overflow
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),                                   //
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
-            });
-        builder->CreateCondBr(overflow_happened, overflow_block, no_overflow_block, branch_weights);
+        builder->CreateCondBr(overflow_happened, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " sub overflow caught\n");
@@ -443,13 +431,7 @@ void Generator::Module::Arithmetic::generate_int_safe_div( //
         builder->CreateRet(result);
     } else {
         // Change branch prediction, as errors are much less likely to happen
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),                                   //
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of error
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no error
-            });
-        builder->CreateCondBr(error_happened, error_block, no_error_block, branch_weights);
+        builder->CreateCondBr(error_happened, error_block, no_error_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(error_block);
         llvm::Value *div_zero_message = IR::generate_const_string(*builder, name + " division by zero caught\n");
@@ -571,13 +553,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_add( //
         builder->CreateRet(result);
     } else {
         // Change branch prediction, as no overflow is much more likely to happen than an overflow
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),                                   //
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
-            });
-        builder->CreateCondBr(would_overflow, overflow_block, no_overflow_block, branch_weights);
+        builder->CreateCondBr(would_overflow, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " add overflow caught\n");
@@ -648,13 +624,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_sub( //
         builder->CreateRet(result);
     } else {
         // Change branch prediction, as no underflow is much more likely to happen than an underflow
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),                                   //
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of underflow
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no underflow
-            });
-        builder->CreateCondBr(cmp, no_underflow_block, underflow_block, branch_weights);
+        builder->CreateCondBr(cmp, no_underflow_block, underflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(underflow_block);
         llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " sub underflow caught\n");
@@ -731,16 +701,10 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
         builder->CreateRet(result);
     } else {
         // Change branch prediction, as no overflow is much more likely to happen than an overflow
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),                                   //
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of overflow
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no overflow
-            });
-        builder->CreateCondBr(use_max, overflow_block, no_overflow_block, branch_weights);
+        builder->CreateCondBr(use_max, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mul overflow caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mult overflow caught\n");
         builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
@@ -808,13 +772,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_div( //
         builder->CreateRet(result);
     } else {
         // Change branch prediction, as no error is much more likely to happen than an error
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),                                   //
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 1)),  // weight of error
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(builder->getInt32Ty(), 100)) // weight of no error
-            });
-        builder->CreateCondBr(div_by_zero, error_block, no_error_block, branch_weights);
+        builder->CreateCondBr(div_by_zero, error_block, no_error_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(error_block);
         llvm::Value *div_zero_message = IR::generate_const_string(*builder, name + " division by zero caught\n");
@@ -930,13 +888,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
         llvm::Value *any_overflow = builder->CreateCall(reduce_or_fn, {overflow_happened_vec}, "any_overflow");
 
         // Change branch prediction, as no overflow is much more likely to happen than an overflow
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),       //
-                llvm::ConstantAsMetadata::get(builder->getInt32(1)),  // weight of overflow
-                llvm::ConstantAsMetadata::get(builder->getInt32(100)) // weight of no overflow
-            });
-        builder->CreateCondBr(any_overflow, overflow_block, no_overflow_block, branch_weights);
+        builder->CreateCondBr(any_overflow, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " add overflow caught\n");
@@ -1065,13 +1017,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
         llvm::Value *any_overflow = builder->CreateCall(reduce_or_fn, {overflow_happened_vec}, "any_overflow");
 
         // Change branch prediction, as no overflow is much more likely to happen than an overflow
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),       //
-                llvm::ConstantAsMetadata::get(builder->getInt32(1)),  // weight of overflow
-                llvm::ConstantAsMetadata::get(builder->getInt32(100)) // weight of no overflow
-            });
-        builder->CreateCondBr(any_overflow, overflow_block, no_overflow_block, branch_weights);
+        builder->CreateCondBr(any_overflow, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " sub overflow caught\n");
@@ -1190,13 +1136,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
         llvm::Value *any_wrong_sign = builder->CreateCall(reduce_or_fn, {wrong_sign}, "any_wrong_sign");
 
         // Change branch prediction, as no overflow is much more likely to happen than an overflow
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),       //
-                llvm::ConstantAsMetadata::get(builder->getInt32(1)),  // weight of overflow
-                llvm::ConstantAsMetadata::get(builder->getInt32(100)) // weight of no overflow
-            });
-        builder->CreateCondBr(any_wrong_sign, overflow_block, no_overflow_block, branch_weights);
+        builder->CreateCondBr(any_wrong_sign, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
         llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mul overflow caught\n");
@@ -1305,13 +1245,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
         llvm::Value *any_error = builder->CreateCall(reduce_or_fn, {error_happened_vec}, "any_error");
 
         // Change branch prediction, as errors are much less likely to happen
-        llvm::MDNode *branch_weights = llvm::MDNode::get(context,
-            {
-                llvm::MDString::get(context, "branch_weights"),       //
-                llvm::ConstantAsMetadata::get(builder->getInt32(1)),  // weight of error
-                llvm::ConstantAsMetadata::get(builder->getInt32(100)) // weight of no error
-            });
-        builder->CreateCondBr(any_error, error_block, no_error_block, branch_weights);
+        builder->CreateCondBr(any_error, error_block, no_error_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(error_block);
         llvm::Value *div_zero_message = IR::generate_const_string(*builder, name + " division by zero caught\n");
