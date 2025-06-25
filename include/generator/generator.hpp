@@ -1669,7 +1669,7 @@ class Generator {
                 llvm::IRBuilder<> *builder,    //
                 llvm::Module *module,          //
                 const bool only_declarations,  //
-                llvm::Type *int_type,          //
+                llvm::IntegerType *int_type,   //
                 const std::string &name        //
             );
 
@@ -1685,7 +1685,7 @@ class Generator {
                 llvm::IRBuilder<> *builder,    //
                 llvm::Module *module,          //
                 const bool only_declarations,  //
-                llvm::Type *int_type,          //
+                llvm::IntegerType *int_type,   //
                 const std::string &name        //
             );
 
@@ -1701,7 +1701,7 @@ class Generator {
                 llvm::IRBuilder<> *builder,    //
                 llvm::Module *module,          //
                 const bool only_declarations,  //
-                llvm::Type *int_type,          //
+                llvm::IntegerType *int_type,   //
                 const std::string &name        //
             );
 
@@ -1717,7 +1717,7 @@ class Generator {
                 llvm::IRBuilder<> *builder,    //
                 llvm::Module *module,          //
                 const bool only_declarations,  //
-                llvm::Type *int_type,          //
+                llvm::IntegerType *int_type,   //
                 const std::string &name        //
             );
 
@@ -1734,7 +1734,7 @@ class Generator {
                 llvm::IRBuilder<> *builder,    //
                 llvm::Module *module,          //
                 const bool only_declarations,  //
-                llvm::Type *int_type,          //
+                llvm::IntegerType *int_type,   //
                 const std::string &name,       //
                 const bool is_signed           //
             );
@@ -1751,7 +1751,7 @@ class Generator {
                 llvm::IRBuilder<> *builder,     //
                 llvm::Module *module,           //
                 const bool only_declarations,   //
-                llvm::Type *int_type,           //
+                llvm::IntegerType *int_type,    //
                 const std::string &name         //
             );
 
@@ -1767,7 +1767,7 @@ class Generator {
                 llvm::IRBuilder<> *builder,     //
                 llvm::Module *module,           //
                 const bool only_declarations,   //
-                llvm::Type *int_type,           //
+                llvm::IntegerType *int_type,    //
                 const std::string &name         //
             );
 
@@ -1783,7 +1783,7 @@ class Generator {
                 llvm::IRBuilder<> *builder,     //
                 llvm::Module *module,           //
                 const bool only_declarations,   //
-                llvm::Type *int_type,           //
+                llvm::IntegerType *int_type,    //
                 const std::string &name         //
             );
 
@@ -1799,7 +1799,7 @@ class Generator {
                 llvm::IRBuilder<> *builder,     //
                 llvm::Module *module,           //
                 const bool only_declarations,   //
-                llvm::Type *int_type,           //
+                llvm::IntegerType *int_type,    //
                 const std::string &name         //
             );
 
