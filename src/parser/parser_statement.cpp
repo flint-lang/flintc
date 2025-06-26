@@ -6,6 +6,7 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
+#include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/primitive_type.hpp"
@@ -320,9 +321,8 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    body_scope->body.emplace_back(std::move(looparound.value()));
 
-    return std::make_unique<ForLoopNode>(condition.value(), definition_scope, body_scope);
+    return std::make_unique<ForLoopNode>(condition.value(), definition_scope, looparound.value(), body_scope);
 }
 
 std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
@@ -1420,6 +1420,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         statement_node = std::make_unique<UnaryOpStatement>(std::move(unary_op.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::break_statement)) {
         statement_node = std::make_unique<BreakNode>();
+    } else if (Matcher::tokens_contain(tokens, Matcher::continue_statement)) {
+        statement_node = std::make_unique<ContinueNode>();
     } else {
         THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;

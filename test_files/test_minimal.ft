@@ -1,21 +1,35 @@
 use Core.print
 
-def main():
+def test_for_loop():
     for i := 0; i < 10; i++:
+        if i < 3:
+            continue;
         if i % 2 == 0:
             print($"{i} is_even\n");
         if i == 7:
             break;
 
+def test_enh_for_loop():
     i32[] nums = i32[10](5);
     for (i, num) in nums:
+        if i < 2:
+            continue;
         if i == 5:
             break;
         print($"{i}: {num}\n");
 
+def test_while_loop():
     i32 idx = 0;
     while true:
+        if idx == 0 or idx == 2:
+            idx++;
+            continue;
         print($"idx = {idx}\n");
         if idx == 5:
             break;
         idx++;
+
+def main():
+    test_for_loop();
+    test_enh_for_loop();
+    test_while_loop();

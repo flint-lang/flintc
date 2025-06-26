@@ -309,6 +309,10 @@ class Generator {
     /// parsing steps, so we can assume that all usages of data types are valid when generating the IR code.
     static inline std::unordered_map<std::string, const DataNode *const> data_nodes;
 
+    /// @var `last_looparound_blocks`
+    /// @brief The last basic blocks to loop back to, its a list to not need to update them for nested loops
+    static inline std::vector<llvm::BasicBlock *> last_looparound_blocks;
+
     /// @var `last_loop_merge_blocks`
     /// @brief The last basic block to merge to, its a list in order to not needing to update the merge block after every nested loop
     /// statement

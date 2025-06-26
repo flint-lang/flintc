@@ -241,6 +241,7 @@ class Matcher {
         {TOK_PARALLEL, std::make_shared<TokenTypeMatcher>(TOK_PARALLEL)},
         {TOK_IN, std::make_shared<TokenTypeMatcher>(TOK_IN)},
         {TOK_BREAK, std::make_shared<TokenTypeMatcher>(TOK_BREAK)},
+        {TOK_CONTINUE, std::make_shared<TokenTypeMatcher>(TOK_CONTINUE)},
 
         // function keywords
         {TOK_DEF, std::make_shared<TokenTypeMatcher>(TOK_DEF)},
@@ -688,6 +689,7 @@ class Matcher {
     static const inline PatternPtr return_statement = sequence({token(TOK_RETURN), until_semicolon});
     static const inline PatternPtr throw_statement = sequence({token(TOK_THROW), until_semicolon});
     static const inline PatternPtr break_statement = sequence({token(TOK_BREAK), token(TOK_SEMICOLON)});
+    static const inline PatternPtr continue_statement = sequence({token(TOK_CONTINUE), token(TOK_SEMICOLON)});
 
     // --- ERROR HANDLING ---
     static const inline PatternPtr catch_statement = sequence({

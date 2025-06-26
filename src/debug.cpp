@@ -6,6 +6,7 @@
 #include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/break_node.hpp"
+#include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "persistent_thread_pool.hpp"
 
@@ -895,6 +896,9 @@ namespace Debug {
                 print_stacked_assignment(indent_lvl, bits, *stacked_assignment);
             } else if (dynamic_cast<const BreakNode *>(statement.get())) {
                 Local::print_header(indent_lvl, bits, "Break ");
+                std::cout << std::endl;
+            } else if (dynamic_cast<const ContinueNode *>(statement.get())) {
+                Local::print_header(indent_lvl, bits, "Continue ");
                 std::cout << std::endl;
             } else {
                 assert(false);

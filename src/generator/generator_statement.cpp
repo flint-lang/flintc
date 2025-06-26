@@ -5,6 +5,7 @@
 
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
+#include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
@@ -58,6 +59,9 @@ bool Generator::Statement::generate_statement(      //
         return generate_stacked_assignment(builder, ctx, stacked_assignment_node);
     } else if (dynamic_cast<const BreakNode *>(statement.get())) {
         builder.CreateBr(last_loop_merge_blocks.back());
+        return true;
+    } else if (dynamic_cast<const ContinueNode *>(statement.get())) {
+        builder.CreateBr(last_looparound_blocks.back());
         return true;
     } else {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -511,6 +515,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     std::array<llvm::BasicBlock *, 3> while_blocks{};
     // Create then condition block (for the else if blocks)
     while_blocks[0] = llvm::BasicBlock::Create(context, "while_cond", ctx.parent);
+    last_looparound_blocks.emplace_back(while_blocks[0]);
     while_blocks[1] = llvm::BasicBlock::Create(context, "while_body", ctx.parent);
     while_blocks[2] = llvm::BasicBlock::Create(context, "merge");
     last_loop_merge_blocks.emplace_back(while_blocks[2]);
@@ -556,6 +561,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     // Finally set the builder to the merge block again
     ctx.scope = current_scope;
     builder.SetInsertPoint(while_blocks[2]);
+    last_looparound_blocks.pop_back();
     last_loop_merge_blocks.pop_back();
     return true;
 }
@@ -573,13 +579,15 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     }
 
     // Create the basic blocks for the condition check, the while body and the merge block
-    std::array<llvm::BasicBlock *, 3> for_blocks{};
+    std::array<llvm::BasicBlock *, 4> for_blocks{};
     // Create then condition block (for the else if blocks)
     for_blocks[0] = llvm::BasicBlock::Create(context, "for_cond", ctx.parent);
     for_blocks[1] = llvm::BasicBlock::Create(context, "for_body", ctx.parent);
+    for_blocks[2] = llvm::BasicBlock::Create(context, "for_looparound");
+    last_looparound_blocks.emplace_back(for_blocks[2]);
     // Create the merge block but don't add it to the parent function yet
-    for_blocks[2] = llvm::BasicBlock::Create(context, "merge");
-    last_loop_merge_blocks.emplace_back(for_blocks[2]);
+    for_blocks[3] = llvm::BasicBlock::Create(context, "merge");
+    last_loop_merge_blocks.emplace_back(for_blocks[3]);
 
     // Create the branch instruction in the predecessor block to point to the for_cond block
     builder.SetInsertPoint(pred_block);
@@ -608,7 +616,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
             llvm::MDString::get(context,
                 "Continue loop in '" + for_blocks[1]->getName().str() + "' based on cond '" + expression->getName().str() + "'")));
 
-    // Create the while block's body
+    // Create the for loop's body
     builder.SetInsertPoint(for_blocks[1]);
     ctx.scope = for_node->body.get();
     if (!generate_body(builder, ctx)) {
@@ -616,17 +624,28 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
         return false;
     }
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
-        // Point back to the condition block to create the loop
-        builder.CreateBr(for_blocks[0]);
+        // Point to the looparound block to create the loop
+        builder.CreateBr(for_blocks[2]);
     }
 
-    // Now add the merge block to the end of the function
+    // Now add the looparound block to the end of the function
     for_blocks[2]->insertInto(ctx.parent);
+    builder.SetInsertPoint(for_blocks[2]);
+    if (!generate_statement(builder, ctx, for_node->looparound)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    // Branch back to the loop's condition to finish the loop
+    builder.CreateBr(for_blocks[0]);
+
+    // Now add the merge block to the end of the function
+    for_blocks[3]->insertInto(ctx.parent);
 
     // Finally set the builder to the merge block again
     ctx.scope = current_scope;
-    builder.SetInsertPoint(for_blocks[2]);
+    last_looparound_blocks.pop_back();
     last_loop_merge_blocks.pop_back();
+    builder.SetInsertPoint(for_blocks[3]);
     return true;
 }
 
@@ -634,13 +653,15 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
 
     // Create the basic blocks for the condition check, the loop body and the merge block
-    std::array<llvm::BasicBlock *, 3> for_blocks{};
+    std::array<llvm::BasicBlock *, 4> for_blocks{};
     // Create then condition block and the body of the loop
     for_blocks[0] = llvm::BasicBlock::Create(context, "for_cond", ctx.parent);
     for_blocks[1] = llvm::BasicBlock::Create(context, "for_body", ctx.parent);
+    for_blocks[2] = llvm::BasicBlock::Create(context, "looparound");
+    last_looparound_blocks.emplace_back(for_blocks[2]);
     // Create the merge block but don't add it to the parent function yet
-    for_blocks[2] = llvm::BasicBlock::Create(context, "merge");
-    last_loop_merge_blocks.emplace_back(for_blocks[2]);
+    for_blocks[3] = llvm::BasicBlock::Create(context, "merge");
+    last_loop_merge_blocks.emplace_back(for_blocks[3]);
 
     // Generate the iterable expression
     builder.SetInsertPoint(pred_block);
@@ -727,7 +748,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     }
     // Then check if the index is still smaller than the length and branch accordingly
     llvm::Value *in_range = builder.CreateICmpULT(current_index, length, "in_range");
-    builder.CreateCondBr(in_range, for_blocks[1], for_blocks[2]);
+    builder.CreateCondBr(in_range, for_blocks[1], for_blocks[3]);
 
     // Now to the body itself. First we need to store the current element in its respective alloca / inside the tuple before we generate the
     // body
@@ -759,19 +780,27 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         return false;
     }
     ctx.scope = old_scope;
+    if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+        // Point to the looparound block to create the loop
+        builder.CreateBr(for_blocks[2]);
+    }
 
-    // At the end of the body we increment the index and branch back to the condition
+    // At the looparound block we increment the index and branch back to the condition
+    for_blocks[2]->insertInto(ctx.parent);
+    builder.SetInsertPoint(for_blocks[2]);
     llvm::Value *new_index = builder.CreateAdd(current_index, builder.getInt64(1), "new_index");
     if (std::holds_alternative<std::string>(for_node->iterators)) {
         builder.CreateStore(new_index, idx_ptr);
     } else {
         builder.CreateStore(new_index, index_alloca);
     }
+    // Branch back to the loop's condition to finish the loop
     builder.CreateBr(for_blocks[0]);
 
     // Finally set the insert point to the merge block and return
-    ctx.parent->insert(ctx.parent->end(), for_blocks[2]);
-    builder.SetInsertPoint(for_blocks[2]);
+    for_blocks[3]->insertInto(ctx.parent);
+    builder.SetInsertPoint(for_blocks[3]);
+    last_looparound_blocks.pop_back();
     last_loop_merge_blocks.pop_back();
     return true;
 }
