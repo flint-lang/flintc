@@ -485,6 +485,29 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *setenv_fn = llvm::Function::Create(setenv_type, llvm::Function::ExternalLinkage, "setenv", module);
         c_functions[SETENV] = setenv_fn;
     }
+    // popen
+    {
+        llvm::FunctionType *popen_type = llvm::FunctionType::get( //
+            llvm::Type::getVoidTy(context)->getPointerTo(),       // return FILE*
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* command
+                llvm::Type::getInt8Ty(context)->getPointerTo()  // char* modes
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *popen_fn = llvm::Function::Create(popen_type, llvm::Function::ExternalLinkage, "popen", module);
+        c_functions[POPEN] = popen_fn;
+    }
+    // pclose
+    {
+        llvm::FunctionType *pclose_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                       // return i32 (exit code)
+            {llvm::Type::getVoidTy(context)->getPointerTo()},      // FILE* stream
+            false                                                  // No vaarg
+        );
+        llvm::Function *pclose_fn = llvm::Function::Create(pclose_type, llvm::Function::ExternalLinkage, "pclose", module);
+        c_functions[PCLOSE] = pclose_fn;
+    }
 }
 
 bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {

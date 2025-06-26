@@ -290,6 +290,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate all the "hidden" env helper functions
     Module::Env::generate_env_functions(builder.get(), module.get());
 
+    // Generate all the "hidden" system module functions
+    Module::System::generate_system_functions(builder.get(), module.get());
+
     if (!is_test) {
         // Generate main function in the main module
         Builtin::generate_builtin_main(builder.get(), module.get());
@@ -454,6 +457,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     Module::Array::generate_array_manip_functions(nullptr, module.get(), true);
     Module::String::generate_string_manip_functions(nullptr, module.get(), true);
     Module::TypeCast::generate_typecast_functions(nullptr, module.get(), true);
+    Module::System::generate_system_functions(nullptr, module.get(), true);
 
     for (auto &imported_core_module : file.imported_core_modules) {
         const std::string &core_module_name = imported_core_module.first;

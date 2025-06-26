@@ -111,7 +111,14 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                 {
                     {{"str", "str", "bool"}, {"bool"}, false}, // The single version of the 'set_env' function
                 }},
-        }}, // End of the 'env' module
+        }},    // End of the 'env' module
+    {"system", // The 'system' module
+        {
+            {"system_command", // The 'system_command' function
+                {
+                    {{"str"}, {"i32", "str"}, true}, // The single version of the 'system' function
+                }},
+        }} // End of the 'system' module
 };
 
 /// @enum `CFunctions`
@@ -143,6 +150,8 @@ enum CFunction {
     FWRITE,
     GETENV,
     SETENV,
+    POPEN,
+    PCLOSE,
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {

@@ -1,7 +1,7 @@
 use Core.print
+use Core.system
 
 def main():
-    i32 x = 10;
-    i32 y = 3;
-    i32 z = x ** y;
-    print($"{x} ** {y} = {z}\n");
+    (exit_code, output) := system_command("ls -lah");
+    print($"exit_code = {exit_code}\n");
+    print($"output = {output}\n");

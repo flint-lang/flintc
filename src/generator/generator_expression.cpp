@@ -354,7 +354,22 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
-
+        } else if (module_name == "system" &&
+            Module::System::system_functions.find(call_node->function_name) != Module::System::system_functions.end()) {
+            if (std::get<1>(builtin_function.value()).size() > 1) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
+                // Function returns error
+                func_decl = Module::System::system_functions.at(call_node->function_name);
+                function_origin = FunctionOrigin::BUILTIN;
+            } else {
+                // Function does not return error
+                func_decl = Module::System::system_functions.at(call_node->function_name);
+                return_value.emplace_back(builder.CreateCall(func_decl, args));
+                return return_value;
+            }
         } else {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;

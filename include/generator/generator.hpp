@@ -159,6 +159,8 @@ class Generator {
         {CFunction::FWRITE, nullptr},
         {CFunction::GETENV, nullptr},
         {CFunction::SETENV, nullptr},
+        {CFunction::POPEN, nullptr},
+        {CFunction::PCLOSE, nullptr},
     };
 
     /// @struct `GenerationContext`
@@ -2621,6 +2623,44 @@ class Generator {
                 const bool is_append                                                                                          //
             );
         }; // subclass String
+
+        /// @class `System`
+        /// @brief The class which is responsible for generating everything related to system
+        /// @note This class cannot be initialized and all functions within this class are static
+        class System {
+          public:
+            // The constructor is deleted to make this class non-initializable
+            System() = delete;
+
+            /// @var `system_functions`
+            /// @brief Map containing references to all system functions, to make calling them easier
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the function
+            /// - **Value** `llvm::Function *` - The reference to the genereated function
+            ///
+            /// @attention The functions are nullpointers until the `generate_system_functions` function is called
+            /// @attention The map is not being cleared after the program module has been generated
+            static inline std::unordered_map<std::string_view, llvm::Function *> system_functions = {
+                {"system_command", nullptr},
+            };
+
+            /// @function `generate_system_functions`
+            /// @brief Function to generate all functions from the system Core module
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_system_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_system_command_function`
+            /// @brief Function to generate the `system_command` system function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the function is generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_system_command_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+        };
 
         /// @class `TypeCast`
         /// @brief The class which is responsilbe for everything type-casting related
