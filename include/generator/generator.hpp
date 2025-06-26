@@ -309,6 +309,11 @@ class Generator {
     /// parsing steps, so we can assume that all usages of data types are valid when generating the IR code.
     static inline std::unordered_map<std::string, const DataNode *const> data_nodes;
 
+    /// @var `last_loop_merge_blocks`
+    /// @brief The last basic block to merge to, its a list in order to not needing to update the merge block after every nested loop
+    /// statement
+    static inline std::vector<llvm::BasicBlock *> last_loop_merge_blocks;
+
     /// @function `get_data_nodes`
     /// @brief This function collects all data nodes from the parser and puts them into the `data_nodes` map in the generator
     static void get_data_nodes();

@@ -3,6 +3,7 @@
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 
+#include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/type/array_type.hpp"
@@ -55,6 +56,9 @@ bool Generator::Statement::generate_statement(      //
         return generate_array_assignment(builder, ctx, array_assignment_node);
     } else if (const auto *stacked_assignment_node = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
         return generate_stacked_assignment(builder, ctx, stacked_assignment_node);
+    } else if (dynamic_cast<const BreakNode *>(statement.get())) {
+        builder.CreateBr(last_loop_merge_blocks.back());
+        return true;
     } else {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -509,6 +513,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     while_blocks[0] = llvm::BasicBlock::Create(context, "while_cond", ctx.parent);
     while_blocks[1] = llvm::BasicBlock::Create(context, "while_body", ctx.parent);
     while_blocks[2] = llvm::BasicBlock::Create(context, "merge");
+    last_loop_merge_blocks.emplace_back(while_blocks[2]);
 
     // Create the branch instruction in the predecessor block to point to the while_cond block
     builder.SetInsertPoint(pred_block);
@@ -551,6 +556,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     // Finally set the builder to the merge block again
     ctx.scope = current_scope;
     builder.SetInsertPoint(while_blocks[2]);
+    last_loop_merge_blocks.pop_back();
     return true;
 }
 
@@ -573,6 +579,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     for_blocks[1] = llvm::BasicBlock::Create(context, "for_body", ctx.parent);
     // Create the merge block but don't add it to the parent function yet
     for_blocks[2] = llvm::BasicBlock::Create(context, "merge");
+    last_loop_merge_blocks.emplace_back(for_blocks[2]);
 
     // Create the branch instruction in the predecessor block to point to the for_cond block
     builder.SetInsertPoint(pred_block);
@@ -619,6 +626,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     // Finally set the builder to the merge block again
     ctx.scope = current_scope;
     builder.SetInsertPoint(for_blocks[2]);
+    last_loop_merge_blocks.pop_back();
     return true;
 }
 
@@ -632,6 +640,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     for_blocks[1] = llvm::BasicBlock::Create(context, "for_body", ctx.parent);
     // Create the merge block but don't add it to the parent function yet
     for_blocks[2] = llvm::BasicBlock::Create(context, "merge");
+    last_loop_merge_blocks.emplace_back(for_blocks[2]);
 
     // Generate the iterable expression
     builder.SetInsertPoint(pred_block);
@@ -763,6 +772,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     // Finally set the insert point to the merge block and return
     ctx.parent->insert(ctx.parent->end(), for_blocks[2]);
     builder.SetInsertPoint(for_blocks[2]);
+    last_loop_merge_blocks.pop_back();
     return true;
 }
 

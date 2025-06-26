@@ -1,69 +1,21 @@
 use Core.print
 
-def pow_u32(mut u32 base, mut u32 exp) -> u32:
-    if exp == 0:
-        return u32(1);
-
-    u32 result = 1;
-    while exp > 0:
-        if exp % 2 == 1:
-            // Exponent is odd
-            result = result * base;
-        // Square the base
-        base *= base;
-        exp /= 2;
-    return result;
-
-def pow_i32(mut i32 base, mut i32 exp) -> i32:
-    if exp == 0:
-        return 1;
-
-    i32 result = 1;
-    while exp > 0:
-        if exp % 2 == 1:
-            // Exponent is odd
-            result = result * base;
-        // Square the base
-        base *= base;
-        exp /= 2;
-    return result;
-
-def pow_u64(mut u64 base, mut u64 exp) -> u64:
-    if exp == 0:
-        return u64(1);
-
-    u64 result = 1;
-    while exp > 0:
-        if exp % 2 == 1:
-            // Exponent is odd
-            result = result * base;
-        // Square the base
-        base *= base;
-        exp /= 2;
-    return result;
-
-def pow_i64(mut i64 base, mut i64 exp) -> i64:
-    if exp == 0:
-        return i64(1);
-
-    i64 result = 1;
-    while exp > 0:
-        if exp % 2 == 1:
-            // Exponent is odd
-            result = result * base;
-        // Square the base
-        base *= base;
-        exp /= 2;
-    return result;
-
 def main():
-    i32 x = 10;
-    i32 y = 55;
-    i32 z_i32 = pow_i32(x, y);
-    print($"z_i32 = {z_i32}\n\n");
-    u32 z_u32 = pow_u32(u32(x), u32(y));
-    print($"z_u32 = {z_u32}\n\n");
-    i64 z_i64 = pow_i64(i64(x), i64(y));
-    print($"z_i64 = {z_i64}\n\n");
-    u64 z_u64 = pow_u64(u64(x), u64(y));
-    print($"z_u64 = {z_u64}\n\n");
+    for i := 0; i < 10; i++:
+        if i % 2 == 0:
+            print($"{i} is_even\n");
+        if i == 7:
+            break;
+
+    i32[] nums = i32[10](5);
+    for (i, num) in nums:
+        if i == 5:
+            break;
+        print($"{i}: {num}\n");
+
+    i32 idx = 0;
+    while true:
+        print($"idx = {idx}\n");
+        if idx == 5:
+            break;
+        idx++;

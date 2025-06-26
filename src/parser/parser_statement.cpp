@@ -5,6 +5,7 @@
 #include "matcher/matcher.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
+#include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/primitive_type.hpp"
@@ -1417,6 +1418,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
             return std::nullopt;
         }
         statement_node = std::make_unique<UnaryOpStatement>(std::move(unary_op.value()));
+    } else if (Matcher::tokens_contain(tokens, Matcher::break_statement)) {
+        statement_node = std::make_unique<BreakNode>();
     } else {
         THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
