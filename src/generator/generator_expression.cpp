@@ -1474,7 +1474,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             }
             break;
         case TOK_POW:
-            return IR::generate_pow_instruction(builder, ctx.parent, lhs, rhs);
+            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64" || type_str == "u8") {
+                return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_pow"), {lhs, rhs}, "pow_res");
+            }
             break;
         case TOK_MOD:
             if (type_str == "i32" || type_str == "i64") {

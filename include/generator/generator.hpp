@@ -412,24 +412,6 @@ class Generator {
         /// @return `llvm::Value *` The generated static string value
         static llvm::Value *generate_const_string(llvm::IRBuilder<> &builder, const std::string &str);
 
-        /// @function `generate_pow_instruction`
-        /// @brief Generates a pow instruction from the given llvm values
-        ///
-        /// @param `builder` The IR builder
-        /// @param `parent` The function the instruction will be generated in
-        /// @param `lhs` The lhs value of the pow instruction (the pow base)
-        /// @param `rhs` The rhs value of the pow instruction (the pow exponent)
-        /// @return `llvm::Value *` A pointer to the generated result value of the pow instruction
-        ///
-        /// @attention This function currently just returns a nullptr, dont use it yet!
-        /// @todo Actually implement this function
-        static llvm::Value *generate_pow_instruction( //
-            llvm::IRBuilder<> &builder,               //
-            llvm::Function *parent,                   //
-            llvm::Value *lhs,                         //
-            llvm::Value *rhs                          //
-        );
-
         /// @function `generate_debug_print`
         /// @brief Generates a small call to print which prints the given message using printf
         ///
@@ -1604,23 +1586,28 @@ class Generator {
                 {"i32_safe_sub", nullptr},
                 {"i32_safe_mul", nullptr},
                 {"i32_safe_div", nullptr},
+                {"i32_pow", nullptr},
                 {"i64_safe_add", nullptr},
                 {"i64_safe_sub", nullptr},
                 {"i64_safe_mul", nullptr},
                 {"i64_safe_div", nullptr},
+                {"i64_pow", nullptr},
                 // Unsigned Integer Types
                 {"u8_safe_add", nullptr},
                 {"u8_safe_sub", nullptr},
                 {"u8_safe_mul", nullptr},
                 {"u8_safe_div", nullptr},
+                {"u8_pow", nullptr},
                 {"u32_safe_add", nullptr},
                 {"u32_safe_sub", nullptr},
                 {"u32_safe_mul", nullptr},
                 {"u32_safe_div", nullptr},
+                {"u32_pow", nullptr},
                 {"u64_safe_add", nullptr},
                 {"u64_safe_sub", nullptr},
                 {"u64_safe_mul", nullptr},
                 {"u64_safe_div", nullptr},
+                {"u64_pow", nullptr},
                 // Signed Multi Types of length 2
                 {"i32x2_safe_add", nullptr},
                 {"i32x2_safe_sub", nullptr},
@@ -1673,6 +1660,22 @@ class Generator {
             /// @param `module` The LLVM Module the arithmetic functions should already be defined in
             /// @return `bool` Whether all refreshs were successful
             static bool refresh_arithmetic_functions(llvm::Module *module);
+
+            /// @function `generate_pow_function`
+            /// @brief Generates the pow function for the given integer type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the 'i/uX_pow' function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `int_type` The integer type to generate the function for
+            /// @param `is_signed` Whether the integer type is signed
+            static void generate_pow_function( //
+                llvm::IRBuilder<> *builder,    //
+                llvm::Module *module,          //
+                const bool only_declarations,  //
+                llvm::IntegerType *int_type,   //
+                const bool is_signed           //
+            );
 
             /// @function `generate_int_safe_add`
             /// @brief Creates a safe addition of two int types

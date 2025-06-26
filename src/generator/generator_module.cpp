@@ -92,8 +92,7 @@ bool Generator::Module::generate_modules() {
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::CAST)) {
         success = success && generate_module(BuiltinLibrary::CAST, cache_path, "cast");
     }
-    if (overflow_mode != ArithmeticOverflowMode::UNSAFE &&
-        (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC))) {
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC)) {
         success = success && generate_module(BuiltinLibrary::ARITHMETIC, cache_path, "arithmetic");
     }
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::ARRAY)) {
@@ -139,9 +138,7 @@ bool Generator::Module::generate_modules() {
     libs.emplace_back(cache_path / ("print" + file_ending));
     libs.emplace_back(cache_path / ("str" + file_ending));
     libs.emplace_back(cache_path / ("cast" + file_ending));
-    if (overflow_mode != ArithmeticOverflowMode::UNSAFE) {
-        libs.emplace_back(cache_path / ("arithmetic" + file_ending));
-    }
+    libs.emplace_back(cache_path / ("arithmetic" + file_ending));
     libs.emplace_back(cache_path / ("array" + file_ending));
     libs.emplace_back(cache_path / ("read" + file_ending));
     libs.emplace_back(cache_path / ("assert" + file_ending));

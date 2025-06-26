@@ -300,15 +300,6 @@ llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, co
     return str_buf;
 }
 
-llvm::Value *Generator::IR::generate_pow_instruction( //
-    [[maybe_unused]] llvm::IRBuilder<> &builder,      //
-    [[maybe_unused]] llvm::Function *parent,          //
-    [[maybe_unused]] llvm::Value *lhs,                //
-    [[maybe_unused]] llvm::Value *rhs                 //
-) {
-    return nullptr;
-}
-
 void Generator::IR::generate_debug_print( //
     llvm::IRBuilder<> *builder,           //
     const std::string &message            //
