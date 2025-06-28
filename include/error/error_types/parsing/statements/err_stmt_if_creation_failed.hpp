@@ -8,7 +8,8 @@ class ErrStmtIfCreationFailed : public BaseError {
   public:
     ErrStmtIfCreationFailed(const ErrorType error_type, const std::string &file,
         const std::vector<std::pair<token_slice, token_slice>> &if_chain) :
-        BaseError(error_type, file, if_chain.at(0).first.first->line, if_chain.at(0).first.first->column),
+        BaseError(error_type, file, (if_chain.empty() ? 1 : if_chain.at(0).first.first->line),
+            (if_chain.empty() ? 1 : if_chain.at(0).first.first->column)),
         if_chain(if_chain) {}
 
     [[nodiscard]]
