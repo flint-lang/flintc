@@ -2,9 +2,9 @@
 
 #include <string>
 
-static const inline std::string RED = "\033[31m";
-static const inline std::string GREEN = "\033[32m";
-static const inline std::string YELLOW = "\033[33m";
-static const inline std::string BLUE = "\033[34m";
-static const inline std::string WHITE = "\033[37m";
-static const inline std::string DEFAULT = "\033[0m";
+extern std::string RED;
+extern std::string GREEN;
+extern std::string YELLOW;
+extern std::string BLUE;
+extern std::string WHITE;
+extern std::string DEFAULT;

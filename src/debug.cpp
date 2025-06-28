@@ -18,6 +18,13 @@ bool PRINT_PROFILE_RESULTS = true;
 bool HARD_CRASH = false;
 bool NO_GENERATION = false;
 
+std::string RED = "\033[31m";
+std::string GREEN = "\033[32m";
+std::string YELLOW = "\033[33m";
+std::string BLUE = "\033[34m";
+std::string WHITE = "\033[37m";
+std::string DEFAULT = "\033[0m";
+
 unsigned int BUILTIN_LIBS_TO_PRINT = 0;
 Target COMPILATION_TARGET = Target::NATIVE;
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;

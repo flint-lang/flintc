@@ -35,6 +35,13 @@ class CLIParserMain : public CLIParserBase {
             } else if (arg == "--print-libbuiltins-path") {
                 std::cout << Generator::get_flintc_cache_path().string() << std::endl;
                 return 1;
+            } else if (arg == "--no-colors") {
+                RED = "";
+                GREEN = "";
+                YELLOW = "";
+                BLUE = "";
+                WHITE = "";
+                DEFAULT = "";
             } else if (arg == "--file" || arg == "-f") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
@@ -197,6 +204,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --static                    Build the executable as static\n";
         std::cout << "  --rebuild-core              Rebuild all the core modules\n";
         std::cout << "  --print-libbuiltins-path    Prints the path to the directory where the libbuiltins.a file is saved at\n";
+        std::cout << "  --no-colors                 Disables colored console output\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code\n";
         std::cout << "                              HINT: The compiler will not create an executable with this flag set";
         std::cout << std::endl;
