@@ -610,7 +610,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    llvm::BranchInst *branch = builder.CreateCondBr(expression, for_blocks[1], for_blocks[2]);
+    llvm::BranchInst *branch = builder.CreateCondBr(expression, for_blocks[1], for_blocks[3]);
     branch->setMetadata("comment",
         llvm::MDNode::get(context,
             llvm::MDString::get(context,
