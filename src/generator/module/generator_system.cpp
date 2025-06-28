@@ -188,7 +188,8 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     // Get command exit status: status = pclose(pipe)
     llvm::Value *status = builder->CreateCall(pclose_fn, {pipe}, "status");
     // Extract the low byte: result.exit_code = status & 0xFF
-    llvm::Value *exit_code = builder->CreateAnd(status, builder->getInt32(0xFF), "exit_code");
+    llvm::Value *shifted_status = builder->CreateLShr(status, builder->getInt32(8), "shifted_status");
+    llvm::Value *exit_code = builder->CreateAnd(shifted_status, builder->getInt32(0xFF), "exit_code");
     builder->CreateStore(exit_code, exit_code_ptr);
 
     // Return the result struct
