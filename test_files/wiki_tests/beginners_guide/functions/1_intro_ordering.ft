@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    say_hello();
+
+def say_hello():
+    print("Hello, World!\n");

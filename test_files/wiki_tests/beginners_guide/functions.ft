@@ -1,0 +1,142 @@
+use Core.system
+use Core.assert
+
+test "0_intro_hello.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "0_intro_hello.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Hello, World!\n");
+
+test "1_intro_ordering.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "1_intro_ordering.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Hello, World!\n");
+
+test "2_param_single.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "2_param_single.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Hello, Alice!\nHello, Bob!\n");
+
+test "3_param_multiple.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "3_param_multiple.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "The sum is 12.\n");
+
+test "4_return_greet.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "4_return_greet.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Hello, Flint!\n");
+
+test "5_return_add.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "5_return_add.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "The result is 30\n");
+
+test "6_recursion.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "6_recursion.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "fib(0) = 0\nfib(1) = 1\nfib(2) = 1\nfib(3) = 2\nfib(4) = 3\nfib(5) = 5\nfib(6) = 8\nfib(7) = 13\nfib(8) = 21\nfib(9) = 34\n");
+
+test "7_multiple_return.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "7_multiple_return.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Area: 15, Perimeter: 16\n");
+
+test "8_groups_no.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "8_groups_no.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "x = 1, y = 5\n");
+
+test "9_groups_temp.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "9_groups_temp.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "x = 1, y = 5\nx = 5, y = 1\n");
+
+test "10_groups_swap_simple.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "10_groups_swap_simple.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "x = 1, y = 5\nx = 5, y = 1\n");
+
+test "11_groups_swap_complex.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "11_groups_swap_complex.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "a = 1, b = 2, c = 3, d = 4\na = 3, b = 4, c = 1, d = 2\n");
+
+test "12_groups_multi_assign.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "12_groups_multi_assign.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "a = 1, b = 2, c = 3, d = 4\na = 1, b = 1, c = 1, d = 1\n");
+
+test "13_groups_funny_assign.ft":
+	str path = "wiki_tests/beginners_guide/functions";
+	str file = "13_groups_funny_assign.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "a = 3\na = 6\n");

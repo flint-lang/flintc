@@ -1,0 +1,7 @@
+use Core.print
+
+def add_two_numbers(i32 a, i32 b):
+    print($"The sum is {a + b}.\n");
+
+def main():
+    add_two_numbers(5, 7);

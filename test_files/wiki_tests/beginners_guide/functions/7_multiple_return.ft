@@ -1,0 +1,10 @@
+use Core.print
+
+def calculate_rectangle(i32 length, i32 width) -> (i32, i32):
+    i32 area = length * width;
+    i32 perimeter = 2 * (length + width);
+    return (area, perimeter);
+
+def main():
+    (area, perimeter) := calculate_rectangle(5, 3);
+    print($"Area: {area}, Perimeter: {perimeter}\n");

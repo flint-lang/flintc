@@ -1,0 +1,11 @@
+use Core.print
+
+def main():
+    i32 a = 1;
+    i32 b = 2;
+    i32 c = 3;
+    i32 d = 4;
+    print($"a = {a}, b = {b}, c = {c}, d = {d}\n");
+
+    (a, b, c, d) = (c, d, a, b);
+    print($"a = {a}, b = {b}, c = {c}, d = {d}\n");

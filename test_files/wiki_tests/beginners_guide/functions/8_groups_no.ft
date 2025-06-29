@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    i32 x = 1;
+    i32 y = 5;
+    print($"x = {x}, y = {y}\n");

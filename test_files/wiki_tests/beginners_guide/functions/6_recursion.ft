@@ -1,0 +1,12 @@
+use Core.print
+
+def fib(i32 n) -> i32:
+    if n <= 1:
+        return n;
+    else:
+        return fib(n - 1) + fib(n - 2);
+
+def main():
+    for i := 0; i < 10; i++:
+        i32 fib_i = fib(i);
+        print($"fib({i}) = {fib_i}\n");

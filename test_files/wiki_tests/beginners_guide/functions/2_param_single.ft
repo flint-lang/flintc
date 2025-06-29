@@ -1,0 +1,8 @@
+use Core.print
+
+def greet(str name):
+    print($"Hello, {name}!\n");
+
+def main():
+    greet("Alice");
+    greet("Bob");

@@ -3,6 +3,7 @@ use Core.print
 use "wiki_tests/beginners_guide/basics.ft"
 use "wiki_tests/beginners_guide/variables_and_types.ft"
 use "wiki_tests/beginners_guide/control_flow.ft"
+use "wiki_tests/beginners_guide/functions.ft"
 
 def main():
 	print("Please compile this test using the --test flag!\n");

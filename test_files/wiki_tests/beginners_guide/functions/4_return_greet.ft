@@ -1,0 +1,8 @@
+use Core.print
+
+def get_greeting() -> str:
+    return "Hello, Flint!\n";
+
+def main():
+    str greeting = get_greeting();
+    print(greeting);
