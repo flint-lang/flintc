@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+    for i32 i = 0; i < 5; i++:
+        print($"Iteration {i}\n");

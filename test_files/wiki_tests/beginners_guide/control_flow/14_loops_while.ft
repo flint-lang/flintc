@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    i32 num = 0;
+    while num < 5:
+        print($"num = {num}\n");
+        num++;

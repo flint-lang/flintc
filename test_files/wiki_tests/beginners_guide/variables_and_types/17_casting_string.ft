@@ -1,0 +1,8 @@
+use Core.print
+
+def main():
+    f32 fval = 3.3;
+    str message = "fval = ";
+    message += str(fval);
+    message += "\n";
+    print(message);

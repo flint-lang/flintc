@@ -1,0 +1,9 @@
+use Core.print
+
+def main():
+    i32 val1 = 2;
+    if val1 < 10:
+        i32 val2 = 44;
+        print($"val1 = {val1}, val2 = {val2}\n");
+    i32 val2 = 12;
+    print($"val1 = {val1}, val2 = {val2}\n");

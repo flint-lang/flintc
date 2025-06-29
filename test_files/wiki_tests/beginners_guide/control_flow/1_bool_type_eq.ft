@@ -1,0 +1,8 @@
+use Core.print
+
+def main():
+    i32 val1 = 4;
+    i32 val2 = 6;
+    bool is_eq = val1 == val2;
+    bool is_neq = val1 != val2;
+    print($"val1 = {val1}, val2 = {val2}, is_eq = {is_eq}, is_neq = {is_neq}\n");

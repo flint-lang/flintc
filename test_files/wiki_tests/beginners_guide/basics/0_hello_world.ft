@@ -1,0 +1,4 @@
+use Core.print
+
+def main():
+    print("Hello, World!\n");

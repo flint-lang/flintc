@@ -1,0 +1,4 @@
+def main():
+    f32 pi = 3.14; // Approximation of Pi
+    f32 zero_kelvin = -273.15; // Negative floating point values are valid
+    f32 zero = 0.0; // Zero with a decimal

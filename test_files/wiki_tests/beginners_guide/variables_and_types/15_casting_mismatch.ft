@@ -1,0 +1,2 @@
+def main():
+    i32 val = 3.3;

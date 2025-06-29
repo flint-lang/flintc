@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    f64 val = 0.05;
+    val += 0.3;
+    print($"0.05 + 0.3 = {val}\n");
+    print($"{val} == 0.35 ? {val == 0.35}\n");

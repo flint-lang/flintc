@@ -1,0 +1,4 @@
+def main():
+	i32 x = 42; // A positive integer
+	i32 y = -15; // A negative integer
+	i32 z = 0; // Zero is also an integer

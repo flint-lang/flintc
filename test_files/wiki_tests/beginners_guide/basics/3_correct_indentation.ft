@@ -1,0 +1,4 @@
+use Core.print
+
+def main():
+    print("This is correctly indented.\n"); // Properly indented

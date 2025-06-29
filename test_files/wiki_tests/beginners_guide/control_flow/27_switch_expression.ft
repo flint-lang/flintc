@@ -1,0 +1,12 @@
+use Core.print
+
+enum MyEnum:
+    VAL1, VAL2, VAL3;
+
+def main():
+    MyEnum e = MyEnum.VAL1;
+    i32 result = switch e:
+        MyEnum.VAL1 -> 1;
+        MyEnum.VAL2 -> 2;
+        MyEnum.VAL3 -> 4;
+    print("result = {result}\n");

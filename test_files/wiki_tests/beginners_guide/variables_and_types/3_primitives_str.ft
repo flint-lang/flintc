@@ -1,0 +1,4 @@
+def main():
+    str name = "Flint"; // A simple string
+    str empty = ""; // An empty string
+    str greeting = "Hello, World!"; // A common example

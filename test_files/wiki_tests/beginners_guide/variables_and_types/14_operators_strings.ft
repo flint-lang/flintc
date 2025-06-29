@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    str hello = "Hello, ";
+    str world = "World!\n";
+    str hello_world = hello + world;
+    print(hello_world);

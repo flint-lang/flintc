@@ -1,0 +1,22 @@
+use Core.print
+
+enum ComparisonResult:
+    BIGGER, SMALLER, EQUAL;
+
+def compare(i32 x, i32 y) -> ComparisonResult:
+    if x > y:
+        return ComparisonResult.BIGGER;
+    else if y < x:
+        return ComparisonResult.SMALLER;
+    else:
+        return ComparisonResult.EQUAL;
+
+def main():
+    ComparisonResult result = compare(10, 5);
+    switch result:
+        ComparisonResult.BIGGER:
+            print("is bigger\n");
+        ComparisonResult.SMALLER:
+            print("is smaller\n");
+        ComparisonResult.EQUAL:
+            print("is equal\n");

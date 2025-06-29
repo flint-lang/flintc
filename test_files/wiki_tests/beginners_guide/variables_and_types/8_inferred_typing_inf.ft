@@ -1,0 +1,4 @@
+def main():
+    x := 42; // The compiler infers that x is an i32
+    pi := 3.14; // The compiler infers that pi is a f32
+    greeting := "Hello, Flint!"; // The compiler infers that greeting is a str

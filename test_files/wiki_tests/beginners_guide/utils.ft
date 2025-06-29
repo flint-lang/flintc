@@ -1,0 +1,7 @@
+def starts_with(str string, str check) -> bool:
+	if string.length < check.length:
+		return false;
+	for (i, c) in check:
+		if c != string[i]:
+			return false;
+	return true;

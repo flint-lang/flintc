@@ -1,0 +1,9 @@
+use Core.print
+
+def main():
+    i32 age = 16;
+
+    if age >= 18: // If this is false...
+        print($"You are {age} years old, so you can vote!\n");
+    else: // ...then this block executes
+        print($"You are {age} years old, so you cannot vote.\n");

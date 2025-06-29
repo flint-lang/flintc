@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    bool is_adult = true;
+    bool has_id = false;
+    print($"Is adult and has an ID? {is_adult and has_id}\n");

@@ -1,0 +1,39 @@
+use Core.system
+use Core.assert
+
+test "0_hello_world.ft":
+	str path = "wiki_tests/beginners_guide/basics";
+	str file = "0_hello_world.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Hello, World!\n");
+
+test "1_comments.ft":
+	str path = "wiki_tests/beginners_guide/basics";
+	str file = "1_comments.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Hello, Flint!\n");
+
+test "2_wrong_indentation.ft":
+	str path = "wiki_tests/beginners_guide/basics";
+	str file = "2_wrong_indentation.ft";
+	(exit_code, output) := system_command($"flintc --no-colors --file {path}/{file}");
+	assert(exit_code == 1);
+	assert(output == "Parse Error at wiki_tests/beginners_guide/basics/2_wrong_indentation.ft:4:1\n -- Expected a body, but got:\nprint(\"This is not indented correctly.\\n\");\n\n");
+
+test "3_correct_indentation.ft":
+	str path = "wiki_tests/beginners_guide/basics";
+	str file = "3_correct_indentation.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0)
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "This is correctly indented.\n");

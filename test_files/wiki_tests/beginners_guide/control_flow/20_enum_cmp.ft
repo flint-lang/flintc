@@ -1,0 +1,13 @@
+use Core.print
+
+enum Enum1:
+    TAG1, TAG2, TAG3;
+
+enum Enum2:
+    TAG1, TAG2, TAG3;
+
+def main():
+    Enum1 e1 = Enum1.TAG1;
+
+    if e1 == Enum2.TAG1:
+        print("is Enum2.TAG1!\n");

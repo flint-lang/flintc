@@ -1,0 +1,12 @@
+use Core.print
+
+def main():
+    // This is a single-line comment explaining the print statement below
+    print("Hello, Flint!\n");
+
+    /*
+     This is a multi-line comment.
+     You can use it for detailed explanations
+     or temporarily disabling multiple lines of code.
+    */
+    // print("This line is commented out and won't run.");

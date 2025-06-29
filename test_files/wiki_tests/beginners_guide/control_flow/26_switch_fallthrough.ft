@@ -1,0 +1,15 @@
+use Core.print
+
+enum MyEnum:
+    VAL1, VAL2, VAL3;
+
+def main():
+    MyEnum e = MyEnum.VAL1;
+    switch e:
+        #fallthrough
+        MyEnum.VAL1:
+            print("is val1\n");
+        MyEnum.VAL2:
+            print("is val2\n");
+        MyEnum.VAL3:
+            print("is val3\n");

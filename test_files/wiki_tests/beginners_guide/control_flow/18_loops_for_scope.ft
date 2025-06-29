@@ -1,0 +1,11 @@
+use Core.print
+
+def main():
+    for i32 i = 0; i < 5; i++:
+        print($"Loop 1, iteration: {i}\n");
+    // 'i' cannot be used after the for loop
+
+    // 'i' can be re-declared here, because 'i' was
+    // never declared inside the main functions scope
+    for u32 i = 0; i < 4; i++:
+        print($"Loop 2, iteration: {i}\n");

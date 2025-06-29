@@ -1,0 +1,16 @@
+use Core.print
+
+enum MyEnum:
+    TAG1, TAG2, TAG3;
+
+def main():
+    MyEnum my_enum = MyEnum.TAG1;
+
+    if my_enum == MyEnum.TAG1:
+        print("is TAG1\n");
+    else if my_enum == MyEnum.TAG2:
+        print("is TAG2\n");
+    else if my_enum == MyEnum.TAG3:
+        print("is TAG3\n");
+    else:
+        print("This code path is actually impossible to reach, no matter which value 'my_enum' has!\n");

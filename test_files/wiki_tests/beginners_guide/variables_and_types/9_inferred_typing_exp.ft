@@ -1,0 +1,4 @@
+def main():
+    i32 x = 42; // Explicitly declare x as an i32
+    f32 pi = 3.14; // Explicitly declare pi as a f32
+    str greeting = "Hello, Flint!"; // Explicitly declare greeting as a str

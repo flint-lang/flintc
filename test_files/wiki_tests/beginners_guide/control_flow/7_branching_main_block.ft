@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    f32 val = 3.3;
+    i32 val_i = i32(val);
+    print($"{val} = {val_i}\n");

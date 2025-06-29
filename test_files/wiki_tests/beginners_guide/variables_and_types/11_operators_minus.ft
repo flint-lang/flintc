@@ -1,0 +1,4 @@
+def main():
+    u32 ten = 10;
+    u32 twenty = 20;
+    u32 result = ten - twenty;

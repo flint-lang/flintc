@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    i32 val1 = 1;
+    if val1 < 10:
+        print("val1 < 10\n");
+    i32 val2 = 2;

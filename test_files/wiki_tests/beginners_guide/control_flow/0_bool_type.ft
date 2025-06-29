@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    bool is_learning = true;
+    bool is_hungry = false;
+    print($"is_learing = {is_learning}, is_hungry = {is_hungry}\n");

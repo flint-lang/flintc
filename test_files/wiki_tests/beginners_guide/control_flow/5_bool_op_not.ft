@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+    bool is_raining = false;
+    print($"Is it not raining? {not is_raining}\n");

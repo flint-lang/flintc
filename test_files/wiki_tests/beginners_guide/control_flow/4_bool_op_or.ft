@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    bool is_vip = true;
+    bool has_ticket = false;
+    print($"Is VIP or has a ticket? {is_vip or has_ticket}\n");

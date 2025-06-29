@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    str name = "Flint";
+    i32 age = 1;
+    print($"Hello, my name is {name} and I am {age} years old.\n");
