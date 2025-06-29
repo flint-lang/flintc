@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    str some_string = "some neat string";
+    len := some_string.length;
+    print($"string '{some_string}' is {len} characters long\n");

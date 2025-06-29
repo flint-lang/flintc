@@ -1,0 +1,11 @@
+use Core.print
+
+def main():
+    i32[,] plane = i32[3, 3](0);
+
+    for (index, elem) in plane:
+        elem = i32(index);
+
+    for y := 0; y < 3; y++:
+        for x := 0; x < 3; x++:
+            print($"plane[{x}, {y}] = {plane[x, y]}\n");

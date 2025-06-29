@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    i32[] arr = i32[10](0);
+    arr[3] = 8;
+    arr[4] = 4;
+    print($"arr[3] + arr[4] = {arr[3] + arr[4]}\n");

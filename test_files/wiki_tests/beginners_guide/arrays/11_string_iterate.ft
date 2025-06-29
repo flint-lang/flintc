@@ -1,0 +1,10 @@
+use Core.print
+
+def print_str(str input):
+    for i := 0; i < input.length; i++:
+        print($"{i}: '{input[i]}'\n");
+
+def main():
+    print_str("Hello");
+    print_str(", ");
+    print_str("World!\n");

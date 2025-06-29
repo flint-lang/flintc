@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    i32[,] plane = i32[10, 10](0);
+    // Set the element at row 1, column 2
+    plane[1, 2] = 10;
+    print($"plane[1, 2] = {plane[1, 2]}\n");

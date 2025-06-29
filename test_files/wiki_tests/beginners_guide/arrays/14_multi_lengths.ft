@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    i32[,] plane = i32[10, 20](0);
+    (x, y) := plane.length;
+    print($"plane.length = ({x}, {y})\n");

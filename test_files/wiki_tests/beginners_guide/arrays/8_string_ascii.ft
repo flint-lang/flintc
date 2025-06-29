@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    str name = "Marc";
+    u8 third = name[2];
+    print($"third = '{third}' at idx {i32(third)}\n");

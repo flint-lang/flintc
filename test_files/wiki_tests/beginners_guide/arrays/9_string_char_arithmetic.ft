@@ -1,0 +1,8 @@
+use Core.print
+
+def main():
+    u8 character = 'C';
+    print($"character '{character}' is {i32(character)}\n");
+
+    character++;
+    print($"character '{character}' is {i32(character)}\n");

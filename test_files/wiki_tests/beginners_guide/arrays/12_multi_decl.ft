@@ -1,0 +1,5 @@
+def main():
+    // 2D array
+    i32[,] plane = i32[10, 10](0);
+    // 3D array
+    i32[,,] cube = i32[10, 10, 10](0);

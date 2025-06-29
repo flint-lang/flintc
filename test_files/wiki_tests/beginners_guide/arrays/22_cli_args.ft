@@ -1,0 +1,5 @@
+use Core.print
+
+def main(str[] args):
+    for (idx, elem) in args:
+        print($"args[{idx}] = {elem}\n");

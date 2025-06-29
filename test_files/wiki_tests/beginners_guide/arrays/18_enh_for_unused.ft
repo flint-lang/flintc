@@ -1,0 +1,15 @@
+use Core.print
+
+def main():
+    i32[] arr = i32[5](0);
+    // Just fill the array with stuff
+    for (idx, elem) in arr:
+        elem = idx * 2;
+
+    // Ignoring the index value in the enhanced for loop
+    for (_, elem) in arr:
+        print($"elem is {elem}\n");
+
+    // Ignoring the elem in the enhanced for loop
+    for (idx, _) in arr:
+        print($"Iteration {idx}\n");
