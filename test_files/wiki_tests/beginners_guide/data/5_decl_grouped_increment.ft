@@ -1,0 +1,14 @@
+use Core.print
+
+data Vector3:
+    f32 x;
+    f32 y;
+    f32 z;
+    Vector3(x, y, z);
+
+def main():
+    Vector3 v3 = Vector3(1.0, 2.0, 3.0);
+    print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");
+
+    v3.(x, y, z) += (1.0, 1.0, 1.0);
+    print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");

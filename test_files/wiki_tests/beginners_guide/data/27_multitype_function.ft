@@ -1,0 +1,8 @@
+use Core.print
+
+def get_vec_2(i32 x, i32 y) -> i32x2:
+    return (x, y);
+
+def main():
+    (x, y) := get_vec_2(10, 20);
+    print($"(x, y) = ({x}, {y})\n");

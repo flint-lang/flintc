@@ -1,0 +1,13 @@
+use Core.print
+
+data Point:
+    i32 x;
+    i32 y;
+    Point(x, y);
+
+def print_point(Point p):
+    print($"Point(x: {p.x}, y: {p.y})\n");
+
+def main():
+    Point p = Point(3, 4);
+    print_point(p);

@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    i32x3 v3 = (1, 2, 3);
+    print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");
+    v3.(x, y, z) = (4, 5, 6);
+    print($"v3 = {v3}\n");

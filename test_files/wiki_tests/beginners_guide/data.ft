@@ -1,0 +1,279 @@
+use Core.system
+use Core.assert
+
+test "0_decl_initializer.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "0_decl_initializer.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "");
+
+test "1_decl_field_access.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "1_decl_field_access.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "v2.x = 10, v2.y = 20\n");
+
+test "2_decl_field_assign.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "2_decl_field_assign.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "v2.x = 10, v2.y = 20\nv2.x = 15, v2.y = 20\n");
+
+test "3_decl_grouped_access.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "3_decl_grouped_access.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "(x, y, z) = (1, 2, 3)\n");
+
+test "4_decl_grouped_assign.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "4_decl_grouped_assign.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "v3.(x, y, z) = (1, 2, 3)\nv3.(x, y, z) = (3, 1, 2)\n");
+
+test "5_decl_grouped_increment.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "5_decl_grouped_increment.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "v3.(x, y, z) = (1, 2, 3)\nv3.(x, y, z) = (2, 3, 4)\n");
+
+test "6_default_one.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "6_default_one.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "d.(x, y) = (5, 20)\n");
+
+test "7_default_all.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "7_default_all.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "d.(x, y) = (5, 7)\n");
+
+test "8_nested_simple.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "8_nested_simple.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "rect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n");
+
+test "9_nested_copy.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "9_nested_copy.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "p1.(x, y) = (0, 0)\np2.(x, y) = (10, 10)\nrect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n\np1.(x, y) = (4, 5)\np2.(x, y) = (22, 33)\nrect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n");
+
+test "10_nested_circle.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "10_nested_circle.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "");
+
+test "11_function_simple.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "11_function_simple.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Point(x: 3, y: 4)\n");
+
+test "12_function_mutating_immutable.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "12_function_mutating_immutable.ft";
+	(exit_code, output) := system_command($"flintc --no-colors --file {path}/{file}");
+	assert(exit_code == 1);
+	assert(starts_with(output, "Parse Error at wiki_tests/beginners_guide/data/12_function_mutating_immutable.ft:9:5\n -- Variable 'p' is marked as 'const' and cannot be modified!\n"));
+
+test "13_function_mutating_mutable.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "13_function_mutating_mutable.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Point(x: 6, y: 7)\n");
+
+test "14_function_pass_immutable.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "14_function_pass_immutable.ft";
+	(exit_code, output) := system_command($"flintc --no-colors --file {path}/{file}");
+	assert(exit_code == 1);
+	assert(starts_with(output, "Parse Error at wiki_tests/beginners_guide/data/14_function_pass_immutable.ft:1:1\n -- Variable 'p' is marked as 'const' and cannot be modified!\n"));
+
+test "15_function_return.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "15_function_return.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "Point(x: 5, y: 7)\n");
+
+test "16_tuple_define.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "16_tuple_define.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "");
+
+test "17_tuple_access.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "17_tuple_access.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "first = 3\nsecond = 2.2\nthird = \"hello!\"\n");
+
+test "18_tuple_oob.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "18_tuple_oob.ft";
+	(exit_code, output) := system_command($"flintc --no-colors --file {path}/{file}");
+	assert(exit_code == 1);
+	assert(starts_with(output, "Parse Error at wiki_tests/beginners_guide/data/18_tuple_oob.ft:3:5\n -- Failed to parse statement: i32 = tuple . $ 3;\n"));
+
+test "19_tuple_assign.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "19_tuple_assign.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "first = 7\nsecond = 4.7\nthird = \"yes\"\n");
+
+test "20_tuple_grouped.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "20_tuple_grouped.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "tuple.($0, $1, $2) = (7, 4.7, \"yes\")\n");
+
+test "21_tuple_multitype_overlap.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "21_tuple_multitype_overlap.ft";
+	(exit_code, output) := system_command($"flintc --no-colors --file {path}/{file}");
+	assert(exit_code == 1);
+	// NOTE: The error message is wrong, it should be something on the lines of "hey, use i32x3 instead of data<i32,i32,i32>!"...
+	assert(starts_with(output, "Custom Error: 2\nCustom Error: 2\nCustom Error: 2\nParse Error at wiki_tests/beginners_guide/data/21_tuple_multitype_overlap.ft:4:5\n -- Failed to parse declaration: data < i32, i32, i32 > tuple = (1, 1, 1);\n"));
+
+test "22_tuple_return_wrong.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "22_tuple_return_wrong.ft";
+	(exit_code, output) := system_command($"flintc --no-colors --file {path}/{file}");
+	assert(exit_code == 1);
+	// NOTE: The error message is wrong, it should be something on the lines of "hey, don't return tuples from functions, return groups instead!"...
+	assert(starts_with(output, "Custom Error: 2\nParse Error at wiki_tests/beginners_guide/data/22_tuple_return_wrong.ft:3:1\n -- Failed to parse function: def get_tuple(i32 a, f32 b, str c) -> data < i32, f32, str >:\n"));
+
+test "23_tuple_return_correct.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "23_tuple_return_correct.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "tuple.($0, $1, $2) = (1, 4.7, hello)\n");
+
+test "24_tuple_param_immutable.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "24_tuple_param_immutable.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "tuple.(i32, f32, str) = (1, 2.2, \"three\")\n");
+
+test "25_tuple_param_mutable.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "25_tuple_param_mutable.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "tuple.(i32, f32, str) = (1, 2.2, \"three\")\ntuple.(i32, f32, str) = (2, 3.3, \"four\")\n");
+
+test "26_multitype.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "26_multitype.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "v3.(x, y, z) = (1, 2, 3)\nv3 = (4, 5, 6)\n");
+
+test "27_multitype_function.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "27_multitype_function.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "(x, y) = (10, 20)\n");
+
+test "28_multitype_arithmetic.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "28_multitype_arithmetic.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == "sum = (6, 8, 10, 12)\n");

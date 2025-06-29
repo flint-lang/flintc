@@ -1,0 +1,18 @@
+use Core.print
+
+data Point:
+    i32 x;
+    i32 y;
+    Point(x, y);
+
+data Rectangle:
+    Point top_left;
+    Point bottom_right;
+    Rectangle(top_left, bottom_right);
+
+def main():
+    Point p1 = Point(0, 0);
+    Point p2 = Point(10, 10);
+    Rectangle rect = Rectangle(p1, p2);
+    print($"rect.top_left.(x, y) = ({rect.top_left.x}, {rect.top_left.y})\n");
+    print($"rect.bottom_right.(x, y) = ({rect.bottom_right.x}, {rect.bottom_right.y})\n");

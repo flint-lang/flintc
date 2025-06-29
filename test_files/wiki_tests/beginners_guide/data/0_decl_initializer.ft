@@ -1,0 +1,7 @@
+data Vector2:
+    i32 x;
+    i32 y;
+    Vector2(x, y);
+
+def main():
+    Vector2 v2 = Vector2(10, 20);

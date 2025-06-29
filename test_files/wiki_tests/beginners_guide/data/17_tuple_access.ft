@@ -1,0 +1,12 @@
+use Core.print
+
+def main():
+    data<i32, f32, str> tuple = (3, 2.2, "hello!");
+
+    i32 first = tuple.$0;
+    f32 second = tuple.$1;
+    str third = tuple.$2;
+
+    print($"first = {first}\n");
+    print($"second = {second}\n");
+    print($"third = \"{third}\"\n");

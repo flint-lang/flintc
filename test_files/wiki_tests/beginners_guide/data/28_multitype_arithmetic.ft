@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    i32x4 v4_1 = (1, 2, 3, 4);
+    i32x4 v4_2 = (5, 6, 7, 8);
+    i32x4 sum = v4_1 + v4_2;
+    print($"sum = {sum}\n");

@@ -1,0 +1,10 @@
+use Core.print
+
+data MyData:
+    i32 x = 5;
+    i32 y = 7;
+    MyData(x, y);
+
+def main():
+    MyData d = MyData(_);
+    print($"d.(x, y) = ({d.x}, {d.y})\n");
