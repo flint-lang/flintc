@@ -189,15 +189,23 @@ class Matcher {
         {TOK_SEMICOLON, std::make_shared<TokenTypeMatcher>(TOK_SEMICOLON)},
         {TOK_COLON, std::make_shared<TokenTypeMatcher>(TOK_COLON)},
         {TOK_QUESTION, std::make_shared<TokenTypeMatcher>(TOK_QUESTION)},
+        {TOK_EXCLAMATION, std::make_shared<TokenTypeMatcher>(TOK_EXCLAMATION)},
         {TOK_UNDERSCORE, std::make_shared<TokenTypeMatcher>(TOK_UNDERSCORE)},
         {TOK_FLAG, std::make_shared<TokenTypeMatcher>(TOK_FLAG)},
         {TOK_DOLLAR, std::make_shared<TokenTypeMatcher>(TOK_DOLLAR)},
 
-        // calculational tokens
+        // dual character tokens
+        {TOK_ARROW, std::make_shared<TokenTypeMatcher>(TOK_ARROW)},
+        {TOK_PIPE, std::make_shared<TokenTypeMatcher>(TOK_PIPE)},
+        {TOK_REFERENCE, std::make_shared<TokenTypeMatcher>(TOK_REFERENCE)},
+        {TOK_OPT_DEFAULT, std::make_shared<TokenTypeMatcher>(TOK_OPT_DEFAULT)},
+
+        // arithmetic tokens
         {TOK_PLUS, std::make_shared<TokenTypeMatcher>(TOK_PLUS)},
         {TOK_MINUS, std::make_shared<TokenTypeMatcher>(TOK_MINUS)},
         {TOK_MULT, std::make_shared<TokenTypeMatcher>(TOK_MULT)},
         {TOK_DIV, std::make_shared<TokenTypeMatcher>(TOK_DIV)},
+        {TOK_MOD, std::make_shared<TokenTypeMatcher>(TOK_MOD)},
         {TOK_POW, std::make_shared<TokenTypeMatcher>(TOK_POW)},
 
         // assign tokens
@@ -224,6 +232,7 @@ class Matcher {
         {TOK_BIT_AND, std::make_shared<TokenTypeMatcher>(TOK_BIT_AND)},
         {TOK_BIT_OR, std::make_shared<TokenTypeMatcher>(TOK_BIT_OR)},
         {TOK_BIT_XOR, std::make_shared<TokenTypeMatcher>(TOK_BIT_XOR)},
+        {TOK_BIT_NEG, std::make_shared<TokenTypeMatcher>(TOK_BIT_NEG)},
 
         // relational keywords
         {TOK_AND, std::make_shared<TokenTypeMatcher>(TOK_AND)},
@@ -247,9 +256,7 @@ class Matcher {
         {TOK_DEF, std::make_shared<TokenTypeMatcher>(TOK_DEF)},
         {TOK_RETURN, std::make_shared<TokenTypeMatcher>(TOK_RETURN)},
         {TOK_FN, std::make_shared<TokenTypeMatcher>(TOK_FN)},
-        {TOK_ARROW, std::make_shared<TokenTypeMatcher>(TOK_ARROW)},
-        {TOK_PIPE, std::make_shared<TokenTypeMatcher>(TOK_PIPE)},
-        {TOK_REFERENCE, std::make_shared<TokenTypeMatcher>(TOK_REFERENCE)},
+        {TOK_BP, std::make_shared<TokenTypeMatcher>(TOK_BP)},
 
         // error keywords
         {TOK_ERROR, std::make_shared<TokenTypeMatcher>(TOK_ERROR)},
@@ -331,8 +338,10 @@ class Matcher {
         {TOK_MUT, std::make_shared<TokenTypeMatcher>(TOK_MUT)},
         {TOK_PERSISTENT, std::make_shared<TokenTypeMatcher>(TOK_PERSISTENT)},
 
-        // other tokens
+        // test keywords
         {TOK_TEST, std::make_shared<TokenTypeMatcher>(TOK_TEST)},
+
+        // other tokens
         {TOK_INDENT, std::make_shared<TokenTypeMatcher>(TOK_INDENT)},
         {TOK_EOL, std::make_shared<TokenTypeMatcher>(TOK_EOL)},
     };
@@ -497,7 +506,8 @@ class Matcher {
         token(TOK_F32X2), token(TOK_F32X3), token(TOK_F32X4), token(TOK_F32X8), token(TOK_F64X2), token(TOK_F64X3), token(TOK_F64X4)  //
     });
     static const inline PatternPtr literal = one_of({
-        token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLINT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE) //
+        token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLINT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE),
+        token(TOK_NONE) //
     });
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
     static const inline PatternPtr type = sequence({

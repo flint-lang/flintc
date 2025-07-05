@@ -26,7 +26,7 @@ enum Token {
     TOK_REFERENCE,
     TOK_OPT_DEFAULT,
 
-    // calculational tokens
+    // arithmetic tokens
     TOK_PLUS,
     TOK_MINUS,
     TOK_MULT,
@@ -164,8 +164,10 @@ enum Token {
     TOK_MUT,
     TOK_PERSISTENT,
 
-    // other tokens
+    // test keywords
     TOK_TEST,
+
+    // other tokens
     TOK_INDENT,
     TOK_EOL,
 };
