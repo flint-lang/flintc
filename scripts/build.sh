@@ -193,20 +193,18 @@ fetch_llvm() {
 # Compiles the needed versions of llvm
 build_llvm() {
     if [ "$build_windows" = "true" ]; then
-        if [ "$build_static" = "true" ]; then
-            build_llvm_windows "true"
-        fi
-        if [ "$build_dynamic" = "true" ]; then
-            build_llvm_windows "false"
+        if ! [ -d "$root/vendor/llvm-mingw" ]; then
+            build_llvm_windows
+        else
+            echo "-- Skip building LLVM for Windows..."
         fi
     fi
 
     if [ "$build_linux" = "true" ]; then
-        if [ "$build_static" = "true" ]; then
-            build_llvm_linux "true"
-        fi
-        if [ "$build_dynamic" = "true" ]; then
-            build_llvm_linux "false"
+        if ! [ -d "$root/vendor/llvm-linux" ]; then
+            build_llvm_linux
+        else
+            echo "-- Skip building LLVM for Linux..."
         fi
     fi
 }
