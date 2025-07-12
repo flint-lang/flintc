@@ -64,6 +64,64 @@ static const std::unordered_map<std::string_view, Token> symbols = {
     {"\n", TOK_EOL},
 };
 
+static const std::unordered_map<Token, std::string_view> symbols_rev = {
+    {TOK_EOF, ""},
+    // single character tokens
+    {TOK_LEFT_PAREN, "("},
+    {TOK_RIGHT_PAREN, ")"},
+    {TOK_LEFT_BRACKET, "["},
+    {TOK_RIGHT_BRACKET, "]"},
+    {TOK_LEFT_BRACE, "{"},
+    {TOK_RIGHT_BRACE, "}"},
+    {TOK_COMMA, ","},
+    {TOK_DOT, "."},
+    {TOK_SEMICOLON, ";"},
+    {TOK_COLON, ":"},
+    {TOK_QUESTION, "?"},
+    {TOK_EXCLAMATION, "!"},
+    {TOK_UNDERSCORE, "_"},
+    {TOK_FLAG, "#"},
+    {TOK_DOLLAR, "$"},
+    // dual character tokens
+    {TOK_ARROW, "->"},
+    {TOK_PIPE, "|>"},
+    {TOK_REFERENCE, "::"},
+    {TOK_OPT_DEFAULT, "??"},
+    // calculational tokens
+    {TOK_PLUS, "+"},
+    {TOK_MINUS, "-"},
+    {TOK_MULT, "*"},
+    {TOK_DIV, "/"},
+    {TOK_MOD, "%"},
+    {TOK_POW, "**"},
+    // assign tokens
+    {TOK_INCREMENT, "++"},
+    {TOK_DECREMENT, "--"},
+    {TOK_PLUS_EQUALS, "+="},
+    {TOK_MINUS_EQUALS, "-="},
+    {TOK_MULT_EQUALS, "*="},
+    {TOK_DIV_EQUALS, "/="},
+    {TOK_COLON_EQUAL, ":="},
+    {TOK_EQUAL, "="},
+    // relational symbols
+    {TOK_EQUAL_EQUAL, "=="},
+    {TOK_NOT_EQUAL, "!="},
+    {TOK_LESS, "<"},
+    {TOK_LESS_EQUAL, "<="},
+    {TOK_GREATER, ">"},
+    {TOK_GREATER_EQUAL, ">="},
+    // bitwise operators
+    {TOK_SHIFT_LEFT, "<<"},
+    {TOK_SHIFT_RIGHT, ">>"},
+    {TOK_BIT_AND, "&"},
+    {TOK_BIT_OR, "|"},
+    {TOK_BIT_XOR, "^"},
+    {TOK_BIT_NEG, "~"},
+    // other tokens
+    {TOK_INDENT, "\t"},
+    {TOK_EOL, "\n"},
+};
+
 static const std::unordered_map<std::string_view, Token> keywords = {
     // relational keywords
     {"and", TOK_AND},
@@ -123,6 +181,65 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     {"test", TOK_TEST},
 };
 
+static const std::unordered_map<Token, std::string_view> keywords_rev = {
+    // relational keywords
+    {TOK_AND, "and"},
+    {TOK_OR, "or"},
+    {TOK_NOT, "not"},
+    // branching keywords
+    {TOK_IF, "if"},
+    {TOK_ELSE, "else"},
+    {TOK_SWITCH, "switch"},
+    // looping keywords
+    {TOK_FOR, "for"},
+    {TOK_WHILE, "while"},
+    {TOK_PARALLEL, "parallel"},
+    {TOK_IN, "in"},
+    {TOK_BREAK, "break"},
+    {TOK_CONTINUE, "continue"},
+    // function keywords
+    {TOK_DEF, "def"},
+    {TOK_RETURN, "return"},
+    {TOK_FN, "fn"},
+    {TOK_BP, "bp"},
+    // error keywords
+    {TOK_ERROR, "error"},
+    {TOK_THROW, "throw"},
+    {TOK_CATCH, "catch"},
+    // variant keywords
+    {TOK_VARIANT, "variant"},
+    {TOK_ENUM, "enum"},
+    // import keywords
+    {TOK_USE, "use"},
+    {TOK_AS, "as"},
+    // builtin values
+    {TOK_TRUE, "true"},
+    {TOK_FALSE, "false"},
+    {TOK_NONE, "none"},
+    // data keywords
+    {TOK_DATA, "data"},
+    {TOK_SHARED, "shared"},
+    {TOK_IMMUTABLE, "immutable"},
+    {TOK_ALIGNED, "aligned"},
+    // func keywords
+    {TOK_FUNC, "func"},
+    {TOK_REQUIRES, "requires"},
+    // entity keywords
+    {TOK_ENTITY, "entity"},
+    {TOK_EXTENDS, "extends"},
+    {TOK_LINK, "link"},
+    // threading keywords
+    {TOK_SPAWN, "spawn"},
+    {TOK_SYNC, "sync"},
+    {TOK_LOCK, "lock"},
+    // other modifiers
+    {TOK_CONST, "const"},
+    {TOK_MUT, "mut"},
+    {TOK_PERSISTENT, "persistent"},
+    // other tokens
+    {TOK_TEST, "test"},
+};
+
 static const std::unordered_map<std::string_view, Token> primitives = {
     {"void", TOK_VOID},
     {"bool", TOK_BOOL},
@@ -153,40 +270,29 @@ static const std::unordered_map<std::string_view, Token> primitives = {
 };
 
 static std::string get_token_name(Token token) {
-    if (token == TOK_TYPE) {
-        return "TOK_TYPE";
+    switch (token) {
+        case TOK_TYPE:
+            return "TYPE";
+        case TOK_STR_VALUE:
+            return "STR_VALUE";
+        case TOK_CHAR_VALUE:
+            return "CHAR_VALUE";
+        case TOK_INT_VALUE:
+            return "INT_VALUE";
+        case TOK_FLINT_VALUE:
+            return "FLINT_VALUE";
+        case TOK_INDENT:
+            return "\\t";
+        case TOK_EOL:
+            return "\\n";
+        case TOK_IDENTIFIER:
+            return "IDENTIFIER";
+        default:
+            if (symbols_rev.find(token) != symbols_rev.end()) {
+                return std::string(symbols_rev.at(token));
+            } else if (keywords_rev.find(token) != keywords_rev.end()) {
+                return std::string(keywords_rev.at(token));
+            }
+            return "UNKNOWN";
     }
-    if (token == TOK_STR_VALUE) {
-        return "STR_VALUE";
-    }
-    if (token == TOK_CHAR_VALUE) {
-        return "CHAR_VALUE";
-    }
-    if (token == TOK_INT_VALUE) {
-        return "INT_VALUE";
-    }
-    if (token == TOK_FLINT_VALUE) {
-        return "FLINT_VALUE";
-    }
-    if (token == TOK_INDENT) {
-        return "\\t";
-    }
-    if (token == TOK_EOL) {
-        return "\\n";
-    }
-
-    std::string type = "IDENTIFIER";
-    for (const auto &kvp : symbols) {
-        if (kvp.second == token) {
-            type = kvp.first;
-            break; // to stop searching
-        }
-    }
-    for (const auto &kvp : keywords) {
-        if (kvp.second == token) {
-            type = kvp.first;
-            break;
-        }
-    }
-    return type;
 }
