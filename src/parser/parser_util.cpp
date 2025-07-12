@@ -224,8 +224,13 @@ std::vector<Line> Parser::get_body_lines( //
                 break;
             }
         }
+        // No token modification takes place whatsoever when the source is not given, so we can skip all later steps
+        if (!source.has_value()) {
+            ++it;
+            continue;
+        }
         // Erase all indentations within a line, which are not at the beginning of a line
-        if (it->token == TOK_INDENT && source.has_value()) {
+        if (it->token == TOK_INDENT) {
             Line::delete_tokens(*source.value(), it, 1);
             tokens.second = source.value()->end();
             continue;
