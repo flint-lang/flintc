@@ -19,3 +19,4 @@ test.o
 logfile
 .zig-cache
 zig-out
+test

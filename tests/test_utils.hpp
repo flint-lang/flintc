@@ -7,7 +7,6 @@
 #include "result.hpp"
 
 #include <chrono>
-#include <cmath>
 #include <filesystem>
 #include <functional>
 #include <iomanip>
@@ -24,7 +23,7 @@ static std::vector<TokenContext> create_token_vector(const std::vector<Token> &t
     std::vector<TokenContext> token_contexts;
     token_contexts.reserve(tokens.size());
     for (const Token &tok : tokens) {
-        token_contexts.push_back({tok, "", 0, 0});
+        token_contexts.push_back({tok, 0, 0, ""});
     }
     return token_contexts;
 }

@@ -35,6 +35,7 @@ token_list Lexer::scan() {
 
     while (!is_at_end()) {
         if (!scan_token()) {
+            THROW_BASIC_ERR(ERR_LEXING);
             return {};
         }
     }
@@ -51,7 +52,6 @@ token_list Lexer::scan() {
     for (auto tok = tokens.begin(); tok != tokens.end();) {
         // Check if on a new line
         if (current_line != tok->line) {
-            is_empty_line = true;
             line_start_idx = std::distance(tokens.begin(), tok);
             current_line = tok->line;
         }
@@ -71,15 +71,17 @@ token_list Lexer::scan() {
             } else {
                 ++tok;
             }
+            is_empty_line = true;
         } else {
             // Line is not empty if it contains a token thats _not_ INDENT
-            if (tok->type != TOK_INDENT) {
+            if (tok->token != TOK_INDENT) {
                 is_empty_line = false;
             }
             ++tok;
         }
     }
 
+    tokens.emplace_back(TOK_EOF, line, column, "EOF");
     total_token_count += tokens.size();
     return tokens;
 }
@@ -87,7 +89,11 @@ token_list Lexer::scan() {
 std::string Lexer::to_string(const token_slice &tokens) {
     std::stringstream token_stream;
     for (auto tok = tokens.first; tok != tokens.second; ++tok) {
-        token_stream << tok->lexme;
+        if (tok->token == TOK_TYPE) {
+            token_stream << tok->type->to_string();
+        } else {
+            token_stream << tok->lexme;
+        }
     }
     return token_stream.str();
 }
@@ -159,6 +165,7 @@ bool Lexer::scan_token() {
         case '_':
             if (is_alpha_num(peek_next())) {
                 if (!identifier()) {
+                    THROW_BASIC_ERR(ERR_LEXING);
                     return false;
                 }
             } else {
@@ -240,9 +247,11 @@ bool Lexer::scan_token() {
                     advance();
                 }
                 if (is_at_end()) {
-                    return false;
+                    return true;
                 }
             } else if (peek_next() == '*') {
+                // eat the '/'
+                advance();
                 // eat the '*'
                 advance();
                 unsigned int line_count = 0;
@@ -263,7 +272,7 @@ bool Lexer::scan_token() {
                 // eat the '/'
                 advance();
                 if (is_at_end()) {
-                    return false;
+                    return true;
                 }
             } else {
                 add_token(TOK_DIV);
@@ -289,6 +298,7 @@ bool Lexer::scan_token() {
             } else {
                 std::string token_str = std::to_string(character) + std::to_string(peek_next());
                 THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, token_str);
+                return false;
             }
             break;
         case '"':
@@ -321,10 +331,12 @@ bool Lexer::scan_token() {
                 number();
             } else if (is_alpha(character)) {
                 if (!identifier()) {
+                    THROW_BASIC_ERR(ERR_LEXING);
                     return false;
                 }
             } else {
                 THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, std::to_string(character));
+                return false;
             }
             break;
     }
@@ -345,9 +357,14 @@ bool Lexer::identifier() {
         THROW_ERR(ErrInvalidIdentifier, ERR_LEXING, file, line, column, identifier);
         return false;
     }
-    Token type = (keywords.count(identifier) > 0) ? keywords.at(identifier) : TOK_IDENTIFIER;
+    if (primitives.count(identifier) > 0) {
+        std::shared_ptr<Type> type = Type::get_primitive_type(identifier);
+        tokens.emplace_back(TokenContext{TOK_TYPE, line, column, type});
+        return true;
+    }
 
-    add_token(type, identifier);
+    Token token = (keywords.count(identifier) > 0) ? keywords.at(identifier) : TOK_IDENTIFIER;
+    add_token(token, identifier);
     return true;
 }
 
@@ -374,7 +391,7 @@ void Lexer::number() {
 }
 
 void Lexer::str() {
-    bool is_interpolation = !tokens.empty() && tokens.back().type == TOK_DOLLAR;
+    bool is_interpolation = !tokens.empty() && tokens.back().token == TOK_DOLLAR;
     start = current + 1;
     unsigned int depth = 1;
     bool is_interpolating = false;
@@ -480,7 +497,7 @@ void Lexer::add_token(Token token) {
 }
 
 void Lexer::add_token(Token token, std::string lexme) {
-    tokens.emplace_back(TokenContext{token, std::move(lexme), line, column});
+    tokens.emplace_back(TokenContext{token, line, column, std::move(lexme)});
 }
 
 void Lexer::add_token_option(Token single_token, char c, Token mult_token) {

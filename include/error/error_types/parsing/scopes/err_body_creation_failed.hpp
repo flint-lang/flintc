@@ -6,17 +6,21 @@
 
 class ErrBodyCreationFailed : public BaseError {
   public:
-    ErrBodyCreationFailed(const ErrorType error_type, const std::string &file, const token_slice &tokens) :
-        BaseError(error_type, file, tokens.first->line, tokens.first->column),
-        tokens(tokens) {}
+    ErrBodyCreationFailed(const ErrorType error_type, const std::string &file, const std::vector<Line> &body) :
+        BaseError(error_type, file, body.front().tokens.first->line, body.front().tokens.first->column),
+        body(body) {}
 
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Failed to parse body:\n" << YELLOW << get_token_string(tokens, {}) << DEFAULT;
+        oss << BaseError::to_string() << "Failed to parse body:\n" << YELLOW;
+        // for (auto it = body.begin(); it != body.end(); ++it) {
+        //     //
+        // }
+        oss << "TODO" << DEFAULT;
         return oss.str();
     }
 
   private:
-    token_slice tokens;
+    std::vector<Line> body;
 };

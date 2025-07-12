@@ -6,239 +6,125 @@ use "utils.ft"
 test "0_bool_type.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "0_bool_type.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "is_learing = true, is_hungry = false\n");
+	test_file_ok($"{path}/{file}", "is_learing = true, is_hungry = false\n");
 
 test "1_bool_type_eq.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "1_bool_type_eq.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "val1 = 4, val2 = 6, is_eq = false, is_neq = true\n");
+	test_file_ok($"{path}/{file}", "val1 = 4, val2 = 6, is_eq = false, is_neq = true\n");
 
 test "2_bool_type_cmp.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "2_bool_type_cmp.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "t_eq_f = false\nt_neq_f = true\nt_eq_t = true\nt_neq_t = false\nf_eq_f = true\nf_neq_f = false\n");
+	test_file_ok($"{path}/{file}", "t_eq_f = false\nt_neq_f = true\nt_eq_t = true\nt_neq_t = false\nf_eq_f = true\nf_neq_f = false\n");
 
 test "3_bool_op_and.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "3_bool_op_and.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Is adult and has an ID? false\n");
+	test_file_ok($"{path}/{file}", "Is adult and has an ID? false\n");
 
 test "4_bool_op_or.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "4_bool_op_or.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Is VIP or has a ticket? true\n");
+	test_file_ok($"{path}/{file}", "Is VIP or has a ticket? true\n");
 
 test "5_bool_op_not.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "5_bool_op_not.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Is it not raining? true\n");
+	test_file_ok($"{path}/{file}", "Is it not raining? true\n");
 
 test "6_bool_op_precedence.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "6_bool_op_precedence.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "condition = true\nclarified = false\n");
+	test_file_ok($"{path}/{file}", "condition = true\nclarified = false\n");
 
 test "7_branching_main_block.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "7_branching_main_block.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "3.3 = 3\n");
+	test_file_ok($"{path}/{file}", "3.3 = 3\n");
 
 test "8_branching_if.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "8_branching_if.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "You are 18 years old, so you can vote!\n");
+	test_file_ok($"{path}/{file}", "You are 18 years old, so you can vote!\n");
 
 test "9_branching_scope.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "9_branching_scope.ft";
-	(exit_code, output) := system_command($"flintc --no-colors --file {path}/{file}");
-	assert(exit_code == 1);
-	assert(starts_with(output, "Parse Error at wiki_tests/beginners_guide/control_flow/9_branching_scope.ft:1:1\n -- Use of undeclared variable 'somevalue'\n"));
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/control_flow/9_branching_scope.ft:1:1\n -- Use of undeclared variable 'somevalue'\n");
 
 test "10_branching_visibility.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "10_branching_visibility.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "val1 < 10\n");
+	test_file_ok($"{path}/{file}", "val1 < 10\n");
 
 test "11_branching_visibility_2.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "11_branching_visibility_2.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "val1 = 2, val2 = 44\nval1 = 2, val2 = 12\n");
+	test_file_ok($"{path}/{file}", "val1 = 2, val2 = 44\nval1 = 2, val2 = 12\n");
 
 test "12_branching_else.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "12_branching_else.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "You are 16 years old, so you cannot vote.\n");
+	test_file_ok($"{path}/{file}", "You are 16 years old, so you cannot vote.\n");
 
 test "13_branching_else_if.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "13_branching_else_if.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "You are too young to vote.\n");
+	test_file_ok($"{path}/{file}", "You are too young to vote.\n");
 
 test "14_loops_while.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "14_loops_while.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "num = 0\nnum = 1\nnum = 2\nnum = 3\nnum = 4\n");
+	test_file_ok($"{path}/{file}", "num = 0\nnum = 1\nnum = 2\nnum = 3\nnum = 4\n");
 
-test "15_loops_do_while.ft":
+test "[f]15_loops_do_while.ft":
 	// NOTE: do-while loops are not yet supported in Flint, so compilation will fail
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "15_loops_do_while.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "num = 0\nnum = 1\nnum = 2\nnum = 3\nnum = 4\n");
+	test_file_ok($"{path}/{file}", "num = 0\nnum = 1\nnum = 2\nnum = 3\nnum = 4\n");
 
 test "16_loops_for.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "16_loops_for.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Iteration 0\nIteration 1\nIteration 2\nIteration 3\nIteration 4\n");
+	test_file_ok($"{path}/{file}", "Iteration 0\nIteration 1\nIteration 2\nIteration 3\nIteration 4\n");
 
 test "17_loops_for_as_while.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "17_loops_for_as_while.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Iteration 0\nIteration 1\nIteration 2\nIteration 3\nIteration 4\n");
+	test_file_ok($"{path}/{file}", "Iteration 0\nIteration 1\nIteration 2\nIteration 3\nIteration 4\n");
 
 test "18_loops_for_scope.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "18_loops_for_scope.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Loop 1, iteration: 0\nLoop 1, iteration: 1\nLoop 1, iteration: 2\nLoop 1, iteration: 3\nLoop 1, iteration: 4\nLoop 2, iteration: 0\nLoop 2, iteration: 1\nLoop 2, iteration: 2\nLoop 2, iteration: 3\n");
+	test_file_ok($"{path}/{file}", "Loop 1, iteration: 0\nLoop 1, iteration: 1\nLoop 1, iteration: 2\nLoop 1, iteration: 3\nLoop 1, iteration: 4\nLoop 2, iteration: 0\nLoop 2, iteration: 1\nLoop 2, iteration: 2\nLoop 2, iteration: 3\n");
 
 test "19_enum.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "19_enum.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "is TAG1\n");
+	test_file_ok($"{path}/{file}", "is TAG1\n");
 
 test "20_enum_cmp.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "20_enum_cmp.ft";
-	(exit_code, output) := system_command($"flintc --no-colors --file {path}/{file}");
-	assert(exit_code == 1);
 	// NOTE: This should be the correct output, but currently the error message is different in the compiler
 	// assert(starts_with(output, "Parse Error at main.ft:12:8\n -- Type mismatch of expression e1 == Enum2.TAG1\n -- Expected Enum1 but got Enum2"));
-	assert(starts_with(output, "Parse Error at wiki_tests/beginners_guide/control_flow/20_enum_cmp.ft:1:1\n -- Type mismatch of expression EOF\n -- Expected Enum1 but got Enum2\n"));
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/control_flow/20_enum_cmp.ft:1:1\n -- Type mismatch of expression \n -- Expected Enum1 but got Enum2\n");
 
 test "21_enum_function.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "21_enum_function.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "is bigger\n");
+	test_file_ok($"{path}/{file}", "is bigger\n");
 
 test "22_enum_operation.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "22_enum_operation.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "container.(a, b, c) = (-10, 22.5, 889)\ncontainer.(a, b, c) = (-7, 25.9, 892)\ncontainer.(a, b, c) = (-49, 186.479996, 6244)\ncontainer.(a, b, c) = (-71, 164.37999, 6222)\ncontainer.(a, b, c) = (-11, 23.823187, 1037)\n");
+	test_file_ok($"{path}/{file}", "container.(a, b, c) = (-10, 22.5, 889)\ncontainer.(a, b, c) = (-7, 25.9, 892)\ncontainer.(a, b, c) = (-49, 186.479996, 6244)\ncontainer.(a, b, c) = (-71, 164.37999, 6222)\ncontainer.(a, b, c) = (-11, 23.823187, 1037)\n");
 
-test "23_switch_cmp.ft":
+test "[f]23_switch_cmp.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "23_switch_cmp.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "is bigger\n");
+	test_file_ok($"{path}/{file}", "is bigger\n");
 
 test "24_switch_fallthrough.c":
 	str path = "wiki_tests/beginners_guide/control_flow";
@@ -260,22 +146,12 @@ test "25_switch_break.c":
 	assert(exit_code == 0);
 	assert(output == "is val1\n");
 
-test "26_switch_fallthrough.ft":
+test "[f]26_switch_fallthrough.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "26_switch_fallthrough.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "is val1\nis val2\n");
+	test_file_ok($"{path}/{file}", "is val1\nis val2\n");
 
-test "27_switch_expression.ft":
+test "[f]27_switch_expression.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "27_switch_expression.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "result = 1\n");
+	test_file_ok($"{path}/{file}", "result = 1\n");

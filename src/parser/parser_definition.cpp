@@ -17,14 +17,14 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
 
     auto tok_it = definition.first;
     // Parse everything before the parameters
-    while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->type != TOK_LEFT_PAREN) {
-        if (tok_it->type == TOK_ALIGNED) {
+    while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->token != TOK_LEFT_PAREN) {
+        if (tok_it->token == TOK_ALIGNED) {
             is_aligned = true;
         }
-        if (tok_it->type == TOK_CONST) {
+        if (tok_it->token == TOK_CONST) {
             is_const = true;
         }
-        if (tok_it->type == TOK_DEF) {
+        if (tok_it->token == TOK_DEF) {
             name = std::next(tok_it)->lexme;
         }
         tok_it++;
@@ -41,28 +41,28 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     // Skip the left paren
     tok_it++;
     // Parse the parameters only if there are any parameters
-    if (tok_it->type != TOK_RIGHT_PAREN) {
+    if (tok_it->token != TOK_RIGHT_PAREN) {
         // Set the last_param_begin to + 1 to skip the left paren
         token_list::iterator last_param_begin = tok_it;
         unsigned int depth = 0;
-        while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->type != TOK_RIGHT_PAREN) {
-            if (tok_it->type == TOK_LESS || tok_it->type == TOK_LEFT_BRACKET) {
+        while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
+            if (tok_it->token == TOK_LESS || tok_it->token == TOK_LEFT_BRACKET) {
                 depth++;
                 tok_it++;
                 continue;
-            } else if (tok_it->type == TOK_GREATER || tok_it->type == TOK_RIGHT_BRACKET) {
+            } else if (tok_it->token == TOK_GREATER || tok_it->token == TOK_RIGHT_BRACKET) {
                 depth--;
                 tok_it++;
             }
-            if (depth == 0 && (std::next(tok_it)->type == TOK_COMMA || std::next(tok_it)->type == TOK_RIGHT_PAREN)) {
+            if (depth == 0 && (std::next(tok_it)->token == TOK_COMMA || std::next(tok_it)->token == TOK_RIGHT_PAREN)) {
                 // The current token is the parameter type
                 const std::string param_name = tok_it->lexme;
                 // The type is everything from the last param begin
                 token_slice type_tokens = {last_param_begin, tok_it};
                 bool is_mutable = false;
-                if (type_tokens.first->type == TOK_CONST) {
+                if (type_tokens.first->token == TOK_CONST) {
                     type_tokens.first++;
-                } else if (type_tokens.first->type == TOK_MUT) {
+                } else if (type_tokens.first->token == TOK_MUT) {
                     is_mutable = true;
                     type_tokens.first++;
                 }
@@ -85,16 +85,16 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     tok_it++;
 
     // Now the token should be an arrow, if not there are no return values
-    if (tok_it->type == TOK_ARROW) {
+    if (tok_it->token == TOK_ARROW) {
         tok_it++;
         if (tok_it == definition.second) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (tok_it->type != TOK_LEFT_PAREN) {
+        if (tok_it->token != TOK_LEFT_PAREN) {
             // There is only a single return type, so everything until the colon is considere the return type
             token_list::iterator begin_it = tok_it;
-            while (tok_it != definition.second && tok_it->type != TOK_COLON) {
+            while (tok_it != definition.second && tok_it->token != TOK_COLON) {
                 tok_it++;
             }
             token_slice type_tokens = {begin_it, tok_it};
@@ -113,8 +113,8 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             tok_it++;
             // Parse the return types
             token_list::iterator last_type_begin = tok_it;
-            while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->type != TOK_RIGHT_PAREN) {
-                if (std::next(tok_it)->type == TOK_COMMA || std::next(tok_it)->type == TOK_RIGHT_PAREN) {
+            while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
+                if (std::next(tok_it)->token == TOK_COMMA || std::next(tok_it)->token == TOK_RIGHT_PAREN) {
                     // The type is everything from the last param begin
                     token_slice type_tokens = {last_type_begin, tok_it + 1};
                     const auto return_type = Type::get_type(type_tokens);
@@ -188,266 +188,109 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);
 }
 
-std::optional<DataNode> Parser::create_data(const token_slice &definition, const token_slice &body) {
+std::optional<DataNode> Parser::create_data(const token_slice &definition, const std::vector<Line> &body) {
     bool is_shared = false;
     bool is_immutable = false;
     bool is_aligned = false;
     std::string name;
-    token_slice body_mut = body;
 
-    std::unordered_map<std::string, std::pair<std::shared_ptr<Type>, std::optional<std::string>>> fields;
+    std::unordered_map<std::string, std::shared_ptr<Type>> fields;
     std::vector<std::string> order;
 
     for (auto def_it = definition.first; def_it != definition.second; ++def_it) {
-        if (def_it->type == TOK_SHARED) {
+        if (def_it->token == TOK_SHARED) {
             is_shared = true;
         }
-        if (def_it->type == TOK_IMMUTABLE) {
+        if (def_it->token == TOK_IMMUTABLE) {
             is_immutable = true;
             // immutable data is shared by default
             is_shared = true;
         }
-        if (def_it->type == TOK_ALIGNED) {
+        if (def_it->token == TOK_ALIGNED) {
             is_aligned = true;
         }
-        if (def_it->type == TOK_DATA) {
+        if (def_it->token == TOK_DATA) {
             name = (def_it + 1)->lexme;
-        }
-    }
-    remove_leading_garbage(body_mut);
-    auto body_it = body_mut.first;
-    for (; body_it != body_mut.second; ++body_it) {
-        if (Matcher::tokens_match({body_mut.first, body_it}, Matcher::type) && body_it->type == TOK_IDENTIFIER) {
-            if (fields.find(body_it->lexme) != fields.end()) {
-                // Field name duplication
-                THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name, body_it->line, body_it->column, body_it->lexme);
-                return std::nullopt;
-            }
-            // The type is everything from body_mut.first to next_it
-            token_slice type_tokens = {body_mut.first, body_it};
-            remove_leading_garbage(type_tokens);
-            std::optional<std::shared_ptr<Type>> type = Type::get_type(type_tokens);
-            if (!type.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            if ((body_it + 1)->type == TOK_EQUAL) {
-                fields[body_it->lexme] = {type.value(), (body_it + 2)->lexme};
-                body_it += 3;
-            } else {
-                fields[body_it->lexme] = {type.value(), std::nullopt};
-                body_it++;
-            }
-            if (body_it->type != TOK_SEMICOLON) {
-                // Missing semicolon
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            body_mut.first = body_it + 1;
-            remove_leading_garbage(body_mut);
-            body_it = body_mut.first;
-        }
-
-        if (body_it->type == TOK_IDENTIFIER && (body_it + 1)->type == TOK_LEFT_PAREN) {
             break;
         }
     }
-    // Check if the initializer name is correct
-    if (body_it->lexme != name) {
-        THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING, //
-            file_name, body_it->line, body_it->column,         //
-            name, body_it->lexme                               //
-        );
-        return std::nullopt;
-    }
-    ++body_it;
-
-    // Skip the left paren
-    ++body_it;
-
-    for (; body_it != body.second; ++body_it) {
-        if (body_it->type == TOK_IDENTIFIER) {
-            if (std::find(order.begin(), order.end(), body_it->lexme) != order.end()) {
-                // The same field name is written down twice in the initializer
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+    for (auto line_it = body.begin(); line_it != body.end(); ++line_it) {
+        for (auto token_it = line_it->tokens.first; token_it != line_it->tokens.second; ++token_it) {
+            if (token_it->token == TOK_TYPE && std::next(token_it)->token == TOK_IDENTIFIER) {
+                if (fields.find(std::next(token_it)->lexme) != fields.end()) {
+                    // Field name duplication
+                    THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name,                        //
+                        std::next(token_it)->line, std::next(token_it)->column, std::next(token_it)->lexme //
+                    );
+                    return std::nullopt;
+                }
+                fields[std::next(token_it)->lexme] = token_it->type;
+            } else if (token_it->token == TOK_IDENTIFIER && std::next(token_it)->token == TOK_LEFT_PAREN) {
+                // It's the initializer
+                if (token_it->lexme != name) {
+                    THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,                 //
+                        file_name, token_it->line, token_it->column, name, token_it->lexme //
+                    );
+                    return std::nullopt;
+                }
+                // Skip the identifier and the left paren
+                token_it += 2;
+                // The initializer line must end with a closing paren followed by a semicolon.
+                if (std::prev(line_it->tokens.second)->token != TOK_SEMICOLON) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                if ((line_it->tokens.second - 2)->token != TOK_RIGHT_PAREN) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                for (; token_it != line_it->tokens.second - 2; ++token_it) {
+                    if (token_it->token == TOK_IDENTIFIER) {
+                        if (std::find(order.begin(), order.end(), token_it->lexme) != order.end()) {
+                            // The same field name is written down twice in the initializer
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        order.emplace_back(token_it->lexme);
+                    } else if (token_it->token != TOK_COMMA) {
+                        // Not allowed token in field initializer
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                }
             }
-            order.emplace_back(body_it->lexme);
-        } else if (body_it->type == TOK_RIGHT_PAREN) {
-            break;
-        } else if (body_it->type != TOK_COMMA) {
-            // Not allowed token in data initializer
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
         }
     }
 
-    std::vector<std::tuple<std::string, std::shared_ptr<Type>, std::optional<std::string>>> ordered_fields;
+    std::vector<std::pair<std::string, std::shared_ptr<Type>>> ordered_fields;
     ordered_fields.resize(fields.size());
     for (const auto &field : fields) {
         const size_t field_id = std::distance(order.begin(), std::find(order.begin(), order.end(), field.first));
-        ordered_fields[field_id] = {field.first, field.second.first, field.second.second};
+        ordered_fields[field_id] = {field.first, field.second};
     }
 
     return DataNode(is_shared, is_immutable, is_aligned, name, ordered_fields);
 }
 
-std::optional<FuncNode> Parser::create_func(const token_slice &definition, const token_slice &body) {
-    std::string name;
-    std::vector<std::pair<std::string, std::string>> required_data;
-    std::vector<std::unique_ptr<FunctionNode>> functions;
-
-    bool requires_data = false;
-    for (auto def_it = definition.first; def_it != definition.second; ++def_it) {
-        if (def_it->type == TOK_FUNC && (def_it + 1)->type == TOK_IDENTIFIER) {
-            name = (def_it + 1)->lexme;
-        }
-        if (def_it->type == TOK_REQUIRES) {
-            requires_data = true;
-        }
-        if (requires_data && def_it->type == TOK_IDENTIFIER && (def_it + 1)->type == TOK_IDENTIFIER) {
-            required_data.emplace_back(def_it->lexme, (def_it + 1)->lexme);
-        }
-    }
-
-    int current_line = -1;
-    FuncNode func_node = FuncNode(name, required_data, {});
-    for (auto body_it = body.first; body_it != body.second; ++body_it) {
-        if (current_line == static_cast<int>(body_it->line)) {
-            continue;
-        }
-        current_line = body_it->line;
-
-        uint2 definition_ids = Matcher::get_tokens_line_range(body, current_line).value();
-        token_slice function_definition = {body.first + definition_ids.first, body.first + definition_ids.second};
-
-        unsigned int leading_indents = Matcher::get_leading_indents(function_definition, current_line).value();
-        token_slice function_body = get_body_tokens(leading_indents, body);
-
-        std::optional<FunctionNode> function = create_function(function_definition);
-        if (!function.has_value()) {
-            THROW_ERR(ErrDefFunctionCreation, ERR_PARSING, file_name, function_definition);
-            return std::nullopt;
-        }
-        functions.emplace_back(std::make_unique<FunctionNode>(std::move(function.value())));
-        add_open_function({functions.back().get(), clone_from_slice(function_body)});
-    }
-    func_node.functions = std::move(functions);
-    return func_node;
+std::optional<FuncNode> Parser::create_func(        //
+    [[maybe_unused]] const token_slice &definition, //
+    [[maybe_unused]] const std::vector<Line> &body  //
+) {
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
 }
 
-Parser::create_entity_type Parser::create_entity(const token_slice &definition, const token_slice &body) {
-    bool is_modular = Matcher::tokens_match(body, Matcher::entity_body);
-    std::string name;
-    std::vector<std::string> data_modules;
-    std::vector<std::string> func_modules;
-    std::vector<std::unique_ptr<LinkNode>> link_nodes;
-    std::vector<std::pair<std::string, std::string>> parent_entities;
-    std::vector<std::string> constructor_order;
-    std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>> monolithic_nodes = std::nullopt;
-
-    bool extract_parents = false;
-    for (auto def_it = definition.first; def_it != definition.second; ++def_it) {
-        if (def_it->type == TOK_ENTITY && std::next(def_it)->type == TOK_IDENTIFIER) {
-            name = std::next(def_it)->lexme;
-        }
-        if (def_it->type == TOK_LEFT_PAREN && std::next(def_it)->type == TOK_IDENTIFIER) {
-            extract_parents = true;
-            ++def_it;
-        }
-        if (extract_parents && def_it->type == TOK_IDENTIFIER && std::next(def_it)->type == TOK_IDENTIFIER) {
-            parent_entities.emplace_back(def_it->lexme, std::next(def_it)->lexme);
-        }
-    }
-
-    if (is_modular) {
-        bool extracting_data = false;
-        bool extracting_func = false;
-        for (auto body_it = body.first; body_it != body.second; ++body_it) {
-            if (body_it->type == TOK_DATA) {
-                extracting_data = true;
-            } else if (body_it->type == TOK_FUNC) {
-                extracting_func = true;
-            } else if (body_it->type == TOK_LINK) {
-                unsigned int link_indentation = Matcher::get_leading_indents(body, body_it->line).value();
-                token_slice tokens_after_link = {body_it + 2, body.second};
-                token_slice link_tokens = get_body_tokens(link_indentation, tokens_after_link);
-                link_nodes = create_links(link_tokens);
-            }
-
-            if (extracting_data) {
-                if (body_it->type == TOK_IDENTIFIER) {
-                    data_modules.emplace_back(body_it->lexme);
-                    if ((body_it + 1)->type == TOK_SEMICOLON) {
-                        extracting_data = false;
-                    }
-                }
-            } else if (extracting_func) {
-                if (body_it->type == TOK_IDENTIFIER) {
-                    func_modules.emplace_back(body_it->lexme);
-                    if ((body_it + 1)->type == TOK_SEMICOLON) {
-                        extracting_func = false;
-                    }
-                }
-            }
-        }
-    } else {
-        DataNode data_node;
-        FuncNode func_node;
-        for (auto body_it = body.first; body_it != body.second; ++body_it) {
-            if (body_it->type == TOK_DATA) {
-                // TODO: Add a generic constructor for the data module
-                unsigned int leading_indents = Matcher::get_leading_indents(body, body_it->line).value();
-                token_slice data_body = get_body_tokens(leading_indents, body);
-                token_list data_definition = {TokenContext{TOK_DATA, "", 0, 0}, TokenContext{TOK_IDENTIFIER, name + "__D", 0, 0}};
-                data_node = create_data({data_definition.begin(), data_definition.end()}, data_body).value();
-                data_modules.emplace_back(name + "__D");
-            } else if (body_it->type == TOK_FUNC) {
-                unsigned int leading_indents = Matcher::get_leading_indents(body, body_it->line).value();
-                token_slice func_body = get_body_tokens(leading_indents, body);
-                token_list func_definition = {TokenContext{TOK_FUNC, "", 0, 0}, TokenContext{TOK_IDENTIFIER, name + "__F", 0, 0},
-                    TokenContext{TOK_REQUIRES, "", 0, 0}, TokenContext{TOK_LEFT_PAREN, "", 0, 0},
-                    TokenContext{TOK_IDENTIFIER, name + "__D", 0, 0}, TokenContext{TOK_IDENTIFIER, "d", 0, 0},
-                    TokenContext{TOK_RIGHT_PAREN, "", 0, 0}, TokenContext{TOK_COLON, "", 0, 0}};
-                token_slice func_def_slice = {func_definition.begin(), func_definition.end()};
-                // TODO: change the functions accesses to the data by placing "d." in front of every variable access.
-                std::optional<FuncNode> created_func = create_func(func_def_slice, func_body);
-                if (!created_func.has_value()) {
-                    THROW_ERR(ErrDefFuncCreation, ERR_PARSING, file_name, func_def_slice);
-                    return {};
-                }
-                func_node = std::move(created_func.value());
-                func_modules.emplace_back(name + "__F");
-            }
-        }
-    }
-
-    uint2 constructor_token_ids = Matcher::get_match_ranges(body, Matcher::entity_body_constructor).at(0);
-    for (auto it = body.first + constructor_token_ids.first; it != body.first + constructor_token_ids.second; it++) {
-        if (it->type == TOK_IDENTIFIER) {
-            if (std::next(it)->type == TOK_LEFT_PAREN && it->lexme != name) {
-                THROW_ERR(ErrDefEntityWrongConstructorName, ERR_PARSING, file_name, //
-                    it->line, it->column, name, it->lexme                           //
-                );
-            }
-            constructor_order.emplace_back(it->lexme);
-        }
-    }
-    EntityNode entity(name, data_modules, func_modules, std::move(link_nodes), parent_entities, constructor_order);
-    std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>> return_value =
-        std::make_pair(std::move(entity), std::move(monolithic_nodes));
-    return return_value;
+Parser::create_entity_type Parser::create_entity(   //
+    [[maybe_unused]] const token_slice &definition, //
+    [[maybe_unused]] const std::vector<Line> &body  //
+) {
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+    return {};
 }
 
-std::vector<std::unique_ptr<LinkNode>> Parser::create_links(const token_slice &body) {
+std::vector<std::unique_ptr<LinkNode>> Parser::create_links([[maybe_unused]] const std::vector<Line> &body) {
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     std::vector<std::unique_ptr<LinkNode>> links;
-
-    std::vector<uint2> link_matches = Matcher::get_match_ranges(body, Matcher::entity_body_link);
-    links.reserve(link_matches.size());
-    for (size_t i = 0; i < link_matches.size(); i++) {
-        links.emplace_back(std::make_unique<LinkNode>(create_link(body)));
-    }
-
     return links;
 }
 
@@ -458,12 +301,12 @@ LinkNode Parser::create_link(const token_slice &tokens) {
     std::vector<uint2> references = Matcher::get_match_ranges(tokens, Matcher::reference);
 
     for (unsigned int i = references.at(0).first; i < references.at(0).second; i++) {
-        if ((tokens.first + i)->type == TOK_IDENTIFIER) {
+        if ((tokens.first + i)->token == TOK_IDENTIFIER) {
             from_references.emplace_back((tokens.first + i)->lexme);
         }
     }
     for (unsigned int i = references.at(1).first; i < references.at(1).second; i++) {
-        if ((tokens.first + i)->type == TOK_IDENTIFIER) {
+        if ((tokens.first + i)->token == TOK_IDENTIFIER) {
             to_references.emplace_back((tokens.first + i)->lexme);
         }
     }
@@ -471,28 +314,28 @@ LinkNode Parser::create_link(const token_slice &tokens) {
     return LinkNode(from_references, to_references);
 }
 
-std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const token_slice &body) {
+std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {
     std::string name;
     std::vector<std::string> values;
 
     for (auto def_it = definition.first; def_it != definition.second; ++def_it) {
-        if (def_it->type == TOK_ENUM && (def_it + 1)->type == TOK_IDENTIFIER) {
+        if (def_it->token == TOK_ENUM && (def_it + 1)->token == TOK_IDENTIFIER) {
             name = (def_it + 1)->lexme;
             break;
         }
     }
 
-    for (auto body_it = body.first; body_it != body.second; ++body_it) {
-        if (body_it->type == TOK_IDENTIFIER) {
-            if ((body_it + 1)->type == TOK_COMMA) {
+    for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second; ++body_it) {
+        if (body_it->token == TOK_IDENTIFIER) {
+            if ((body_it + 1)->token == TOK_COMMA) {
                 values.emplace_back(body_it->lexme);
-            } else if ((body_it + 1)->type == TOK_SEMICOLON) {
+            } else if ((body_it + 1)->token == TOK_SEMICOLON) {
                 values.emplace_back(body_it->lexme);
                 break;
             } else {
                 const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
                 THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name, body_it->line, body_it->column, //
-                    expected, body_it->type);
+                    expected, body_it->token);
                 return std::nullopt;
             }
         }
@@ -501,17 +344,17 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
     return EnumNode(name, values);
 }
 
-ErrorNode Parser::create_error(const token_slice &definition, const token_slice &body) {
+ErrorNode Parser::create_error(const token_slice &definition, const std::vector<Line> &body) {
     std::string name;
     std::string parent_error;
     std::vector<std::string> error_types;
 
     for (auto def_it = definition.first; def_it != definition.second; ++def_it) {
-        if (def_it->type == TOK_ERROR && (def_it + 1)->type == TOK_IDENTIFIER) {
+        if (def_it->token == TOK_ERROR && (def_it + 1)->token == TOK_IDENTIFIER) {
             name = (def_it + 1)->lexme;
         }
-        if (def_it->type == TOK_LEFT_PAREN) {
-            if ((def_it + 1)->type == TOK_IDENTIFIER && (def_it + 2)->type == TOK_RIGHT_PAREN) {
+        if (def_it->token == TOK_LEFT_PAREN) {
+            if ((def_it + 1)->token == TOK_IDENTIFIER && (def_it + 2)->token == TOK_RIGHT_PAREN) {
                 parent_error = (def_it + 1)->lexme;
                 break;
             }
@@ -519,17 +362,17 @@ ErrorNode Parser::create_error(const token_slice &definition, const token_slice 
         }
     }
 
-    for (auto body_it = body.first; body_it != body.second; ++body_it) {
-        if (body_it->type == TOK_IDENTIFIER) {
-            if ((body_it + 1)->type == TOK_COMMA) {
+    for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second; ++body_it) {
+        if (body_it->token == TOK_IDENTIFIER) {
+            if ((body_it + 1)->token == TOK_COMMA) {
                 error_types.emplace_back(body_it->lexme);
-            } else if ((body_it + 1)->type == TOK_SEMICOLON) {
+            } else if ((body_it + 1)->token == TOK_SEMICOLON) {
                 error_types.emplace_back(body_it->lexme);
                 break;
             } else {
                 const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
                 THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name, body_it->line, body_it->column, //
-                    expected, body_it->type);
+                    expected, body_it->token);
             }
         };
     }
@@ -537,28 +380,26 @@ ErrorNode Parser::create_error(const token_slice &definition, const token_slice 
     return ErrorNode(name, parent_error, error_types);
 }
 
-VariantNode Parser::create_variant(const token_slice &definition, const token_slice &body) {
-    std::string name;
-    std::vector<std::string> possible_types;
+VariantNode Parser::create_variant(const token_slice &definition, const std::vector<Line> &body) {
+    assert(definition.first->token == TOK_VARIANT);
+    assert((definition.first + 1)->token == TOK_IDENTIFIER);
+    assert((definition.first + 2)->token == TOK_COLON);
+    assert((definition.first + 3) == definition.second);
+    std::string name = (definition.first + 1)->lexme;
 
-    for (auto def_it = definition.first; def_it != definition.second; ++def_it) {
-        if (def_it->type == TOK_VARIANT && (def_it + 1)->type == TOK_IDENTIFIER) {
-            name = (def_it + 1)->lexme;
-            break;
-        }
-    }
-
-    for (auto body_it = body.first; body_it != body.second; ++body_it) {
-        if (body_it->type == TOK_IDENTIFIER) {
-            if ((body_it + 1)->type == TOK_COMMA) {
-                possible_types.emplace_back(body_it->lexme);
-            } else if ((body_it + 1)->type == TOK_SEMICOLON) {
-                possible_types.emplace_back(body_it->lexme);
+    std::vector<std::shared_ptr<Type>> possible_types;
+    for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second; ++body_it) {
+        if (body_it->token == TOK_TYPE) {
+            if ((body_it + 1)->token == TOK_COMMA) {
+                possible_types.emplace_back(body_it->type);
+            } else if ((body_it + 1)->token == TOK_SEMICOLON) {
+                possible_types.emplace_back(body_it->type);
                 break;
             } else {
                 const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
-                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name, body_it->line, body_it->column, //
-                    expected, body_it->type);
+                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,    //
+                    body_it->line, body_it->column, expected, body_it->token //
+                );
             }
         }
     }
@@ -570,7 +411,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     std::string test_name;
     // Extract the name of the test
     for (auto it = definition.first; it != definition.second; ++it) {
-        if (it->type == TOK_TEST && std::next(it) != definition.second && std::next(it)->type == TOK_STR_VALUE) {
+        if (it->token == TOK_TEST && std::next(it) != definition.second && std::next(it)->token == TOK_STR_VALUE) {
             test_name = std::next(it)->lexme;
         }
     }
@@ -598,7 +439,7 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
     auto iterator = tokens.first;
     if (Matcher::tokens_contain(tokens, Matcher::token(TOK_STR_VALUE))) {
         for (; iterator != tokens.second; ++iterator) {
-            if (iterator->type == TOK_STR_VALUE) {
+            if (iterator->token == TOK_STR_VALUE) {
                 const size_t path_separator = iterator->lexme.find_last_of('/');
                 if (path_separator == std::string::npos) {
                     import_path = std::make_pair(std::nullopt, iterator->lexme.substr(0, iterator->lexme.length()));
@@ -616,7 +457,7 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
         const auto matches = Matcher::get_match_ranges(tokens, Matcher::use_reference).front();
         std::vector<std::string> path;
         for (unsigned int i = matches.first; i < matches.second; i++) {
-            if ((tokens.first + i)->type == TOK_IDENTIFIER) {
+            if ((tokens.first + i)->token == TOK_IDENTIFIER) {
                 path.emplace_back((tokens.first + i)->lexme);
             }
         }
@@ -629,13 +470,13 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
     }
 
     // Check if an alias follows
-    if (iterator->type == TOK_AS) {
+    if (iterator->token == TOK_AS) {
         ++iterator;
         if (iterator == tokens.second) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (iterator->type != TOK_IDENTIFIER) {
+        if (iterator->token != TOK_IDENTIFIER) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }

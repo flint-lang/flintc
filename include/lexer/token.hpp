@@ -3,6 +3,9 @@
 enum Token {
     TOK_EOF,
 
+    // A token representing types (for the combinator)
+    TOK_TYPE,
+
     // single character tokens
     TOK_LEFT_PAREN,
     TOK_RIGHT_PAREN,

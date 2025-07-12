@@ -14,7 +14,7 @@ std::string BaseError::to_string() const {
     return oss.str();
 }
 
-std::string BaseError::trim_right(const std::string &str) const {
+std::string BaseError::trim_right(const std::string &str) {
     size_t size = str.length();
     for (auto it = str.rbegin(); it != str.rend() && std::isspace(*it); ++it) {
         --size;
@@ -22,7 +22,7 @@ std::string BaseError::trim_right(const std::string &str) const {
     return str.substr(0, size);
 }
 
-std::string BaseError::get_token_string(const std::vector<Token> &tokens) const {
+std::string BaseError::get_token_string(const std::vector<Token> &tokens) {
     std::ostringstream oss;
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         if (it != tokens.begin()) {
@@ -33,13 +33,21 @@ std::string BaseError::get_token_string(const std::vector<Token> &tokens) const 
     return oss.str();
 }
 
-[[nodiscard]] std::string BaseError::get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens) const {
+[[nodiscard]] std::string BaseError::get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens) {
     std::stringstream token_str;
     for (auto it = tokens.first; it != tokens.second; it++) {
-        if (std::find(ignore_tokens.begin(), ignore_tokens.end(), it->type) != ignore_tokens.end()) {
+        if (std::find(ignore_tokens.begin(), ignore_tokens.end(), it->token) != ignore_tokens.end()) {
             continue;
         }
-        switch (it->type) {
+        switch (it->token) {
+            case TOK_EOF:
+                continue;
+            case TOK_TYPE:
+                token_str << it->type->to_string();
+                if (space_needed(tokens, it, {TOK_RIGHT_PAREN, TOK_COMMA, TOK_SEMICOLON, TOK_COLON})) {
+                    token_str << " ";
+                }
+                break;
             case TOK_STR_VALUE:
                 token_str << "\"" + it->lexme + "\"";
                 if (space_needed(tokens, it, {TOK_RIGHT_PAREN, TOK_COMMA, TOK_SEMICOLON, TOK_COLON})) {
@@ -75,7 +83,7 @@ std::string BaseError::get_token_string(const std::vector<Token> &tokens) const 
 std::string BaseError::get_function_signature_string(   //
     const std::string &function_name,                   //
     const std::vector<std::shared_ptr<Type>> &arg_types //
-) const {
+) {
     std::stringstream oss;
     oss << function_name << "(";
     for (auto arg = arg_types.begin(); arg != arg_types.end(); ++arg) {
@@ -89,6 +97,6 @@ bool BaseError::space_needed(                  //
     const token_slice &tokens,                 //
     const token_list::const_iterator iterator, //
     const std::vector<Token> &ignores          //
-) const {
-    return iterator != std::prev(tokens.second) && std::find(ignores.begin(), ignores.end(), std::next(iterator)->type) == ignores.end();
+) {
+    return iterator != std::prev(tokens.second) && std::find(ignores.begin(), ignores.end(), std::next(iterator)->token) == ignores.end();
 }

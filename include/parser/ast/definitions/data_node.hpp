@@ -12,12 +12,12 @@
 class DataNode : public ASTNode {
   public:
     DataNode() = default;
-    explicit DataNode(                                                                                        //
-        const bool is_shared,                                                                                 //
-        const bool is_immutable,                                                                              //
-        const bool is_aligned,                                                                                //
-        const std::string &name,                                                                              //
-        const std::vector<std::tuple<std::string, std::shared_ptr<Type>, std::optional<std::string>>> &fields //
+    explicit DataNode(                                                           //
+        const bool is_shared,                                                    //
+        const bool is_immutable,                                                 //
+        const bool is_aligned,                                                   //
+        const std::string &name,                                                 //
+        const std::vector<std::pair<std::string, std::shared_ptr<Type>>> &fields //
         ) :
         is_shared(is_shared),
         is_immutable(is_immutable),
@@ -47,6 +47,5 @@ class DataNode : public ASTNode {
     /// @details
     ///     - The first value is the name of the field
     ///     - The second value is the type of the field
-    ///     - The third value is an optional default value
-    std::vector<std::tuple<std::string, std::shared_ptr<Type>, std::optional<std::string>>> fields;
+    std::vector<std::pair<std::string, std::shared_ptr<Type>>> fields;
 };

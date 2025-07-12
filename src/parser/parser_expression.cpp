@@ -45,7 +45,7 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
             type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
             // Not castable, wrong arg types
             // TODO: Make the token list ant column and line the actual line and column the type mismatch occurs at
-            token_list token_list = {TokenContext{TOK_EOF, "EOF", 1, 1}};
+            token_list token_list = {TokenContext(TOK_EOF, 1, 1, "EOF")};
             token_slice tokens = {token_list.begin(), token_list.end()};
             THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, lhs_type, rhs_type);
             return std::nullopt;
@@ -240,7 +240,7 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
 std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_slice &tokens) {
     std::optional<VariableNode> var = std::nullopt;
     for (auto tok = tokens.first; tok != tokens.second; tok++) {
-        if (tok->type == TOK_IDENTIFIER) {
+        if (tok->token == TOK_IDENTIFIER) {
             std::string name = tok->lexme;
             if (scope->variables.find(name) == scope->variables.end()) {
                 THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tok->line, tok->column, name);
@@ -277,10 +277,10 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     token_list::iterator tok;
     if (get_slice_size(tokens) == 2) {
         // Currently the only literal experssion is a minus sign in front of the literal, or a $ sign in front of the string
-        if (tokens.first->type == TOK_MINUS) {
+        if (tokens.first->token == TOK_MINUS) {
             front_token = TOK_MINUS;
             tok = (tokens.first + 1);
-        } else if (tokens.first->type == TOK_DOLLAR) {
+        } else if (tokens.first->token == TOK_DOLLAR) {
             front_token = TOK_DOLLAR;
         } else {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -291,7 +291,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
 
     if (Matcher::tokens_match({tok, tok + 1}, Matcher::literal)) {
         std::variant<unsigned long, long, unsigned int, int, double, float, std::string, bool, char> value;
-        switch (tok->type) {
+        switch (tok->token) {
             default:
                 THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, tok->lexme);
                 return std::nullopt;
@@ -422,14 +422,14 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
         // Add string before first { or between } and {
         if (it == ranges.begin() && it->first > 0) {
             // Add string that's present before the first { symbol
-            token_list lit_toks = {{TOK_STR_VALUE, interpol_string.substr(0, it->first), 0, 0}};
+            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, interpol_string.substr(0, it->first)}};
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         } else if (it != ranges.begin() && it->first - std::prev(it)->second > 1) {
             // Add string in between } and { symbols
             size_t start_pos = std::prev(it)->second + 1; // Position after previous }
             size_t length = it->first - start_pos;        // Length until current {
-            token_list lit_toks = {{TOK_STR_VALUE, interpol_string.substr(start_pos, length), 0, 0}};
+            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, interpol_string.substr(start_pos, length)}};
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
@@ -444,6 +444,9 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
             return std::nullopt;
         }
         token_slice expr_tokens_slice = {expr_tokens.begin(), expr_tokens.end()};
+        if (expr_tokens.back().token == TOK_EOF) {
+            expr_tokens_slice.second--;
+        }
         std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expr_tokens_slice);
         if (!expr.has_value()) {
             THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens_slice);
@@ -459,7 +462,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
         // Add string after last } symbol
         if (std::next(it) == ranges.end() && it->second + 1 < interpol_string.length()) {
             size_t start_pos = it->second + 1; // Position after }
-            token_list lit_toks = {{TOK_STR_VALUE, interpol_string.substr(start_pos), 0, 0}};
+            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, interpol_string.substr(start_pos)}};
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
@@ -467,8 +470,11 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
     return StringInterpolationNode(interpol_content);
 }
 
-std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>> //
-Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &tokens, const std::optional<std::string> &alias_base) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( //
+    Scope *scope,                                                              //
+    const token_slice &tokens,                                                 //
+    const std::optional<std::string> &alias_base                               //
+) {
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
     auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
@@ -476,36 +482,47 @@ Parser::create_call_or_initializer_expression(Scope *scope, const token_slice &t
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
-    // Now, check if its a initializer or a call
-    if (std::get<3>(call_or_init_node_args.value()).has_value()) {
-        // Its an initializer
-        std::vector<std::unique_ptr<ExpressionNode>> args;
-        for (auto &arg : std::get<1>(call_or_init_node_args.value())) {
-            args.emplace_back(std::move(arg.first));
-        }
-        std::unique_ptr<InitializerNode> initializer_node = std::make_unique<InitializerNode>( //
-            std::get<2>(call_or_init_node_args.value()),                                       // type
-            std::get<3>(call_or_init_node_args.value()).value(),                               // is_data
-            args                                                                               // args
-        );
-        return initializer_node;
-    } else {
-        // Its a call
-        std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
-            std::get<0>(call_or_init_node_args.value()),                                      // name
-            std::get<1>(call_or_init_node_args.value()),                                      // args
-            std::get<4>(call_or_init_node_args.value()),                                      // can_throw
-            std::get<2>(call_or_init_node_args.value())                                       // type
-        );
-        call_node->scope_id = scope->scope_id;
-        last_parsed_call = call_node.get();
-        return call_node;
+    assert(!std::get<3>(call_or_init_node_args.value()).has_value());
+    std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
+        std::get<0>(call_or_init_node_args.value()),                                      // name
+        std::get<1>(call_or_init_node_args.value()),                                      // args
+        std::get<4>(call_or_init_node_args.value()),                                      // can_throw
+        std::get<2>(call_or_init_node_args.value())                                       // type
+    );
+    call_node->scope_id = scope->scope_id;
+    last_parsed_call = call_node.get();
+    return call_node;
+}
+
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
+    Scope *scope,                                                          //
+    const token_slice &tokens,                                             //
+    const std::optional<std::string> &alias_base                           //
+) {
+    token_slice tokens_mut = tokens;
+    remove_surrounding_paren(tokens_mut);
+    auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
+    if (!call_or_init_node_args.has_value()) {
+        THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
+        return std::nullopt;
     }
+    assert(std::get<3>(call_or_init_node_args.value()).has_value());
+    std::vector<std::unique_ptr<ExpressionNode>> args;
+    for (auto &arg : std::get<1>(call_or_init_node_args.value())) {
+        args.emplace_back(std::move(arg.first));
+    }
+    std::unique_ptr<InitializerNode> initializer_node = std::make_unique<InitializerNode>( //
+        std::get<2>(call_or_init_node_args.value()),                                       // type
+        std::get<3>(call_or_init_node_args.value()).value(),                               // is_data
+        args                                                                               // args
+    );
+    return initializer_node;
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(Scope *scope, const token_slice &tokens) {
+    assert(tokens.first->token == TOK_TYPE);
+    assert(std::next(tokens.first)->token == TOK_LEFT_PAREN);
     token_slice tokens_mut = tokens;
-    remove_surrounding_paren(tokens_mut);
     std::optional<uint2> expr_range = Matcher::balanced_range_extraction(           //
         tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
     );
@@ -519,18 +536,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(Scope *s
     assert(expr_range.value().second > expr_range.value().first);
 
     // Get the type the expression needs to be converted to
-    TokenContext type_token = TokenContext{TOK_EOF, "", 0, 0};
-    for (auto iterator = tokens_mut.first; iterator != tokens_mut.second; ++iterator) {
-        if (Matcher::tokens_match({iterator, iterator + 1}, Matcher::type_prim) && std::next(iterator) != tokens_mut.second &&
-            std::next(iterator)->type == TOK_LEFT_PAREN) {
-            type_token = *iterator;
-            break;
-        }
-    }
-    if (type_token.type == TOK_EOF) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
+    std::shared_ptr<Type> to_type = tokens.first->type;
+    std::string to_type_string = to_type->to_string();
 
     // Create the expression
     token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
@@ -540,40 +547,38 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(Scope *s
         return std::nullopt;
     }
 
+    // Check if the expression already is the desired type, in that case just return the expression directly
+    if (expression.value()->type == to_type) {
+        return expression;
+    }
+
     // Check if the type of the expression is castable at all
     if (primitive_casting_table.find(expression.value()->type->to_string()) == primitive_casting_table.end()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     const std::vector<std::string_view> &to_types = primitive_casting_table.at(expression.value()->type->to_string());
-    if (std::find(to_types.begin(), to_types.end(), type_token.lexme) == to_types.end()) {
+    if (std::find(to_types.begin(), to_types.end(), to_type_string) == to_types.end()) {
         // The given expression type cannot be cast to the wanted type
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    // Check if the expression already is the desired type, in that case just return the expression directly
-    if (expression.value()->type == Type::get_primitive_type(type_token.lexme)) {
-        return expression;
-    }
 
-    return std::make_unique<TypeCastNode>(Type::get_primitive_type(type_token.lexme), expression.value());
+    return std::make_unique<TypeCastNode>(to_type, expression.value());
 }
 
 std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
-    token_list toks = clone_from_slice(tokens_mut);
-    // First, remove all leading and trailing garbage from the expression tokens
-    remove_leading_garbage(tokens_mut);
+    // First, remove all trailing garbage from the expression tokens
     remove_trailing_garbage(tokens_mut);
     // Now, the first and the last token must be open and closing parenthesis respectively
-    assert(tokens_mut.first->type == TOK_LEFT_PAREN);
-    assert(std::prev(tokens_mut.second)->type == TOK_RIGHT_PAREN);
+    assert(tokens_mut.first->token == TOK_LEFT_PAREN);
+    assert(std::prev(tokens_mut.second)->token == TOK_RIGHT_PAREN);
     // Remove the open and closing parenthesis
     tokens_mut.first++;
     tokens_mut.second--;
 
     // Get all balanced match ranges of commas in the group expression
-    toks = clone_from_slice(tokens_mut);
     std::vector<uint2> match_ranges = Matcher::get_match_ranges(tokens_mut, Matcher::until_comma);
     // Its not a group expression, there is only one expression inside the parenthesis, this should never happen
     assert(!match_ranges.empty());
@@ -652,9 +657,9 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
     return expressions;
 }
 
-std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, const token_slice &tokens) {
+std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, const token_slice &tokens, const bool is_type_access) {
     token_slice tokens_mut = tokens;
-    auto field_access_base = create_field_access_base(scope, tokens_mut);
+    auto field_access_base = create_field_access_base(scope, tokens_mut, is_type_access);
     if (!field_access_base.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -699,7 +704,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     remove_surrounding_paren(initializer_tokens);
     // Now we can create the initializer expression
     std::optional<std::unique_ptr<ExpressionNode>> initializer;
-    if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->type == TOK_UNDERSCORE) {
+    if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {
         initializer = std::make_unique<DefaultNode>(element_type.value());
     } else {
         initializer = create_expression(scope, initializer_tokens);
@@ -710,10 +715,10 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     }
 
     // The first token in the tokens list should be a left bracket
-    assert(tokens_mut.first->type == TOK_LEFT_BRACKET);
+    assert(tokens_mut.first->token == TOK_LEFT_BRACKET);
     tokens_mut.first++;
     // The last token in the tokens list should be a right bracket
-    assert(std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET);
+    assert(std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET);
     tokens_mut.second--;
     // Now, everything left in the `tokens_mut` vector should be the length expressions [...]
     auto length_expressions = create_group_expressions(scope, tokens_mut);
@@ -739,7 +744,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
 std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     // The tokens should begin with an identifier, otherwise we have done something wrong somewhere
-    assert(tokens_mut.first->type == TOK_IDENTIFIER);
+    assert(tokens_mut.first->token == TOK_IDENTIFIER);
     const std::string variable_name = tokens_mut.first->lexme;
     std::optional<std::shared_ptr<Type>> variable_type = scope->get_variable_type(variable_name);
     if (!variable_type.has_value()) {
@@ -759,9 +764,9 @@ std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, const t
     tokens_mut.first++;
 
     // Now the tokens should begin with a left bracket and end with a right bracket, otherwise we did something wrong elsewhere
-    assert(tokens_mut.first->type == TOK_LEFT_BRACKET);
+    assert(tokens_mut.first->token == TOK_LEFT_BRACKET);
     tokens_mut.first++;
-    assert(std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET);
+    assert(std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET);
     tokens_mut.second--;
     std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(scope, tokens_mut);
     if (!indexing_expressions.has_value()) {
@@ -793,11 +798,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
     auto separator = tokens_mut.second - 1;
     size_t depth = 0;
     for (; separator != tokens_mut.first; --separator) {
-        if (separator->type == TOK_RIGHT_PAREN) {
+        if (separator->token == TOK_RIGHT_PAREN) {
             depth++;
-        } else if (separator->type == TOK_LEFT_PAREN) {
+        } else if (separator->token == TOK_LEFT_PAREN) {
             depth--;
-        } else if (separator->type == TOK_DOT && depth == 0) {
+        } else if (separator->token == TOK_DOT && depth == 0) {
             break;
         }
     }
@@ -814,7 +819,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
     const std::shared_ptr<Type> left_expr_type = left_expr.value()->type;
     ++separator;
     if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(left_expr_type.get())) {
-        if (separator->type != TOK_DOLLAR || std::next(separator)->type != TOK_INT_VALUE) {
+        if (separator->token != TOK_DOLLAR || std::next(separator)->token != TOK_INT_VALUE) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -828,7 +833,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
         }
         return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, tuple_type->types.at(field_id));
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(left_expr_type.get())) {
-        if (separator->type == TOK_IDENTIFIER) {
+        if (separator->token == TOK_IDENTIFIER) {
             if (multi_type->width > 4) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -862,7 +867,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
             }
             std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
             return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, multi_type->base_type);
-        } else if (separator->type == TOK_DOLLAR && std::next(separator)->type == TOK_INT_VALUE) {
+        } else if (separator->token == TOK_DOLLAR && std::next(separator)->token == TOK_INT_VALUE) {
             // Handle the special case of tuple / multi-type accesses in a stacked expression
             size_t field_id = std::stoul(std::next(separator)->lexme);
             std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
@@ -876,7 +881,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
             assert(false);
         }
     } else if (const DataType *data_type = dynamic_cast<const DataType *>(left_expr_type.get())) {
-        if (separator->type != TOK_IDENTIFIER) {
+        if (separator->token != TOK_IDENTIFIER) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -940,7 +945,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
         } else if (Matcher::tokens_match(tokens_mut, Matcher::string_interpolation)) {
-            assert(tokens_mut.first->type == TOK_DOLLAR && std::prev(tokens_mut.second)->type == TOK_STR_VALUE);
+            assert(tokens_mut.first->token == TOK_DOLLAR && std::prev(tokens_mut.second)->token == TOK_STR_VALUE);
             std::optional<StringInterpolationNode> interpol = create_string_interpolation(scope, std::prev(tokens_mut.second)->lexme);
             if (!interpol.has_value()) {
                 THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
@@ -956,23 +961,18 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
             // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
             // located on the right of the call still
             // The first element should be an initializer for the alias
-            assert(tokens_mut.first->type == TOK_IDENTIFIER);
+            assert(tokens_mut.first->token == TOK_IDENTIFIER);
             const std::string alias_base = tokens_mut.first->lexme;
             tokens_mut.first++;
             // Then a dot should follow
-            assert(tokens_mut.first->type == TOK_DOT);
+            assert(tokens_mut.first->token == TOK_DOT);
             tokens_mut.first++;
-            // The rest is the call itself
-            auto call_or_initializer_expression = create_call_or_initializer_expression(scope, tokens_mut, alias_base);
-            if (!call_or_initializer_expression.has_value()) {
+            auto call_node = create_call_expression(scope, tokens_mut, alias_base);
+            if (!call_node.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            if (std::holds_alternative<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value())) {
-                return std::move(std::get<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value()));
-            } else {
-                return std::move(std::get<std::unique_ptr<InitializerNode>>(call_or_initializer_expression.value()));
-            }
+            return std::move(call_node.value());
         }
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::function_call)) {
@@ -980,16 +980,29 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
         if (range.has_value() && range.value().second == token_size) {
             // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
             // located on the right of the call still
-            auto call_or_initializer_expression = create_call_or_initializer_expression(scope, tokens_mut, std::nullopt);
-            if (!call_or_initializer_expression.has_value()) {
+            auto call_node = create_call_expression(scope, tokens_mut, std::nullopt);
+            if (!call_node.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            if (std::holds_alternative<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value())) {
-                return std::move(std::get<std::unique_ptr<CallNodeExpression>>(call_or_initializer_expression.value()));
-            } else {
-                return std::move(std::get<std::unique_ptr<InitializerNode>>(call_or_initializer_expression.value()));
+            return call_node;
+        }
+    }
+    if (Matcher::tokens_match(tokens_mut, Matcher::aliased_initializer)) {
+        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
+        if (range.has_value() && range.value().second == token_size) {
+            assert(tokens_mut.first->token == TOK_IDENTIFIER);
+            const std::string alias_base = tokens_mut.first->lexme;
+            tokens_mut.first++;
+            // Then a dot should follow
+            assert(tokens_mut.first->token == TOK_DOT);
+            tokens_mut.first++;
+            auto initializer_node = create_initializer(scope, tokens_mut, alias_base);
+            if (!initializer_node.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
             }
+            return initializer_node;
         }
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::group_expression)) {
@@ -1004,12 +1017,23 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
         }
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::type_cast)) {
-        std::optional<std::unique_ptr<ExpressionNode>> type_cast = create_type_cast(scope, tokens_mut);
-        if (!type_cast.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
+        if (primitives.find(tokens_mut.first->type->to_string()) == primitives.end()) {
+            // It's an initializer
+            std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(scope, tokens_mut, std::nullopt);
+            if (!initializer.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return initializer;
+        } else {
+            // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer
+            std::optional<std::unique_ptr<ExpressionNode>> type_cast = create_type_cast(scope, tokens_mut);
+            if (!type_cast.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return type_cast;
         }
-        return type_cast;
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::unary_op_expr)) {
         // For it to be considered an unary operation, either right after the operator needs to come a paren group, or no other binop
@@ -1024,9 +1048,19 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
             return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
         }
     }
+    if (Matcher::tokens_match(tokens_mut, Matcher::type_field_access)) {
+        if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
+            std::optional<DataAccessNode> data_access = create_data_access(scope, tokens_mut, true);
+            if (!data_access.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<DataAccessNode>(std::move(data_access.value()));
+        }
+    }
     if (Matcher::tokens_match(tokens_mut, Matcher::data_access)) {
-        if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->type == TOK_INT_VALUE)) {
-            std::optional<DataAccessNode> data_access = create_data_access(scope, tokens_mut);
+        if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
+            std::optional<DataAccessNode> data_access = create_data_access(scope, tokens_mut, false);
             if (!data_access.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -1073,12 +1107,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
     // Start at the first index because the first token is never a unary operator
     for (auto it = std::next(tokens_mut.first); it != tokens_mut.second; ++it) {
         // Skip tokens inside parentheses or function calls
-        if (std::prev(it)->type == TOK_LEFT_PAREN) {
+        if (std::prev(it)->token == TOK_LEFT_PAREN) {
             int paren_depth = 1;
             while (++it != tokens_mut.second && paren_depth > 0) {
-                if (it->type == TOK_LEFT_PAREN) {
+                if (it->token == TOK_LEFT_PAREN) {
                     paren_depth++;
-                } else if (it->type == TOK_RIGHT_PAREN) {
+                } else if (it->token == TOK_RIGHT_PAREN) {
                     paren_depth--;
                 }
             }
@@ -1089,16 +1123,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
 
         // Check if this is a operator and if no operator is to the left of this operator. If there is any operator to the left of this
         // one, this means that this operator is an unary operator
-        if (token_precedence.find(it->type) != token_precedence.end() &&
-            token_precedence.find(std::prev(it)->type) == token_precedence.end()) {
+        if (token_precedence.find(it->token) != token_precedence.end() &&
+            token_precedence.find(std::prev(it)->token) == token_precedence.end()) {
             // Update smallest precedence if needed
-            const unsigned int precedence = token_precedence.at(it->type);
-            const Associativity associativity = token_associativity.at(it->type);
+            const unsigned int precedence = token_precedence.at(it->token);
+            const Associativity associativity = token_associativity.at(it->token);
             if ((precedence <= smallest_precedence && associativity == Associativity::LEFT) ||
                 (precedence < smallest_precedence && associativity == Associativity::RIGHT)) {
                 smallest_precedence = precedence;
                 pivot_pos = std::distance(tokens_mut.first, it);
-                pivot_token = it->type;
+                pivot_token = it->token;
             }
         }
     }

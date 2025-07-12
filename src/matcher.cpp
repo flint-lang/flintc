@@ -1,7 +1,6 @@
 #include "matcher/matcher.hpp"
 
 #include <cassert>
-#include <mutex>
 #include <regex>
 
 std::optional<uint2> Matcher::balanced_range_extraction( //
@@ -174,10 +173,7 @@ bool Matcher::tokens_match(const token_slice &tokens, const PatternPtr &pattern)
 }
 
 bool Matcher::token_match(const Token token, const PatternPtr &pattern) {
-    static std::mutex match_mutex;
-    static token_list match_list(1);
-    std::lock_guard<std::mutex> lock(match_mutex);
-    match_list[0] = {token, "", 0, 0};
+    token_list match_list = {TokenContext{token, 0, 0, ""}};
     return tokens_match({match_list.begin(), match_list.end()}, pattern);
 }
 
@@ -272,11 +268,11 @@ std::optional<unsigned int> Matcher::get_leading_indents(const token_slice &toke
     for (size_t i = 0; i < tokens_size; i++) {
         if (start_index == -1 && (tokens.first + i)->line == line) {
             start_index = i;
-            if ((tokens.first + i)->type == TOK_INDENT) {
+            if ((tokens.first + i)->token == TOK_INDENT) {
                 ++leading_indents;
             }
         } else if (start_index != -1) {
-            if ((tokens.first + i)->type == TOK_INDENT) {
+            if ((tokens.first + i)->token == TOK_INDENT) {
                 ++leading_indents;
             } else {
                 break;

@@ -150,8 +150,8 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
         if (primitive_type->type_name == "__flint_type_str_lit") {
             return {llvm::Type::getInt8Ty(context)->getPointerTo(), false};
         }
-        if (keywords.find(primitive_type->type_name) != keywords.end()) {
-            switch (keywords.at(primitive_type->type_name)) {
+        if (primitives.find(primitive_type->type_name) != primitives.end()) {
+            switch (primitives.at(primitive_type->type_name)) {
                 default:
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return {nullptr, false};

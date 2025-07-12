@@ -142,11 +142,11 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
     token_slice tokens_mut = tokens;
     // If the size of the token type list is 1, its definitely a simple type
     if (std::next(tokens_mut.first) == tokens_mut.second) {
-        if (Matcher::token_match(tokens_mut.first->type, Matcher::type_prim)) {
+        if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim)) {
             // Its definitely a primitive type, but all primitive types should have been created by default annyway, so this should not be
             // possible
             assert(false);
-        } else if (Matcher::token_match(tokens_mut.first->type, Matcher::type_prim_mult)) {
+        } else if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim_mult)) {
             // Its a multi-type
             const std::string &type_string = tokens_mut.first->lexme;
             // The last character should be a number
@@ -167,16 +167,16 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
         return std::make_shared<UnknownType>(tokens_mut.first->lexme);
     }
     // If the type list ends with a ], its definitely an array type
-    if (std::prev(tokens_mut.second)->type == TOK_RIGHT_BRACKET) {
+    if (std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET) {
         tokens_mut.second--; // Remove the ]
         // Now, check how many commas follow (in reverse order) to get the dimensionality
         size_t dimensionality = 1;
-        while (std::prev(tokens_mut.second)->type == TOK_COMMA) {
+        while (std::prev(tokens_mut.second)->token == TOK_COMMA) {
             dimensionality++;
             tokens_mut.second--;
         }
         // Now, check if the last element is either a literal or a [ token
-        if (std::prev(tokens_mut.second)->type == TOK_LEFT_BRACKET) {
+        if (std::prev(tokens_mut.second)->token == TOK_LEFT_BRACKET) {
             tokens_mut.second--; // Remove the [
             std::optional<std::shared_ptr<Type>> arr_type = get_type(tokens_mut, mutex_already_locked);
             if (!arr_type.has_value()) {
@@ -188,19 +188,19 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-    } else if (std::prev(tokens_mut.second)->type == TOK_GREATER) {
+    } else if (std::prev(tokens_mut.second)->token == TOK_GREATER) {
         // Its a nested type
-        if (tokens_mut.first->type == TOK_DATA) {
+        if (tokens_mut.first->token == TOK_DATA) {
             // Its a tuple type
             tokens_mut.first++;
             // Now should come a '<' token
-            if (tokens_mut.first->type != TOK_LESS) {
+            if (tokens_mut.first->token != TOK_LESS) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             tokens_mut.first++;
             // The last token should be a '>' token
-            if (std::prev(tokens_mut.second)->type != TOK_GREATER) {
+            if (std::prev(tokens_mut.second)->token != TOK_GREATER) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
@@ -209,10 +209,10 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
             int depth = 1;
             auto type_start = tokens_mut.first;
             while (tokens_mut.first != tokens_mut.second) {
-                if (tokens_mut.first->type == TOK_LESS || tokens_mut.first->type == TOK_LEFT_BRACKET) {
+                if (tokens_mut.first->token == TOK_LESS || tokens_mut.first->token == TOK_LEFT_BRACKET) {
                     depth++;
                     tokens_mut.first++;
-                } else if (tokens_mut.first->type == TOK_GREATER || tokens_mut.first->type == TOK_RIGHT_BRACKET) {
+                } else if (tokens_mut.first->token == TOK_GREATER || tokens_mut.first->token == TOK_RIGHT_BRACKET) {
                     depth--;
                     tokens_mut.first++;
                     if (depth < 0 && tokens_mut.first != tokens_mut.second) {
@@ -234,7 +234,7 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
                         }
                         subtypes.emplace_back(type_result.value());
                     }
-                } else if (depth == 1 && tokens_mut.first->type == TOK_COMMA) {
+                } else if (depth == 1 && tokens_mut.first->token == TOK_COMMA) {
                     auto type_result = get_type({type_start, tokens_mut.first}, mutex_already_locked);
                     if (!type_result.has_value()) {
                         THROW_BASIC_ERR(ERR_PARSING);

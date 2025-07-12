@@ -163,7 +163,7 @@ llvm::Value *Generator::Expression::generate_variable( //
             // If it's a parameter, and its an mutable primitive type, we dont return it directly, toherwise we do
             if (ctx.scope->variables.find(arg.getName().str()) != ctx.scope->variables.end()) {
                 auto var = ctx.scope->variables.at(arg.getName().str());
-                if (keywords.find(std::get<0>(var)->to_string()) != keywords.end() && std::get<2>(var)) {
+                if (primitives.find(std::get<0>(var)->to_string()) != primitives.end() && std::get<2>(var)) {
                     continue;
                 }
             }

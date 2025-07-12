@@ -1,7 +1,3 @@
-use Core.print
-use Core.system
-
 def main():
-    (exit_code, output) := system_command("ls -lah");
-    print($"exit_code = {exit_code}\n");
-    print($"output = {output}\n");
+	i32 x = 7;
+	i32 x = 8;

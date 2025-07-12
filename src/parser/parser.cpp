@@ -25,19 +25,19 @@ Parser *Parser::create(const std::filesystem::path &file) {
 std::optional<FileNode *> Parser::parse() {
     PROFILE_SCOPE("Parse file '" + file_name + "'");
     file_node_ptr = std::make_unique<FileNode>(file_name);
-    token_list tokens = Lexer(file).scan();
-    if (tokens.empty()) {
+    file_node_ptr->tokens = Lexer(file).scan();
+    if (file_node_ptr->tokens.empty()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    token_slice token_slice = {tokens.begin(), tokens.end()};
+    token_slice token_slice = {file_node_ptr->tokens.begin(), file_node_ptr->tokens.end()};
     if (PRINT_TOK_STREAM) {
         Debug::print_token_context_vector(token_slice, file_name);
     }
     // Consume all tokens and convert them to nodes
     bool had_failure = false;
     while (token_slice.first != token_slice.second) {
-        if (!add_next_main_node(*(file_node_ptr.get()), token_slice)) {
+        if (!add_next_main_node(*(file_node_ptr.get()), token_slice, file_node_ptr->tokens)) {
             had_failure = true;
         }
     }
@@ -107,12 +107,11 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Functions");
 
     // Define a task to process a single function
-    auto process_function = [](Parser &parser, FunctionNode *function, token_list tokens) -> bool {
+    auto process_function = [](Parser &parser, FunctionNode *function, std::vector<Line> &body) -> bool {
         // Create the body and add the body statements to the created scope
-        token_slice ts = {tokens.begin(), tokens.end()};
-        auto body_statements = parser.create_body(function->scope.get(), ts);
+        auto body_statements = parser.create_body(function->scope.get(), body);
         if (!body_statements.has_value()) {
-            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, ts);
+            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, body);
             return false;
         }
         function->scope.get()->body = std::move(body_statements.value());
@@ -126,9 +125,9 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
         // Iterate through all parsers and their open functions
         for (auto &parser : Parser::instances) {
             while (auto next = parser.get_next_open_function()) {
-                auto &[function, tokens] = next.value();
+                auto &[function, body] = next.value();
                 // Enqueue a task for each function
-                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), function, std::move(tokens)));
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), function, std::ref(body)));
             }
         }
         // Collect results from all tasks
@@ -139,8 +138,8 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
         // Process functions sequentially
         for (auto &parser : Parser::instances) {
             while (auto next = parser.get_next_open_function()) {
-                auto &[function, tokens] = next.value();
-                result = result && process_function(parser, function, std::move(tokens));
+                auto &[function, body] = next.value();
+                result = result && process_function(parser, function, std::ref(body));
             }
         }
     }
@@ -151,12 +150,11 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Tests");
 
     // Define a task to process a single test
-    auto process_test = [](Parser &parser, TestNode *test, token_list tokens) -> bool {
+    auto process_test = [](Parser &parser, TestNode *test, std::vector<Line> &body) -> bool {
         // Create the body and add the body statements to the created scope
-        token_slice ts = {tokens.begin(), tokens.end()};
-        auto body_statements = parser.create_body(test->scope.get(), ts);
+        auto body_statements = parser.create_body(test->scope.get(), body);
         if (!body_statements.has_value()) {
-            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, ts);
+            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, body);
             return false;
         }
         test->scope.get()->body = std::move(body_statements.value());
@@ -170,9 +168,9 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         // Iterate through all parsers and their open functions
         for (auto &parser : Parser::instances) {
             while (auto next = parser.get_next_open_test()) {
-                auto &[test, tokens] = next.value();
+                auto &[test, body] = next.value();
                 // Enqueue a task for each function
-                futures.emplace_back(thread_pool.enqueue(process_test, std::ref(parser), test, std::move(tokens)));
+                futures.emplace_back(thread_pool.enqueue(process_test, std::ref(parser), test, std::ref(body)));
             }
         }
         // Collect results from all tasks
@@ -183,8 +181,8 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         // Process functions sequentially
         for (auto &parser : Parser::instances) {
             while (auto next = parser.get_next_open_test()) {
-                auto &[test, tokens] = next.value();
-                result = result && process_test(parser, test, std::move(tokens));
+                auto &[test, body] = next.value();
+                result = result && process_test(parser, test, std::ref(body));
             }
         }
     }

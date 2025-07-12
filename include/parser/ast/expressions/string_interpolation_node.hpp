@@ -12,8 +12,7 @@ class StringInterpolationNode : public ExpressionNode {
   public:
     StringInterpolationNode(std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> &string_content) :
         string_content(std::move(string_content)) {
-        token_list tokens = {{TOK_IDENTIFIER, "str", 0, 0}};
-        this->type = Type::get_type({tokens.begin(), tokens.end()}).value();
+        this->type = Type::get_primitive_type("str");
     }
 
     /// @var `string_content`

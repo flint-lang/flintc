@@ -95,33 +95,6 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     // import keywords
     {"use", TOK_USE},
     {"as", TOK_AS},
-    // primitives
-    {"void", TOK_VOID},
-    {"bool", TOK_BOOL},
-    {"u8", TOK_U8},
-    {"str", TOK_STR},
-    {"flint", TOK_FLINT},
-    {"u32", TOK_U32},
-    {"i32", TOK_I32},
-    {"bool8", TOK_BOOL8},
-    {"i32x2", TOK_I32X2},
-    {"i32x3", TOK_I32X3},
-    {"i32x4", TOK_I32X4},
-    {"i32x8", TOK_I32X8},
-    {"u64", TOK_U64},
-    {"i64", TOK_I64},
-    {"i64x2", TOK_I64X2},
-    {"i64x3", TOK_I64X3},
-    {"i64x4", TOK_I64X4},
-    {"f32", TOK_F32},
-    {"f32x2", TOK_F32X2},
-    {"f32x3", TOK_F32X3},
-    {"f32x4", TOK_F32X4},
-    {"f32x8", TOK_F32X8},
-    {"f64", TOK_F64},
-    {"f64x2", TOK_F64X2},
-    {"f64x3", TOK_F64X3},
-    {"f64x4", TOK_F64X4},
     // builtin values
     {"true", TOK_TRUE},
     {"false", TOK_FALSE},
@@ -150,7 +123,39 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     {"test", TOK_TEST},
 };
 
+static const std::unordered_map<std::string_view, Token> primitives = {
+    {"void", TOK_VOID},
+    {"bool", TOK_BOOL},
+    {"u8", TOK_U8},
+    {"str", TOK_STR},
+    {"flint", TOK_FLINT},
+    {"u32", TOK_U32},
+    {"i32", TOK_I32},
+    {"bool8", TOK_BOOL8},
+    {"i32x2", TOK_I32X2},
+    {"i32x3", TOK_I32X3},
+    {"i32x4", TOK_I32X4},
+    {"i32x8", TOK_I32X8},
+    {"u64", TOK_U64},
+    {"i64", TOK_I64},
+    {"i64x2", TOK_I64X2},
+    {"i64x3", TOK_I64X3},
+    {"i64x4", TOK_I64X4},
+    {"f32", TOK_F32},
+    {"f32x2", TOK_F32X2},
+    {"f32x3", TOK_F32X3},
+    {"f32x4", TOK_F32X4},
+    {"f32x8", TOK_F32X8},
+    {"f64", TOK_F64},
+    {"f64x2", TOK_F64X2},
+    {"f64x3", TOK_F64X3},
+    {"f64x4", TOK_F64X4},
+};
+
 static std::string get_token_name(Token token) {
+    if (token == TOK_TYPE) {
+        return "TOK_TYPE";
+    }
     if (token == TOK_STR_VALUE) {
         return "STR_VALUE";
     }

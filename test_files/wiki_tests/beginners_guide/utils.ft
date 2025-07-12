@@ -1,3 +1,6 @@
+use Core.system
+use Core.assert
+
 def starts_with(str string, str check) -> bool:
 	if string.length < check.length:
 		return false;
@@ -5,3 +8,16 @@ def starts_with(str string, str check) -> bool:
 		if c != string[i]:
 			return false;
 	return true;
+
+def test_file_ok(str file, str expected_output):
+	(exit_code, output) := system_command($"flintc --file {file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(output == expected_output);
+
+def test_file_fail(str file, str expected_output):
+	(exit_code, output) := system_command($"flintc --no-colors --file {file}");
+	assert(exit_code == 1);
+	assert(starts_with(output, expected_output));

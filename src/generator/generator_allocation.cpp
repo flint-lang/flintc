@@ -118,7 +118,7 @@ void Generator::Allocation::generate_function_allocations(            //
     for (auto &arg : parent->args()) {
         const auto &param = function->parameters.at(param_id);
         const std::string param_name = "s" + std::to_string(function->scope->scope_id) + "::" + std::get<1>(param);
-        if (keywords.find(std::get<0>(param)->to_string()) == keywords.end()) {
+        if (primitives.find(std::get<0>(param)->to_string()) == primitives.end()) {
             // Its not a primitive type, this means it must be passed by reference
             allocations.emplace(param_name, &arg);
         } else {

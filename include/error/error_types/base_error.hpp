@@ -23,6 +23,14 @@ class BaseError {
     BaseError(BaseError &&) = default;
     BaseError &operator=(BaseError &&) = default;
 
+    /// @function `get_token_string`
+    /// @brief Returns the string representation of a given list of tokens, and tries to format it correctly too
+    ///
+    /// @param `tokens` The list of tokens whose string representation will be returned
+    /// @param `ignore_tokens` The list of token types to ignore
+    /// @return `std::string` The formatted string representation of the tokens
+    [[nodiscard]] static std::string get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens);
+
   protected:
     BaseError(const ErrorType error_type, std::string file, int line, int column) :
         error_type(error_type),
@@ -51,22 +59,14 @@ class BaseError {
     ///
     /// @param `str` The string to trim
     /// @return `std::string` The trimmed string
-    [[nodiscard]] std::string trim_right(const std::string &str) const;
+    [[nodiscard]] static std::string trim_right(const std::string &str);
 
     /// @function `get_token_string`
     /// @brief Returns the string representation of a given token stream
     ///
     /// @param `tokens` The token stream to get the string from
     /// @return `std::string` The string representation of the given token stream
-    [[nodiscard]] std::string get_token_string(const std::vector<Token> &tokens) const;
-
-    /// @function `get_token_string`
-    /// @brief Returns the string representation of a given list of tokens, and tries to format it correctly too
-    ///
-    /// @param `tokens` The list of tokens whose string representation will be returned
-    /// @param `ignore_tokens` The list of token types to ignore
-    /// @return `std::string` The formatted string representation of the tokens
-    [[nodiscard]] std::string get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens) const;
+    [[nodiscard]] static std::string get_token_string(const std::vector<Token> &tokens);
 
     /// @function `get_function_signature_string`
     /// @brief Returns the string that represents the signature of a given function. Used to check if function signatures match
@@ -74,10 +74,10 @@ class BaseError {
     /// @param `function_name` The name of the function
     /// @param `arg_types` The types of the function arguments
     /// @return `std::string` The string representation of the functions signature (excluding its return type)
-    [[nodiscard]] std::string get_function_signature_string( //
-        const std::string &function_name,                    //
-        const std::vector<std::shared_ptr<Type>> &arg_types  //
-    ) const;
+    [[nodiscard]] static std::string get_function_signature_string( //
+        const std::string &function_name,                           //
+        const std::vector<std::shared_ptr<Type>> &arg_types         //
+    );
 
     /// @function `space_needed`
     /// @brief Returns whether the given iterator within the tokens list needs a space after it
@@ -86,9 +86,9 @@ class BaseError {
     /// @param `iterator` The iterator within the tokens list to check for
     /// @param `ignores` The token types for which the iterator does not need a space after it
     /// @return `bool` whether the given iterator in the token list needs a space after it
-    [[nodiscard]] bool space_needed(               //
+    [[nodiscard]] static bool space_needed(        //
         const token_slice &tokens,                 //
         const token_list::const_iterator iterator, //
         const std::vector<Token> &ignores          //
-    ) const;
+    );
 };

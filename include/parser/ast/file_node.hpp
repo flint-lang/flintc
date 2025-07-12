@@ -41,6 +41,10 @@ class FileNode : public ASTNode {
     /// ImportNode is used to check for import aliasing of the core modules.
     std::unordered_map<std::string, ImportNode *const> imported_core_modules;
 
+    /// @var `tokens`
+    /// @brief The source tokens of this file. The whole parser only has views into this list, but the FileNode owns it
+    token_list tokens;
+
     /// @function `add_import`
     /// @brief Adds an import node to this file node
     ///

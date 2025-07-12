@@ -76,13 +76,18 @@ namespace Debug {
             return;
         }
         std::cout << YELLOW << "[Debug Info] Printing token vector of file '" << file_name << "'" << DEFAULT << std::endl;
+        std::stringstream type_stream;
         for (auto tc = tokens.first; tc != tokens.second; ++tc) {
-            std::string name = get_token_name(tc->type);
-
-            std::string type = " | Type: '" + name + "' => " + std::to_string(static_cast<int>(tc->type));
-            std::string type_container = get_string_container(30, type);
-
-            std::cout << "Line: " << tc->line << " | Column: " << tc->column << type_container << " | Lexme: " << tc->lexme << "\n";
+            type_stream << " | Type: '" << get_token_name(tc->token) << "' => " << std::to_string(static_cast<int>(tc->token));
+            std::cout << "Line: " << tc->line << " | Column: " << tc->column << get_string_container(30, type_stream.str()) << " | Lexme: ";
+            if (tc->token == TOK_TYPE) {
+                std::cout << tc->type->to_string();
+            } else {
+                std::cout << tc->lexme;
+            }
+            std::cout << "\n";
+            type_stream.str(std::string());
+            type_stream.clear();
         }
     }
 
@@ -950,13 +955,6 @@ namespace Debug {
                 TreeBits field_bits = bits.child(indent_lvl, is_last);
                 Local::print_header(indent_lvl, field_bits, "Field ");
                 std::cout << std::get<1>(*field)->to_string() << " " << std::get<0>(*field) << "\n";
-
-                if (std::get<2>(*field).has_value()) {
-                    // Only print default values if they exist
-                    TreeBits default_bits = bits.child(indent_lvl + 1, true);
-                    Local::print_header(indent_lvl + 1, default_bits, "Default Value ");
-                    std::cout << std::get<2>(*field).value() << std::endl;
-                }
             }
         }
 
@@ -1013,9 +1011,9 @@ namespace Debug {
             size_t counter = 0;
             for (const std::tuple<std::shared_ptr<Type>, std::string, bool> &param : function.parameters) {
                 std::cout << (std::get<2>(param) ? "mut" : "const") << " "; // Whether the param is const or mut
-                std::cout << (keywords.find(std::get<0>(param)->to_string()) == keywords.end() ? "&" : ""); // If primitive or complex
-                std::cout << std::get<0>(param)->to_string() << " ";                                        // The actual type
-                std::cout << std::get<1>(param);                                                            // The parameter name
+                std::cout << (primitives.find(std::get<0>(param)->to_string()) == primitives.end() ? "&" : ""); // If primitive or complex
+                std::cout << std::get<0>(param)->to_string() << " ";                                            // The actual type
+                std::cout << std::get<1>(param);                                                                // The parameter name
                 if (++counter != function.parameters.size()) {
                     std::cout << ", ";
                 }

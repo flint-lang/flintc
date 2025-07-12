@@ -4,232 +4,117 @@ use Core.assert
 test "0_intro_create.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "0_intro_create.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "");
+	test_file_ok($"{path}/{file}", "");
 
 test "1_intro_access.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "1_intro_access.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "elem_3 = 0\n");
+	test_file_ok($"{path}/{file}", "elem_3 = 0\n");
 
 test "2_intro_oob_access.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "2_intro_oob_access.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Out Of Bounds access occured: Arr Len: 10, Index: 10\nelem_10 = 0\n");
+	test_file_ok($"{path}/{file}", "Out Of Bounds access occured: Arr Len: 10, Index: 10\nelem_10 = 0\n");
 
 test "3_intro_assign.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "3_intro_assign.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "arr[3] + arr[4] = 12\n");
+	test_file_ok($"{path}/{file}", "arr[3] + arr[4] = 12\n");
 
-test "4_intro_grouped.ft":
+test "[f]4_intro_grouped.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "4_intro_grouped.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "arr[3] + arr[4] = 12\n");
+	test_file_ok($"{path}/{file}", "arr[3] + arr[4] = 12\n");
 
 test "5_iterate_intro.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "5_iterate_intro.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Index: 0, Value: 0\nIndex: 1, Value: 2\nIndex: 2, Value: 4\nIndex: 3, Value: 6\nIndex: 4, Value: 8\n");
+	test_file_ok($"{path}/{file}", "Index: 0, Value: 0\nIndex: 1, Value: 2\nIndex: 2, Value: 4\nIndex: 3, Value: 6\nIndex: 4, Value: 8\n");
 
 test "6_iterate_oob.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "6_iterate_oob.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Index: 0, Value: 0\nIndex: 1, Value: 2\nIndex: 2, Value: 4\nIndex: 3, Value: 6\nIndex: 4, Value: 8\nOut Of Bounds access occured: Arr Len: 5, Index: 5\nOut Of Bounds access occured: Arr Len: 5, Index: 5\nIndex: 5, Value: 10\nOut Of Bounds access occured: Arr Len: 5, Index: 6\nOut Of Bounds access occured: Arr Len: 5, Index: 6\nIndex: 6, Value: 12\nOut Of Bounds access occured: Arr Len: 5, Index: 7\nOut Of Bounds access occured: Arr Len: 5, Index: 7\nIndex: 7, Value: 14\nOut Of Bounds access occured: Arr Len: 5, Index: 8\nOut Of Bounds access occured: Arr Len: 5, Index: 8\nIndex: 8, Value: 16\nOut Of Bounds access occured: Arr Len: 5, Index: 9\nOut Of Bounds access occured: Arr Len: 5, Index: 9\nIndex: 9, Value: 18\n\nIndex: 0, Value: 0\nIndex: 1, Value: 2\nIndex: 2, Value: 4\nIndex: 3, Value: 6\nIndex: 4, Value: 18\n");
+	test_file_ok($"{path}/{file}", "Index: 0, Value: 0\nIndex: 1, Value: 2\nIndex: 2, Value: 4\nIndex: 3, Value: 6\nIndex: 4, Value: 8\nOut Of Bounds access occured: Arr Len: 5, Index: 5\nOut Of Bounds access occured: Arr Len: 5, Index: 5\nIndex: 5, Value: 10\nOut Of Bounds access occured: Arr Len: 5, Index: 6\nOut Of Bounds access occured: Arr Len: 5, Index: 6\nIndex: 6, Value: 12\nOut Of Bounds access occured: Arr Len: 5, Index: 7\nOut Of Bounds access occured: Arr Len: 5, Index: 7\nIndex: 7, Value: 14\nOut Of Bounds access occured: Arr Len: 5, Index: 8\nOut Of Bounds access occured: Arr Len: 5, Index: 8\nIndex: 8, Value: 16\nOut Of Bounds access occured: Arr Len: 5, Index: 9\nOut Of Bounds access occured: Arr Len: 5, Index: 9\nIndex: 9, Value: 18\n\nIndex: 0, Value: 0\nIndex: 1, Value: 2\nIndex: 2, Value: 4\nIndex: 3, Value: 6\nIndex: 4, Value: 18\n");
 
 test "7_string_char.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "7_string_char.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "third = 'r'\n");
+	test_file_ok($"{path}/{file}", "third = 'r'\n");
 
 test "8_string_ascii.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "8_string_ascii.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "third = 'r' at idx 114\n");
+	test_file_ok($"{path}/{file}", "third = 'r' at idx 114\n");
 
 test "9_string_char_arithmetic.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "9_string_char_arithmetic.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "character 'C' is 67\ncharacter 'D' is 68\n");
+	test_file_ok($"{path}/{file}", "character 'C' is 67\ncharacter 'D' is 68\n");
 
 test "10_string_length.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "10_string_length.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "string 'some neat string' is 16 characters long\n");
+	test_file_ok($"{path}/{file}", "string 'some neat string' is 16 characters long\n");
 
 test "11_string_iterate.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "11_string_iterate.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "0: 'H'\n1: 'e'\n2: 'l'\n3: 'l'\n4: 'o'\n0: ','\n1: ' '\n0: 'W'\n1: 'o'\n2: 'r'\n3: 'l'\n4: 'd'\n5: '!'\n6: '\n'\n");
+	test_file_ok($"{path}/{file}", "0: 'H'\n1: 'e'\n2: 'l'\n3: 'l'\n4: 'o'\n0: ','\n1: ' '\n0: 'W'\n1: 'o'\n2: 'r'\n3: 'l'\n4: 'd'\n5: '!'\n6: '\n'\n");
 
 test "12_multi_decl.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "12_multi_decl.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "");
+	test_file_ok($"{path}/{file}", "");
 
 test "13_multi_access.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "13_multi_access.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "plane[1, 2] = 10\n");
+	test_file_ok($"{path}/{file}", "plane[1, 2] = 10\n");
 
 test "14_multi_lengths.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "14_multi_lengths.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "plane.length = (10, 20)\n");
+	test_file_ok($"{path}/{file}", "plane.length = (10, 20)\n");
 
 test "15_multi_iteration.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "15_multi_iteration.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "mat[0, 0] = 0\nmat[1, 0] = 1\nmat[2, 0] = 2\nmat[0, 1] = 3\nmat[1, 1] = 4\nmat[2, 1] = 5\nmat[0, 2] = 6\nmat[1, 2] = 7\nmat[2, 2] = 8\n\nmat[0, 0] = 0\nmat[0, 1] = 3\nmat[0, 2] = 6\nmat[1, 0] = 1\nmat[1, 1] = 4\nmat[1, 2] = 7\nmat[2, 0] = 2\nmat[2, 1] = 5\nmat[2, 2] = 8\n");
+	test_file_ok($"{path}/{file}", "mat[0, 0] = 0\nmat[1, 0] = 1\nmat[2, 0] = 2\nmat[0, 1] = 3\nmat[1, 1] = 4\nmat[2, 1] = 5\nmat[0, 2] = 6\nmat[1, 2] = 7\nmat[2, 2] = 8\n\nmat[0, 0] = 0\nmat[0, 1] = 3\nmat[0, 2] = 6\nmat[1, 0] = 1\nmat[1, 1] = 4\nmat[1, 2] = 7\nmat[2, 0] = 2\nmat[2, 1] = 5\nmat[2, 2] = 8\n");
 
 test "16_enh_for.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "16_enh_for.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Index 0, Value 0\nIndex 1, Value 2\nIndex 2, Value 4\nIndex 3, Value 6\nIndex 4, Value 8\n");
+	test_file_ok($"{path}/{file}", "Index 0, Value 0\nIndex 1, Value 2\nIndex 2, Value 4\nIndex 3, Value 6\nIndex 4, Value 8\n");
 
 test "17_enh_for_mut.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "17_enh_for_mut.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "Index 0, Value 0\nIndex 1, Value 2\nIndex 2, Value 4\nIndex 3, Value 6\nIndex 4, Value 8\n");
+	test_file_ok($"{path}/{file}", "Index 0, Value 0\nIndex 1, Value 2\nIndex 2, Value 4\nIndex 3, Value 6\nIndex 4, Value 8\n");
 
 test "18_enh_for_unused.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "18_enh_for_unused.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "elem is 0\nelem is 2\nelem is 4\nelem is 6\nelem is 8\nIteration 0\nIteration 1\nIteration 2\nIteration 3\nIteration 4\n");
+	test_file_ok($"{path}/{file}", "elem is 0\nelem is 2\nelem is 4\nelem is 6\nelem is 8\nIteration 0\nIteration 1\nIteration 2\nIteration 3\nIteration 4\n");
 
 test "19_enh_for_iterate_multi.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "19_enh_for_iterate_multi.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "plane[0, 0] = 0\nplane[1, 0] = 1\nplane[2, 0] = 2\nplane[0, 1] = 3\nplane[1, 1] = 4\nplane[2, 1] = 5\nplane[0, 2] = 6\nplane[1, 2] = 7\nplane[2, 2] = 8\n");
+	test_file_ok($"{path}/{file}", "plane[0, 0] = 0\nplane[1, 0] = 1\nplane[2, 0] = 2\nplane[0, 1] = 3\nplane[1, 1] = 4\nplane[2, 1] = 5\nplane[0, 2] = 6\nplane[1, 2] = 7\nplane[2, 2] = 8\n");
 
 test "20_enh_for_iteration_context.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "20_enh_for_iteration_context.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "0: 0\n1: 2\n2: 4\n3: 6\n4: 8\n");
+	test_file_ok($"{path}/{file}", "0: 0\n1: 2\n2: 4\n3: 6\n4: 8\n");
 
 test "21_enh_for_string.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "21_enh_for_string.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "my_string = 'soMeThing useful'\n");
+	test_file_ok($"{path}/{file}", "my_string = 'soMeThing useful'\n");
 
 test "22_cli_args_no.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "22_cli_args.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(output == "args[0] = ./main\n");
+	test_file_ok($"{path}/{file}", "args[0] = ./main\n");
 
 test "23_cli_args_multiple.ft":
 	str path = "wiki_tests/beginners_guide/arrays";

@@ -48,7 +48,7 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
 std::optional<ThrowNode> Parser::create_throw(Scope *scope, const token_slice &tokens) {
     unsigned int throw_id = 0;
     for (auto it = tokens.first; it != tokens.second; ++it) {
-        if (it->type == TOK_THROW) {
+        if (it->token == TOK_THROW) {
             if (std::next(it) == tokens.second) {
                 THROW_ERR(ErrStmtThrowCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
@@ -72,7 +72,7 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, const token_slice &t
 std::optional<ReturnNode> Parser::create_return(Scope *scope, const token_slice &tokens) {
     unsigned int return_id = 0;
     for (auto it = tokens.first; it != tokens.second; ++it) {
-        if (it->type == TOK_RETURN) {
+        if (it->token == TOK_RETURN) {
             if (std::next(it) == tokens.second) {
                 THROW_ERR(ErrStmtReturnCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
@@ -129,18 +129,18 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, const token_slice 
     return ReturnNode(return_expr);
 }
 
-std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vector<std::pair<token_slice, token_slice>> &if_chain) {
+std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain) {
     assert(!if_chain.empty());
-    std::pair<token_slice, token_slice> this_if_pair = if_chain.at(0);
+    std::pair<token_slice, std::vector<Line>> this_if_pair = if_chain.front();
     if_chain.erase(if_chain.begin());
 
     bool has_if = false;
     bool has_else = false;
     // Remove everything in front of the expression (\n, \t, else, if)
     for (auto it = this_if_pair.first.first; it != this_if_pair.first.second; ++it) {
-        if (it->type == TOK_ELSE) {
+        if (it->token == TOK_ELSE) {
             has_else = true;
-        } else if (it->type == TOK_IF) {
+        } else if (it->token == TOK_IF) {
             has_if = true;
             this_if_pair.first.first++;
             break;
@@ -149,7 +149,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
     }
     // Remove everything after the expression (:, \n)
     for (auto rev_it = std::prev(this_if_pair.first.second); rev_it != this_if_pair.first.first; --rev_it) {
-        if (rev_it->type == TOK_COLON) {
+        if (rev_it->token == TOK_COLON) {
             this_if_pair.first.second--;
             break;
         }
@@ -208,12 +208,12 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
 std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     Scope *scope,                                                    //
     const token_slice &definition,                                   //
-    const token_slice &body                                          //
+    const std::vector<Line> &body                                    //
 ) {
     token_slice condition_tokens = definition;
     // Remove everything in front of the expression (\n, \t, else, if)
     for (auto it = condition_tokens.first; it != condition_tokens.second; ++it) {
-        if (it->type == TOK_WHILE) {
+        if (it->token == TOK_WHILE) {
             condition_tokens.first++;
             break;
         }
@@ -221,7 +221,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     }
     // Remove everything after the expression (:, \n)
     for (auto rev_it = std::prev(condition_tokens.second); rev_it != condition_tokens.first; --rev_it) {
-        if (rev_it->type == TOK_COLON) {
+        if (rev_it->token == TOK_COLON) {
             condition_tokens.second--;
             break;
         }
@@ -249,7 +249,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
 std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     Scope *scope,                                                    //
     const token_slice &definition,                                   //
-    const token_slice &body                                          //
+    const std::vector<Line> &body                                    //
 ) {
     std::optional<std::unique_ptr<StatementNode>> initializer;
     std::optional<std::unique_ptr<ExpressionNode>> condition;
@@ -282,7 +282,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     // "remove" everything including the 'for' keyword from the initializer statement
     // otherwise the for loop would create itself recursively
     for (unsigned int i = initializer_range.first; i < initializer_range.second; i++) {
-        if ((definition.first + i)->type == TOK_FOR) {
+        if ((definition.first + i)->token == TOK_FOR) {
             initializer_range.first = i + 1;
             break;
         }
@@ -326,45 +326,44 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
 }
 
 std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
-    [[maybe_unused]] Scope *scope,                                          //
+    Scope *scope,                                                           //
     const token_slice &definition,                                          //
-    const token_slice &body                                                 //
+    const std::vector<Line> &body                                           //
 ) {
     token_slice definition_mut = definition;
-    remove_leading_garbage(definition_mut);
     remove_trailing_garbage(definition_mut);
 
     // Now the first token should be the `for` token
-    assert(definition_mut.first->type == TOK_FOR);
+    assert(definition_mut.first->token == TOK_FOR);
     definition_mut.first++;
 
     // The next token should either be a `(` or an identifer. If its an identifier we use the "tupled" enhanced for loop approach
     std::variant<std::pair<std::optional<std::string>, std::optional<std::string>>, std::string> iterators;
-    if (definition_mut.first->type == TOK_IDENTIFIER) {
+    if (definition_mut.first->token == TOK_IDENTIFIER) {
         // Its a tuple, e.g. `for t in iterable:` where `t` is of type `data<u64, T>`
         iterators = definition_mut.first->lexme;
         definition_mut.first++;
     } else {
         // Its a group, e.g. `for (index, element) in iterable:`
-        assert(definition_mut.first->type == TOK_LEFT_PAREN);
+        assert(definition_mut.first->token == TOK_LEFT_PAREN);
         definition_mut.first++;
         std::optional<std::string> index_identifier;
-        if (definition_mut.first->type == TOK_IDENTIFIER) {
+        if (definition_mut.first->token == TOK_IDENTIFIER) {
             index_identifier = definition_mut.first->lexme;
         }
         definition_mut.first++;
-        assert(definition_mut.first->type == TOK_COMMA);
+        assert(definition_mut.first->token == TOK_COMMA);
         definition_mut.first++;
         std::optional<std::string> element_identifier;
-        if (definition_mut.first->type == TOK_IDENTIFIER) {
+        if (definition_mut.first->token == TOK_IDENTIFIER) {
             element_identifier = definition_mut.first->lexme;
         }
         definition_mut.first++;
-        assert(definition_mut.first->type == TOK_RIGHT_PAREN);
+        assert(definition_mut.first->token == TOK_RIGHT_PAREN);
         definition_mut.first++;
         iterators = std::make_pair(index_identifier, element_identifier);
     }
-    assert(definition_mut.first->type == TOK_IN);
+    assert(definition_mut.first->token == TOK_IN);
     definition_mut.first++;
 
     // Create the definition scope
@@ -443,13 +442,13 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
 std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     Scope *scope,                                               //
     const token_slice &definition,                              //
-    const token_slice &body,                                    //
+    const std::vector<Line> &body,                              //
     std::vector<std::unique_ptr<StatementNode>> &statements     //
 ) {
     // First, extract everything left of the 'catch' statement and parse it as a normal (unscoped) statement
     std::optional<token_list::iterator> catch_id = std::nullopt;
     for (auto it = definition.first; it != definition.second; ++it) {
-        if (it->type == TOK_CATCH) {
+        if (it->token == TOK_CATCH) {
             catch_id = it;
             break;
         }
@@ -477,7 +476,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     const token_slice right_of_catch = {catch_id.value(), std::prev(definition.second)};
     std::optional<std::string> err_var = std::nullopt;
     for (auto it = right_of_catch.first; it != right_of_catch.second; ++it) {
-        if (it->type == TOK_CATCH && std::next(it) != right_of_catch.second && std::next(it)->type == TOK_IDENTIFIER) {
+        if (it->token == TOK_CATCH && std::next(it) != right_of_catch.second && std::next(it)->token == TOK_IDENTIFIER) {
             err_var = std::next(it)->lexme;
         }
     }
@@ -502,10 +501,9 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
 std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
-    remove_leading_garbage(tokens_mut);
     assert(tokens_mut.first != tokens_mut.second);
     // Now a left paren is expected as the start of the group assignment
-    if (tokens_mut.first->type != TOK_LEFT_PAREN) {
+    if (tokens_mut.first->token != TOK_LEFT_PAREN) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -517,7 +515,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
     unsigned int index = 0;
     for (auto it = tokens_mut.first; it != tokens_mut.second; it += 2) {
         // The next element has to be either a comma or the right paren
-        if (std::next(it) == tokens_mut.second || (std::next(it)->type != TOK_COMMA && std::next(it)->type != TOK_RIGHT_PAREN)) {
+        if (std::next(it) == tokens_mut.second || (std::next(it)->token != TOK_COMMA && std::next(it)->token != TOK_RIGHT_PAREN)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -533,14 +531,14 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
         const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it->lexme));
         assignees.emplace_back(expected_type, it->lexme);
         index += 2;
-        if (std::next(it)->type == TOK_RIGHT_PAREN) {
+        if (std::next(it)->token == TOK_RIGHT_PAREN) {
             break;
         }
     }
     // Erase all the assignment tokens
     tokens_mut.first += index;
     // Now the first token should be an equals token
-    if (tokens_mut.first->type != TOK_EQUAL) {
+    if (tokens_mut.first->token != TOK_EQUAL) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -557,10 +555,9 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment(Scope *scope,
 
 std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
-    remove_leading_garbage(tokens_mut);
     assert(tokens_mut.first != tokens_mut.second);
     // Now a left paren is expected as the start of the group assignment
-    if (tokens_mut.first->type != TOK_LEFT_PAREN) {
+    if (tokens_mut.first->token != TOK_LEFT_PAREN) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -572,7 +569,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand(Sco
     unsigned int index = 0;
     for (auto it = tokens_mut.first; it != tokens_mut.second; it += 2) {
         // The next element has to be either a comma or the right paren
-        if (std::next(it) == tokens_mut.second || (std::next(it)->type != TOK_COMMA && std::next(it)->type != TOK_RIGHT_PAREN)) {
+        if (std::next(it) == tokens_mut.second || (std::next(it)->token != TOK_COMMA && std::next(it)->token != TOK_RIGHT_PAREN)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -588,7 +585,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand(Sco
         const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it->lexme));
         assignees.emplace_back(expected_type, it->lexme);
         index += 2;
-        if (std::next(it)->type == TOK_RIGHT_PAREN) {
+        if (std::next(it)->token == TOK_RIGHT_PAREN) {
             break;
         }
     }
@@ -597,7 +594,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand(Sco
 
     // Get the operation of the assignment shorthand
     Token operation = TOK_EOF;
-    switch (tokens_mut.first->type) {
+    switch (tokens_mut.first->token) {
         case TOK_PLUS_EQUALS:
             operation = TOK_PLUS;
             break;
@@ -644,8 +641,8 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand(Sco
 
 std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, const token_slice &tokens) {
     for (auto it = tokens.first; it != tokens.second; ++it) {
-        if (it->type == TOK_IDENTIFIER) {
-            if (std::next(it)->type == TOK_EQUAL && (it + 2) != tokens.second) {
+        if (it->token == TOK_IDENTIFIER) {
+            if (std::next(it)->token == TOK_EQUAL && (it + 2) != tokens.second) {
                 if (scope->variables.find(it->lexme) == scope->variables.end()) {
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
                     return std::nullopt;
@@ -674,7 +671,7 @@ std::optional<AssignmentNode> Parser::create_assignment(Scope *scope, const toke
 
 std::optional<AssignmentNode> Parser::create_assignment_shorthand(Scope *scope, const token_slice &tokens) {
     for (auto it = tokens.first; it != tokens.second; ++it) {
-        if (it->type == TOK_IDENTIFIER) {
+        if (it->token == TOK_IDENTIFIER) {
             if (Matcher::tokens_match({it + 1, it + 2}, Matcher::assignment_shorthand_operator) && (it + 2) != tokens.second) {
                 if (scope->variables.find(it->lexme) == scope->variables.end()) {
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
@@ -693,7 +690,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand(Scope *scope, 
                     return std::nullopt;
                 }
                 Token op;
-                switch (std::next(it)->type) {
+                switch (std::next(it)->token) {
                     default:
                         // It should never come here
                         assert(false);
@@ -737,26 +734,25 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration(Scope *scop
     token_slice lhs_tokens = {tokens_mut.first + lhs_range.value().first, tokens_mut.first + lhs_range.value().second};
     tokens_mut.first = lhs_tokens.second;
 
-    remove_leading_garbage(lhs_tokens);
     // The last token now should be the COLON_EQUAL
-    assert(std::prev(lhs_tokens.second)->type == TOK_COLON_EQUAL);
+    assert(std::prev(lhs_tokens.second)->token == TOK_COLON_EQUAL);
     lhs_tokens.second--;
     remove_surrounding_paren(lhs_tokens);
     while (lhs_tokens.first != lhs_tokens.second) {
         std::optional<uint2> var_range = Matcher::get_next_match_range(lhs_tokens, Matcher::until_comma);
         if (!var_range.has_value()) {
             // The whole lhs tokens is the last variable
-            assert(std::prev(lhs_tokens.second)->type == TOK_IDENTIFIER);
+            assert(std::prev(lhs_tokens.second)->token == TOK_IDENTIFIER);
             variables.emplace_back(nullptr, std::prev(lhs_tokens.second)->lexme);
             break;
         } else {
             token_slice var_tokens = {lhs_tokens.first + var_range.value().first, lhs_tokens.first + var_range.value().second};
             lhs_tokens.first = var_tokens.second;
             // The last token now should be the comma
-            assert(std::prev(var_tokens.second)->type == TOK_COMMA);
+            assert(std::prev(var_tokens.second)->token == TOK_COMMA);
             var_tokens.second--;
             // The last element is the variable name now
-            assert(std::prev(var_tokens.second)->type == TOK_IDENTIFIER);
+            assert(std::prev(var_tokens.second)->token == TOK_IDENTIFIER);
             variables.emplace_back(nullptr, std::prev(var_tokens.second)->lexme);
         }
     }
@@ -827,10 +823,6 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     token_slice tokens_mut = tokens;
     assert(!(is_inferred && !has_rhs));
 
-    std::optional<DeclarationNode> declaration = std::nullopt;
-    std::shared_ptr<Type> type;
-    std::string name;
-
     token_slice lhs_tokens;
     if (has_rhs) {
         uint2 lhs_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_eq_or_colon_equal).value();
@@ -840,54 +832,41 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         lhs_tokens = tokens_mut;
     }
 
-    // Remove all \n and \t from the lhs tokens
-    remove_leading_garbage(lhs_tokens);
-
     // Check if the first token of the declaration is a `const` or `mut` token and set the mutability accordingly
-    const bool is_mutable = lhs_tokens.first->type != TOK_CONST;
-    if (lhs_tokens.first->type == TOK_CONST || lhs_tokens.first->type == TOK_MUT) {
+    const bool is_mutable = lhs_tokens.first->token != TOK_CONST;
+    if (lhs_tokens.first->token == TOK_CONST || lhs_tokens.first->token == TOK_MUT) {
         lhs_tokens.first++;
     }
 
+    // Get the type if it is not inferred and get the name of the declaration
+    std::shared_ptr<Type> type;
+    std::string name;
+    if (!is_inferred) {
+        assert(lhs_tokens.first->token == TOK_TYPE);
+        type = lhs_tokens.first->type;
+        assert(std::next(lhs_tokens.first)->token == TOK_IDENTIFIER);
+        name = std::next(lhs_tokens.first)->lexme;
+    } else {
+        assert(lhs_tokens.first->token == TOK_IDENTIFIER);
+        name = lhs_tokens.first->lexme;
+    }
+
+    // Add the variable to the variable list
     if (!has_rhs) {
-        for (auto it = lhs_tokens.first; it != lhs_tokens.second; ++it) {
-            if (std::next(it) != lhs_tokens.second && std::next(it)->type == TOK_SEMICOLON) {
-                name = it->lexme;
-                const long dist = std::distance(lhs_tokens.first, it);
-                if (dist < 1) {
-                    // No type declared
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                token_slice type_tokens = {lhs_tokens.first, it};
-                if (!check_type_aliasing(type_tokens)) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                auto type_result = Type::get_type(type_tokens);
-                if (!type_result.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                type = type_result.value();
-                break;
-            }
-        }
+        assert(!is_inferred);
+        assert(type != nullptr);
+        std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
         if (!scope->add_variable(name, type, scope->scope_id, is_mutable, false)) {
             // Variable shadowing
-            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column, name);
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name,                            //
+                std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column, name //
+            );
             return std::nullopt;
         }
-        std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
-        declaration = DeclarationNode(type, name, expr);
-        return declaration;
+        return DeclarationNode(type, name, expr);
     }
 
-    if (lhs_tokens.first == lhs_tokens.second) {
-        THROW_ERR(ErrStmtDanglingEqualSign, ERR_PARSING, file_name, tokens_mut);
-        return std::nullopt;
-    }
-
+    // If the type of the variable is inferred we need to create the expression with no expected type specified
     if (is_inferred) {
         auto expr = create_expression(scope, tokens_mut);
         if (!expr.has_value()) {
@@ -895,49 +874,31 @@ std::optional<DeclarationNode> Parser::create_declaration( //
             return std::nullopt;
         }
         if (dynamic_cast<const GroupType *>(expr.value()->type.get())) {
+            // The type of a group cannot be inferred
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
-        }
-        for (auto it = lhs_tokens.first; it != lhs_tokens.second; ++it) {
-            if (it->type == TOK_IDENTIFIER && std::next(it)->type == TOK_COLON_EQUAL) {
-                name = it->lexme;
-                break;
-            }
         }
         if (!scope->add_variable(name, expr.value()->type, scope->scope_id, is_mutable, false)) {
             // Variable shadowing
-            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens_mut.first->line, tokens_mut.first->column, name);
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column, name);
             return std::nullopt;
         }
-        declaration = DeclarationNode(expr.value()->type, name, expr);
-    } else {
-        token_slice type_tokens = {lhs_tokens.first, lhs_tokens.second - 2};
-        lhs_tokens.first = type_tokens.second;
-        if (!check_type_aliasing(type_tokens)) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        auto type_result = Type::get_type(type_tokens);
-        if (!type_result.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        type = type_result.value();
-        name = lhs_tokens.first->lexme;
-        if (!scope->add_variable(name, type, scope->scope_id, is_mutable, false)) {
-            // Variable shadowing
-            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tokens_mut.first->line, tokens_mut.first->column, name);
-            return std::nullopt;
-        }
-        auto expr = create_expression(scope, tokens_mut, type);
-        if (!expr.has_value()) {
-            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
-            return std::nullopt;
-        }
-        declaration = DeclarationNode(type, name, expr);
+        return DeclarationNode(expr.value()->type, name, expr);
     }
-
-    return declaration;
+    if (!scope->add_variable(name, type, scope->scope_id, is_mutable, false)) {
+        // Variable shadowing
+        THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name,                            //
+            std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column, name //
+        );
+        return std::nullopt;
+    }
+    // When the type is known we pass it to the create_expression function so that it can check for the needed type
+    auto expr = create_expression(scope, tokens_mut, type);
+    if (!expr.has_value()) {
+        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
+        return std::nullopt;
+    }
+    return DeclarationNode(type, name, expr);
 }
 
 std::optional<UnaryOpStatement> Parser::create_unary_op_statement(Scope *scope, const token_slice &tokens) {
@@ -955,14 +916,14 @@ std::optional<UnaryOpStatement> Parser::create_unary_op_statement(Scope *scope, 
 
 std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
-    auto field_access_base = create_field_access_base(scope, tokens_mut);
+    auto field_access_base = create_field_access_base(scope, tokens_mut, false);
     if (!field_access_base.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
     // Now the equal sign should follow, we will delete that one too
-    assert(tokens_mut.first->type == TOK_EQUAL);
+    assert(tokens_mut.first->token == TOK_EQUAL);
     tokens_mut.first++;
 
     // The rest of the tokens is the expression to parse
@@ -1010,7 +971,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     }
 
     // Now the equal sign should follow, we will delete that one too
-    assert(tokens_mut.first->type == TOK_EQUAL);
+    assert(tokens_mut.first->token == TOK_EQUAL);
     tokens_mut.first++;
 
     // The rest of the tokens is the expression to parse
@@ -1048,7 +1009,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
 
     // Get the operation of the assignment shorthand
     Token operation = TOK_EOF;
-    switch (tokens_mut.first->type) {
+    switch (tokens_mut.first->token) {
         case TOK_PLUS_EQUALS:
             operation = TOK_PLUS;
             break;
@@ -1112,9 +1073,8 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
 
 std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
-    remove_leading_garbage(tokens_mut);
     // Now the first token should be the array identifier
-    assert(tokens_mut.first->type == TOK_IDENTIFIER);
+    assert(tokens_mut.first->token == TOK_IDENTIFIER);
     const std::string variable_name = tokens_mut.first->lexme;
     std::optional<std::shared_ptr<Type>> var_type = scope->get_variable_type(variable_name);
     if (!var_type.has_value()) {
@@ -1139,9 +1099,9 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
     token_slice indexing_tokens = {tokens_mut.first + bracket_range.value().first, tokens_mut.first + bracket_range.value().second};
     tokens_mut.first = indexing_tokens.second;
     // Now the first two tokens should be the [ and ]
-    assert(indexing_tokens.first->type == TOK_LEFT_BRACKET);
+    assert(indexing_tokens.first->token == TOK_LEFT_BRACKET);
     indexing_tokens.first++;
-    assert(std::prev(indexing_tokens.second)->type == TOK_RIGHT_BRACKET);
+    assert(std::prev(indexing_tokens.second)->token == TOK_RIGHT_BRACKET);
     indexing_tokens.second--;
 
     auto indexing_expressions = create_group_expressions(scope, indexing_tokens);
@@ -1150,7 +1110,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
         return std::nullopt;
     }
     // Now the next token should be a = sign
-    assert(tokens_mut.first->type == TOK_EQUAL);
+    assert(tokens_mut.first->token == TOK_EQUAL);
     tokens_mut.first++;
 
     // Parse the rhs expression
@@ -1163,8 +1123,6 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment(Scope *scope,
 }
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(Scope *scope, const token_slice &tokens) {
-    token_list toks = clone_from_slice(tokens);
-
     if (!Matcher::tokens_contain(tokens, Matcher::token(TOK_EQUAL))) {
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
@@ -1173,10 +1131,10 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
     // can write a statement like this. This means the stacked statement is definitely an assignment First, find the position of the
     // equals sign
     auto iterator = tokens.first;
-    while (iterator != tokens.second && iterator->type != TOK_EQUAL) {
+    while (iterator != tokens.second && iterator->token != TOK_EQUAL) {
         ++iterator;
     }
-    assert(iterator->type == TOK_EQUAL);
+    assert(iterator->token == TOK_EQUAL);
     // Now, everything to the right of the iterator is the rhs expression
     const token_slice rhs_expr_tokens = {iterator + 1, tokens.second};
     auto rhs_expr = create_expression(scope, rhs_expr_tokens);
@@ -1188,11 +1146,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
     --iterator;
     size_t depth = 0;
     for (; iterator != tokens.first; --iterator) {
-        if (iterator->type == TOK_RIGHT_PAREN) {
+        if (iterator->token == TOK_RIGHT_PAREN) {
             depth++;
-        } else if (iterator->type == TOK_LEFT_PAREN) {
+        } else if (iterator->token == TOK_LEFT_PAREN) {
             depth--;
-        } else if (iterator->type == TOK_DOT && depth == 0) {
+        } else if (iterator->token == TOK_DOT && depth == 0) {
             break;
         }
     }
@@ -1206,7 +1164,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
     ++iterator;
     const std::shared_ptr<Type> base_expr_type = base_expr.value()->type;
     if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(base_expr_type.get())) {
-        if (iterator->type != TOK_DOLLAR || std::next(iterator)->type != TOK_INT_VALUE) {
+        if (iterator->token != TOK_DOLLAR || std::next(iterator)->token != TOK_INT_VALUE) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -1221,7 +1179,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
             base_expr.value(), field_name, field_id, tuple_type->types.at(field_id), rhs_expr.value() //
         );
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(base_expr_type.get())) {
-        if (iterator->type == TOK_IDENTIFIER) {
+        if (iterator->token == TOK_IDENTIFIER) {
             if (multi_type->width > 4) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -1256,7 +1214,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
             return std::make_unique<StackedAssignmentNode>(                                      //
                 base_expr.value(), field_name, field_id, multi_type->base_type, rhs_expr.value() //
             );
-        } else if (iterator->type == TOK_DOLLAR && std::next(iterator)->type == TOK_INT_VALUE) {
+        } else if (iterator->token == TOK_DOLLAR && std::next(iterator)->token == TOK_INT_VALUE) {
             // Handle the special case of tuple / multi-type accesses in a stacked expression
             size_t field_id = std::stoul(std::next(iterator)->lexme);
             const std::string field_name = "$" + std::to_string(field_id);
@@ -1271,7 +1229,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
             assert(false);
         }
     } else if (const DataType *data_type = dynamic_cast<const DataType *>(base_expr_type.get())) {
-        if (iterator->type != TOK_IDENTIFIER) {
+        if (iterator->token != TOK_IDENTIFIER) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -1400,8 +1358,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::aliased_function_call)) {
         token_slice tokens_mut = tokens;
-        remove_leading_garbage(tokens_mut);
-        assert(tokens_mut.first->type == TOK_IDENTIFIER && std::next(tokens_mut.first)->type == TOK_DOT);
+        assert(tokens_mut.first->token == TOK_IDENTIFIER && std::next(tokens_mut.first)->token == TOK_DOT);
         const std::string alias_base = tokens_mut.first->lexme;
         if (aliases.find(alias_base) == aliases.end()) {
             THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, alias_base);
@@ -1432,58 +1389,59 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Scope *sc
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( //
     Scope *scope,                                                              //
-    const token_slice &definition,                                             //
-    token_slice &body,                                                         //
+    std::vector<Line>::const_iterator &line_it,                                //
+    const std::vector<Line> &body,                                             //
     std::vector<std::unique_ptr<StatementNode>> &statements                    //
 ) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
+    auto definition_it = line_it;
 
-    std::optional<unsigned int> indent_lvl_maybe = Matcher::get_leading_indents(                       //
-        definition,                                                                                    //
-        definition.first->type == TOK_EOL ? std::next(definition.first)->line : definition.first->line //
-    );
-    if (!indent_lvl_maybe.has_value()) {
-        THROW_ERR(ErrMissingBody, ERR_PARSING, file_name, definition);
+    auto get_scoped_body = [&body](std::vector<Line>::const_iterator &line_it) -> std::optional<std::vector<Line>> {
+        const unsigned int indent_lvl_statement = line_it->indent_lvl;
+        auto scoped_body_begin = ++line_it;
+        unsigned int indent_lvl_line = line_it->indent_lvl;
+        while (line_it != body.end() && indent_lvl_line > indent_lvl_statement) {
+            ++line_it;
+            indent_lvl_line = line_it->indent_lvl;
+        }
+        if (line_it == scoped_body_begin) {
+            // No body found after scoped statement definition line
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        std::vector<Line> scoped_body(scoped_body_begin, line_it);
+        return scoped_body;
+    };
+    std::optional<std::vector<Line>> scoped_body = get_scoped_body(line_it);
+    if (!scoped_body.has_value()) {
         return std::nullopt;
     }
-    token_slice scoped_body = get_body_tokens(indent_lvl_maybe.value(), body);
-    body.first = scoped_body.second;
 
-    if (Matcher::tokens_contain(definition, Matcher::if_statement) || Matcher::tokens_contain(definition, Matcher::else_if_statement) ||
-        Matcher::tokens_contain(definition, Matcher::else_statement)) {
-        std::vector<std::pair<token_slice, token_slice>> if_chain;
-        if_chain.emplace_back(definition, scoped_body);
+    const token_slice definition = {definition_it->tokens.first, definition_it->tokens.second};
+    if (Matcher::tokens_contain(definition, Matcher::if_statement)         //
+        || Matcher::tokens_contain(definition, Matcher::else_if_statement) //
+        || Matcher::tokens_contain(definition, Matcher::else_statement)    //
+    ) {
         if (Matcher::tokens_contain(definition, Matcher::token(TOK_ELSE))) {
             // else or else if at top of if chain
             THROW_ERR(ErrStmtIfChainMissingIf, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
+        std::vector<std::pair<token_slice, std::vector<Line>>> if_chain;
+        if_chain.emplace_back(definition, std::move(scoped_body.value()));
 
         token_slice next_definition = definition;
         while (true) {
-            if (body.first == body.second) {
+            if (line_it == body.end()) {
                 break;
             }
-            if (body.first->type == TOK_EOL) {
-                body.first++;
-            }
-            // Get the next indices of the next definition
-            std::optional<uint2> next_line_range = Matcher::get_tokens_line_range(body, body.first->line);
-            if (!next_line_range.has_value()) {
+            // Check if the line after the if body contains an else token, only if it contains an else statemnt the chain continues
+            next_definition = {line_it->tokens.first, line_it->tokens.second};
+            if (!Matcher::tokens_contain(next_definition, Matcher::token(TOK_ELSE))) {
                 break;
             }
-            // Check if the definition contains a 'else if' or 'else' statement. It cannot only contain a 'if' statement, as this then
-            // will be part of its own IfNode and not part of this if-chain! This can be simplified to just check if the definition
-            // contains a 'else' statement
-            if (!Matcher::tokens_contain_in_range(body, Matcher::token(TOK_ELSE), next_line_range.value())) {
-                break;
-            }
-
-            next_definition = {body.first + next_line_range.value().first, body.first + next_line_range.value().second};
-            body.first = next_definition.second;
-            scoped_body = get_body_tokens(indent_lvl_maybe.value(), body);
-            body.first = scoped_body.second;
-            if_chain.emplace_back(next_definition, scoped_body);
+            scoped_body = get_scoped_body(line_it);
+            if_chain.emplace_back(next_definition, std::move(scoped_body.value()));
         }
 
         std::optional<std::unique_ptr<IfNode>> if_node = create_if(scope, if_chain);
@@ -1493,7 +1451,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         }
         statement_node = std::move(if_node.value());
     } else if (Matcher::tokens_contain(definition, Matcher::for_loop)) {
-        std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, definition, scoped_body);
+        std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, definition, scoped_body.value());
         if (!for_loop.has_value()) {
             THROW_ERR(ErrStmtForCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
@@ -1501,28 +1459,28 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         statement_node = std::move(for_loop.value());
     } else if (Matcher::tokens_contain(definition, Matcher::par_for_loop) ||
         Matcher::tokens_contain(definition, Matcher::enhanced_for_loop)) {
-        std::optional<std::unique_ptr<EnhForLoopNode>> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body);
+        std::optional<std::unique_ptr<EnhForLoopNode>> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body.value());
         if (!enh_for_loop.has_value()) {
             THROW_ERR(ErrStmtForCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(enh_for_loop.value());
     } else if (Matcher::tokens_contain(definition, Matcher::while_loop)) {
-        std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, definition, scoped_body);
+        std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, definition, scoped_body.value());
         if (!while_loop.has_value()) {
             THROW_ERR(ErrStmtWhileCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(while_loop.value());
     } else if (Matcher::tokens_contain(definition, Matcher::catch_statement)) {
-        std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body, statements);
+        std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body.value(), statements);
         if (!catch_node.has_value()) {
             THROW_ERR(ErrStmtCatchCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(catch_node.value());
     } else if (Matcher::tokens_contain(definition, Matcher::aliased_function_call)) {
-        assert(definition.first->type == TOK_IDENTIFIER && std::next(definition.first)->type == TOK_DOT);
+        assert(definition.first->token == TOK_IDENTIFIER && std::next(definition.first)->token == TOK_DOT);
         const std::string alias_base = definition.first->lexme;
         statement_node = create_call_statement(scope, {definition.first + 2, definition.second}, alias_base);
     } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {
@@ -1535,32 +1493,17 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     return statement_node;
 }
 
-std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(Scope *scope, const token_slice &body) {
-    token_slice body_mut = body;
+std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(Scope *scope, const std::vector<Line> &body) {
     std::vector<std::unique_ptr<StatementNode>> body_statements;
 
-    std::optional<token_slice> for_tokens;
-    while (auto next_match = Matcher::get_next_match_range(body_mut, Matcher::until_col_or_semicolon)) {
-        token_slice statement_tokens = {body_mut.first + next_match.value().first, body_mut.first + next_match.value().second};
-        body_mut.first = statement_tokens.second;
-        if (Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_FOR)) &&
-            !Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_IN))) {
-            for_tokens = statement_tokens;
-            continue;
-        } else if (for_tokens.has_value()) {
-            for_tokens.value().second = body_mut.first + next_match.value().second;
-            if (!Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_COLON))) {
-                continue;
-            } else {
-                statement_tokens = for_tokens.value();
-            }
-        }
+    for (auto line_it = body.begin(); line_it != body.end();) {
+        token_slice statement_tokens = {line_it->tokens.first, line_it->tokens.second};
         std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
-        if (Matcher::tokens_contain(statement_tokens, Matcher::token(TOK_COLON))) {
+        const bool is_scoped = std::prev(statement_tokens.second)->token == TOK_COLON;
+        if (is_scoped) {
             // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
-            next_statement = create_scoped_statement(scope, statement_tokens, body_mut, body_statements);
+            next_statement = create_scoped_statement(scope, line_it, body, body_statements);
         } else {
-            remove_leading_garbage(statement_tokens);
             if (Matcher::tokens_start_with(statement_tokens, Matcher::stacked_expression)) {
                 // --- STACKED STATEMENT ---
                 next_statement = create_stacked_statement(scope, statement_tokens);
@@ -1576,8 +1519,11 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
             THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, statement_tokens);
             return std::nullopt;
         }
-
-        for_tokens = std::nullopt;
+        // Only increment the line iterator if it was no scoped statement, as the create_scoped_statement function already moves the line
+        // iterator to the line *after* it's scoped block
+        if (!is_scoped) {
+            line_it++;
+        }
     }
 
     return body_statements;

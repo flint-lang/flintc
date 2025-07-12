@@ -177,6 +177,9 @@ class Matcher {
     static const inline std::unordered_map<Token, PatternPtr> token_patterns = {
         {TOK_EOF, std::make_shared<TokenTypeMatcher>(TOK_EOF)},
 
+        // type token
+        {TOK_TYPE, std::make_shared<TokenTypeMatcher>(TOK_TYPE)},
+
         // single character tokens
         {TOK_LEFT_PAREN, std::make_shared<TokenTypeMatcher>(TOK_LEFT_PAREN)},
         {TOK_RIGHT_PAREN, std::make_shared<TokenTypeMatcher>(TOK_RIGHT_PAREN)},
@@ -510,11 +513,116 @@ class Matcher {
         token(TOK_NONE) //
     });
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
-    static const inline PatternPtr type = sequence({
-        one_of({simple_type, token(TOK_DATA)}),                                                                     // Single type
-        optional(sequence({token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1)})),              // <..> Type group
-        zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})) // [][,][,,] Arrays
+    static const inline PatternPtr type = one_of({
+        sequence({
+            one_of({token(TOK_TYPE), simple_type, token(TOK_DATA)}),                                                    // Single base type
+            optional(sequence({token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1)})),              // <..> Type group
+            zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})) // [][,][,,] Arrays
+        }),                                                                                                             //
+        token(TOK_TYPE)                                                                                                 //
     });
+
+    // Symbols
+    static const inline PatternPtr symbol_single = one_of({
+        token(TOK_LEFT_PAREN),
+        token(TOK_RIGHT_PAREN),
+        token(TOK_LEFT_BRACKET),
+        token(TOK_RIGHT_BRACKET),
+        token(TOK_LEFT_BRACE),
+        token(TOK_RIGHT_BRACE),
+        token(TOK_COMMA),
+        token(TOK_DOT),
+        token(TOK_SEMICOLON),
+        token(TOK_COLON),
+        token(TOK_QUESTION),
+        token(TOK_EXCLAMATION),
+        token(TOK_UNDERSCORE),
+        token(TOK_FLAG),
+        token(TOK_DOLLAR),
+    });
+    static const inline PatternPtr symbol_dual = one_of({
+        token(TOK_ARROW),
+        token(TOK_PIPE),
+        token(TOK_REFERENCE),
+        token(TOK_OPT_DEFAULT),
+    });
+    static const inline PatternPtr symbol_arithmetic = one_of({
+        token(TOK_PLUS),
+        token(TOK_MINUS),
+        token(TOK_MULT),
+        token(TOK_DIV),
+        token(TOK_MOD),
+        token(TOK_POW),
+    });
+    static const inline PatternPtr symbol_assign = one_of({
+        token(TOK_INCREMENT),
+        token(TOK_DECREMENT),
+        token(TOK_PLUS_EQUALS),
+        token(TOK_MINUS_EQUALS),
+        token(TOK_MULT_EQUALS),
+        token(TOK_DIV_EQUALS),
+        token(TOK_COLON_EQUAL),
+        token(TOK_EQUAL),
+    });
+    static const inline PatternPtr symbol_relational = one_of({
+        token(TOK_EQUAL_EQUAL),
+        token(TOK_NOT_EQUAL),
+        token(TOK_LESS),
+        token(TOK_LESS_EQUAL),
+        token(TOK_GREATER),
+        token(TOK_GREATER_EQUAL),
+    });
+    static const inline PatternPtr symbol_bitwise = one_of({
+        token(TOK_SHIFT_LEFT),
+        token(TOK_SHIFT_RIGHT),
+        token(TOK_BIT_AND),
+        token(TOK_BIT_OR),
+        token(TOK_BIT_XOR),
+        token(TOK_BIT_NEG),
+    });
+    static const inline PatternPtr symbol = one_of({
+        symbol_single,
+        symbol_dual,
+        symbol_arithmetic,
+        symbol_assign,
+        symbol_relational,
+        symbol_bitwise,
+    });
+
+    // Keywords
+    static const inline PatternPtr keyword_relational = one_of({token(TOK_AND), token(TOK_OR), token(TOK_NOT)});
+    static const inline PatternPtr keyword_branching = one_of({token(TOK_IF), token(TOK_ELSE), token(TOK_SWITCH)});
+    static const inline PatternPtr keyword_looping = one_of({
+        token(TOK_FOR),
+        token(TOK_WHILE),
+        token(TOK_PARALLEL),
+        token(TOK_IN),
+        token(TOK_BREAK),
+        token(TOK_CONTINUE),
+    });
+    static const inline PatternPtr keyword_function = one_of({token(TOK_DEF), token(TOK_RETURN), token(TOK_FN), token(TOK_BP)});
+    static const inline PatternPtr keyword_error = one_of({token(TOK_ERROR), token(TOK_THROW), token(TOK_CATCH)});
+    static const inline PatternPtr keyword_variant = one_of({token(TOK_VARIANT), token(TOK_ENUM)});
+    static const inline PatternPtr keyword_import = one_of({token(TOK_USE), token(TOK_AS)});
+    static const inline PatternPtr keyword_data = one_of({token(TOK_DATA), token(TOK_SHARED), token(TOK_IMMUTABLE), token(TOK_ALIGNED)});
+    static const inline PatternPtr keyword_func = one_of({token(TOK_FUNC), token(TOK_REQUIRES)});
+    static const inline PatternPtr keyword_entity = one_of({token(TOK_ENTITY), token(TOK_EXTENDS), token(TOK_LINK)});
+    static const inline PatternPtr keyword_threading = one_of({token(TOK_SPAWN), token(TOK_SYNC), token(TOK_LOCK)});
+    static const inline PatternPtr keyword_modifiers = one_of({token(TOK_CONST), token(TOK_MUT), token(TOK_PERSISTENT)});
+    static const inline PatternPtr keyword_test = token(TOK_TEST);
+    static const inline PatternPtr keyword = one_of({
+        keyword_function,
+        keyword_error,
+        keyword_variant,
+        keyword_import,
+        keyword_data,
+        keyword_func,
+        keyword_entity,
+        keyword_threading,
+        keyword_modifiers,
+        keyword_test,
+    });
+
     static const inline PatternPtr assignment_shorthand_operator = one_of({
         token(TOK_PLUS_EQUALS), token(TOK_MINUS_EQUALS), token(TOK_MULT_EQUALS), token(TOK_DIV_EQUALS) //
     });
@@ -619,7 +727,8 @@ class Matcher {
     });
     static const inline PatternPtr function_call = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr aliased_function_call = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), function_call});
-    static const inline PatternPtr type_cast = sequence({type_prim, token(TOK_LEFT_PAREN), until_right_paren});
+    static const inline PatternPtr type_cast = sequence({one_of({type_prim, token(TOK_TYPE)}), token(TOK_LEFT_PAREN), until_right_paren});
+    static const inline PatternPtr aliased_initializer = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), type_cast});
     static const inline PatternPtr bin_op_expr = sequence({
         one_or_more(not_p(binary_operator)), binary_operator, one_or_more(not_p(binary_operator)) //
     });
@@ -631,6 +740,7 @@ class Matcher {
         sequence({literal, unary_operator})                                                                           //
     });
     static const inline PatternPtr variable_expr = sequence({token(TOK_IDENTIFIER), not_followed_by(token(TOK_LEFT_PAREN))});
+    static const inline PatternPtr type_field_access = sequence({token(TOK_TYPE), token(TOK_DOT), token(TOK_IDENTIFIER)});
     static const inline PatternPtr data_access = sequence({
         token(TOK_IDENTIFIER), token(TOK_DOT), one_of({token(TOK_IDENTIFIER), sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)})}), //
         not_followed_by(token(TOK_LEFT_PAREN))                                                                                       //

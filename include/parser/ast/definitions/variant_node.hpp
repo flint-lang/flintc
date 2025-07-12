@@ -1,24 +1,26 @@
 #pragma once
 
-#include "../ast_node.hpp"
+#include "parser/ast/ast_node.hpp"
+#include "parser/type/type.hpp"
 
 #include <string>
 #include <utility>
 #include <vector>
 
-/// VariantNode
-///     Represents the variant type definition
+/// @class `VariantNode`
+/// @brief Represents the variant type definition
 class VariantNode : public ASTNode {
   public:
-    explicit VariantNode(std::string &name, std::vector<std::string> &possible_types) :
+    explicit VariantNode(std::string &name, std::vector<std::shared_ptr<Type>> &possible_types) :
         name(name),
         possible_types(std::move(possible_types)) {}
 
   private:
-    /// name
-    ///     The name of the variant type
+    /// @var `name`
+    /// @brief The name of the variant type
     std::string name;
-    /// possible_types
-    ///     List of all types the varaint can hold
-    std::vector<std::string> possible_types;
+
+    /// @var `possible_types`
+    /// @brief List of all types the varaint can hold
+    std::vector<std::shared_ptr<Type>> possible_types;
 };

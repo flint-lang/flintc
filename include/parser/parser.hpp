@@ -148,7 +148,7 @@ class Parser {
 
     /// @var `open_functions_list`
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser
-    std::vector<std::pair<FunctionNode *, token_list>> open_functions_list{};
+    std::vector<std::pair<FunctionNode *, std::vector<Line>>> open_functions_list{};
 
     /// @function `extract_from_to`
     /// @brief Extracts the tokens from a given index up to the given index from the given tokens list
@@ -286,7 +286,7 @@ class Parser {
 
     /// @var `open_tests_list`
     /// @brief The lsit of all open tests, which will be parsed in the second phase of the parser
-    std::vector<std::pair<TestNode *, token_list>> open_tests_list{};
+    std::vector<std::pair<TestNode *, std::vector<Line>>> open_tests_list{};
 
     /// @var `imported_files`
     /// @brief The list of all files the file that is currently parsed can seee / has imported
@@ -358,19 +358,20 @@ class Parser {
     /// @param `open_function` A rvalue reference to the OpenFunction to add to the list
     ///
     /// @attention This function takes ownership of the `open_function` parameter
-    void add_open_function(std::pair<FunctionNode *, token_list> &&open_function) {
+    void add_open_function(std::pair<FunctionNode *, std::vector<Line>> &&open_function) {
         open_functions_list.push_back(std::move(open_function));
     }
 
     /// @function `get_next_open_function`
     /// @brief Returns the next open function to parse
     ///
-    /// @return `std::optional<OpenFunction>` The next Open Function to parse. Returns a nullopt if there are no open functions left
-    std::optional<std::pair<FunctionNode *, token_list>> get_next_open_function() {
+    /// @return `std::optional<std::pair<FunctionNode *, std::vector<Line>>>` The next Open Function to parse. Returns a nullopt if there
+    /// are no open functions left
+    std::optional<std::pair<FunctionNode *, std::vector<Line>>> get_next_open_function() {
         if (open_functions_list.empty()) {
             return std::nullopt;
         }
-        std::pair<FunctionNode *, token_list> of = std::move(open_functions_list.back());
+        std::pair<FunctionNode *, std::vector<Line>> of = std::move(open_functions_list.back());
         open_functions_list.pop_back();
         return of;
     }
@@ -381,45 +382,32 @@ class Parser {
     /// @param `open_test` A rvalue reference to the OpenTest to add to the list
     ///
     /// @attention This function takes ownership of the `open_test` parameter
-    void add_open_test(std::pair<TestNode *, token_list> &&open_test) {
+    void add_open_test(std::pair<TestNode *, std::vector<Line>> &&open_test) {
         open_tests_list.push_back(std::move(open_test));
     }
 
     /// @function `get_next_open_test`
     /// @brief Returns the next open test to parse
     ///
-    /// @return `std::optional<OpenTest>` The next Open Test to parse. Returns a nullopt if there are no open tests left
-    std::optional<std::pair<TestNode *, token_list>> get_next_open_test() {
+    /// @return `std::optional<std::pair<TestNode *, std::vector<Line>>>` The next Open Test to parse. Returns a nullopt if there are no
+    /// open tests left
+    std::optional<std::pair<TestNode *, std::vector<Line>>> get_next_open_test() {
         if (open_tests_list.empty()) {
             return std::nullopt;
         }
-        std::pair<TestNode *, token_list> ot = std::move(open_tests_list.back());
+        std::pair<TestNode *, std::vector<Line>> ot = std::move(open_tests_list.back());
         open_tests_list.pop_back();
         return ot;
     }
 
-    /// @function `remove_leading_garbage`
-    /// @brief Removes all leading garbage, such as indentation or eol characters from the list of tokens
-    ///
-    /// @param `tokens` The tokens in which to remove all leading garbage
-    static void remove_leading_garbage(token_slice &tokens) {
-        for (; tokens.first != tokens.second;) {
-            if (tokens.first->type == TOK_INDENT || tokens.first->type == TOK_EOL) {
-                tokens.first++;
-            } else {
-                break;
-            }
-        }
-    }
-
     /// @function `remove_trailing_garbage`
-    /// @brief Removes all trailing garbage, such as indentation, eol characters or semicolons from the list of tokens
+    /// @brief Removes all trailing garbage, such as indentation, eol characters or semicolons from the token slice
     ///
     /// @param `tokens` The tokens in which to remove all trailing garbage
     static void remove_trailing_garbage(token_slice &tokens) {
         for (; tokens.second != tokens.first;) {
             // The tokens.second is the non-inclusive iterator, so we dont check it directly but only what comes directly infront of it
-            Token tp = std::prev(tokens.second)->type;
+            Token tp = std::prev(tokens.second)->token;
             if (tp == TOK_INDENT || tp == TOK_EOL || tp == TOK_SEMICOLON || tp == TOK_COLON) {
                 tokens.second--;
             } else {
@@ -435,7 +423,7 @@ class Parser {
     static void remove_surrounding_paren(token_slice &tokens) {
         // Us the Matcher to check if the first and last paren are not parens by accident, for example in '(1 + 2) * (3 + 4)', because if we
         // would not check for that the expression would become '1 + 2) * (3 + 4' and that is definitely wrong
-        if (tokens.first->type == TOK_LEFT_PAREN && Matcher::tokens_match({tokens.first + 1, tokens.second}, Matcher::until_right_paren)) {
+        if (tokens.first->token == TOK_LEFT_PAREN && Matcher::tokens_match({tokens.first + 1, tokens.second}, Matcher::until_right_paren)) {
             tokens.first++;
             tokens.second--;
         }
@@ -456,8 +444,8 @@ class Parser {
     /// @param `tokens` The type token slice to check
     /// @return `bool` Whether something failed
     bool check_type_aliasing(token_slice &tokens) {
-        if (std::distance(tokens.first, tokens.second) > 2 && tokens.first->type == TOK_IDENTIFIER &&
-            std::next(tokens.first)->type == TOK_DOT) {
+        if (std::distance(tokens.first, tokens.second) > 2 && tokens.first->token == TOK_IDENTIFIER &&
+            std::next(tokens.first)->token == TOK_DOT) {
             const std::string alias = tokens.first->lexme;
             // Check if this file even has the given alias
             if (aliases.find(alias) == aliases.end()) {
@@ -510,8 +498,9 @@ class Parser {
     ///
     /// @param `file_node` The file node the next created main node will be added to
     /// @param `tokens` The list of tokens from which the next main node will be created from
+    /// @param `souce` A reference to the source token vector directly to enable direct modification
     /// @return `bool` Whether the next main node was added correctly. Returns false if there was an error
-    bool add_next_main_node(FileNode &file_node, token_slice &tokens);
+    bool add_next_main_node(FileNode &file_node, token_slice &tokens, token_list &source);
 
     /// @function `get_definition_tokens`
     /// @brief Extracts all the tokens which are part of the definition
@@ -521,16 +510,22 @@ class Parser {
     /// @attention Deletes all tokens which are part of the definition from the given tokens list
     token_slice get_definition_tokens(const token_slice &tokens);
 
-    /// @function `get_body_tokens`
-    /// @brief Extracts all the body tokens based on their indentation
+    /// @function `get_body_lines`
+    /// @brief Extracts all the body lines based on their indentation. Returns a list of lines, where the tokens have been refined already,
+    /// meaning that all tokens forming a type have been mergeed into a type token, and all tabs within a given line have been removed,
+    /// leaving only the pure line tokens themselves.
     ///
     /// @param `definition_indentation` The indentation level of the definition. The body of the definition will have at least one
     /// indentation level more
     /// @param `tokens` The tokens from which the body will be extracted from
-    /// @return `token_list` The extracted list of tokens forming the whole body
+    /// @return `std::vector<Line>` The extracted next body lines
     ///
     /// @attention This function modifies the given `tokens` list, the retured tokens are no longer part of the given list
-    token_slice get_body_tokens(unsigned int definition_indentation, const token_slice &tokens);
+    std::vector<Line> get_body_lines(                     //
+        unsigned int definition_indentation,              //
+        token_slice &tokens,                              //
+        std::optional<token_list *> source = std::nullopt //
+    );
 
     /// @function `create_call_or_initializer_base`
     /// @brief Creates the base node for all calls or initializers
@@ -577,9 +572,10 @@ class Parser {
     ///     - fourth value is the id of the field
     ///     - fifth value is the type of the field
     std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
-    create_field_access_base( //
-        Scope *scope,         //
-        token_slice &tokens   //
+    create_field_access_base(     //
+        Scope *scope,             //
+        token_slice &tokens,      //
+        const bool is_type_access //
     );
 
     /// @function `create_multi_type_access`
@@ -699,15 +695,29 @@ class Parser {
     /// @retun `std::optional<StringInterpolationNode>` An optional StringInterpolationNode if creation was successful, nullopt otherwise
     std::optional<StringInterpolationNode> create_string_interpolation(Scope *scope, const std::string &interpol_string);
 
-    /// @function `create_call_or_initializer_expression`
+    /// @function `create_call_expression`
     /// @brief Creates a CallNodeExpression from the given tokens
     ///
     /// @param `scope` The scope in which the call expression is defined
     /// @param `tokens` The list of tokens representing the call expression
-    /// @return `std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>` A unique pointer to the
-    /// created CallNodeExpression or InitializerNode, depending on if it was an call or initialization
-    std::optional<std::variant<std::unique_ptr<CallNodeExpression>, std::unique_ptr<InitializerNode>>>
-    create_call_or_initializer_expression(Scope *scope, const token_slice &tokens, const std::optional<std::string> &alias_base);
+    /// @return `std::optional<std::unique_ptr<CallNodeExpression>>` A unique pointer to the created CallNodeExpression
+    std::optional<std::unique_ptr<ExpressionNode>> create_call_expression( //
+        Scope *scope,                                                      //
+        const token_slice &tokens,                                         //
+        const std::optional<std::string> &alias_base                       //
+    );
+
+    /// @function `create_initializer`
+    /// @brief Creates a InitializerNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the initializer is defined
+    /// @param `tokens` The list of tokens representing the initializer
+    /// @return `std::optional<std::unique_ptr<InitializerNode>>` A unique pointer to the created InitializerNod3
+    std::optional<std::unique_ptr<ExpressionNode>> create_initializer( //
+        Scope *scope,                                                  //
+        const token_slice &tokens,                                     //
+        const std::optional<std::string> &alias_base                   //
+    );
 
     /// @function `create_type_cast`
     /// @brief Creates a TypeCastNode from the given tokens, if the expression already is the wanted type it returns the expression directly
@@ -738,8 +748,9 @@ class Parser {
     ///
     /// @param `scope` The scope in which the data access is defined
     /// @param `tokens` The list of tokens representing the data access
+    /// @param `is_type_access` Whether the "data" access is actually a type access, like an enum value access
     /// @return `std::optional<DataAccessNode>` An optional data access node, nullopt if its creation failed
-    std::optional<DataAccessNode> create_data_access(Scope *scope, const token_slice &tokens);
+    std::optional<DataAccessNode> create_data_access(Scope *scope, const token_slice &tokens, const bool is_type_access);
 
     /// @function `create_grouped_data_access`
     /// @brief Creates a GroupedDataAccessNode from the given tokens
@@ -842,7 +853,7 @@ class Parser {
     /// @param `scope` The scope in which the if statement is defined
     /// @param `if_chain` The list of token pairs representing the if statement chain
     /// @return `std::optional<std::unique_ptr<IfNode>>` An optional unique pointer to the created IfNode
-    std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_slice, token_slice>> &if_chain);
+    std::optional<std::unique_ptr<IfNode>> create_if(Scope *scope, std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain);
 
     /// @function `create_while_loop`
     /// @brief Creates a WhileNode from the given definition and body tokens inside the given scope
@@ -851,7 +862,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the while loop definition
     /// @param `body` The list of tokens representing the while loop body
     /// @return `std::optional<std::unique_ptr<WhileNode>>` An optional unique pointer to the created WhileNode
-    std::optional<std::unique_ptr<WhileNode>> create_while_loop(Scope *scope, const token_slice &definition, const token_slice &body);
+    std::optional<std::unique_ptr<WhileNode>> create_while_loop(Scope *scope, const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_for_loop`
     /// @brief Creates a ForLoopNode from the given list of tokens
@@ -860,7 +871,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the for loop definition
     /// @param `body` The list of tokens representing the for loop body
     /// @return `std::optional<std::unique_ptr<ForLoopNode>>` An optional unique pointer to the created ForLoopNode
-    std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(Scope *scope, const token_slice &definition, const token_slice &body);
+    std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(Scope *scope, const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_enh_for_loop`
     /// @brief Creates an enhanced ForLoopNode from the given list of tokens
@@ -874,7 +885,7 @@ class Parser {
     std::optional<std::unique_ptr<EnhForLoopNode>> create_enh_for_loop( //
         Scope *scope,                                                   //
         const token_slice &definition,                                  //
-        const token_slice &body                                         //
+        const std::vector<Line> &body                                   //
     );
 
     /// @function `create_catch`
@@ -893,7 +904,7 @@ class Parser {
     std::optional<std::unique_ptr<CatchNode>> create_catch(     //
         Scope *scope,                                           //
         const token_slice &definition,                          //
-        const token_slice &body,                                //
+        const std::vector<Line> &body,                          //
         std::vector<std::unique_ptr<StatementNode>> &statements //
     );
 
@@ -1023,8 +1034,8 @@ class Parser {
     /// parsing and adding the catch node itself. This is why the reference to the statements list has to be provided.
     std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
         Scope *scope,                                                      //
-        const token_slice &definition,                                     //
-        token_slice &body,                                                 //
+        std::vector<Line>::const_iterator &line_it,                        //
+        const std::vector<Line> &body,                                     //
         std::vector<std::unique_ptr<StatementNode>> &statements            //
     );
 
@@ -1034,7 +1045,7 @@ class Parser {
     /// @param `scope` The scope of the body to generate. All generated body statements will be added to this scope
     /// @param `body` The token list containing all the body tokens
     /// @return `std::optional<std::vectro<std::unique_ptr<StatementNode>>>` The list of StatementNodes parsed from the body tokens.
-    std::optional<std::vector<std::unique_ptr<StatementNode>>> create_body(Scope *scope, const token_slice &body);
+    std::optional<std::vector<std::unique_ptr<StatementNode>>> create_body(Scope *scope, const std::vector<Line> &body);
 
     /**************************************************************************************************************************************
      * @region `Statement` END
@@ -1062,7 +1073,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the data definition
     /// @param `body` The list of tokens representing the data body
     /// @return `std::optional<DataNode>` The created DataNode, nullopt if creation failed
-    std::optional<DataNode> create_data(const token_slice &definition, const token_slice &body);
+    std::optional<DataNode> create_data(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_func`
     /// @brief Creates a FuncNode from the given definition and body tokens
@@ -1072,7 +1083,7 @@ class Parser {
     /// @return `std::optional<FuncNode>` The created FuncNode or nullopt if creation failed
     ///
     /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
-    std::optional<FuncNode> create_func(const token_slice &definition, const token_slice &body);
+    std::optional<FuncNode> create_func(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_entity`
     /// @brief Creates an EntityNode from the given definition and body tokens
@@ -1085,14 +1096,14 @@ class Parser {
     /// @param `body` The list of tokens representing the entity body
     /// @return `create_entity_type` A pair containing the created EntityNode and an optional pair of DataNode and FuncNode if the
     /// entity was monolithic
-    create_entity_type create_entity(const token_slice &definition, const token_slice &body);
+    create_entity_type create_entity(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_links`
     /// @brief Creates a list of LinkNode's from a given body containing those links
     ///
     /// @param `body` The list of tokens forming the body containing all the link statements
     /// @return `std::vector<std::unique_ptr<LinkNode>>` A vector of created LinkNode
-    std::vector<std::unique_ptr<LinkNode>> create_links(const token_slice &body);
+    std::vector<std::unique_ptr<LinkNode>> create_links(const std::vector<Line> &body);
 
     /// @function `create_link`
     /// @brief Creates a LinkNode from the given list of tokens
@@ -1107,7 +1118,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the enum definition
     /// @param `body` The list of tokens representing the enum body
     /// @return `std::optional<EnumNode>` The created EnumNode, nullopt if creation failed
-    std::optional<EnumNode> create_enum(const token_slice &definition, const token_slice &body);
+    std::optional<EnumNode> create_enum(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_error`
     /// @brief Creates an ErrorNode from the given definition and body tokens
@@ -1115,7 +1126,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the error definition
     /// @param `body` The list of tokens representing the error body
     /// @return `ErrorNode` The created ErrorNode
-    ErrorNode create_error(const token_slice &definition, const token_slice &body);
+    ErrorNode create_error(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_variant`
     /// @brief Creates a VariantNode from the given definition and body tokens
@@ -1123,7 +1134,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the variant definition
     /// @param `body` The list of tokens representing the variant body
     /// @return `VariantNode` The created VariantNode
-    VariantNode create_variant(const token_slice &definition, const token_slice &body);
+    VariantNode create_variant(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_test`
     /// @brief Creates a TestNode from the given definition and body tokens
