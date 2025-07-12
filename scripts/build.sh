@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -e
 
 print_usage() {
@@ -220,6 +220,7 @@ fetch_json_mini() {
         echo "-- Checking for internet connection..."
         if ping -w 5 -c 2 google.com >/dev/null 2>&1; then
             echo "-- Updating json-mini repository..."
+            echo -n "-- "
             cd "$root/vendor/sources/json-mini"
             git fetch
             git pull
@@ -350,27 +351,35 @@ build_compilers() {
     fi
 }
 
+# Copies the given file to the given directory, prints a message and fails if copying failed
+checked_copy() {
+    if ! cp "$1" "$2" &> /dev/null; then
+        echo -e "\033[31m-- ERROR: Could not copy '$(basename "$1")' failed because it is in active use!\033[0m"
+        exit 1
+    fi
+}
+
 # Copies all executables from the nested out directories into one out directory, where all outs are saved
 copy_executables() {
     if [ "$build_windows" = "true" ]; then
         if [ "$build_static" = "true" ]; then
-            cp "$root/build/windows-static/out/flintc.exe" "$root/build/out/"
-            cp "$root/build/windows-static/out/tests.exe" "$root/build/out/"
+            checked_copy "$root/build/windows-static/out/flintc.exe" "$root/build/out/"
+            checked_cocy "$root/build/windows-static/out/tests.exe" "$root/build/out/"
         fi
         if [ "$build_dynamic" = "true" ]; then
-            cp "$root/build/windows/out/dynamic-flintc.exe" "$root/build/out/"
-            cp "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/"
+            checked_copy "$root/build/windows/out/dynamic-flintc.exe" "$root/build/out/"
+            checked_cocy "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/"
         fi
     fi
 
     if [ "$build_linux" = "true" ]; then
         if [ "$build_static" = "true" ]; then
-            cp "$root/build/linux-static/out/flintc" "$root/build/out/"
-            cp "$root/build/linux-static/out/tests" "$root/build/out/"
+            checked_copy "$root/build/linux-static/out/flintc" "$root/build/out/"
+            checked_copy "$root/build/linux-static/out/tests" "$root/build/out/"
         fi
         if [ "$build_dynamic" = "true" ]; then
-            cp "$root/build/linux/out/dynamic-flintc" "$root/build/out/"
-            cp "$root/build/linux/out/dynamic-tests" "$root/build/out/"
+            checked_copy "$root/build/linux/out/dynamic-flintc" "$root/build/out/"
+            checked_copy "$root/build/linux/out/dynamic-tests" "$root/build/out/"
         fi
     fi
 }
