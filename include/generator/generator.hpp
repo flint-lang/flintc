@@ -31,6 +31,7 @@
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
+#include "parser/ast/statements/switch_statement.hpp"
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
@@ -1054,6 +1055,19 @@ class Generator {
             llvm::IRBuilder<> &builder,                  //
             GenerationContext &ctx,                      //
             const EnhForLoopNode *for_node               //
+        );
+
+        /// @function `generate_switch_statement`
+        /// @brief Generates the switch statement from the given SwitchStatement node
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `switch_statement` The switch statement to generate
+        /// @return `bool` Whether the code generation of the switch statement was successful
+        [[nodiscard]] static bool generate_switch_statement( //
+            llvm::IRBuilder<> &builder,                      //
+            GenerationContext &ctx,                          //
+            const SwitchStatement *switch_statement          //
         );
 
         /// @function `generate_catch_statement`

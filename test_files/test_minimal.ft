@@ -11,6 +11,7 @@ def main():
 		MyEnum.VAL3: print("is val3\n");
 		MyEnum.VAL4: print("is val4\n");
 
+	me = MyEnum.VAL3;
 	switch me:
 		MyEnum.VAL1:
 			print("is val1\n");

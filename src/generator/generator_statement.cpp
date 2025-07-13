@@ -57,6 +57,8 @@ bool Generator::Statement::generate_statement(      //
         return generate_array_assignment(builder, ctx, array_assignment_node);
     } else if (const auto *stacked_assignment_node = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
         return generate_stacked_assignment(builder, ctx, stacked_assignment_node);
+    } else if (const auto *switch_statement = dynamic_cast<const SwitchStatement *>(statement.get())) {
+        return generate_switch_statement(builder, ctx, switch_statement);
     } else if (dynamic_cast<const BreakNode *>(statement.get())) {
         builder.CreateBr(last_loop_merge_blocks.back());
         return true;
@@ -802,6 +804,81 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     builder.SetInsertPoint(for_blocks[3]);
     last_looparound_blocks.pop_back();
     last_loop_merge_blocks.pop_back();
+    return true;
+}
+
+bool Generator::Statement::generate_switch_statement( //
+    llvm::IRBuilder<> &builder,                       //
+    GenerationContext &ctx,                           //
+    const SwitchStatement *switch_statement           //
+) {
+    // Get the current block, we need to add a branch instruction to its block to point to the correct switch branch.
+    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+
+    // Create the basic blocks for the switch branches and fill those basic blocks at the same time, e.g. generate the body of the switch
+    // branches right here as well
+    std::vector<llvm::BasicBlock *> branch_blocks;
+    branch_blocks.reserve(switch_statement->branches.size());
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge");
+    const Scope *original_scope = ctx.scope;
+    for (size_t i = 0; i < switch_statement->branches.size(); i++) {
+        const auto &branch = switch_statement->branches[i];
+        // Create the basic block for this switch branch
+        branch_blocks.push_back(llvm::BasicBlock::Create(context, "branch_" + std::to_string(i), ctx.parent));
+        builder.SetInsertPoint(branch_blocks[i]);
+        ctx.scope = branch.body.get();
+        if (!generate_body(builder, ctx)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+            // Point to the merge block if this case branch has no terminator
+            builder.CreateBr(merge_block);
+        }
+    }
+    // Now set the insert point to the pred block to actually generate the switch itself
+    builder.SetInsertPoint(pred_block);
+
+    // Generate the switch expression
+    Expression::garbage_type garbage;
+    group_mapping expr_result = Expression::generate_expression(builder, ctx, garbage, 0, switch_statement->switcher.get());
+    llvm::Value *switch_value = expr_result.value().front();
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+
+    // Create the switch instruction
+    llvm::SwitchInst *switch_inst = builder.CreateSwitch(switch_value, merge_block, switch_statement->branches.size());
+
+    // Add the cases to the switch instruction
+    for (size_t i = 0; i < switch_statement->branches.size(); i++) {
+        const auto &branch = switch_statement->branches[i];
+
+        // Generate the case value
+        Expression::garbage_type case_garbage;
+        group_mapping case_expr = Expression::generate_expression(builder, ctx, case_garbage, 0, branch.expr.get());
+        llvm::Value *case_value = case_expr.value().at(0);
+        if (!clear_garbage(builder, case_garbage)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+
+        // Add the case to the switch
+        llvm::ConstantInt *const_case = llvm::dyn_cast<llvm::ConstantInt>(case_value);
+        if (!const_case) {
+            // Switch case value must be a constant integer
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+
+        switch_inst->addCase(const_case, branch_blocks[i]);
+    }
+
+    // Set the insert point back to the merge block
+    ctx.scope = original_scope;
+    merge_block->insertInto(ctx.parent);
+    builder.SetInsertPoint(merge_block);
     return true;
 }
 
