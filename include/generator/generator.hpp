@@ -13,6 +13,7 @@
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
+#include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
@@ -1334,6 +1335,23 @@ class Generator {
             garbage_type &garbage,                 //
             const unsigned int expr_depth,         //
             const InitializerNode *initializer     //
+        );
+
+        /// @function `generate_switch_expression`
+        /// @brief Generates a switch expression from the given SwitchExpression node
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `switch_expression` The switch expression to generate
+        /// @return `group_mapping` The result of the switch expression
+        static group_mapping generate_switch_expression( //
+            llvm::IRBuilder<> &builder,                  //
+            GenerationContext &ctx,                      //
+            garbage_type &garbage,                       //
+            const unsigned int expr_depth,               //
+            const SwitchExpression *switch_expression    //
         );
 
         /// @function `generate_array_initializer`

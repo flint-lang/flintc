@@ -62,6 +62,9 @@ Generator::group_mapping Generator::Expression::generate_expression( //
     if (const auto *initializer = dynamic_cast<const InitializerNode *>(expression_node)) {
         return generate_initializer(builder, ctx, garbage, expr_depth, initializer);
     }
+    if (const auto *switch_expression = dynamic_cast<const SwitchExpression *>(expression_node)) {
+        return generate_switch_expression(builder, ctx, garbage, expr_depth, switch_expression);
+    }
     if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expression_node)) {
         return generate_data_access(builder, ctx, garbage, expr_depth, data_access);
     }
@@ -611,6 +614,137 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
         return return_values;
     }
     return std::nullopt;
+}
+
+Generator::group_mapping Generator::Expression::generate_switch_expression( //
+    llvm::IRBuilder<> &builder,                                             //
+    GenerationContext &ctx,                                                 //
+    garbage_type &garbage,                                                  //
+    const unsigned int expr_depth,                                          //
+    const SwitchExpression *switch_expression                               //
+) {
+    // Get the current block
+    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+
+    // Create the basic blocks for each branch
+    std::vector<llvm::BasicBlock *> branch_blocks;
+    branch_blocks.reserve(switch_expression->branches.size());
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
+    llvm::BasicBlock *default_block = nullptr;
+
+    // Values for the phi node (one from each branch)
+    std::vector<std::pair<llvm::Value *, llvm::BasicBlock *>> phi_values;
+    phi_values.reserve(switch_expression->branches.size());
+
+    // First pass: create all branch blocks and detect default case
+    for (size_t i = 0; i < switch_expression->branches.size(); i++) {
+        const auto &branch = switch_expression->branches[i];
+
+        // Check if it's the default branch (represented by "_")
+        if (dynamic_cast<const DefaultNode *>(branch.match.get())) {
+            if (default_block != nullptr) {
+                // Two default blocks have been defined, only one is allowed
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            branch_blocks.push_back(llvm::BasicBlock::Create(context, "switch_expr_default", ctx.parent));
+            default_block = branch_blocks[i];
+        } else {
+            branch_blocks.push_back(llvm::BasicBlock::Create(context, "switch_expr_branch_" + std::to_string(i), ctx.parent));
+        }
+
+        // Generate the branch expression in its block
+        builder.SetInsertPoint(branch_blocks[i]);
+
+        group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
+        if (!branch_expr.has_value() || branch_expr.value().empty()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        llvm::Value *branch_value = branch_expr.value().front();
+
+        // Store this value for the phi node
+        phi_values.emplace_back(branch_value, branch_blocks[i]);
+
+        // Add branch to merge block if this block doesn't already have a terminator
+        if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+            builder.CreateBr(merge_block);
+        }
+    }
+
+    // Return to the original block to generate the switch instruction
+    builder.SetInsertPoint(pred_block);
+
+    // Generate the switch value (the value being switched on)
+    group_mapping switch_value_mapping = generate_expression(builder, ctx, garbage, expr_depth + 1, switch_expression->switcher.get());
+    if (!switch_value_mapping.has_value() || switch_value_mapping.value().empty()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+    llvm::Value *switch_value = switch_value_mapping.value().front();
+
+    // Create the switch instruction
+    llvm::SwitchInst *switch_inst = nullptr;
+    if (default_block == nullptr) {
+        // If no default case, create one that produces a default value
+        default_block = llvm::BasicBlock::Create(context, "switch_expr_implicit_default", ctx.parent);
+        builder.SetInsertPoint(default_block);
+        llvm::Value *default_value = IR::get_default_value_of_type(builder, switch_expression->type);
+        phi_values.emplace_back(default_value, default_block);
+        builder.CreateBr(merge_block);
+
+        // Switch to default if no case matches
+        builder.SetInsertPoint(pred_block);
+        switch_inst = builder.CreateSwitch(switch_value, default_block, switch_expression->branches.size());
+    } else {
+        // We have an explicit default case
+        switch_inst = builder.CreateSwitch(switch_value, default_block, switch_expression->branches.size() - 1);
+    }
+
+    switch_inst->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Switch expression")));
+
+    // Add the cases to the switch instruction
+    for (size_t i = 0; i < switch_expression->branches.size(); i++) {
+        const auto &branch = switch_expression->branches[i];
+        // Skip the default node
+        if (dynamic_cast<const DefaultNode *>(branch.match.get())) {
+            continue;
+        }
+
+        // Generate the case value
+        group_mapping case_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.match.get());
+        if (!case_expr.has_value() || case_expr.value().empty()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        llvm::Value *case_value = case_expr.value().front();
+
+        // Add the case to the switch
+        llvm::ConstantInt *const_case = llvm::dyn_cast<llvm::ConstantInt>(case_value);
+        if (!const_case) {
+            // Switch case value must be a constant integer
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+
+        switch_inst->addCase(const_case, branch_blocks[i]);
+    }
+
+    // Set insertion point to the merge block to create the phi node
+    merge_block->insertInto(ctx.parent);
+    builder.SetInsertPoint(merge_block);
+
+    // Create the phi node to combine results from all branches
+    llvm::PHINode *phi = builder.CreatePHI(phi_values[0].first->getType(), phi_values.size(), "switch_expr_result");
+
+    // Add all the incoming values to the phi node
+    for (const auto &[value, block] : phi_values) {
+        phi->addIncoming(value, block);
+    }
+
+    // Return the phi node as the result of the expression
+    std::vector<llvm::Value *> result = {phi};
+    return result;
 }
 
 llvm::Value *Generator::Expression::generate_array_initializer( //
