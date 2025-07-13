@@ -1,3 +1,22 @@
+use Core.print
+
+enum MyEnum:
+	VAL1, VAL2, VAL3, VAL4;
+
 def main():
-	i32 x = 7;
-	i32 x = 8;
+	MyEnum me = MyEnum.VAL1;
+	switch me:
+		MyEnum.VAL1: print("is val1\n");
+		MyEnum.VAL2: print("is val2\n");
+		MyEnum.VAL3: print("is val3\n");
+		MyEnum.VAL4: print("is val4\n");
+
+	switch me:
+		MyEnum.VAL1:
+			print("is val1\n");
+		MyEnum.VAL2:
+			print("is val2\n");
+		MyEnum.VAL3:
+			print("is val3\n");
+		MyEnum.VAL4:
+			print("is val4\n");

@@ -33,6 +33,7 @@
 #include "ast/statements/statement_node.hpp"
 #include "ast/statements/unary_op_statement.hpp"
 #include "ast/statements/while_node.hpp"
+#include "parser/ast/statements/switch_statement.hpp"
 
 #include "ast/expressions/array_access_node.hpp"
 #include "ast/expressions/array_initializer_node.hpp"
@@ -880,12 +881,23 @@ class Parser {
     /// @param `definition` The list of tokens representing the enhanced for loop definition
     /// @param `body` The list of tokens representing the enhanced for loop body
     /// @return `std::optional<std::unique_ptr<EnhForLoopNode>>` An optional unique pointer to the created enhanced ForLoopNode
-    ///
-    /// @attention This function is currently not implemented and will throw an error if called
     std::optional<std::unique_ptr<EnhForLoopNode>> create_enh_for_loop( //
         Scope *scope,                                                   //
         const token_slice &definition,                                  //
         const std::vector<Line> &body                                   //
+    );
+
+    /// @function `create_switch_statement`
+    /// @brief Creates an switch statement from the given list of tokens
+    ///
+    /// @param `scope` The scope in which the switch statement is defined
+    /// @param `definition` The list of tokens representing the switch statements definition
+    /// @param `body` The list of lines representing the switch statements entire body
+    /// @return `std::optional<std::unique_ptr<SwitchStatement>>` An optional unique pointer to the created switch statement
+    std::optional<std::unique_ptr<SwitchStatement>> create_switch_statement( //
+        Scope *scope,                                                        //
+        const token_slice &definition,                                       //
+        const std::vector<Line> &body                                        //
     );
 
     /// @function `create_catch`

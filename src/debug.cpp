@@ -682,6 +682,32 @@ namespace Debug {
             print_body(indent_lvl + 1, body_bits, for_node.body->body);
         }
 
+        void print_swtich_statement(unsigned int indent_lvl, TreeBits &bits, const SwitchStatement &switch_statement) {
+            Local::print_header(indent_lvl, bits, "Switch ");
+            std::cout << "switch\n";
+            TreeBits expr_header_bits = bits.child(indent_lvl + 1, false);
+            Local::print_header(indent_lvl + 1, expr_header_bits, "Expression ");
+            std::cout << "\n";
+            TreeBits expr_bits = expr_header_bits.child(indent_lvl + 2, true);
+            print_expression(indent_lvl + 2, expr_bits, switch_statement.switcher);
+            for (auto branch = switch_statement.branches.begin(); branch != switch_statement.branches.end(); ++branch) {
+                const bool is_last = std::next(branch) == switch_statement.branches.end();
+                TreeBits case_bits = bits.child(indent_lvl + 1, is_last);
+                Local::print_header(indent_lvl + 1, case_bits, "Case ");
+                std::cout << "\n";
+                TreeBits case_expr_header_bits = case_bits.child(indent_lvl + 2, false);
+                Local::print_header(indent_lvl + 2, case_expr_header_bits, "Case Expr ");
+                std::cout << "\n";
+                TreeBits case_expr_bits = case_expr_header_bits.child(indent_lvl + 3, true);
+                print_expression(indent_lvl + 3, case_expr_bits, branch->expr);
+                TreeBits case_body_header_bits = case_bits.child(indent_lvl + 2, true);
+                Local::print_header(indent_lvl + 2, case_body_header_bits, "Case Body ");
+                std::cout << "\n";
+                TreeBits case_body_bits = case_body_header_bits.child(indent_lvl + 3, true);
+                print_body(indent_lvl + 3, case_body_bits, branch->body->body);
+            }
+        }
+
         void print_catch(unsigned int indent_lvl, TreeBits &bits, const CatchNode &catch_node) {
             Local::print_header(indent_lvl, bits, "Catch ");
             std::cout << "catch '";
@@ -906,6 +932,8 @@ namespace Debug {
                 print_array_assignment(indent_lvl, bits, *array_assignment);
             } else if (const auto *stacked_assignment = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
                 print_stacked_assignment(indent_lvl, bits, *stacked_assignment);
+            } else if (const auto *switch_statement = dynamic_cast<const SwitchStatement *>(statement.get())) {
+                print_swtich_statement(indent_lvl, bits, *switch_statement);
             } else if (dynamic_cast<const BreakNode *>(statement.get())) {
                 Local::print_header(indent_lvl, bits, "Break ");
                 std::cout << std::endl;

@@ -9,6 +9,7 @@
 #include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/enum_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "types.hpp"
@@ -437,6 +438,96 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     body_scope->body = std::move(body_statements.value());
 
     return std::make_unique<EnhForLoopNode>(iterators, iterable.value(), definition_scope, body_scope);
+}
+
+std::optional<std::unique_ptr<SwitchStatement>> Parser::create_switch_statement( //
+    Scope *scope,                                                                //
+    const token_slice &definition,                                               //
+    const std::vector<Line> &body                                                //
+) {
+    token_slice switcher_tokens = definition;
+    assert(switcher_tokens.first->token == TOK_SWITCH);
+    switcher_tokens.first++;
+    assert(std::prev(switcher_tokens.second)->token == TOK_COLON);
+    switcher_tokens.second--;
+    // The rest of the definition is the switcher expression
+    std::vector<SwitchBranch> branches;
+    std::optional<std::unique_ptr<ExpressionNode>> switcher = create_expression(scope, switcher_tokens);
+    if (!switcher.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    if (dynamic_cast<const EnumType *>(switcher.value()->type.get())) {
+        // Okay now parse the "body" of the switch statement. It's body follows a clear guideline, namely that everything to the left of the
+        // `:` is considered an expression which has to be matched, and the type of the expression to the left needs to match the type of
+        // the switcher expression. At least that's how i will handle it now. Also, only certain types of expressions are allowed at all for
+        // enums, for now thats only "literals", e.g. `EnumType.VALUE`
+        for (auto line_it = body.begin(); line_it != body.end();) {
+            const token_slice &tokens = line_it->tokens;
+            // First, get all tokens until the colon to be able to parse the matching expression
+            std::optional<uint2> match = Matcher::get_next_match_range(tokens, Matcher::until_colon);
+            if (!match.has_value() || match.value().first != 0) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            const token_slice expression_tokens = {tokens.first, tokens.first + match.value().second - 1};
+            auto expression = create_expression(scope, expression_tokens, switcher.value()->type);
+            if (!expression.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (!dynamic_cast<const DataAccessNode *>(expression.value().get())) {
+                // Only "data access nodes" are supported for now (e.g. enum literals)
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+            // Check if the colon is the last symbol in this line. If it is, a body follows. If after the colon something is written the
+            // "body" is a single statement written directly after the colon.
+            std::unique_ptr<Scope> branch_body = std::make_unique<Scope>(scope);
+            if (tokens.first + match.value().second != tokens.second) {
+                // A single statement follows, this means that the line needs to end with a semicolon
+                const token_slice statement_tokens = {tokens.first + match.value().second, tokens.second - 1};
+                if (statement_tokens.second->token != TOK_SEMICOLON) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                auto statement = create_statement(branch_body.get(), statement_tokens);
+                if (!statement.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                branch_body->body.push_back(std::move(statement.value()));
+                branches.emplace_back(expression.value(), branch_body);
+                ++line_it;
+                continue;
+            }
+            // A "normal" body follows. Each line of the body needs to start with a definition, e.g. end with a colon.
+            assert(tokens.first + match.value().second == tokens.second);
+            assert(std::prev(tokens.second)->token == TOK_COLON);
+            const unsigned int case_indent_lvl = line_it->indent_lvl;
+            auto body_start = ++line_it;
+            while (line_it->indent_lvl > case_indent_lvl) {
+                ++line_it;
+            }
+            if (body_start == line_it) {
+                // No body found
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            const std::vector<Line> body_lines(body_start, line_it);
+            auto body_statements = create_body(branch_body.get(), body_lines);
+            if (!body_statements.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            branch_body->body = std::move(body_statements.value());
+            branches.emplace_back(expression.value(), branch_body);
+        }
+    } else {
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return std::nullopt;
+    }
+    return std::make_unique<SwitchStatement>(switcher.value(), branches);
 }
 
 std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
@@ -1485,6 +1576,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         statement_node = create_call_statement(scope, {definition.first + 2, definition.second}, alias_base);
     } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {
         statement_node = create_call_statement(scope, definition, std::nullopt);
+    } else if (Matcher::tokens_contain(definition, Matcher::switch_statement)) {
+        statement_node = create_switch_statement(scope, definition, scoped_body.value());
     } else {
         THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, definition);
         return std::nullopt;
@@ -1512,13 +1605,12 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(S
                 next_statement = create_statement(scope, statement_tokens);
             }
         }
-
-        if (next_statement.has_value()) {
-            body_statements.emplace_back(std::move(next_statement.value()));
-        } else {
+        if (!next_statement.has_value()) {
             THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, statement_tokens);
             return std::nullopt;
         }
+        body_statements.emplace_back(std::move(next_statement.value()));
+
         // Only increment the line iterator if it was no scoped statement, as the create_scoped_statement function already moves the line
         // iterator to the line *after* it's scoped block
         if (!is_scoped) {

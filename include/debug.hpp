@@ -42,6 +42,7 @@
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/statement_node.hpp"
+#include "parser/ast/statements/switch_statement.hpp"
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/while_node.hpp"
 
@@ -167,6 +168,7 @@ namespace Debug {
         void print_while(unsigned int indent_lvl, TreeBits &bits, const WhileNode &while_node);
         void print_for(unsigned int indent_lvl, TreeBits &bits, const ForLoopNode &for_node);
         void print_enh_for(unsigned int indent_lvl, TreeBits &bits, const EnhForLoopNode &for_node);
+        void print_swtich_statement(unsigned int indent_lvl, TreeBits &bits, const SwitchStatement &switch_statement);
         void print_catch(unsigned int indent_lvl, TreeBits &bits, const CatchNode &catch_node);
         void print_group_assignment(unsigned int indent_lvl, TreeBits &bits, const GroupAssignmentNode &assign);
         void print_assignment(unsigned int indent_lvl, TreeBits &bits, const AssignmentNode &assign);
