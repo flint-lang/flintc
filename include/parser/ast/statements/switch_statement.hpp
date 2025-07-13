@@ -4,17 +4,17 @@
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/switch_base.hpp"
 
-/// @struct `Branch`
+/// @struct `SSwitchBranch`
 /// @brief One branch of the switch statement
-struct SwitchBranch {
+struct SSwitchBranch {
   public:
-    SwitchBranch(std::unique_ptr<ExpressionNode> &expr, std::unique_ptr<Scope> &body) :
-        expr(std::move(expr)),
+    SSwitchBranch(std::unique_ptr<ExpressionNode> &match, std::unique_ptr<Scope> &body) :
+        match(std::move(match)),
         body(std::move(body)) {}
 
-    /// @var `expr`
+    /// @var `match`
     /// @brief The expression to match the single switch branch to
-    std::unique_ptr<ExpressionNode> expr;
+    std::unique_ptr<ExpressionNode> match;
 
     /// @var `body`
     /// @brief The body of this switch branch
@@ -25,11 +25,11 @@ struct SwitchBranch {
 /// @brief Represents switch statements
 class SwitchStatement : public SwitchBase, public StatementNode {
   public:
-    SwitchStatement(std::unique_ptr<ExpressionNode> &switcher, std::vector<SwitchBranch> &branches) :
+    SwitchStatement(std::unique_ptr<ExpressionNode> &switcher, std::vector<SSwitchBranch> &branches) :
         SwitchBase(switcher),
         branches(std::move(branches)) {}
 
     /// @var `branches`
     /// @brief All the possible switch branches
-    std::vector<SwitchBranch> branches;
+    std::vector<SSwitchBranch> branches;
 };

@@ -25,6 +25,7 @@
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
+#include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
@@ -158,6 +159,7 @@ namespace Debug {
         void print_array_access(unsigned int indent_lvl, TreeBits &bits, const ArrayAccessNode &access);
         void print_data_access(unsigned int indent_lvl, TreeBits &bits, const DataAccessNode &access);
         void print_grouped_data_access(unsigned int indent_lvl, TreeBits &bits, const GroupedDataAccessNode &access);
+        void print_switch_expression(unsigned int indent_lvl, TreeBits &bits, const SwitchExpression &switch_expression);
         void print_default(unsigned int indent_lvl, TreeBits &bits, const DefaultNode &default_node);
         void print_expression(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<ExpressionNode> &expr);
 
@@ -168,7 +170,7 @@ namespace Debug {
         void print_while(unsigned int indent_lvl, TreeBits &bits, const WhileNode &while_node);
         void print_for(unsigned int indent_lvl, TreeBits &bits, const ForLoopNode &for_node);
         void print_enh_for(unsigned int indent_lvl, TreeBits &bits, const EnhForLoopNode &for_node);
-        void print_swtich_statement(unsigned int indent_lvl, TreeBits &bits, const SwitchStatement &switch_statement);
+        void print_switch_statement(unsigned int indent_lvl, TreeBits &bits, const SwitchStatement &switch_statement);
         void print_catch(unsigned int indent_lvl, TreeBits &bits, const CatchNode &catch_node);
         void print_group_assignment(unsigned int indent_lvl, TreeBits &bits, const GroupAssignmentNode &assign);
         void print_assignment(unsigned int indent_lvl, TreeBits &bits, const AssignmentNode &assign);

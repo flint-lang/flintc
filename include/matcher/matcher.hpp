@@ -714,6 +714,7 @@ class Matcher {
         balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_PAREN), 0);
     static const inline PatternPtr until_comma = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_COMMA), token(TOK_RIGHT_PAREN), 0);
     static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
+    static const inline PatternPtr until_arrow = match_until(token(TOK_ARROW));
     static const inline PatternPtr until_semicolon = match_until(token(TOK_SEMICOLON));
     static const inline PatternPtr until_colon_equal = match_until(token(TOK_COLON_EQUAL));
     static const inline PatternPtr until_eq_or_colon_equal = match_until(one_of({token(TOK_EQUAL), token(TOK_COLON_EQUAL)}));

@@ -898,11 +898,11 @@ class Parser {
     /// @param `scope` The scope in which the switch statement is defined
     /// @param `definition` The list of tokens representing the switch statements definition
     /// @param `body` The list of lines representing the switch statements entire body
-    /// @return `std::optional<std::unique_ptr<SwitchStatement>>` An optional unique pointer to the created switch statement
-    std::optional<std::unique_ptr<SwitchStatement>> create_switch_statement( //
-        Scope *scope,                                                        //
-        const token_slice &definition,                                       //
-        const std::vector<Line> &body                                        //
+    /// @return `std::optional<std::unique_ptr<StatementNode>>` An optional unique pointer to the created statement
+    std::optional<std::unique_ptr<StatementNode>> create_switch_statement( //
+        Scope *scope,                                                      //
+        const token_slice &definition,                                     //
+        const std::vector<Line> &body                                      //
     );
 
     /// @function `create_catch`
@@ -930,42 +930,67 @@ class Parser {
     ///
     /// @param `scope` The scope in which the assignment is defined
     /// @param `tokens` The list of tokens representing the assignment
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<std::unique_ptr<GroupAssignmentNode>>` An optional unique pointer to the created GroupAssignmentNode
-    std::optional<GroupAssignmentNode> create_group_assignment(Scope *scope, const token_slice &tokens);
+    std::optional<GroupAssignmentNode> create_group_assignment( //
+        Scope *scope,                                           //
+        const token_slice &tokens,                              //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs     //
+    );
 
     /// @function `create_group_assignment_shorthand`
     /// @brief Creates an GroupAssignmentNode from the given list of tokens where the group assignment itself is a shorthand
     ///
     /// @param `scope` The scope in which the assignment is defined
     /// @param `tokens` The list of tokens representing the assignment
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<std::unique_ptr<GroupAssignmentNode>>` An optional unique pointer to the created GroupAssignmentNode
-    std::optional<GroupAssignmentNode> create_group_assignment_shorthand(Scope *scope, const token_slice &tokens);
+    std::optional<GroupAssignmentNode> create_group_assignment_shorthand( //
+        Scope *scope,                                                     //
+        const token_slice &tokens,                                        //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs               //
+    );
 
     /// @function `create_assignment`
     /// @brief Creates an AssignmentNode from the given list of tokens
     ///
     /// @param `scope` The scope in which the assignment is defined
     /// @param `tokens` The list of tokens representing the assignment
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<std::unique_ptr<AssignmentNode>>` An optional unique pointer to the created AssignmentNode
-    std::optional<AssignmentNode> create_assignment(Scope *scope, const token_slice &tokens);
+    std::optional<AssignmentNode> create_assignment(        //
+        Scope *scope,                                       //
+        const token_slice &tokens,                          //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs //
+    );
 
     /// @function `create_assignment_shorthand`
     /// @brief Creates an AssignmentShorthandNode from the given list of tokens
     ///
     /// @param `scope` The scope in which the assignment shorthand is defined
     /// @param `tokens` The list of tokens contiaining the assignment shorthand
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<AssignmentNode>` The created AssignmentNode, nullopt if creation failed
-    std::optional<AssignmentNode> create_assignment_shorthand(Scope *scope, const token_slice &tokens);
+    std::optional<AssignmentNode> create_assignment_shorthand( //
+        Scope *scope,                                          //
+        const token_slice &tokens,                             //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs    //
+    );
 
     /// @function `create_group_declaration`
     /// @brief Creates a GroupDeclarationNode from the given list of tokens
     ///
     /// @param `scope` The scope in which the group declaration is defined
     /// @param `tokens` The list of tokens representing the group declaration
+    /// @param `rhs` The rhs of the declaration, which possibly is already parsed
     /// @return `std::optional<GroupDeclarationNode>` An optional GroupDeclarationNode, if creation was sucessfull
     ///
     /// @note A group declaration is _always_ inferred and cannot be not inferred
-    std::optional<GroupDeclarationNode> create_group_declaration(Scope *scope, const token_slice &tokens);
+    std::optional<GroupDeclarationNode> create_group_declaration( //
+        Scope *scope,                                             //
+        const token_slice &tokens,                                //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs       //
+    );
 
     /// @function `create_declaration`
     /// @brief Creates a DeclarationNode from the given list of tokens
@@ -974,8 +999,15 @@ class Parser {
     /// @param `tokens` The list of tokens representing the declaration
     /// @param `is_inferred` Determines whether the type of the declared variable is inferred
     /// @param `has_rhs` Determines whether the declaration even has a rhs
+    /// @param `rhs` The rhs of the declaration, which possibly is already parsed
     /// @return `std::optional<DeclarationNode>` An optional DeclarationNode, if creation was sucessfull
-    std::optional<DeclarationNode> create_declaration(Scope *scope, const token_slice &tokens, const bool is_inferred, const bool has_rhs);
+    std::optional<DeclarationNode> create_declaration(      //
+        Scope *scope,                                       //
+        const token_slice &tokens,                          //
+        const bool is_inferred,                             //
+        const bool has_rhs,                                 //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs //
+    );
 
     /// @function `create_unary_op_statement`
     /// @brief Creates a UnaryOpStatement from the given tokens
@@ -990,32 +1022,52 @@ class Parser {
     ///
     /// @param `scope` The scope in which the data field assignment is defined
     /// @param `tokens` The list of tokens representing the data field assignment node
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<DataFieldAssignmentNode>` The created DataFieldAssignmentNode, nullopt if its creation failed
-    std::optional<DataFieldAssignmentNode> create_data_field_assignment(Scope *scope, const token_slice &tokens);
+    std::optional<DataFieldAssignmentNode> create_data_field_assignment( //
+        Scope *scope,                                                    //
+        const token_slice &tokens,                                       //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs              //
+    );
 
     /// @function `create_grouped_data_field_assignment`
     /// @brief Creates a GroupedDataFieldAssignmentNode from the given tokens
     ///
     /// @param `scope` The scope in which the grouped data field assignment is defined
     /// @param `tokens` The list of tokens representing the grouped data field assignment
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<GroupedDataFieldAssignmentNode>` The created GroupedDataFieldAssignmentNode, nullopt if its creation failed
-    std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment(Scope *scope, const token_slice &tokens);
+    std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment( //
+        Scope *scope,                                                                   //
+        const token_slice &tokens,                                                      //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs                             //
+    );
 
     /// @function `create_grouped_data_field_assignment_shorthand`
     /// @brief Creates a GroupedDataFieldAssignmentNode from the given tokens
     ///
     /// @param `scope` The scope in which the grouped data field assignment is defined
     /// @param `tokens` The list of tokens representing the grouped data field assignment
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<GroupedDataFieldAssignmentNode>` The created GroupedDataFieldAssignmentNode, nullopt if its creation failed
-    std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment_shorthand(Scope *scope, const token_slice &tokens);
+    std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment_shorthand( //
+        Scope *scope,                                                                             //
+        const token_slice &tokens,                                                                //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs                                       //
+    );
 
     /// @function `create_array_assignment`
     /// @brief Creates an ArrayAssignmentNode from the given tokens
     ///
     /// @param `scope` The scope in which the grouped array assignment is defined
     /// @param `tokens` The list of tokens representing the array assignment
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<ArrayAssignmentNode>` The created ArrayAssignmentNode, nullopt if its creation failed
-    std::optional<ArrayAssignmentNode> create_array_assignment(Scope *scope, const token_slice &tokens);
+    std::optional<ArrayAssignmentNode> create_array_assignment( //
+        Scope *scope,                                           //
+        const token_slice &tokens,                              //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs     //
+    );
 
     /// @function `create_stacked_statement`
     /// @brief Creates a stacked statement, like `a.b.c = sdf` for example
@@ -1030,11 +1082,16 @@ class Parser {
     ///
     /// @param `scope` The scope in which the statement is defined
     /// @param `tokens` The list of tokens representing the statement
+    /// @param `rhs` The rhs of the statement, which possibly is already parsed
     /// @return `std::optional<std::unique_ptr<StatementNode>>` An optional unique pointer to the created StatementNode
     ///
     /// @note This function dispatches to other functions to create specific statement nodes based on the signatures. It also handles
     /// parsing errors and returns nullopt if the statement cannot be parsed.
-    std::optional<std::unique_ptr<StatementNode>> create_statement(Scope *scope, const token_slice &tokens);
+    std::optional<std::unique_ptr<StatementNode>> create_statement(       //
+        Scope *scope,                                                     //
+        const token_slice &tokens,                                        //
+        std::optional<std::unique_ptr<ExpressionNode>> rhs = std::nullopt //
+    );
 
     /// @function `create_scoped_statement`
     /// @brief Creates the AST of a scoped statement like if, loops, catch, switch, etc.

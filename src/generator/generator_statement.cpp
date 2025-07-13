@@ -826,7 +826,7 @@ bool Generator::Statement::generate_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Check if it's the default branch
-        if (dynamic_cast<const DefaultNode *>(branch.expr.get())) {
+        if (dynamic_cast<const DefaultNode *>(branch.match.get())) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -872,13 +872,13 @@ bool Generator::Statement::generate_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Skip the default node, this block is not targetted directly by any switch expression
-        if (dynamic_cast<const DefaultNode *>(branch.expr.get())) {
+        if (dynamic_cast<const DefaultNode *>(branch.match.get())) {
             continue;
         }
 
         // Generate the case value
         Expression::garbage_type case_garbage;
-        group_mapping case_expr = Expression::generate_expression(builder, ctx, case_garbage, 0, branch.expr.get());
+        group_mapping case_expr = Expression::generate_expression(builder, ctx, case_garbage, 0, branch.match.get());
         llvm::Value *case_value = case_expr.value().at(0);
         if (!clear_garbage(builder, case_garbage)) {
             THROW_BASIC_ERR(ERR_GENERATING);

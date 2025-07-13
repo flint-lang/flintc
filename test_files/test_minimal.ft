@@ -4,39 +4,28 @@ enum MyEnum:
 	VAL1, VAL2, VAL3, VAL4;
 
 def main():
-	MyEnum me = MyEnum.VAL1;
+	MyEnum me = MyEnum.VAL3;
+
 	switch me:
-		MyEnum.VAL1: print("is val1\n");
-		MyEnum.VAL2: print("is val2\n");
-		MyEnum.VAL3: print("is val3\n");
-		MyEnum.VAL4: print("is val4\n");
+		_: print("is VAL3 or VAL4\n");
+		MyEnum.VAL1: print("is VAL1\n");
+		MyEnum.VAL2: print("is VAL2\n");
 
-	me = MyEnum.VAL3;
-	switch me:
-		_:
-			print("is not val1\n");
-		MyEnum.VAL1:
-			print("is val1\n");
+	i32 res = switch me:
+		_ -> 0;
+		MyEnum.VAL1 -> 1;
+		MyEnum.VAL2 -> 2;
+	print($"res = {res}\n");
 
-	i32 val = 6;
-	switch val:
-		_: print("is something else\n");
-		0: print("is_0\n");
-		1: print("is_1\n");
-		2: print("is_2\n");
-		3: print("is_3\n");
-		4: print("is_4\n");
-
-	u8 char = 'B';
-	switch char:
-		_:
-			print("is not B\n");
-		'B':
-			print("is B\n");
+	str string = switch me:
+		MyEnum.VAL1 -> str("VAL1");
+		MyEnum.VAL2 -> str("VAL2");
+		MyEnum.VAL3 -> str("VAL3");
+		MyEnum.VAL4 -> str("VAL4");
+	print($"string = {string}\n");
 	
-	str h = "Hello, World!";
-	for (_, c) in h:
-		switch c:
-			',': print("is a comma\n");
-			'H': print("is a H\n");
-			_: print("is something else\n");
+	u8 c = switch me:
+		_ -> 'C';
+		MyEnum.VAL3 -> '3';
+		MyEnum.VAL4 -> '4';
+	print($"c = {c}\n");

@@ -155,6 +155,7 @@ enum CFunction {
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
+    {"__flint_type_str_lit", {"str"}},
     {"i32", {"str", "u8", "i64", "f32", "f64", "u32", "u64"}},
     {"i64", {"str", "u8", "i32", "f32", "f64", "u32", "u64"}},
     {"u32", {"str", "u8", "i32", "i64", "f32", "f64", "u64"}},
