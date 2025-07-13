@@ -3,6 +3,7 @@
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 
+#include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/continue_node.hpp"
@@ -821,10 +822,21 @@ bool Generator::Statement::generate_switch_statement( //
     branch_blocks.reserve(switch_statement->branches.size());
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge");
     const Scope *original_scope = ctx.scope;
+    llvm::BasicBlock *default_block = nullptr;
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
-        // Create the basic block for this switch branch
-        branch_blocks.push_back(llvm::BasicBlock::Create(context, "branch_" + std::to_string(i), ctx.parent));
+        // Check if it's the default branch
+        if (dynamic_cast<const DefaultNode *>(branch.expr.get())) {
+            if (default_block != nullptr) {
+                // Two default blocks have been defined, only one is allowed
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            branch_blocks.push_back(llvm::BasicBlock::Create(context, "default", ctx.parent));
+            default_block = branch_blocks[i];
+        } else {
+            branch_blocks.push_back(llvm::BasicBlock::Create(context, "branch_" + std::to_string(i), ctx.parent));
+        }
         builder.SetInsertPoint(branch_blocks[i]);
         ctx.scope = branch.body.get();
         if (!generate_body(builder, ctx)) {
@@ -848,12 +860,21 @@ bool Generator::Statement::generate_switch_statement( //
         return false;
     }
 
-    // Create the switch instruction
-    llvm::SwitchInst *switch_inst = builder.CreateSwitch(switch_value, merge_block, switch_statement->branches.size());
+    // Create the switch instruction. Branch to the default block, if one exists, when no default block exists we jump to the merge block
+    llvm::SwitchInst *switch_inst = nullptr;
+    if (default_block == nullptr) {
+        switch_inst = builder.CreateSwitch(switch_value, merge_block, switch_statement->branches.size());
+    } else {
+        switch_inst = builder.CreateSwitch(switch_value, default_block, switch_statement->branches.size() - 1);
+    }
 
     // Add the cases to the switch instruction
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
+        // Skip the default node, this block is not targetted directly by any switch expression
+        if (dynamic_cast<const DefaultNode *>(branch.expr.get())) {
+            continue;
+        }
 
         // Generate the case value
         Expression::garbage_type case_garbage;

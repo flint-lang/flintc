@@ -21,3 +21,12 @@ def main():
 			print("is val3\n");
 		MyEnum.VAL4:
 			print("is val4\n");
+
+	i32 val = 6;
+	switch val:
+		_: print("is something else\n");
+		0: print("is_0\n");
+		1: print("is_1\n");
+		2: print("is_2\n");
+		3: print("is_3\n");
+		4: print("is_4\n");
