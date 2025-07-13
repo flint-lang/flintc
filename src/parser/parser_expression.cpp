@@ -907,7 +907,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
     }
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(Scope *scope, const token_slice &tokens) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( //
+    Scope *scope,                                                               //
+    const token_slice &tokens,                                                  //
+    const std::optional<std::shared_ptr<Type>> &expected_type                   //
+) {
     token_slice tokens_mut = tokens;
     token_list toks;
     if (DEBUG_MODE) {
@@ -935,6 +939,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
                 return std::nullopt;
             }
             return std::make_unique<VariableNode>(std::move(variable.value()));
+        } else if (tokens_mut.first->token == TOK_UNDERSCORE) {
+            if (!expected_type.has_value()) {
+                // Default node at a place where it's type cannot be inferred
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<DefaultNode>(expected_type.value());
         }
     } else if (token_size == 2) {
         if (Matcher::tokens_match(tokens_mut, Matcher::literal_expr)) {
@@ -1148,13 +1159,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression(S
     token_slice rhs_tokens = {tokens_mut.first + pivot_pos + 1, tokens_mut.second};
 
     // Recursively parse both sides
-    auto lhs = create_pivot_expression(scope, lhs_tokens);
+    auto lhs = create_pivot_expression(scope, lhs_tokens, expected_type);
     if (!lhs.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, lhs_tokens);
         return std::nullopt;
     }
 
-    auto rhs = create_pivot_expression(scope, rhs_tokens);
+    auto rhs = create_pivot_expression(scope, rhs_tokens, expected_type);
     if (!rhs.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_tokens);
         return std::nullopt;
@@ -1198,7 +1209,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     remove_trailing_garbage(expr_tokens);
 
     // Parse expression using precedence levels
-    auto expression = create_pivot_expression(scope, expr_tokens);
+    auto expression = create_pivot_expression(scope, expr_tokens, expected_type);
 
     if (!expression.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);

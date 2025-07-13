@@ -794,8 +794,13 @@ class Parser {
     ///
     /// @param `scope` The scope in which the expression is defined
     /// @param `tokens` The list of tokens representing the expression
+    /// @param `expected_type` The expected type of the expression. Needed for the cration of default nodes
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional unique pointer to the created ExpressionNode
-    std::optional<std::unique_ptr<ExpressionNode>> create_pivot_expression(Scope *scope, const token_slice &tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> create_pivot_expression(      //
+        Scope *scope,                                                            //
+        const token_slice &tokens,                                               //
+        const std::optional<std::shared_ptr<Type>> &expected_type = std::nullopt //
+    );
 
     /// @function `create_expression`
     /// @brief Creates an ExpressionNode from the given tokens
