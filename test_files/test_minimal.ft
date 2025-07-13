@@ -13,14 +13,10 @@ def main():
 
 	me = MyEnum.VAL3;
 	switch me:
+		_:
+			print("is not val1\n");
 		MyEnum.VAL1:
 			print("is val1\n");
-		MyEnum.VAL2:
-			print("is val2\n");
-		MyEnum.VAL3:
-			print("is val3\n");
-		MyEnum.VAL4:
-			print("is val4\n");
 
 	i32 val = 6;
 	switch val:

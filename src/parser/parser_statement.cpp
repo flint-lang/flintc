@@ -521,7 +521,7 @@ std::optional<std::unique_ptr<SwitchStatement>> Parser::create_switch_statement(
         assert(std::prev(tokens.second)->token == TOK_COLON);
         const unsigned int case_indent_lvl = line_it->indent_lvl;
         auto body_start = ++line_it;
-        while (line_it->indent_lvl > case_indent_lvl) {
+        while (line_it != body.end() && line_it->indent_lvl > case_indent_lvl) {
             ++line_it;
         }
         if (body_start == line_it) {
