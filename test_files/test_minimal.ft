@@ -26,3 +26,17 @@ def main():
 		2: print("is_2\n");
 		3: print("is_3\n");
 		4: print("is_4\n");
+
+	u8 char = 'B';
+	switch char:
+		_:
+			print("is not B\n");
+		'B':
+			print("is B\n");
+	
+	str h = "Hello, World!";
+	for (_, c) in h:
+		switch c:
+			',': print("is a comma\n");
+			'H': print("is a H\n");
+			_: print("is something else\n");
