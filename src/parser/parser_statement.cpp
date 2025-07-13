@@ -4,6 +4,7 @@
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/continue_node.hpp"
@@ -457,75 +458,85 @@ std::optional<std::unique_ptr<SwitchStatement>> Parser::create_switch_statement(
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    if (dynamic_cast<const EnumType *>(switcher.value()->type.get())) {
-        // Okay now parse the "body" of the switch statement. It's body follows a clear guideline, namely that everything to the left of the
-        // `:` is considered an expression which has to be matched, and the type of the expression to the left needs to match the type of
-        // the switcher expression. At least that's how i will handle it now. Also, only certain types of expressions are allowed at all for
-        // enums, for now thats only "literals", e.g. `EnumType.VALUE`
-        for (auto line_it = body.begin(); line_it != body.end();) {
-            const token_slice &tokens = line_it->tokens;
-            // First, get all tokens until the colon to be able to parse the matching expression
-            std::optional<uint2> match = Matcher::get_next_match_range(tokens, Matcher::until_colon);
-            if (!match.has_value() || match.value().first != 0) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            const token_slice expression_tokens = {tokens.first, tokens.first + match.value().second - 1};
-            auto expression = create_expression(scope, expression_tokens, switcher.value()->type);
-            if (!expression.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            if (!dynamic_cast<const DataAccessNode *>(expression.value().get())) {
-                // Only "data access nodes" are supported for now (e.g. enum literals)
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return std::nullopt;
-            }
-            // Check if the colon is the last symbol in this line. If it is, a body follows. If after the colon something is written the
-            // "body" is a single statement written directly after the colon.
-            std::unique_ptr<Scope> branch_body = std::make_unique<Scope>(scope);
-            if (tokens.first + match.value().second != tokens.second) {
-                // A single statement follows, this means that the line needs to end with a semicolon
-                const token_slice statement_tokens = {tokens.first + match.value().second, tokens.second - 1};
-                if (statement_tokens.second->token != TOK_SEMICOLON) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                auto statement = create_statement(branch_body.get(), statement_tokens);
-                if (!statement.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                branch_body->body.push_back(std::move(statement.value()));
-                branches.emplace_back(expression.value(), branch_body);
-                ++line_it;
-                continue;
-            }
-            // A "normal" body follows. Each line of the body needs to start with a definition, e.g. end with a colon.
-            assert(tokens.first + match.value().second == tokens.second);
-            assert(std::prev(tokens.second)->token == TOK_COLON);
-            const unsigned int case_indent_lvl = line_it->indent_lvl;
-            auto body_start = ++line_it;
-            while (line_it->indent_lvl > case_indent_lvl) {
-                ++line_it;
-            }
-            if (body_start == line_it) {
-                // No body found
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            const std::vector<Line> body_lines(body_start, line_it);
-            auto body_statements = create_body(branch_body.get(), body_lines);
-            if (!body_statements.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            branch_body->body = std::move(body_statements.value());
-            branches.emplace_back(expression.value(), branch_body);
+    // Okay now parse the "body" of the switch statement. It's body follows a clear guideline, namely that everything to the left of the
+    // `:` is considered an expression which has to be matched, and the type of the expression to the left needs to match the type of
+    // the switcher expression. At least that's how i will handle it now. Also, only certain types of expressions are allowed at all for
+    // enums, for now thats only "literals", e.g. `EnumType.VALUE`
+    for (auto line_it = body.begin(); line_it != body.end();) {
+        const token_slice &tokens = line_it->tokens;
+        // First, get all tokens until the colon to be able to parse the matching expression
+        std::optional<uint2> match = Matcher::get_next_match_range(tokens, Matcher::until_colon);
+        if (!match.has_value() || match.value().first != 0) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
-    } else {
-        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-        return std::nullopt;
+        const token_slice expression_tokens = {tokens.first, tokens.first + match.value().second - 1};
+        auto expression = create_expression(scope, expression_tokens, switcher.value()->type);
+        if (!expression.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (dynamic_cast<const EnumType *>(switcher.value()->type.get())) {
+            const bool is_data_access = dynamic_cast<const DataAccessNode *>(expression.value().get()) != nullptr;
+            const bool is_default_value = dynamic_cast<const DefaultNode *>(expression.value().get()) != nullptr;
+            if (!is_data_access && !is_default_value) {
+                // Not allowed value for the switch statement's expression
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        } else if (dynamic_cast<const PrimitiveType *>(switcher.value()->type.get())) {
+            const bool is_literal = dynamic_cast<const LiteralNode *>(expression.value().get()) != nullptr;
+            const bool is_default_value = dynamic_cast<const DefaultNode *>(expression.value().get()) != nullptr;
+            if (!is_literal && !is_default_value) {
+                // Not allowed value for the switch statement's expression
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        } else {
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
+        }
+        // Check if the colon is the last symbol in this line. If it is, a body follows. If after the colon something is written the
+        // "body" is a single statement written directly after the colon.
+        std::unique_ptr<Scope> branch_body = std::make_unique<Scope>(scope);
+        if (tokens.first + match.value().second != tokens.second) {
+            // A single statement follows, this means that the line needs to end with a semicolon
+            const token_slice statement_tokens = {tokens.first + match.value().second, tokens.second - 1};
+            if (statement_tokens.second->token != TOK_SEMICOLON) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            auto statement = create_statement(branch_body.get(), statement_tokens);
+            if (!statement.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            branch_body->body.push_back(std::move(statement.value()));
+            branches.emplace_back(expression.value(), branch_body);
+            ++line_it;
+            continue;
+        }
+        // A "normal" body follows. Each line of the body needs to start with a definition, e.g. end with a colon.
+        assert(tokens.first + match.value().second == tokens.second);
+        assert(std::prev(tokens.second)->token == TOK_COLON);
+        const unsigned int case_indent_lvl = line_it->indent_lvl;
+        auto body_start = ++line_it;
+        while (line_it->indent_lvl > case_indent_lvl) {
+            ++line_it;
+        }
+        if (body_start == line_it) {
+            // No body found
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const std::vector<Line> body_lines(body_start, line_it);
+        auto body_statements = create_body(branch_body.get(), body_lines);
+        if (!body_statements.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        branch_body->body = std::move(body_statements.value());
+        branches.emplace_back(expression.value(), branch_body);
     }
     return std::make_unique<SwitchStatement>(switcher.value(), branches);
 }
