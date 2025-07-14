@@ -140,7 +140,7 @@ bool Lexer::scan_token() {
             add_token_options(TOK_COLON, {{'=', TOK_COLON_EQUAL}, {':', TOK_REFERENCE}});
             break;
         case '?':
-            if (peek() == '?') {
+            if (peek_next() == '?') {
                 add_token(TOK_OPT_DEFAULT);
                 advance();
             } else {

@@ -5,6 +5,7 @@
 #include "matcher/matcher.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/default_node.hpp"
+#include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/continue_node.hpp"

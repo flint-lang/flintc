@@ -6,6 +6,7 @@
 #include "matcher/matcher.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/unknown_type.hpp"
@@ -280,8 +281,23 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
             }
             return std::make_shared<TupleType>(subtypes);
         }
+    } else if (std::prev(tokens_mut.second)->token == TOK_QUESTION) {
+        // It's an optional type
+        if (tokens_mut.first == std::prev(tokens_mut.second)) {
+            // A single trailing ? which is not part of any other type, a ? cannot stand alone
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        // Everything to the left of the question mark is the base type of the optional
+        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)}, true);
+        if (!base_type.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_shared<OptionalType>(base_type.value());
     }
-    // If its not a primitive type and not an array type its a complex type, e.g. Opt<..> for example. This is not supported yet
+
+    // The type can not be parsed and does not exist yet
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }

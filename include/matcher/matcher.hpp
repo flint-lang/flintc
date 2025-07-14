@@ -515,11 +515,12 @@ class Matcher {
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
     static const inline PatternPtr type = one_of({
         sequence({
-            one_of({token(TOK_TYPE), simple_type, token(TOK_DATA)}),                                                    // Single base type
-            optional(sequence({token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1)})),              // <..> Type group
-            zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})) // [][,][,,] Arrays
-        }),                                                                                                             //
-        token(TOK_TYPE)                                                                                                 //
+            one_of({token(TOK_TYPE), simple_type, token(TOK_DATA)}),                                                     // Single base type
+            optional(sequence({token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1)})),               // <..> Type group
+            zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})), // [][,][,,] Arrays
+            optional(token(TOK_QUESTION))                                                                                // ? for optionals
+        }),                                                                                                              //
+        token(TOK_TYPE)                                                                                                  //
     });
 
     // Symbols

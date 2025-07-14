@@ -1,31 +1,10 @@
 use Core.print
 
-enum MyEnum:
-	VAL1, VAL2, VAL3, VAL4;
-
 def main():
-	MyEnum me = MyEnum.VAL3;
+	i32? maybe_val = none;
+	if maybe_val != none:
+		print($"maybe_val = {maybe_val!}\n");
 
-	switch me:
-		_: print("is VAL3 or VAL4\n");
-		MyEnum.VAL1: print("is VAL1\n");
-		MyEnum.VAL2: print("is VAL2\n");
-
-	i32 res = switch me:
-		_ -> 0;
-		MyEnum.VAL1 -> 1;
-		MyEnum.VAL2 -> 2;
-	print($"res = {res}\n");
-
-	str string = switch me:
-		MyEnum.VAL1 -> str("VAL1");
-		MyEnum.VAL2 -> str("VAL2");
-		MyEnum.VAL3 -> str("VAL3");
-		MyEnum.VAL4 -> str("VAL4");
-	print($"string = {string}\n");
-	
-	u8 c = switch me:
-		_ -> 'C';
-		MyEnum.VAL3 -> '3';
-		MyEnum.VAL4 -> '4';
-	print($"c = {c}\n");
+	// switch maybe_val:
+	//	none: print("Nothing There!\n");
+	//	v: print($"Something There: {v}\n");
