@@ -25,7 +25,8 @@ void Type::init_types() {
     std::shared_ptr<Type> bool_type = get_primitive_type("bool");
     std::shared_ptr<Type> str_type = get_primitive_type("str");
     get_primitive_type("__flint_type_str_lit");
-    get_primitive_type("void");
+    std::shared_ptr<Type> void_type = get_primitive_type("void");
+    add_type(std::make_shared<OptionalType>(void_type));
     get_primitive_type("u8");
     add_type(std::make_shared<MultiType>(bool_type, 8));
     add_type(std::make_shared<MultiType>(i32_type, 2));

@@ -9,10 +9,10 @@
 /// @brief Represents literal values
 class LiteralNode : public ExpressionNode {
   public:
-    explicit LiteralNode(                                                                                          //
-        const std::variant<unsigned long, long, unsigned int, int, double, float, std::string, bool, char> &value, //
-        const std::shared_ptr<Type> &type,                                                                         //
-        const bool is_folded = false                                                                               //
+    explicit LiteralNode(                                                                                                                 //
+        const std::variant<unsigned long, long, unsigned int, int, double, float, std::string, bool, char, std::optional<void *>> &value, //
+        const std::shared_ptr<Type> &type,                                                                                                //
+        const bool is_folded = false                                                                                                      //
         ) :
         value(value),
         is_folded(is_folded) {
@@ -21,7 +21,7 @@ class LiteralNode : public ExpressionNode {
 
     /// @var `value`
     /// @brief The literal value
-    std::variant<unsigned long, long, unsigned int, int, double, float, std::string, bool, char> value;
+    std::variant<unsigned long, long, unsigned int, int, double, float, std::string, bool, char, std::optional<void *>> value;
 
     /// @var `is_folded`
     /// @brief Whether this literal is the result of a fold

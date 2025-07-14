@@ -310,6 +310,8 @@ namespace Debug {
                     }
                 }
                 std::cout << "\"";
+            } else if (std::holds_alternative<std::optional<void *>>(lit.value)) {
+                std::cout << "none";
             }
             if (lit.is_folded) {
                 std::cout << " [folded]";

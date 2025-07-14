@@ -15,6 +15,7 @@
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/group_type.hpp"
+#include "parser/type/optional_type.hpp"
 #include "parser/type/tuple_type.hpp"
 
 #include <algorithm>
@@ -290,12 +291,19 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     }
 
     if (Matcher::tokens_match({tok, tok + 1}, Matcher::literal)) {
-        std::variant<unsigned long, long, unsigned int, int, double, float, std::string, bool, char> value;
+        std::variant<unsigned long, long, unsigned int, int, double, float, std::string, bool, char, std::optional<void *>> value;
         switch (tok->token) {
             default:
                 THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, tok->lexme);
                 return std::nullopt;
                 break;
+            case TOK_NONE: {
+                std::shared_ptr<Type> void_type = Type::get_primitive_type("void");
+                std::optional<std::shared_ptr<Type>> opt_type = Type::get_type_from_str("void?");
+                assert(opt_type.has_value());
+                value = std::make_optional<void *>(nullptr);
+                return LiteralNode(value, opt_type.value());
+            }
             case TOK_INT_VALUE: {
                 if (front_token == TOK_MINUS) {
                     const long long lit_value = std::stoll(tok->lexme) * -1;
@@ -1218,7 +1226,20 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
 
     // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
     if (expected_type.has_value() && expected_type.value() != expression.value()->type) {
-        if (primitive_implicit_casting_table.find(expression.value()->type->to_string()) != primitive_implicit_casting_table.end()) {
+        if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(expected_type.value().get())) {
+            if (expression.value()->type == optional_type->base_type) {
+                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+            } else if (const OptionalType *expression_type = dynamic_cast<const OptionalType *>(expression.value()->type.get())) {
+                if (expression_type->base_type != Type::get_primitive_type("void")) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    return std::nullopt;
+                }
+                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+            } else {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
+            }
+        } else if (primitive_implicit_casting_table.find(expression.value()->type->to_string()) != primitive_implicit_casting_table.end()) {
             const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(expression.value()->type->to_string());
             if (std::find(to_types.begin(), to_types.end(), expected_type.value()->to_string()) != to_types.end()) {
                 expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
