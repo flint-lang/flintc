@@ -8,13 +8,14 @@
 /// @brief One branch of the switch statement
 struct SSwitchBranch {
   public:
-    SSwitchBranch(std::unique_ptr<ExpressionNode> &match, std::unique_ptr<Scope> &body) :
-        match(std::move(match)),
+    SSwitchBranch(std::vector<std::unique_ptr<ExpressionNode>> &matches, std::unique_ptr<Scope> &body) :
+        matches(std::move(matches)),
         body(std::move(body)) {}
 
-    /// @var `match`
-    /// @brief The expression to match the single switch branch to
-    std::unique_ptr<ExpressionNode> match;
+    /// @var `matches`
+    /// @brief The expression(s) to match the single switch branch to
+    /// @note If this vector contains multiple values this means that this branch will be executed in more cases
+    std::vector<std::unique_ptr<ExpressionNode>> matches;
 
     /// @var `body`
     /// @brief The body of this switch branch

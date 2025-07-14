@@ -442,13 +442,263 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     return std::make_unique<EnhForLoopNode>(iterators, iterable.value(), definition_scope, body_scope);
 }
 
+bool Parser::create_switch_branch_body(                              //
+    Scope *scope,                                                    //
+    std::vector<std::unique_ptr<ExpressionNode>> &match_expressions, //
+    std::vector<SSwitchBranch> &s_branches,                          //
+    std::vector<ESwitchBranch> &e_branches,                          //
+    std::vector<Line>::const_iterator &line_it,                      //
+    const std::vector<Line> &body,                                   //
+    const token_slice &tokens,                                       //
+    const uint2 &match_range,                                        //
+    const bool is_statement                                          //
+) {
+    if (!is_statement) {
+        // When it's a switch expression, no body will follow, ever. Only expressions are allowed to the right of the arrow, so we
+        // can parse the rhs as an expression
+        assert(std::prev(tokens.second)->token == TOK_SEMICOLON);
+        const token_slice expression_tokens = {tokens.first + match_range.second, tokens.second - 1};
+        auto expression = create_expression(scope, expression_tokens);
+        if (!expression.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        e_branches.emplace_back(match_expressions, expression.value());
+        ++line_it;
+        return true;
+    }
+    // Check if the colon is the last symbol in this line. If it is, a body follows. If after the colon something is written the
+    // "body" is a single statement written directly after the colon.
+    std::unique_ptr<Scope> branch_body = std::make_unique<Scope>(scope);
+    if (tokens.first + match_range.second != tokens.second) {
+        // A single statement follows, this means that the line needs to end with a semicolon
+        const token_slice statement_tokens = {tokens.first + match_range.second, tokens.second - 1};
+        if (statement_tokens.second->token != TOK_SEMICOLON) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        auto statement = create_statement(branch_body.get(), statement_tokens);
+        if (!statement.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        branch_body->body.push_back(std::move(statement.value()));
+        s_branches.emplace_back(match_expressions, branch_body);
+        ++line_it;
+        return true;
+    }
+    // A "normal" body follows. Each line of the body needs to start with a definition, e.g. end with a colon.
+    assert(tokens.first + match_range.second == tokens.second);
+    assert(std::prev(tokens.second)->token == TOK_COLON);
+    const unsigned int case_indent_lvl = line_it->indent_lvl;
+    auto body_start = ++line_it;
+    while (line_it != body.end() && line_it->indent_lvl > case_indent_lvl) {
+        ++line_it;
+    }
+    if (body_start == line_it) {
+        // No body found
+        THROW_BASIC_ERR(ERR_PARSING);
+        return false;
+    }
+    const std::vector<Line> body_lines(body_start, line_it);
+    auto body_statements = create_body(branch_body.get(), body_lines);
+    if (!body_statements.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return false;
+    }
+    branch_body->body = std::move(body_statements.value());
+    s_branches.emplace_back(match_expressions, branch_body);
+    return true;
+}
+
+bool Parser::create_switch_branches(            //
+    Scope *scope,                               //
+    std::vector<SSwitchBranch> &s_branches,     //
+    std::vector<ESwitchBranch> &e_branches,     //
+    const std::vector<Line> &body,              //
+    const std::shared_ptr<Type> &switcher_type, //
+    const bool is_statement                     //
+) {
+    // Okay now parse the "body" of the switch statement. It's body follows a clear guideline, namely that everything to the left of the
+    // `:` is considered an expression which has to be matched, and the type of the expression to the left needs to match the type of
+    // the switcher expression. At least that's how i will handle it now. Also, only certain types of expressions are allowed at all for
+    // enums, for now thats only "literals", e.g. `EnumType.VALUE`
+    for (auto line_it = body.begin(); line_it != body.end();) {
+        const token_slice &tokens = line_it->tokens;
+        // First, get all tokens until the colon to be able to parse the matching expression
+        std::optional<uint2> match_range = std::nullopt;
+        if (is_statement) {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_colon);
+        } else {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
+        }
+        if (!match_range.has_value() || match_range.value().first != 0) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
+        auto match = create_expression(scope, match_tokens, switcher_type);
+        if (!match.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        if (dynamic_cast<const PrimitiveType *>(switcher_type.get())) {
+            const bool is_literal = dynamic_cast<const LiteralNode *>(match.value().get()) != nullptr;
+            const bool is_default_value = dynamic_cast<const DefaultNode *>(match.value().get()) != nullptr;
+            if (!is_literal && !is_default_value) {
+                // Not allowed value for the switch statement's expression
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+        } else {
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return false;
+        }
+        std::vector<std::unique_ptr<ExpressionNode>> match_expressions;
+        match_expressions.push_back(std::move(match.value()));
+        if (!create_switch_branch_body(                                                                                     //
+                scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
+        ) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Parser::create_enum_switch_branches(       //
+    Scope *scope,                               //
+    std::vector<SSwitchBranch> &s_branches,     //
+    std::vector<ESwitchBranch> &e_branches,     //
+    const std::vector<Line> &body,              //
+    const std::shared_ptr<Type> &switcher_type, //
+    const EnumNode *enum_node,                  //
+    const bool is_statement                     //
+) {
+    // First, we check for all the matches. All matches *must* be identifiers, where each identifier matches one value of the enum. Each
+    // identifier can only be used once in the switch. If there exists a default branch (the else keyword) then it is not allowed that all
+    // other enum values are matched, as the else branch would then effectively become unreachable.
+    std::vector<std::string> matched_enum_values;
+    const std::vector<std::string> &enum_values = enum_node->values;
+    bool is_default_present = false;
+    matched_enum_values.reserve(enum_values.size());
+    for (auto line_it = body.begin(); line_it != body.end();) {
+        const token_slice &tokens = line_it->tokens;
+        // First, get all tokens until the colon to be able to parse the matching expression
+        std::optional<uint2> match_range = std::nullopt;
+        if (is_statement) {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_colon);
+        } else {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
+        }
+        if (!match_range.has_value() || match_range.value().first != 0) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
+        std::vector<std::unique_ptr<ExpressionNode>> match_expressions;
+        if (std::next(match_tokens.first) == match_tokens.second) {
+            // We only have one value match in here
+            if (match_tokens.first->token == TOK_TYPE) {
+                // We need to access the `lexme` field of the token so a type token would cause a crash here
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            if (match_tokens.first->token == TOK_ELSE) {
+                // The else branch, which gets matched if no other branch get's matched
+                is_default_present = true;
+                match_expressions.push_back(std::make_unique<DefaultNode>(switcher_type));
+            } else {
+                const std::string &enum_value = match_tokens.first->lexme;
+                std::vector<std::string>::const_iterator enum_id = std::find(          //
+                    matched_enum_values.begin(), matched_enum_values.end(), enum_value //
+                );
+                if (enum_id != matched_enum_values.end()) {
+                    // Duplicate branch enum
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                enum_id = std::find(enum_values.begin(), enum_values.end(), enum_value);
+                if (enum_id == enum_values.end()) {
+                    // Enum value not part of the enum values
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const unsigned int id = std::distance(enum_values.begin(), enum_id);
+                matched_enum_values.push_back(enum_value);
+                std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = switcher_type->to_string();
+                match_expressions.push_back(std::make_unique<DataAccessNode>( //
+                    switcher_type,                                            //
+                    variable,                                                 //
+                    enum_value,                                               //
+                    id,                                                       //
+                    switcher_type                                             //
+                    )                                                         //
+                );
+            }
+        } else {
+            // There could be multiple values here
+            for (auto it = match_tokens.first; it != match_tokens.second; ++it) {
+                if (it->token == TOK_COMMA) {
+                    continue;
+                }
+                if (it->token != TOK_IDENTIFIER) {
+                    // Default branches are not allowed in a branch that has multiple values leading to it
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const std::string &enum_value = it->lexme;
+                std::vector<std::string>::const_iterator enum_id = std::find(          //
+                    matched_enum_values.begin(), matched_enum_values.end(), enum_value //
+                );
+                if (enum_id != matched_enum_values.end()) {
+                    // Duplicate branch enum
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                enum_id = std::find(enum_values.begin(), enum_values.end(), enum_value);
+                if (enum_id == enum_values.end()) {
+                    // Enum value not part of the enum values
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const unsigned int id = std::distance(enum_values.begin(), enum_id);
+                matched_enum_values.push_back(enum_value);
+                std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = switcher_type->to_string();
+                match_expressions.push_back(std::make_unique<DataAccessNode>( //
+                    switcher_type,                                            //
+                    variable,                                                 //
+                    enum_value,                                               //
+                    id,                                                       //
+                    switcher_type                                             //
+                    )                                                         //
+                );
+            }
+        }
+        if (!create_switch_branch_body(                                                                                     //
+                scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
+        ) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+    }
+    if (is_default_present ^ (matched_enum_values.size() != enum_values.size())) {
+        // Either we have a default branch and all enum values are matched
+        // Or we don't have a default branch and not all enum values are matched
+        // Either way, we don't have a branch for every possible value of the enum, so that's an error
+        THROW_BASIC_ERR(ERR_PARSING);
+        return false;
+    }
+    return true;
+}
+
 std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( //
     Scope *scope,                                                              //
     const token_slice &definition,                                             //
     const std::vector<Line> &body                                              //
 ) {
-    // First, check if the definition starts with a switch token. If it starts with a switch token it's a switch statement, otherwise it's a
-    // switch expression
+    // First, check if the definition starts with a switch token. If it starts with a switch token it's a switch statement, otherwise
+    // it's a switch expression
     token_slice switcher_tokens = definition;
     const bool is_statement = switcher_tokens.first->token == TOK_SWITCH;
     assert(std::prev(switcher_tokens.second)->token == TOK_COLON);
@@ -468,110 +718,22 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    // Okay now parse the "body" of the switch statement. It's body follows a clear guideline, namely that everything to the left of the
-    // `:` is considered an expression which has to be matched, and the type of the expression to the left needs to match the type of
-    // the switcher expression. At least that's how i will handle it now. Also, only certain types of expressions are allowed at all for
-    // enums, for now thats only "literals", e.g. `EnumType.VALUE`
-    for (auto line_it = body.begin(); line_it != body.end();) {
-        const token_slice &tokens = line_it->tokens;
-        // First, get all tokens until the colon to be able to parse the matching expression
-        std::optional<uint2> match_range = std::nullopt;
-        if (is_statement) {
-            match_range = Matcher::get_next_match_range(tokens, Matcher::until_colon);
-        } else {
-            match_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
-        }
-        if (!match_range.has_value() || match_range.value().first != 0) {
+    if (const EnumType *enum_type = dynamic_cast<const EnumType *>(switcher.value()->type.get())) {
+        if (!create_enum_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, enum_type->enum_node, is_statement)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
-        auto match = create_expression(scope, match_tokens, switcher.value()->type);
-        if (!match.has_value()) {
+    } else {
+        if (!create_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (dynamic_cast<const EnumType *>(switcher.value()->type.get())) {
-            const bool is_data_access = dynamic_cast<const DataAccessNode *>(match.value().get()) != nullptr;
-            const bool is_default_value = dynamic_cast<const DefaultNode *>(match.value().get()) != nullptr;
-            if (!is_data_access && !is_default_value) {
-                // Not allowed value for the switch statement's expression
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-        } else if (dynamic_cast<const PrimitiveType *>(switcher.value()->type.get())) {
-            const bool is_literal = dynamic_cast<const LiteralNode *>(match.value().get()) != nullptr;
-            const bool is_default_value = dynamic_cast<const DefaultNode *>(match.value().get()) != nullptr;
-            if (!is_literal && !is_default_value) {
-                // Not allowed value for the switch statement's expression
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-        } else {
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return std::nullopt;
-        }
-        if (!is_statement) {
-            // When it's a switch expression, no body will follow, ever. Only expressions are allowed to the right of the arrow, so we can
-            // parse the rhs as an expression
-            assert(std::prev(tokens.second)->token == TOK_SEMICOLON);
-            const token_slice expression_tokens = {tokens.first + match_range.value().second, tokens.second - 1};
-            auto expression = create_expression(scope, expression_tokens);
-            if (!expression.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            e_branches.emplace_back(match.value(), expression.value());
-            ++line_it;
-            continue;
-        }
-        // Check if the colon is the last symbol in this line. If it is, a body follows. If after the colon something is written the
-        // "body" is a single statement written directly after the colon.
-        std::unique_ptr<Scope> branch_body = std::make_unique<Scope>(scope);
-        if (tokens.first + match_range.value().second != tokens.second) {
-            // A single statement follows, this means that the line needs to end with a semicolon
-            const token_slice statement_tokens = {tokens.first + match_range.value().second, tokens.second - 1};
-            if (statement_tokens.second->token != TOK_SEMICOLON) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            auto statement = create_statement(branch_body.get(), statement_tokens);
-            if (!statement.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            branch_body->body.push_back(std::move(statement.value()));
-            s_branches.emplace_back(match.value(), branch_body);
-            ++line_it;
-            continue;
-        }
-        // A "normal" body follows. Each line of the body needs to start with a definition, e.g. end with a colon.
-        assert(tokens.first + match_range.value().second == tokens.second);
-        assert(std::prev(tokens.second)->token == TOK_COLON);
-        const unsigned int case_indent_lvl = line_it->indent_lvl;
-        auto body_start = ++line_it;
-        while (line_it != body.end() && line_it->indent_lvl > case_indent_lvl) {
-            ++line_it;
-        }
-        if (body_start == line_it) {
-            // No body found
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        const std::vector<Line> body_lines(body_start, line_it);
-        auto body_statements = create_body(branch_body.get(), body_lines);
-        if (!body_statements.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        branch_body->body = std::move(body_statements.value());
-        s_branches.emplace_back(match.value(), branch_body);
     }
     if (is_statement) {
         return std::make_unique<SwitchStatement>(switcher.value(), s_branches);
     }
-    // Because it's a statement, we still need to parse everything to the left of the switch and pass the switch as the rhs expression to
-    // it.
+    // Because it's a statement which contains the switch expression as it's rhs, we still need to parse everything to the left of the
+    // switch and pass the switch as the rhs expression to it.
     assert(!e_branches.empty());
     // Check if all branch expressions share the same type, throw an error if they are not
     std::shared_ptr<Type> expr_type = e_branches.front().expr->type;

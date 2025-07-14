@@ -533,11 +533,13 @@ namespace Debug {
                 TreeBits case_bits = bits.child(indent_lvl + 1, is_last);
                 Local::print_header(indent_lvl + 1, case_bits, "Case ");
                 std::cout << "\n";
-                TreeBits case_match_header_bits = case_bits.child(indent_lvl + 2, false);
-                Local::print_header(indent_lvl + 2, case_match_header_bits, "Case Match ");
-                std::cout << "\n";
-                TreeBits case_match_bits = case_match_header_bits.child(indent_lvl + 3, true);
-                print_expression(indent_lvl + 3, case_match_bits, branch->match);
+                for (auto it = branch->matches.begin(); it != branch->matches.end(); ++it) {
+                    TreeBits case_match_header_bits = case_bits.child(indent_lvl + 2, false);
+                    Local::print_header(indent_lvl + 2, case_match_header_bits, "Case Match ");
+                    std::cout << "\n";
+                    TreeBits case_match_bits = case_match_header_bits.child(indent_lvl + 3, std::next(it) == branch->matches.end());
+                    print_expression(indent_lvl + 3, case_match_bits, *it);
+                }
                 TreeBits case_expr_header_bits = case_bits.child(indent_lvl + 2, true);
                 Local::print_header(indent_lvl + 2, case_expr_header_bits, "Case Expr ");
                 std::cout << "\n";
@@ -723,11 +725,13 @@ namespace Debug {
                 TreeBits case_bits = bits.child(indent_lvl + 1, is_last);
                 Local::print_header(indent_lvl + 1, case_bits, "Case ");
                 std::cout << "\n";
-                TreeBits case_expr_header_bits = case_bits.child(indent_lvl + 2, false);
-                Local::print_header(indent_lvl + 2, case_expr_header_bits, "Case Match ");
-                std::cout << "\n";
-                TreeBits case_expr_bits = case_expr_header_bits.child(indent_lvl + 3, true);
-                print_expression(indent_lvl + 3, case_expr_bits, branch->match);
+                for (auto it = branch->matches.begin(); it != branch->matches.end(); ++it) {
+                    TreeBits case_expr_header_bits = case_bits.child(indent_lvl + 2, false);
+                    Local::print_header(indent_lvl + 2, case_expr_header_bits, "Case Match ");
+                    std::cout << "\n";
+                    TreeBits case_expr_bits = case_expr_header_bits.child(indent_lvl + 3, std::next(it) == branch->matches.end());
+                    print_expression(indent_lvl + 3, case_expr_bits, *it);
+                }
                 TreeBits case_body_header_bits = case_bits.child(indent_lvl + 2, true);
                 Local::print_header(indent_lvl + 2, case_body_header_bits, "Case Body ");
                 std::cout << "\n";

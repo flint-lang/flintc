@@ -49,7 +49,9 @@
 #include "ast/expressions/variable_node.hpp"
 #include "ast/statements/catch_node.hpp"
 #include "ast/statements/throw_node.hpp"
+#include "parser/ast/expressions/switch_expression.hpp"
 
+#include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
 
 #include <atomic>
@@ -890,6 +892,81 @@ class Parser {
         Scope *scope,                                                   //
         const token_slice &definition,                                  //
         const std::vector<Line> &body                                   //
+    );
+
+    /// @function `create_switch_branch_body`
+    /// @brief Creates the body of a single switch branch and then creates the whole branch and adds it to the list of s or e branches
+    ///
+    /// @param `scope` The scope in which the switch statement / expression is defined
+    /// @param `match_expressions` The list of the match expressions which, when matched, this branch will be executed
+    /// @param `s_branches` The list of all statement branches
+    /// @param `e_branches` The list of all expression branches
+    /// @param `line_it` The current iterator of the line inside the switch's body
+    /// @param `body` The body of the whole switch
+    /// @param `tokens` The token slice representing the whole "definition" of this branch (the line which contains the : or -> symbol)
+    /// @param `match_range` The range the matching expression(s) range [from, to) within the `tokens` slice
+    /// @param `is_statement` Whether the created switch is an expression or a statement
+    /// @return `bool` Whether the creation of the switch branches was successfull
+    ///
+    /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
+    /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
+    bool create_switch_branch_body(                                      //
+        Scope *scope,                                                    //
+        std::vector<std::unique_ptr<ExpressionNode>> &match_expressions, //
+        std::vector<SSwitchBranch> &s_branches,                          //
+        std::vector<ESwitchBranch> &e_branches,                          //
+        std::vector<Line>::const_iterator &line_it,                      //
+        const std::vector<Line> &body,                                   //
+        const token_slice &tokens,                                       //
+        const uint2 &match_range,                                        //
+        const bool is_statement                                          //
+    );
+
+    /// @function `create_switch_branches`
+    /// @brief Creates the branches of a general switch, e.g. a switch where the switched-on values can be expressions (like integer types)
+    ///
+    /// @param `scope` The scope in which the switch statement / expression is defined
+    /// @param `s_branches` The list of all statement branches
+    /// @param `e_branches` The list of all expression branches
+    /// @param `body` The body of the whole switch
+    /// @param `switcher_type` The type of the expression which is switched on
+    /// @param `is_statement` Whether the created switch is an expression or a statement
+    /// @return `bool` Whether the creation of the switch branches was successfull
+    ///
+    /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
+    /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
+    bool create_switch_branches(                    //
+        Scope *scope,                               //
+        std::vector<SSwitchBranch> &s_branches,     //
+        std::vector<ESwitchBranch> &e_branches,     //
+        const std::vector<Line> &body,              //
+        const std::shared_ptr<Type> &switcher_type, //
+        const bool is_statement                     //
+    );
+
+    /// @function `create_enum_switch_branches`
+    /// @brief Creates the branches for the enum switch and adds them to the `s_branches` or `e_branches`, depending on whether it's a
+    /// statement or an expression
+    ///
+    /// @param `scope` The scope in which the switch statement / expression switchin on the enum value is defined
+    /// @param `s_branches` The list of all statement branches
+    /// @param `e_branches` The list of all expression branches
+    /// @param `body` The body of the whole switch
+    /// @param `switcher_type` The type of the expression which is switched upon
+    /// @param `enum_node` The pointer to the enum node definition which is switched on
+    /// @param `is_statement` Whether the created switch is an expression or a statement
+    /// @return `bool` Whether the creation of the enum switch branches was successfull
+    ///
+    /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
+    /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
+    bool create_enum_switch_branches(               //
+        Scope *scope,                               //
+        std::vector<SSwitchBranch> &s_branches,     //
+        std::vector<ESwitchBranch> &e_branches,     //
+        const std::vector<Line> &body,              //
+        const std::shared_ptr<Type> &switcher_type, //
+        const EnumNode *enum_node,                  //
+        const bool is_statement                     //
     );
 
     /// @function `create_switch_statement`

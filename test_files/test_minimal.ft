@@ -1,10 +1,21 @@
 use Core.print
 
-def main():
-	i32? maybe_val = none;
-	if maybe_val != none:
-		print($"maybe_val = {maybe_val!}\n");
+enum MyEnum:
+	VAL1, VAL2, VAL3, VAL4;
 
-	// switch maybe_val:
-	//	none: print("Nothing There!\n");
-	//	v: print($"Something There: {v}\n");
+def print_enum_kind(MyEnum me):
+	switch me:
+		VAL1: print("is val1\n");
+		VAL2: print("is val2\n");
+		VAL3, VAL4: print("is val3 or val4\n");
+
+	switch me:
+		VAL1: print("is val1\n");
+		VAL2: print("is val2\n");
+		else: print("is val3 or val4\n");
+
+def main():
+	print_enum_kind(MyEnum.VAL1);
+	print_enum_kind(MyEnum.VAL2);
+	print_enum_kind(MyEnum.VAL3);
+	print_enum_kind(MyEnum.VAL4);

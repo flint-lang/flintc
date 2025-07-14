@@ -826,7 +826,7 @@ bool Generator::Statement::generate_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Check if it's the default branch
-        if (dynamic_cast<const DefaultNode *>(branch.match.get())) {
+        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -872,28 +872,30 @@ bool Generator::Statement::generate_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Skip the default node, this block is not targetted directly by any switch expression
-        if (dynamic_cast<const DefaultNode *>(branch.match.get())) {
+        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
             continue;
         }
 
-        // Generate the case value
-        Expression::garbage_type case_garbage;
-        group_mapping case_expr = Expression::generate_expression(builder, ctx, case_garbage, 0, branch.match.get());
-        llvm::Value *case_value = case_expr.value().at(0);
-        if (!clear_garbage(builder, case_garbage)) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
+        // Generate the case values
+        for (auto &match : branch.matches) {
+            Expression::garbage_type case_garbage;
+            group_mapping case_expr = Expression::generate_expression(builder, ctx, case_garbage, 0, match.get());
+            llvm::Value *case_value = case_expr.value().front();
+            if (!clear_garbage(builder, case_garbage)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
 
-        // Add the case to the switch
-        llvm::ConstantInt *const_case = llvm::dyn_cast<llvm::ConstantInt>(case_value);
-        if (!const_case) {
-            // Switch case value must be a constant integer
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
+            // Add the case to the switch
+            llvm::ConstantInt *const_case = llvm::dyn_cast<llvm::ConstantInt>(case_value);
+            if (!const_case) {
+                // Switch case value must be a constant integer
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
 
-        switch_inst->addCase(const_case, branch_blocks[i]);
+            switch_inst->addCase(const_case, branch_blocks[i]);
+        }
     }
 
     // Set the insert point back to the merge block

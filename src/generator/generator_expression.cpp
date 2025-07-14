@@ -641,7 +641,7 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
         const auto &branch = switch_expression->branches[i];
 
         // Check if it's the default branch (represented by "_")
-        if (dynamic_cast<const DefaultNode *>(branch.match.get())) {
+        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -707,27 +707,29 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
     for (size_t i = 0; i < switch_expression->branches.size(); i++) {
         const auto &branch = switch_expression->branches[i];
         // Skip the default node
-        if (dynamic_cast<const DefaultNode *>(branch.match.get())) {
+        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
             continue;
         }
 
         // Generate the case value
-        group_mapping case_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.match.get());
-        if (!case_expr.has_value() || case_expr.value().empty()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        llvm::Value *case_value = case_expr.value().front();
+        for (const auto &match : branch.matches) {
+            group_mapping case_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, match.get());
+            if (!case_expr.has_value() || case_expr.value().empty()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            llvm::Value *case_value = case_expr.value().front();
 
-        // Add the case to the switch
-        llvm::ConstantInt *const_case = llvm::dyn_cast<llvm::ConstantInt>(case_value);
-        if (!const_case) {
-            // Switch case value must be a constant integer
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
+            // Add the case to the switch
+            llvm::ConstantInt *const_case = llvm::dyn_cast<llvm::ConstantInt>(case_value);
+            if (!const_case) {
+                // Switch case value must be a constant integer
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
 
-        switch_inst->addCase(const_case, branch_blocks[i]);
+            switch_inst->addCase(const_case, branch_blocks[i]);
+        }
     }
 
     // Set insertion point to the merge block to create the phi node

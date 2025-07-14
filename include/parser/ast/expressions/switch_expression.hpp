@@ -6,13 +6,14 @@
 /// @brief One branch of the switch expression
 struct ESwitchBranch {
   public:
-    ESwitchBranch(std::unique_ptr<ExpressionNode> &match, std::unique_ptr<ExpressionNode> &expr) :
-        match(std::move(match)),
+    ESwitchBranch(std::vector<std::unique_ptr<ExpressionNode>> &matches, std::unique_ptr<ExpressionNode> &expr) :
+        matches(std::move(matches)),
         expr(std::move(expr)) {}
 
-    /// @var `expr`
-    /// @brief The expression to match the single switch branch to
-    std::unique_ptr<ExpressionNode> match;
+    /// @var `matches`
+    /// @brief The expression(s) to match the single switch branch to
+    /// @note If this vector contains multiple values this means that this branch will be executed in more cases
+    std::vector<std::unique_ptr<ExpressionNode>> matches;
 
     /// @var `expr`
     /// @brief The expression to execute in this branch
