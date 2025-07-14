@@ -261,11 +261,27 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression(Scope *scope
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    return UnaryOpExpression(                 //
-        std::get<0>(unary_op_values.value()), //
-        std::get<1>(unary_op_values.value()), //
-        std::get<2>(unary_op_values.value())  //
-    );
+    Token &token = std::get<0>(unary_op_values.value());
+    std::unique_ptr<ExpressionNode> &expression = std::get<1>(unary_op_values.value());
+    bool is_left = std::get<2>(unary_op_values.value());
+    UnaryOpExpression un_op(token, expression, is_left);
+    if (token == TOK_EXCLAMATION) {
+        if (is_left) {
+            // The ! operator is only allowed on the right of the expression
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(un_op.type.get());
+        if (optional_type == nullptr) {
+            // The post ! operator is only allowed on optional values
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        // Set the type of the unary op to the base type of the optional, as the unwrap will return the base type of it
+        un_op.type = optional_type->base_type;
+        return un_op;
+    }
+    return un_op;
 }
 
 std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {

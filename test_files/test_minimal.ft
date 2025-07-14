@@ -3,3 +3,4 @@ use Core.print
 def main():
 	i32? int_maybe = none;
 	int_maybe = 69;
+	i32 opt_unwrapped = int_maybe!;

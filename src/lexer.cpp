@@ -296,9 +296,7 @@ bool Lexer::scan_token() {
                 add_token(TOK_NOT_EQUAL);
                 advance();
             } else {
-                std::string token_str = std::to_string(character) + std::to_string(peek_next());
-                THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, token_str);
-                return false;
+                add_token(TOK_EXCLAMATION);
             }
             break;
         case '"':

@@ -634,7 +634,9 @@ class Matcher {
         token(TOK_LESS_EQUAL), token(TOK_GREATER), token(TOK_GREATER_EQUAL)});
     static const inline PatternPtr boolean_binop = one_of({token(TOK_AND), token(TOK_OR)});
     static const inline PatternPtr binary_operator = one_of({operational_binop, relational_binop, boolean_binop});
-    static const inline PatternPtr unary_operator = one_of({token(TOK_INCREMENT), token(TOK_DECREMENT), token(TOK_NOT), token(TOK_MINUS)});
+    static const inline PatternPtr unary_operator = one_of({
+        token(TOK_INCREMENT), token(TOK_DECREMENT), token(TOK_NOT), token(TOK_MINUS), token(TOK_EXCLAMATION) //
+    });
     static const inline PatternPtr reference = sequence({
         token(TOK_IDENTIFIER), one_or_more(sequence({token(TOK_COLON), token(TOK_COLON), token(TOK_IDENTIFIER)})) //
     });
