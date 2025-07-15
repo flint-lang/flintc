@@ -664,6 +664,9 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
             }
             // Add the comment to the comments map
             comments.emplace(c_id, match[2].str());
+        } else if (line.find("!{!\"") != std::string::npos) {
+            // Could be a "comment" of branch weights or other llvm metadata
+            continue;
         } else {
             break;
         }
@@ -680,7 +683,7 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
             }
             if (comments.find(comment_id) == comments.end()) {
                 std::cout << "Comment of ID " << comment_id << " could not be found in the comments map!" << std::endl;
-                exit(1);
+                return ir_string;
             }
             result << "; " << comments[comment_id];
         } else {
