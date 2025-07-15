@@ -10,6 +10,7 @@
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 
@@ -1052,6 +1053,7 @@ bool Generator::Statement::generate_declaration( //
             return false;
         }
         const auto *initializer_node = dynamic_cast<const InitializerNode *>(declaration_node->initializer.value().get());
+        const auto *typecast_node = dynamic_cast<const TypeCastNode *>(declaration_node->initializer.value().get());
         const auto *tuple_type = dynamic_cast<const TupleType *>(declaration_node->type.get());
         if (initializer_node != nullptr || tuple_type != nullptr) {
             if (initializer_node != nullptr && !initializer_node->is_data) {
@@ -1114,8 +1116,25 @@ bool Generator::Statement::generate_declaration( //
                 }
             }
             return true;
+        } else if (dynamic_cast<const OptionalType *>(declaration_node->type.get()) != nullptr && //
+            (typecast_node == nullptr || typecast_node->expr->type->to_string() != "void?")       //
+        ) {
+            // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
+            // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
+            llvm::StructType *var_type = IR::add_and_or_get_type(declaration_node->type, false);
+            // Get the pointer to the i1 element of the optional variable and set it to 1
+            llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, alloca, 0, declaration_node->name + "_has_value_ptr");
+            llvm::StoreInst *store = builder.CreateStore(builder.getInt1(1), var_has_value_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context,
+                    llvm::MDString::get(context, "Set 'has_value' property of optional '" + declaration_node->name + "' to 1")));
+            llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, alloca, 1, declaration_node->name + "value_ptr");
+            store = builder.CreateStore(expr_val.value().front(), var_value_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + declaration_node->name + "'")));
+            return true;
         }
-        expression = expr_val.value().at(0);
+        expression = expr_val.value().front();
     } else {
         expression = IR::get_default_value_of_type(builder, declaration_node->type);
     }
@@ -1142,7 +1161,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    // If the rhs is of type `str`, delete tha last "garbage", as thats the _actual_ value
+    // If the rhs is of type `str`, delete the last "garbage", as thats the _actual_ value
     if (assignment_node->expression->type->to_string() == "str" && garbage.count(0) > 0) {
         garbage.at(0).clear();
     }
@@ -1158,6 +1177,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         return false;
     }
     // Get the allocation of the lhs
+    const std::shared_ptr<Type> variable_type = std::get<0>(ctx.scope->variables.at(assignment_node->name));
     const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(assignment_node->name));
     llvm::Value *const lhs = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
@@ -1178,9 +1198,27 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
+    } else if (dynamic_cast<const OptionalType *>(variable_type.get())) {
+        const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
+        if (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?") {
+            // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
+            // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
+            llvm::StructType *var_type = IR::add_and_or_get_type(variable_type, false);
+            // Get the pointer to the i1 element of the optional variable and set it to 1
+            llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, lhs, 0, assignment_node->name + "_has_value_ptr");
+            llvm::StoreInst *store = builder.CreateStore(builder.getInt1(1), var_has_value_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context,
+                    llvm::MDString::get(context, "Set 'has_value' property of optional '" + assignment_node->name + "' to 1")));
+            llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, lhs, 1, assignment_node->name + "value_ptr");
+            store = builder.CreateStore(expr.value().front(), var_value_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
+            return true;
+        }
     }
     // Its definitely a single value
-    llvm::Value *expression = expr.value().at(0);
+    llvm::Value *expression = expr.value().front();
     if (assignment_node->type->to_string() == "str") {
         // Only generate the string assignment if its not a shorthand
         if (!assignment_node->is_shorthand) {

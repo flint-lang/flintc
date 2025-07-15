@@ -277,6 +277,12 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression(Scope *scope
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        const VariableNode *var_node = dynamic_cast<const VariableNode *>(un_op.operand.get());
+        if (var_node == nullptr) {
+            // Optional unwrapping is only allowed on variables for now
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
+        }
         // Set the type of the unary op to the base type of the optional, as the unwrap will return the base type of it
         un_op.type = optional_type->base_type;
         return un_op;

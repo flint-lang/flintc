@@ -7,6 +7,7 @@
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "llvm/IR/Constants.h"
@@ -245,6 +246,15 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
             type_map[tuple_str] = llvm_tuple_type;
         }
         return {type_map.at(tuple_str), true};
+    } else if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(type.get())) {
+        const std::string opt_str = type->to_string();
+        if (type_map.find(opt_str) == type_map.end()) {
+            llvm::StructType *llvm_opt_type = llvm::StructType::create(                                             //
+                context, {llvm::Type::getInt1Ty(context), get_type(optional_type->base_type).first}, opt_str, false //
+            );
+            type_map[opt_str] = llvm_opt_type;
+        }
+        return {type_map.at(opt_str), true};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);

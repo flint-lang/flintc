@@ -12,6 +12,7 @@
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 
 #include <llvm/IR/Instructions.h>
@@ -143,6 +144,9 @@ llvm::Value *Generator::Expression::generate_literal( //
             llvm::Type::getInt8Ty(context),     //
             std::get<char>(literal_node->value) //
         );
+    }
+    if (std::holds_alternative<std::optional<void *>>(literal_node->value)) {
+        return llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 0);
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return nullptr;
@@ -1367,6 +1371,18 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         } else if (to_type_str == "bool8") {
             return expr;
         }
+    } else if (from_type_str == "void?") {
+        // The 'none' literal
+        return IR::get_default_value_of_type(builder, to_type);
+    }
+    if (const OptionalType *to_opt_type = dynamic_cast<const OptionalType *>(to_type.get())) {
+        if (from_type != to_opt_type->base_type) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        // "casting" the actual value of the optional and storing it in the optional struct value itself, but the storing part is done in
+        // the assignment / declaration generation
+        return expr;
     }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);
@@ -1381,7 +1397,53 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
     const UnaryOpExpression *unary_op                                         //
 ) {
     const ExpressionNode *expression = unary_op->operand.get();
-    std::vector<llvm::Value *> operand = generate_expression(builder, ctx, garbage, expr_depth + 1, expression).value();
+    std::vector<llvm::Value *> operand;
+    if (unary_op->operator_token == TOK_EXCLAMATION) {
+        // Optional unwrapping
+        const OptionalType *opt_type = dynamic_cast<const OptionalType *>(unary_op->operand->type.get());
+        // It's the job of the parser to ensure correct types
+        assert(opt_type != nullptr);
+        // For now only variable expressions are allowed as the base of the optional unwrapping
+        // TODO: When DIMA works we can add support for other expressions as well, for now only VariableNode expressions work for unwrapping
+        const VariableNode *variable_node = dynamic_cast<const VariableNode *>(unary_op->operand.get());
+        assert(variable_node != nullptr);
+        if (ctx.scope->variables.find(variable_node->name) == ctx.scope->variables.end()) {
+            // Error: Undeclared Variable
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(variable_node->name));
+        llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
+        llvm::StructType *opt_struct_type = IR::add_and_or_get_type(unary_op->operand->type, false);
+        // First, check if the optional even has a value at all
+        llvm::BasicBlock *inserter = builder.GetInsertBlock();
+        llvm::BasicBlock *has_no_value = llvm::BasicBlock::Create(context, "opt_upwrap_no_value", ctx.parent);
+        llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "opt_upwrap_value", ctx.parent);
+        builder.SetInsertPoint(inserter);
+        llvm::Value *opt_has_value_ptr = builder.CreateStructGEP(opt_struct_type, variable, 0, "opt_has_value_ptr");
+        llvm::LoadInst *opt_has_value = builder.CreateLoad(builder.getInt1Ty(), opt_has_value_ptr, "opt_has_value");
+        opt_has_value->setMetadata("comment",
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Load the 'has_value' property of the optional")));
+        llvm::BranchInst *branch = builder.CreateCondBr(opt_has_value, merge, has_no_value, IR::generate_weights(100, 1));
+        branch->setMetadata("comment",
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the 'has_value' property is true")));
+
+        // The crash block, in the case of a bad optional access
+        builder.SetInsertPoint(has_no_value);
+        llvm::Value *err_msg = IR::generate_const_string(builder, "Bad optional access of variable '" + variable_node->name + "'\n");
+        builder.CreateCall(c_functions.at(PRINTF), {err_msg});
+        builder.CreateCall(c_functions.at(ABORT), {});
+        builder.CreateUnreachable();
+
+        // The merge block, when the optional access was okay
+        builder.SetInsertPoint(merge);
+        llvm::Value *opt_value_ptr = builder.CreateStructGEP(opt_struct_type, variable, 1, "opt_value_ptr");
+        llvm::LoadInst *opt_value = builder.CreateLoad(IR::get_type(opt_type->base_type).first, opt_value_ptr, "opt_value");
+        opt_value->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Unwrap value of optional")));
+        operand.push_back(opt_value);
+        return operand;
+    }
+    operand = generate_expression(builder, ctx, garbage, expr_depth + 1, expression).value();
     for (size_t i = 0; i < operand.size(); i++) {
         const std::string &expression_type = expression->type->to_string();
         switch (unary_op->operator_token) {
