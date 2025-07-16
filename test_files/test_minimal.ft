@@ -20,12 +20,6 @@ def main():
 	else:
 		print("false\n");
 	
-	// This does not work until DIMA works, sadly
-	// Two variables being compared will cause `memcmp`
-	// being called under the hood, and `memcmp` needs a
-	// pointer to work with, but both `maybe` and `maybe_2`
-	// are stack-allocated and getting their *actual* values is...hard
-	//
 	i32? maybe_2 = 69;
 	if maybe == maybe_2:
 		print("are equal\n");

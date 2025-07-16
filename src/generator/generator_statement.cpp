@@ -350,16 +350,14 @@ void Generator::Statement::generate_if_blocks(llvm::Function *parent, std::vecto
             // Create then condition block (for the else if blocks)
             blocks.push_back(llvm::BasicBlock::Create(      //
                 context,                                    //
-                "then_cond" + std::to_string(branch_count), //
-                parent)                                     //
+                "then_cond" + std::to_string(branch_count)) //
             );
         }
 
         // Create then block
         blocks.push_back(llvm::BasicBlock::Create( //
             context,                               //
-            "then" + std::to_string(branch_count), //
-            parent)                                //
+            "then" + std::to_string(branch_count)) //
         );
 
         // Check for else-if or else
@@ -458,6 +456,7 @@ bool Generator::Statement::generate_if_statement( //
                     "' based on condition '" + condition->getName().str() + "'")));
 
     // Generate then branch
+    blocks[then_idx]->insertInto(ctx.parent);
     builder.SetInsertPoint(blocks[then_idx]);
     ctx.scope = if_node->then_scope.get();
     if (!generate_body(builder, ctx)) {
@@ -473,6 +472,7 @@ bool Generator::Statement::generate_if_statement( //
         const auto &else_scope = if_node->else_scope.value();
         if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope)) {
             // Recursive call for else-if
+            blocks[next_idx]->insertInto(ctx.parent);
             builder.SetInsertPoint(blocks[next_idx]);
             if (!generate_if_statement(                                  //
                     builder,                                             //
