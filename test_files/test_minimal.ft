@@ -1,8 +1,46 @@
 use Core.print
 
 def main():
-	i32? int_maybe = 69;
-	i32 opt_unwrapped = int_maybe!;
-	print($"unwrapped = {opt_unwrapped}\n");
-	int_maybe = none;
-	print($"hard_crash = {int_maybe!}\n");
+	i32? maybe = 69;
+	i32 unwrapped = maybe!;
+	print($"unwrapped = {unwrapped}\n");
+	maybe = none;
+	if maybe != none:
+		print($"maybe = {maybe!}\n");
+	else:
+		print("maybe = none\n");
+	
+	if none == none:
+		print("true\n");
+	else:
+		print("unreachable\n");
+
+	if none != none:
+		print("unreachable\n");
+	else:
+		print("false\n");
+	
+	// This does not work until DIMA works, sadly
+	// Two variables being compared will cause `memcmp`
+	// being called under the hood, and `memcmp` needs a
+	// pointer to work with, but both `maybe` and `maybe_2`
+	// are stack-allocated and getting their *actual* values is...hard
+	//
+	// i32? maybe_2 = 69;
+	// if maybe == maybe_2:
+	// 	print("are equal\n");
+	// else:
+	// 	print("are not equal\n");
+	
+	// maybe = 69;
+	// if maybe == maybe_2:
+	// 	print("are equal\n");
+	// else:
+	// 	print("are not equal\n");
+
+	// maybe = none;
+	// maybe_2 = none;
+	// if maybe == maybe_2:
+	// 	print("are equal\n");
+	// else:
+	// 	print("are not equal\n");

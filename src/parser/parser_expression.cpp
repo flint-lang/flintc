@@ -42,6 +42,27 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
         } else if (lhs_type->to_string() == "str" && rhs_type->to_string() == "__flint_type_str_lit") {
             return true;
         }
+        // Check one or both of the sides are optional types
+        const OptionalType *lhs_opt = dynamic_cast<const OptionalType *>(lhs_type.get());
+        const OptionalType *rhs_opt = dynamic_cast<const OptionalType *>(rhs_type.get());
+        if (lhs_opt != nullptr || rhs_opt != nullptr) {
+            // One of the sides is an optional, but first check if the lhs or rhs is a literal
+            const std::string lhs_str = lhs_type->to_string();
+            const std::string rhs_str = rhs_type->to_string();
+            if (lhs_str == "void?" || rhs_str == "void?") {
+                // If rhs is void? then rhs -> lhs, otherwise lhs -> rhs
+                return rhs_str == "void?";
+            }
+            // None of the sides is a optional literal, so we need to check if one of the sides is the same type as the optional's base type
+            if (lhs_opt != nullptr && lhs_opt->base_type == rhs_type) {
+                return true; // rhs -> lhs
+            } else if (rhs_opt != nullptr && rhs_opt->base_type == lhs_type) {
+                return false; // lhs -> rhs
+            } else {
+                // Completely different optional types
+                return std::nullopt;
+            }
+        }
         if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
             type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
             // Not castable, wrong arg types

@@ -1762,6 +1762,38 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 dynamic_cast<const EnumType *>(bin_op_node->right->type.get())) {
                 return builder.CreateICmpEQ(lhs, rhs, "enumeq");
             }
+            {
+                const OptionalType *lhs_opt_type = dynamic_cast<const OptionalType *>(bin_op_node->left->type.get());
+                const OptionalType *rhs_opt_type = dynamic_cast<const OptionalType *>(bin_op_node->right->type.get());
+                if (lhs_opt_type != nullptr && rhs_opt_type != nullptr) {
+                    // If both sides are the 'none' literal, we can return a constant `1` as the result directly
+                    if (bin_op_node->left->type->to_string() == "void?" && bin_op_node->right->type->to_string() == "void?") {
+                        return builder.getInt1(1);
+                    }
+                    // First, we check if one of the sides is a TypeCast Node, and if one side is a TypeCast we can check if the base type
+                    // is of type `void?`, indicating that we check if one side is the 'none' literal.
+                    if (const TypeCastNode *lhs_type_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left.get())) {
+                        if (lhs_type_cast->expr->type->to_string() == "void?") {
+                            // We can just extract the first bit of the rhs and return it's negated value directly
+                            llvm::Value *has_value = builder.CreateExtractValue(rhs, {0}, "has_value");
+                            return builder.CreateNeg(has_value, "has_no_value");
+                        }
+                    }
+                    if (const TypeCastNode *rhs_type_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right.get())) {
+                        if (rhs_type_cast->expr->type->to_string() == "void?") {
+                            // We can just extract the first bit of the rhs and return it's negated value directly
+                            llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
+                            return builder.CreateNeg(has_value, "has_no_value");
+                        }
+                    }
+                    // If both sides are "real" optionals, we just compare their memory directly through `memcmp`
+                    return builder.CreateCall(                                                                            //
+                        c_functions.at(MEMCMP),                                                                           //
+                        {lhs, rhs, builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), lhs->getType()))}, //
+                        "are_equal"                                                                                       //
+                    );
+                }
+            }
             break;
         case TOK_NOT_EQUAL:
             if (type_str == "i32" || type_str == "i64") {
@@ -1780,6 +1812,37 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             } else if (dynamic_cast<const EnumType *>(bin_op_node->left->type.get()) &&
                 dynamic_cast<const EnumType *>(bin_op_node->right->type.get())) {
                 return builder.CreateICmpNE(lhs, rhs, "enumneq");
+            }
+            {
+                const OptionalType *lhs_opt_type = dynamic_cast<const OptionalType *>(bin_op_node->left->type.get());
+                const OptionalType *rhs_opt_type = dynamic_cast<const OptionalType *>(bin_op_node->right->type.get());
+                if (lhs_opt_type != nullptr && rhs_opt_type != nullptr) {
+                    // If both sides are the 'none' literal, we can return a constant `0` as the result directly
+                    if (bin_op_node->left->type->to_string() == "void?" && bin_op_node->right->type->to_string() == "void?") {
+                        return builder.getInt1(0);
+                    }
+                    // First, we check if one of the sides is a TypeCast Node, and if one side is a TypeCast we can check if the base type
+                    // is of type `void?`, indicating that we check if one side is the 'none' literal.
+                    if (const TypeCastNode *lhs_type_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left.get())) {
+                        if (lhs_type_cast->expr->type->to_string() == "void?") {
+                            // We can just extract the first bit of the rhs and return it's value directly
+                            return builder.CreateExtractValue(rhs, {0}, "has_value");
+                        }
+                    }
+                    if (const TypeCastNode *rhs_type_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right.get())) {
+                        if (rhs_type_cast->expr->type->to_string() == "void?") {
+                            // We can just extract the first bit of the rhs and return it's value directly
+                            return builder.CreateExtractValue(lhs, {0}, "has_value");
+                        }
+                    }
+                    // If both sides are "real" optionals, we just compare their memory directly through `memcmp`
+                    llvm::Value *are_equal = builder.CreateCall(                                                          //
+                        c_functions.at(MEMCMP),                                                                           //
+                        {lhs, rhs, builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), lhs->getType()))}, //
+                        "are_equal"                                                                                       //
+                    );
+                    return builder.CreateNeg(are_equal, "are_not_equal");
+                }
             }
             break;
         case TOK_AND:
