@@ -38,3 +38,8 @@ def main():
 		print("are equal\n");
 	else:
 		print("are not equal\n");
+	
+	if maybe != maybe_2:
+		print("are not equal\n");
+	else:
+		print("are equal\n");

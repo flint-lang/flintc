@@ -1886,7 +1886,12 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
 
     // The optionals are still equal if both have no value stored in them
     builder.SetInsertPoint(one_no_value_block);
-    llvm::Value *both_empty = builder.CreateICmpEQ(lhs_has_value, rhs_has_value);
+    llvm::Value *both_empty;
+    if (eq) {
+        both_empty = builder.CreateICmpEQ(lhs_has_value, rhs_has_value, "both_empty");
+    } else {
+        both_empty = builder.CreateICmpNE(lhs_has_value, rhs_has_value, "both_differ");
+    }
     builder.CreateBr(merge_block);
 
     // The optionals are equal if their values match
