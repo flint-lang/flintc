@@ -70,3 +70,6 @@ extern ArithmeticOverflowMode overflow_mode;
 
 enum class ArrayOutOfBoundsMode : unsigned int { PRINT = 0, SILENT = 1, CRASH = 2, UNSAFE = 3 };
 extern ArrayOutOfBoundsMode oob_mode;
+
+enum class OptionalUnwrapMode : unsigned int { CRASH = 0, UNSAFE = 1 };
+extern OptionalUnwrapMode unwrap_mode;

@@ -113,16 +113,27 @@ class CLIParserMain : public CLIParserBase {
                     return 1;
                 }
             } else if (starts_with(arg, "--array-")) {
-                // Erase the '--arithmetic-' part of the string
-                const std::string arithmetic_overflow_behaviour = arg.substr(8, arg.length() - 8);
-                if (arithmetic_overflow_behaviour == "print") {
+                // Erase the '--array-' part of the string
+                const std::string array_overflow_behaviour = arg.substr(8, arg.length() - 8);
+                if (array_overflow_behaviour == "print") {
                     oob_mode = ArrayOutOfBoundsMode::PRINT;
-                } else if (arithmetic_overflow_behaviour == "silent") {
+                } else if (array_overflow_behaviour == "silent") {
                     oob_mode = ArrayOutOfBoundsMode::SILENT;
-                } else if (arithmetic_overflow_behaviour == "crash") {
+                } else if (array_overflow_behaviour == "crash") {
                     oob_mode = ArrayOutOfBoundsMode::CRASH;
-                } else if (arithmetic_overflow_behaviour == "unsafe") {
+                } else if (array_overflow_behaviour == "unsafe") {
                     oob_mode = ArrayOutOfBoundsMode::UNSAFE;
+                } else {
+                    print_err("Unknown argument: " + arg);
+                    return 1;
+                }
+            } else if (starts_with(arg, "--optional-")) {
+                // Erase the '--optional-' part of the string
+                const std::string optional_unwrap_behaviour = arg.substr(11, arg.length() - 11);
+                if (optional_unwrap_behaviour == "crash") {
+                    unwrap_mode = OptionalUnwrapMode::CRASH;
+                } else if (optional_unwrap_behaviour == "unsafe") {
+                    unwrap_mode = OptionalUnwrapMode::UNSAFE;
                 } else {
                     print_err("Unknown argument: " + arg);
                     return 1;
@@ -218,7 +229,12 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --array-print               [Default] Prints a small message to the console whenever accessing an array OOB\n";
         std::cout << "  --array-silent              Disables the debug printing when OOB access happens\n";
         std::cout << "  --array-crash               Hard crashes when an OOB access happens\n";
-        std::cout << "  --array-unsafe              Disables all bounds checks for array accesses";
+        std::cout << "  --array-unsafe              Disables all bounds checks for array accesses\n";
+        std::cout << std::endl;
+        std::cout << "\nOptional Options:\n";
+        std::cout << "  --optional-crash            [Default] Prints a small message and crashes whenever a bad optional unwrap happens\n";
+        std::cout << "  --optional-unsafe           Disables all \"has_value\"-checks for optionals when unwrapping\n";
+        std::cout << "                              HINT: All optionals which have 'none' stored on them are zero-initialized";
         std::cout << std::endl;
 #ifdef DEBUG_BUILD
         std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";

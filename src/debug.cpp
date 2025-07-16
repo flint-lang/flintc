@@ -29,6 +29,7 @@ unsigned int BUILTIN_LIBS_TO_PRINT = 0;
 Target COMPILATION_TARGET = Target::NATIVE;
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
 ArrayOutOfBoundsMode oob_mode = ArrayOutOfBoundsMode::PRINT;
+OptionalUnwrapMode unwrap_mode = OptionalUnwrapMode::CRASH;
 
 PersistentThreadPool thread_pool;
 
