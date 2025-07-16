@@ -1546,6 +1546,65 @@ class Generator {
             llvm::Value *rhs                                           //
         );
 
+        /// @struct `FakeBinaryOpNode`
+        /// @brief A "Fake" Binary op node used for the *actual* generation of the binary operation, which has *all* the fields of a
+        /// "normal" BinaryOpNode
+        struct FakeBinaryOpNode {
+            const Token operator_token;
+            const std::unique_ptr<ExpressionNode> &left;
+            const std::unique_ptr<ExpressionNode> &right;
+            const std::shared_ptr<Type> &type;
+            const bool is_shorthand;
+        };
+
+        /// @function `generate_binary_op_scalar`
+        /// @brief Generates the binary operation for scalar binary ops
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 every layer)
+        /// @param `bin_op_node` The fake binary operation to generate
+        /// @param `type_str` The string representation of the type
+        /// @param `lhs` The left hand side llvm instruction
+        /// @param `rhs` The right hand side llvm instruction
+        /// @return `std::optional<llvm::Value *>` The result of the binary operation
+        static std::optional<llvm::Value *> generate_binary_op_scalar( //
+            llvm::IRBuilder<> &builder,                                //
+            GenerationContext &ctx,                                    //
+            garbage_type &garbage,                                     //
+            const unsigned int expr_depth,                             //
+            const FakeBinaryOpNode *bin_op_node,                       //
+            const std::string &type_str,                               //
+            llvm::Value *lhs,                                          //
+            llvm::Value *rhs                                           //
+        );
+
+        /// @function `generate_optional_cmp`
+        /// @brief Generates the instructions for the optional comparison of the lhs and rhs
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 every layer)
+        /// @param `lhs` The left hand side llvm instruction of the comparison
+        /// @param `lhs_expr` The left hand side expression node of the comparison
+        /// @param `rhs` The right hand side llvm instruction of the comparison
+        /// @param `hhs_expr` The right hand side expression node of the comparison
+        /// @param `eq` Whether to compare for equality (true) or inequality (false)
+        /// @return `std::optional<llvm::Value *>` The result of the optional comparison
+        static std::optional<llvm::Value *> generate_optional_cmp( //
+            llvm::IRBuilder<> &builder,                            //
+            GenerationContext &ctx,                                //
+            garbage_type &garbage,                                 //
+            const unsigned int expr_depth,                         //
+            llvm::Value *lhs,                                      //
+            const std::unique_ptr<ExpressionNode> &lhs_expr,       //
+            llvm::Value *rhs,                                      //
+            const std::unique_ptr<ExpressionNode> &rhs_expr,       //
+            const bool eq                                          //
+        );
+
         /// @function `generate_binary_op_vector`
         /// @brief Generates the binary operation for vector binary ops
         ///

@@ -26,21 +26,21 @@ def main():
 	// pointer to work with, but both `maybe` and `maybe_2`
 	// are stack-allocated and getting their *actual* values is...hard
 	//
-	// i32? maybe_2 = 69;
-	// if maybe == maybe_2:
-	// 	print("are equal\n");
-	// else:
-	// 	print("are not equal\n");
+	i32? maybe_2 = 69;
+	if maybe == maybe_2:
+		print("are equal\n");
+	else:
+		print("are not equal\n");
 	
-	// maybe = 69;
-	// if maybe == maybe_2:
-	// 	print("are equal\n");
-	// else:
-	// 	print("are not equal\n");
+	maybe = 69;
+	if maybe == maybe_2:
+		print("are equal\n");
+	else:
+		print("are not equal\n");
 
-	// maybe = none;
-	// maybe_2 = none;
-	// if maybe == maybe_2:
-	// 	print("are equal\n");
-	// else:
-	// 	print("are not equal\n");
+	maybe = none;
+	maybe_2 = none;
+	if maybe == maybe_2:
+		print("are equal\n");
+	else:
+		print("are not equal\n");
