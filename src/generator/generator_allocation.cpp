@@ -516,6 +516,11 @@ unsigned int Generator::Allocation::calculate_type_alignment(llvm::Type *type) {
     return alignment;
 }
 
+size_t Generator::Allocation::get_type_size(llvm::Module *module, llvm::Type *type) {
+    const llvm::DataLayout &data_layout = module->getDataLayout();
+    return data_layout.getTypeAllocSize(type);
+}
+
 llvm::AllocaInst *Generator::Allocation::generate_default_struct( //
     llvm::IRBuilder<> &builder,                                   //
     llvm::StructType *type,                                       //

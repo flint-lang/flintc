@@ -2,7 +2,6 @@
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 
-#include <cstdint>
 #include <llvm/IR/DerivedTypes.h>
 
 void Generator::Module::String::generate_get_c_str_function( //
@@ -212,12 +211,10 @@ void Generator::Module::String::generate_create_str_function( //
     len_arg->setName("len");
 
     // Calculate malloc size: sizeof(str) + len
-    llvm::DataLayout data_layout(module);
-    uint64_t str_size = data_layout.getTypeAllocSize(str_type);
-    llvm::Value *malloc_size = builder->CreateAdd( //
-        builder->getInt64(str_size),               //
-        len_arg,                                   //
-        "malloc_size"                              //
+    llvm::Value *malloc_size = builder->CreateAdd(                      //
+        builder->getInt64(Allocation::get_type_size(module, str_type)), //
+        len_arg,                                                        //
+        "malloc_size"                                                   //
     );
 
     // Call malloc
@@ -483,8 +480,7 @@ void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *
     llvm::Value *old_string_ptr = builder->CreateLoad(str_type->getPointerTo(), arg_string, "old_string_ptr");
 
     // Calculate new size: sizeof(str) + len
-    llvm::DataLayout data_layout(module);
-    uint64_t str_size = data_layout.getTypeAllocSize(str_type);
+    size_t str_size = Allocation::get_type_size(module, str_type);
     llvm::Value *new_size = builder->CreateAdd(builder->getInt64(str_size), arg_len, "new_size");
 
     // Call realloc: str* new_string = realloc(old_string, new_size)
@@ -558,8 +554,7 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     llvm::Value *source_len = builder->CreateLoad(builder->getInt64Ty(), source_len_ptr, "source_len");
 
     // Calculate new size: sizeof(str) + dest_len + source_len
-    llvm::DataLayout data_layout(module);
-    uint64_t str_size = data_layout.getTypeAllocSize(str_type);
+    size_t str_size = Allocation::get_type_size(module, str_type);
     llvm::Value *combined_len = builder->CreateAdd(dest_len, source_len, "combined_len");
     llvm::Value *new_size = builder->CreateAdd(builder->getInt64(str_size), combined_len, "new_size");
 
@@ -640,8 +635,7 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     llvm::Value *dest_len = builder->CreateLoad(builder->getInt64Ty(), dest_len_ptr, "dest_len");
 
     // Calculate new size: sizeof(str) + dest_len + source_len
-    llvm::DataLayout data_layout(module);
-    uint64_t str_size = data_layout.getTypeAllocSize(str_type);
+    size_t str_size = Allocation::get_type_size(module, str_type);
     llvm::Value *combined_len = builder->CreateAdd(dest_len, arg_source_len, "combined_len");
     llvm::Value *new_size = builder->CreateAdd(builder->getInt64(str_size), combined_len, "new_size");
 

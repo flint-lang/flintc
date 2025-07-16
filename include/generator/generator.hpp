@@ -789,6 +789,13 @@ class Generator {
         /// @return `unsigned int` The calculated alignment
         static unsigned int calculate_type_alignment(llvm::Type *type);
 
+        /// @function `get_type_size`
+        /// @brief Calculates the size of the given type
+        ///
+        /// @param `type` The type to get the size of
+        /// @return `size_t` The size of the type in bytes
+        static size_t get_type_size(llvm::Module *module, llvm::Type *type);
+
         /// @function `generate_default_struct`
         /// @brief Allocates a struct and adds default values to every element of the struct
         ///
