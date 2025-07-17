@@ -1,25 +1,7 @@
 use Core.print
 
-data Vec2:
-	i32 x;
-	i32 y;
-	Vec2(x, y);
-
-def move_maybe(mut Vec2? v2, i32 x, i32 y):
-	if v2 != none:
-		Vec2 v = v2!;
-		v.(x, y) += (x, y);
-		v2 = v;
-
-def print_maybe(Vec2? v2):
-	Vec2 v = v2!;
-	print($"vm = ({v.x}, {v.y})\n");
-
 def main():
-	Vec2 v = Vec2(10, 20);
-	Vec2? vm = v;
-	print($"v = ({v.x}, {v.y})\n");
-	print_maybe(vm);
-	move_maybe(vm, 2, 3);
-	print($"v = ({v.x}, {v.y})\n");
-	print_maybe(vm);
+	i32? maybe = 60;
+	switch maybe:
+		none: print("none");
+		v: print($"value = {v}\n");

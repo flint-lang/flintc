@@ -816,6 +816,14 @@ bool Generator::Statement::generate_switch_statement( //
 ) {
     // Get the current block, we need to add a branch instruction to its block to point to the correct switch branch.
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+    // Generate the switch expression
+    Expression::garbage_type garbage;
+    group_mapping expr_result = Expression::generate_expression(builder, ctx, garbage, 0, switch_statement->switcher.get());
+    llvm::Value *switch_value = expr_result.value().front();
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
 
     // Create the basic blocks for the switch branches and fill those basic blocks at the same time, e.g. generate the body of the switch
     // branches right here as well
@@ -824,6 +832,8 @@ bool Generator::Statement::generate_switch_statement( //
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge");
     const std::shared_ptr<Scope> original_scope = ctx.scope;
     llvm::BasicBlock *default_block = nullptr;
+    const bool is_optional_switch = dynamic_cast<const OptionalType *>(switch_statement->switcher->type.get());
+    int value_block_idx = -1;
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Check if it's the default branch
@@ -839,6 +849,26 @@ bool Generator::Statement::generate_switch_statement( //
             branch_blocks.push_back(llvm::BasicBlock::Create(context, "branch_" + std::to_string(i), ctx.parent));
         }
         builder.SetInsertPoint(branch_blocks[i]);
+        const VariableNode *var_node = dynamic_cast<const VariableNode *>(branch.matches.front().get());
+        if (is_optional_switch && var_node != nullptr) {
+            auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_statement->switcher.get());
+            if (switcher_var_node == nullptr) {
+                // Switching on non-variables is not supported yet
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return false;
+            }
+            const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
+            const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
+            llvm::StructType *opt_struct_type = IR::add_and_or_get_type(switch_statement->switcher->type, false);
+            if (switch_value->getType()->isPointerTy()) {
+                switch_value = builder.CreateLoad(opt_struct_type, switch_value, "loaded_rhs");
+            }
+            llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+            const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + var_node->name;
+            llvm::Value *real_value_reference = builder.CreateStructGEP(opt_struct_type, var_alloca, 1, "value_reference");
+            ctx.allocations.emplace(var_str, real_value_reference);
+            value_block_idx = i;
+        }
         ctx.scope = branch.body;
         if (!generate_body(builder, ctx)) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -852,13 +882,31 @@ bool Generator::Statement::generate_switch_statement( //
     // Now set the insert point to the pred block to actually generate the switch itself
     builder.SetInsertPoint(pred_block);
 
-    // Generate the switch expression
-    Expression::garbage_type garbage;
-    group_mapping expr_result = Expression::generate_expression(builder, ctx, garbage, 0, switch_statement->switcher.get());
-    llvm::Value *switch_value = expr_result.value().front();
-    if (!clear_garbage(builder, garbage)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
+    // If it's a switch on an optional we can have a simple conditional branch here instead of the switch
+    if (is_optional_switch) {
+        auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_statement->switcher.get());
+        if (switcher_var_node == nullptr) {
+            // Switching on non-variables is not supported yet
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return false;
+        }
+        const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
+        const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
+        llvm::StructType *opt_struct_type = IR::add_and_or_get_type(switch_statement->switcher->type, false);
+        llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+        // We just check for the "has_value" field and branch to our blocks depending on that field's value
+        llvm::Value *has_value_ptr = builder.CreateStructGEP(opt_struct_type, var_alloca, 0, "has_value_ptr");
+        llvm::Value *has_value = builder.CreateLoad(builder.getInt1Ty(), has_value_ptr, "has_value");
+        llvm::BasicBlock *has_value_block = branch_blocks.at(value_block_idx);
+        // If value block idx == 1 none block is 0, if it's 0 the none block is idx 1
+        llvm::BasicBlock *none_block = branch_blocks.at(1 - value_block_idx);
+        builder.CreateCondBr(has_value, has_value_block, none_block);
+
+        // Set the insert point back to the merge block
+        ctx.scope = original_scope;
+        merge_block->insertInto(ctx.parent);
+        builder.SetInsertPoint(merge_block);
+        return true;
     }
 
     // Create the switch instruction. Branch to the default block, if one exists, when no default block exists we jump to the merge block
