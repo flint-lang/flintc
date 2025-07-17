@@ -1,45 +1,8 @@
 use Core.print
 
 def main():
-	i32? maybe = 69;
-	i32 unwrapped = maybe!;
-	print($"unwrapped = {unwrapped}\n");
-	maybe = none;
-	if maybe != none:
-		print($"maybe = {maybe!}\n");
+	i32? maybe = none;
+	if maybe == none:
+		print("has no value\n");
 	else:
-		print("maybe = none\n");
-	
-	if none == none:
-		print("true\n");
-	else:
-		print("unreachable\n");
-
-	if none != none:
-		print("unreachable\n");
-	else:
-		print("false\n");
-	
-	i32? maybe_2 = 69;
-	if maybe == maybe_2:
-		print("are equal\n");
-	else:
-		print("are not equal\n");
-	
-	maybe = 69;
-	if maybe == maybe_2:
-		print("are equal\n");
-	else:
-		print("are not equal\n");
-
-	maybe = none;
-	maybe_2 = none;
-	if maybe == maybe_2:
-		print("are equal\n");
-	else:
-		print("are not equal\n");
-	
-	if maybe != maybe_2:
-		print("are not equal\n");
-	else:
-		print("are equal\n");
+		print("has value\n");

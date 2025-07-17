@@ -1850,7 +1850,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
             // We can just extract the first bit of the rhs and return it's (negated) value directly
             llvm::Value *has_value = builder.CreateExtractValue(rhs, {0}, "has_value");
             if (eq) {
-                return builder.CreateNeg(has_value, "has_no_value");
+                return builder.CreateNot(has_value, "has_no_value");
             } else {
                 return has_value;
             }
@@ -1861,7 +1861,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
             // We can just extract the first bit of the rhs and return it's (negated) value directly
             llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
             if (eq) {
-                return builder.CreateNeg(has_value, "has_no_value");
+                return builder.CreateNot(has_value, "has_no_value");
             } else {
                 return has_value;
             }
