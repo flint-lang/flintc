@@ -16,8 +16,8 @@ class EnhForLoopNode : public StatementNode {
     EnhForLoopNode(                                                                                                    //
         const std::variant<std::pair<std::optional<std::string>, std::optional<std::string>>, std::string> &iterators, //
         std::unique_ptr<ExpressionNode> &iterable,                                                                     //
-        std::unique_ptr<Scope> &definition_scope,                                                                      //
-        std::unique_ptr<Scope> &body                                                                                   //
+        std::shared_ptr<Scope> &definition_scope,                                                                      //
+        std::shared_ptr<Scope> &body                                                                                   //
         ) :
         iterators(iterators),
         iterable(std::move(iterable)),
@@ -45,11 +45,11 @@ class EnhForLoopNode : public StatementNode {
 
     /// @var `definition_scope`
     /// @brief The scope of the loops definition, containing the initializer ( 'i32 i = 0' for example )
-    std::unique_ptr<Scope> definition_scope;
+    std::shared_ptr<Scope> definition_scope;
 
     /// @var `body`
     /// @brief The scope of the actual loops body. The parent of the `body` scope is the `definition_scope` of the for loop. In this
     /// scope, the actual instantiation of the loop variable, the initializer, takes place. Ad the end of the body is the looparound
     /// statement contained, for example 'i++'
-    std::unique_ptr<Scope> body;
+    std::shared_ptr<Scope> body;
 };

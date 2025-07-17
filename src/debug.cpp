@@ -635,11 +635,11 @@ namespace Debug {
                 TreeBits else_bits = bits.child(indent_lvl, true);
                 Local::print_header(indent_lvl, else_bits, "Else ");
 
-                if (std::holds_alternative<std::unique_ptr<Scope>>(if_node.else_scope.value())) {
-                    std::cout << "else [s" << std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->scope_id << "]" << std::endl;
+                if (std::holds_alternative<std::shared_ptr<Scope>>(if_node.else_scope.value())) {
+                    std::cout << "else [s" << std::get<std::shared_ptr<Scope>>(if_node.else_scope.value())->scope_id << "]" << std::endl;
 
                     TreeBits else_body_bits = bits.child(indent_lvl + 1, true);
-                    print_body(indent_lvl + 1, else_body_bits, std::get<std::unique_ptr<Scope>>(if_node.else_scope.value())->body);
+                    print_body(indent_lvl + 1, else_body_bits, std::get<std::shared_ptr<Scope>>(if_node.else_scope.value())->body);
                 } else {
                     std::cout << std::endl;
                     TreeBits else_if_bits = bits.child(indent_lvl + 1, true);

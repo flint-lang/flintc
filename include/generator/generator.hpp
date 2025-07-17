@@ -174,7 +174,7 @@ class Generator {
 
         /// @var `scope`
         /// @brief The scope the generation happens in
-        const Scope *scope;
+        std::shared_ptr<Scope> scope;
 
         /// @var `allocations`
         /// @brief The map of all allocations (from the preallocation system) to track the AllocaInst instructions
@@ -611,7 +611,7 @@ class Generator {
         [[nodiscard]] static bool generate_allocations(                                     //
             llvm::IRBuilder<> &builder,                                                     //
             llvm::Function *parent,                                                         //
-            const Scope *scope,                                                             //
+            const std::shared_ptr<Scope> scope,                                             //
             std::unordered_map<std::string, llvm::Value *const> &allocations,               //
             const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
         );
@@ -645,7 +645,7 @@ class Generator {
         [[nodiscard]] static bool generate_call_allocations(                                 //
             llvm::IRBuilder<> &builder,                                                      //
             llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
+            const std::shared_ptr<Scope> scope,                                              //
             std::unordered_map<std::string, llvm::Value *const> &allocations,                //
             const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
             const CallNodeBase *call_node                                                    //
@@ -704,7 +704,7 @@ class Generator {
         [[nodiscard]] static bool generate_declaration_allocations(                          //
             llvm::IRBuilder<> &builder,                                                      //
             llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
+            const std::shared_ptr<Scope> scope,                                              //
             std::unordered_map<std::string, llvm::Value *const> &allocations,                //
             const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
             const DeclarationNode *declaration_node                                          //
@@ -725,7 +725,7 @@ class Generator {
         [[nodiscard]] static bool generate_group_declaration_allocations(                    //
             llvm::IRBuilder<> &builder,                                                      //
             llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
+            const std::shared_ptr<Scope> scope,                                              //
             std::unordered_map<std::string, llvm::Value *const> &allocations,                //
             const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
             const GroupDeclarationNode *group_declaration_node                               //
@@ -758,7 +758,7 @@ class Generator {
         [[nodiscard]] static bool generate_expression_allocations(                           //
             llvm::IRBuilder<> &builder,                                                      //
             llvm::Function *parent,                                                          //
-            const Scope *scope,                                                              //
+            const std::shared_ptr<Scope> scope,                                              //
             std::unordered_map<std::string, llvm::Value *const> &allocations,                //
             const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
             const ExpressionNode *expression                                                 //
@@ -2710,7 +2710,7 @@ class Generator {
             /// @return `llvm::Value *` The result of the string addition
             static llvm::Value *generate_string_addition(                                                                     //
                 llvm::IRBuilder<> &builder,                                                                                   //
-                const Scope *scope,                                                                                           //
+                const std::shared_ptr<Scope> scope,                                                                           //
                 const std::unordered_map<std::string, llvm::Value *const> &allocations,                                       //
                 std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
                 const unsigned int expr_depth,                                                                                //

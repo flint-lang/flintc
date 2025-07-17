@@ -22,7 +22,7 @@
 #include <variant>
 
 std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement( //
-    Scope *scope,                                                                //
+    std::shared_ptr<Scope> scope,                                                //
     const token_slice &tokens,                                                   //
     const std::optional<std::string> &alias_base                                 //
 ) {
@@ -48,7 +48,7 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
     return call_node;
 }
 
-std::optional<ThrowNode> Parser::create_throw(Scope *scope, const token_slice &tokens) {
+std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     unsigned int throw_id = 0;
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_THROW) {
@@ -72,7 +72,7 @@ std::optional<ThrowNode> Parser::create_throw(Scope *scope, const token_slice &t
     return ThrowNode(expr.value());
 }
 
-std::optional<ReturnNode> Parser::create_return(Scope *scope, const token_slice &tokens) {
+std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     unsigned int return_id = 0;
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_RETURN) {
@@ -132,7 +132,8 @@ std::optional<ReturnNode> Parser::create_return(Scope *scope, const token_slice 
     return ReturnNode(return_expr);
 }
 
-std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain) {
+std::optional<std::unique_ptr<IfNode>> Parser::create_if(std::shared_ptr<Scope> scope,
+    std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain) {
     assert(!if_chain.empty());
     std::pair<token_slice, std::vector<Line>> this_if_pair = if_chain.front();
     if_chain.erase(if_chain.begin());
@@ -178,14 +179,14 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
             condition.value()->type);
         return std::nullopt;
     }
-    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
-    auto body_statements = create_body(body_scope.get(), this_if_pair.second);
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(scope);
+    auto body_statements = create_body(body_scope, this_if_pair.second);
     if (!body_statements.has_value()) {
         THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, this_if_pair.second);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
-    std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> else_scope = std::nullopt;
+    std::optional<std::variant<std::unique_ptr<IfNode>, std::shared_ptr<Scope>>> else_scope = std::nullopt;
 
     // Check if the chain contains any values (more if blocks in the chain) and parse them accordingly
     if (!if_chain.empty()) {
@@ -194,8 +195,8 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
             else_scope = create_if(scope, if_chain);
         } else {
             // 'else'
-            std::unique_ptr<Scope> else_scope_ptr = std::make_unique<Scope>(scope);
-            auto else_body_statements = create_body(else_scope_ptr.get(), if_chain.at(0).second);
+            std::shared_ptr<Scope> else_scope_ptr = std::make_shared<Scope>(scope);
+            auto else_body_statements = create_body(else_scope_ptr, if_chain.at(0).second);
             if (!else_body_statements.has_value()) {
                 THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, if_chain.at(0).second);
                 return std::nullopt;
@@ -209,7 +210,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Scope *scope, std::vect
 }
 
 std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
-    Scope *scope,                                                    //
+    std::shared_ptr<Scope> scope,                                    //
     const token_slice &definition,                                   //
     const std::vector<Line> &body                                    //
 ) {
@@ -238,8 +239,8 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
         return std::nullopt;
     }
 
-    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
-    auto body_statements = create_body(body_scope.get(), body);
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(scope);
+    auto body_statements = create_body(body_scope, body);
     if (!body_statements.has_value()) {
         THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
         return std::nullopt;
@@ -250,7 +251,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
 }
 
 std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
-    Scope *scope,                                                    //
+    std::shared_ptr<Scope> scope,                                    //
     const token_slice &definition,                                   //
     const std::vector<Line> &body                                    //
 ) {
@@ -280,7 +281,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     }
 
     // Parse the actual expressions / statements. Note that only non-scoped statements are valid within the for loops definition
-    std::unique_ptr<Scope> definition_scope = std::make_unique<Scope>(scope);
+    std::shared_ptr<Scope> definition_scope = std::make_shared<Scope>(scope);
     uint2 &initializer_range = expression_ranges.at(0);
     // "remove" everything including the 'for' keyword from the initializer statement
     // otherwise the for loop would create itself recursively
@@ -292,7 +293,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     }
     // Parse the initializer statement
     token_slice initializer_tokens = {definition.first + initializer_range.first, definition.first + initializer_range.second};
-    initializer = create_statement(definition_scope.get(), initializer_tokens);
+    initializer = create_statement(definition_scope, initializer_tokens);
     if (!initializer.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -302,15 +303,15 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     // Parse the loop condition expression
     uint2 &condition_range = expression_ranges.at(1);
     const token_slice condition_tokens = {definition.first + condition_range.first, definition.first + condition_range.second};
-    condition = create_expression(definition_scope.get(), condition_tokens);
+    condition = create_expression(definition_scope, condition_tokens);
     if (!condition.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
     // Parse the for loops body
-    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(definition_scope.get());
-    auto body_statements = create_body(body_scope.get(), body);
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope);
+    auto body_statements = create_body(body_scope, body);
     if (!body_statements.has_value()) {
         THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
         return std::nullopt;
@@ -319,7 +320,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
 
     // Parse the looparound statement. The looparound statement is actually part of the body is the last statement of the body
     token_slice looparound_tokens = {definition.first + condition_range.second, definition.first + expressions_range.value().second};
-    looparound = create_statement(body_scope.get(), looparound_tokens);
+    looparound = create_statement(body_scope, looparound_tokens);
     if (!looparound.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -329,7 +330,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
 }
 
 std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
-    Scope *scope,                                                           //
+    std::shared_ptr<Scope> scope,                                           //
     const token_slice &definition,                                          //
     const std::vector<Line> &body                                           //
 ) {
@@ -370,10 +371,10 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     definition_mut.first++;
 
     // Create the definition scope
-    std::unique_ptr<Scope> definition_scope = std::make_unique<Scope>(scope);
+    std::shared_ptr<Scope> definition_scope = std::make_shared<Scope>(scope);
 
     // The rest of the definition is the iterable expression
-    std::optional<std::unique_ptr<ExpressionNode>> iterable = create_expression(definition_scope.get(), definition_mut);
+    std::optional<std::unique_ptr<ExpressionNode>> iterable = create_expression(definition_scope, definition_mut);
     if (!iterable.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, definition_mut);
         return std::nullopt;
@@ -431,8 +432,8 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     }
 
     // Now create the body scope and parse the body
-    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(definition_scope.get());
-    auto body_statements = create_body(body_scope.get(), body);
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope);
+    auto body_statements = create_body(body_scope, body);
     if (!body_statements.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -443,7 +444,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
 }
 
 bool Parser::create_switch_branch_body(                              //
-    Scope *scope,                                                    //
+    std::shared_ptr<Scope> scope,                                    //
     std::vector<std::unique_ptr<ExpressionNode>> &match_expressions, //
     std::vector<SSwitchBranch> &s_branches,                          //
     std::vector<ESwitchBranch> &e_branches,                          //
@@ -469,7 +470,7 @@ bool Parser::create_switch_branch_body(                              //
     }
     // Check if the colon is the last symbol in this line. If it is, a body follows. If after the colon something is written the
     // "body" is a single statement written directly after the colon.
-    std::unique_ptr<Scope> branch_body = std::make_unique<Scope>(scope);
+    std::shared_ptr<Scope> branch_body = std::make_shared<Scope>(scope);
     if (tokens.first + match_range.second != tokens.second) {
         // A single statement follows, this means that the line needs to end with a semicolon
         const token_slice statement_tokens = {tokens.first + match_range.second, tokens.second - 1};
@@ -477,7 +478,7 @@ bool Parser::create_switch_branch_body(                              //
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        auto statement = create_statement(branch_body.get(), statement_tokens);
+        auto statement = create_statement(branch_body, statement_tokens);
         if (!statement.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
@@ -501,7 +502,7 @@ bool Parser::create_switch_branch_body(                              //
         return false;
     }
     const std::vector<Line> body_lines(body_start, line_it);
-    auto body_statements = create_body(branch_body.get(), body_lines);
+    auto body_statements = create_body(branch_body, body_lines);
     if (!body_statements.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return false;
@@ -512,7 +513,7 @@ bool Parser::create_switch_branch_body(                              //
 }
 
 bool Parser::create_switch_branches(            //
-    Scope *scope,                               //
+    std::shared_ptr<Scope> scope,               //
     std::vector<SSwitchBranch> &s_branches,     //
     std::vector<ESwitchBranch> &e_branches,     //
     const std::vector<Line> &body,              //
@@ -567,7 +568,7 @@ bool Parser::create_switch_branches(            //
 }
 
 bool Parser::create_enum_switch_branches(       //
-    Scope *scope,                               //
+    std::shared_ptr<Scope> scope,               //
     std::vector<SSwitchBranch> &s_branches,     //
     std::vector<ESwitchBranch> &e_branches,     //
     const std::vector<Line> &body,              //
@@ -693,7 +694,7 @@ bool Parser::create_enum_switch_branches(       //
 }
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( //
-    Scope *scope,                                                              //
+    std::shared_ptr<Scope> scope,                                              //
     const token_slice &definition,                                             //
     const std::vector<Line> &body                                              //
 ) {
@@ -756,7 +757,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
 }
 
 std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
-    Scope *scope,                                               //
+    std::shared_ptr<Scope> scope,                               //
     const token_slice &definition,                              //
     const std::vector<Line> &body,                              //
     std::vector<std::unique_ptr<StatementNode>> &statements     //
@@ -797,7 +798,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         }
     }
 
-    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>(scope);
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(scope);
     if (err_var.has_value()) {
         if (!body_scope->add_variable(err_var.value(), Type::get_primitive_type("i32"), body_scope->scope_id, false, false)) {
             THROW_ERR(                                                                                                                //
@@ -805,7 +806,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
             );
         }
     }
-    auto body_statements = create_body(body_scope.get(), body);
+    auto body_statements = create_body(body_scope, body);
     if (!body_statements.has_value()) {
         THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
         return std::nullopt;
@@ -816,7 +817,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 }
 
 std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
-    Scope *scope,                                                   //
+    std::shared_ptr<Scope> scope,                                   //
     const token_slice &tokens,                                      //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs             //
 ) {
@@ -877,7 +878,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
 }
 
 std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
-    Scope *scope,                                                             //
+    std::shared_ptr<Scope> scope,                                             //
     const token_slice &tokens,                                                //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                       //
 ) {
@@ -972,13 +973,14 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
 }
 
 std::optional<AssignmentNode> Parser::create_assignment( //
-    Scope *scope,                                        //
+    std::shared_ptr<Scope> scope,                        //
     const token_slice &tokens,                           //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs  //
 ) {
+    token_list toks = clone_from_slice(tokens);
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_IDENTIFIER) {
-            if (std::next(it)->token == TOK_EQUAL && (it + 2) != tokens.second) {
+            if (std::next(it)->token == TOK_EQUAL && ((it + 2) != tokens.second || rhs.has_value())) {
                 if (scope->variables.find(it->lexme) == scope->variables.end()) {
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
                     return std::nullopt;
@@ -1013,7 +1015,7 @@ std::optional<AssignmentNode> Parser::create_assignment( //
 }
 
 std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
-    Scope *scope,                                                  //
+    std::shared_ptr<Scope> scope,                                  //
     const token_slice &tokens,                                     //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs            //
 ) {
@@ -1074,7 +1076,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
 }
 
 std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
-    Scope *scope,                                                     //
+    std::shared_ptr<Scope> scope,                                     //
     const token_slice &tokens,                                        //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs               //
 ) {
@@ -1176,7 +1178,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
 }
 
 std::optional<DeclarationNode> Parser::create_declaration( //
-    Scope *scope,                                          //
+    std::shared_ptr<Scope> scope,                          //
     const token_slice &tokens,                             //
     const bool is_inferred,                                //
     const bool has_rhs,                                    //
@@ -1271,7 +1273,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     return DeclarationNode(type, name, expr);
 }
 
-std::optional<UnaryOpStatement> Parser::create_unary_op_statement(Scope *scope, const token_slice &tokens) {
+std::optional<UnaryOpStatement> Parser::create_unary_op_statement(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     auto unary_op_values = create_unary_op_base(scope, tokens);
     if (!unary_op_values.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -1285,7 +1287,7 @@ std::optional<UnaryOpStatement> Parser::create_unary_op_statement(Scope *scope, 
 }
 
 std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
-    Scope *scope,                                                            //
+    std::shared_ptr<Scope> scope,                                            //
     const token_slice &tokens,                                               //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                      //
 ) {
@@ -1342,7 +1344,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
 }
 
 std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_assignment( //
-    Scope *scope,                                                                           //
+    std::shared_ptr<Scope> scope,                                                           //
     const token_slice &tokens,                                                              //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                                     //
 ) {
@@ -1385,7 +1387,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
 }
 
 std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_assignment_shorthand( //
-    Scope *scope,                                                                                     //
+    std::shared_ptr<Scope> scope,                                                                     //
     const token_slice &tokens,                                                                        //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                                               //
 ) {
@@ -1466,7 +1468,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
 }
 
 std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
-    Scope *scope,                                                   //
+    std::shared_ptr<Scope> scope,                                   //
     const token_slice &tokens,                                      //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs             //
 ) {
@@ -1523,7 +1525,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
     return ArrayAssignmentNode(variable_name, var_type.value(), array_type->type, indexing_expressions.value(), expression.value());
 }
 
-std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(Scope *scope, const token_slice &tokens) {
+std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     if (!Matcher::tokens_contain(tokens, Matcher::token(TOK_EQUAL))) {
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
@@ -1657,7 +1659,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(S
 }
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
-    Scope *scope,                                                       //
+    std::shared_ptr<Scope> scope,                                       //
     const token_slice &tokens,                                          //
     std::optional<std::unique_ptr<ExpressionNode>> rhs                  //
 ) {
@@ -1793,7 +1795,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
 }
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( //
-    Scope *scope,                                                              //
+    std::shared_ptr<Scope> scope,                                              //
     std::vector<Line>::const_iterator &line_it,                                //
     const std::vector<Line> &body,                                             //
     std::vector<std::unique_ptr<StatementNode>> &statements                    //
@@ -1900,7 +1902,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     return statement_node;
 }
 
-std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(Scope *scope, const std::vector<Line> &body) {
+std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(std::shared_ptr<Scope> scope,
+    const std::vector<Line> &body) {
     std::vector<std::unique_ptr<StatementNode>> body_statements;
 
     for (auto line_it = body.begin(); line_it != body.end();) {

@@ -16,7 +16,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         parameters.emplace_back(std::make_tuple(str_arr_type.value(), "args", false));
     }
     std::vector<std::shared_ptr<Type>> return_types;
-    std::unique_ptr<Scope> scope;
+    std::shared_ptr<Scope> scope;
     FunctionNode function_node = FunctionNode(false, false, "_main", parameters, return_types, scope);
 
     // Create the declaration of the custom main function

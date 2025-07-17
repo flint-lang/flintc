@@ -15,21 +15,21 @@ class Scope {
   public:
     Scope() = default;
 
-    explicit Scope(Scope *parent) :
+    explicit Scope(std::shared_ptr<Scope> parent) :
         parent_scope(parent) {
         clone_variables(parent);
     }
 
-    explicit Scope(std::vector<std::unique_ptr<StatementNode>> body, Scope *parent = nullptr) :
+    explicit Scope(std::vector<std::unique_ptr<StatementNode>> body, std::shared_ptr<Scope> parent = nullptr) :
         body(std::move(body)),
         parent_scope(parent) {}
 
     /// @function `get_parent`
     /// @brief Returns the parent scope of this scope
     ///
-    /// @return `Scope *` A pointer to the parent of this scope
+    /// @return `std::shared_ptr<Scope> ` A pointer to the parent of this scope
     [[nodiscard]]
-    Scope *get_parent() const {
+    std::shared_ptr<Scope> get_parent() const {
         return parent_scope;
     }
 
@@ -37,7 +37,7 @@ class Scope {
     /// @brief Sets the parent scope of this scope
     ///
     /// @param `parent` The new parent of this scope
-    void set_parent(Scope *parent) {
+    void set_parent(std::shared_ptr<Scope> parent) {
         parent_scope = parent;
     }
 
@@ -46,7 +46,7 @@ class Scope {
     ///
     /// @param `other` The other scope from which to clone the variable types
     /// @return `bool` Whether the cloning was successful
-    bool clone_variables(const Scope *other) {
+    bool clone_variables(const std::shared_ptr<Scope> other) {
         for (const auto &[name, type_scope] : other->variables) {
             if (!add_variable(name, std::get<0>(type_scope), std::get<1>(type_scope), std::get<2>(type_scope), std::get<3>(type_scope),
                     std::get<4>(type_scope))) {
@@ -118,7 +118,7 @@ class Scope {
 
     /// @var `parent_scope`
     /// @brief The parent scope of this scope
-    Scope *parent_scope{nullptr};
+    std::shared_ptr<Scope> parent_scope{nullptr};
 
     /// @var `variable`
     /// @brief All the variables visible within this scope

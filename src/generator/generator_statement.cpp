@@ -371,7 +371,7 @@ void Generator::Statement::generate_if_blocks(llvm::Function *parent, std::vecto
             ++branch_count;
         } else {
             // If there's a final else block, create it
-            const auto &else_statements = std::get<std::unique_ptr<Scope>>(else_scope)->body;
+            const auto &else_statements = std::get<std::shared_ptr<Scope>>(else_scope)->body;
             if (else_statements.empty()) {
                 // No empty body allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -425,7 +425,7 @@ bool Generator::Statement::generate_if_statement( //
     }
 
     // Generate the condition
-    const Scope *current_scope = ctx.scope;
+    const std::shared_ptr<Scope> current_scope = ctx.scope;
     ctx.scope = if_node->then_scope->parent_scope;
     Expression::garbage_type garbage;
     group_mapping condition_arr = Expression::generate_expression(builder, ctx, garbage, 0, if_node->condition.get());
@@ -458,7 +458,7 @@ bool Generator::Statement::generate_if_statement( //
     // Generate then branch
     blocks[then_idx]->insertInto(ctx.parent);
     builder.SetInsertPoint(blocks[then_idx]);
-    ctx.scope = if_node->then_scope.get();
+    ctx.scope = if_node->then_scope;
     if (!generate_body(builder, ctx)) {
         return false;
     }
@@ -486,10 +486,10 @@ bool Generator::Statement::generate_if_statement( //
             }
         } else {
             // Handle final else, if it exists
-            const auto &last_else_scope = std::get<std::unique_ptr<Scope>>(else_scope);
+            const auto &last_else_scope = std::get<std::shared_ptr<Scope>>(else_scope);
             if (!last_else_scope->body.empty()) {
                 builder.SetInsertPoint(blocks[next_idx]);
-                ctx.scope = last_else_scope.get();
+                ctx.scope = last_else_scope;
                 if (!generate_body(builder, ctx)) {
                     return false;
                 }
@@ -532,7 +532,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
 
     // Create the condition block's content
     builder.SetInsertPoint(while_blocks[0]);
-    const Scope *current_scope = ctx.scope;
+    const std::shared_ptr<Scope> current_scope = ctx.scope;
     ctx.scope = while_node->scope->get_parent();
     Expression::garbage_type garbage;
     group_mapping expression_arr = Expression::generate_expression(builder, ctx, garbage, 0, while_node->condition.get());
@@ -549,7 +549,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
 
     // Create the while block's body
     builder.SetInsertPoint(while_blocks[1]);
-    ctx.scope = while_node->scope.get();
+    ctx.scope = while_node->scope;
     if (!generate_body(builder, ctx)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -575,8 +575,8 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
 
     // Generate the instructions from the definition scope (it should only contain the initializer statement, for example 'i32 i = 0')
-    const Scope *current_scope = ctx.scope;
-    ctx.scope = for_node->definition_scope.get();
+    const std::shared_ptr<Scope> current_scope = ctx.scope;
+    ctx.scope = for_node->definition_scope;
     if (!generate_body(builder, ctx)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -595,7 +595,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
 
     // Create the branch instruction in the predecessor block to point to the for_cond block
     builder.SetInsertPoint(pred_block);
-    ctx.scope = for_node->definition_scope.get();
+    ctx.scope = for_node->definition_scope;
     if (!generate_body(builder, ctx)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -606,7 +606,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
 
     // Create the condition block's content
     builder.SetInsertPoint(for_blocks[0]);
-    ctx.scope = for_node->definition_scope.get();
+    ctx.scope = for_node->definition_scope;
     Expression::garbage_type garbage;
     group_mapping expression_arr = Expression::generate_expression(builder, ctx, garbage, 0, for_node->condition.get());
     llvm::Value *expression = expression_arr.value().at(0); // Conditions only are allowed to have one type, bool
@@ -622,7 +622,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
 
     // Create the for loop's body
     builder.SetInsertPoint(for_blocks[1]);
-    ctx.scope = for_node->body.get();
+    ctx.scope = for_node->body;
     if (!generate_body(builder, ctx)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -778,7 +778,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     }
     // Then we generate the body itself
     auto old_scope = ctx.scope;
-    ctx.scope = for_node->body.get();
+    ctx.scope = for_node->body;
     if (!generate_body(builder, ctx)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -822,7 +822,7 @@ bool Generator::Statement::generate_switch_statement( //
     std::vector<llvm::BasicBlock *> branch_blocks;
     branch_blocks.reserve(switch_statement->branches.size());
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge");
-    const Scope *original_scope = ctx.scope;
+    const std::shared_ptr<Scope> original_scope = ctx.scope;
     llvm::BasicBlock *default_block = nullptr;
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
@@ -839,7 +839,7 @@ bool Generator::Statement::generate_switch_statement( //
             branch_blocks.push_back(llvm::BasicBlock::Create(context, "branch_" + std::to_string(i), ctx.parent));
         }
         builder.SetInsertPoint(branch_blocks[i]);
-        ctx.scope = branch.body.get();
+        ctx.scope = branch.body;
         if (!generate_body(builder, ctx)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
@@ -968,8 +968,8 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
 
     // Generate the body of the catch block
     builder.SetInsertPoint(catch_block);
-    const Scope *current_scope = ctx.scope;
-    ctx.scope = catch_node->scope.get();
+    const std::shared_ptr<Scope> current_scope = ctx.scope;
+    ctx.scope = catch_node->scope;
     if (!generate_body(builder, ctx)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;

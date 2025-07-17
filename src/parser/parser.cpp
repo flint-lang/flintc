@@ -109,12 +109,12 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
     // Define a task to process a single function
     auto process_function = [](Parser &parser, FunctionNode *function, std::vector<Line> &body) -> bool {
         // Create the body and add the body statements to the created scope
-        auto body_statements = parser.create_body(function->scope.get(), body);
+        auto body_statements = parser.create_body(function->scope, body);
         if (!body_statements.has_value()) {
             THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, body);
             return false;
         }
-        function->scope.get()->body = std::move(body_statements.value());
+        function->scope->body = std::move(body_statements.value());
         return true;
     };
 
@@ -152,12 +152,12 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
     // Define a task to process a single test
     auto process_test = [](Parser &parser, TestNode *test, std::vector<Line> &body) -> bool {
         // Create the body and add the body statements to the created scope
-        auto body_statements = parser.create_body(test->scope.get(), body);
+        auto body_statements = parser.create_body(test->scope, body);
         if (!body_statements.has_value()) {
             THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, body);
             return false;
         }
-        test->scope.get()->body = std::move(body_statements.value());
+        test->scope->body = std::move(body_statements.value());
         return true;
     };
 

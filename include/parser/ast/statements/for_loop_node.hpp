@@ -14,9 +14,9 @@ class ForLoopNode : public StatementNode {
     /// @note Takes ownership of all its constructor arguments
     ForLoopNode(                                    //
         std::unique_ptr<ExpressionNode> &condition, //
-        std::unique_ptr<Scope> &definition_scope,   //
+        std::shared_ptr<Scope> &definition_scope,   //
         std::unique_ptr<StatementNode> &looparound, //
-        std::unique_ptr<Scope> &body                //
+        std::shared_ptr<Scope> &body                //
         ) :
         condition(std::move(condition)),
         definition_scope(std::move(definition_scope)),
@@ -40,7 +40,7 @@ class ForLoopNode : public StatementNode {
 
     /// @var `definition_scope`
     /// @brief The scope of the loops definition, containing the initializer ( 'i32 i = 0' for example )
-    std::unique_ptr<Scope> definition_scope;
+    std::shared_ptr<Scope> definition_scope;
 
     /// @var `looparound`
     /// @brief The looparound statement which gets executed after every loop iteration
@@ -50,5 +50,5 @@ class ForLoopNode : public StatementNode {
     /// @brief The scope of the actual loops body. The parent of the `body` scope is the `definition_scope` of the for loop. In this
     /// scope, the actual instantiation of the loop variable, the initializer, takes place. Ad the end of the body is the looparound
     /// statement contained, for example 'i++'
-    std::unique_ptr<Scope> body;
+    std::shared_ptr<Scope> body;
 };

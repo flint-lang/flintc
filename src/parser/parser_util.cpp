@@ -294,7 +294,8 @@ std::optional<std::tuple<                                          //
     std::optional<bool>,                                           // is data (true), entity (false) or call (nullopt)
     bool                                                           // can_throw
     >>
-Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens, const std::optional<std::string> &alias_base) {
+Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const token_slice &tokens,
+    const std::optional<std::string> &alias_base) {
     assert(tokens.first->token == TOK_TYPE || tokens.first->token == TOK_IDENTIFIER);
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
         tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
@@ -518,7 +519,7 @@ Parser::create_call_or_initializer_base(Scope *scope, const token_slice &tokens,
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base( //
-    Scope *scope,                                                                                     //
+    std::shared_ptr<Scope> scope,                                                                     //
     const token_slice &tokens                                                                         //
 ) {
     token_slice tokens_mut = tokens;
@@ -567,7 +568,7 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
 
 std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
 Parser::create_field_access_base( //
-    Scope *scope,                 //
+    std::shared_ptr<Scope> scope, //
     token_slice &tokens,          //
     const bool is_type_access     //
 ) {
@@ -764,7 +765,7 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
 std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::vector<std::string>, std::vector<unsigned int>,
     std::vector<std::shared_ptr<Type>>>>
 Parser::create_grouped_access_base( //
-    Scope *scope,                   //
+    std::shared_ptr<Scope> scope,   //
     token_slice &tokens             //
 ) {
     // The first token is the accessed variable name

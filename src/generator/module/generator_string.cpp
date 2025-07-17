@@ -974,7 +974,7 @@ void Generator::Module::String::generate_string_assignment( //
 
 llvm::Value *Generator::Module::String::generate_string_addition(                                                 //
     llvm::IRBuilder<> &builder,                                                                                   //
-    const Scope *scope,                                                                                           //
+    const std::shared_ptr<Scope> scope,                                                                           //
     const std::unordered_map<std::string, llvm::Value *const> &allocations,                                       //
     std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
     const unsigned int expr_depth,                                                                                //

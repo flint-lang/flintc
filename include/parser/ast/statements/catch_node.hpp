@@ -12,7 +12,7 @@
 /// @brief Represents Catch statements
 class CatchNode : public StatementNode {
   public:
-    explicit CatchNode(std::optional<std::string> &var_name, std::unique_ptr<Scope> &scope, CallNodeBase *call_node) :
+    explicit CatchNode(std::optional<std::string> &var_name, std::shared_ptr<Scope> &scope, CallNodeBase *call_node) :
         var_name(std::move(var_name)),
         scope(std::move(scope)),
         call_node(call_node) {}
@@ -34,7 +34,7 @@ class CatchNode : public StatementNode {
 
     /// @var `scope`
     /// @brief The scope of the catch block
-    std::unique_ptr<Scope> scope;
+    std::shared_ptr<Scope> scope;
 
     /// @var `call_node`
     /// @brief The call this catch belongs to

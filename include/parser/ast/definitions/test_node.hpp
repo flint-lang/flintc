@@ -16,7 +16,7 @@
 /// @brief Represents function definitions
 class TestNode : public ASTNode {
   public:
-    explicit TestNode(const std::string &file_name, const std::string &name, std::unique_ptr<Scope> &scope) :
+    explicit TestNode(const std::string &file_name, const std::string &name, std::shared_ptr<Scope> &scope) :
         file_name(file_name),
         name(name),
         scope(std::move(scope)) {}
@@ -42,7 +42,7 @@ class TestNode : public ASTNode {
 
     /// @var `body`
     /// @brief The body of the function containing all statements
-    std::unique_ptr<Scope> scope;
+    std::shared_ptr<Scope> scope;
 
     /// @var `test_id`
     /// @brief The ID of the test

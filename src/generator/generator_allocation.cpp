@@ -13,7 +13,7 @@
 bool Generator::Allocation::generate_allocations(                                   //
     llvm::IRBuilder<> &builder,                                                     //
     llvm::Function *parent,                                                         //
-    const Scope *scope,                                                             //
+    const std::shared_ptr<Scope> scope,                                             //
     std::unordered_map<std::string, llvm::Value *const> &allocations,               //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
 ) {
@@ -30,7 +30,7 @@ bool Generator::Allocation::generate_allocations(                               
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
-            if (!generate_allocations(builder, parent, while_node->scope.get(), allocations, imported_core_modules)) {
+            if (!generate_allocations(builder, parent, while_node->scope, allocations, imported_core_modules)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
@@ -41,17 +41,17 @@ bool Generator::Allocation::generate_allocations(                               
             }
         } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node.get())) {
             if (!generate_expression_allocations(                                       //
-                    builder, parent, for_loop_node->definition_scope.get(),             //
+                    builder, parent, for_loop_node->definition_scope,                   //
                     allocations, imported_core_modules, for_loop_node->condition.get()) //
             ) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
-            if (!generate_allocations(builder, parent, for_loop_node->definition_scope.get(), allocations, imported_core_modules)) {
+            if (!generate_allocations(builder, parent, for_loop_node->definition_scope, allocations, imported_core_modules)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
-            if (!generate_allocations(builder, parent, for_loop_node->body.get(), allocations, imported_core_modules)) {
+            if (!generate_allocations(builder, parent, for_loop_node->body, allocations, imported_core_modules)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
@@ -96,7 +96,7 @@ bool Generator::Allocation::generate_allocations(                               
                 }
             }
         } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement_node.get())) {
-            if (!generate_allocations(builder, parent, catch_node->scope.get(), allocations, imported_core_modules)) {
+            if (!generate_allocations(builder, parent, catch_node->scope, allocations, imported_core_modules)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
@@ -146,7 +146,7 @@ void Generator::Allocation::generate_function_allocations(            //
 bool Generator::Allocation::generate_call_allocations(                               //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
-    const Scope *scope,                                                              //
+    const std::shared_ptr<Scope> scope,                                              //
     std::unordered_map<std::string, llvm::Value *const> &allocations,                //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
     const CallNodeBase *call_node                                                    //
@@ -240,7 +240,7 @@ bool Generator::Allocation::generate_if_allocations(                            
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
-        if (!generate_allocations(builder, parent, if_node->then_scope.get(), allocations, imported_core_modules)) {
+        if (!generate_allocations(builder, parent, if_node->then_scope, allocations, imported_core_modules)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
@@ -248,7 +248,7 @@ bool Generator::Allocation::generate_if_allocations(                            
             if (std::holds_alternative<std::unique_ptr<IfNode>>(if_node->else_scope.value())) {
                 if_node = std::get<std::unique_ptr<IfNode>>(if_node->else_scope.value()).get();
             } else {
-                Scope *else_scope = std::get<std::unique_ptr<Scope>>(if_node->else_scope.value()).get();
+                std::shared_ptr<Scope> else_scope = std::get<std::shared_ptr<Scope>>(if_node->else_scope.value());
                 if (!generate_allocations(builder, parent, else_scope, allocations, imported_core_modules)) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
@@ -270,7 +270,7 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
     const EnhForLoopNode *for_node                                                   //
 ) {
     if (!generate_expression_allocations(                                 //
-            builder, parent, for_node->definition_scope.get(),            //
+            builder, parent, for_node->definition_scope,                  //
             allocations, imported_core_modules, for_node->iterable.get()) //
     ) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -310,7 +310,7 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
             allocations.emplace(element_alloca_name, nullptr);
         }
     }
-    if (!generate_allocations(builder, parent, for_node->body.get(), allocations, imported_core_modules)) {
+    if (!generate_allocations(builder, parent, for_node->body, allocations, imported_core_modules)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -320,7 +320,7 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
 bool Generator::Allocation::generate_declaration_allocations(                        //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
-    const Scope *scope,                                                              //
+    const std::shared_ptr<Scope> scope,                                              //
     std::unordered_map<std::string, llvm::Value *const> &allocations,                //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
     const DeclarationNode *declaration_node                                          //
@@ -365,7 +365,7 @@ bool Generator::Allocation::generate_declaration_allocations(                   
 bool Generator::Allocation::generate_group_declaration_allocations(                  //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
-    const Scope *scope,                                                              //
+    const std::shared_ptr<Scope> scope,                                              //
     std::unordered_map<std::string, llvm::Value *const> &allocations,                //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
     const GroupDeclarationNode *group_declaration_node                               //
@@ -408,7 +408,7 @@ void Generator::Allocation::generate_array_indexing_allocation(       //
 bool Generator::Allocation::generate_expression_allocations(                         //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
-    const Scope *scope,                                                              //
+    const std::shared_ptr<Scope> scope,                                              //
     std::unordered_map<std::string, llvm::Value *const> &allocations,                //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
     const ExpressionNode *expression                                                 //

@@ -19,7 +19,7 @@ class FunctionNode : public ASTNode {
         std::string name,                                                              //
         std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> &parameters, //
         std::vector<std::shared_ptr<Type>> &return_types,                              //
-        std::unique_ptr<Scope> &scope                                                  //
+        std::shared_ptr<Scope> &scope                                                  //
         ) :
         is_aligned(is_aligned),
         is_const(is_const),
@@ -61,5 +61,5 @@ class FunctionNode : public ASTNode {
 
     /// @var `scope`
     /// @brief The scope of the function containing all statements
-    std::unique_ptr<Scope> scope;
+    std::shared_ptr<Scope> scope;
 };

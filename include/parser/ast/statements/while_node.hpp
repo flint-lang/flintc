@@ -11,7 +11,7 @@
 /// @brief Represents while loops
 class WhileNode : public StatementNode {
   public:
-    WhileNode(std::unique_ptr<ExpressionNode> &condition, std::unique_ptr<Scope> &scope) :
+    WhileNode(std::unique_ptr<ExpressionNode> &condition, std::shared_ptr<Scope> &scope) :
         condition(std::move(condition)),
         scope(std::move(scope)) {}
 
@@ -32,5 +32,5 @@ class WhileNode : public StatementNode {
 
     /// @var `body`
     /// @brief The body of the while loop
-    std::unique_ptr<Scope> scope;
+    std::shared_ptr<Scope> scope;
 };

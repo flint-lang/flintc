@@ -8,7 +8,7 @@
 /// @brief One branch of the switch statement
 struct SSwitchBranch {
   public:
-    SSwitchBranch(std::vector<std::unique_ptr<ExpressionNode>> &matches, std::unique_ptr<Scope> &body) :
+    SSwitchBranch(std::vector<std::unique_ptr<ExpressionNode>> &matches, std::shared_ptr<Scope> &body) :
         matches(std::move(matches)),
         body(std::move(body)) {}
 
@@ -19,7 +19,7 @@ struct SSwitchBranch {
 
     /// @var `body`
     /// @brief The body of this switch branch
-    std::unique_ptr<Scope> body;
+    std::shared_ptr<Scope> body;
 };
 
 /// @class `SwitchStatement`

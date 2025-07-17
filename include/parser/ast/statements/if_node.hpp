@@ -15,8 +15,8 @@ class IfNode : public StatementNode {
   public:
     IfNode(                                                                                      //
         std::unique_ptr<ExpressionNode> &condition,                                              //
-        std::unique_ptr<Scope> &then_scope,                                                      //
-        std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> &else_scope //
+        std::shared_ptr<Scope> &then_scope,                                                      //
+        std::optional<std::variant<std::unique_ptr<IfNode>, std::shared_ptr<Scope>>> &else_scope //
         ) :
         condition(std::move(condition)),
         then_scope(std::move(then_scope)),
@@ -39,9 +39,9 @@ class IfNode : public StatementNode {
 
     /// @var `then_branch`
     /// @brief The statements to execute when the condition evaluates to 'true'
-    std::unique_ptr<Scope> then_scope;
+    std::shared_ptr<Scope> then_scope;
 
     /// @var `else_branch`
     /// @brief The statements to execute when the condition evaluates to 'false'
-    std::optional<std::variant<std::unique_ptr<IfNode>, std::unique_ptr<Scope>>> else_scope;
+    std::optional<std::variant<std::unique_ptr<IfNode>, std::shared_ptr<Scope>>> else_scope;
 };

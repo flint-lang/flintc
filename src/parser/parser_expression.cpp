@@ -259,7 +259,7 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
     return std::nullopt;
 }
 
-std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_slice &tokens) {
+std::optional<VariableNode> Parser::create_variable(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     std::optional<VariableNode> var = std::nullopt;
     for (auto tok = tokens.first; tok != tokens.second; tok++) {
         if (tok->token == TOK_IDENTIFIER) {
@@ -274,7 +274,7 @@ std::optional<VariableNode> Parser::create_variable(Scope *scope, const token_sl
     return var;
 }
 
-std::optional<UnaryOpExpression> Parser::create_unary_op_expression(Scope *scope, const token_slice &tokens) {
+std::optional<UnaryOpExpression> Parser::create_unary_op_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
     auto unary_op_values = create_unary_op_base(scope, tokens_mut);
@@ -453,7 +453,8 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     return std::nullopt;
 }
 
-std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope *scope, const std::string &interpol_string) {
+std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::shared_ptr<Scope> scope,
+    const std::string &interpol_string) {
     // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
     std::vector<uint2> ranges = Matcher::balanced_ranges_vec(interpol_string, "([^\\\\]|^)\\{", "[^\\\\]\\}");
     std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> interpol_content;
@@ -522,7 +523,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(Scope
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( //
-    Scope *scope,                                                              //
+    std::shared_ptr<Scope> scope,                                              //
     const token_slice &tokens,                                                 //
     const std::optional<std::string> &alias_base                               //
 ) {
@@ -546,7 +547,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
-    Scope *scope,                                                          //
+    std::shared_ptr<Scope> scope,                                          //
     const token_slice &tokens,                                             //
     const std::optional<std::string> &alias_base                           //
 ) {
@@ -570,7 +571,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
     return initializer_node;
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(Scope *scope, const token_slice &tokens) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     assert(tokens.first->token == TOK_TYPE);
     assert(std::next(tokens.first)->token == TOK_LEFT_PAREN);
     token_slice tokens_mut = tokens;
@@ -618,7 +619,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(Scope *s
     return std::make_unique<TypeCastNode>(to_type, expression.value());
 }
 
-std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope, const token_slice &tokens) {
+std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     // First, remove all trailing garbage from the expression tokens
     remove_trailing_garbage(tokens_mut);
@@ -679,7 +680,8 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(Scope *scope,
     return GroupExpressionNode(expressions);
 }
 
-std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions(Scope *scope, token_slice &tokens) {
+std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions(std::shared_ptr<Scope> scope,
+    token_slice &tokens) {
     std::vector<std::unique_ptr<ExpressionNode>> expressions;
     while (tokens.first != tokens.second) {
         std::optional<uint2> next_expr_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
@@ -708,7 +710,8 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
     return expressions;
 }
 
-std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, const token_slice &tokens, const bool is_type_access) {
+std::optional<DataAccessNode> Parser::create_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens,
+    const bool is_type_access) {
     token_slice tokens_mut = tokens;
     auto field_access_base = create_field_access_base(scope, tokens_mut, is_type_access);
     if (!field_access_base.has_value()) {
@@ -726,7 +729,7 @@ std::optional<DataAccessNode> Parser::create_data_access(Scope *scope, const tok
     );
 }
 
-std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scope, const token_slice &tokens) {
+std::optional<ArrayInitializerNode> Parser::create_array_initializer(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction(  //
         tokens_mut, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //
@@ -792,7 +795,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(Scope *scop
     );
 }
 
-std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, const token_slice &tokens) {
+std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     // The tokens should begin with an identifier, otherwise we have done something wrong somewhere
     assert(tokens_mut.first->token == TOK_IDENTIFIER);
@@ -827,7 +830,7 @@ std::optional<ArrayAccessNode> Parser::create_array_access(Scope *scope, const t
     return ArrayAccessNode(result_type, variable_name, variable_type.value(), indexing_expressions.value());
 }
 
-std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *scope, const token_slice &tokens) {
+std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     auto grouped_field_access_base = create_grouped_access_base(scope, tokens_mut);
     if (!grouped_field_access_base.has_value()) {
@@ -844,7 +847,7 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(Scope *s
     );
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression(Scope *scope, const token_slice &tokens) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
     auto separator = tokens_mut.second - 1;
     size_t depth = 0;
@@ -959,7 +962,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( //
-    Scope *scope,                                                               //
+    std::shared_ptr<Scope> scope,                                               //
     const token_slice &tokens,                                                  //
     const std::optional<std::shared_ptr<Type>> &expected_type                   //
 ) {
@@ -1267,7 +1270,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
-    Scope *scope,                                                         //
+    std::shared_ptr<Scope> scope,                                         //
     const token_slice &tokens,                                            //
     const std::optional<std::shared_ptr<Type>> &expected_type             //
 ) {

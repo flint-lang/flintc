@@ -159,7 +159,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     }
 
     // Create the body scope
-    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>();
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>();
     std::shared_ptr<Type> return_type = nullptr;
     if (return_types.size() > 1) {
         return_type = std::make_shared<GroupType>(return_types);
@@ -421,7 +421,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     }
 
     // Create the body scope
-    std::unique_ptr<Scope> body_scope = std::make_unique<Scope>();
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>();
 
     // Check if this test already exists within this file
     if (!TestNode::check_test_name(file_name, test_name)) {
