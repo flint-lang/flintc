@@ -1813,6 +1813,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
         case TOK_OPT_DEFAULT: {
             // Both the lhs and rhs expressions have already been parsed, this means we can do a simple select based on whether the lhs
             // optional has a value stored in it
+            if (lhs->getType()->isPointerTy()) {
+                llvm::StructType *opt_struct_type = IR::add_and_or_get_type(bin_op_node->left->type, false);
+                lhs = builder.CreateLoad(opt_struct_type, lhs, "loaded_lhs");
+            }
             llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
             llvm::Value *lhs_value = builder.CreateExtractValue(lhs, {1}, "value");
             return builder.CreateSelect(has_value, lhs_value, rhs, "selected_value");
@@ -1856,6 +1860,11 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     if (const TypeCastNode *lhs_type_cast = dynamic_cast<const TypeCastNode *>(lhs_expr.get())) {
         if (lhs_type_cast->expr->type->to_string() == "void?") {
             // We can just extract the first bit of the rhs and return it's (negated) value directly
+            if (lhs->getType()->isPointerTy()) {
+                // The optional is a function argument
+                llvm::StructType *opt_struct_type = IR::add_and_or_get_type(rhs_expr->type, false);
+                rhs = builder.CreateLoad(opt_struct_type, rhs, "loaded_rhs");
+            }
             llvm::Value *has_value = builder.CreateExtractValue(rhs, {0}, "has_value");
             if (eq) {
                 return builder.CreateNot(has_value, "has_no_value");
@@ -1867,7 +1876,12 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     if (const TypeCastNode *rhs_type_cast = dynamic_cast<const TypeCastNode *>(rhs_expr.get())) {
         if (rhs_type_cast->expr->type->to_string() == "void?") {
             // We can just extract the first bit of the rhs and return it's (negated) value directly
-            llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
+            if (lhs->getType()->isPointerTy()) {
+                // The optional is a function argument
+                llvm::StructType *opt_struct_type = IR::add_and_or_get_type(lhs_expr->type, false);
+                lhs = builder.CreateLoad(opt_struct_type, lhs, "loaded_lhs");
+            }
+            llvm::Value *has_value = has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
             if (eq) {
                 return builder.CreateNot(has_value, "has_no_value");
             } else {
@@ -1877,7 +1891,6 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     }
     // If both sides are "real" optionals, we first compare if their 'has_value' fields match, and only if the 'has_value'
     // fields of both optional variables are 1 we continue to compare the actual values of the optional.
-    // EVERYTHING below is only for the "eq" case, not for the "neq" case
 
     // Create the basic blocks needed for the comparison
     llvm::BasicBlock *inserter = builder.GetInsertBlock();
@@ -1887,6 +1900,13 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
 
     // Branch to the blocks accordingly
     builder.SetInsertPoint(inserter);
+    llvm::StructType *opt_struct_type = IR::add_and_or_get_type(lhs_expr->type, false);
+    if (lhs->getType()->isPointerTy()) {
+        lhs = builder.CreateLoad(opt_struct_type, lhs, "loaded_lhs");
+    }
+    if (rhs->getType()->isPointerTy()) {
+        rhs = builder.CreateLoad(opt_struct_type, rhs, "loaded_rhs");
+    }
     llvm::Value *lhs_has_value = builder.CreateExtractValue(lhs, {0}, "lhs_has_value");
     llvm::Value *rhs_has_value = builder.CreateExtractValue(rhs, {0}, "rhs_has_value");
     llvm::Value *both_have_value = builder.CreateAnd(lhs_has_value, rhs_has_value, "both_have_value");

@@ -1,5 +1,14 @@
 use Core.assert
 
+def equals(i32? lhs, i32? rhs) -> bool:
+	return lhs == rhs;
+
+def has_value(i32? opt) -> bool:
+	return opt != none;
+
+def set_value(mut i32? opt, i32 val):
+    opt = val;
+
 def test_optional():
     i32? maybe = 69;
     i32 unwrapped = maybe!;
@@ -7,12 +16,14 @@ def test_optional():
 
     maybe = none;
     assert(maybe == none);
+    assert(not has_value(maybe));
 
     assert(none == none);
     assert(not (none != none));
 
     i32? maybe_2 = 69;
     assert(maybe != maybe_2);
+    assert(not equals(maybe, maybe_2));
 
     maybe = 69;
     assert(maybe == maybe_2);
@@ -36,3 +47,7 @@ def test_optional():
     maybe = 10;
     res = maybe ?? 7 + 8;
     assert(res == 18);
+
+    set_value(maybe, 22);
+    assert(maybe != none);
+    assert(maybe! == 22);
