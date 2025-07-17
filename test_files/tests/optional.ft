@@ -1,10 +1,25 @@
 use Core.assert
 
+data Vec2:
+    i32 x;
+    i32 y;
+    Vec2(x, y);
+
+def vec2_equals(Vec2? v2, i32 x, i32 y) -> bool:
+    Vec2 v = v2!;
+    return v.x == x and v.y == y;
+
+def move_maybe(mut Vec2? v2, i32 x, i32 y):
+    if v2 != none:
+        Vec2 v = v2!;
+        v.(x, y) += (x, y);
+        v2 = v;
+
 def equals(i32? lhs, i32? rhs) -> bool:
-	return lhs == rhs;
+    return lhs == rhs;
 
 def has_value(i32? opt) -> bool:
-	return opt != none;
+    return opt != none;
 
 def set_value(mut i32? opt, i32 val):
     opt = val;
@@ -51,3 +66,11 @@ def test_optional():
     set_value(maybe, 22);
     assert(maybe != none);
     assert(maybe! == 22);
+
+    Vec2 v = Vec2(10, 20);
+    Vec2? vm = v;
+    assert(v.x == 10 and v.y == 20);
+    assert(vec2_equals(vm, 10, 20));
+    move_maybe(vm, 2, 3);
+    assert(v.x == 10 and v.y == 20);
+    assert(vec2_equals(vm, 12, 23));

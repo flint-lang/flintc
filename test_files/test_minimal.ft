@@ -1,20 +1,25 @@
 use Core.print
 
-def set_value(mut i32? opt, i32 val):
-    opt = val;
+data Vec2:
+	i32 x;
+	i32 y;
+	Vec2(x, y);
 
-def equals(i32? lhs, i32? rhs) -> bool:
-	return lhs == rhs;
+def move_maybe(mut Vec2? v2, i32 x, i32 y):
+	if v2 != none:
+		Vec2 v = v2!;
+		v.(x, y) += (x, y);
+		v2 = v;
 
-def has_value(i32? opt) -> bool:
-	return opt != none;
+def print_maybe(Vec2? v2):
+	Vec2 v = v2!;
+	print($"vm = ({v.x}, {v.y})\n");
 
 def main():
-	i32? maybe = 69;
-	print($"has_value = {has_value(maybe)}\n");
-
-	i32? other = 69;
-	print($"equals = {equals(maybe, other)}\n");
-
-	set_value(maybe, 17);
-	print($"maybe = {maybe!}\n");
+	Vec2 v = Vec2(10, 20);
+	Vec2? vm = v;
+	print($"v = ({v.x}, {v.y})\n");
+	print_maybe(vm);
+	move_maybe(vm, 2, 3);
+	print($"v = ({v.x}, {v.y})\n");
+	print_maybe(vm);

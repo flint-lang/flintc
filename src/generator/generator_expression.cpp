@@ -1410,6 +1410,10 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                 const OptionalType *opt_type = dynamic_cast<const OptionalType *>(unary_op->operand->type.get());
                 // It's the job of the parser to ensure correct types
                 assert(opt_type != nullptr);
+                if (operand.at(i)->getType()->isPointerTy()) {
+                    llvm::StructType *opt_struct_type = IR::add_and_or_get_type(unary_op->operand->type, false);
+                    operand.at(i) = builder.CreateLoad(opt_struct_type, operand.at(i), "loaded_operand");
+                }
                 if (unwrap_mode == OptionalUnwrapMode::UNSAFE) {
                     // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
                     operand.at(i) = builder.CreateExtractValue(operand.at(i), {1}, "opt_value_unsafe");
