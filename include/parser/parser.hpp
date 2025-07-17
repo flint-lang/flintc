@@ -972,6 +972,29 @@ class Parser {
         const bool is_statement                     //
     );
 
+    /// @function `create_optional_switch_branches`
+    /// @brief Creates the branches for the optional switch and adds them to the `s_branches` or `e_branches`, depending on whether it's a
+    /// statement or an expression
+    ///
+    /// @param `scope` The scope in which the switch statement / expression switching on the optional value is defined
+    /// @param `s_branches` The list of all statement branches
+    /// @param `e_branches` The list of all expression branches
+    /// @param `body` The body of the whole switch
+    /// @param `switcher_type` The type of the expression which is switched upon
+    /// @param `is_statement` Whether the created switch is an expression or a statement
+    /// @return `bool` Whether the creation of the enum switch branches was successfull
+    ///
+    /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
+    /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
+    bool create_optional_switch_branches(           //
+        std::shared_ptr<Scope> scope,               //
+        std::vector<SSwitchBranch> &s_branches,     //
+        std::vector<ESwitchBranch> &e_branches,     //
+        const std::vector<Line> &body,              //
+        const std::shared_ptr<Type> &switcher_type, //
+        const bool is_statement                     //
+    );
+
     /// @function `create_switch_statement`
     /// @brief Creates an switch statement from the given list of tokens
     ///

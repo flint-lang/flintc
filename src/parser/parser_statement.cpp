@@ -12,6 +12,7 @@
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
+#include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "types.hpp"
@@ -693,6 +694,77 @@ bool Parser::create_enum_switch_branches(       //
     return true;
 }
 
+bool Parser::create_optional_switch_branches(   //
+    std::shared_ptr<Scope> scope,               //
+    std::vector<SSwitchBranch> &s_branches,     //
+    std::vector<ESwitchBranch> &e_branches,     //
+    const std::vector<Line> &body,              //
+    const std::shared_ptr<Type> &switcher_type, //
+    const bool is_statement                     //
+) {
+    // We simply check for the `none` and the `identifier` branches, as those are the only possible branches
+    bool none_branch_parsed = false;
+    bool value_branch_parsed = false;
+    for (auto line_it = body.begin(); line_it != body.end();) {
+        const token_slice &tokens = line_it->tokens;
+        // First, get all tokens until the colon to be able to parse the matching expression
+        std::optional<uint2> match_range = std::nullopt;
+        if (is_statement) {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_colon);
+        } else {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
+        }
+        if (!match_range.has_value() || match_range.value().first != 0) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
+        std::vector<std::unique_ptr<ExpressionNode>> match_expressions;
+        if (match_tokens.first->token == TOK_NONE) {
+            // It's the none literal
+            if (none_branch_parsed) {
+                // Duplicate none branch
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            match_expressions.push_back(std::make_unique<LiteralNode>(std::make_optional<void *>(nullptr), switcher_type));
+            if (!create_switch_branch_body(                                                                                     //
+                    scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
+            ) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            none_branch_parsed = true;
+        } else if (match_tokens.first->token == TOK_IDENTIFIER) {
+            // It's the optional extraction through which we can access the "real" value of the optional through this new variable
+            if (value_branch_parsed) {
+                // Duplicate value branch
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            const OptionalType *optional_type = dynamic_cast<const OptionalType *>(switcher_type.get());
+            match_expressions.push_back(std::make_unique<VariableNode>(match_tokens.first->lexme, optional_type->base_type));
+            std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
+            if (!branch_scope->add_variable(match_tokens.first->lexme, optional_type->base_type, branch_scope->scope_id, true, false)) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            if (!create_switch_branch_body(                                   //
+                    branch_scope, match_expressions, s_branches, e_branches,  //
+                    line_it, body, tokens, match_range.value(), is_statement) //
+            ) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            value_branch_parsed = true;
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+    }
+    return true;
+}
+
 std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( //
     std::shared_ptr<Scope> scope,                                              //
     const token_slice &definition,                                             //
@@ -721,6 +793,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     }
     if (const EnumType *enum_type = dynamic_cast<const EnumType *>(switcher.value()->type.get())) {
         if (!create_enum_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, enum_type->enum_node, is_statement)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    } else if (dynamic_cast<const OptionalType *>(switcher.value()->type.get())) {
+        if (!create_optional_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
