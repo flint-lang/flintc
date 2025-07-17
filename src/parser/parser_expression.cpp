@@ -1225,7 +1225,22 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     // Check if all parameter types actually match the argument types
     // If we came until here, the arg count definitely matches the parameter count
     if (lhs.value()->type != rhs.value()->type) {
-        if (!check_castability(lhs.value(), rhs.value())) {
+        // Check if the operator is a optional default, in this case we need to check whether the lhs is an optional and whether the rhs is
+        // the base type of the optional, otherwise it is considered an error
+        if (pivot_token == TOK_OPT_DEFAULT) {
+            const OptionalType *lhs_opt = dynamic_cast<const OptionalType *>(lhs.value()->type.get());
+            if (lhs_opt == nullptr) {
+                // ?? operator not possible on non-optional type
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (rhs.value()->type != lhs_opt->base_type) {
+                // The rhs of the ?? operator must be the base type of the lhs optional
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type);
+        } else if (!check_castability(lhs.value(), rhs.value())) {
             return std::nullopt;
         }
     }

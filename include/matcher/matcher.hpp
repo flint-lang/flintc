@@ -628,7 +628,7 @@ class Matcher {
         token(TOK_PLUS_EQUALS), token(TOK_MINUS_EQUALS), token(TOK_MULT_EQUALS), token(TOK_DIV_EQUALS) //
     });
     static const inline PatternPtr operational_binop = one_of({
-        token(TOK_PLUS), token(TOK_MINUS), token(TOK_MULT), token(TOK_DIV), token(TOK_POW) //
+        token(TOK_PLUS), token(TOK_MINUS), token(TOK_MULT), token(TOK_DIV), token(TOK_POW), token(TOK_OPT_DEFAULT) //
     });
     static const inline PatternPtr relational_binop = one_of({token(TOK_EQUAL_EQUAL), token(TOK_NOT_EQUAL), token(TOK_LESS),
         token(TOK_LESS_EQUAL), token(TOK_GREATER), token(TOK_GREATER_EQUAL)});

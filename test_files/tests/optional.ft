@@ -20,5 +20,19 @@ def test_optional():
     maybe = none;
     maybe_2 = none;
     assert(maybe == maybe_2);
-
     assert(not (maybe != maybe_2));
+
+    maybe = 69;
+    i32 res = maybe ?? 7;
+    assert(res == 69);
+
+    maybe = none;
+    res = maybe ?? 7;
+    assert(res == 7);
+
+    res = 5 + maybe ?? 7;
+    assert(res == 12);
+
+    maybe = 10;
+    res = maybe ?? 7 + 8;
+    assert(res == 18);

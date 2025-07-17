@@ -1,8 +1,17 @@
 use Core.print
 
 def main():
-	i32? maybe = none;
-	if maybe == none:
-		print("has no value\n");
-	else:
-		print("has value\n");
+	i32? maybe = 69;
+	i32 res = maybe ?? 7;
+	print($"res = {res}\n");
+
+	maybe = none;
+	res = maybe ?? 7;
+	print($"res = {res}\n");
+
+	res = 5 + maybe ?? 7;
+	print($"res = {res}\n");
+
+	maybe = 10;
+	res = maybe ?? 7 + 8;
+	print($"res = {res}\n");

@@ -1810,6 +1810,14 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 return generate_optional_cmp(builder, ctx, garbage, expr_depth, lhs, bin_op_node->left, rhs, bin_op_node->right, false);
             }
             break;
+        case TOK_OPT_DEFAULT: {
+            // Both the lhs and rhs expressions have already been parsed, this means we can do a simple select based on whether the lhs
+            // optional has a value stored in it
+            llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
+            llvm::Value *lhs_value = builder.CreateExtractValue(lhs, {1}, "value");
+            return builder.CreateSelect(has_value, lhs_value, rhs, "selected_value");
+            break;
+        }
         case TOK_AND:
             if (type_str != "bool") {
                 THROW_BASIC_ERR(ERR_GENERATING);

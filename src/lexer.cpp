@@ -141,7 +141,7 @@ bool Lexer::scan_token() {
             break;
         case '?':
             if (peek_next() == '?') {
-                add_token(TOK_OPT_DEFAULT);
+                add_token(TOK_OPT_DEFAULT, "??");
                 advance();
             } else {
                 add_token(TOK_QUESTION);
