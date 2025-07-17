@@ -1,0 +1,24 @@
+use Core.assert
+
+def test_optional():
+    i32? maybe = 69;
+    i32 unwrapped = maybe!;
+    assert(unwrapped == 69);
+
+    maybe = none;
+    assert(maybe == none);
+
+    assert(none == none);
+    assert(not (none != none));
+
+    i32? maybe_2 = 69;
+    assert(maybe != maybe_2);
+
+    maybe = 69;
+    assert(maybe == maybe_2);
+
+    maybe = none;
+    maybe_2 = none;
+    assert(maybe == maybe_2);
+
+    assert(not (maybe != maybe_2));
