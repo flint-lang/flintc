@@ -1,5 +1,4 @@
-use Core.system
-use Core.assert
+use "utils.ft"
 
 test "0_decl_initializer.ft":
 	str path = "wiki_tests/beginners_guide/data";

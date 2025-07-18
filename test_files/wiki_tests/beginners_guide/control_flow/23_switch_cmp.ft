@@ -14,9 +14,9 @@ def compare(i32 x, i32 y) -> ComparisonResult:
 def main():
     ComparisonResult result = compare(10, 5);
     switch result:
-        ComparisonResult.BIGGER:
+        BIGGER:
             print("is bigger\n");
-        ComparisonResult.SMALLER:
+        SMALLER:
             print("is smaller\n");
-        ComparisonResult.EQUAL:
+        EQUAL:
             print("is equal\n");

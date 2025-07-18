@@ -1,0 +1,13 @@
+use Core.print
+
+def main():
+	i32? maybe = none;
+	
+	switch maybe:
+		none: print("none\n");
+		v: print($"value = {v}\n");
+	
+	maybe = 69;
+	switch maybe:
+		none: print("none\n");
+		v: print($"value = {v}\n");

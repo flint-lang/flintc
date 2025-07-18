@@ -1,0 +1,9 @@
+use Core.print
+
+def main():
+    i32? maybe = 10;
+    print($"maybe = {maybe!}\n");
+
+    maybe = none;
+    print($"mabye = {maybe!}\n");
+    print("after access\n");

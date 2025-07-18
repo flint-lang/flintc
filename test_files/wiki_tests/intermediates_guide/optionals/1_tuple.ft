@@ -1,0 +1,2 @@
+def main():
+    data<bool, i32> maybe = (false, 0);

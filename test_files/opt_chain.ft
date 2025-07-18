@@ -1,0 +1,34 @@
+use Core.print
+
+data Vec2:
+	i32 x;
+	i32 y;
+	Vec2(x, y);
+
+def main():
+	Vec2 v2 = Vec2(10, 20);
+	Vec2? v2m = v2;
+
+	// Set x field of v2m if v2m has a value
+	v2m?.x = 5; // Does nothing if the optional is none, set's its x value to 5 otherwise
+	print($"v2m?.x = {v2m!.x}\n");
+
+	// Forced assignments are also possible, this will crash if v2m has no value stored in it
+	v2m!.x = 10;
+	print($"v2m?.x = {v2m!.x}\n");
+
+	i32? xm = v2m?.x; // Accessing the x property of using the chaining operator results in the result being wrapped in an optional type
+	print($"xm.has_value ? {xm != none}\n");
+
+	i32 x = v2m?.x ?? 0; // Providing a default-value means we now return the type T directly, with no optional wrapping
+	print($"x = {x}\n");
+
+	v2m = none;
+	// Set x field of v2m if v2m has a value
+	v2m?.x = 5; // Does nothing if the optional is none, set's its x value to 5 otherwise
+
+	xm = v2m?.x; // Accessing the x property of using the chaining operator results in the result being wrapped in an optional type
+	print($"xm.has_value ? {xm != none}\n");
+
+	x = v2m?.x ?? 0; // Providing a default-value means we now return the type T directly, with no optional wrapping
+	print($"x = {x}\n");

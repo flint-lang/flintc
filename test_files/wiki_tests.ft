@@ -7,5 +7,7 @@ use "wiki_tests/beginners_guide/functions.ft"
 use "wiki_tests/beginners_guide/data.ft"
 use "wiki_tests/beginners_guide/arrays.ft"
 
+use "wiki_tests/intermediates_guide/optionals.ft"
+
 def main():
 	print("Please compile this test using the --test flag!\n");

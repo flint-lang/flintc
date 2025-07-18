@@ -1,6 +1,8 @@
 use Core.system
 use Core.assert
 
+use "utils.ft"
+
 test "0_intro_create.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "0_intro_create.ft";

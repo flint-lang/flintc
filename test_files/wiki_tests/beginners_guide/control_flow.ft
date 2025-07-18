@@ -121,7 +121,7 @@ test "22_enum_operation.ft":
 	str file = "22_enum_operation.ft";
 	test_file_ok($"{path}/{file}", "container.(a, b, c) = (-10, 22.5, 889)\ncontainer.(a, b, c) = (-7, 25.9, 892)\ncontainer.(a, b, c) = (-49, 186.479996, 6244)\ncontainer.(a, b, c) = (-71, 164.37999, 6222)\ncontainer.(a, b, c) = (-11, 23.823187, 1037)\n");
 
-test "[f]23_switch_cmp.ft":
+test "23_switch_cmp.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "23_switch_cmp.ft";
 	test_file_ok($"{path}/{file}", "is bigger\n");
@@ -151,7 +151,7 @@ test "[f]26_switch_fallthrough.ft":
 	str file = "26_switch_fallthrough.ft";
 	test_file_ok($"{path}/{file}", "is val1\nis val2\n");
 
-test "[f]27_switch_expression.ft":
+test "27_switch_expression.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "27_switch_expression.ft";
 	test_file_ok($"{path}/{file}", "result = 1\n");

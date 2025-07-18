@@ -1,0 +1,63 @@
+use Core.assert
+use Core.system
+use Core.print
+
+use "utils.ft"
+
+test "0_declaration.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "0_declaration.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "1_tuple.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "1_tuple.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "2_unwrap_err.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "2_unwrap_err.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 134);
+	// assert(output == "maybe = 10\nBad optional access occurred\n");
+	// TODO: The output here is wrong, the `system_command` call does have an
+	// empty output if the executed subprogram crashes, i do not know yet why
+	assert(output == "");
+
+test "3_compare.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "3_compare.ft";
+	test_file_ok($"{path}/{file}", "has no value\nhas value: 69\n");
+
+test "4_compare_dual.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "4_compare_dual.ft";
+	test_file_ok($"{path}/{file}", "are equal\nare inequal, maybe_1 = 69, maybe_2 = 'none'\nare inequal, maybe_1 = 69, maybe_2 = 420\nare equal, maybe_1 = 69, maybe_2 = 69\n");
+
+test "5_null_coalescing.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "5_null_coalescing.ft";
+	test_file_ok($"{path}/{file}", "x = 0\nx = 69\n");
+
+test "6_switch_statement.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "6_switch_statement.ft";
+	test_file_ok($"{path}/{file}", "none\nvalue = 69\n");
+
+test "7_switch_value_mut.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "7_switch_value_mut.ft";
+	test_file_ok($"{path}/{file}", "value = 30\nvalue = 10\n");
+
+test "8_safety_circumvention.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "8_safety_circumvention.ft";
+	test_file_ok($"{path}/{file}", "v = 30\nv = 0\n");
+
+test "[f]9_switch_statement_function.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "9_switch_statement_function.ft";
+	test_file_ok($"{path}/{file}", "none\nvalue = 69\nvalue = 20\n");

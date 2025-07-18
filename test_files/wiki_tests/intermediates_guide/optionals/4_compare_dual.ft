@@ -1,0 +1,19 @@
+use Core.print
+
+def main():
+	i32? maybe_1 = none;
+	i32? maybe_2 = none;
+	if maybe_1 == maybe_2:
+		print("are equal\n");
+
+	maybe_1 = 69;
+	if maybe_1 != maybe_2:
+		print($"are inequal, maybe_1 = {maybe_1!}, maybe_2 = 'none'\n");
+
+	maybe_2 = 420;
+	if maybe_1 != maybe_2:
+		print($"are inequal, maybe_1 = {maybe_1!}, maybe_2 = {maybe_2!}\n");
+
+	maybe_2 = 69;
+	if maybe_1 == maybe_2:
+		print($"are equal, maybe_1 = {maybe_1!}, maybe_2 = {maybe_2!}\n");
