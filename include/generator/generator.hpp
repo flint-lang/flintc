@@ -689,6 +689,48 @@ class Generator {
             const EnhForLoopNode *for_node                                                   //
         );
 
+        /// @function `generate_switch_statement_allocations`
+        /// @brief Generates the allocations for switch statements
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the allocations are generated in
+        /// @param `scope` The scope in which the switch statement is defined in
+        /// @param `allocations` The map of allocations, where tin the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `switch_statement` The switch statement from which to generate all allocations
+        /// @return `bool` Whether the allocations were all successfull
+        ///
+        /// @attention The allocations map will be modified
+        [[nodiscard]] static bool generate_switch_statement_allocations(                     //
+            llvm::IRBuilder<> &builder,                                                      //
+            llvm::Function *parent,                                                          //
+            const std::shared_ptr<Scope> scope,                                              //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+            const SwitchStatement *switch_statement                                          //
+        );
+
+        /// @function `generate_switch_expression_allocations`
+        /// @brief Generates the allocations for switch expressions
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the allocations are generated in
+        /// @param `scope` The scope in which the switch statement is defined in
+        /// @param `allocations` The map of allocations, where tin the key all information like scope ID, call ID, name, etc is encoded
+        /// @param `imported_core_modules` The list of imported core modules
+        /// @param `switch_expression` The switch expression from which to generate all allocations
+        /// @return `bool` Whether the allocations were all successfull
+        ///
+        /// @attention The allocations map will be modified
+        [[nodiscard]] static bool generate_switch_expression_allocations(                    //
+            llvm::IRBuilder<> &builder,                                                      //
+            llvm::Function *parent,                                                          //
+            const std::shared_ptr<Scope> scope,                                              //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+            const SwitchExpression *switch_expression                                        //
+        );
+
         /// @funnction `generate_declaration_allcoations`
         /// @brief Generates the allocations for a normal declaration
         ///

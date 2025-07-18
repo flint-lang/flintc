@@ -102,6 +102,11 @@ bool Generator::Allocation::generate_allocations(                               
             }
         } else if (const auto *array_assignment = dynamic_cast<const ArrayAssignmentNode *>(statement_node.get())) {
             generate_array_indexing_allocation(builder, allocations, array_assignment->indexing_expressions.size());
+        } else if (const auto *switch_statement = dynamic_cast<const SwitchStatement *>(statement_node.get())) {
+            if (!generate_switch_statement_allocations(builder, parent, scope, allocations, imported_core_modules, switch_statement)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
         }
     }
     return true;
@@ -317,6 +322,60 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
     return true;
 }
 
+bool Generator::Allocation::generate_switch_statement_allocations(                   //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const std::shared_ptr<Scope> scope,                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const SwitchStatement *switch_statement                                          //
+) {
+    if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, switch_statement->switcher.get())) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    for (const auto &branch : switch_statement->branches) {
+        for (const auto &match : branch.matches) {
+            if (!generate_expression_allocations(builder, parent, branch.body, allocations, imported_core_modules, match.get())) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+        }
+        if (!generate_allocations(builder, parent, branch.body, allocations, imported_core_modules)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Generator::Allocation::generate_switch_expression_allocations(                  //
+    llvm::IRBuilder<> &builder,                                                      //
+    llvm::Function *parent,                                                          //
+    const std::shared_ptr<Scope> scope,                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,                //
+    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
+    const SwitchExpression *switch_expression                                        //
+) {
+    if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, switch_expression->switcher.get())) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    for (const auto &branch : switch_expression->branches) {
+        for (const auto &match : branch.matches) {
+            if (!generate_expression_allocations(builder, parent, branch.scope, allocations, imported_core_modules, match.get())) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+        }
+        if (!generate_expression_allocations(builder, parent, branch.scope, allocations, imported_core_modules, branch.expr.get())) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+    }
+    return true;
+}
+
 bool Generator::Allocation::generate_declaration_allocations(                        //
     llvm::IRBuilder<> &builder,                                                      //
     llvm::Function *parent,                                                          //
@@ -460,6 +519,11 @@ bool Generator::Allocation::generate_expression_allocations(                    
         generate_array_indexing_allocation(builder, allocations, array_initializer->length_expressions.size());
     } else if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expression)) {
         generate_array_indexing_allocation(builder, allocations, array_access->indexing_expressions.size());
+    } else if (const auto *switch_expression = dynamic_cast<const SwitchExpression *>(expression)) {
+        if (!generate_switch_expression_allocations(builder, parent, scope, allocations, imported_core_modules, switch_expression)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
     }
     return true;
 }

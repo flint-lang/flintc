@@ -465,7 +465,7 @@ bool Parser::create_switch_branch_body(                              //
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        e_branches.emplace_back(match_expressions, expression.value());
+        e_branches.emplace_back(scope, match_expressions, expression.value());
         ++line_it;
         return true;
     }

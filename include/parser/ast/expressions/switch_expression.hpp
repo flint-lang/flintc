@@ -1,14 +1,25 @@
 #pragma once
 
+#include "parser/ast/scope.hpp"
 #include "parser/ast/switch_base.hpp"
 
 /// @struct `ESwitchBranch`
 /// @brief One branch of the switch expression
 struct ESwitchBranch {
   public:
-    ESwitchBranch(std::vector<std::unique_ptr<ExpressionNode>> &matches, std::unique_ptr<ExpressionNode> &expr) :
+    ESwitchBranch(                                             //
+        const std::shared_ptr<Scope> &scope,                   //
+        std::vector<std::unique_ptr<ExpressionNode>> &matches, //
+        std::unique_ptr<ExpressionNode> &expr                  //
+        ) :
+        scope(scope),
         matches(std::move(matches)),
         expr(std::move(expr)) {}
+
+    /// @var `scope`
+    /// @brief The scope in which the whole branch is contained in. This is needed for optionals / variants in branches to be able to
+    /// "extract" the values
+    std::shared_ptr<Scope> scope;
 
     /// @var `matches`
     /// @brief The expression(s) to match the single switch branch to
