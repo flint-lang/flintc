@@ -874,6 +874,10 @@ bool Generator::Statement::generate_switch_statement( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
+        if (!generate_end_of_scope(builder, ctx)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
             // Point to the merge block if this case branch has no terminator
             builder.CreateBr(merge_block);
