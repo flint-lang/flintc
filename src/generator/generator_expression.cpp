@@ -1949,7 +1949,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
                 llvm::StructType *opt_struct_type = IR::add_and_or_get_type(lhs_expr->type, false);
                 lhs = builder.CreateLoad(opt_struct_type, lhs, "loaded_lhs");
             }
-            llvm::Value *has_value = has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
+            llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
             if (eq) {
                 return builder.CreateNot(has_value, "has_no_value");
             } else {
