@@ -364,11 +364,11 @@ copy_executables() {
     if [ "$build_windows" = "true" ]; then
         if [ "$build_static" = "true" ]; then
             checked_copy "$root/build/windows-static/out/flintc.exe" "$root/build/out/"
-            checked_cocy "$root/build/windows-static/out/tests.exe" "$root/build/out/"
+            checked_copy "$root/build/windows-static/out/tests.exe" "$root/build/out/"
         fi
         if [ "$build_dynamic" = "true" ]; then
             checked_copy "$root/build/windows/out/dynamic-flintc.exe" "$root/build/out/"
-            checked_cocy "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/"
+            checked_copy "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/"
         fi
     fi
 
