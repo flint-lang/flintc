@@ -1,7 +1,39 @@
 use Core.print
+use Core.assert
 
 def main():
-	i32? maybe = 60;
-	switch maybe:
-		none: print("none");
-		v: print($"value = {v}\n");
+    i32? maybe = 60;
+    switch maybe:
+        none: print("none");
+        v:
+            print($"value = {v}\n");
+            v = 30;
+            print($"value = {maybe!}\n");
+
+    i32 res = switch maybe:
+        none -> 0;
+        v -> v;
+    print($"res = {res}\n");
+
+    maybe = none;
+    res = switch maybe:
+        none -> 0;
+        v -> v;
+    print($"res = {res}\n");
+
+    maybe = 60;
+    switch maybe:
+        none: i32 x = 0; // do nothing
+        v: v = 30;
+    assert(maybe! == 30);
+
+    res = switch maybe:
+        none -> 0;
+        v -> v;
+    assert(res == 30);
+
+    maybe = none;
+    res = switch maybe:
+        none -> 0;
+        v -> v;
+    assert(res == 0);

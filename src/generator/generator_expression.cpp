@@ -635,10 +635,23 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
     branch_blocks.reserve(switch_expression->branches.size());
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
     llvm::BasicBlock *default_block = nullptr;
+    const std::shared_ptr<Scope> original_scope = ctx.scope;
 
     // Values for the phi node (one from each branch)
     std::vector<std::pair<llvm::Value *, llvm::BasicBlock *>> phi_values;
     phi_values.reserve(switch_expression->branches.size());
+
+    // Generate the switch value (the value being switched on)
+    group_mapping switch_value_mapping = generate_expression(builder, ctx, garbage, expr_depth + 1, switch_expression->switcher.get());
+    if (!switch_value_mapping.has_value() || switch_value_mapping.value().empty()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+    llvm::Value *switch_value = switch_value_mapping.value().front();
+
+    // Check if this switch switches on an optional value
+    const bool is_optional_switch = dynamic_cast<const OptionalType *>(switch_expression->switcher->type.get());
+    int value_block_idx = -1;
 
     // First pass: create all branch blocks and detect default case
     for (size_t i = 0; i < switch_expression->branches.size(); i++) {
@@ -660,6 +673,27 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
         // Generate the branch expression in its block
         builder.SetInsertPoint(branch_blocks[i]);
 
+        const VariableNode *var_node = dynamic_cast<const VariableNode *>(branch.matches.front().get());
+        if (is_optional_switch && var_node != nullptr) {
+            auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_expression->switcher.get());
+            if (switcher_var_node == nullptr) {
+                // Switching on non-variables is not supported yet
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+            const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
+            const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
+            llvm::StructType *opt_struct_type = IR::add_and_or_get_type(switch_expression->switcher->type, false);
+            if (switch_value->getType()->isPointerTy()) {
+                switch_value = builder.CreateLoad(opt_struct_type, switch_value, "loaded_rhs");
+            }
+            llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+            const std::string var_str = "s" + std::to_string(branch.scope->scope_id) + "::" + var_node->name;
+            llvm::Value *real_value_reference = builder.CreateStructGEP(opt_struct_type, var_alloca, 1, "value_reference");
+            ctx.allocations.emplace(var_str, real_value_reference);
+            value_block_idx = i;
+        }
+        ctx.scope = branch.scope;
         group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
         if (!branch_expr.has_value() || branch_expr.value().empty()) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -678,14 +712,44 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
 
     // Return to the original block to generate the switch instruction
     builder.SetInsertPoint(pred_block);
+    ctx.scope = original_scope;
 
-    // Generate the switch value (the value being switched on)
-    group_mapping switch_value_mapping = generate_expression(builder, ctx, garbage, expr_depth + 1, switch_expression->switcher.get());
-    if (!switch_value_mapping.has_value() || switch_value_mapping.value().empty()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return std::nullopt;
+    // If it's a switch on an optional we can have a simple conditional branch here instead of the switch
+    if (is_optional_switch) {
+        auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_expression->switcher.get());
+        if (switcher_var_node == nullptr) {
+            // Switching on non-variables is not supported yet
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
+        }
+        const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
+        const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
+        llvm::StructType *opt_struct_type = IR::add_and_or_get_type(switch_expression->switcher->type, false);
+        llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+        // We just check for the "has_value" field and select our result depending on what block we come from using a phi node
+        llvm::Value *has_value_ptr = builder.CreateStructGEP(opt_struct_type, var_alloca, 0, "has_value_ptr");
+        llvm::Value *has_value = builder.CreateLoad(builder.getInt1Ty(), has_value_ptr, "has_value");
+        llvm::BasicBlock *has_value_block = branch_blocks.at(value_block_idx);
+        // If value block idx == 1 none block is 0, if it's 0 the none block is idx 1
+        llvm::BasicBlock *none_block = branch_blocks.at(1 - value_block_idx);
+        builder.CreateCondBr(has_value, has_value_block, none_block);
+
+        // Now set the insertion point to the merge block and select the correct expression depending on from which block we come
+        merge_block->insertInto(ctx.parent);
+        builder.SetInsertPoint(merge_block);
+
+        // Create the phi node to combine results from all branches
+        llvm::PHINode *phi = builder.CreatePHI(phi_values[0].first->getType(), phi_values.size(), "switch_expr_result");
+
+        // Add all the incoming values to the phi node
+        for (const auto &[value, block] : phi_values) {
+            phi->addIncoming(value, block);
+        }
+
+        // Return the phi node as the result of the expression
+        std::vector<llvm::Value *> result = {phi};
+        return result;
     }
-    llvm::Value *switch_value = switch_value_mapping.value().front();
 
     // Create the switch instruction
     llvm::SwitchInst *switch_inst = nullptr;

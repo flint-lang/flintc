@@ -24,6 +24,27 @@ def has_value(i32? opt) -> bool:
 def set_value(mut i32? opt, i32 val):
     opt = val;
 
+def test_optional_switch():
+    i32? maybe = 60;
+    switch maybe:
+        none: assert(false);
+        v:
+            assert(v == 60);
+            v = 30;
+            assert(v == 30);
+    assert(maybe! == 30);
+
+    i32 res = switch maybe:
+        none -> 0;
+        v -> v;
+    assert(res == 30);
+
+    maybe = none;
+    res = switch maybe:
+        none -> 0;
+        v -> v;
+    assert(res == 0);
+
 def test_optional():
     i32? maybe = 69;
     i32 unwrapped = maybe!;
@@ -74,3 +95,5 @@ def test_optional():
     move_maybe(vm, 2, 3);
     assert(v.x == 10 and v.y == 20);
     assert(vec2_equals(vm, 12, 23));
+
+    test_optional_switch();
