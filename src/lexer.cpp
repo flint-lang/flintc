@@ -88,13 +88,49 @@ token_list Lexer::scan() {
 
 std::string Lexer::to_string(const token_slice &tokens) {
     std::stringstream token_stream;
+    std::vector<char> delimiter_stack;
+
     for (auto tok = tokens.first; tok != tokens.second; ++tok) {
+        // Handle delimiter tracking before processing the token
+        if (tok->lexme == "<") {
+            delimiter_stack.push_back('<');
+        } else if (tok->lexme == "[") {
+            delimiter_stack.push_back('[');
+        } else if (tok->lexme == ">" && !delimiter_stack.empty() && delimiter_stack.back() == '<') {
+            delimiter_stack.pop_back();
+        } else if (tok->lexme == "]" && !delimiter_stack.empty() && delimiter_stack.back() == '[') {
+            delimiter_stack.pop_back();
+        }
+
+        // Process the token
         if (tok->token == TOK_TYPE) {
             token_stream << tok->type->to_string();
+        } else if (tok->token == TOK_LESS) {
+            delimiter_stack.push_back('<');
+            token_stream << tok->lexme;
+        } else if (tok->token == TOK_LEFT_BRACKET) {
+            delimiter_stack.push_back('[');
+            token_stream << tok->lexme;
+        } else if (tok->token == TOK_GREATER) {
+            if (!delimiter_stack.empty() && delimiter_stack.back() == '<') {
+                delimiter_stack.pop_back();
+            }
+            token_stream << tok->lexme;
+        } else if (tok->token == TOK_RIGHT_BRACKET) {
+            if (!delimiter_stack.empty() && delimiter_stack.back() == '[') {
+                delimiter_stack.pop_back();
+            }
+            token_stream << tok->lexme;
+        } else if (tok->token == TOK_COMMA) {
+            token_stream << tok->lexme;
+            if (delimiter_stack.empty() || delimiter_stack.back() != '[') {
+                token_stream << " ";
+            }
         } else {
             token_stream << tok->lexme;
         }
     }
+
     return token_stream.str();
 }
 
