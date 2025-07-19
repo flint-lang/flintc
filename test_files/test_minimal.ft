@@ -5,9 +5,24 @@ variant Var:
 
 def main():
 	Var my_var = 5;
+	i32 constant = 10;
+
+	i32 res = switch my_var:
+		i32(i) -> i + 3;
+		f32(f) -> constant + 2;
+		bool(b) -> constant + 3;
+	print($"res = {res}\n");
+
 	my_var = 3.4;
+	res = switch my_var:
+		i32(i) -> i + 3;
+		f32(f) -> constant + 2;
+		bool(b) -> constant + 3;
+	print($"res = {res}\n");
+
 	my_var = false;
-	switch my_var:
-		i32(i): print($"is i32: {i}\n");
-		f32(f): print($"is f32: {f}\n");
-		bool(b): print($"is bool: {b}\n");
+	res = switch my_var:
+		i32(i) -> i + 3;
+		f32(f) -> constant + 2;
+		bool(b) -> constant + 3;
+	print($"res = {res}\n");

@@ -1,0 +1,47 @@
+use Core.assert
+
+variant Var:
+	i32, f32, bool;
+
+def test_variant():
+	Var my_var = 5;
+	
+	switch my_var:
+		i32(i): assert(i == 5);
+		f32(f): assert(i32(f - 3.4) == 0);
+		bool(b): assert(not b);
+	
+	my_var = 3.4;
+	switch my_var:
+		i32(i): assert(i == 5);
+		f32(f): assert(i32(f - 3.4) == 0);
+		bool(b): assert(not b);
+	
+	my_var = false;
+	switch my_var:
+		i32(i): assert(i == 5);
+		f32(f): assert(i32(f - 3.4) == 0);
+		bool(b): assert(not b);
+	
+	my_var = 5;
+	i32 constant = 10;
+
+	i32 res = switch my_var:
+		i32(i) -> i + 3;
+		f32(f) -> constant + 2;
+		bool(b) -> constant + 3;
+	assert(res == 8);
+
+	my_var = 3.4;
+	res = switch my_var:
+		i32(i) -> i + 3;
+		f32(f) -> constant + 2;
+		bool(b) -> constant + 3;
+	assert(res == 12);
+
+	my_var = false;
+	res = switch my_var:
+		i32(i) -> i + 3;
+		f32(f) -> constant + 2;
+		bool(b) -> constant + 3;
+	assert(res == 13);

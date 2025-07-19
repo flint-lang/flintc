@@ -1121,8 +1121,6 @@ class Generator {
         /// @param `ctx` The context of the statement generation
         /// @param `switch_statement` The switch statement to generate
         /// @param `switch_value` The optional value being switched on
-        /// @param `pred_block` The basic block that comes before the switch, and at whose end the switch instruction will be generated
-        /// @param `branch_blocks` All the branching blocks
         /// @return `bool` Whether the code generation of the switch statement was successful
         [[nodiscard]] static bool generate_optional_switch_statement( //
             llvm::IRBuilder<> &builder,                               //
@@ -1137,6 +1135,7 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the statement generation
         /// @param `switch_statement` The switch statement to generate
+        /// @param `switch_value` The optional value being switched on
         /// @return `bool` Whether the code generation of the switch statement was successful
         [[nodiscard]] static bool generate_variant_switch_statement( //
             llvm::IRBuilder<> &builder,                              //
@@ -1422,6 +1421,44 @@ class Generator {
             garbage_type &garbage,                 //
             const unsigned int expr_depth,         //
             const InitializerNode *initializer     //
+        );
+
+        /// @function `generate_optional_switch_expression`
+        /// @brief Generates the optional switch expression from the given SwitchStatement node
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `switch_expression` The switch expression to generate
+        /// @param `switch_value` The optional value being switched on
+        /// @return `group_mapping` The result of the switch expression
+        [[nodiscard]] static Generator::group_mapping generate_optional_switch_expression( //
+            llvm::IRBuilder<> &builder,                                                    //
+            GenerationContext &ctx,                                                        //
+            garbage_type &garbage,                                                         //
+            const unsigned int expr_depth,                                                 //
+            const SwitchExpression *switch_expression,                                     //
+            llvm::Value *switch_value                                                      //
+        );
+
+        /// @function `generate_variant_switch_expression`
+        /// @brief Generates the variant switch expression from the given SwitchStatement node
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `switch_expression` The switch expression to generate
+        /// @param `switch_value` The optional value being switched on
+        /// @return `group_mapping` The result of the switch expression
+        [[nodiscard]] static Generator::group_mapping generate_variant_switch_expression( //
+            llvm::IRBuilder<> &builder,                                                   //
+            GenerationContext &ctx,                                                       //
+            garbage_type &garbage,                                                        //
+            const unsigned int expr_depth,                                                //
+            const SwitchExpression *switch_expression,                                    //
+            llvm::Value *switch_value                                                     //
         );
 
         /// @function `generate_switch_expression`

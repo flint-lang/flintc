@@ -9,6 +9,7 @@ use "tests/read.ft"
 use "tests/str.ft"
 use "tests/switch.ft"
 use "tests/tests.ft"
+use "tests/variant.ft"
 
 use Core.print
 
@@ -24,4 +25,5 @@ def main():
 	// test_read();
 	test_str();
 	test_switch();
+	test_variant();
 	print("All tests passed!\n");
