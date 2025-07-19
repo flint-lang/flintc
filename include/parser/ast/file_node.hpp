@@ -120,8 +120,10 @@ class FileNode : public ASTNode {
     /// @brief Adds a variant node to this file node
     ///
     /// @param `variant` The variant node to add
-    void add_variant(VariantNode &variant) {
+    /// @return `VariantNode *` A pointer to the added variant node, because this function takes ownership of `variant`
+    VariantNode *add_variant(VariantNode &variant) {
         definitions.emplace_back(std::make_unique<VariantNode>(std::move(variant)));
+        return static_cast<VariantNode *>(definitions.back().get());
     }
 
     /// @function `add_test`

@@ -10,11 +10,15 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/tuple_type.hpp"
+#include "parser/type/variant_type.hpp"
 #include <algorithm>
 
 bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens, token_list &source) {
     token_slice definition_tokens = get_definition_tokens(tokens);
     tokens.first = definition_tokens.second;
+    if (std::prev(definition_tokens.second)->token == TOK_EOL) [[likely]] {
+        definition_tokens.second--;
+    }
 
     // Find the indentation of the definition
     int definition_indentation = 0;
@@ -147,7 +151,12 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens, token_
         file_node.add_error(error_node);
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::variant_definition)) {
         VariantNode variant_node = create_variant(definition_tokens, body_lines);
-        file_node.add_variant(variant_node);
+        VariantNode *added_variant = file_node.add_variant(variant_node);
+        if (!Type::add_type(std::make_shared<VariantType>(added_variant))) {
+            // Varaint type redefinition
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::test_definition)) {
         std::optional<TestNode> test_node = create_test(definition_tokens);
         if (!test_node.has_value()) {

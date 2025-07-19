@@ -15,7 +15,6 @@ class VariantNode : public ASTNode {
         name(name),
         possible_types(std::move(possible_types)) {}
 
-  private:
     /// @var `name`
     /// @brief The name of the variant type
     std::string name;

@@ -19,6 +19,7 @@
 #include "parser/type/group_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/tuple_type.hpp"
+#include "parser/type/variant_type.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -1299,6 +1300,19 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                 }
                 expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
             } else {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
+            }
+        } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(expected_type.value().get())) {
+            bool viable_type_found = false;
+            for (const auto &variation : variant_type->variant_node->possible_types) {
+                if (variation == expression.value()->type) {
+                    expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                    viable_type_found = true;
+                    break;
+                }
+            }
+            if (!viable_type_found) {
                 THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
                 return std::nullopt;
             }
