@@ -798,7 +798,6 @@ bool Parser::create_variant_switch_branches(    //
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        // TODO: Make tagged variants possible too
         std::vector<std::unique_ptr<ExpressionNode>> match_expressions;
         token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
         if (match_tokens.first->token != TOK_TYPE) {
@@ -822,8 +821,34 @@ bool Parser::create_variant_switch_branches(    //
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
+        auto type_it = possible_types.begin();
 
-        auto type_it = std::find(possible_types.begin(), possible_types.end(), match_tokens.first->type);
+        if (match_tokens.first->type == switcher_type) {
+            // It's a tagged variation
+            match_tokens.first++;
+            if (match_tokens.first->token != TOK_DOT) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            match_tokens.first++;
+            if (match_tokens.first->token != TOK_IDENTIFIER) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            const std::string tag = match_tokens.first->lexme;
+            for (; type_it != possible_types.end(); ++type_it) {
+                if (type_it->first == tag) {
+                    break;
+                }
+            }
+        } else {
+            // It's not tagged
+            for (; type_it != possible_types.end(); ++type_it) {
+                if (type_it->second == match_tokens.first->type && !type_it->first.has_value()) {
+                    break;
+                }
+            }
+        }
         if (type_it == possible_types.end()) {
             // Unsupported type in variant switch
             THROW_BASIC_ERR(ERR_PARSING);
@@ -854,15 +879,15 @@ bool Parser::create_variant_switch_branches(    //
         std::optional<std::string> field_name;
         std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = access_name;
         match_expressions.push_back(std::make_unique<DataAccessNode>( //
-            possible_types.at(type_idx - 1),                          //
+            possible_types.at(type_idx - 1).second,                   //
             variable,                                                 //
             field_name,                                               //
             type_idx,                                                 //
-            possible_types.at(type_idx - 1)                           //
+            possible_types.at(type_idx - 1).second                    //
             ));
 
         std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
-        if (!branch_scope->add_variable(access_name, possible_types.at(type_idx - 1), branch_scope->scope_id, true, false)) {
+        if (!branch_scope->add_variable(access_name, possible_types.at(type_idx - 1).second, branch_scope->scope_id, true, false)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }

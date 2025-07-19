@@ -1333,8 +1333,8 @@ class Parser {
     ///
     /// @param `definition` The list of tokens representing the variant definition
     /// @param `body` The list of tokens representing the variant body
-    /// @return `VariantNode` The created VariantNode
-    VariantNode create_variant(const token_slice &definition, const std::vector<Line> &body);
+    /// @return `std::optional<VariantNode>` The created VariantNode, nullopt if it's creation failed
+    std::optional<VariantNode> create_variant(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_test`
     /// @brief Creates a TestNode from the given definition and body tokens

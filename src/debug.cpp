@@ -1153,7 +1153,11 @@ namespace Debug {
                 bool is_last = std::next(type) == variant.possible_types.end();
                 TreeBits field_bits = bits.child(indent_lvl, is_last);
                 Local::print_header(indent_lvl, field_bits, "Type ");
-                std::cout << (*type)->to_string() << "\n";
+                if (type->first.has_value()) {
+                    std::cout << type->first.value() << "(" << type->second->to_string() << ")\n";
+                } else {
+                    std::cout << type->second->to_string() << "\n";
+                }
             }
         }
 

@@ -262,7 +262,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
         // Check if its a known data type
         if (type_map.find(var_str) == type_map.end()) {
             unsigned int max_size = 0;
-            for (const auto &variation : variant_type->variant_node->possible_types) {
+            for (const auto &[_, variation] : variant_type->variant_node->possible_types) {
                 const unsigned int type_size = Allocation::get_type_size(module, get_type(module, variation).first);
                 if (type_size > max_size) {
                     max_size = type_size;

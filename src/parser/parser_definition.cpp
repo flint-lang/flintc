@@ -380,28 +380,74 @@ ErrorNode Parser::create_error(const token_slice &definition, const std::vector<
     return ErrorNode(name, parent_error, error_types);
 }
 
-VariantNode Parser::create_variant(const token_slice &definition, const std::vector<Line> &body) {
+std::optional<VariantNode> Parser::create_variant(const token_slice &definition, const std::vector<Line> &body) {
     assert(definition.first->token == TOK_VARIANT);
     assert((definition.first + 1)->token == TOK_IDENTIFIER);
     assert((definition.first + 2)->token == TOK_COLON);
     assert((definition.first + 3) == definition.second);
-    std::string name = (definition.first + 1)->lexme;
+    const std::string name = (definition.first + 1)->lexme;
 
-    std::vector<std::shared_ptr<Type>> possible_types;
-    for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second; ++body_it) {
+    std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> possible_types;
+    for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second;) {
+        if (body_it->token == TOK_IDENTIFIER) {
+            const std::string tag = body_it->lexme;
+            ++body_it;
+            if (body_it->token != TOK_LEFT_PAREN) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            ++body_it;
+            if (body_it->token != TOK_TYPE) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            std::vector<std::shared_ptr<Type>> types;
+            types.emplace_back(body_it->type);
+            ++body_it;
+            while (body_it != body.back().tokens.second && body_it->token == TOK_COMMA) {
+                if (std::next(body_it) == body.back().tokens.second || std::next(body_it)->token != TOK_TYPE) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                ++body_it;
+                types.emplace_back(body_it->type);
+                ++body_it;
+            }
+            if (body_it == body.back().tokens.second || body_it->token != TOK_RIGHT_PAREN) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            body_it++;
+            if (types.size() > 1) {
+                std::shared_ptr<Type> tuple_type = std::make_shared<TupleType>(types);
+                if (!Type::add_type(tuple_type)) {
+                    tuple_type = Type::get_type_from_str(tuple_type->to_string()).value();
+                }
+                possible_types.emplace_back(tag, tuple_type);
+            } else {
+                possible_types.emplace_back(tag, types.front());
+            }
+            if (body_it->token == TOK_SEMICOLON) {
+                break;
+            }
+            continue;
+        }
         if (body_it->token == TOK_TYPE) {
+            std::optional<std::string> notag;
             if ((body_it + 1)->token == TOK_COMMA) {
-                possible_types.emplace_back(body_it->type);
+                possible_types.emplace_back(notag, body_it->type);
             } else if ((body_it + 1)->token == TOK_SEMICOLON) {
-                possible_types.emplace_back(body_it->type);
+                possible_types.emplace_back(notag, body_it->type);
                 break;
             } else {
                 const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
                 THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,    //
                     body_it->line, body_it->column, expected, body_it->token //
                 );
+                return std::nullopt;
             }
         }
+        ++body_it;
     }
 
     return VariantNode(name, possible_types);

@@ -150,8 +150,12 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens, token_
         ErrorNode error_node = create_error(definition_tokens, body_lines);
         file_node.add_error(error_node);
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::variant_definition)) {
-        VariantNode variant_node = create_variant(definition_tokens, body_lines);
-        VariantNode *added_variant = file_node.add_variant(variant_node);
+        std::optional<VariantNode> variant_node = create_variant(definition_tokens, body_lines);
+        if (!variant_node.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        VariantNode *added_variant = file_node.add_variant(variant_node.value());
         if (!Type::add_type(std::make_shared<VariantType>(added_variant))) {
             // Varaint type redefinition
             THROW_BASIC_ERR(ERR_PARSING);

@@ -1,9 +1,67 @@
 use Core.assert
 
+variant VarTup:
+	Int(i32), Tuple(f32, i32), bool;
+
+def test_tagged_tuple_variant():
+	VarTup my_var = 5;
+	i32 constant = 10;
+
+	i32 res = switch my_var:
+		VarTup.Int(i) -> i + 3;
+		VarTup.Tuple(t) -> constant + 2;
+		bool(b) -> constant + 3;
+	assert(res == 8);
+
+	data<f32, i32> tuple = (3.4, 2);
+	my_var = tuple;
+	switch my_var:
+		VarTup.Int(i): assert(false);
+		VarTup.Tuple(t):
+			assert(i32(t.$0 - 3.4) == 0);
+			assert(t.$1 == 2);
+		bool(b): assert(false);
+
+	my_var = false;
+	res = switch my_var:
+		VarTup.Int(i) -> i + 3;
+		VarTup.Tuple(t) -> constant + 2;
+		bool(b) -> constant + 3;
+	assert(res == 13);
+
+
+
+variant VarTag:
+	Int(i32), Float(f32), bool;
+
+def test_tagged_variant():
+	VarTag my_var = 5;
+	i32 constant = 10;
+
+	i32 res = switch my_var:
+		VarTag.Int(i) -> i + 3;
+		VarTag.Float(f) -> constant + 2;
+		bool(b) -> constant + 3;
+	assert(res == 8);
+
+	my_var = 3.4;
+	switch my_var:
+		VarTag.Int(i): assert(false);
+		VarTag.Float(f): assert(i32(f - 3.4) == 0);
+		bool(b): assert(false);
+
+	my_var = false;
+	res = switch my_var:
+		VarTag.Int(i) -> i + 3;
+		VarTag.Float(f) -> constant + 2;
+		bool(b) -> constant + 3;
+	assert(res == 13);
+
+
 variant Var:
 	i32, f32, bool;
 
-def test_variant():
+def test_switch_statements():
 	Var my_var = 5;
 	
 	switch my_var:
@@ -22,8 +80,9 @@ def test_variant():
 		i32(i): assert(i == 5);
 		f32(f): assert(i32(f - 3.4) == 0);
 		bool(b): assert(not b);
-	
-	my_var = 5;
+
+def test_switch_expressions():
+	Var my_var = 5;
 	i32 constant = 10;
 
 	i32 res = switch my_var:
@@ -45,3 +104,9 @@ def test_variant():
 		f32(f) -> constant + 2;
 		bool(b) -> constant + 3;
 	assert(res == 13);
+
+def test_variant():
+	test_switch_statements();
+	test_switch_expressions();
+	test_tagged_variant();
+	test_tagged_tuple_variant();

@@ -1,28 +1,30 @@
 use Core.print
 
 variant Var:
-	i32, f32, bool;
+	Int(i32), Tuple(f32, i32), bool;
 
 def main():
 	Var my_var = 5;
 	i32 constant = 10;
 
 	i32 res = switch my_var:
-		i32(i) -> i + 3;
-		f32(f) -> constant + 2;
+		Var.Int(i) -> i + 3;
+		Var.Tuple(t) -> constant + 2;
 		bool(b) -> constant + 3;
 	print($"res = {res}\n");
 
-	my_var = 3.4;
-	res = switch my_var:
-		i32(i) -> i + 3;
-		f32(f) -> constant + 2;
-		bool(b) -> constant + 3;
-	print($"res = {res}\n");
+	data<f32, i32> tuple = (3.4, 2);
+	my_var = tuple;
+	switch my_var:
+		Var.Int(i): print($"i = {i}\n");
+		Var.Tuple(t): print($"t = ({t.$0}, {t.$1})\n");
+		bool(b): print($"b = {b}\n");
 
 	my_var = false;
 	res = switch my_var:
-		i32(i) -> i + 3;
-		f32(f) -> constant + 2;
+		Var.Int(i) -> i + 3;
+		Var.Tuple(t) -> constant + 2;
 		bool(b) -> constant + 3;
 	print($"res = {res}\n");
+
+

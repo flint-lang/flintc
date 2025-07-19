@@ -11,7 +11,10 @@
 /// @brief Represents the variant type definition
 class VariantNode : public ASTNode {
   public:
-    explicit VariantNode(std::string &name, std::vector<std::shared_ptr<Type>> &possible_types) :
+    explicit VariantNode(                                                                         //
+        const std::string &name,                                                                  //
+        std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> &possible_types //
+        ) :
         name(name),
         possible_types(std::move(possible_types)) {}
 
@@ -20,6 +23,6 @@ class VariantNode : public ASTNode {
     std::string name;
 
     /// @var `possible_types`
-    /// @brief List of all types the varaint can hold
-    std::vector<std::shared_ptr<Type>> possible_types;
+    /// @brief List of all types the varaint can hold and optionally a tag, if that value is tagged in this variant
+    std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> possible_types;
 };

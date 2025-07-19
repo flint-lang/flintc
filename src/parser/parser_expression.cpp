@@ -1305,7 +1305,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
             }
         } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(expected_type.value().get())) {
             bool viable_type_found = false;
-            for (const auto &variation : variant_type->variant_node->possible_types) {
+            for (const auto &[_, variation] : variant_type->variant_node->possible_types) {
+                const std::string var_str = variation->to_string();
+                const std::string expr_str = expression.value()->type->to_string();
                 if (variation == expression.value()->type) {
                     expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
                     viable_type_found = true;

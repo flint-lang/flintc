@@ -1347,7 +1347,7 @@ bool Generator::Statement::generate_declaration( //
                 const auto &possible_types = var_type->variant_node->possible_types;
                 unsigned int index = 0;
                 for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {
-                    if ((*var_it) == typecast_node->expr->type) {
+                    if (var_it->second == typecast_node->expr->type) {
                         index = 1 + std::distance(possible_types.begin(), var_it);
                         break;
                     }
@@ -1465,7 +1465,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             const auto &possible_types = var_type->variant_node->possible_types;
             unsigned int index = 0;
             for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {
-                if ((*var_it) == typecast_node->expr->type) {
+                if (var_it->second == typecast_node->expr->type) {
                     index = 1 + std::distance(possible_types.begin(), var_it);
                     break;
                 }
