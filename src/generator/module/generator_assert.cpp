@@ -13,7 +13,7 @@ void Generator::Module::Assert::generate_assert_function(llvm::IRBuilder<> *buil
     // }
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("void");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *assert_type = llvm::FunctionType::get(function_result_type, {llvm::Type::getInt1Ty(context)}, false);
     llvm::Function *assert_fn = llvm::Function::Create( //
         assert_type,                                    //

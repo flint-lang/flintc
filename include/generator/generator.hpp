@@ -338,10 +338,12 @@ class Generator {
         /// @brief Checks if a given return type of a given types list already exists. If it exists, it returns a reference to it, if it
         /// does not exist it creates it and then returns a reference to the created StructType
         ///
+        /// @param `module` The module in which to get the type from
         /// @param `type` The type to get or set the struct type from
         /// @param `is_return_type` Whether the StructType is a return type (if it is, it has one return value more, the error return value)
         /// @return `llvm::StructType *` The reference to the StructType, representing the return type of the types map
         static llvm::StructType *add_and_or_get_type( //
+            llvm::Module *module,                     //
             const std::shared_ptr<Type> &type,        //
             const bool is_return_type = true          //
         );
@@ -383,19 +385,21 @@ class Generator {
         /// @brief Returns the llvm Type from a given Type
         ///
         /// @param `type` The type from which to get the llvm type from
+        /// @param `module` The module from which to get the type from
         /// @return `std::pair<llvm::Type *, bool>` A pair containing a pointer to the correct llvm Type from the given string and a boolean
         /// value to determine if the given data type is a complex type (data, entity, tuple, optional, variant etc)
         ///
         /// @throws ErrGenerating when the type could not be created from the passed type
-        static std::pair<llvm::Type *, bool> get_type(const std::shared_ptr<Type> &type);
+        static std::pair<llvm::Type *, bool> get_type(llvm::Module *module, const std::shared_ptr<Type> &type);
 
         /// @function `get_default_value_of_type`
         /// @brief Returns the default value associated with the given type
         ///
         /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The module in which to get the type from
         /// @param `type` The type from which the default value has to be returned
         /// @return `llvm::Value *` The default value of the given type
-        static llvm::Value *get_default_value_of_type(llvm::IRBuilder<> &builder, const std::shared_ptr<Type> &type);
+        static llvm::Value *get_default_value_of_type(llvm::IRBuilder<> &builder, llvm::Module *module, const std::shared_ptr<Type> &type);
 
         /// @function `get_default_value_of_type`
         /// @brief Returns the default value associated with a given Type
@@ -870,9 +874,10 @@ class Generator {
         /// @function `generate_function_type`
         /// @brief Generates the type information of a given FunctionNode
         ///
+        /// @param `module` The module in which the function type is generated in
         /// @param `function_node` The FunctionNode used to generate the type
         /// @return `llvm::FunctionType *` A pointer to the generated FuntionType
-        static llvm::FunctionType *generate_function_type(FunctionNode *function_node);
+        static llvm::FunctionType *generate_function_type(llvm::Module *module, FunctionNode *function_node);
 
         /// @function `generate_function`
         /// @brief Generates a function from a given FunctionNode
@@ -1000,6 +1005,7 @@ class Generator {
         /// @brief Generates the instructions to clear up nested data correctly to prevent any memory leaks
         ///
         /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the data cleanup generation
         /// @param `base_type` The base data type which is cleaned up
         /// @param `alloca` The pointer to the allocation of the data
         /// @param `data_node` The type of the data to free
@@ -1007,6 +1013,7 @@ class Generator {
         /// @return `bool` Whether generating the cleanup instructions was successful
         [[nodiscard]] static bool generate_data_cleanup( //
             llvm::IRBuilder<> &builder,                  //
+            GenerationContext &ctx,                      //
             llvm::Type *base_type,                       //
             llvm::Value *const alloca,                   //
             const DataNode *data_node,                   //
@@ -1520,12 +1527,14 @@ class Generator {
         /// @brief Generates a type cast from the given expression depending on the from and to types
         ///
         /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
         /// @param `expr` The llvm value which will be cast
         /// @param `from_type` The type to cast from
         /// @param `to_type` The type to cast to
         /// @return `llvm::Value *` The value containing the result of the type cast
         static llvm::Value *generate_type_cast(     //
             llvm::IRBuilder<> &builder,             //
+            GenerationContext &ctx,                 //
             llvm::Value *expr,                      //
             const std::shared_ptr<Type> &from_type, //
             const std::shared_ptr<Type> &to_type    //

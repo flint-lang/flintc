@@ -21,10 +21,10 @@ void Generator::Module::Print::generate_print_function( //
     const std::string &format                           //
 ) {
     // Create print function type
-    llvm::FunctionType *print_type = llvm::FunctionType::get( //
-        llvm::Type::getVoidTy(context),                       // return void
-        {IR::get_type(Type::get_primitive_type(type)).first}, // takes type
-        false                                                 // no vararg
+    llvm::FunctionType *print_type = llvm::FunctionType::get(         //
+        llvm::Type::getVoidTy(context),                               // return void
+        {IR::get_type(module, Type::get_primitive_type(type)).first}, // takes type
+        false                                                         // no vararg
     );
     // Create the print_X function
     llvm::Function *print_function = llvm::Function::Create( //
@@ -68,7 +68,7 @@ void Generator::Module::Print::generate_print_function( //
 
 void Generator::Module::Print::generate_print_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module,
     const bool only_declarations) {
-    llvm::Type *str_lit_type = IR::get_type(Type::get_primitive_type("__flint_type_str_lit")).first;
+    llvm::Type *str_lit_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_lit")).first;
 
     // Create print function type
     llvm::FunctionType *print_str_lit_type = llvm::FunctionType::get( //
@@ -109,7 +109,7 @@ void Generator::Module::Print::generate_print_str_lit_function(llvm::IRBuilder<>
 
 void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<> *builder, llvm::Module *module,
     const bool only_declarations) {
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
 
     // Create print function type
     llvm::FunctionType *print_str_type = llvm::FunctionType::get( //
@@ -160,10 +160,10 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
 void Generator::Module::Print::generate_print_bool_function(llvm::IRBuilder<> *builder, llvm::Module *module,
     const bool only_declarations) {
     // Create print function type
-    llvm::FunctionType *print_type = llvm::FunctionType::get(   //
-        llvm::Type::getVoidTy(context),                         // return void
-        {IR::get_type(Type::get_primitive_type("bool")).first}, // takes type
-        false                                                   // no vararg
+    llvm::FunctionType *print_type = llvm::FunctionType::get(           //
+        llvm::Type::getVoidTy(context),                                 // return void
+        {IR::get_type(module, Type::get_primitive_type("bool")).first}, // takes type
+        false                                                           // no vararg
     );
     // Create the print_int function
     llvm::Function *print_function = llvm::Function::Create( //

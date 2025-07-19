@@ -488,7 +488,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             // Create a forward declaration for the function only if it is not the main function!
             if (function_node->name != "_main") {
-                llvm::FunctionType *function_type = Function::generate_function_type(function_node);
+                llvm::FunctionType *function_type = Function::generate_function_type(module.get(), function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 function_mangle_ids[function_node->name] = mangle_id++;
                 file_function_names.at(file.file_name).emplace_back(function_node->name);

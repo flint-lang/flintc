@@ -198,7 +198,7 @@ bool Generator::Allocation::generate_call_allocations(                          
         }
         if (std::get<2>(overload)) {
             // Function returns error
-            function_return_type = IR::add_and_or_get_type(call_node->type);
+            function_return_type = IR::add_and_or_get_type(parent->getParent(), call_node->type);
         } else {
             // Function does not return error
             return true;
@@ -286,7 +286,7 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
         const std::string it_name = std::get<std::string>(for_node->iterators);
         const auto it_variable = for_node->definition_scope->variables.at(it_name);
         std::shared_ptr<Type> it_type_ptr = std::get<0>(it_variable);
-        llvm::Type *it_type = IR::add_and_or_get_type(it_type_ptr);
+        llvm::Type *it_type = IR::add_and_or_get_type(parent->getParent(), it_type_ptr);
         const unsigned int scope_id = for_node->definition_scope->scope_id;
         std::string alloca_name = "s" + std::to_string(scope_id) + "::" + it_name;
         generate_allocation(builder, allocations, alloca_name, it_type, it_name + "__ITER_TUPL",        //
@@ -404,18 +404,18 @@ bool Generator::Allocation::generate_declaration_allocations(                   
 
         // Create the actual variable allocation with the declared type
         const std::string var_alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
-        generate_allocation(builder, allocations, var_alloca_name,  //
-            IR::get_type(declaration_node->type).first,             //
-            declaration_node->name + "__VAL_1",                     //
-            "Create alloc of 1st ret var '" + var_alloca_name + "'" //
+        generate_allocation(builder, allocations, var_alloca_name,           //
+            IR::get_type(parent->getParent(), declaration_node->type).first, //
+            declaration_node->name + "__VAL_1",                              //
+            "Create alloc of 1st ret var '" + var_alloca_name + "'"          //
         );
     } else {
         // A "normal" allocation
         const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
-        generate_allocation(builder, allocations, alloca_name, //
-            IR::get_type(declaration_node->type).first,        //
-            declaration_node->name + "__VAR",                  //
-            "Create alloc of var '" + alloca_name + "'"        //
+        generate_allocation(builder, allocations, alloca_name,               //
+            IR::get_type(parent->getParent(), declaration_node->type).first, //
+            declaration_node->name + "__VAR",                                //
+            "Create alloc of var '" + alloca_name + "'"                      //
         );
     }
     return true;
@@ -439,10 +439,10 @@ bool Generator::Allocation::generate_group_declaration_allocations(             
     // Allocating the actual variable values from the LHS
     for (const auto &variable : group_declaration_node->variables) {
         const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
-        generate_allocation(builder, allocations, alloca_name, //
-            IR::get_type(variable.first).first,                //
-            variable.second + "__VAR",                         //
-            "Create alloc of var '" + alloca_name + "'"        //
+        generate_allocation(builder, allocations, alloca_name,       //
+            IR::get_type(parent->getParent(), variable.first).first, //
+            variable.second + "__VAR",                               //
+            "Create alloc of var '" + alloca_name + "'"              //
         );
     }
     return true;

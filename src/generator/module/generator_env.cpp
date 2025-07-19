@@ -18,7 +18,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     //         return init_str(c_env, strlen(c_env));
     //     }
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
@@ -27,7 +27,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
 
     const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *get_env_type = llvm::FunctionType::get( //
         function_result_type,                                   // return struct with error code
         {str_type->getPointerTo()},                             // Parameters: const str *var
@@ -107,7 +107,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     //     }
     //     return true;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
     llvm::Function *setenv_fn = c_functions.at(SETENV);
     llvm::Function *free_fn = c_functions.at(FREE);

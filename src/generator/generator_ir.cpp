@@ -10,9 +10,11 @@
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
+#include "parser/type/variant_type.hpp"
 #include "llvm/IR/Constants.h"
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
+    llvm::Module *module,                             //
     const std::shared_ptr<Type> &type,                //
     const bool is_return_type                         //
 ) {
@@ -52,7 +54,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     }
     // Rest of the elements are the return types
     for (const auto &ret_value : types) {
-        auto ret_type = get_type(ret_value);
+        auto ret_type = get_type(module, ret_value);
         if (ret_type.second) {
             types_vec.emplace_back(ret_type.first->getPointerTo());
         } else {
@@ -120,7 +122,7 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             // Create a forward declaration for the function only if it is not the main function!
             if (function_node->name != "_main") {
-                llvm::FunctionType *function_type = Function::generate_function_type(function_node);
+                llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
                 file_function_mangle_ids.at(file_node.file_name).emplace(function_node->name, mangle_id++);
                 file_function_names.at(file_node.file_name).emplace_back(function_node->name);
@@ -129,7 +131,7 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
     }
 }
 
-std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type> &type) {
+std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, const std::shared_ptr<Type> &type) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
     if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(type.get())) {
         if (primitive_type->type_name == "__flint_type_str_struct") {
@@ -208,7 +210,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
                 type_ptr = Type::get_type_from_str(type_ptr->to_string()).value();
             }
         }
-        return {add_and_or_get_type(type_ptr, false), true};
+        return {add_and_or_get_type(module, type_ptr, false), true};
     } else if (dynamic_cast<ArrayType *>(type.get())) {
         // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
         if (type_map.find("type_str") == type_map.end()) {
@@ -228,7 +230,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
         if (type->to_string() == "bool8") {
             return {llvm::Type::getInt8Ty(context), false};
         }
-        llvm::Type *element_type = get_type(multi_type->base_type).first;
+        llvm::Type *element_type = get_type(module, multi_type->base_type).first;
         llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
         return {vector_type, false};
     } else if (dynamic_cast<const EnumType *>(type.get())) {
@@ -237,7 +239,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
         std::string tuple_str = "tuple";
         std::vector<llvm::Type *> type_vector;
         for (const auto &tup_type : tuple_type->types) {
-            type_vector.emplace_back(get_type(tup_type).first);
+            type_vector.emplace_back(get_type(module, tup_type).first);
             tuple_str += "_" + tup_type->to_string();
         }
         if (type_map.find(tuple_str) == type_map.end()) {
@@ -249,24 +251,47 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(const std::shared_ptr<Type
     } else if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(type.get())) {
         const std::string opt_str = type->to_string();
         if (type_map.find(opt_str) == type_map.end()) {
-            llvm::StructType *llvm_opt_type = llvm::StructType::create(                                             //
-                context, {llvm::Type::getInt1Ty(context), get_type(optional_type->base_type).first}, opt_str, false //
+            llvm::StructType *llvm_opt_type = llvm::StructType::create(                                                     //
+                context, {llvm::Type::getInt1Ty(context), get_type(module, optional_type->base_type).first}, opt_str, false //
             );
             type_map[opt_str] = llvm_opt_type;
         }
         return {type_map.at(opt_str), true};
+    } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(type.get())) {
+        const std::string var_str = type->to_string();
+        // Check if its a known data type
+        if (type_map.find(var_str) == type_map.end()) {
+            unsigned int max_size = 0;
+            for (const auto &variation : variant_type->variant_node->possible_types) {
+                const unsigned int type_size = Allocation::get_type_size(module, get_type(module, variation).first);
+                if (type_size > max_size) {
+                    max_size = type_size;
+                }
+            }
+            llvm::StructType *variant_struct_type = llvm::StructType::create( //
+                context,                                                      //
+                {
+                    llvm::Type::getInt8Ty(context),                                // The tag which type it is (starts at 1)
+                    llvm::ArrayType::get(llvm::Type::getInt8Ty(context), max_size) // The actual data array, being *N* bytes of data
+                },                                                                 //
+                "type_" + var_str,
+                false // is not packed, its padded
+            );
+            type_map[var_str] = variant_struct_type;
+        }
+        return {type_map.at(var_str), false};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return {nullptr, false};
 }
 
-llvm::Value *Generator::IR::get_default_value_of_type(llvm::IRBuilder<> &builder, const std::shared_ptr<Type> &type) {
+llvm::Value *Generator::IR::get_default_value_of_type(llvm::IRBuilder<> &builder, llvm::Module *module, const std::shared_ptr<Type> &type) {
     const std::string type_string = type->to_string();
     if (type_string == "str") {
         return builder.CreateCall(Module::String::string_manip_functions.at("create_str"), {builder.getInt64(0)}, "empty_string");
     }
-    return get_default_value_of_type(IR::get_type(type).first);
+    return get_default_value_of_type(IR::get_type(module, type).first);
 }
 
 llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {

@@ -1144,10 +1144,17 @@ namespace Debug {
 
         /// print_variant
         ///     Prints the content of the generated VariantNode
-        void print_variant([[maybe_unused]] unsigned int indent_lvl, [[maybe_unused]] TreeBits &bits,
-            [[maybe_unused]] const VariantNode &variant) {
+        void print_variant(unsigned int indent_lvl, TreeBits &bits, const VariantNode &variant) {
             Local::print_header(indent_lvl, bits, "Variant ");
-            std::cout << typeid(variant).name() << "\n";
+            std::cout << variant.name << "\n";
+
+            indent_lvl++;
+            for (auto type = variant.possible_types.begin(); type != variant.possible_types.end(); ++type) {
+                bool is_last = std::next(type) == variant.possible_types.end();
+                TreeBits field_bits = bits.child(indent_lvl, is_last);
+                Local::print_header(indent_lvl, field_bits, "Type ");
+                std::cout << (*type)->to_string() << "\n";
+            }
         }
 
         void print_test(unsigned int indent_lvl, TreeBits &bits, const TestNode &test) {

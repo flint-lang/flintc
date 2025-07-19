@@ -1,23 +1,23 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
 
-llvm::FunctionType *Generator::Function::generate_function_type(FunctionNode *function_node) {
+llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *module, FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;
     if (function_node->return_types.size() == 1) {
-        return_types = IR::add_and_or_get_type(function_node->return_types.front());
+        return_types = IR::add_and_or_get_type(module, function_node->return_types.front());
     } else {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(function_node->return_types);
         if (!Type::add_type(group_type)) {
             group_type = Type::get_type_from_str(group_type->to_string()).value();
         }
-        return_types = IR::add_and_or_get_type(group_type);
+        return_types = IR::add_and_or_get_type(module, group_type);
     }
 
     // Get the parameter types
     std::vector<llvm::Type *> param_types_vec;
     param_types_vec.reserve(function_node->parameters.size());
     for (const auto &param : function_node->parameters) {
-        auto param_type = IR::get_type(std::get<0>(param));
+        auto param_type = IR::get_type(module, std::get<0>(param));
         if (param_type.second) {
             // Complex type, passed by reference
             param_types_vec.emplace_back(param_type.first->getPointerTo());
@@ -42,7 +42,7 @@ bool Generator::Function::generate_function(                                    
     FunctionNode *function_node,                                                    //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
 ) {
-    llvm::FunctionType *function_type = generate_function_type(function_node);
+    llvm::FunctionType *function_type = generate_function_type(module, function_node);
 
     // Creating the function itself
     llvm::Function *function = llvm::Function::Create( //
@@ -97,7 +97,7 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     const TestNode *test_node,                                                      //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
 ) {
-    llvm::StructType *void_type = IR::add_and_or_get_type(Type::get_primitive_type("void"));
+    llvm::StructType *void_type = IR::add_and_or_get_type(module, Type::get_primitive_type("void"));
 
     // Create the function type
     llvm::FunctionType *test_type = llvm::FunctionType::get( //

@@ -47,7 +47,7 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *add_str_lit_fn = String::string_manip_functions.at("add_str_lit");
     llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
@@ -66,7 +66,7 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
         const std::vector<std::shared_ptr<Type>> types = {i32_type, str_type_ptr};
         result_type_ptr = std::make_shared<GroupType>(types);
     }
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr.value(), true);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr.value(), true);
     llvm::FunctionType *system_type = llvm::FunctionType::get( //
         function_result_type,                                  //
         {str_type->getPointerTo()},                            //

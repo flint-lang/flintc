@@ -20,8 +20,8 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     FunctionNode function_node = FunctionNode(false, false, "_main", parameters, return_types, scope);
 
     // Create the declaration of the custom main function
-    llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(Type::get_primitive_type("i32"));
-    llvm::FunctionType *custom_main_type = Function::generate_function_type(&function_node);
+    llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(module, Type::get_primitive_type("i32"));
+    llvm::FunctionType *custom_main_type = Function::generate_function_type(module, &function_node);
     llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction(function_node.name, custom_main_type);
 
     llvm::FunctionType *main_type = nullptr;
@@ -61,7 +61,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         llvm::Argument *argv = main_function->args().begin() + 1;
         argv->setName("argv");
         // Now get the string type
-        llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+        llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
         const llvm::DataLayout &data_layout = module->getDataLayout();
         const unsigned int str_size = data_layout.getTypeAllocSize(str_type) + 8;
         llvm::Value *arr_len = builder->CreateAdd(                                                      //
@@ -586,10 +586,10 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     builder->CreateStore(zero, counter);
 
     // Create the return struct of the test call. It only needs to be allocated once and will be reused by all test calls
-    llvm::AllocaInst *test_alloca = builder->CreateAlloca(         //
-        IR::add_and_or_get_type(Type::get_primitive_type("void")), //
-        nullptr,                                                   //
-        "test_alloca"                                              //
+    llvm::AllocaInst *test_alloca = builder->CreateAlloca(                 //
+        IR::add_and_or_get_type(module, Type::get_primitive_type("void")), //
+        nullptr,                                                           //
+        "test_alloca"                                                      //
     );
 
     // Go through all files for all tests

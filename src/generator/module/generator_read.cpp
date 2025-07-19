@@ -252,7 +252,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     //     result->len = len;
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *abort_fn = c_functions.at(ABORT);
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
@@ -307,7 +307,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
 
     // Calculate header size: size_t header = sizeof(str)
-    llvm::DataLayout data_layout(module);
+    llvm::DataLayout data_layout = module->getDataLayout();
     uint64_t str_size = data_layout.getTypeAllocSize(str_type);
     llvm::Value *header_size = builder->getInt64(str_size);
 
@@ -359,8 +359,8 @@ void Generator::Module::Read::generate_read_int_function( //
     // }
     llvm::Function *strtol_fn = c_functions.at(STRTOL);
 
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
-    llvm::Type *result_type = IR::get_type(result_type_ptr).first;
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    llvm::Type *result_type = IR::get_type(module, result_type_ptr).first;
     llvm::FunctionType *read_int_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_int_fn = llvm::Function::Create(                     //
         read_int_type,                                                        //
@@ -489,8 +489,8 @@ void Generator::Module::Read::generate_read_uint_function( //
     // }
     llvm::Function *strtoul_fn = c_functions.at(STRTOUL);
 
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
-    llvm::Type *result_type = IR::get_type(result_type_ptr).first;
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    llvm::Type *result_type = IR::get_type(module, result_type_ptr).first;
     llvm::FunctionType *read_uint_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_uint_fn = llvm::Function::Create(                    //
         read_uint_type,                                                       //
@@ -638,7 +638,7 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     llvm::Function *strtof_fn = c_functions.at(STRTOF);
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f32");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_f32_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_f32_fn = llvm::Function::Create( //
         read_f32_type,                                    //
@@ -743,7 +743,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::Function *strtod_fn = c_functions.at(STRTOD);
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f64");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_f64_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_f64_fn = llvm::Function::Create( //
         read_f64_type,                                    //

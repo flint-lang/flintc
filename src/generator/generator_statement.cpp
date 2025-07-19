@@ -13,6 +13,7 @@
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
+#include "parser/type/variant_type.hpp"
 
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Metadata.h>
@@ -160,13 +161,13 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             // Get the allocation of the variable
             const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
             llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-            llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *str_ptr = builder.CreateLoad(str_type->getPointerTo(), alloca, var_name + "_cleanup");
             builder.CreateCall(c_functions.at(FREE), {str_ptr});
         } else if (ArrayType *array_type = dynamic_cast<ArrayType *>(var_type.get())) {
             const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
             llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-            llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *arr_ptr = builder.CreateLoad(arr_type->getPointerTo(), alloca, var_name + "_cleanup");
             if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -175,8 +176,8 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         } else if (DataType *data_type = dynamic_cast<DataType *>(var_type.get())) {
             const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
             llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-            llvm::Type *base_type = IR::get_type(var_type).first;
-            if (!generate_data_cleanup(builder, base_type, alloca, data_type->data_node)) {
+            llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), var_type).first;
+            if (!generate_data_cleanup(builder, ctx, base_type, alloca, data_type->data_node)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
@@ -204,6 +205,7 @@ bool Generator::Statement::generate_array_cleanup(llvm::IRBuilder<> &builder, ll
 
 bool Generator::Statement::generate_data_cleanup( //
     llvm::IRBuilder<> &builder,                   //
+    GenerationContext &ctx,                       //
     llvm::Type *base_type,                        //
     llvm::Value *const alloca,                    //
     const DataNode *data_node,                    //
@@ -212,15 +214,15 @@ bool Generator::Statement::generate_data_cleanup( //
     size_t field_id = 0;
     for (const auto &field : data_node->fields) {
         if (const DataType *data_type = dynamic_cast<const DataType *>(std::get<1>(field).get())) {
-            llvm::Type *new_base_type = IR::get_type(std::get<1>(field)).first;
+            llvm::Type *new_base_type = IR::get_type(ctx.parent->getParent(), std::get<1>(field)).first;
             llvm::Value *field_ptr = builder.CreateStructGEP(base_type, alloca, field_id);
             llvm::Value *field_alloca = builder.CreateLoad(new_base_type->getPointerTo(), field_ptr);
-            if (!generate_data_cleanup(builder, new_base_type, field_alloca, data_type->data_node, cleanup_depth + 1)) {
+            if (!generate_data_cleanup(builder, ctx, new_base_type, field_alloca, data_type->data_node, cleanup_depth + 1)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
         } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(std::get<1>(field).get())) {
-            llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *field_ptr = builder.CreateStructGEP(base_type, alloca, field_id);
             llvm::Value *arr_ptr = builder.CreateLoad(arr_type->getPointerTo(), field_ptr);
             if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
@@ -682,7 +684,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     llvm::Value *iterable_expr = iterable.value().front();
     const ArrayType *array_type = dynamic_cast<const ArrayType *>(for_node->iterable->type.get());
     const bool is_array = array_type != nullptr;
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Value *length = nullptr;
     llvm::Value *value_ptr = nullptr;
     llvm::Type *element_type = nullptr;
@@ -702,7 +704,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         length = builder.CreateLoad(builder.getInt64Ty(), length_alloca, "length");
         // The values start right after the lengths
         value_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, dimensionality);
-        element_type = IR::get_type(array_type->type).first;
+        element_type = IR::get_type(ctx.parent->getParent(), array_type->type).first;
     } else {
         // Is 'str' type
         llvm::Value *len_ptr = builder.CreateStructGEP(str_type, iterable_expr, 0, "len_ptr");
@@ -719,7 +721,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         const std::string tuple_alloca_name = "s" + std::to_string(scope_id) + "::" + std::get<std::string>(for_node->iterators);
         tuple_alloca = ctx.allocations.at(tuple_alloca_name);
         const auto tuple_var = for_node->definition_scope->variables.at(std::get<std::string>(for_node->iterators));
-        tuple_type = IR::get_type(std::get<0>(tuple_var)).first;
+        tuple_type = IR::get_type(ctx.parent->getParent(), std::get<0>(tuple_var)).first;
         llvm::Value *idx_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 0, "idx_ptr");
         builder.CreateStore(builder.getInt64(0), idx_ptr);
     } else {
@@ -859,7 +861,7 @@ bool Generator::Statement::generate_switch_statement( //
             }
             const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
             const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
-            llvm::StructType *opt_struct_type = IR::add_and_or_get_type(switch_statement->switcher->type, false);
+            llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
             if (switch_value->getType()->isPointerTy()) {
                 switch_value = builder.CreateLoad(opt_struct_type, switch_value, "loaded_rhs");
             }
@@ -896,7 +898,7 @@ bool Generator::Statement::generate_switch_statement( //
         }
         const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
         const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
-        llvm::StructType *opt_struct_type = IR::add_and_or_get_type(switch_statement->switcher->type, false);
+        llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
         llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
         // We just check for the "has_value" field and branch to our blocks depending on that field's value
         llvm::Value *has_value_ptr = builder.CreateStructGEP(opt_struct_type, var_alloca, 0, "has_value_ptr");
@@ -1114,7 +1116,7 @@ bool Generator::Statement::generate_declaration( //
             }
             // If the rhs is a InitializerNode, it returns all element values from the initializer expression
             // First, get the struct type of the data
-            llvm::Type *data_type = IR::get_type(declaration_node->type).first;
+            llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), declaration_node->type).first;
             std::vector<std::shared_ptr<Type>> types;
             if (initializer_node != nullptr) {
                 for (const auto &arg : initializer_node->args) {
@@ -1138,7 +1140,7 @@ bool Generator::Statement::generate_declaration( //
                 const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr;
                 if (field_is_complex) {
                     // For complex types, allocate memory and store a pointer
-                    llvm::Type *field_type = IR::get_type(elem_type).first;
+                    llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
                     const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
                     llvm::Value *field_size = builder.getInt64(data_layout.getTypeAllocSize(field_type));
                     llvm::Value *field_alloca = builder.CreateCall(                                                      //
@@ -1173,22 +1175,56 @@ bool Generator::Statement::generate_declaration( //
         ) {
             // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
             // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
-            llvm::StructType *var_type = IR::add_and_or_get_type(declaration_node->type, false);
+            llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
             // Get the pointer to the i1 element of the optional variable and set it to 1
             llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, alloca, 0, declaration_node->name + "_has_value_ptr");
             llvm::StoreInst *store = builder.CreateStore(builder.getInt1(1), var_has_value_ptr);
             store->setMetadata("comment",
                 llvm::MDNode::get(context,
                     llvm::MDString::get(context, "Set 'has_value' property of optional '" + declaration_node->name + "' to 1")));
-            llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, alloca, 1, declaration_node->name + "value_ptr");
+            llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, alloca, 1, declaration_node->name + "_value_ptr");
             store = builder.CreateStore(expr_val.value().front(), var_value_ptr);
             store->setMetadata("comment",
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + declaration_node->name + "'")));
             return true;
+        } else if (const VariantType *var_type = dynamic_cast<const VariantType *>(declaration_node->type.get())) {
+            // We first check of which type the rhs really is. If it's a typecast, then we know it's one of the "inner" variations of the
+            // variant, if it's a variant directly then we can store the variant in the variable as is. This means we dont need to do
+            // anything if the typecast is a nullptr
+            if (typecast_node != nullptr) {
+                // First, we need to get the ID of the type within the variant
+                const auto &possible_types = var_type->variant_node->possible_types;
+                unsigned int index = 0;
+                for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {
+                    if ((*var_it) == typecast_node->expr->type) {
+                        index = 1 + std::distance(possible_types.begin(), var_it);
+                        break;
+                    }
+                }
+                if (index == 0) {
+                    // Rhs has wrong type
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                llvm::StructType *variant_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
+                llvm::Value *flag_ptr = builder.CreateStructGEP(variant_type, alloca, 0, declaration_node->name + "_flag_ptr");
+                llvm::StoreInst *store = builder.CreateStore(builder.getInt8(index), flag_ptr);
+                store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context,
+                            "Set 'flag' property of variant '" + declaration_node->name + "' to '" + std::to_string(index) +
+                                "' for type '" + typecast_node->expr->type->to_string() + "'")));
+                llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, alloca, 1, declaration_node->name + "_value_ptr");
+                store = builder.CreateStore(expr_val.value().front(), value_ptr);
+                store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context, "Store actual variant value in var '" + declaration_node->name + "'")));
+                return true;
+            }
         }
         expression = expr_val.value().front();
     } else {
-        expression = IR::get_default_value_of_type(builder, declaration_node->type);
+        expression = IR::get_default_value_of_type(builder, ctx.parent->getParent(), declaration_node->type);
     }
 
     if (declaration_node->type->to_string() == "str") {
@@ -1240,7 +1276,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
-            llvm::StructType *tuple_struct_type = IR::add_and_or_get_type(assignment_node->type, false);
+            llvm::StructType *tuple_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), assignment_node->type, false);
             for (size_t i = 0; i < tuple_type->types.size(); i++) {
                 llvm::Value *element_ptr = builder.CreateStructGEP(tuple_struct_type, lhs, i, "tuple_elem_" + std::to_string(i));
                 builder.CreateStore(expr.value()[i], element_ptr);
@@ -1255,7 +1291,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         if (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?") {
             // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
             // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
-            llvm::StructType *var_type = IR::add_and_or_get_type(variable_type, false);
+            llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), variable_type, false);
             // Get the pointer to the i1 element of the optional variable and set it to 1
             llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, lhs, 0, assignment_node->name + "_has_value_ptr");
             llvm::StoreInst *store = builder.CreateStore(builder.getInt1(1), var_has_value_ptr);
@@ -1266,6 +1302,41 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             store = builder.CreateStore(expr.value().front(), var_value_ptr);
             store->setMetadata("comment",
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
+            return true;
+        }
+    } else if (const VariantType *var_type = dynamic_cast<const VariantType *>(assignment_node->type.get())) {
+        // We first check of which type the rhs really is. If it's a typecast, then we know it's one of the "inner" variations of the
+        // variant, if it's a variant directly then we can store the variant in the variable as is. This means we dont need to do
+        // anything if the typecast is a nullptr
+        const TypeCastNode *typecast_node = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
+        if (typecast_node != nullptr) {
+            // First, we need to get the ID of the type within the variant
+            const auto &possible_types = var_type->variant_node->possible_types;
+            unsigned int index = 0;
+            for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {
+                if ((*var_it) == typecast_node->expr->type) {
+                    index = 1 + std::distance(possible_types.begin(), var_it);
+                    break;
+                }
+            }
+            if (index == 0) {
+                // Rhs has wrong type
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            llvm::StructType *variant_type = IR::add_and_or_get_type(ctx.parent->getParent(), assignment_node->type, false);
+            llvm::Value *flag_ptr = builder.CreateStructGEP(variant_type, lhs, 0, assignment_node->name + "_flag_ptr");
+            llvm::StoreInst *store = builder.CreateStore(builder.getInt8(index), flag_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context,
+                    llvm::MDString::get(context,
+                        "Set 'flag' property of variant '" + assignment_node->name + "' to '" + std::to_string(index) + "' for type '" +
+                            typecast_node->expr->type->to_string() + "'")));
+            llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, lhs, 1, assignment_node->name + "_value_ptr");
+            store = builder.CreateStore(expr.value().front(), value_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context,
+                    llvm::MDString::get(context, "Store actual variant value in var '" + assignment_node->name + "'")));
             return true;
         }
     }
@@ -1362,7 +1433,7 @@ bool Generator::Statement::generate_data_field_assignment( //
         return true;
     }
 
-    llvm::Type *data_type = IR::get_type(data_field_assignment->data_type).first;
+    llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), data_field_assignment->data_type).first;
     llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, data_field_assignment->field_id);
     llvm::StoreInst *store = builder.CreateStore(expression.value().at(0), field_ptr);
     if (data_field_assignment->field_name.has_value()) {
@@ -1434,7 +1505,7 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
         return true;
     }
 
-    llvm::Type *data_type = IR::get_type(grouped_field_assignment->data_type).first;
+    llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), grouped_field_assignment->data_type).first;
     for (size_t i = 0; i < expression.value().size(); i++) {
         llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_field_assignment->field_ids.at(i));
         llvm::StoreInst *store = builder.CreateStore(expression.value().at(i), field_ptr);
@@ -1465,7 +1536,8 @@ bool Generator::Statement::generate_array_assignment( //
     }
     llvm::Value *expression = expression_result.value().front();
     if (array_assignment->expression->type != array_assignment->value_type) {
-        expression = Expression::generate_type_cast(builder, expression, array_assignment->expression->type, array_assignment->value_type);
+        expression =
+            Expression::generate_type_cast(builder, ctx, expression, array_assignment->expression->type, array_assignment->value_type);
     }
     // Generate all the indexing expressions
     std::vector<llvm::Value *> idx_expressions;
@@ -1491,7 +1563,7 @@ bool Generator::Statement::generate_array_assignment( //
     const unsigned int var_decl_scope = std::get<1>(ctx.scope->variables.at(array_assignment->variable_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + array_assignment->variable_name;
     llvm::Value *const array_alloca = ctx.allocations.at(var_name);
-    llvm::Type *arr_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first->getPointerTo();
+    llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first->getPointerTo();
     llvm::Value *array_ptr = builder.CreateLoad(arr_type, array_alloca, "array_ptr");
     if (array_assignment->expression->type->to_string() == "str") {
         // This call returns a 'str**'
@@ -1504,7 +1576,7 @@ bool Generator::Statement::generate_array_assignment( //
         return true;
     }
     // Store the main expression result in an 8 byte container
-    llvm::Type *to_type = IR::get_type(Type::get_primitive_type("i64")).first;
+    llvm::Type *to_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("i64")).first;
     const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
     expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
     // Call the `assign_at_val` function
@@ -1537,8 +1609,8 @@ bool Generator::Statement::generate_stacked_assignment( //
     }
     llvm::Value *expression = expression_result.value().front();
     if (stacked_assignment->expression->type != stacked_assignment->field_type) {
-        expression = Expression::generate_type_cast(                                                  //
-            builder, expression, stacked_assignment->expression->type, stacked_assignment->field_type //
+        expression = Expression::generate_type_cast(                                                       //
+            builder, ctx, expression, stacked_assignment->expression->type, stacked_assignment->field_type //
         );
     }
     // Now we can create the "base expression" which then gets accessed
@@ -1557,18 +1629,18 @@ bool Generator::Statement::generate_stacked_assignment( //
     }
     llvm::Value *base_expr = base_expr_res.value().front();
     if (stacked_assignment->base_expression->type->to_string() == "bool8") {
-        // TODO: Find a way how to store the return value of the `set_bool8_element_at` function back at the value the stacked expression
-        // came from (we need a pointer to the data field, if the bool8 variable is stored in another data, for example). We currently only
-        // get the actual loaded value of bool8, and there is no way to get a pointer to where it came from. This definitely needs to be
-        // done, otherwise stacked assignments for the bool8 type will not work. It still works for tuple types and other multi-types, so
-        // this is a bool8-specific issue
+        // TODO: Find a way how to store the return value of the `set_bool8_element_at` function back at the value the stacked
+        // expression came from (we need a pointer to the data field, if the bool8 variable is stored in another data, for example). We
+        // currently only get the actual loaded value of bool8, and there is no way to get a pointer to where it came from. This
+        // definitely needs to be done, otherwise stacked assignments for the bool8 type will not work. It still works for tuple types
+        // and other multi-types, so this is a bool8-specific issue
         //
         // Expression::set_bool8_element_at(builder, base_expr, expression, stacked_assignment->field_id);
         return false;
     }
     // Now we can access the element of the data of the lhs and assign the rhs expression result to it
     // TOOD: Stacked assignments do not work for any multi-types yet, as the vector type is loaded as a "normal" value still.
-    llvm::Type *base_type = IR::get_type(stacked_assignment->base_expression->type).first;
+    llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), stacked_assignment->base_expression->type).first;
     llvm::Value *field_ptr = builder.CreateStructGEP(base_type, base_expr, stacked_assignment->field_id, "field_ptr");
     builder.CreateStore(expression, field_ptr);
     return true;
@@ -1589,10 +1661,10 @@ bool Generator::Statement::generate_unary_op_statement( //
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
     llvm::Value *const alloca = ctx.allocations.at(var_name);
 
-    llvm::LoadInst *var_value = builder.CreateLoad( //
-        IR::get_type(var_node->type).first,         //
-        alloca,                                     //
-        var_node->name + "_val"                     //
+    llvm::LoadInst *var_value = builder.CreateLoad(                  //
+        IR::get_type(ctx.parent->getParent(), var_node->type).first, //
+        alloca,                                                      //
+        var_node->name + "_val"                                      //
     );
     var_value->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + var_node->name + "'")));
     llvm::Value *operation_result = nullptr;

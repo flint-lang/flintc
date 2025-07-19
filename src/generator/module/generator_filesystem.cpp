@@ -50,7 +50,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     //     }
     //     return content;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fseek_fn = c_functions.at(FSEEK);
@@ -61,7 +61,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
     const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_file_type = llvm::FunctionType::get( //
         function_result_type,                                     // Return type: str*
         {str_type->getPointerTo()},                               // Parameter: const str* path
@@ -308,7 +308,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     //     fclose(file);
     //     return lines_array;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
@@ -327,7 +327,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
 
     // Define return type - str* (array of strings)
     const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_lines_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
     llvm::Function *read_lines_fn = llvm::Function::Create(read_lines_type, llvm::Function::ExternalLinkage, "__flint_file_lines", module);
     fs_functions["read_lines"] = read_lines_fn;
@@ -727,7 +727,7 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
     //     return false;
     // }
     // Get required function pointers
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
@@ -804,7 +804,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     //     // Close the file
     //     fclose(file);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fwrite_fn = c_functions.at(FWRITE);
@@ -813,7 +813,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
     const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *write_file_type = llvm::FunctionType::get( //
         function_result_type,                                      // Return type: struct with error code
         {str_type->getPointerTo(), str_type->getPointerTo()},      // Parameters: const str *path, const str *content
@@ -924,7 +924,7 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     //     // Close the file
     //     fclose(file);
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fwrite_fn = c_functions.at(FWRITE);
@@ -933,7 +933,7 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
     const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(result_type_ptr, true);
+    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *append_file_type = llvm::FunctionType::get( //
         function_result_type,                                       // return struct with error code
         {str_type->getPointerTo(), str_type->getPointerTo()},       // Parameters: const str *path, const str *content
@@ -1053,7 +1053,7 @@ void Generator::Module::FileSystem::generate_is_file_function( //
     //
     //     return FALSE;
     // }
-    llvm::Type *str_type = IR::get_type(Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fread_fn = c_functions.at(FREAD);
