@@ -9,5 +9,5 @@ def main():
 	my_var = false;
 	switch my_var:
 		i32(i): print($"is i32: {i}\n");
-		f32(f): print($"is i32: {f}\n");
-		bool(b): print($"is i32: {b}\n");
+		f32(f): print($"is f32: {f}\n");
+		bool(b): print($"is bool: {b}\n");

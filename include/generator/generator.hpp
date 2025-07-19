@@ -1114,6 +1114,37 @@ class Generator {
             const EnhForLoopNode *for_node               //
         );
 
+        /// @function `generate_optional_switch_statement`
+        /// @brief Generates the optional switch statement from the given SwitchStatement node
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `switch_statement` The switch statement to generate
+        /// @param `switch_value` The optional value being switched on
+        /// @param `pred_block` The basic block that comes before the switch, and at whose end the switch instruction will be generated
+        /// @param `branch_blocks` All the branching blocks
+        /// @return `bool` Whether the code generation of the switch statement was successful
+        [[nodiscard]] static bool generate_optional_switch_statement( //
+            llvm::IRBuilder<> &builder,                               //
+            GenerationContext &ctx,                                   //
+            const SwitchStatement *switch_statement,                  //
+            llvm::Value *switch_value                                 //
+        );
+
+        /// @function `generate_switch_statement`
+        /// @brief Generates the switch statement from the given SwitchStatement node
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `switch_statement` The switch statement to generate
+        /// @return `bool` Whether the code generation of the switch statement was successful
+        [[nodiscard]] static bool generate_variant_switch_statement( //
+            llvm::IRBuilder<> &builder,                              //
+            GenerationContext &ctx,                                  //
+            const SwitchStatement *switch_statement,                 //
+            llvm::Value *switch_value                                //
+        );
+
         /// @function `generate_switch_statement`
         /// @brief Generates the switch statement from the given SwitchStatement node
         ///
