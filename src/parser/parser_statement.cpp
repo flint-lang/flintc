@@ -15,6 +15,7 @@
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
+#include "parser/type/variant_type.hpp"
 #include "types.hpp"
 
 #include <iterator>
@@ -765,6 +766,123 @@ bool Parser::create_optional_switch_branches(   //
     return true;
 }
 
+bool Parser::create_variant_switch_branches(    //
+    std::shared_ptr<Scope> scope,               //
+    std::vector<SSwitchBranch> &s_branches,     //
+    std::vector<ESwitchBranch> &e_branches,     //
+    const std::vector<Line> &body,              //
+    const std::shared_ptr<Type> &switcher_type, //
+    const bool is_statement                     //
+) {
+    // We check for each type as an index to check in which branch we switch to, and then we can directly branch in the switch depending on
+    // which type index the variant holds, pretty simple actually
+    std::vector<int> branch_indices;
+    const VariantType *variant_type = dynamic_cast<const VariantType *>(switcher_type.get());
+    assert(variant_type != nullptr);
+    const auto &possible_types = variant_type->variant_node->possible_types;
+
+    // A match can either be tagged or untagged. For now, we only focus on untagged variants, so the "match" must be a type followed by
+    // '(IDENTIFIER)' where, similar to the optional switch, the 'value' of the variant is directly accessible through that identifier as a
+    // "pointer"
+    bool is_default_present = false;
+    for (auto line_it = body.begin(); line_it != body.end();) {
+        const token_slice &tokens = line_it->tokens;
+        // First, get all tokens until the colon to be able to parse the matching expression
+        std::optional<uint2> match_range = std::nullopt;
+        if (is_statement) {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_colon);
+        } else {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
+        }
+        if (!match_range.has_value() || match_range.value().first != 0) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        // TODO: Make tagged variants possible too
+        std::vector<std::unique_ptr<ExpressionNode>> match_expressions;
+        token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
+        if (match_tokens.first->token != TOK_TYPE) {
+            if (match_tokens.first->token == TOK_ELSE) {
+                // Default branch
+                if (std::find(branch_indices.begin(), branch_indices.end(), -1) != branch_indices.end()) {
+                    // Duplicate default block
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                match_expressions.push_back(std::make_unique<DefaultNode>(switcher_type));
+                if (!create_switch_branch_body(                                                                                     //
+                        scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
+                ) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                branch_indices.push_back(-1);
+                continue;
+            }
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+
+        auto type_it = std::find(possible_types.begin(), possible_types.end(), match_tokens.first->type);
+        if (type_it == possible_types.end()) {
+            // Unsupported type in variant switch
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const unsigned int type_idx = 1 + std::distance(possible_types.begin(), type_it);
+        if (std::find(branch_indices.begin(), branch_indices.end(), type_idx) != branch_indices.end()) {
+            // Duplicate type
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        branch_indices.push_back(type_idx);
+
+        // Then `(`, `IDENTIFIER`, `)` must follow
+        if ((match_tokens.first + 1)->token != TOK_LEFT_PAREN) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        if ((match_tokens.first + 2)->token != TOK_IDENTIFIER) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        if ((match_tokens.first + 3)->token != TOK_RIGHT_PAREN) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const std::string &access_name = (match_tokens.first + 2)->lexme;
+        std::optional<std::string> field_name;
+        std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = access_name;
+        match_expressions.push_back(std::make_unique<DataAccessNode>( //
+            possible_types.at(type_idx - 1),                          //
+            variable,                                                 //
+            field_name,                                               //
+            type_idx,                                                 //
+            possible_types.at(type_idx - 1)                           //
+            ));
+
+        std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
+        if (!branch_scope->add_variable(access_name, possible_types.at(type_idx - 1), branch_scope->scope_id, true, false)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        if (!create_switch_branch_body(                                                                                            //
+                branch_scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
+        ) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+    }
+    if (is_default_present ^ (branch_indices.size() != possible_types.size())) {
+        // Either we have a default branch and all variant types are matched
+        // Or we don't have a default branch and not all variant types are matched
+        // Either way, we don't have a branch for every possible type of the variant, so that's an error
+        THROW_BASIC_ERR(ERR_PARSING);
+        return false;
+    }
+    return true;
+}
+
 std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( //
     std::shared_ptr<Scope> scope,                                              //
     const token_slice &definition,                                             //
@@ -798,6 +916,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
         }
     } else if (dynamic_cast<const OptionalType *>(switcher.value()->type.get())) {
         if (!create_optional_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    } else if (dynamic_cast<const VariantType *>(switcher.value()->type.get())) {
+        if (!create_variant_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }

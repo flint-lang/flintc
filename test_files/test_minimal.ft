@@ -7,3 +7,7 @@ def main():
 	Var my_var = 5;
 	my_var = 3.4;
 	my_var = false;
+	switch my_var:
+		i32(i): print($"is i32: {i}\n");
+		f32(f): print($"is i32: {f}\n");
+		bool(b): print($"is i32: {b}\n");
