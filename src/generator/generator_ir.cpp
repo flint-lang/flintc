@@ -278,7 +278,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
             );
             type_map[var_str] = variant_struct_type;
         }
-        return {type_map.at(var_str), false};
+        return {type_map.at(var_str), true};
     }
     // Pointer to more complex data type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);

@@ -1,21 +1,20 @@
 use Core.print
 
-data Inner:
-	i32 x;
-	f32 y;
-	Inner(x, y);
+variant MyVariant:
+	i32, f32, u64;
 
-data Outer:
-	Inner i;
-	u64 c;
-	Outer(i, c);
+def print_var(MyVariant var):
+	switch var:
+		i32(i): print($"holds i32 value of {i}\n");
+		f32(f): print($"holds f32 value of {f}\n");
+		u64(u): print($"holds u64 value of {u}\n");
 
 def main():
-	Inner i = Inner(10, 20);
-	Outer o = Outer(i, 33);
-	// Grouped stacked assignments do not work yet, assignments in general are still more restricted
-	print($"i.(x, y) = ({i.x}, {i.y})\n");
-	o.i.x = 5;
-	print($"o.i.x = {o.i.x}\n");
-	o.i.(x, y) = (4, 6.5);
-	print($"o: \{ i: \{ x: {o.i.x}, y: {o.i.y} \}, c: {o.c} \}\n");
+	MyVariant var = -5;
+	print_var(var);
+
+	var = 3.4;
+	print_var(var);
+
+	var = u64(55);
+	print_var(var);
