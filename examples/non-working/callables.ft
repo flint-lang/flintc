@@ -1,3 +1,5 @@
+use Core.print
+
 def add(i32 x = 5, i32 y = 6) -> i32:
 	return x + y;
 

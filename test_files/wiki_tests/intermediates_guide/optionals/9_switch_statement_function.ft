@@ -6,8 +6,7 @@ def print_opt(i32? value):
 		v: print($"value = {v}\n");
 
 def set_value(mut i32? opt, i32 value):
-	if opt == none:
-		opt = value;
+	opt = value;
 
 def main():
 	i32? maybe = none;

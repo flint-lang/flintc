@@ -1,6 +1,5 @@
 use Core.assert
 use Core.system
-use Core.print
 
 use "utils.ft"
 
@@ -57,7 +56,7 @@ test "8_safety_circumvention.ft":
 	str file = "8_safety_circumvention.ft";
 	test_file_ok($"{path}/{file}", "v = 30\nv = 0\n");
 
-test "[f]9_switch_statement_function.ft":
+test "9_switch_statement_function.ft":
 	str path = "wiki_tests/intermediates_guide/optionals";
 	str file = "9_switch_statement_function.ft";
 	test_file_ok($"{path}/{file}", "none\nvalue = 69\nvalue = 20\n");
