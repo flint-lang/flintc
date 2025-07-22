@@ -236,11 +236,10 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
     } else if (dynamic_cast<const EnumType *>(type.get())) {
         return {llvm::Type::getInt32Ty(context), false};
     } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(type.get())) {
-        std::string tuple_str = "tuple";
+        std::string tuple_str = type->to_string();
         std::vector<llvm::Type *> type_vector;
         for (const auto &tup_type : tuple_type->types) {
             type_vector.emplace_back(get_type(module, tup_type).first);
-            tuple_str += "_" + tup_type->to_string();
         }
         if (type_map.find(tuple_str) == type_map.end()) {
             llvm::ArrayRef<llvm::Type *> type_array(type_vector);
