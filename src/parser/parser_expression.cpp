@@ -15,7 +15,7 @@
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/type/array_type.hpp"
-#include "parser/type/data_type.hpp"
+#include "parser/type/enum_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/tuple_type.hpp"
@@ -408,6 +408,12 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                                 case '\\':
                                     processed_str << '\\';
                                     break;
+                                case '{':
+                                    processed_str << '{';
+                                    break;
+                                case '}':
+                                    processed_str << '}';
+                                    break;
                                 case '0':
                                     processed_str << '\0';
                                     break;
@@ -708,22 +714,19 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
     return expressions;
 }
 
-std::optional<DataAccessNode> Parser::create_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens,
-    const bool is_type_access) {
+std::optional<DataAccessNode> Parser::create_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     token_slice tokens_mut = tokens;
-    auto field_access_base = create_field_access_base(scope, tokens_mut, is_type_access);
+    auto field_access_base = create_field_access_base(scope, tokens_mut);
     if (!field_access_base.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
-    std::variant<std::string, std::unique_ptr<ExpressionNode>> var_name = std::get<1>(field_access_base.value());
     return DataAccessNode(                      //
-        std::get<0>(field_access_base.value()), // data_type
-        var_name,                               // var_name
-        std::get<2>(field_access_base.value()), // field_name
-        std::get<3>(field_access_base.value()), // field_id
-        std::get<4>(field_access_base.value())  // field_type
+        std::get<0>(field_access_base.value()), // base_expr
+        std::get<1>(field_access_base.value()), // field_name
+        std::get<2>(field_access_base.value()), // field_id
+        std::get<3>(field_access_base.value())  // field_type
     );
 }
 
@@ -794,38 +797,61 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(std::shared
 }
 
 std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
-    token_slice tokens_mut = tokens;
-    // The tokens should begin with an identifier, otherwise we have done something wrong somewhere
-    assert(tokens_mut.first->token == TOK_IDENTIFIER);
-    const std::string variable_name = tokens_mut.first->lexme;
-    std::optional<std::shared_ptr<Type>> variable_type = scope->get_variable_type(variable_name);
-    if (!variable_type.has_value()) {
-        THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tokens_mut.first->line, tokens_mut.first->column, variable_name);
-        return std::nullopt;
+    // The array access must end with a closing bracket token. Then, everything from that closing bracket to the left until an opening
+    // bracket is considered the indexing expressions. Everything that comes before that initial opening bracket is considered the base
+    // expression.
+    token_list toks = clone_from_slice(tokens);
+    assert(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
+    token_slice indexing_tokens = {tokens.second - 1, tokens.second - 1};
+    token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
+    unsigned int depth = 0;
+    for (; base_expr_tokens.second != tokens.first;) {
+        // We can decrement the 'indexing_tokens' begin as well as the 'base_expr_tokens' end at the same time, needing only one loop to get
+        // both ranges
+        if (base_expr_tokens.second->token == TOK_RIGHT_BRACKET) {
+            depth++;
+        } else if (base_expr_tokens.second->token == TOK_LEFT_BRACKET) {
+            depth--;
+            if (depth == 0) {
+                // Let the indexing tokens start right after the bracket
+                indexing_tokens.first++;
+                break;
+            }
+        }
+        indexing_tokens.first--;
+        base_expr_tokens.second--;
     }
-    const ArrayType *array_variable_type = dynamic_cast<const ArrayType *>(variable_type.value().get());
-    std::shared_ptr<Type> result_type = nullptr;
-    if (array_variable_type != nullptr) {
-        result_type = array_variable_type->type;
-    } else if (variable_type.value()->to_string() == "str") {
-        result_type = Type::get_primitive_type("u8");
-    } else {
+    // First we parse the base expression, it's type must be an array type (or string type)
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(scope, base_expr_tokens);
+    if (!base_expr.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    tokens_mut.first++;
-
-    // Now the tokens should begin with a left bracket and end with a right bracket, otherwise we did something wrong elsewhere
-    assert(tokens_mut.first->token == TOK_LEFT_BRACKET);
-    tokens_mut.first++;
-    assert(std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET);
-    tokens_mut.second--;
-    std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(scope, tokens_mut);
+    const ArrayType *array_type = dynamic_cast<const ArrayType *>(base_expr.value()->type.get());
+    const bool is_str_type = base_expr.value()->type->to_string() == "str";
+    if (array_type == nullptr && !is_str_type) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Now we can parse the indexing expression(s)
+    std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(scope, indexing_tokens);
     if (!indexing_expressions.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    return ArrayAccessNode(result_type, variable_name, variable_type.value(), indexing_expressions.value());
+    if (is_str_type) {
+        if (indexing_expressions.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return ArrayAccessNode(base_expr.value(), Type::get_primitive_type("u8"), indexing_expressions.value());
+    }
+    // The indexing expression size must match the array dimensionality
+    if (indexing_expressions.value().size() != array_type->dimensionality) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    return ArrayAccessNode(base_expr.value(), array_type->type, indexing_expressions.value());
 }
 
 std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
@@ -837,124 +863,38 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(std::sha
     }
 
     return GroupedDataAccessNode(                       //
-        std::get<0>(grouped_field_access_base.value()), // data_type
-        std::get<1>(grouped_field_access_base.value()), // var_name
-        std::get<2>(grouped_field_access_base.value()), // field_names
-        std::get<3>(grouped_field_access_base.value()), // field_ids
-        std::get<4>(grouped_field_access_base.value())  // field_types
+        std::get<0>(grouped_field_access_base.value()), // base_expr
+        std::get<1>(grouped_field_access_base.value()), // field_names
+        std::get<2>(grouped_field_access_base.value()), // field_ids
+        std::get<3>(grouped_field_access_base.value())  // field_types
     );
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
-    token_slice tokens_mut = tokens;
-    auto separator = tokens_mut.second - 1;
-    size_t depth = 0;
-    for (; separator != tokens_mut.first; --separator) {
-        if (separator->token == TOK_RIGHT_PAREN) {
-            depth++;
-        } else if (separator->token == TOK_LEFT_PAREN) {
-            depth--;
-        } else if (separator->token == TOK_DOT && depth == 0) {
-            break;
-        }
-    }
-    // The separator is now the dot that separates the lhs from the rhs
-    // For now, only field accesses are supported, having `.call()` is not supported yet
-    // TODO: Add support for the `.call()` expression stacking syntax
-    token_slice left_tokens = {tokens_mut.first, separator};
-    std::optional<std::unique_ptr<ExpressionNode>> left_expr = create_expression(scope, left_tokens, std::nullopt);
-    if (!left_expr.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    // Okay, so now the rhs is only an identifier or a $N
-    const std::shared_ptr<Type> left_expr_type = left_expr.value()->type;
-    ++separator;
-    if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(left_expr_type.get())) {
-        if (separator->token != TOK_DOLLAR || std::next(separator)->token != TOK_INT_VALUE) {
+    // Stacked expressions *end* with one of these patterns, if we match one of these patterns we can parse them
+    if (Matcher::tokens_end_with(tokens, Matcher::data_access)) {
+        std::optional<DataAccessNode> data_access = create_data_access(scope, tokens);
+        if (!data_access.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        // Handle the special case of tuple / multi-type accesses in a stacked expression
-        size_t field_id = std::stoul(std::next(separator)->lexme);
-        std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
-        const std::string field_name = "$" + std::to_string(field_id);
-        if (field_id >= tuple_type->types.size()) {
+        return std::make_unique<DataAccessNode>(std::move(data_access.value()));
+    } else if (Matcher::tokens_end_with(tokens, Matcher::grouped_data_access)) {
+        std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(scope, tokens);
+        if (!group_access.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, tuple_type->types.at(field_id));
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(left_expr_type.get())) {
-        if (separator->token == TOK_IDENTIFIER) {
-            if (multi_type->width > 4) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            size_t field_id = 0;
-            const std::string &field_name = separator->lexme;
-            if (multi_type->width == 4) {
-                if (field_name == "r") {
-                    field_id = 0;
-                } else if (field_name == "g") {
-                    field_id = 1;
-                } else if (field_name == "b") {
-                    field_id = 2;
-                } else if (field_name == "w") {
-                    field_id = 3;
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-            } else {
-                if (field_name == "x") {
-                    field_id = 0;
-                } else if (field_name == "y") {
-                    field_id = 1;
-                } else if (field_name == "z") {
-                    field_id = 2;
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-            }
-            std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
-            return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, multi_type->base_type);
-        } else if (separator->token == TOK_DOLLAR && std::next(separator)->token == TOK_INT_VALUE) {
-            // Handle the special case of tuple / multi-type accesses in a stacked expression
-            size_t field_id = std::stoul(std::next(separator)->lexme);
-            std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
-            const std::string field_name = "$" + std::to_string(field_id);
-            if (field_id >= multi_type->width) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, multi_type->base_type);
-        } else {
-            assert(false);
-        }
-    } else if (const DataType *data_type = dynamic_cast<const DataType *>(left_expr_type.get())) {
-        if (separator->token != TOK_IDENTIFIER) {
+        return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
+    } else if (Matcher::tokens_end_with(tokens, Matcher::array_access)) {
+        std::optional<ArrayAccessNode> access = create_array_access(scope, tokens);
+        if (!access.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const DataNode *data_node = data_type->data_node;
-        const std::string field_name = separator->lexme;
-        size_t field_id = 0;
-        for (const auto &field : data_node->fields) {
-            if (std::get<0>(field) == field_name) {
-                break;
-            }
-            field_id++;
-        }
-        if (field_id == data_node->fields.size()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields[field_id]);
-        std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = std::move(left_expr.value());
-        return std::make_unique<DataAccessNode>(left_expr_type, variable, field_name, field_id, field_type);
+        return std::make_unique<ArrayAccessNode>(std::move(access.value()));
     } else {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
     }
 }
@@ -1113,17 +1053,26 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::type_field_access)) {
         if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
-            std::optional<DataAccessNode> data_access = create_data_access(scope, tokens_mut, true);
-            if (!data_access.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+            assert(tokens_mut.first->token == TOK_TYPE);
+            const std::shared_ptr<Type> type = tokens_mut.first->type;
+            const EnumType *enum_type = dynamic_cast<const EnumType *>(type.get());
+            if (enum_type != nullptr) {
+                assert((tokens_mut.first + 1)->token == TOK_DOT);
+                assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                const std::string &value = (tokens_mut.first + 2)->lexme;
+                const auto &values = enum_type->enum_node->values;
+                if (std::find(values.begin(), values.end(), value) == values.end()) {
+                    // Unsupported enum value
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                return std::make_unique<LiteralNode>(LitEnum{.enum_type = type, .value = value}, type);
             }
-            return std::make_unique<DataAccessNode>(std::move(data_access.value()));
         }
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::data_access)) {
         if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
-            std::optional<DataAccessNode> data_access = create_data_access(scope, tokens_mut, false);
+            std::optional<DataAccessNode> data_access = create_data_access(scope, tokens_mut);
             if (!data_access.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;

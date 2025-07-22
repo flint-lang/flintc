@@ -1,30 +1,21 @@
 use Core.print
 
-variant Var:
-	Int(i32), Tuple(f32, i32), bool;
+data Inner:
+	i32 x;
+	f32 y;
+	Inner(x, y);
+
+data Outer:
+	Inner i;
+	u64 c;
+	Outer(i, c);
 
 def main():
-	Var my_var = 5;
-	i32 constant = 10;
-
-	i32 res = switch my_var:
-		Var.Int(i) -> i + 3;
-		Var.Tuple(t) -> constant + 2;
-		bool(b) -> constant + 3;
-	print($"res = {res}\n");
-
-	data<f32, i32> tuple = (3.4, 2);
-	my_var = tuple;
-	switch my_var:
-		Var.Int(i): print($"i = {i}\n");
-		Var.Tuple(t): print($"t = ({t.$0}, {t.$1})\n");
-		bool(b): print($"b = {b}\n");
-
-	my_var = false;
-	res = switch my_var:
-		Var.Int(i) -> i + 3;
-		Var.Tuple(t) -> constant + 2;
-		bool(b) -> constant + 3;
-	print($"res = {res}\n");
-
-
+	Inner i = Inner(10, 20);
+	Outer o = Outer(i, 33);
+	// Grouped stacked assignments do not work yet, assignments in general are still more restricted
+	print($"i.(x, y) = ({i.x}, {i.y})\n");
+	o.i.x = 5;
+	print($"o.i.x = {o.i.x}\n");
+	o.i.(x, y) = (4, 6.5);
+	print($"o: \{ i: \{ x: {o.i.x}, y: {o.i.y} \}, c: {o.c} \}\n");

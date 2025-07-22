@@ -82,6 +82,14 @@ class Matcher {
     /// @return `bool` Whether the given tokens start with the given pattern
     static bool tokens_start_with(const token_slice &tokens, const PatternPtr &pattern);
 
+    /// @function `tokens_end_with`
+    /// @brief Checks whether the given vector of tokens ends with a given pattern
+    ///
+    /// @param `tokens` The list of tokens to check
+    /// @param `pattern` The pattern to check for
+    /// @return `bool` Whether the given tokens end with the given pattern
+    static bool tokens_end_with(const token_slice &tokens, const PatternPtr &pattern);
+
     /// @function `token_match`
     /// @brief Checks if a given token matches with the given pattern
     ///
@@ -202,6 +210,8 @@ class Matcher {
         {TOK_PIPE, std::make_shared<TokenTypeMatcher>(TOK_PIPE)},
         {TOK_REFERENCE, std::make_shared<TokenTypeMatcher>(TOK_REFERENCE)},
         {TOK_OPT_DEFAULT, std::make_shared<TokenTypeMatcher>(TOK_OPT_DEFAULT)},
+        {TOK_OPT_CHAIN, std::make_shared<TokenTypeMatcher>(TOK_OPT_CHAIN)},
+        {TOK_UNWRAP_CHAIN, std::make_shared<TokenTypeMatcher>(TOK_UNWRAP_CHAIN)},
 
         // arithmetic tokens
         {TOK_PLUS, std::make_shared<TokenTypeMatcher>(TOK_PLUS)},
@@ -758,17 +768,24 @@ class Matcher {
     });
     static const inline PatternPtr array_access = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_BRACKET), until_right_bracket});
     static const inline PatternPtr stacked_expression = sequence({
-        two_or_more(balanced_match_valid_until(                                                               //
-            token(TOK_LEFT_PAREN), token(TOK_DOT), one_of({token(TOK_IDENTIFIER)}), token(TOK_RIGHT_PAREN), 0 //
-            )),                                                                                               //
-        one_of({
-            token(TOK_IDENTIFIER),                               // Just a normal field access
-            sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)}), // A tuple or multi-type field access
-            sequence({
-                token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN),                                        //
-                balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1) //
-            })                                                                                       //
-        })                                                                                           //
+        token(TOK_IDENTIFIER), // Start with a base identifier
+        two_or_more(           // Then one or more chained elements
+            one_of({
+                // Method call: .call()
+                sequence({token(TOK_DOT), token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), until_right_paren}),
+                // Grouped access: .()
+                sequence({token(TOK_DOT), token(TOK_LEFT_PAREN), until_right_paren}),
+                // Field access: .field
+                sequence({token(TOK_DOT), token(TOK_IDENTIFIER)}),
+                // Tuple / multi-type field access: .$N
+                sequence({token(TOK_DOT), token(TOK_DOLLAR), token(TOK_INT_VALUE)}),
+                // Optional chaining operation: ?.identifier
+                sequence({token(TOK_OPT_CHAIN), token(TOK_IDENTIFIER)}),
+                // Optional force-unwrap chain: !.identifier
+                sequence({token(TOK_UNWRAP_CHAIN), token(TOK_IDENTIFIER)}),
+                // Array/map access: []
+                sequence({token(TOK_LEFT_BRACKET), until_right_bracket}) //
+            })),
     });
 
     // --- STATEMENTS ---

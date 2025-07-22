@@ -26,6 +26,7 @@
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
+#include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
@@ -42,6 +43,7 @@
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
+#include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/switch_statement.hpp"
 #include "parser/ast/statements/throw_node.hpp"
@@ -159,6 +161,7 @@ namespace Debug {
         void print_array_access(unsigned int indent_lvl, TreeBits &bits, const ArrayAccessNode &access);
         void print_data_access(unsigned int indent_lvl, TreeBits &bits, const DataAccessNode &access);
         void print_grouped_data_access(unsigned int indent_lvl, TreeBits &bits, const GroupedDataAccessNode &access);
+        void print_switch_match(unsigned int indent_lvl, TreeBits &bits, const SwitchMatchNode &match);
         void print_switch_expression(unsigned int indent_lvl, TreeBits &bits, const SwitchExpression &switch_expression);
         void print_default(unsigned int indent_lvl, TreeBits &bits, const DefaultNode &default_node);
         void print_expression(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<ExpressionNode> &expr);
@@ -182,6 +185,7 @@ namespace Debug {
             unsigned int indent_lvl, TreeBits &bits, const GroupedDataFieldAssignmentNode &assignment //
         );
         void print_stacked_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedAssignmentNode &assignment);
+        void print_stacked_grouped_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedGroupedAssignmentNode &assignment);
         void print_statement(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<StatementNode> &statement);
         void print_body(unsigned int indent_lvl, TreeBits &bits, const std::vector<std::unique_ptr<StatementNode>> &body);
 

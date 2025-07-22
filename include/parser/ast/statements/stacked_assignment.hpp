@@ -25,7 +25,7 @@ class StackedAssignmentNode : public StatementNode {
         expression(std::move(expression)) {}
 
     // constructor
-    StackedAssignmentNode() = default;
+    StackedAssignmentNode() = delete;
     // deconstructor
     ~StackedAssignmentNode() override = default;
     // copy operations - deleted because of unique_ptr member

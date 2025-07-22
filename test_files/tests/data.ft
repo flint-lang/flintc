@@ -61,7 +61,7 @@ def add_a_to_b(mut SomeData sd):
 def if_c_revert_a(mut SomeData sd):
     if sd.c:
         sd.a = 0;
-    
+
 def test_somedata():
     SomeData sd = SomeData(69, 4.20, false);
     assert(sd.a == 69 and i32(sd.b - 4.2) == 0 and not sd.c);

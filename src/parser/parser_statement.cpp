@@ -6,10 +6,12 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
+#include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
+#include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/optional_type.hpp"
@@ -858,18 +860,11 @@ bool Parser::create_variant_switch_branches(    //
             return false;
         }
         const std::string &access_name = (match_tokens.first + 2)->lexme;
-        std::optional<std::string> field_name;
-        std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = access_name;
-        match_expressions.push_back(std::make_unique<DataAccessNode>( //
-            possible_types.at(type_idx - 1).second,                   //
-            variable,                                                 //
-            field_name,                                               //
-            type_idx,                                                 //
-            possible_types.at(type_idx - 1).second                    //
-            ));
+        const std::shared_ptr<Type> &access_type = possible_types.at(type_idx - 1).second;
+        match_expressions.push_back(std::make_unique<SwitchMatchNode>(access_type, access_name, type_idx));
 
         std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
-        if (!branch_scope->add_variable(access_name, possible_types.at(type_idx - 1).second, branch_scope->scope_id, true, false)) {
+        if (!branch_scope->add_variable(access_name, access_type, branch_scope->scope_id, true, false)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
@@ -1498,8 +1493,14 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
     const token_slice &tokens,                                               //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                      //
 ) {
+    // Everything up to the equals sign is the lhs of the assignment
     token_slice tokens_mut = tokens;
-    auto field_access_base = create_field_access_base(scope, tokens_mut, false);
+    token_slice lhs_tokens = {tokens.first, tokens.first};
+    while (lhs_tokens.second->token != TOK_EQUAL) {
+        lhs_tokens.second++;
+        tokens_mut.first++;
+    }
+    auto field_access_base = create_field_access_base(scope, lhs_tokens);
     if (!field_access_base.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -1520,13 +1521,21 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::string &var_name = std::get<1>(field_access_base.value());
+
+    // The data field base expression should be a variable expression
+    std::unique_ptr<ExpressionNode> &base_expr = std::get<0>(field_access_base.value());
+    const VariableNode *var_node = dynamic_cast<const VariableNode *>(base_expr.get());
+    const std::string &var_name = var_node->name;
+    if (var_node == nullptr) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
     if (!std::get<2>(scope->variables.at(var_name))) {
         THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_name);
         return std::nullopt;
     }
 
-    const auto &field_type = std::get<4>(field_access_base.value());
+    const auto &field_type = std::get<3>(field_access_base.value());
     if (field_type != expression.value()->type) {
         const auto castability = check_castability(field_type, expression.value()->type);
         if (!castability.has_value()) {
@@ -1540,11 +1549,13 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
         expression = std::make_unique<TypeCastNode>(field_type, expression.value());
     }
 
+    // WARNING: There could be a possible memory corruption here, as the `base_expr` unique pointer goes out of scope here. This warning can
+    // be deleted if it is safe, but it *could* be that this will cause problems down the line
     return DataFieldAssignmentNode(             //
-        std::get<0>(field_access_base.value()), // data_type
+        base_expr->type,                        // data_type
         var_name,                               // var_name
-        std::get<2>(field_access_base.value()), // field_name
-        std::get<3>(field_access_base.value()), // field_id
+        std::get<1>(field_access_base.value()), // field_name
+        std::get<2>(field_access_base.value()), // field_id
         field_type,                             // field_type
         expression.value()                      //
     );
@@ -1556,8 +1567,18 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                                     //
 ) {
     token_slice tokens_mut = tokens;
-    auto grouped_field_access_base = create_grouped_access_base(scope, tokens_mut);
+    token_slice lhs_tokens = {tokens.first, tokens.first};
+    while (lhs_tokens.second->token != TOK_EQUAL) {
+        lhs_tokens.second++;
+        tokens_mut.first++;
+    }
+    auto grouped_field_access_base = create_grouped_access_base(scope, lhs_tokens);
     if (!grouped_field_access_base.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const VariableNode *var_node = dynamic_cast<const VariableNode *>(std::get<0>(grouped_field_access_base.value()).get());
+    if (var_node == nullptr) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -1577,19 +1598,18 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::string &var_name = std::get<1>(grouped_field_access_base.value());
-    if (!std::get<2>(scope->variables.at(var_name))) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_name);
+    if (!std::get<2>(scope->variables.at(var_node->name))) {
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_node->name);
         return std::nullopt;
     }
 
-    return GroupedDataFieldAssignmentNode(              //
-        std::get<0>(grouped_field_access_base.value()), // data_type
-        var_name,                                       // var_name
-        std::get<2>(grouped_field_access_base.value()), // field_names
-        std::get<3>(grouped_field_access_base.value()), // field_ids
-        std::get<4>(grouped_field_access_base.value()), // field_types
-        expression.value()                              //
+    return GroupedDataFieldAssignmentNode(                    //
+        std::get<0>(grouped_field_access_base.value())->type, // data_type
+        var_node->name,                                       // var_name
+        std::get<1>(grouped_field_access_base.value()),       // field_names
+        std::get<2>(grouped_field_access_base.value()),       // field_ids
+        std::get<3>(grouped_field_access_base.value()),       // field_types
+        expression.value()                                    //
     );
 }
 
@@ -1599,8 +1619,18 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                                               //
 ) {
     token_slice tokens_mut = tokens;
-    auto grouped_field_access_base = create_grouped_access_base(scope, tokens_mut);
+    token_slice lhs_tokens = {tokens.first, tokens.first};
+    while (!Matcher::token_match(lhs_tokens.second->token, Matcher::assignment_shorthand_operator)) {
+        lhs_tokens.second++;
+        tokens_mut.first++;
+    }
+    auto grouped_field_access_base = create_grouped_access_base(scope, lhs_tokens);
     if (!grouped_field_access_base.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const VariableNode *var_node = dynamic_cast<const VariableNode *>(std::get<0>(grouped_field_access_base.value()).get());
+    if (var_node == nullptr) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -1639,19 +1669,18 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     }
 
     // Check if the data variable we try to mutate is marked as immutable
-    const std::string &var_name = std::get<1>(grouped_field_access_base.value());
-    if (!std::get<2>(scope->variables.at(var_name))) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_name);
+    if (!std::get<2>(scope->variables.at(var_node->name))) {
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_node->name);
         return std::nullopt;
     }
 
     // Create the lhs of the binary op of the right side, which is the grouped data field access
+    const std::shared_ptr<Type> &base_expr_type = std::get<0>(grouped_field_access_base.value())->type;
     std::unique_ptr<ExpressionNode> binop_lhs = std::make_unique<GroupedDataAccessNode>( //
-        std::get<0>(grouped_field_access_base.value()),                                  // data_type
-        var_name,                                                                        // var_name
-        std::get<2>(grouped_field_access_base.value()),                                  // field_names
-        std::get<3>(grouped_field_access_base.value()),                                  // field_ids
-        std::get<4>(grouped_field_access_base.value())                                   // field_types
+        std::get<0>(grouped_field_access_base.value()),                                  // base_expr
+        std::get<1>(grouped_field_access_base.value()),                                  // field_names
+        std::get<2>(grouped_field_access_base.value()),                                  // field_ids
+        std::get<3>(grouped_field_access_base.value())                                   // field_types
     );
 
     // The expression already is the rhs of the binop, so now we only need to check whether the types of the expression matches the types of
@@ -1665,11 +1694,11 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     );
 
     return GroupedDataFieldAssignmentNode(              //
-        std::get<0>(grouped_field_access_base.value()), // data_type
-        std::get<1>(grouped_field_access_base.value()), // var_name
-        std::get<2>(grouped_field_access_base.value()), // field_names
-        std::get<3>(grouped_field_access_base.value()), // field_ids
-        std::get<4>(grouped_field_access_base.value()), // field_types
+        base_expr_type,                                 // data_type
+        var_node->name,                                 // var_name
+        std::get<1>(grouped_field_access_base.value()), // field_names
+        std::get<2>(grouped_field_access_base.value()), // field_ids
+        std::get<3>(grouped_field_access_base.value()), // field_types
         expression.value()                              //
     );
 }
@@ -1839,30 +1868,66 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
             assert(false);
         }
     } else if (const DataType *data_type = dynamic_cast<const DataType *>(base_expr_type.get())) {
-        if (iterator->token != TOK_IDENTIFIER) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        const std::string field_name = iterator->lexme;
-        const DataNode *data_node = data_type->data_node;
-        auto field_it = data_node->fields.begin();
-        while (field_it != data_node->fields.end()) {
-            if (std::get<0>(*field_it) == field_name) {
-                break;
+        if (iterator->token == TOK_IDENTIFIER) {
+            // It's a single value assignment
+            const std::string field_name = iterator->lexme;
+            const DataNode *data_node = data_type->data_node;
+            auto field_it = data_node->fields.begin();
+            while (field_it != data_node->fields.end()) {
+                if (std::get<0>(*field_it) == field_name) {
+                    break;
+                }
+                ++field_it;
             }
-            ++field_it;
+            if (field_it == data_node->fields.end()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            size_t field_id = std::distance(data_node->fields.begin(), field_it);
+            const std::shared_ptr<Type> field_type = std::get<1>(*field_it);
+            return std::make_unique<StackedAssignmentNode>(base_expr.value(), field_name, field_id, field_type, rhs_expr.value());
+        } else if (iterator->token == TOK_LEFT_PAREN) {
+            // It's a grouped assignment
+            std::vector<std::string> field_names;
+            std::vector<unsigned int> field_ids;
+            std::vector<std::shared_ptr<Type>> field_types;
+            const DataNode *data_node = data_type->data_node;
+            ++iterator;
+            while (iterator != tokens.second && iterator->token != TOK_RIGHT_PAREN) {
+                if (iterator->token == TOK_IDENTIFIER) {
+                    const std::string &field_str = iterator->lexme;
+                    bool field_found = false;
+                    for (auto field_it = data_node->fields.begin(); field_it != data_node->fields.end(); ++field_it) {
+                        if (field_it->first == field_str) {
+                            field_ids.emplace_back(std::distance(data_node->fields.begin(), field_it));
+                            field_names.emplace_back(field_it->first);
+                            field_types.emplace_back(field_it->second);
+                            field_found = true;
+                            break;
+                        }
+                    }
+                    if (!field_found) {
+                        // Use of non-present field in data type
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                } else if (iterator->token != TOK_COMMA) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                ++iterator;
+            }
+            if (field_names.empty()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<StackedGroupedAssignmentNode>(base_expr.value(), field_names, field_ids, field_types, rhs_expr.value());
+        } else {
+            assert(false);
         }
-        if (field_it == data_node->fields.end()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        size_t field_id = std::distance(data_node->fields.begin(), field_it);
-        const std::shared_ptr<Type> field_type = std::get<1>(*field_it);
-        return std::make_unique<StackedAssignmentNode>(base_expr.value(), field_name, field_id, field_type, rhs_expr.value());
-    } else {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
     }
+    THROW_BASIC_ERR(ERR_PARSING);
+    return std::nullopt;
 }
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //

@@ -463,11 +463,14 @@ namespace Debug {
 
         void print_array_access(unsigned int indent_lvl, TreeBits &bits, const ArrayAccessNode &access) {
             Local::print_header(indent_lvl, bits, "Array Access ");
-            std::cout << access.variable_type->to_string() << " " << access.variable_name << " -> ";
-            std::cout << access.type->to_string();
-            std::cout << std::endl;
-
+            std::cout << access.type->to_string() << std::endl;
             indent_lvl++;
+            TreeBits base_expr_header_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, base_expr_header_bits, "Base Expr ");
+            std::cout << std::endl;
+            TreeBits base_expr_bits = base_expr_header_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, access.base_expr);
+
             for (size_t i = 0; i < access.indexing_expressions.size(); i++) {
                 bool is_last = i + 1 == access.indexing_expressions.size();
                 TreeBits header_bits = bits.child(indent_lvl, is_last);
@@ -482,32 +485,19 @@ namespace Debug {
 
         void print_data_access(unsigned int indent_lvl, TreeBits &bits, const DataAccessNode &access) {
             Local::print_header(indent_lvl, bits, "Data Access ");
-            std::cout << "[" << access.data_type->to_string() << "]: ";
-            if (std::holds_alternative<std::string>(access.variable)) {
-                std::cout << std::get<std::string>(access.variable) << ".";
-                if (access.field_name.has_value()) {
-                    std::cout << access.field_name.value() << " at ID " << access.field_id;
-                } else {
-                    std::cout << "$" << access.field_id;
-                }
-                std::cout << " with type " << access.type->to_string() << std::endl;
+            if (access.field_name.has_value()) {
+                std::cout << access.field_name.value() << " at ID " << access.field_id;
             } else {
-                std::cout << "stacked access of field ";
-                if (access.field_name.has_value()) {
-                    std::cout << access.field_name.value() << " at ID " << access.field_id;
-                } else {
-                    std::cout << "$" << access.field_id;
-                }
-                std::cout << " with type " << access.type->to_string() << " of stack:" << std::endl;
-
-                TreeBits stack_bits = bits.child(indent_lvl + 1, true);
-                print_expression(indent_lvl + 1, stack_bits, std::get<std::unique_ptr<ExpressionNode>>(access.variable));
+                std::cout << "$" << access.field_id;
             }
+            std::cout << " with type " << access.type->to_string() << " of base expression:" << std::endl;
+            TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, access.base_expr);
         }
 
         void print_grouped_data_access(unsigned int indent_lvl, TreeBits &bits, const GroupedDataAccessNode &access) {
             Local::print_header(indent_lvl, bits, "Grouped Access ");
-            std::cout << access.var_name << ".(";
+            std::cout << ".(";
             for (auto it = access.field_names.begin(); it != access.field_names.end(); ++it) {
                 if (it != access.field_names.begin()) {
                     std::cout << ", ";
@@ -523,7 +513,14 @@ namespace Debug {
             }
             std::cout << ") of types ";
             std::cout << access.type->to_string();
-            std::cout << std::endl;
+            std::cout << " on base expr:" << std::endl;
+            TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, access.base_expr);
+        }
+
+        void print_switch_match(unsigned int indent_lvl, TreeBits &bits, const SwitchMatchNode &match) {
+            Local::print_header(indent_lvl, bits, "Match ");
+            std::cout << "[" << match.id << "]: " << match.type->to_string() << " " << match.name << std::endl;
         }
 
         void print_switch_expression(unsigned int indent_lvl, TreeBits &bits, const SwitchExpression &switch_expression) {
@@ -590,6 +587,8 @@ namespace Debug {
                 print_switch_expression(indent_lvl, bits, *switch_expression);
             } else if (const auto *default_node = dynamic_cast<const DefaultNode *>(expr.get())) {
                 print_default(indent_lvl, bits, *default_node);
+            } else if (const auto *switch_match = dynamic_cast<const SwitchMatchNode *>(expr.get())) {
+                print_switch_match(indent_lvl, bits, *switch_match);
             } else {
                 assert(false);
             }
@@ -935,6 +934,49 @@ namespace Debug {
             print_expression(indent_lvl + 1, rhs_expr_bits, assignment.expression);
         }
 
+        void print_stacked_grouped_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedGroupedAssignmentNode &assignment) {
+            Local::print_header(indent_lvl, bits, "Stacked Grouped Assignment ");
+            std::cout << "Fields (";
+            for (auto field_it = assignment.field_names.begin(); field_it != assignment.field_names.end(); ++field_it) {
+                if (field_it != assignment.field_names.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << *field_it;
+            }
+            std::cout << ") at ids (";
+            for (auto field_it = assignment.field_ids.begin(); field_it != assignment.field_ids.end(); ++field_it) {
+                if (field_it != assignment.field_ids.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << *field_it;
+            }
+            std::cout << ") of types (";
+            for (auto field_it = assignment.field_types.begin(); field_it != assignment.field_types.end(); ++field_it) {
+                if (field_it != assignment.field_types.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << (*field_it)->to_string();
+            }
+            std::cout << ") on base" << std::endl;
+
+            // Print base expression
+            indent_lvl++;
+            TreeBits base_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, base_bits, "Base Expression ");
+            std::cout << assignment.base_expression->type->to_string() << std::endl;
+
+            TreeBits base_expr_bits = base_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, assignment.base_expression);
+
+            // Print RHS expression
+            TreeBits rhs_bits = bits.child(indent_lvl, true);
+            Local::print_header(indent_lvl, rhs_bits, "RHS Expression ");
+            std::cout << "to be" << std::endl;
+
+            TreeBits rhs_expr_bits = bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, rhs_expr_bits, assignment.expression);
+        }
+
         void print_statement(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<StatementNode> &statement) {
             if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
                 print_return(indent_lvl, bits, *return_node);
@@ -970,6 +1012,8 @@ namespace Debug {
                 print_array_assignment(indent_lvl, bits, *array_assignment);
             } else if (const auto *stacked_assignment = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
                 print_stacked_assignment(indent_lvl, bits, *stacked_assignment);
+            } else if (const auto *stacked_grouped_assignment = dynamic_cast<const StackedGroupedAssignmentNode *>(statement.get())) {
+                print_stacked_grouped_assignment(indent_lvl, bits, *stacked_grouped_assignment);
             } else if (const auto *switch_statement = dynamic_cast<const SwitchStatement *>(statement.get())) {
                 print_switch_statement(indent_lvl, bits, *switch_statement);
             } else if (dynamic_cast<const BreakNode *>(statement.get())) {

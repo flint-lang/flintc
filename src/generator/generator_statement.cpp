@@ -4,6 +4,7 @@
 #include "lexer/builtins.hpp"
 
 #include "parser/ast/expressions/default_node.hpp"
+#include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/continue_node.hpp"
@@ -60,6 +61,8 @@ bool Generator::Statement::generate_statement(      //
         return generate_array_assignment(builder, ctx, array_assignment_node);
     } else if (const auto *stacked_assignment_node = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
         return generate_stacked_assignment(builder, ctx, stacked_assignment_node);
+    } else if (const auto *stacked_grouped_assignment_node = dynamic_cast<const StackedGroupedAssignmentNode *>(statement.get())) {
+        return generate_stacked_grouped_assignment(builder, ctx, stacked_grouped_assignment_node);
     } else if (const auto *switch_statement = dynamic_cast<const SwitchStatement *>(statement.get())) {
         return generate_switch_statement(builder, ctx, switch_statement);
     } else if (dynamic_cast<const BreakNode *>(statement.get())) {
@@ -840,8 +843,8 @@ bool Generator::Statement::generate_optional_switch_statement( //
             branch_blocks.push_back(llvm::BasicBlock::Create(context, "branch_" + std::to_string(i), ctx.parent));
         }
         builder.SetInsertPoint(branch_blocks[i]);
-        const VariableNode *var_node = dynamic_cast<const VariableNode *>(branch.matches.front().get());
-        if (var_node != nullptr) {
+        const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
+        if (match_node != nullptr) {
             auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_statement->switcher.get());
             if (switcher_var_node == nullptr) {
                 // Switching on non-variables is not supported yet
@@ -855,7 +858,7 @@ bool Generator::Statement::generate_optional_switch_statement( //
                 switch_value = builder.CreateLoad(opt_struct_type, switch_value, "loaded_rhs");
             }
             llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
-            const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + var_node->name;
+            const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name;
             llvm::Value *real_value_reference = builder.CreateStructGEP(opt_struct_type, var_alloca, 1, "value_reference");
             ctx.allocations.emplace(var_str, real_value_reference);
             value_block_idx = i;
@@ -947,11 +950,10 @@ bool Generator::Statement::generate_variant_switch_statement( //
         }
         builder.SetInsertPoint(branch_blocks[i]);
 
-        const DataAccessNode *access_node = dynamic_cast<const DataAccessNode *>(branch.matches.front().get());
-        assert(access_node != nullptr);
+        const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
+        assert(match_node != nullptr);
 
-        const std::string access_name = std::get<std::string>(access_node->variable);
-        const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + access_name;
+        const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name;
         llvm::Value *real_value_reference = builder.CreateStructGEP(variant_struct_type, var_alloca, 1, "value_reference");
         ctx.allocations.emplace(var_str, real_value_reference);
 
@@ -989,9 +991,9 @@ bool Generator::Statement::generate_variant_switch_statement( //
         if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
             continue;
         }
-        const DataAccessNode *access_node = dynamic_cast<const DataAccessNode *>(branch.matches.front().get());
-        assert(access_node != nullptr);
-        switch_inst->addCase(builder.getInt8(access_node->field_id), branch_blocks[i]);
+        const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
+        assert(match_node != nullptr);
+        switch_inst->addCase(builder.getInt8(match_node->id), branch_blocks[i]);
     }
 
     // Set the insert point back to the merge block
@@ -1794,6 +1796,73 @@ bool Generator::Statement::generate_stacked_assignment( //
     llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), stacked_assignment->base_expression->type).first;
     llvm::Value *field_ptr = builder.CreateStructGEP(base_type, base_expr, stacked_assignment->field_id, "field_ptr");
     builder.CreateStore(expression, field_ptr);
+    return true;
+}
+
+bool Generator::Statement::generate_stacked_grouped_assignment( //
+    llvm::IRBuilder<> &builder,                                 //
+    GenerationContext &ctx,                                     //
+    const StackedGroupedAssignmentNode *stacked_assignment      //
+) {
+    // Generate the rhs expression
+    Expression::garbage_type garbage;
+    group_mapping expression_result = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->expression.get());
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (!expression_result.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (expression_result.value().size() != stacked_assignment->field_names.size()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    const GroupType *expr_type = dynamic_cast<const GroupType *>(stacked_assignment->expression->type.get());
+    if (expr_type == nullptr) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return false;
+    }
+    // Now we can create the "base expression" which then gets accessed
+    group_mapping base_expr_res = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->base_expression.get());
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (!base_expr_res.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (base_expr_res.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *base_expr = base_expr_res.value().front();
+    llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), stacked_assignment->base_expression->type).first;
+    for (size_t i = 0; i < expression_result.value().size(); i++) {
+        llvm::Value *expression = expression_result.value().at(i);
+
+        if (expr_type->types.at(i) != stacked_assignment->field_types.at(i)) {
+            expression = Expression::generate_type_cast(                                                //
+                builder, ctx, expression, expr_type->types.at(i), stacked_assignment->field_types.at(i) //
+            );
+        }
+        if (stacked_assignment->field_types.at(i)->to_string() == "bool8") {
+            // TODO: Find a way how to store the return value of the `set_bool8_element_at` function back at the value the stacked
+            // expression came from (we need a pointer to the data field, if the bool8 variable is stored in another data, for example). We
+            // currently only get the actual loaded value of bool8, and there is no way to get a pointer to where it came from. This
+            // definitely needs to be done, otherwise stacked assignments for the bool8 type will not work. It still works for tuple types
+            // and other multi-types, so this is a bool8-specific issue
+            //
+            // Expression::set_bool8_element_at(builder, base_expr, expression, stacked_assignment->field_id);
+            return false;
+        }
+        // Now we can access the element of the data of the lhs and assign the rhs expression result to it
+        // TOOD: Stacked assignments do not work for any multi-types yet, as the vector type is loaded as a "normal" value still.
+        llvm::Value *field_ptr = builder.CreateStructGEP(base_type, base_expr, stacked_assignment->field_ids.at(i), "field_ptr");
+        builder.CreateStore(expression, field_ptr);
+    }
     return true;
 }
 

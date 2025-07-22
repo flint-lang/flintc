@@ -10,14 +10,12 @@
 class GroupedDataAccessNode : public ExpressionNode {
   public:
     GroupedDataAccessNode(                                    //
-        const std::shared_ptr<Type> &data_type,               //
-        const std::string &var_name,                          //
+        std::unique_ptr<ExpressionNode> &base_expr,           //
         const std::vector<std::string> &field_names,          //
         const std::vector<unsigned int> &field_ids,           //
         const std::vector<std::shared_ptr<Type>> &field_types //
         ) :
-        data_type(data_type),
-        var_name(var_name),
+        base_expr(std::move(base_expr)),
         field_names(field_names),
         field_ids(field_ids) {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(field_types);
@@ -30,13 +28,9 @@ class GroupedDataAccessNode : public ExpressionNode {
         }
     }
 
-    /// @var `data_type`
-    /// @brief The type of the data the accessed variable has
-    std::shared_ptr<Type> data_type;
-
-    /// @var `var_name`
-    /// @brief The name of the data variable
-    std::string var_name;
+    /// @var `base_expr`
+    /// @brief The base expression from which the fields are accessed
+    std::unique_ptr<ExpressionNode> base_expr;
 
     /// @var `field_names`
     /// @brief The name of the accessed fields

@@ -569,16 +569,14 @@ class Parser {
     /// @param `scope` The scope in which the field access is defined
     /// @param `tokens` The list of tokens representing the field access
     /// @return A optional value containing a tuple, where the
-    ///     - first value is the type of the accessed data variable
-    ///     - second value is the name of the accessed data variable
-    ///     - third value is the name of the accessed field, nullopt if tis a $N access
-    ///     - fourth value is the id of the field
-    ///     - fifth value is the type of the field
-    std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
+    ///     - first value is the base expression of the access
+    ///     - second value is the name of the accessed field, nullopt if tis a $N access
+    ///     - third value is the id of the field
+    ///     - fourth value is the type of the field
+    std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
     create_field_access_base(         //
         std::shared_ptr<Scope> scope, //
-        token_slice &tokens,          //
-        const bool is_type_access     //
+        const token_slice &tokens     //
     );
 
     /// @function `create_multi_type_access`
@@ -599,16 +597,15 @@ class Parser {
     /// @param `scope` The scope in which the grouped access is defined
     /// @param `tokens` The list of tokens representing the grouped access
     /// @return A optional value containing a tuple, where the
-    ///     - first value is the type of the accessed data variable
-    ///     - second value is the name of the accessed data variable
-    ///     - third value is the list of accessed field names
-    ///     - fourth value is the list of accessed field ids
-    ///     - fifth value is the list of accessed field types
-    std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::vector<std::string>, std::vector<unsigned int>,
+    ///     - first value is the base expression of the access
+    ///     - second value is the list of accessed field names
+    ///     - third value is the list of accessed field ids
+    ///     - fourth value is the list of accessed field types
+    std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::vector<std::string>, std::vector<unsigned int>,
         std::vector<std::shared_ptr<Type>>>>
     create_grouped_access_base(       //
         std::shared_ptr<Scope> scope, //
-        token_slice &tokens           //
+        const token_slice &tokens     //
     );
 
     /**************************************************************************************************************************************
@@ -751,9 +748,8 @@ class Parser {
     ///
     /// @param `scope` The scope in which the data access is defined
     /// @param `tokens` The list of tokens representing the data access
-    /// @param `is_type_access` Whether the "data" access is actually a type access, like an enum value access
     /// @return `std::optional<DataAccessNode>` An optional data access node, nullopt if its creation failed
-    std::optional<DataAccessNode> create_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens, const bool is_type_access);
+    std::optional<DataAccessNode> create_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens);
 
     /// @function `create_grouped_data_access`
     /// @brief Creates a GroupedDataAccessNode from the given tokens

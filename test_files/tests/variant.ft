@@ -30,7 +30,6 @@ def test_tagged_tuple_variant():
 	assert(res == 13);
 
 
-
 variant VarTag:
 	Int(i32), Float(f32), bool;
 
@@ -104,6 +103,7 @@ def test_switch_expressions():
 		f32(f) -> constant + 2;
 		bool(b) -> constant + 3;
 	assert(res == 13);
+
 
 def test_variant():
 	test_switch_statements();

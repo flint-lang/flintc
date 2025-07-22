@@ -1,3 +1,4 @@
+#include "lexer/builtins.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
@@ -9,6 +10,7 @@
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include <algorithm>
@@ -393,9 +395,18 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
                     std::optional<bool> castability = check_castability(field_type, arg_type);
                     if (castability.has_value() && castability.value()) {
                         arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
-                    } else {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
+                    } else if (dynamic_cast<const PrimitiveType *>(arg_type.get())) {
+                        const std::string &arg_type_str = arg_type->to_string();
+                        if (primitive_implicit_casting_table.find(arg_type_str) == primitive_implicit_casting_table.end()) {
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        const auto &to_types = primitive_implicit_casting_table.at(arg_type_str);
+                        if (std::find(to_types.begin(), to_types.end(), field_type->to_string()) == to_types.end()) {
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
                     }
                 }
             }
@@ -579,80 +590,54 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     return std::make_tuple(operator_token, std::move(expression.value()), is_left);
 }
 
-std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
+std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
 Parser::create_field_access_base( //
     std::shared_ptr<Scope> scope, //
-    token_slice &tokens,          //
-    const bool is_type_access     //
+    const token_slice &tokens     //
 ) {
-    // The first token is the accessed variable name or the accessed type
-    std::string var_name = "";
-    std::shared_ptr<Type> var_type = nullptr;
-    if (is_type_access) {
-        assert(tokens.first->token == TOK_TYPE);
-        var_type = tokens.first->type;
-    } else {
-        assert(tokens.first->token == TOK_IDENTIFIER);
-        var_name = tokens.first->lexme;
-    }
-    tokens.first++;
-    // The next token should be a dot
-    assert(tokens.first->token == TOK_DOT);
-    tokens.first++;
-
-    // Then there should be the name of the field to access, or a $N instead of it
+    // We actually start at the end of the tokens and first check if it's a named access or an unnamed access, like a tuple access and
+    // then everything to the left of the `.` is considered the base expression on which we then access the field
     std::string field_name = "";
     unsigned int field_id = 0;
-    if (tokens.first->token == TOK_IDENTIFIER) {
-        field_name = tokens.first->lexme;
-    } else if (tokens.first->token == TOK_DOLLAR) {
-        tokens.first++;
-        assert(tokens.first->token == TOK_INT_VALUE);
-        long int_value = std::stol(tokens.first->lexme);
+    token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
+
+    if (base_expr_tokens.second->token == TOK_IDENTIFIER) {
+        field_name = base_expr_tokens.second->lexme;
+    } else if (base_expr_tokens.second->token == TOK_INT_VALUE) {
+        assert(std::prev(base_expr_tokens.second)->token == TOK_DOLLAR);
+        long int_value = std::stol(base_expr_tokens.second->lexme);
         if (int_value < 0) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         field_id = static_cast<unsigned int>(int_value);
+        base_expr_tokens.second--;
     } else {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    tokens.first++;
-
-    // Check if we need to handle a type field access
-    if (is_type_access) {
-        if (const EnumType *enum_type = dynamic_cast<const EnumType *>(var_type.get())) {
-            const EnumNode *enum_node = enum_type->enum_node;
-            auto it = std::find(enum_node->values.begin(), enum_node->values.end(), field_name);
-            if (it == enum_node->values.end()) {
-                // Enum value is non existent
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            const size_t val_id = std::distance(enum_node->values.begin(), it);
-            return std::make_tuple(var_type, var_type->to_string(), field_name, val_id, var_type);
-        }
-        // Non-supported type to call `.` on it
+    base_expr_tokens.second--;
+    if (base_expr_tokens.second->token != TOK_DOT) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
-    // Now get the data type from the data variables name
-    std::optional<std::shared_ptr<Type>> variable_type = scope->get_variable_type(var_name);
-    if (!variable_type.has_value()) {
-        // The variable doesnt exist
+    // Now everything left in the `base_expr_tokens` is our base expression, so we can parse it accordingly
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(scope, base_expr_tokens);
+    if (!base_expr.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    // If the variable is of type `str`, the only valid access is its `length` variable
-    if (variable_type.value()->to_string() == "str") {
+    const std::shared_ptr<Type> &base_type = base_expr.value()->type;
+
+    // If the base expresion is of type `str`, the only valid access is its `length` variable
+    if (base_type->to_string() == "str") {
         if (field_name != "length") {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_tuple(variable_type.value(), var_name, "length", 0, Type::get_primitive_type("u64"));
-    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(variable_type.value().get())) {
+        return std::make_tuple(std::move(base_expr.value()), "length", 0, Type::get_primitive_type("u64"));
+    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(base_type.get())) {
         if (field_name != "length") {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -667,10 +652,10 @@ Parser::create_field_access_base( //
             if (!Type::add_type(group_type)) {
                 group_type = Type::get_type_from_str(group_type->to_string()).value();
             }
-            return std::make_tuple(variable_type.value(), var_name, "length", 1, group_type);
+            return std::make_tuple(std::move(base_expr.value()), "length", 1, group_type);
         }
-        return std::make_tuple(variable_type.value(), var_name, "length", 1, Type::get_primitive_type("u64"));
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(variable_type.value().get())) {
+        return std::make_tuple(std::move(base_expr.value()), "length", 1, Type::get_primitive_type("u64"));
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(base_type.get())) {
         if (field_name == "") {
             field_name = "$" + std::to_string(field_id);
         }
@@ -679,18 +664,17 @@ Parser::create_field_access_base( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_tuple(          //
-            variable_type.value(),       // Base type (multi-type)
-            var_name,                    // Name of the mutli-type variable
-            std::get<0>(access.value()), // Name of the accessed field
-            std::get<1>(access.value()), // ID of the accessed field
-            multi_type->base_type        // Type of the accessed field
+        return std::make_tuple(           //
+            std::move(base_expr.value()), // Base Expression
+            std::get<0>(access.value()),  // Name of the accessed field
+            std::get<1>(access.value()),  // ID of the accessed field
+            multi_type->base_type         // Type of the accessed field
         );
-    } else if (const DataType *data_type = dynamic_cast<const DataType *>(variable_type.value().get())) {
+    } else if (const DataType *data_type = dynamic_cast<const DataType *>(base_type.get())) {
         // Its a data type
         const DataNode *data_node = data_type->data_node;
 
-        // Now we can check if the given field name exists in the data
+        // Now we can check if the given field name exists in the data type
         field_id = 0;
         for (const auto &field : data_node->fields) {
             if (std::get<0>(field) == field_name) {
@@ -703,14 +687,14 @@ Parser::create_field_access_base( //
             return std::nullopt;
         }
         const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields.at(field_id));
-        return std::make_tuple(variable_type.value(), var_name, field_name, field_id, field_type);
-    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(variable_type.value().get())) {
+        return std::make_tuple(std::move(base_expr.value()), field_name, field_id, field_type);
+    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(base_type.get())) {
         if (field_id >= tuple_type->types.size()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         const std::shared_ptr<Type> field_type = tuple_type->types.at(field_id);
-        return std::make_tuple(variable_type.value(), var_name, std::nullopt, field_id, field_type);
+        return std::make_tuple(std::move(base_expr.value()), std::nullopt, field_id, field_type);
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return std::nullopt;
@@ -775,35 +759,55 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
     }
 }
 
-std::optional<std::tuple<std::shared_ptr<Type>, std::string, std::vector<std::string>, std::vector<unsigned int>,
+std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::vector<std::string>, std::vector<unsigned int>,
     std::vector<std::shared_ptr<Type>>>>
 Parser::create_grouped_access_base( //
     std::shared_ptr<Scope> scope,   //
-    token_slice &tokens             //
+    const token_slice &tokens       //
 ) {
-    // The first token is the accessed variable name
-    assert(tokens.first->token == TOK_IDENTIFIER);
-    const std::string var_name = tokens.first->lexme;
-    tokens.first++;
+    // We start at the end of the token slice and move towards the front, and split the token slice in half to get the base expression
+    // tokens and all tokens forming the grouped access `.(..)`
+    assert((tokens.second - 1)->token == TOK_RIGHT_PAREN);
+    token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
+    token_slice access_tokens = {tokens.second - 1, tokens.second - 1};
+    unsigned int depth = 0;
+    for (; base_expr_tokens.second != base_expr_tokens.first;) {
+        if (base_expr_tokens.second->token == TOK_RIGHT_PAREN) {
+            depth++;
+        } else if (base_expr_tokens.second->token == TOK_LEFT_PAREN) {
+            depth--;
+            if (depth == 0) {
+                // Move past the ( for the access tokens
+                access_tokens.first++;
+                // End at the . and not at the ( for the base expression
+                base_expr_tokens.second--;
+                assert(base_expr_tokens.second->token == TOK_DOT);
+                break;
+            }
+        }
+        base_expr_tokens.second--;
+        access_tokens.first--;
+    }
 
-    // The next token should be a dot, skip it
-    assert(tokens.first->token == TOK_DOT);
-    tokens.first++;
-
-    // Then there should be an opening parenthesis the name of the field to access
-    assert(tokens.first->token == TOK_LEFT_PAREN);
-    tokens.first++;
+    // Okay we now can parse the base expression beforehand, to be able to check it's type and decide whether a grouped access is
+    // allowed at all
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(scope, base_expr_tokens);
+    if (!base_expr.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const std::shared_ptr<Type> &base_type = base_expr.value()->type;
 
     // Now, extract the names of all accessed fields
     std::vector<std::string> field_names;
-    while (tokens.first != tokens.second && tokens.first->token != TOK_RIGHT_PAREN) {
-        if (tokens.first->token == TOK_IDENTIFIER) {
-            field_names.emplace_back(tokens.first->lexme);
-        } else if (tokens.first->token == TOK_DOLLAR && std::next(tokens.first)->token == TOK_INT_VALUE) {
-            field_names.emplace_back("$" + std::next(tokens.first)->lexme);
-            tokens.first++;
+    while (access_tokens.first != access_tokens.second) {
+        if (access_tokens.first->token == TOK_IDENTIFIER) {
+            field_names.emplace_back(access_tokens.first->lexme);
+        } else if (access_tokens.first->token == TOK_DOLLAR && std::next(access_tokens.first)->token == TOK_INT_VALUE) {
+            field_names.emplace_back("$" + std::next(access_tokens.first)->lexme);
+            access_tokens.first++;
         }
-        tokens.first++;
+        access_tokens.first++;
     }
     if (field_names.empty()) {
         // Empty group access
@@ -811,20 +815,8 @@ Parser::create_grouped_access_base( //
         return std::nullopt;
     }
 
-    // Now remove the right paren
-    assert(tokens.first->token == TOK_RIGHT_PAREN);
-    tokens.first++;
-
-    // Now get the data type from the data variables name
-    const std::optional<std::shared_ptr<Type>> variable_type = scope->get_variable_type(var_name);
-    if (!variable_type.has_value()) {
-        // The variable doesnt exist
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-
     // First, look if its a multi-type
-    if (const MultiType *multi_type = dynamic_cast<const MultiType *>(variable_type.value().get())) {
+    if (const MultiType *multi_type = dynamic_cast<const MultiType *>(base_type.get())) {
         std::vector<std::string> access_field_names;
         std::vector<std::shared_ptr<Type>> field_types;
         std::vector<unsigned int> field_ids;
@@ -838,8 +830,8 @@ Parser::create_grouped_access_base( //
             field_types.emplace_back(multi_type->base_type);
             field_ids.emplace_back(std::get<1>(access.value()));
         }
-        return std::make_tuple(variable_type.value(), var_name, access_field_names, field_ids, field_types);
-    } else if (const DataType *data_type = dynamic_cast<const DataType *>(variable_type.value().get())) {
+        return std::make_tuple(std::move(base_expr.value()), access_field_names, field_ids, field_types);
+    } else if (const DataType *data_type = dynamic_cast<const DataType *>(base_type.get())) {
         // It should be a data type
         const DataNode *data_node = data_type->data_node;
 
@@ -858,8 +850,8 @@ Parser::create_grouped_access_base( //
             }
             field_id++;
         }
-        return std::make_tuple(variable_type.value(), var_name, field_names, field_ids, field_types);
-    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(variable_type.value().get())) {
+        return std::make_tuple(std::move(base_expr.value()), field_names, field_ids, field_types);
+    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(base_type.get())) {
         std::vector<std::shared_ptr<Type>> field_types;
         std::vector<unsigned int> field_ids;
         for (size_t i = 0; i < field_names.size(); i++) {
@@ -871,7 +863,7 @@ Parser::create_grouped_access_base( //
             field_types.emplace_back(tuple_type->types.at(field_id));
             field_ids.emplace_back(field_id);
         }
-        return std::make_tuple(variable_type.value(), var_name, field_names, field_ids, field_types);
+        return std::make_tuple(std::move(base_expr.value()), field_names, field_ids, field_types);
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return std::nullopt;

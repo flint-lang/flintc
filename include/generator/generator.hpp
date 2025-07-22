@@ -32,6 +32,7 @@
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
+#include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/ast/statements/switch_statement.hpp"
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
@@ -1274,6 +1275,19 @@ class Generator {
             const StackedAssignmentNode *stacked_assignment    //
         );
 
+        /// @function `generate_stacked_grouped_assignment`
+        /// @brief Generates the stacked grouped assignment from the given StackedGroupedAssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `stacked_assignment` The stacked grouped assignment to generate
+        /// @return `bool` Whether the code generation of the stacked grouped assignment was successful
+        [[nodiscard]] static bool generate_stacked_grouped_assignment( //
+            llvm::IRBuilder<> &builder,                                //
+            GenerationContext &ctx,                                    //
+            const StackedGroupedAssignmentNode *stacked_assignment     //
+        );
+
         /// @function `generate_unary_op_statement`
         /// @brief Generates the unary operation value from the given UnaryOpStatement
         ///
@@ -1531,19 +1545,6 @@ class Generator {
         /// @return `llvm::Value *` The modified b8_val which needs to be stored back on the original variable
         static llvm::Value *set_bool8_element_at(llvm::IRBuilder<> &builder, llvm::Value *b8_val, llvm::Value *bit, unsigned int elem_idx);
 
-        /// @function `generate_data_variable_access`
-        /// @brief Generates a data access from a given DataAccessNode, where the base is a variable directly
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `ctx` The context of the expression generation
-        /// @param `data_access` The data access node to generate
-        /// @return `group_mapping` The value containing the result of the data access, nullopt if generation failed
-        static group_mapping generate_data_variable_access( //
-            llvm::IRBuilder<> &builder,                     //
-            GenerationContext &ctx,                         //
-            const DataAccessNode *data_access               //
-        );
-
         /// @function `generate_data_access`
         /// @brief Generates a data access from a given DataAccessNode
         ///
@@ -1566,11 +1567,15 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `grouped_data_access` The grouped data access node to generate
         /// @return `group_mapping` The value(s) containing the result of the grouped data access
         static group_mapping generate_grouped_data_access(   //
             llvm::IRBuilder<> &builder,                      //
             GenerationContext &ctx,                          //
+            garbage_type &garbage,                           //
+            const unsigned int expr_depth,                   //
             const GroupedDataAccessNode *grouped_data_access //
         );
 
