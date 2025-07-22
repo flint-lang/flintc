@@ -30,10 +30,10 @@ llvm::Value *Generator::Logical::generate_string_cmp_lt( //
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
     if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
-        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<std::string>(lhs_lit->value).length())}, "lhs_str_lt");
+        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_lt");
     }
     if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
-        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<std::string>(rhs_lit->value).length())}, "rhs_str_lt");
+        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_lt");
     }
 
     // Call compare_str(lhs, rhs)
@@ -57,10 +57,10 @@ llvm::Value *Generator::Logical::generate_string_cmp_gt( //
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
     if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
-        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<std::string>(lhs_lit->value).length())}, "lhs_str_gt");
+        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_gt");
     }
     if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
-        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<std::string>(rhs_lit->value).length())}, "rhs_str_gt");
+        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_gt");
     }
 
     // Call compare_str(lhs, rhs)
@@ -84,10 +84,10 @@ llvm::Value *Generator::Logical::generate_string_cmp_le( //
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
     if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
-        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<std::string>(lhs_lit->value).length())}, "lhs_str_le");
+        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_le");
     }
     if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
-        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<std::string>(rhs_lit->value).length())}, "rhs_str_le");
+        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_le");
     }
 
     // Call compare_str(lhs, rhs)
@@ -111,10 +111,10 @@ llvm::Value *Generator::Logical::generate_string_cmp_ge( //
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
     if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
-        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<std::string>(lhs_lit->value).length())}, "lhs_str_ge");
+        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_ge");
     }
     if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
-        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<std::string>(rhs_lit->value).length())}, "rhs_str_ge");
+        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_ge");
     }
 
     // Call compare_str(lhs, rhs)
@@ -138,10 +138,10 @@ llvm::Value *Generator::Logical::generate_string_cmp_eq( //
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
     if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
-        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<std::string>(lhs_lit->value).length())}, "lhs_str_eq");
+        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_eq");
     }
     if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
-        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<std::string>(rhs_lit->value).length())}, "rhs_str_eq");
+        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_eq");
     }
 
     // Call compare_str(lhs, rhs)
@@ -165,10 +165,10 @@ llvm::Value *Generator::Logical::generate_string_cmp_neq( //
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
     if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
-        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<std::string>(lhs_lit->value).length())}, "lhs_str_neq");
+        lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_neq");
     }
     if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
-        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<std::string>(rhs_lit->value).length())}, "rhs_str_neq");
+        rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_neq");
     }
 
     // Call compare_str(lhs, rhs)

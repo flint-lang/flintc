@@ -627,17 +627,8 @@ bool Parser::create_enum_switch_branches(       //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
                 }
-                const unsigned int id = std::distance(enum_values.begin(), enum_id);
                 matched_enum_values.push_back(enum_value);
-                std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = switcher_type->to_string();
-                match_expressions.push_back(std::make_unique<DataAccessNode>( //
-                    switcher_type,                                            //
-                    variable,                                                 //
-                    enum_value,                                               //
-                    id,                                                       //
-                    switcher_type                                             //
-                    )                                                         //
-                );
+                match_expressions.push_back(std::make_unique<LiteralNode>(LitEnum{switcher_type, enum_value}, switcher_type));
             }
         } else {
             // There could be multiple values here
@@ -665,17 +656,8 @@ bool Parser::create_enum_switch_branches(       //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
                 }
-                const unsigned int id = std::distance(enum_values.begin(), enum_id);
                 matched_enum_values.push_back(enum_value);
-                std::variant<std::string, std::unique_ptr<ExpressionNode>> variable = switcher_type->to_string();
-                match_expressions.push_back(std::make_unique<DataAccessNode>( //
-                    switcher_type,                                            //
-                    variable,                                                 //
-                    enum_value,                                               //
-                    id,                                                       //
-                    switcher_type                                             //
-                    )                                                         //
-                );
+                match_expressions.push_back(std::make_unique<LiteralNode>(LitEnum{switcher_type, enum_value}, switcher_type));
             }
         }
         if (!create_switch_branch_body(                                                                                     //
@@ -728,7 +710,7 @@ bool Parser::create_optional_switch_branches(   //
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
-            match_expressions.push_back(std::make_unique<LiteralNode>(std::make_optional<void *>(nullptr), switcher_type));
+            match_expressions.push_back(std::make_unique<LiteralNode>(LitOptional{}, switcher_type));
             if (!create_switch_branch_body(                                                                                     //
                     scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
             ) {
@@ -744,7 +726,7 @@ bool Parser::create_optional_switch_branches(   //
                 return false;
             }
             const OptionalType *optional_type = dynamic_cast<const OptionalType *>(switcher_type.get());
-            match_expressions.push_back(std::make_unique<VariableNode>(match_tokens.first->lexme, optional_type->base_type));
+            match_expressions.push_back(std::make_unique<SwitchMatchNode>(optional_type->base_type, match_tokens.first->lexme, 1));
             std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
             if (!branch_scope->add_variable(match_tokens.first->lexme, optional_type->base_type, branch_scope->scope_id, true, false)) {
                 THROW_BASIC_ERR(ERR_PARSING);
@@ -1756,7 +1738,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
         return std::nullopt;
     }
     // Stacked statements cant be declarations, because sub-elements of a "stack" like `var.field.field` are already declared when one
-    // can write a statement like this. This means the stacked statement is definitely an assignment First, find the position of the
+    // can write a statement like this. This means the stacked statement is definitely an assignment. First, find the position of the
     // equals sign
     auto iterator = tokens.first;
     while (iterator != tokens.second && iterator->token != TOK_EQUAL) {

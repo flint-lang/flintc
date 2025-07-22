@@ -934,7 +934,7 @@ llvm::Value *Generator::Module::String::generate_string_declaration( //
         llvm::Function *init_str_fn = string_manip_functions.at("init_str");
 
         // Get the length of the literal
-        const size_t len = std::get<std::string>(literal->value).length();
+        const size_t len = std::get<LitStr>(literal->value).value.length();
         llvm::Value *len_val = llvm::ConstantInt::get(builder.getInt64Ty(), len);
 
         // Call the `init_str` function
@@ -958,7 +958,7 @@ void Generator::Module::String::generate_string_assignment( //
         llvm::Function *assign_lit_fn = string_manip_functions.at("assign_lit");
 
         // Get the size of the string literal
-        const size_t len = std::get<std::string>(lit->value).length();
+        const size_t len = std::get<LitStr>(lit->value).value.length();
         llvm::Value *len_val = llvm::ConstantInt::get(builder.getInt64Ty(), len);
 
         // Call the `assign_lit` function
@@ -1033,13 +1033,13 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
             }
             const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(lhs_var->name));
             llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + lhs_var->name);
-            builder.CreateCall(append_lit_fn, {variable_alloca, rhs, builder.getInt64(std::get<std::string>(rhs_lit->value).length())});
+            builder.CreateCall(append_lit_fn, {variable_alloca, rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())});
             return lhs;
         } else {
             llvm::Function *add_str_lit_fn = string_manip_functions.at("add_str_lit");
-            llvm::Value *rhs_len = llvm::ConstantInt::get(     //
-                llvm::Type::getInt64Ty(context),               //
-                std::get<std::string>(rhs_lit->value).length() //
+            llvm::Value *rhs_len = llvm::ConstantInt::get(      //
+                llvm::Type::getInt64Ty(context),                //
+                std::get<LitStr>(rhs_lit->value).value.length() //
             );
             llvm::Value *addition_result = builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
             if (lhs_var == nullptr) {
@@ -1054,9 +1054,9 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
     } else if (lhs_lit != nullptr && rhs_lit == nullptr) {
         // Only lhs is literal
         llvm::Function *add_lit_str_fn = string_manip_functions.at("add_lit_str");
-        llvm::Value *lhs_len = llvm::ConstantInt::get(     //
-            llvm::Type::getInt64Ty(context),               //
-            std::get<std::string>(lhs_lit->value).length() //
+        llvm::Value *lhs_len = llvm::ConstantInt::get(      //
+            llvm::Type::getInt64Ty(context),                //
+            std::get<LitStr>(lhs_lit->value).value.length() //
         );
         llvm::Value *addition_result = builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
         if (dynamic_cast<const VariableNode *>(rhs_expr) == nullptr) {

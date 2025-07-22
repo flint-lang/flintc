@@ -270,24 +270,24 @@ namespace Debug {
             Local::print_header(indent_lvl, bits, "Lit ");
             std::cout << lit.type->to_string();
             std::cout << ": ";
-            if (std::holds_alternative<unsigned long>(lit.value)) {
-                std::cout << std::get<unsigned long>(lit.value);
-            } else if (std::holds_alternative<long>(lit.value)) {
-                std::cout << std::get<long>(lit.value);
-            } else if (std::holds_alternative<unsigned int>(lit.value)) {
-                std::cout << std::get<unsigned int>(lit.value);
-            } else if (std::holds_alternative<int>(lit.value)) {
-                std::cout << std::get<int>(lit.value);
-            } else if (std::holds_alternative<double>(lit.value)) {
-                std::cout << std::get<double>(lit.value);
-            } else if (std::holds_alternative<float>(lit.value)) {
-                std::cout << std::get<float>(lit.value);
-            } else if (std::holds_alternative<bool>(lit.value)) {
-                std::cout << (std::get<bool>(lit.value) ? "true" : "false");
-            } else if (std::holds_alternative<char>(lit.value)) {
-                std::cout << "'" << std::string(1, std::get<char>(lit.value)) << "'";
-            } else if (std::holds_alternative<std::string>(lit.value)) {
-                const std::string &lit_val = std::get<std::string>(lit.value);
+            if (std::holds_alternative<LitU64>(lit.value)) {
+                std::cout << std::get<LitU64>(lit.value).value;
+            } else if (std::holds_alternative<LitI64>(lit.value)) {
+                std::cout << std::get<LitI64>(lit.value).value;
+            } else if (std::holds_alternative<LitU32>(lit.value)) {
+                std::cout << std::get<LitU32>(lit.value).value;
+            } else if (std::holds_alternative<LitI32>(lit.value)) {
+                std::cout << std::get<LitI32>(lit.value).value;
+            } else if (std::holds_alternative<LitF64>(lit.value)) {
+                std::cout << std::get<LitF64>(lit.value).value;
+            } else if (std::holds_alternative<LitF32>(lit.value)) {
+                std::cout << std::get<LitF32>(lit.value).value;
+            } else if (std::holds_alternative<LitBool>(lit.value)) {
+                std::cout << (std::get<LitBool>(lit.value).value ? "true" : "false");
+            } else if (std::holds_alternative<LitU8>(lit.value)) {
+                std::cout << "'" << std::string(1, std::get<LitU8>(lit.value).value) << "'";
+            } else if (std::holds_alternative<LitStr>(lit.value)) {
+                const std::string &lit_val = std::get<LitStr>(lit.value).value;
                 std::cout << "\"";
                 for (size_t i = 0; i < lit_val.length(); i++) {
                     switch (lit_val[i]) {
@@ -311,8 +311,11 @@ namespace Debug {
                     }
                 }
                 std::cout << "\"";
-            } else if (std::holds_alternative<std::optional<void *>>(lit.value)) {
+            } else if (std::holds_alternative<LitOptional>(lit.value)) {
                 std::cout << "none";
+            } else if (std::holds_alternative<LitEnum>(lit.value)) {
+                const LitEnum &lit_enum = std::get<LitEnum>(lit.value);
+                std::cout << lit_enum.enum_type->to_string() << "." << lit_enum.value;
             }
             if (lit.is_folded) {
                 std::cout << " [folded]";

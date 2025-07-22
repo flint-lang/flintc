@@ -89,65 +89,69 @@ llvm::Value *Generator::Expression::generate_literal( //
     llvm::IRBuilder<> &builder,                       //
     const LiteralNode *literal_node                   //
 ) {
-    if (std::holds_alternative<unsigned long>(literal_node->value)) {
-        return llvm::ConstantInt::get(                    //
-            llvm::Type::getInt64Ty(context),              //
-            std::get<unsigned long>(literal_node->value), //
-            false                                         //
-        );
-    }
-    if (std::holds_alternative<long>(literal_node->value)) {
-        return llvm::ConstantInt::get(           //
-            llvm::Type::getInt64Ty(context),     //
-            std::get<long>(literal_node->value), //
-            true                                 //
-        );
-    }
-    if (std::holds_alternative<unsigned int>(literal_node->value)) {
+    if (std::holds_alternative<LitU64>(literal_node->value)) {
         return llvm::ConstantInt::get(                   //
-            llvm::Type::getInt32Ty(context),             //
-            std::get<unsigned int>(literal_node->value), //
+            llvm::Type::getInt64Ty(context),             //
+            std::get<LitU64>(literal_node->value).value, //
             false                                        //
         );
     }
-    if (std::holds_alternative<int>(literal_node->value)) {
-        return llvm::ConstantInt::get(          //
-            llvm::Type::getInt32Ty(context),    //
-            std::get<int>(literal_node->value), //
-            true                                //
+    if (std::holds_alternative<LitI64>(literal_node->value)) {
+        return llvm::ConstantInt::get(                   //
+            llvm::Type::getInt64Ty(context),             //
+            std::get<LitI64>(literal_node->value).value, //
+            true                                         //
         );
     }
-    if (std::holds_alternative<double>(literal_node->value)) {
-        return llvm::ConstantFP::get(             //
-            llvm::Type::getDoubleTy(context),     //
-            std::get<double>(literal_node->value) //
+    if (std::holds_alternative<LitU32>(literal_node->value)) {
+        return llvm::ConstantInt::get(                   //
+            llvm::Type::getInt32Ty(context),             //
+            std::get<LitU32>(literal_node->value).value, //
+            false                                        //
         );
     }
-    if (std::holds_alternative<float>(literal_node->value)) {
-        return llvm::ConstantFP::get(                                 //
-            llvm::Type::getFloatTy(context),                          //
-            static_cast<double>(std::get<float>(literal_node->value)) //
+    if (std::holds_alternative<LitI32>(literal_node->value)) {
+        return llvm::ConstantInt::get(                   //
+            llvm::Type::getInt32Ty(context),             //
+            std::get<LitI32>(literal_node->value).value, //
+            true                                         //
         );
     }
-    if (std::holds_alternative<std::string>(literal_node->value)) {
+    if (std::holds_alternative<LitF64>(literal_node->value)) {
+        return llvm::ConstantFP::get(                   //
+            llvm::Type::getDoubleTy(context),           //
+            std::get<LitF64>(literal_node->value).value //
+        );
+    }
+    if (std::holds_alternative<LitF32>(literal_node->value)) {
+        return llvm::ConstantFP::get(                                        //
+            llvm::Type::getFloatTy(context),                                 //
+            static_cast<double>(std::get<LitF32>(literal_node->value).value) //
+        );
+    }
+    if (std::holds_alternative<LitStr>(literal_node->value)) {
         // Get the constant string value
-        std::string str = std::get<std::string>(literal_node->value);
+        const std::string &str = std::get<LitStr>(literal_node->value).value;
         return IR::generate_const_string(builder, str);
     }
-    if (std::holds_alternative<bool>(literal_node->value)) {
-        return llvm::ConstantInt::get(                             //
-            llvm::Type::getInt1Ty(context),                        //
-            static_cast<char>(std::get<bool>(literal_node->value)) //
-        );
+    if (std::holds_alternative<LitBool>(literal_node->value)) {
+        return builder.getInt1(std::get<LitBool>(literal_node->value).value);
     }
-    if (std::holds_alternative<char>(literal_node->value)) {
-        return llvm::ConstantInt::get(          //
-            llvm::Type::getInt8Ty(context),     //
-            std::get<char>(literal_node->value) //
-        );
+    if (std::holds_alternative<LitU8>(literal_node->value)) {
+        return builder.getInt8(std::get<LitU8>(literal_node->value).value);
     }
-    if (std::holds_alternative<std::optional<void *>>(literal_node->value)) {
-        return llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 0);
+    if (std::holds_alternative<LitOptional>(literal_node->value)) {
+        return builder.getInt1(false);
+    }
+    if (std::holds_alternative<LitEnum>(literal_node->value)) {
+        const LitEnum &lit_enum = std::get<LitEnum>(literal_node->value);
+        const EnumType *enum_type = dynamic_cast<const EnumType *>(lit_enum.enum_type.get());
+        assert(enum_type != nullptr);
+        const auto &values = enum_type->enum_node->values;
+        const auto value_it = std::find(values.begin(), values.end(), lit_enum.value);
+        assert(value_it != values.end());
+        const unsigned int enum_id = std::distance(values.begin(), value_it);
+        return builder.getInt32(enum_id);
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return nullptr;
@@ -215,7 +219,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
     llvm::Value *str_value = nullptr;
     if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
         llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
-        const std::string lit_string = std::get<std::string>(std::get<std::unique_ptr<LiteralNode>>(*it)->value);
+        const std::string lit_string = std::get<LitStr>(std::get<std::unique_ptr<LiteralNode>>(*it)->value).value;
         llvm::Value *lit_str = IR::generate_const_string(builder, lit_string);
         str_value = builder.CreateCall(init_str_fn, {lit_str, builder.getInt64(lit_string.length())}, "init_str_value");
     } else {
@@ -241,7 +245,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
     llvm::Function *add_str_str = Module::String::string_manip_functions.at("add_str_str");
     for (; it != interpol_node->string_content.end(); ++it) {
         if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
-            const std::string lit_string = std::get<std::string>(std::get<std::unique_ptr<LiteralNode>>(*it)->value);
+            const std::string lit_string = std::get<LitStr>(std::get<std::unique_ptr<LiteralNode>>(*it)->value).value;
             llvm::Value *lit_str = IR::generate_const_string(builder, lit_string);
             str_value = builder.CreateCall(add_str_lit, {str_value, lit_str, builder.getInt64(lit_string.length())});
         } else {
