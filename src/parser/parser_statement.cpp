@@ -815,11 +815,15 @@ bool Parser::create_variant_switch_branches(    //
                 return false;
             }
             match_tokens.first++;
-            if (match_tokens.first->token != TOK_IDENTIFIER) {
+            std::string tag = "";
+            if (match_tokens.first->token == TOK_IDENTIFIER) {
+                tag = match_tokens.first->lexme;
+            } else if (match_tokens.first->token == TOK_TYPE) {
+                tag = match_tokens.first->type->to_string();
+            } else {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
-            const std::string tag = match_tokens.first->lexme;
             for (; type_it != possible_types.end(); ++type_it) {
                 if (type_it->first == tag) {
                     break;

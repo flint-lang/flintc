@@ -1,20 +1,17 @@
 use Core.print
 
-variant MyVariant:
-	i32, f32, u64;
+data Tuple:
+	i32 x;
+	f32 y;
+	bool8 z;
+	Tuple(x, y, z);
 
-def print_var(MyVariant var):
-	switch var:
-		i32(i): print($"holds i32 value of {i}\n");
-		f32(f): print($"holds f32 value of {f}\n");
-		u64(u): print($"holds u64 value of {u}\n");
+variant MyVariant:
+	Tuple, Tuple(u64, f64), i32;
 
 def main():
-	MyVariant var = -5;
-	print_var(var);
-
-	var = 3.4;
-	print_var(var);
-
-	var = u64(55);
-	print_var(var);
+	MyVariant var = 10;
+	switch var:
+		Tuple(t): print($"Is Tuple: ({t.x}, {t.y}, {t.z})\n");
+		MyVariant.Tuple(t): print($"Is MyVariant.Tuple: ({t.$0}, {t.$1})\n");
+		i32(i): print($"Is i32: {i}\n");

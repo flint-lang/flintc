@@ -389,15 +389,32 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
 
     std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> possible_types;
     for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second;) {
-        if (body_it->token == TOK_IDENTIFIER) {
-            const std::string tag = body_it->lexme;
+        if (body_it->token == TOK_COMMA) {
             ++body_it;
-            if (body_it->token != TOK_LEFT_PAREN) {
+            continue;
+        }
+        if ((body_it + 1)->token == TOK_LEFT_PAREN) {
+            // Is tagged
+            std::string tag = "";
+            if (body_it->token == TOK_IDENTIFIER) {
+                tag = body_it->lexme;
+            } else if (body_it->token == TOK_TYPE) {
+                tag = body_it->type->to_string();
+            } else {
+                // Not-allowed token found as tag
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             ++body_it;
+            // Skip the left paren
+            ++body_it;
+            if (body_it->token == TOK_RIGHT_PAREN) {
+                // Empty tagged variant
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
             if (body_it->token != TOK_TYPE) {
+                // No type in tag
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
@@ -431,8 +448,8 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
                 break;
             }
             continue;
-        }
-        if (body_it->token == TOK_TYPE) {
+        } else if (body_it->token == TOK_TYPE) {
+            // Is untagged
             std::optional<std::string> notag;
             if ((body_it + 1)->token == TOK_COMMA) {
                 possible_types.emplace_back(notag, body_it->type);
