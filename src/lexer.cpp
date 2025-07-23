@@ -91,18 +91,6 @@ std::string Lexer::to_string(const token_slice &tokens) {
     std::vector<char> delimiter_stack;
 
     for (auto tok = tokens.first; tok != tokens.second; ++tok) {
-        // Handle delimiter tracking before processing the token
-        if (tok->lexme == "<") {
-            delimiter_stack.push_back('<');
-        } else if (tok->lexme == "[") {
-            delimiter_stack.push_back('[');
-        } else if (tok->lexme == ">" && !delimiter_stack.empty() && delimiter_stack.back() == '<') {
-            delimiter_stack.pop_back();
-        } else if (tok->lexme == "]" && !delimiter_stack.empty() && delimiter_stack.back() == '[') {
-            delimiter_stack.pop_back();
-        }
-
-        // Process the token
         if (tok->token == TOK_TYPE) {
             token_stream << tok->type->to_string();
         } else if (tok->token == TOK_LESS) {
