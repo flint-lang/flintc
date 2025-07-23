@@ -1,0 +1,30 @@
+use Core.print
+
+variant MyVariant:
+	i32, f32, u64;
+
+def print_var(MyVariant var):
+	switch var:
+		i32(i): print($"holds i32 value of {i}\n");
+		f32(f): print($"holds f32 value of {f}\n");
+		u64(u): print($"holds u64 value of {u}\n");
+
+def set_i32(mut MyVariant var, i32 value):
+	var = value;
+
+def set_f32(mut MyVariant var, f32 value):
+	var = value;
+
+def set_u64(mut MyVariant var, u64 value):
+	var = value;
+
+def main():
+	MyVariant var = -5;
+	set_i32(var, -10);
+	print_var(var);
+
+	set_f32(var, 3.4);
+	print_var(var);
+
+	set_u64(var, u64(55));
+	print_var(var);

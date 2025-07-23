@@ -1,0 +1,23 @@
+use Core.print
+
+variant MyVariant:
+	Int(i32), Float(f32), Tuple(i32, f32, bool8);
+
+def print_var(MyVariant var):
+	switch var:
+		MyVariant.Int(i): print($"holds i32 value of {i}\n");
+		MyVariant.Float(f): print($"holds f32 value of {f}\n");
+		MyVariant.Tuple(t): print($"holds tuple value of ({t.$0}, {t.$1}, {t.$2})\n");
+
+def main():
+	MyVariant var = -5;
+	print_var(var);
+
+	var = 3.4;
+	print_var(var);
+
+	// Flint currently has no way of using a group as the rhs of a variant assignment
+	// when a tuple needs to be stored in the variant, but it will have it *eventually*
+	data<i32, f32, bool8> tuple = (5, 6.9, bool8(u8(33)));
+	var = tuple;
+	print_var(var);

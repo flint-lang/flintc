@@ -1,0 +1,11 @@
+use Core.print
+
+variant MyVariant:
+	i32, f32, u64;
+
+def main():
+	MyVariant var = -10;
+	switch var:
+		i32(v): print($"holds i32 value of {v}\n");
+		f32(v): print($"holds f32 value of {v}\n");
+		u64(v): print($"holds u64 value of {v}\n");

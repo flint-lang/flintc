@@ -1,0 +1,15 @@
+use Core.print
+
+variant MyVariant:
+	bool8, u8, i32;
+
+def main():
+	bool8 b8 = 'A';
+	MyVariant var = b8;
+	switch var:
+		bool8(v):
+			print($"holds bool8 value of {v}\n");
+			var = 47;
+			print($"holds bool8 value of {v}\n");
+		u8(v): print($"holds u8 value of {v}\n");
+		i32(v): print($"holds i32 value of {v}\n");

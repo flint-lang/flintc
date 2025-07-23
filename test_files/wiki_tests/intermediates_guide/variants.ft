@@ -1,0 +1,51 @@
+use Core.assert
+use Core.system
+use Core.print
+
+use "utils.ft"
+
+test "0_declaration.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "0_declaration.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "1_switch.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "1_switch.ft";
+	test_file_ok($"{path}/{file}", "holds i32 value of -5\nholds f32 value of 3.4\nholds u64 value of 55\n");
+
+test "2_fn_mutation.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "2_fn_mutation.ft";
+	test_file_ok($"{path}/{file}", "holds i32 value of -10\nholds f32 value of 3.4\nholds u64 value of 55\n");
+
+test "3_accessor_naming.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "3_accessor_naming.ft";
+	test_file_ok($"{path}/{file}", "holds i32 value of -10\n");
+
+test "4_switch_unsafety.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "4_switch_unsafety.ft";
+	test_file_ok($"{path}/{file}", "holds bool8 value of 01000001\nholds bool8 value of 00101111\n");
+
+test "5_switch_bitmask.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "5_switch_bitmask.ft";
+	test_file_ok($"{path}/{file}", "BitMask: 00110000 00110000 00110000 00110000\nBitMask: 00000001 01101000 00011001 00000000\n");
+
+test "6_big_variant.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "6_big_variant.ft";
+	test_file_ok($"{path}/{file}", "holds i32 value of -5\nholds f32 value of 3.4\nholds tuple value of (5, 6.9, 00100001)\n");
+
+test "7_big_tagged.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "7_big_tagged.ft";
+	test_file_ok($"{path}/{file}", "holds i32 value of -5\nholds f32 value of 3.4\nholds tuple value of (5, 6.9, 00100001)\n");
+
+test "8_name_collision.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "8_name_collision.ft";
+	test_file_ok($"{path}/{file}", "Is i32: 10\n");
+

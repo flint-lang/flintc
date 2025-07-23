@@ -1,0 +1,5 @@
+variant MyVariant:
+	i32, f32, u64;
+
+def main():
+	MyVariant var = 5;

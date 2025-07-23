@@ -1,0 +1,17 @@
+use Core.print
+
+data Tuple:
+	i32 x;
+	f32 y;
+	bool8 z;
+	Tuple(x, y, z);
+
+variant MyVariant:
+	Tuple, Tuple(u64, f64), i32;
+
+def main():
+	MyVariant var = 10;
+	switch var:
+		Tuple(t): print($"Is Tuple: ({t.x}, {t.y}, {t.z})\n");
+		MyVariant.Tuple(t): print($"Is MyVariant.Tuple: ({t.$0}, {t.$1})\n");
+		i32(i): print($"Is i32: {i}\n");
