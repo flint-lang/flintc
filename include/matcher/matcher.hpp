@@ -210,8 +210,6 @@ class Matcher {
         {TOK_PIPE, std::make_shared<TokenTypeMatcher>(TOK_PIPE)},
         {TOK_REFERENCE, std::make_shared<TokenTypeMatcher>(TOK_REFERENCE)},
         {TOK_OPT_DEFAULT, std::make_shared<TokenTypeMatcher>(TOK_OPT_DEFAULT)},
-        {TOK_OPT_CHAIN, std::make_shared<TokenTypeMatcher>(TOK_OPT_CHAIN)},
-        {TOK_UNWRAP_CHAIN, std::make_shared<TokenTypeMatcher>(TOK_UNWRAP_CHAIN)},
 
         // arithmetic tokens
         {TOK_PLUS, std::make_shared<TokenTypeMatcher>(TOK_PLUS)},
@@ -644,11 +642,10 @@ class Matcher {
         token(TOK_LESS_EQUAL), token(TOK_GREATER), token(TOK_GREATER_EQUAL)});
     static const inline PatternPtr boolean_binop = one_of({token(TOK_AND), token(TOK_OR)});
     static const inline PatternPtr binary_operator = one_of({operational_binop, relational_binop, boolean_binop});
-    static const inline PatternPtr unary_operator = one_of({
-        token(TOK_INCREMENT), token(TOK_DECREMENT), token(TOK_NOT), token(TOK_MINUS), token(TOK_EXCLAMATION) //
-    });
+    static const inline PatternPtr unary_operator = one_of({token(TOK_INCREMENT), token(TOK_DECREMENT), token(TOK_NOT), token(TOK_MINUS)});
+    static const inline PatternPtr inbetween_operator = one_of({token(TOK_QUESTION), token(TOK_EXCLAMATION)});
     static const inline PatternPtr reference = sequence({
-        token(TOK_IDENTIFIER), one_or_more(sequence({token(TOK_COLON), token(TOK_COLON), token(TOK_IDENTIFIER)})) //
+        token(TOK_IDENTIFIER), one_or_more(sequence({token(TOK_REFERENCE), token(TOK_IDENTIFIER)})) //
     });
     static const inline PatternPtr args = sequence({
         type, token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_COMMA), type, token(TOK_IDENTIFIER)})) //
@@ -779,10 +776,18 @@ class Matcher {
                 sequence({token(TOK_DOT), token(TOK_IDENTIFIER)}),
                 // Tuple / multi-type field access: .$N
                 sequence({token(TOK_DOT), token(TOK_DOLLAR), token(TOK_INT_VALUE)}),
-                // Optional chaining operation: ?.identifier
-                sequence({token(TOK_OPT_CHAIN), token(TOK_IDENTIFIER)}),
-                // Optional force-unwrap chain: !.identifier
-                sequence({token(TOK_UNWRAP_CHAIN), token(TOK_IDENTIFIER)}),
+                // Optional chained access: ?.identifier
+                sequence({token(TOK_QUESTION), token(TOK_DOT), token(TOK_IDENTIFIER)}),
+                // Optional chained grouped acess: ?.()
+                sequence({token(TOK_QUESTION), token(TOK_DOT), token(TOK_LEFT_PAREN), until_right_paren}),
+                // Optional chained array access: ?[]
+                sequence({token(TOK_QUESTION), token(TOK_LEFT_BRACKET), until_right_bracket}),
+                // Optional force-unwrap access: !.identifier
+                sequence({token(TOK_EXCLAMATION), token(TOK_DOT), token(TOK_IDENTIFIER)}),
+                // Optional force-unwrap group access: !.()
+                sequence({token(TOK_EXCLAMATION), token(TOK_DOT), token(TOK_LEFT_PAREN), until_right_paren}),
+                // Optional force-unwrap array access: ![]
+                sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_BRACKET), until_right_bracket}),
                 // Array/map access: []
                 sequence({token(TOK_LEFT_BRACKET), until_right_bracket}) //
             })),

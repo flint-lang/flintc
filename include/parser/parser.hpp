@@ -31,9 +31,9 @@
 #include "ast/statements/if_node.hpp"
 #include "ast/statements/return_node.hpp"
 #include "ast/statements/statement_node.hpp"
+#include "ast/statements/switch_statement.hpp"
 #include "ast/statements/unary_op_statement.hpp"
 #include "ast/statements/while_node.hpp"
-#include "parser/ast/statements/switch_statement.hpp"
 
 #include "ast/expressions/array_access_node.hpp"
 #include "ast/expressions/array_initializer_node.hpp"
@@ -42,14 +42,16 @@
 #include "ast/expressions/group_expression_node.hpp"
 #include "ast/expressions/grouped_data_access_node.hpp"
 #include "ast/expressions/literal_node.hpp"
+#include "ast/expressions/optional_chain_node.hpp"
+#include "ast/expressions/optional_unwrap_node.hpp"
 #include "ast/expressions/string_interpolation_node.hpp"
+#include "ast/expressions/switch_expression.hpp"
 #include "ast/expressions/unary_op_expression.hpp"
 #include "ast/expressions/variable_node.hpp"
 #include "ast/statements/catch_node.hpp"
 #include "ast/statements/throw_node.hpp"
-#include "parser/ast/expressions/switch_expression.hpp"
 
-#include "parser/type/multi_type.hpp"
+#include "type/multi_type.hpp"
 
 #include <atomic>
 #include <cassert>
@@ -568,15 +570,17 @@ class Parser {
     ///
     /// @param `scope` The scope in which the field access is defined
     /// @param `tokens` The list of tokens representing the field access
+    /// @param `has_inbetween_operator` Whether the field access has an in-between operator like a `?` for example
     /// @return A optional value containing a tuple, where the
     ///     - first value is the base expression of the access
     ///     - second value is the name of the accessed field, nullopt if tis a $N access
     ///     - third value is the id of the field
     ///     - fourth value is the type of the field
     std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
-    create_field_access_base(         //
-        std::shared_ptr<Scope> scope, //
-        const token_slice &tokens     //
+    create_field_access_base(                     //
+        std::shared_ptr<Scope> scope,             //
+        const token_slice &tokens,                //
+        const bool has_inbetween_operator = false //
     );
 
     /// @function `create_multi_type_access`
@@ -596,6 +600,7 @@ class Parser {
     ///
     /// @param `scope` The scope in which the grouped access is defined
     /// @param `tokens` The list of tokens representing the grouped access
+    /// @param `has_inbetween_operator` Whether the grouped field access has an in-between operator like a `?` for example
     /// @return A optional value containing a tuple, where the
     ///     - first value is the base expression of the access
     ///     - second value is the list of accessed field names
@@ -603,9 +608,10 @@ class Parser {
     ///     - fourth value is the list of accessed field types
     std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::vector<std::string>, std::vector<unsigned int>,
         std::vector<std::shared_ptr<Type>>>>
-    create_grouped_access_base(       //
-        std::shared_ptr<Scope> scope, //
-        const token_slice &tokens     //
+    create_grouped_access_base(                   //
+        std::shared_ptr<Scope> scope,             //
+        const token_slice &tokens,                //
+        const bool has_inbetween_operator = false //
     );
 
     /**************************************************************************************************************************************
@@ -774,6 +780,22 @@ class Parser {
     /// @param `tokens` The list of tokens representing the array access
     /// @return `std::optional<ArrayAccessNode>` An array access node, nullopt if its creation failed
     std::optional<ArrayAccessNode> create_array_access(std::shared_ptr<Scope> scope, const token_slice &tokens);
+
+    /// @function `create_optional_chain`
+    /// @brief Creates an OptionalChainNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the optional chain is defined
+    /// @param `tokens` The list of tokens representing the optional chain
+    /// @return `std::optional<OptionalChainNode>` An optional chain, nullopt if its creation failed
+    std::optional<OptionalChainNode> create_optional_chain(std::shared_ptr<Scope> scope, const token_slice &tokens);
+
+    /// @function `create_optional_unwrap`
+    /// @brief Creates an OptionalChainUnwrap from the given tokens
+    ///
+    /// @param `scope` The scope in which the optional unwrap is defined
+    /// @param `tokens` The list of tokens representing the optional unwrap
+    /// @return `std::optional<OptionalChainUnwrap>` An optional unwrap, nullopt if its creation failed
+    std::optional<OptionalUnwrapNode> create_optional_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens);
 
     /// @function `create_stacked_expression`
     /// @brief Creates a stacked expression from the given tokens

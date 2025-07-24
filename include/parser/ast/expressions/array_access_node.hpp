@@ -23,7 +23,7 @@ class ArrayAccessNode : public ExpressionNode {
     /// @brief The base expression from which the array elements are accessed
     std::unique_ptr<ExpressionNode> base_expr;
 
-    /// @var `length_expressions`
-    /// @brief The expressions of all the dimension lengths
+    /// @var `indexing_expressions`
+    /// @brief The expressions of all the dimensions indices
     std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
 };

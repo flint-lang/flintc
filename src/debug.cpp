@@ -556,6 +556,55 @@ namespace Debug {
             std::cout << "of type " << default_node.type->to_string() << std::endl;
         }
 
+        void print_optional_chain(unsigned int indent_lvl, TreeBits &bits, const OptionalChainNode &chain_node) {
+            Local::print_header(indent_lvl, bits, "Opt Chain ");
+            if (std::holds_alternative<ChainFieldAccess>(chain_node.operation)) {
+                const ChainFieldAccess &access = std::get<ChainFieldAccess>(chain_node.operation);
+                if (access.field_name.has_value()) {
+                    std::cout << "." << access.field_name.value() << " at id " << access.field_id;
+                } else {
+                    std::cout << ".$" << access.field_id;
+                }
+                std::cout << std::endl;
+            } else if (std::holds_alternative<ChainGroupedFieldAccess>(chain_node.operation)) {
+                const ChainGroupedFieldAccess &access = std::get<ChainGroupedFieldAccess>(chain_node.operation);
+                std::cout << ".(";
+                for (size_t i = 0; i < access.field_names.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    std::cout << access.field_names[i];
+                }
+                std::cout << ") at ids (";
+                for (size_t i = 0; i < access.field_ids.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    std::cout << access.field_ids[i];
+                }
+                std::cout << ")" << std::endl;
+            } else if (std::holds_alternative<ChainArrayAccess>(chain_node.operation)) {
+                const ChainArrayAccess &access = std::get<ChainArrayAccess>(chain_node.operation);
+                std::cout << "array access at indices" << std::endl;
+                for (size_t idx = 0; idx < access.indexing_expressions.size(); idx++) {
+                    TreeBits idx_bits = bits.child(indent_lvl + 1, false);
+                    Local::print_header(indent_lvl + 1, idx_bits, "IDX " + std::to_string(idx) + " ");
+                    std::cout << std::endl;
+                    TreeBits expr_bits = idx_bits.child(indent_lvl + 2, true);
+                    print_expression(indent_lvl + 2, expr_bits, access.indexing_expressions.at(idx));
+                }
+            }
+            TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, chain_node.base_expr);
+        }
+
+        void print_optional_unwrap(unsigned int indent_lvl, TreeBits &bits, const OptionalUnwrapNode &unwrap_node) {
+            Local::print_header(indent_lvl, bits, "Opt Unwrap ");
+            std::cout << "[" << unwrap_node.type->to_string() << "]" << std::endl;
+            TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, unwrap_node.base_expr);
+        }
+
         void print_expression(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<ExpressionNode> &expr) {
             if (const auto *variable_node = dynamic_cast<const VariableNode *>(expr.get())) {
                 print_variable(indent_lvl, bits, *variable_node);
@@ -589,6 +638,10 @@ namespace Debug {
                 print_default(indent_lvl, bits, *default_node);
             } else if (const auto *switch_match = dynamic_cast<const SwitchMatchNode *>(expr.get())) {
                 print_switch_match(indent_lvl, bits, *switch_match);
+            } else if (const auto *chain_node = dynamic_cast<const OptionalChainNode *>(expr.get())) {
+                print_optional_chain(indent_lvl, bits, *chain_node);
+            } else if (const auto *unwrap_node = dynamic_cast<const OptionalUnwrapNode *>(expr.get())) {
+                print_optional_unwrap(indent_lvl, bits, *unwrap_node);
             } else {
                 assert(false);
             }

@@ -37,6 +37,6 @@ class GroupedDataAccessNode : public ExpressionNode {
     std::vector<std::string> field_names;
 
     /// @var `field_ids`
-    /// @brief The indexes of the fields in the data
+    /// @brief The indices of the fields in the data
     std::vector<unsigned int> field_ids;
 };

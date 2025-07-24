@@ -591,9 +591,10 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
 }
 
 std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
-Parser::create_field_access_base( //
-    std::shared_ptr<Scope> scope, //
-    const token_slice &tokens     //
+Parser::create_field_access_base(     //
+    std::shared_ptr<Scope> scope,     //
+    const token_slice &tokens,        //
+    const bool has_inbetween_operator //
 ) {
     // We actually start at the end of the tokens and first check if it's a named access or an unnamed access, like a tuple access and
     // then everything to the left of the `.` is considered the base expression on which we then access the field
@@ -621,6 +622,13 @@ Parser::create_field_access_base( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
+    if (has_inbetween_operator) {
+        base_expr_tokens.second--;
+        if (!Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    }
 
     // Now everything left in the `base_expr_tokens` is our base expression, so we can parse it accordingly
     std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(scope, base_expr_tokens);
@@ -628,7 +636,12 @@ Parser::create_field_access_base( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::shared_ptr<Type> &base_type = base_expr.value()->type;
+    std::shared_ptr<Type> &base_type = base_expr.value()->type;
+    if (has_inbetween_operator) {
+        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_type.get());
+        assert(optional_type != nullptr);
+        base_type = optional_type->base_type;
+    }
 
     // If the base expresion is of type `str`, the only valid access is its `length` variable
     if (base_type->to_string() == "str") {
@@ -761,9 +774,10 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
 
 std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::vector<std::string>, std::vector<unsigned int>,
     std::vector<std::shared_ptr<Type>>>>
-Parser::create_grouped_access_base( //
-    std::shared_ptr<Scope> scope,   //
-    const token_slice &tokens       //
+Parser::create_grouped_access_base(   //
+    std::shared_ptr<Scope> scope,     //
+    const token_slice &tokens,        //
+    const bool has_inbetween_operator //
 ) {
     // We start at the end of the token slice and move towards the front, and split the token slice in half to get the base expression
     // tokens and all tokens forming the grouped access `.(..)`
@@ -788,6 +802,13 @@ Parser::create_grouped_access_base( //
         base_expr_tokens.second--;
         access_tokens.first--;
     }
+    if (has_inbetween_operator) {
+        base_expr_tokens.second--;
+        if (!Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    }
 
     // Okay we now can parse the base expression beforehand, to be able to check it's type and decide whether a grouped access is
     // allowed at all
@@ -796,7 +817,12 @@ Parser::create_grouped_access_base( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::shared_ptr<Type> &base_type = base_expr.value()->type;
+    std::shared_ptr<Type> &base_type = base_expr.value()->type;
+    if (has_inbetween_operator) {
+        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_type.get());
+        assert(optional_type != nullptr);
+        base_type = optional_type->base_type;
+    }
 
     // Now, extract the names of all accessed fields
     std::vector<std::string> field_names;

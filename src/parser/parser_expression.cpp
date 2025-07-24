@@ -684,8 +684,10 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_p
     return GroupExpressionNode(expressions);
 }
 
-std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions(std::shared_ptr<Scope> scope,
-    token_slice &tokens) {
+std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions( //
+    std::shared_ptr<Scope> scope,                                                             //
+    token_slice &tokens                                                                       //
+) {
     std::vector<std::unique_ptr<ExpressionNode>> expressions;
     while (tokens.first != tokens.second) {
         std::optional<uint2> next_expr_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
@@ -796,6 +798,121 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(std::shared
     );
 }
 
+std::optional<OptionalChainNode> Parser::create_optional_chain(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    // First, we need to find the `?` token, everything left to that token is our base expression
+    auto iterator = tokens.second - 1;
+    while (iterator != tokens.first) {
+        if (iterator->token == TOK_QUESTION) {
+            break;
+        }
+        --iterator;
+    }
+    // If the iterator is the beginning this means that no `?` token is present in the list of tokens, this means something in the matcher
+    // went wrong, not here in the parser
+    assert(iterator != tokens.first);
+    // Everything to the left of the iterator is the base expression and can be parsed as such
+    const token_slice base_expr_tokens = {tokens.first, iterator};
+
+    // Move past the `?` token
+    iterator++;
+    ChainOperation operation;
+    std::shared_ptr<Type> result_type;
+    // Now we need to check what the rhs of the optional chain is
+    // TODO: Change the 'is_toplevel_chain_node' to something else, to detect whether it actually *is* the top level
+    if (iterator->token == TOK_LEFT_BRACKET) {
+        // It's an array access. First we need to make sure that the base expression is an array or string type
+        auto base_expr = create_expression(scope, base_expr_tokens);
+        if (!base_expr.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_expr.value()->type.get());
+        if (optional_type == nullptr) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        unsigned int dimensionality = 1;
+        if (const ArrayType *base_array_type = dynamic_cast<const ArrayType *>(optional_type->base_type.get())) {
+            result_type = base_array_type->type;
+            dimensionality = base_array_type->dimensionality;
+        } else if (optional_type->base_type->to_string() != "str") {
+            result_type = Type::get_primitive_type("u8");
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+
+        // The last token should be a right bracket and everything in between are the indexing expressions
+        if (std::prev(tokens.second)->token != TOK_RIGHT_BRACKET) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        token_slice indexing_tokens = {std::next(iterator), std::prev(tokens.second)};
+        std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(scope, indexing_tokens);
+        if (!indexing_expressions.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (indexing_expressions.value().size() != dimensionality) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        operation = ChainArrayAccess{std::move(indexing_expressions.value())};
+        return OptionalChainNode(base_expr.value(), true, operation, result_type);
+    } else if (iterator->token == TOK_DOT && (iterator + 1)->token == TOK_LEFT_PAREN) {
+        // It's a grouped field access
+        auto grouped_access_base = create_grouped_access_base(scope, tokens, true);
+        if (!grouped_access_base.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        auto &field_names = std::get<1>(grouped_access_base.value());
+        auto &field_ids = std::get<2>(grouped_access_base.value());
+        operation = ChainGroupedFieldAccess{field_names, field_ids};
+
+        auto &field_types = std::get<3>(grouped_access_base.value());
+        result_type = std::make_shared<GroupType>(field_types);
+        if (!Type::add_type(result_type)) {
+            result_type = Type::get_type_from_str(result_type->to_string()).value();
+        }
+
+        auto &base_expr = std::get<0>(grouped_access_base.value());
+        return OptionalChainNode(base_expr, true, operation, result_type);
+    } else if (iterator->token == TOK_DOT) {
+        // It's a field access
+        auto field_access_base = create_field_access_base(scope, tokens, true);
+        if (!field_access_base.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        auto &field_name = std::get<1>(field_access_base.value());
+        auto &field_id = std::get<2>(field_access_base.value());
+        operation = ChainFieldAccess{field_name, field_id};
+        result_type = std::get<3>(field_access_base.value());
+        auto &base_expr = std::get<0>(field_access_base.value());
+        return OptionalChainNode(base_expr, true, operation, result_type);
+    }
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
+std::optional<OptionalUnwrapNode> Parser::create_optional_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    assert(std::prev(tokens.second)->token == TOK_EXCLAMATION);
+    assert((tokens.first + 1) != tokens.second);
+    // Everything left to the optional unwrap is the base expression
+    const token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
+    auto base_expr = create_expression(scope, base_expr_tokens);
+    if (!base_expr.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    if (!dynamic_cast<const OptionalType *>(base_expr.value()->type.get())) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    return OptionalUnwrapNode(base_expr.value());
+}
+
 std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     // The array access must end with a closing bracket token. Then, everything from that closing bracket to the left until an opening
     // bracket is considered the indexing expressions. Everything that comes before that initial opening bracket is considered the base
@@ -806,8 +923,8 @@ std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope
     token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
     unsigned int depth = 0;
     for (; base_expr_tokens.second != tokens.first;) {
-        // We can decrement the 'indexing_tokens' begin as well as the 'base_expr_tokens' end at the same time, needing only one loop to get
-        // both ranges
+        // We can decrement the 'indexing_tokens' begin as well as the 'base_expr_tokens' end at the same time, needing only one loop to
+        // get both ranges
         if (base_expr_tokens.second->token == TOK_RIGHT_BRACKET) {
             depth++;
         } else if (base_expr_tokens.second->token == TOK_LEFT_BRACKET) {
@@ -1106,6 +1223,28 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
         return std::make_unique<ArrayAccessNode>(std::move(access.value()));
     }
+    if (Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_QUESTION))) {
+        if (!Matcher::tokens_contain(tokens_mut, Matcher::unary_operator) &&
+            !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator)) {
+            std::optional<OptionalChainNode> chain = create_optional_chain(scope, tokens);
+            if (!chain.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<OptionalChainNode>(std::move(chain.value()));
+        }
+    }
+    if (Matcher::tokens_end_with(tokens_mut, Matcher::token(TOK_EXCLAMATION))) {
+        if (!Matcher::tokens_contain(tokens_mut, Matcher::unary_operator) &&
+            !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator)) {
+            std::optional<OptionalUnwrapNode> unwrap = create_optional_unwrap(scope, tokens);
+            if (!unwrap.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_unique<OptionalUnwrapNode>(std::move(unwrap.value()));
+        }
+    }
     if (Matcher::tokens_match(tokens_mut, Matcher::stacked_expression)) {
         return create_stacked_expression(scope, tokens_mut);
     }
@@ -1175,8 +1314,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     // Check if all parameter types actually match the argument types
     // If we came until here, the arg count definitely matches the parameter count
     if (lhs.value()->type != rhs.value()->type) {
-        // Check if the operator is a optional default, in this case we need to check whether the lhs is an optional and whether the rhs is
-        // the base type of the optional, otherwise it is considered an error
+        // Check if the operator is a optional default, in this case we need to check whether the lhs is an optional and whether the rhs
+        // is the base type of the optional, otherwise it is considered an error
         if (pivot_token == TOK_OPT_DEFAULT) {
             const OptionalType *lhs_opt = dynamic_cast<const OptionalType *>(lhs.value()->type.get());
             if (lhs_opt == nullptr) {

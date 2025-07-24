@@ -167,9 +167,6 @@ bool Lexer::scan_token() {
             if (peek_next() == '?') {
                 add_token(TOK_OPT_DEFAULT, "??");
                 advance();
-            } else if (peek_next() == '.') {
-                add_token(TOK_OPT_CHAIN, "?.");
-                advance();
             } else {
                 add_token(TOK_QUESTION);
             }
@@ -321,9 +318,6 @@ bool Lexer::scan_token() {
         case '!':
             if (peek_next() == '=') {
                 add_token(TOK_NOT_EQUAL, "!=");
-                advance();
-            } else if (peek_next() == '.') {
-                add_token(TOK_UNWRAP_CHAIN, "!.");
                 advance();
             } else {
                 add_token(TOK_EXCLAMATION);

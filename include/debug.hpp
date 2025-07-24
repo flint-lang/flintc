@@ -24,6 +24,8 @@
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/optional_chain_node.hpp"
+#include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
@@ -164,6 +166,8 @@ namespace Debug {
         void print_switch_match(unsigned int indent_lvl, TreeBits &bits, const SwitchMatchNode &match);
         void print_switch_expression(unsigned int indent_lvl, TreeBits &bits, const SwitchExpression &switch_expression);
         void print_default(unsigned int indent_lvl, TreeBits &bits, const DefaultNode &default_node);
+        void print_optional_chain(unsigned int indent_lvl, TreeBits &bits, const OptionalChainNode &chain_node);
+        void print_optional_unwrap(unsigned int indent_lvl, TreeBits &bits, const OptionalUnwrapNode &unwrap_node);
         void print_expression(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<ExpressionNode> &expr);
 
         // --- STATEMENTS ---
