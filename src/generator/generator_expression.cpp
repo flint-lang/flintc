@@ -72,6 +72,9 @@ Generator::group_mapping Generator::Expression::generate_expression( //
     if (const auto *grouped_data_access = dynamic_cast<const GroupedDataAccessNode *>(expression_node)) {
         return generate_grouped_data_access(builder, ctx, garbage, expr_depth, grouped_data_access);
     }
+    if (const auto *optional_unwrap = dynamic_cast<const OptionalUnwrapNode *>(expression_node)) {
+        return generate_optional_unwrap(builder, ctx, garbage, expr_depth, optional_unwrap);
+    }
     if (const auto *array_initializer = dynamic_cast<const ArrayInitializerNode *>(expression_node)) {
         group_map.emplace_back(generate_array_initializer(builder, ctx, garbage, expr_depth, array_initializer));
         return group_map;
@@ -1333,6 +1336,54 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     return return_values;
 }
 
+Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
+    llvm::IRBuilder<> &builder,                                           //
+    GenerationContext &ctx,                                               //
+    garbage_type &garbage,                                                //
+    const unsigned int expr_depth,                                        //
+    const OptionalUnwrapNode *unwrap                                      //
+) {
+    const OptionalType *opt_type = dynamic_cast<const OptionalType *>(unwrap->base_expr->type.get());
+    assert(opt_type != nullptr);
+    auto base_expressions = generate_expression(builder, ctx, garbage, expr_depth + 1, unwrap->base_expr.get());
+    if (!base_expressions.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // For now, we assume that the base expression is not a group type
+    assert(base_expressions.value().size() == 1);
+    llvm::Value *base_expr = base_expressions.value().front();
+    if (base_expr->getType()->isPointerTy()) {
+        llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), unwrap->base_expr->type, false);
+        base_expr = builder.CreateLoad(opt_struct_type, base_expr, "loaded_base_expr");
+    }
+    if (unwrap_mode == OptionalUnwrapMode::UNSAFE) {
+        // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
+        base_expr = builder.CreateExtractValue(base_expr, {1}, "opt_value_unsafe");
+        return std::vector<llvm::Value *>{base_expr};
+    }
+    // First, check if the optional even has a value at all
+    llvm::BasicBlock *inserter = builder.GetInsertBlock();
+    llvm::BasicBlock *has_no_value = llvm::BasicBlock::Create(context, "opt_upwrap_no_value", ctx.parent);
+    llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "opt_upwrap_value", ctx.parent);
+    builder.SetInsertPoint(inserter);
+    llvm::Value *opt_has_value = builder.CreateExtractValue(base_expr, {0}, "opt_has_value");
+    llvm::BranchInst *branch = builder.CreateCondBr(opt_has_value, merge, has_no_value, IR::generate_weights(100, 1));
+    branch->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the 'has_value' property is true")));
+
+    // The crash block, in the case of a bad optional access
+    builder.SetInsertPoint(has_no_value);
+    llvm::Value *err_msg = IR::generate_const_string(builder, "Bad optional access occurred\n");
+    builder.CreateCall(c_functions.at(PRINTF), {err_msg});
+    builder.CreateCall(c_functions.at(ABORT), {});
+    builder.CreateUnreachable();
+
+    // The merge block, when the optional access was okay
+    builder.SetInsertPoint(merge);
+    base_expr = builder.CreateExtractValue(base_expr, {1}, "opt_value");
+    return std::vector<llvm::Value *>{base_expr};
+}
+
 Generator::group_mapping Generator::Expression::generate_type_cast( //
     llvm::IRBuilder<> &builder,                                     //
     GenerationContext &ctx,                                         //
@@ -1594,42 +1645,6 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                 // Unknown unary operator
                 THROW_BASIC_ERR(ERR_GENERATING);
                 break;
-            case TOK_EXCLAMATION: {
-                // Optional unwrapping
-                const OptionalType *opt_type = dynamic_cast<const OptionalType *>(unary_op->operand->type.get());
-                // It's the job of the parser to ensure correct types
-                assert(opt_type != nullptr);
-                if (operand.at(i)->getType()->isPointerTy()) {
-                    llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), unary_op->operand->type, false);
-                    operand.at(i) = builder.CreateLoad(opt_struct_type, operand.at(i), "loaded_operand");
-                }
-                if (unwrap_mode == OptionalUnwrapMode::UNSAFE) {
-                    // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
-                    operand.at(i) = builder.CreateExtractValue(operand.at(i), {1}, "opt_value_unsafe");
-                    break;
-                }
-                // First, check if the optional even has a value at all
-                llvm::BasicBlock *inserter = builder.GetInsertBlock();
-                llvm::BasicBlock *has_no_value = llvm::BasicBlock::Create(context, "opt_upwrap_no_value", ctx.parent);
-                llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "opt_upwrap_value", ctx.parent);
-                builder.SetInsertPoint(inserter);
-                llvm::Value *opt_has_value = builder.CreateExtractValue(operand.at(i), {0}, "opt_has_value");
-                llvm::BranchInst *branch = builder.CreateCondBr(opt_has_value, merge, has_no_value, IR::generate_weights(100, 1));
-                branch->setMetadata("comment",
-                    llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the 'has_value' property is true")));
-
-                // The crash block, in the case of a bad optional access
-                builder.SetInsertPoint(has_no_value);
-                llvm::Value *err_msg = IR::generate_const_string(builder, "Bad optional access occurred\n");
-                builder.CreateCall(c_functions.at(PRINTF), {err_msg});
-                builder.CreateCall(c_functions.at(ABORT), {});
-                builder.CreateUnreachable();
-
-                // The merge block, when the optional access was okay
-                builder.SetInsertPoint(merge);
-                operand.at(i) = builder.CreateExtractValue(operand.at(i), {1}, "opt_value");
-                break;
-            }
             case TOK_NOT:
                 // Not is only allowed to be placed at the left of the expression
                 if (!unary_op->is_left) {

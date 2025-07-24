@@ -8,6 +8,7 @@ use Core.print
 def main():
 	i32? maybe = 10;
 	i32 val = maybe!;
+	print($"val = {val}\n");
 
 	// Vec2 v2 = Vec2(10, 20);
 	// Vec2? vec = v2;

@@ -12,6 +12,7 @@
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
@@ -1577,6 +1578,23 @@ class Generator {
             garbage_type &garbage,                           //
             const unsigned int expr_depth,                   //
             const GroupedDataAccessNode *grouped_data_access //
+        );
+
+        /// @function `generate_optional_unwrap`
+        /// @brief Generates an optional unwrap from a given OptionalUnwrapNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `unwrap` The optional unwrap node node to generate
+        /// @return `group_mapping` The value(s) containing the result of the optional unwrap
+        static group_mapping generate_optional_unwrap( //
+            llvm::IRBuilder<> &builder,                //
+            GenerationContext &ctx,                    //
+            garbage_type &garbage,                     //
+            const unsigned int expr_depth,             //
+            const OptionalUnwrapNode *unwrap           //
         );
 
         /// @function `generate_type_cast`
