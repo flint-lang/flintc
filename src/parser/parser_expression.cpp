@@ -896,21 +896,104 @@ std::optional<OptionalChainNode> Parser::create_optional_chain(std::shared_ptr<S
     return std::nullopt;
 }
 
-std::optional<OptionalUnwrapNode> Parser::create_optional_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens) {
-    assert(std::prev(tokens.second)->token == TOK_EXCLAMATION);
-    assert((tokens.first + 1) != tokens.second);
-    // Everything left to the optional unwrap is the base expression
-    const token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
-    auto base_expr = create_expression(scope, base_expr_tokens);
-    if (!base_expr.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    // We first need to get the last exclamation operator as our separator for the base expression
+    auto iterator = tokens.second - 1;
+    while (iterator != tokens.first) {
+        if (iterator->token == TOK_EXCLAMATION) {
+            break;
+        }
+        --iterator;
     }
-    if (!dynamic_cast<const OptionalType *>(base_expr.value()->type.get())) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+    assert(iterator != tokens.first);
+    assert(iterator->token == TOK_EXCLAMATION);
+    const token_slice base_expr_tokens = {tokens.first, iterator};
+    // If nothing follows after the optional unwrap node we can return it directly
+    if (iterator == tokens.second - 1) {
+        auto base_expr = create_expression(scope, base_expr_tokens);
+        if (!base_expr.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (!dynamic_cast<const OptionalType *>(base_expr.value()->type.get())) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_unique<OptionalUnwrapNode>(base_expr.value());
     }
-    return OptionalUnwrapNode(base_expr.value());
+    // Skip the `!`
+    ++iterator;
+
+    if (iterator->token == TOK_LEFT_BRACKET) {
+        // It's an array access. First we need to make sure that the base expression is an array or string type
+        auto base_expr = create_expression(scope, base_expr_tokens);
+        if (!base_expr.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_expr.value()->type.get());
+        if (optional_type == nullptr) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        unsigned int dimensionality = 1;
+        std::shared_ptr<Type> result_type;
+        if (const ArrayType *base_array_type = dynamic_cast<const ArrayType *>(optional_type->base_type.get())) {
+            result_type = base_array_type->type;
+            dimensionality = base_array_type->dimensionality;
+        } else if (optional_type->base_type->to_string() != "str") {
+            result_type = Type::get_primitive_type("u8");
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+
+        // The last token should be a right bracket and everything in between are the indexing expressions
+        if (std::prev(tokens.second)->token != TOK_RIGHT_BRACKET) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        token_slice indexing_tokens = {std::next(iterator), std::prev(tokens.second)};
+        std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(scope, indexing_tokens);
+        if (!indexing_expressions.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (indexing_expressions.value().size() != dimensionality) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(base_expr.value());
+        return std::make_unique<ArrayAccessNode>(opt_unwrap, result_type, indexing_expressions.value());
+    } else if (iterator->token == TOK_DOT && (iterator + 1)->token == TOK_LEFT_PAREN) {
+        // It's a grouped field access
+        auto grouped_access_base = create_grouped_access_base(scope, tokens, true);
+        if (!grouped_access_base.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        auto &base_expr = std::get<0>(grouped_access_base.value());
+        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(base_expr);
+        auto &field_names = std::get<1>(grouped_access_base.value());
+        auto &field_ids = std::get<2>(grouped_access_base.value());
+        auto &field_types = std::get<3>(grouped_access_base.value());
+        return std::make_unique<GroupedDataAccessNode>(opt_unwrap, field_names, field_ids, field_types);
+    } else if (iterator->token == TOK_DOT) {
+        // It's a field access
+        auto field_access_base = create_field_access_base(scope, tokens, true);
+        if (!field_access_base.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        auto &base_expr = std::get<0>(field_access_base.value());
+        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(base_expr);
+        auto &field_name = std::get<1>(field_access_base.value());
+        auto &field_id = std::get<2>(field_access_base.value());
+        auto &field_type = std::get<3>(field_access_base.value());
+        return std::make_unique<DataAccessNode>(opt_unwrap, field_name, field_id, field_type);
+    }
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
 }
 
 std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
@@ -1234,15 +1317,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<OptionalChainNode>(std::move(chain.value()));
         }
     }
-    if (Matcher::tokens_end_with(tokens_mut, Matcher::token(TOK_EXCLAMATION))) {
+    if (Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_EXCLAMATION))) {
         if (!Matcher::tokens_contain(tokens_mut, Matcher::unary_operator) &&
             !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator)) {
-            std::optional<OptionalUnwrapNode> unwrap = create_optional_unwrap(scope, tokens);
+            std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(scope, tokens);
             if (!unwrap.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            return std::make_unique<OptionalUnwrapNode>(std::move(unwrap.value()));
+            return std::move(unwrap.value());
         }
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::stacked_expression)) {

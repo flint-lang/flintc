@@ -794,8 +794,8 @@ class Parser {
     ///
     /// @param `scope` The scope in which the optional unwrap is defined
     /// @param `tokens` The list of tokens representing the optional unwrap
-    /// @return `std::optional<OptionalChainUnwrap>` An optional unwrap, nullopt if its creation failed
-    std::optional<OptionalUnwrapNode> create_optional_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The expression containing the optional unwrap, nullopt if creation failed
+    std::optional<std::unique_ptr<ExpressionNode>> create_optional_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens);
 
     /// @function `create_stacked_expression`
     /// @brief Creates a stacked expression from the given tokens

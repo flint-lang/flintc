@@ -636,7 +636,7 @@ Parser::create_field_access_base(     //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    std::shared_ptr<Type> &base_type = base_expr.value()->type;
+    std::shared_ptr<Type> base_type = base_expr.value()->type;
     if (has_inbetween_operator) {
         const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_type.get());
         assert(optional_type != nullptr);
@@ -817,7 +817,7 @@ Parser::create_grouped_access_base(   //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    std::shared_ptr<Type> &base_type = base_expr.value()->type;
+    std::shared_ptr<Type> base_type = base_expr.value()->type;
     if (has_inbetween_operator) {
         const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_type.get());
         assert(optional_type != nullptr);
