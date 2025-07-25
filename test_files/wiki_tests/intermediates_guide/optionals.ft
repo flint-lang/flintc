@@ -60,3 +60,28 @@ test "9_switch_statement_function.ft":
 	str path = "wiki_tests/intermediates_guide/optionals";
 	str file = "9_switch_statement_function.ft";
 	test_file_ok($"{path}/{file}", "none\nvalue = 69\nvalue = 20\n");
+
+test "10_chain_force_unwrap_data.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "10_chain_force_unwrap_data.ft";
+	test_file_ok($"{path}/{file}", "x = 10\n");
+
+test "11_chain_force_unwrap_group.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "11_chain_force_unwrap_group.ft";
+	test_file_ok($"{path}/{file}", "(x, y) = (10, 20)\n");
+
+test "12_chain_force_unwrap_array.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "12_chain_force_unwrap_array.ft";
+	test_file_ok($"{path}/{file}", "arr[4] = 9\n");
+
+test "13_chain_data.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "13_chain_data.ft";
+	test_file_ok($"{path}/{file}", "x! = 10\n");
+
+test "[f]14_chain_nested_data.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "14_chain_nested_data.ft";
+	test_file_ok($"{path}/{file}", "x! = 10\n");

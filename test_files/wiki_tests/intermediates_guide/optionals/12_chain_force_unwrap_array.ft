@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+	i32[]? arr = i32[10](9);
+	print($"arr[4] = {arr![4]}\n");

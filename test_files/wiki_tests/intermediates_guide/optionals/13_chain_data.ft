@@ -1,0 +1,16 @@
+use Core.print
+
+data Vec2:
+	i32 x;
+	i32 y,
+	Vec2(x, y);
+
+def main():
+	Vec2 v2 = Vec2(10, 20);
+	Vec2? v2m = v2;
+	
+	i32? x = v2m?.x;
+	if x == none:
+		print("has no value!\n");
+	else:
+		print($"x! = {x!}\n");
