@@ -566,23 +566,6 @@ namespace Debug {
                     std::cout << ".$" << access.field_id;
                 }
                 std::cout << std::endl;
-            } else if (std::holds_alternative<ChainGroupedFieldAccess>(chain_node.operation)) {
-                const ChainGroupedFieldAccess &access = std::get<ChainGroupedFieldAccess>(chain_node.operation);
-                std::cout << ".(";
-                for (size_t i = 0; i < access.field_names.size(); i++) {
-                    if (i > 0) {
-                        std::cout << ", ";
-                    }
-                    std::cout << access.field_names[i];
-                }
-                std::cout << ") at ids (";
-                for (size_t i = 0; i < access.field_ids.size(); i++) {
-                    if (i > 0) {
-                        std::cout << ", ";
-                    }
-                    std::cout << access.field_ids[i];
-                }
-                std::cout << ")" << std::endl;
             } else if (std::holds_alternative<ChainArrayAccess>(chain_node.operation)) {
                 const ChainArrayAccess &access = std::get<ChainArrayAccess>(chain_node.operation);
                 std::cout << "array access at indices" << std::endl;

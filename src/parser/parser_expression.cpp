@@ -859,25 +859,6 @@ std::optional<OptionalChainNode> Parser::create_optional_chain(std::shared_ptr<S
         }
         operation = ChainArrayAccess{std::move(indexing_expressions.value())};
         return OptionalChainNode(base_expr.value(), true, operation, result_type);
-    } else if (iterator->token == TOK_DOT && (iterator + 1)->token == TOK_LEFT_PAREN) {
-        // It's a grouped field access
-        auto grouped_access_base = create_grouped_access_base(scope, tokens, true);
-        if (!grouped_access_base.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        auto &field_names = std::get<1>(grouped_access_base.value());
-        auto &field_ids = std::get<2>(grouped_access_base.value());
-        operation = ChainGroupedFieldAccess{field_names, field_ids};
-
-        auto &field_types = std::get<3>(grouped_access_base.value());
-        result_type = std::make_shared<GroupType>(field_types);
-        if (!Type::add_type(result_type)) {
-            result_type = Type::get_type_from_str(result_type->to_string()).value();
-        }
-
-        auto &base_expr = std::get<0>(grouped_access_base.value());
-        return OptionalChainNode(base_expr, true, operation, result_type);
     } else if (iterator->token == TOK_DOT) {
         // It's a field access
         auto field_access_base = create_field_access_base(scope, tokens, true);

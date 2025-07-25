@@ -18,18 +18,6 @@ struct ChainFieldAccess {
     unsigned int field_id;
 };
 
-/// @struct `ChainGroupedFieldAccess`
-/// @brief The data used for a optional-chained grouped field access
-struct ChainGroupedFieldAccess {
-    /// @var `field_names`
-    /// @brief The name of the accessed fields
-    std::vector<std::string> field_names;
-
-    /// @var `field_ids`
-    /// @brief The indices of the fields in the data
-    std::vector<unsigned int> field_ids;
-};
-
 /// @struct `ChainArrayAccess`
 /// @brief The data used for a optional-chained array access
 struct ChainArrayAccess {
@@ -38,7 +26,7 @@ struct ChainArrayAccess {
     std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
 };
 
-using ChainOperation = std::variant<ChainFieldAccess, ChainGroupedFieldAccess, ChainArrayAccess>;
+using ChainOperation = std::variant<ChainFieldAccess, ChainArrayAccess>;
 
 /// @class `OptionalChainNode`
 /// @brief Represents optional chains, possibly forced
