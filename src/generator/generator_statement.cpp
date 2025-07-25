@@ -1328,18 +1328,25 @@ bool Generator::Statement::generate_declaration( //
         ) {
             // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
             // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
+            // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead to a
+            // double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just checking
+            // whether the LLVM type of the expression's type matches our expected optional type
             llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
-            // Get the pointer to the i1 element of the optional variable and set it to 1
-            llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, alloca, 0, declaration_node->name + "_has_value_ptr");
-            llvm::StoreInst *store = builder.CreateStore(builder.getInt1(1), var_has_value_ptr);
-            store->setMetadata("comment",
-                llvm::MDNode::get(context,
-                    llvm::MDString::get(context, "Set 'has_value' property of optional '" + declaration_node->name + "' to 1")));
-            llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, alloca, 1, declaration_node->name + "_value_ptr");
-            store = builder.CreateStore(expr_val.value().front(), var_value_ptr);
-            store->setMetadata("comment",
-                llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + declaration_node->name + "'")));
-            return true;
+            const bool types_match = expr_val.value().front()->getType() == var_type;
+            if (!types_match) {
+                // Get the pointer to the i1 element of the optional variable and set it to 1
+                llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, alloca, 0, declaration_node->name + "_has_value_ptr");
+                llvm::StoreInst *store = builder.CreateStore(builder.getInt1(1), var_has_value_ptr);
+                store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context, "Set 'has_value' property of optional '" + declaration_node->name + "' to 1")));
+                llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, alloca, 1, declaration_node->name + "_value_ptr");
+                store = builder.CreateStore(expr_val.value().front(), var_value_ptr);
+                store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context, "Store result of expr in var '" + declaration_node->name + "'")));
+                return true;
+            }
         } else if (const VariantType *var_type = dynamic_cast<const VariantType *>(declaration_node->type.get())) {
             // We first check of which type the rhs really is. If it's a typecast, then we know it's one of the "inner" variations of
             // the variant, if it's a variant directly then we can store the variant in the variable as is. This means we dont need to
@@ -1441,10 +1448,14 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         }
     } else if (dynamic_cast<const OptionalType *>(variable_type.get())) {
         const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
-        if (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?") {
-            // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
-            // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
-            llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), variable_type, false);
+        llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), variable_type, false);
+        // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
+        // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
+        // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead to a
+        // double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just checking
+        // whether the LLVM type of the expression's type matches our expected optional type
+        const bool types_match = expr.value().front()->getType() == var_type;
+        if (!types_match && (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?")) {
             // Get the pointer to the i1 element of the optional variable and set it to 1
             llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, lhs, 0, assignment_node->name + "_has_value_ptr");
             llvm::StoreInst *store = builder.CreateStore(builder.getInt1(1), var_has_value_ptr);

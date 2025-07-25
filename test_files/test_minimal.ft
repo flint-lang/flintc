@@ -19,13 +19,18 @@ def main():
 	(x, y) = vec!.(y, x);
 	print($"(x, y) = ({x}, {y})\n");
 
+	i32? xm = vec?.x;
+	if xm != none:
+		print($"xm = {xm!}\n");
+
+	vec = none;
+	x = vec?.x ?? 69;
+	print($"x = {x}\n");
+
 	i32[]? arr = i32[10](0);
 	i32 n3 = arr![3];
 	print($"n3 = {n3}\n");
 
-	// Vec2 v2 = Vec2(10, 20);
-	// Vec2? vec = v2;
-	// i32? x = vec?.x;
-
-	// i32[]? arr = i32[10](0);
-	// i32? elem = arr?[5];
+	i32? n3m = arr?[3];
+	if n3m != none:
+		print($"n3 = {n3m!}\n");

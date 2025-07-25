@@ -12,6 +12,7 @@
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/optional_chain_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
@@ -185,6 +186,10 @@ class Generator {
         /// @var `imported_core_modules`
         /// @brief The list of imported core modules
         const std::unordered_map<std::string, ImportNode *const> imported_core_modules;
+
+        /// @var `short_circuit_block`
+        /// @brief The block to branch to within an optional chain if any of the chain operations fails
+        std::optional<llvm::BasicBlock *> short_circuit_block = std::nullopt;
     };
 
     /// @var `type_map`
@@ -1527,6 +1532,29 @@ class Generator {
             const ArrayAccessNode *access          //
         );
 
+        /// @function `generate_array_access`
+        /// @brief Generates an array access from all the needed information for the array access
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `base_expr_value` The (potentailly) already-generated base expression of the array access
+        /// @param `result_type` The result type of the array access (being the `base_type` of the array type itself most of times)
+        /// @param `base_expr` The base expression to generate, if no `base_expr_value` is provided
+        /// @param `indexing_expressions` The indexing expressions to generate, whose results are the indices of the array access
+        /// @return `llvm::Value *` The accessed element
+        static llvm::Value *generate_array_access(                                   //
+            llvm::IRBuilder<> &builder,                                              //
+            GenerationContext &ctx,                                                  //
+            garbage_type &garbage,                                                   //
+            const unsigned int expr_depth,                                           //
+            std::optional<llvm::Value *> base_expr_value,                            //
+            const std::shared_ptr<Type> result_type,                                 //
+            const std::unique_ptr<ExpressionNode> &base_expr,                        //
+            const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
+        );
+
         /// @function `get_bool8_eleemnt_at`
         /// @brief Generates all the IR code to access a single element of an bool8 variable and returns the read value
         ///
@@ -1578,6 +1606,23 @@ class Generator {
             garbage_type &garbage,                           //
             const unsigned int expr_depth,                   //
             const GroupedDataAccessNode *grouped_data_access //
+        );
+
+        /// @function `generate_optional_chain`
+        /// @brief Generates an optional chain from a given OptionalChainNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `chain` The optonal chain node to generate
+        /// @return `group_mapping` The value(s) containing the result of the optional chain
+        static group_mapping generate_optional_chain( //
+            llvm::IRBuilder<> &builder,               //
+            GenerationContext &ctx,                   //
+            garbage_type &garbage,                    //
+            const unsigned int expr_depth,            //
+            const OptionalChainNode *chain            //
         );
 
         /// @function `generate_optional_unwrap`

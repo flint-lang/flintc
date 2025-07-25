@@ -72,6 +72,9 @@ Generator::group_mapping Generator::Expression::generate_expression( //
     if (const auto *grouped_data_access = dynamic_cast<const GroupedDataAccessNode *>(expression_node)) {
         return generate_grouped_data_access(builder, ctx, garbage, expr_depth, grouped_data_access);
     }
+    if (const auto *optional_chain = dynamic_cast<const OptionalChainNode *>(expression_node)) {
+        return generate_optional_chain(builder, ctx, garbage, expr_depth, optional_chain);
+    }
     if (const auto *optional_unwrap = dynamic_cast<const OptionalUnwrapNode *>(expression_node)) {
         return generate_optional_unwrap(builder, ctx, garbage, expr_depth, optional_unwrap);
     }
@@ -1121,9 +1124,25 @@ llvm::Value *Generator::Expression::generate_array_access( //
     const unsigned int expr_depth,                         //
     const ArrayAccessNode *access                          //
 ) {
+    std::optional<llvm::Value *> base_expr_value = std::nullopt;
+    return generate_array_access(                                                                                         //
+        builder, ctx, garbage, expr_depth, base_expr_value, access->type, access->base_expr, access->indexing_expressions //
+    );
+}
+
+llvm::Value *Generator::Expression::generate_array_access(                   //
+    llvm::IRBuilder<> &builder,                                              //
+    GenerationContext &ctx,                                                  //
+    garbage_type &garbage,                                                   //
+    const unsigned int expr_depth,                                           //
+    std::optional<llvm::Value *> base_expr_value,                            //
+    const std::shared_ptr<Type> result_type,                                 //
+    const std::unique_ptr<ExpressionNode> &base_expr,                        //
+    const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
+) {
     // First, generate the index expressions
     std::vector<llvm::Value *> index_expressions;
-    for (auto &index_expression : access->indexing_expressions) {
+    for (auto &index_expression : indexing_expressions) {
         group_mapping index = generate_expression(builder, ctx, garbage, expr_depth, index_expression.get());
         if (!index.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -1146,17 +1165,22 @@ llvm::Value *Generator::Expression::generate_array_access( //
         index_expressions.emplace_back(index_expr);
     }
     // Then, generate the base expression
-    group_mapping base_expr = generate_expression(builder, ctx, garbage, expr_depth, access->base_expr.get());
-    if (!base_expr.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return nullptr;
+    llvm::Value *array_ptr = nullptr;
+    if (base_expr_value.has_value()) {
+        array_ptr = base_expr_value.value();
+    } else {
+        group_mapping base_expression = generate_expression(builder, ctx, garbage, expr_depth, base_expr.get());
+        if (!base_expression.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        if (base_expression.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        array_ptr = base_expression.value().front();
     }
-    if (base_expr.value().size() > 1) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return nullptr;
-    }
-    llvm::Value *array_ptr = base_expr.value().front();
-    if (access->base_expr->type->to_string() == "str") {
+    if (base_expr->type->to_string() == "str") {
         // "Array" accesses on strings dont need all the things below, they are much simpler to handle
         if (index_expressions.size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -1177,20 +1201,20 @@ llvm::Value *Generator::Expression::generate_array_access( //
         );
     }
     const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
-    llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), access->type).first;
+    llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), result_type).first;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
-    if (access->type->to_string() == "str") {
+    if (result_type->to_string() == "str") {
         // We get a 'str**' from the 'access_arr' function, so we need to dereference it first before returning it
         llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr"), //
             {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                    //
         );
         return builder.CreateLoad(element_type, result, "str_value");
-    } else if (dynamic_cast<const PrimitiveType *>(access->type.get())) {
+    } else if (dynamic_cast<const PrimitiveType *>(result_type.get())) {
         llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
             {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
         );
         return IR::generate_bitwidth_change(builder, result, 64, element_type->getPrimitiveSizeInBits(), element_type);
-    } else if (dynamic_cast<const MultiType *>(access->type.get())) {
+    } else if (dynamic_cast<const MultiType *>(result_type.get())) {
         // TODO
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return nullptr;
@@ -1334,6 +1358,91 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
         return_values.push_back(builder.CreateExtractValue(expr, id, "group_" + grouped_data_access->field_names.at(i) + "_val"));
     }
     return return_values;
+}
+
+Generator::group_mapping Generator::Expression::generate_optional_chain( //
+    llvm::IRBuilder<> &builder,                                          //
+    GenerationContext &ctx,                                              //
+    garbage_type &garbage,                                               //
+    const unsigned int expr_depth,                                       //
+    const OptionalChainNode *chain                                       //
+) {
+    // First we need to create all the basic blocks the optional chain needs. This includes one "happy path" block for when the chain
+    // has a value and one single "bad path" block for when the chain short-circuits.
+    const bool is_toplevel_chain = !ctx.short_circuit_block.has_value();
+    llvm::Type *result_type = IR::get_type(ctx.parent->getParent(), chain->type).first;
+    if (is_toplevel_chain) {
+        // We add the short_circuit_block at the very end of the generation function to the body of this generation function
+        ctx.short_circuit_block = llvm::BasicBlock::Create(context, "short_circuit");
+    }
+
+    // Now let's run the base expression and then do the operation on it (access, array access)
+    group_mapping expr_result = generate_expression(builder, ctx, garbage, expr_depth, chain->base_expr.get());
+    if (!expr_result.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+    // Because there does not exist such thing as a 'optional group' in Flint, the base expression must have a size of 1 element
+    if (expr_result.value().size() != 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+    llvm::Value *base_expr = expr_result.value().front();
+
+    // We need to check whether the base expression even *has* a value stored in it and then we need to branch depending on whether it
+    // has a value
+    llvm::Value *has_value = builder.CreateExtractValue(base_expr, {0}, "base_expr_has_value");
+    // Now we branch depending on whether the base expression has a value
+    llvm::BasicBlock *happy_path = llvm::BasicBlock::Create(context, "happy_path", ctx.parent);
+    builder.CreateCondBr(has_value, happy_path, ctx.short_circuit_block.value());
+
+    // Do the field or array access
+    builder.SetInsertPoint(happy_path);
+    llvm::Value *base_expr_value = builder.CreateExtractValue(base_expr, {1}, "base_expr_value");
+    llvm::Value *result_value = IR::get_default_value_of_type(result_type);
+    result_value = builder.CreateInsertValue(result_value, builder.getInt1(true), {0});
+    if (std::holds_alternative<ChainFieldAccess>(chain->operation)) {
+        const ChainFieldAccess &access = std::get<ChainFieldAccess>(chain->operation);
+        llvm::Value *opt_value = builder.CreateExtractValue(base_expr_value, access.field_id);
+        result_value = builder.CreateInsertValue(result_value, opt_value, {1}, "filled_result");
+    } else if (std::holds_alternative<ChainArrayAccess>(chain->operation)) {
+        const ChainArrayAccess &access = std::get<ChainArrayAccess>(chain->operation);
+        const OptionalType *base_expr_type = dynamic_cast<const OptionalType *>(chain->base_expr->type.get());
+        assert(base_expr_type != nullptr);
+        const ArrayType *base_array_type = dynamic_cast<const ArrayType *>(base_expr_type->base_type.get());
+        assert(base_array_type != nullptr);
+        llvm::Value *opt_value = generate_array_access(                                                                              //
+            builder, ctx, garbage, expr_depth, base_expr_value, base_array_type->type, chain->base_expr, access.indexing_expressions //
+        );
+        result_value = builder.CreateInsertValue(result_value, opt_value, {1}, "filled_result");
+    }
+
+    if (!is_toplevel_chain) {
+        // Return our accessed value directly now, as we do not do any further "return-evaluation" if we are not the toplevel
+        return std::vector<llvm::Value *>{result_value};
+    }
+
+    // It's definitely the top-level chain element
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge_block");
+    builder.CreateBr(merge_block);
+
+    // Now we can create the short-circuit block which only contains a branch to the merge block, because the default-value is a simple
+    // zeroinitializer
+    ctx.short_circuit_block.value()->insertInto(ctx.parent);
+    builder.SetInsertPoint(ctx.short_circuit_block.value());
+    llvm::Value *sc_value = IR::get_default_value_of_type(result_type);
+    builder.CreateBr(merge_block);
+
+    // Now we need to select our value depending on which block we come from
+    merge_block->insertInto(ctx.parent);
+    builder.SetInsertPoint(merge_block);
+    llvm::PHINode *selected_value = builder.CreatePHI(result_type, 2, "selected_value");
+    selected_value->addIncoming(result_value, happy_path);
+    selected_value->addIncoming(sc_value, ctx.short_circuit_block.value());
+
+    // Lastly reset the short-circuit block
+    ctx.short_circuit_block = std::nullopt;
+    return std::vector<llvm::Value *>{selected_value};
 }
 
 Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
