@@ -1434,9 +1434,15 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
-    } else if (dynamic_cast<const OptionalType *>(variable_type.get())) {
+    } else if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(variable_type.get())) {
         const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
         llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), variable_type, false);
+        if (optional_type->base_type->to_string() == "str") {
+            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
+            llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, lhs, 1, assignment_node->name + "value_ptr");
+            llvm::Value *actual_str_ptr = builder.CreateLoad(str_type->getPointerTo(), var_value_ptr, "actual_str_ptr");
+            builder.CreateCall(c_functions.at(FREE), {actual_str_ptr});
+        }
         // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
         // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
         // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead to a

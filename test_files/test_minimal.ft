@@ -1,9 +1,8 @@
 use Core.print
 
 def main():
-	const i32? opt = 10;
-	switch opt:
-		none: print("is nothing\n");
-		v:
-			v += 3;
-			print($"has value: {v}\n");
+	str? opt = str("Something\n");
+	print(opt!);
+	opt = none;
+	opt = str("New Thing!\n");
+	print(opt!);
