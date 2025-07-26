@@ -216,16 +216,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     }
     for (auto line_it = body.begin(); line_it != body.end(); ++line_it) {
         for (auto token_it = line_it->tokens.first; token_it != line_it->tokens.second; ++token_it) {
-            if (token_it->token == TOK_TYPE && std::next(token_it)->token == TOK_IDENTIFIER) {
-                if (fields.find(std::next(token_it)->lexme) != fields.end()) {
-                    // Field name duplication
-                    THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name,                        //
-                        std::next(token_it)->line, std::next(token_it)->column, std::next(token_it)->lexme //
-                    );
-                    return std::nullopt;
-                }
-                fields[std::next(token_it)->lexme] = token_it->type;
-            } else if (token_it->token == TOK_IDENTIFIER && std::next(token_it)->token == TOK_LEFT_PAREN) {
+            if (token_it->token == TOK_IDENTIFIER && std::next(token_it)->token == TOK_LEFT_PAREN) {
                 // It's the initializer
                 if (token_it->lexme != name) {
                     THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,                 //
@@ -258,6 +249,32 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                         return std::nullopt;
                     }
                 }
+            } else if (Matcher::tokens_start_with({token_it, line_it->tokens.second}, Matcher::type)) {
+                // It's a field
+                std::optional<uint2> range = Matcher::get_next_match_range({token_it, line_it->tokens.second}, Matcher::type);
+                if (!range.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                assert(range.value().first == 0);
+                const token_slice type_tokens = {token_it, token_it + range.value().second};
+                std::optional<std::shared_ptr<Type>> field_type = Type::get_type(type_tokens);
+                if (!field_type.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                token_it += range.value().second;
+                if (token_it->token != TOK_IDENTIFIER) {
+                    // Missing field name
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                if (fields.find(token_it->lexme) != fields.end()) {
+                    // Field name duplication
+                    THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name, token_it->line, token_it->column, token_it->lexme);
+                    return std::nullopt;
+                }
+                fields[token_it->lexme] = field_type.value();
             }
         }
     }
