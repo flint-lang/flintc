@@ -423,29 +423,35 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
                 return std::nullopt;
             }
             ++body_it;
-            // Skip the left paren
-            ++body_it;
-            if (body_it->token == TOK_RIGHT_PAREN) {
+            assert(body_it->token == TOK_LEFT_PAREN);
+            if (std::next(body_it)->token == TOK_RIGHT_PAREN) {
                 // Empty tagged variant
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            if (body_it->token != TOK_TYPE) {
-                // No type in tag
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
             std::vector<std::shared_ptr<Type>> types;
-            types.emplace_back(body_it->type);
-            ++body_it;
-            while (body_it != body.back().tokens.second && body_it->token == TOK_COMMA) {
-                if (std::next(body_it) == body.back().tokens.second || std::next(body_it)->token != TOK_TYPE) {
+            while (body_it != body.back().tokens.second && (body_it->token == TOK_COMMA || body_it->token == TOK_LEFT_PAREN)) {
+                body_it++;
+                token_slice type_tokens = {body_it, body.back().tokens.second};
+                if (std::next(body_it) == body.back().tokens.second || !Matcher::tokens_start_with(type_tokens, Matcher::type)) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                ++body_it;
-                types.emplace_back(body_it->type);
-                ++body_it;
+                const std::optional<uint2> type_range = Matcher::get_next_match_range(type_tokens, Matcher::type);
+                if (!type_range.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                assert(type_range.value().first == 0);
+                type_tokens.second = body_it + type_range.value().second;
+                token_list toks = clone_from_slice(type_tokens);
+                const std::optional<std::shared_ptr<Type>> type = Type::get_type(type_tokens);
+                if (!type.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                types.emplace_back(type.value());
+                body_it = type_tokens.second;
             }
             if (body_it == body.back().tokens.second || body_it->token != TOK_RIGHT_PAREN) {
                 THROW_BASIC_ERR(ERR_PARSING);
@@ -465,20 +471,24 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
                 break;
             }
             continue;
-        } else if (body_it->token == TOK_TYPE) {
+        } else if (Matcher::tokens_start_with({body_it, body.back().tokens.second}, Matcher::type)) {
             // Is untagged
             std::optional<std::string> notag;
-            if ((body_it + 1)->token == TOK_COMMA) {
-                possible_types.emplace_back(notag, body_it->type);
-            } else if ((body_it + 1)->token == TOK_SEMICOLON) {
-                possible_types.emplace_back(notag, body_it->type);
-                break;
-            } else {
-                const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
-                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,    //
-                    body_it->line, body_it->column, expected, body_it->token //
-                );
+            token_slice type_tokens = {body_it, body.back().tokens.second};
+            token_list toks = clone_from_slice(type_tokens);
+            std::optional<uint2> type_range = Matcher::get_next_match_range(type_tokens, Matcher::type);
+            // Now we can adjust the type token's end with our range and get the type and add it to the list
+            assert(type_range.value().first == 0);
+            type_tokens.second = body_it + type_range.value().second;
+            const std::optional<std::shared_ptr<Type>> type = Type::get_type(type_tokens);
+            if (!type.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
+            }
+            possible_types.emplace_back(notag, type.value());
+            body_it = type_tokens.second;
+            if (body_it->token == TOK_SEMICOLON) {
+                break;
             }
         }
         ++body_it;
