@@ -1000,6 +1000,7 @@ class Parser {
     /// @param `body` The body of the whole switch
     /// @param `switcher_type` The type of the expression which is switched upon
     /// @param `is_statement` Whether the created switch is an expression or a statement
+    /// @param `is_mutable` Whether the switched on variable is mutable
     /// @return `bool` Whether the creation of the enum switch branches was successfull
     ///
     /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
@@ -1010,7 +1011,8 @@ class Parser {
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
         const std::shared_ptr<Type> &switcher_type, //
-        const bool is_statement                     //
+        const bool is_statement,                    //
+        const bool is_mutable                       //
     );
 
     /// @function `create_variant_switch_branches`
@@ -1023,6 +1025,7 @@ class Parser {
     /// @param `body` The body of the whole switch
     /// @param `switcher_type` The type of the expression which is switched upon
     /// @param `is_statement` Whether the created switch is an expression or a statement
+    /// @param `is_mutable` Whether the switched on variable is mutable
     /// @return `bool` Whether the creation of the variant switch branches was successfull
     ///
     /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
@@ -1033,7 +1036,8 @@ class Parser {
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
         const std::shared_ptr<Type> &switcher_type, //
-        const bool is_statement                     //
+        const bool is_statement,                    //
+        const bool is_mutable                       //
     );
 
     /// @function `create_switch_statement`

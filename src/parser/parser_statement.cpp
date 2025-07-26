@@ -681,7 +681,8 @@ bool Parser::create_optional_switch_branches(   //
     std::vector<ESwitchBranch> &e_branches,     //
     const std::vector<Line> &body,              //
     const std::shared_ptr<Type> &switcher_type, //
-    const bool is_statement                     //
+    const bool is_statement,                    //
+    const bool is_mutable                       //
 ) {
     // We simply check for the `none` and the `identifier` branches, as those are the only possible branches
     bool none_branch_parsed = false;
@@ -726,7 +727,8 @@ bool Parser::create_optional_switch_branches(   //
             const OptionalType *optional_type = dynamic_cast<const OptionalType *>(switcher_type.get());
             match_expressions.push_back(std::make_unique<SwitchMatchNode>(optional_type->base_type, match_tokens.first->lexme, 1));
             std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
-            if (!branch_scope->add_variable(match_tokens.first->lexme, optional_type->base_type, branch_scope->scope_id, true, false)) {
+            const unsigned int scope_id = branch_scope->scope_id;
+            if (!branch_scope->add_variable(match_tokens.first->lexme, optional_type->base_type, scope_id, is_mutable, false)) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
@@ -752,7 +754,8 @@ bool Parser::create_variant_switch_branches(    //
     std::vector<ESwitchBranch> &e_branches,     //
     const std::vector<Line> &body,              //
     const std::shared_ptr<Type> &switcher_type, //
-    const bool is_statement                     //
+    const bool is_statement,                    //
+    const bool is_mutable                       //
 ) {
     // We check for each type as an index to check in which branch we switch to, and then we can directly branch in the switch depending on
     // which type index the variant holds, pretty simple actually
@@ -864,7 +867,7 @@ bool Parser::create_variant_switch_branches(    //
         match_expressions.push_back(std::make_unique<SwitchMatchNode>(access_type, access_name, type_idx));
 
         std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
-        if (!branch_scope->add_variable(access_name, access_type, branch_scope->scope_id, true, false)) {
+        if (!branch_scope->add_variable(access_name, access_type, branch_scope->scope_id, is_mutable, false)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
@@ -917,12 +920,18 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
             return std::nullopt;
         }
     } else if (dynamic_cast<const OptionalType *>(switcher.value()->type.get())) {
-        if (!create_optional_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement)) {
+        const VariableNode *var_node = dynamic_cast<const VariableNode *>(switcher.value().get());
+        assert(var_node != nullptr);
+        const bool is_mutable = std::get<2>(scope->variables.find(var_node->name)->second);
+        if (!create_optional_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
     } else if (dynamic_cast<const VariantType *>(switcher.value()->type.get())) {
-        if (!create_variant_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement)) {
+        const VariableNode *var_node = dynamic_cast<const VariableNode *>(switcher.value().get());
+        assert(var_node != nullptr);
+        const bool is_mutable = std::get<2>(scope->variables.find(var_node->name)->second);
+        if (!create_variant_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
