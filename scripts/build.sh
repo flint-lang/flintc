@@ -12,9 +12,10 @@ Options:
     -w, --windows           Cross compile the executable for windows
     -s, --static            Build the executable as static
     -d, --dynamic           Build the executable as dynamic (default)
-    -D  --debug             Compile the compiler in debug mode
+    -D  --debug             Compile the compiler in debug mode (default)
+    -R  --release           Compile the compiler in release mode
     -r  --rebuild           Forces rebuilding of the compiler
-    -R  --rebuild-llvm      Forces rebuilding of llvm
+        --rebuild-llvm      Forces rebuilding of llvm
     -t, --test              Run the tests after compilation
     -v, --verbose           Toggle verbosity on
         --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')"
@@ -232,7 +233,8 @@ fetch_json_mini() {
 }
 
 # Sets up the cmake build directory for windows
-# $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of llvm
+# $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of the compiler
+# $2 - is_debug - Whether to build the release ("false") or the debug ("true") build
 setup_build_windows() {
     echo "-- Configuring compiler for Windows..."
 
@@ -246,8 +248,9 @@ setup_build_windows() {
     fi
 
     debug_flag="-DDEBUG_MODE=OFF"
-    if [ "$debug_mode" = "true" ]; then
+    if [ "$2" = "true" ]; then
         debug_flag="-DDEBUG_MODE=ON"
+        build_dir="${build_dir}-debug"
         echo "-- Building executable in debug mode..."
     fi
 
@@ -270,6 +273,7 @@ setup_build_windows() {
 
 # Sets up the cmake build directory for linux
 # $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of llvm
+# $2 - is_debug - Whether to build the release ("false") or the debug ("true") build
 setup_build_linux() {
     echo "-- Configuring compiler for Linux..."
 
@@ -283,8 +287,9 @@ setup_build_linux() {
     fi
 
     debug_flag="-DDEBUG_MODE=OFF"
-    if [ "$debug_mode" = "true" ]; then
+    if [ "$2" = "true" ]; then
         debug_flag="-DDEBUG_MODE=ON"
+        build_dir="${build_dir}-debug"
         echo "-- Building executable in debug mode..."
     fi
 
@@ -309,19 +314,39 @@ setup_build_linux() {
 setup_builds() {
     if [ "$build_windows" = "true" ]; then
         if [ "$build_static" = "true" ]; then
-            setup_build_windows "true"
+            if [ "$build_debug" = "true" ]; then
+                setup_build_windows "true" "true"
+            fi
+            if [ "$build_release" = "true" ]; then
+                setup_build_windows "true" "false"
+            fi
         fi
         if [ "$build_dynamic" = "true" ]; then
-            setup_build_windows "false"
+            if [ "$build_debug" = "true" ]; then
+                setup_build_windows "false" "true"
+            fi
+            if [ "$build_release" = "true" ]; then
+                setup_build_windows "false" "false"
+            fi
         fi
     fi
 
     if [ "$build_linux" = "true" ]; then
         if [ "$build_static" = "true" ]; then
-            setup_build_linux "true"
+            if [ "$build_debug" = "true" ]; then
+                setup_build_linux "true" "true"
+            fi
+            if [ "$build_release" = "true" ]; then
+                setup_build_linux "true" "false"
+            fi
         fi
         if [ "$build_dynamic" = "true" ]; then
-            setup_build_linux "false"
+            if [ "$build_debug" = "true" ]; then
+                setup_build_linux "false" "true"
+            fi
+            if [ "$build_release" = "true" ]; then
+                setup_build_linux "false" "false"
+            fi
         fi
     fi
 }
@@ -330,23 +355,47 @@ setup_builds() {
 build_compilers() {
     if [ "$build_windows" = "true" ]; then
         if [ "$build_static" = "true" ]; then
-            echo "-- Building static Windows targets..."
-            cmake --build "$root/build/windows-static" -j"$core_count" --target static
+            if [ "$build_debug" = "true" ]; then
+                echo "-- Building static Windows targets in debug mode..."
+                cmake --build "$root/build/windows-static-debug" -j"$core_count" --target static
+            fi
+            if [ "$build_release" = "true" ]; then
+                echo "-- Building static Windows targets in release mode..."
+                cmake --build "$root/build/windows-static" -j"$core_count" --target static
+            fi
         fi
         if [ "$build_dynamic" = "true" ]; then
-            echo "-- Building Windows targets..."
-            cmake --build "$root/build/windows" -j"$core_count" --target dynamic
+            if [ "$build_debug" = "true" ]; then
+                echo "-- Building Windows targets in debug mode..."
+                cmake --build "$root/build/windows-debug" -j"$core_count" --target dynamic
+            fi
+            if [ "$build_release" = "true" ]; then
+                echo "-- Building Windows targets in release mode..."
+                cmake --build "$root/build/windows" -j"$core_count" --target dynamic
+            fi
         fi
     fi
 
     if [ "$build_linux" = "true" ]; then
         if [ "$build_static" = "true" ]; then
-            echo "-- Building static Linux targets..."
-            cmake --build "$root/build/linux-static" -j"$core_count" --target static
+            if [ "$build_debug" = "true" ]; then
+                echo "-- Building static Linux targets in debug mode..."
+                cmake --build "$root/build/linux-static-debug" -j"$core_count" --target static
+            fi
+            if [ "$build_release" = "true" ]; then
+                echo "-- Building static Linux targets in release mode..."
+                cmake --build "$root/build/linux-static" -j"$core_count" --target static
+            fi
         fi
         if [ "$build_dynamic" = "true" ]; then
-            echo "-- Building Linux targets..."
-            cmake --build "$root/build/linux" -j"$core_count" --target dynamic
+            if [ "$build_debug" = "true" ]; then
+                echo "-- Building Linux targets in debug mode..."
+                cmake --build "$root/build/linux-debug" -j"$core_count" --target dynamic
+            fi
+            if [ "$build_release" = "true" ]; then
+                echo "-- Building Linux targets in release mode..."
+                cmake --build "$root/build/linux" -j"$core_count" --target dynamic
+            fi
         fi
     fi
 }
@@ -363,49 +412,58 @@ checked_copy() {
 copy_executables() {
     if [ "$build_windows" = "true" ]; then
         if [ "$build_static" = "true" ]; then
-            checked_copy "$root/build/windows-static/out/flintc.exe" "$root/build/out/"
-            checked_copy "$root/build/windows-static/out/tests.exe" "$root/build/out/"
+            if [ "$build_debug" = "true" ]; then
+                checked_copy "$root/build/windows-static-debug/out/flintc.exe" "$root/build/out/flintc.exe"
+                checked_copy "$root/build/windows-static-debug/out/tests.exe" "$root/build/out/tests.exe"
+            fi
+            if [ "$build_release" = "true" ]; then
+                checked_copy "$root/build/windows-static/out/flintc.exe" "$root/build/out/flintc-release.exe"
+                checked_copy "$root/build/windows-static/out/tests.exe" "$root/build/out/tests-release.exe"
+            fi
         fi
         if [ "$build_dynamic" = "true" ]; then
-            checked_copy "$root/build/windows/out/dynamic-flintc.exe" "$root/build/out/"
-            checked_copy "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/"
+            if [ "$build_debug" = "true" ]; then
+                checked_copy "$root/build/windows-debug/out/dynamic-flintc.exe" "$root/build/out/dynamic-flintc.exe"
+                checked_copy "$root/build/windows-debug/out/dynamic-tests.exe" "$root/build/out/dynamic-tests.exe"
+            fi
+            if [ "$build_release" = "true" ]; then
+                checked_copy "$root/build/windows/out/dynamic-flintc.exe" "$root/build/out/dynamic-flintc-release.exe"
+                checked_copy "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/dynamic-tests-release.exe"
+            fi
         fi
     fi
 
     if [ "$build_linux" = "true" ]; then
         if [ "$build_static" = "true" ]; then
-            checked_copy "$root/build/linux-static/out/flintc" "$root/build/out/"
-            checked_copy "$root/build/linux-static/out/tests" "$root/build/out/"
+            if [ "$build_debug" = "true" ]; then
+                checked_copy "$root/build/linux-static-debug/out/flintc" "$root/build/out/flintc"
+                checked_copy "$root/build/linux-static-debug/out/tests" "$root/build/out/tests"
+            fi
+            if [ "$build_release" = "true" ]; then
+                checked_copy "$root/build/linux-static/out/flintc" "$root/build/out/flintc-release"
+                checked_copy "$root/build/linux-static/out/tests" "$root/build/out/tests-release"
+            fi
         fi
         if [ "$build_dynamic" = "true" ]; then
-            checked_copy "$root/build/linux/out/dynamic-flintc" "$root/build/out/"
-            checked_copy "$root/build/linux/out/dynamic-tests" "$root/build/out/"
+            if [ "$build_debug" = "true" ]; then
+                checked_copy "$root/build/linux-debug/out/dynamic-flintc" "$root/build/out/dynamic-flintc"
+                checked_copy "$root/build/linux-debug/out/dynamic-tests" "$root/build/out/dynamic-tests"
+            fi
+            if [ "$build_release" = "true" ]; then
+                checked_copy "$root/build/linux/out/dynamic-flintc" "$root/build/out/dynamic-flintc-release"
+                checked_copy "$root/build/linux/out/dynamic-tests" "$root/build/out/dynamic-tests-release"
+            fi
         fi
     fi
 }
 
 # Executes all tests to ensure the compiler is in a working state
 run_tests() {
-    if [ "$build_windows" = "true" ]; then
-        if [ "$build_static" = "true" ]; then
-            echo "-- Running tests for the static Windows compiler..."
-            "$root"/build/out/tests.exe
-            echo
-        fi
-        if [ "$build_dynamic" = "true" ]; then
-            echo "-- Running tests for the dynamic Windows compiler is not suppoerted!"
-            # "$root"/build/out/dynamic-tests.exe
-        fi
-    fi
-
     if [ "$build_linux" = "true" ]; then
-        if [ "$build_static" = "true" ]; then
-            echo "-- Running tests for the static Linux compiler..."
-            "$root"/build/out/tests
-        fi
-        if [ "$build_dynamic" = "true" ]; then
-            echo "-- Running tests for the dynamic Linux compiler..."
-            "$root"/build/out/dynamic-tests
+        if [ "$build_release" = "true" ]; then
+            cd "$root/test_files"
+            flintc --file wiki_tests.ft --test --run
+            cd "$root"
         fi
     fi
 }
@@ -426,7 +484,8 @@ build_linux=false
 force_rebuild=false
 force_rebuild_llvm=false
 run_tests=false
-debug_mode=false
+build_debug=false
+build_release=false
 llvm_version="llvmorg-19.1.7"
 zlib_version="v1.3.1"
 # Dont fully peg the CPU, use one core less
@@ -452,7 +511,11 @@ while [ "$#" -gt 0 ]; do
         shift
         ;;
     --debug)
-        debug_mode=true
+        build_debug=true
+        shift
+        ;;
+    --release)
+        build_release=true
         shift
         ;;
     --linux)
@@ -504,7 +567,7 @@ while [ "$#" -gt 0 ]; do
                 build_dynamic=true
                 ;;
             D)
-                debug_mode=true
+                build_debug=true
                 ;;
             l)
                 build_linux=true
@@ -513,7 +576,7 @@ while [ "$#" -gt 0 ]; do
                 force_rebuild=true
                 ;;
             R)
-                force_rebuild_llvm=true
+                build_release=true
                 ;;
             s)
                 build_static=true
@@ -548,6 +611,11 @@ fi
 # Default to dynamic build if no flag is specified
 if [ "$build_static" = "false" ] && [ "$build_dynamic" = "false" ]; then
     build_dynamic=true
+fi
+
+# Default to debug build if no flag is specified
+if [ "$build_debug" = "false" ] && [ "$build_release" = "false" ]; then
+    build_debug=true
 fi
 
 echo "-- Creating necessary directories..."
