@@ -1208,7 +1208,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return initializer;
-        } else if (dynamic_cast<const MultiType *>(tokens_mut.first->type.get())) {
+        } else if (dynamic_cast<const MultiType *>(tokens_mut.first->type.get()) && tokens_mut.first->type->to_string() != "bool8") {
             // It's an explicit initializer of an multi-type
             std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(scope, tokens_mut, std::nullopt);
             if (!initializer.has_value()) {
