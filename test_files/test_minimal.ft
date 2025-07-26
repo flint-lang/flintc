@@ -5,32 +5,18 @@ data Vec2:
 	i32 y;
 	Vec2(x, y);
 
+data Nested:
+	Vec2 v1;
+	Vec2 v2;
+	Nested(v1, v2);
+
+def create_vec(i32 x, i32 y) -> Vec2:
+	return Vec2(x, y);
+
 def main():
-	i32? maybe = 10;
-	i32 val = maybe!;
-	print($"val = {val}\n");
+	Vec2? vec = create_vec(10, 20);
+	print($"(x, y) = ({vec!.x}, {vec!.y})\n");
 
-	Vec2 v2 = Vec2(10, 20);
-	Vec2? vec = v2;
-	i32 y = vec!.y;
-	print($"y = {y}\n");
-	i32 x = vec!.x;
-	print($"x = {x}\n");
-	(x, y) = vec!.(y, x);
-	print($"(x, y) = ({x}, {y})\n");
-
-	i32? xm = vec?.x;
-	if xm != none:
-		print($"xm = {xm!}\n");
-
-	vec = none;
-	x = vec?.x ?? 69;
-	print($"x = {x}\n");
-
-	i32[]? arr = i32[10](0);
-	i32 n3 = arr![3];
-	print($"n3 = {n3}\n");
-
-	i32? n3m = arr?[3];
-	if n3m != none:
-		print($"n3 = {n3m!}\n");
+	Nested n = Nested(Vec2(10, 20), Vec2(30, 40));
+	print($"n.v1.(x, y) = ({n.v1.x}, {n.v1.y})\n");
+	print($"n.v2.(x, y) = ({n.v2.x}, {n.v2.y})\n");

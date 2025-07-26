@@ -550,7 +550,7 @@ class Parser {
         std::string,                                                   // name
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, // args
         std::shared_ptr<Type>,                                         // type
-        std::optional<bool>,                                           // is data (true), entity (false) or call (nullopt)
+        bool,                                                          // is initializer (true) or call (false)
         bool                                                           // can_throw
         >>
     create_call_or_initializer_base(std::shared_ptr<Scope> scope, const token_slice &tokens, const std::optional<std::string> &alias_base);

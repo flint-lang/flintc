@@ -538,7 +538,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
-    assert(!std::get<3>(call_or_init_node_args.value()).has_value());
+    assert(!std::get<3>(call_or_init_node_args.value()));
     std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
         std::get<0>(call_or_init_node_args.value()),                                      // name
         std::get<1>(call_or_init_node_args.value()),                                      // args
@@ -562,14 +562,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
-    assert(std::get<3>(call_or_init_node_args.value()).has_value());
+    assert(std::get<3>(call_or_init_node_args.value()));
     std::vector<std::unique_ptr<ExpressionNode>> args;
     for (auto &arg : std::get<1>(call_or_init_node_args.value())) {
         args.emplace_back(std::move(arg.first));
     }
     std::unique_ptr<InitializerNode> initializer_node = std::make_unique<InitializerNode>( //
         std::get<2>(call_or_init_node_args.value()),                                       // type
-        std::get<3>(call_or_init_node_args.value()).value(),                               // is_data
         args                                                                               // args
     );
     return initializer_node;

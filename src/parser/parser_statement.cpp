@@ -36,11 +36,7 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
         THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
-    if (std::get<3>(call_node_args.value()).has_value()) {
-        // Initializers are not allowed to be statements
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
+    assert(!std::get<3>(call_node_args.value()));
     std::unique_ptr<CallNodeStatement> call_node = std::make_unique<CallNodeStatement>( //
         std::get<0>(call_node_args.value()),                                            // name
         std::move(std::get<1>(call_node_args.value())),                                 // args

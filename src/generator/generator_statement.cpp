@@ -1259,25 +1259,13 @@ bool Generator::Statement::generate_declaration( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
-        const auto *initializer_node = dynamic_cast<const InitializerNode *>(declaration_node->initializer.value().get());
         const auto *typecast_node = dynamic_cast<const TypeCastNode *>(declaration_node->initializer.value().get());
         const auto *tuple_type = dynamic_cast<const TupleType *>(declaration_node->type.get());
-        if (initializer_node != nullptr || tuple_type != nullptr) {
-            if (initializer_node != nullptr && !initializer_node->is_data) {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return false;
-            }
+        if (tuple_type != nullptr) {
             // If the rhs is a InitializerNode, it returns all element values from the initializer expression
             // First, get the struct type of the data
             llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), declaration_node->type).first;
-            std::vector<std::shared_ptr<Type>> types;
-            if (initializer_node != nullptr) {
-                for (const auto &arg : initializer_node->args) {
-                    types.emplace_back(arg->type);
-                }
-            } else if (tuple_type != nullptr) {
-                types = tuple_type->types;
-            }
+            std::vector<std::shared_ptr<Type>> types = tuple_type->types;
             for (size_t i = 0; i < expr_val.value().size(); i++) {
                 llvm::Value *elem_ptr = builder.CreateStructGEP(              //
                     data_type,                                                //

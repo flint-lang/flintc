@@ -306,7 +306,7 @@ std::optional<std::tuple<                                          //
     std::string,                                                   // name
     std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, // args
     std::shared_ptr<Type>,                                         // type
-    std::optional<bool>,                                           // is data (true), entity (false) or call (nullopt)
+    bool,                                                          // is initializer (true) or call (false)
     bool                                                           // can_throw
     >>
 Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const token_slice &tokens,
@@ -440,7 +440,7 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
                 if (type_cast->expr->type->to_string() == "__flint_type_str_lit") {
                     arguments.front().first = std::move(type_cast->expr);
                     argument_types.front() = arguments.front().first->type;
-                    return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), std::nullopt, false);
+                    return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), false, false);
                 }
             }
         }
@@ -490,9 +490,9 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
                 // duplication
                 group_type = Type::get_type_from_str(group_type->to_string()).value();
             }
-            return std::make_tuple(function_name, std::move(arguments), group_type, std::nullopt, std::get<2>(fn));
+            return std::make_tuple(function_name, std::move(arguments), group_type, false, std::get<2>(fn));
         }
-        return std::make_tuple(function_name, std::move(arguments), std::get<1>(fn).front(), std::nullopt, std::get<2>(fn));
+        return std::make_tuple(function_name, std::move(arguments), std::get<1>(fn).front(), false, std::get<2>(fn));
     }
 
     // Get the acutal function this call targets, and check if it even exists
@@ -531,15 +531,15 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
 
     std::vector<std::shared_ptr<Type>> return_types = function.value().first->return_types;
     if (return_types.empty()) {
-        return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), std::nullopt, true);
+        return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), false, true);
     } else if (return_types.size() > 1) {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(return_types);
         if (!Type::add_type(group_type)) {
             group_type = Type::get_type_from_str(group_type->to_string()).value();
         }
-        return std::make_tuple(function_name, std::move(arguments), group_type, std::nullopt, true);
+        return std::make_tuple(function_name, std::move(arguments), group_type, false, true);
     }
-    return std::make_tuple(function_name, std::move(arguments), return_types.front(), std::nullopt, true);
+    return std::make_tuple(function_name, std::move(arguments), return_types.front(), false, true);
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base( //

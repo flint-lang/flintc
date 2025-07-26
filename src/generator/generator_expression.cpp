@@ -9,6 +9,7 @@
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/parser.hpp"
+#include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
@@ -604,19 +605,13 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
     const InitializerNode *initializer                                //
 ) {
     // Check if its a data initializer
-    if (initializer->is_data) {
-        if (dynamic_cast<const GroupType *>(initializer->type.get())) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        // Check if the initializer data type is even present
-        if (data_nodes.find(initializer->type->to_string()) == data_nodes.end()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        std::vector<llvm::Value *> return_values;
-        for (const auto &expression : initializer->args) {
-            auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, expression.get());
+    if (dynamic_cast<const DataType *>(initializer->type.get())) {
+        // Create an "empty" struct of the correct data type
+        llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+        llvm::Value *initialized_value = IR::get_default_value_of_type(struct_type);
+
+        for (unsigned int i = 0; i < initializer->args.size(); i++) {
+            auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
             if (!expr_result.has_value()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
@@ -626,9 +621,35 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            return_values.emplace_back(expr_result.value().front());
+            llvm::Value *expr_val = expr_result.value().front();
+
+            // We need to check whether the given initializer value is a complex type in of itself, if it is we need to allocate space for
+            // it and store it there
+            const std::shared_ptr<Type> &elem_type = initializer->args.at(i)->type;
+            const DataType *field_data_type = dynamic_cast<const DataType *>(elem_type.get());
+            const ArrayType *field_array_type = dynamic_cast<const ArrayType *>(elem_type.get());
+            const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr;
+            if (field_is_complex) {
+                // For complex types, allocate memory and store a pointer
+                llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
+                llvm::Value *field_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
+                llvm::Value *field_alloca = builder.CreateCall(                                        //
+                    c_functions.at(MALLOC), {field_size}, "initializer_" + std::to_string(i) + "_data" //
+                );
+
+                // Store the field value in the allocated memory
+                llvm::StoreInst *value_store = builder.CreateStore(expr_val, field_alloca);
+                value_store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context, "Store complex data for 'initializer_" + std::to_string(i) + "'")));
+
+                // Store the pointer to the complex data in the parent structure
+                initialized_value = builder.CreateInsertValue(initialized_value, field_alloca, {i}, "initialized_" + std::to_string(i));
+            } else {
+                initialized_value = builder.CreateInsertValue(initialized_value, expr_val, {i}, "initialized_" + std::to_string(i));
+            }
         }
-        return return_values;
+        return std::vector<llvm::Value *>{initialized_value};
     }
     return std::nullopt;
 }

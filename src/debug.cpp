@@ -407,9 +407,7 @@ namespace Debug {
 
         void print_initializer(unsigned int indent_lvl, TreeBits &bits, const InitializerNode &initializer) {
             Local::print_header(indent_lvl, bits, "Initializer ");
-            std::cout << "of " << (initializer.is_data ? "data" : "entity") << " type '";
-            std::cout << initializer.type->to_string();
-            std::cout << "'" << std::endl;
+            std::cout << initializer.type->to_string() << std::endl;
 
             indent_lvl++;
             for (auto expr = initializer.args.begin(); expr != initializer.args.end(); ++expr) {
