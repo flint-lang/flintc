@@ -650,6 +650,25 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             }
         }
         return std::vector<llvm::Value *>{initialized_value};
+    } else if (dynamic_cast<const MultiType *>(initializer->type.get())) {
+        // Create an "empty" vector of the multi-type
+        llvm::Type *vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+        llvm::Value *initialized_value = IR::get_default_value_of_type(vector_type);
+        for (unsigned int i = 0; i < initializer->args.size(); i++) {
+            auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
+            if (!expr_result.has_value()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            // For initializers, we need pure single-value types
+            if (expr_result.value().size() > 1) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            llvm::Value *expr_val = expr_result.value().front();
+            initialized_value = builder.CreateInsertElement(initialized_value, expr_val, i, "mutt_init_elem_" + std::to_string(i));
+        }
+        return std::vector<llvm::Value *>{initialized_value};
     }
     return std::nullopt;
 }

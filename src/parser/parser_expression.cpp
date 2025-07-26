@@ -1208,8 +1208,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return initializer;
+        } else if (dynamic_cast<const MultiType *>(tokens_mut.first->type.get())) {
+            // It's an explicit initializer of an multi-type
+            std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(scope, tokens_mut, std::nullopt);
+            if (!initializer.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return initializer;
         } else {
-            // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer
+            // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer)
             std::optional<std::unique_ptr<ExpressionNode>> type_cast = create_type_cast(scope, tokens_mut);
             if (!type_cast.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);

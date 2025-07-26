@@ -411,6 +411,40 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
                 }
             }
             return std::make_tuple(data_node->name, std::move(arguments), tokens.first->type, true, false);
+        } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(tokens.first->type.get())) {
+            const std::shared_ptr<Type> base_type = multi_type->base_type;
+            const unsigned int width = multi_type->width;
+            if (arguments.size() != width) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            for (size_t i = 0; i < arguments.size(); i++) {
+                std::shared_ptr<Type> &arg_type = arguments[i].first->type;
+                if (arg_type == base_type) {
+                    continue;
+                }
+                if (dynamic_cast<const GroupType *>(arg_type.get())) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                std::optional<bool> castability = check_castability(base_type, arg_type);
+                if (castability.has_value() && castability.value()) {
+                    arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
+                } else if (dynamic_cast<const PrimitiveType *>(arg_type.get())) {
+                    const std::string &arg_type_str = arg_type->to_string();
+                    if (primitive_implicit_casting_table.find(arg_type_str) == primitive_implicit_casting_table.end()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    const auto &to_types = primitive_implicit_casting_table.at(arg_type_str);
+                    if (std::find(to_types.begin(), to_types.end(), base_type->to_string()) == to_types.end()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
+                }
+            }
+            return std::make_tuple(tokens.first->type->to_string(), std::move(arguments), tokens.first->type, true, false);
         } else {
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return std::nullopt;
