@@ -98,17 +98,19 @@ class Parser {
     /// @brief Parses all still open function bodies
     ///
     /// @param `parse_parallel` Whether to parse the open functions in parallel
+    /// @param `source` The source tokens of this whole file, needed for token refinement before parsing
     /// @return `bool` Wheter all functions were able to be parsed
-    static bool parse_all_open_functions(const bool parse_parallel);
+    static bool parse_all_open_functions(const bool parse_parallel, token_list &source);
 
     /// @function `parse_all_open_tests`
     /// @brief Parses all still open test bodies
     ///
     /// @param `parse_parallel` Whether to parse the open tests in parallel
+    /// @param `source` The source tokens of this whole file, needed for token refinement before parsing
     /// @return `bool` Whether all tests were able to be parsed
     /// @note This will only be called when the developer wants to run the tests, e.g. make a test build. In the normal compilation
     /// pipeline, the parsing and generation of all tests will not be done, to make compilation as fast as possible.
-    static bool parse_all_open_tests(const bool parse_parallel);
+    static bool parse_all_open_tests(const bool parse_parallel, token_list &source);
 
     /// @function `clear_instances`
     /// @brief Clears all parser instances
@@ -502,9 +504,8 @@ class Parser {
     ///
     /// @param `file_node` The file node the next created main node will be added to
     /// @param `tokens` The list of tokens from which the next main node will be created from
-    /// @param `souce` A reference to the source token vector directly to enable direct modification
     /// @return `bool` Whether the next main node was added correctly. Returns false if there was an error
-    bool add_next_main_node(FileNode &file_node, token_slice &tokens, token_list &source);
+    bool add_next_main_node(FileNode &file_node, token_slice &tokens);
 
     /// @function `get_definition_tokens`
     /// @brief Extracts all the tokens which are part of the definition
@@ -515,21 +516,22 @@ class Parser {
     token_slice get_definition_tokens(const token_slice &tokens);
 
     /// @function `get_body_lines`
-    /// @brief Extracts all the body lines based on their indentation. Returns a list of lines, where the tokens have been refined already,
-    /// meaning that all tokens forming a type have been mergeed into a type token, and all tabs within a given line have been removed,
-    /// leaving only the pure line tokens themselves.
+    /// @brief Extracts all the body lines based on their indentation. Returns a list of lines, where each line is a slice view into the
+    /// token list
     ///
     /// @param `definition_indentation` The indentation level of the definition. The body of the definition will have at least one
     /// indentation level more
     /// @param `tokens` The tokens from which the body will be extracted from
     /// @return `std::vector<Line>` The extracted next body lines
+    std::vector<Line> get_body_lines(unsigned int definition_indentation, token_slice &tokens);
+
+    /// @function `collapse_types_in_lines`
+    /// @brief Refines all given lines. Refinement means that all tabs within a line are removed and that all type tokens are collapsed to a
+    /// single type token instead. When deleting tokens from the source, all other Lines' ranges are updated automatically
     ///
-    /// @attention This function modifies the given `tokens` list, the retured tokens are no longer part of the given list
-    std::vector<Line> get_body_lines(                     //
-        unsigned int definition_indentation,              //
-        token_slice &tokens,                              //
-        std::optional<token_list *> source = std::nullopt //
-    );
+    /// @param `lines` The lines to refine
+    /// @param `source` A reference to the source token vector directly to enable direct modification
+    static void collapse_types_in_lines(std::vector<Line> &lines, token_list &source);
 
     /// @function `create_call_or_initializer_base`
     /// @brief Creates the base node for all calls or initializers

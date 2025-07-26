@@ -15,7 +15,7 @@
 #include "parser/type/variant_type.hpp"
 #include <algorithm>
 
-bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens, token_list &source) {
+bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     token_slice definition_tokens = get_definition_tokens(tokens);
     tokens.first = definition_tokens.second;
     if (std::prev(definition_tokens.second)->token == TOK_EOL) [[likely]] {
@@ -84,17 +84,10 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens, token_
         return true;
     }
 
-    std::vector<Line> body_lines = get_body_lines(definition_indentation, tokens, &source);
+    std::vector<Line> body_lines = get_body_lines(definition_indentation, tokens);
     if (body_lines.empty()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return false;
-    }
-    if (DEBUG_MODE) {
-        // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
-        std::cout << "\n" << YELLOW << "[Debug Info] Printing refined body tokens of definition: " << DEFAULT;
-        // TODO: Replace this eventually with direct from-file printing
-        std::cout << BaseError::get_token_string(definition_tokens, {}) << "\n";
-        Debug::print_token_context_vector({body_lines.front().tokens.first, body_lines.back().tokens.second}, "DEFINITION");
     }
     if (Matcher::tokens_contain(definition_tokens, Matcher::function_definition)) {
         // Dont actually parse the function body, only its definition
@@ -194,11 +187,7 @@ token_slice Parser::get_definition_tokens(const token_slice &tokens) {
     return {tokens.first, tokens.first + end_index};
 }
 
-std::vector<Line> Parser::get_body_lines( //
-    unsigned int definition_indentation,  //
-    token_slice &tokens,                  //
-    std::optional<token_list *> source    //
-) {
+std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, token_slice &tokens) {
     std::vector<Line> body_lines;
     auto current_line_start = tokens.first;
     unsigned int current_indent_lvl = 0;
@@ -239,58 +228,6 @@ std::vector<Line> Parser::get_body_lines( //
                 break;
             }
         }
-        // No token modification takes place whatsoever when the source is not given, so we can skip all later steps
-        if (!source.has_value()) {
-            ++it;
-            continue;
-        }
-        // Erase all indentations within a line, which are not at the beginning of a line
-        if (it->token == TOK_INDENT) {
-            Line::delete_tokens(*source.value(), it, 1);
-            tokens.second = source.value()->end();
-            continue;
-        }
-        // Check if the next token will definitely be not the begin of a type, like commas or a lot of other tokens. In that case no
-        // expensive matching logic needs to be run, so we can safely skip that token entirely
-        if (it->token != TOK_TYPE && it->token != TOK_DATA && it->token != TOK_VARIANT && it->token != TOK_IDENTIFIER) {
-            ++it;
-            continue;
-        }
-        // Check if the next chunk is a type definition, if it is we replace all tokens forming the type with a single type token
-        if (Matcher::tokens_start_with(token_slice{it, tokens.second}, Matcher::type) && source.has_value()) {
-            // It's a type token
-            std::optional<uint2> type_range = Matcher::get_next_match_range(token_slice{it, tokens.second}, Matcher::type);
-            assert(type_range.has_value());
-            assert(type_range.value().first == 0);
-            if (type_range.value().second == 1) {
-                // It's a primitive / simple type. Such types definitely need to exist already, so if it does not exists it's a regular
-                // identifier. And if this token is already a type it means its a primitive type, so we can skip it as well
-                if (it->token != TOK_TYPE) {
-                    // Types of size 1 always need to be an identifier if they are not already a type (primitives)
-                    assert(it->token == TOK_IDENTIFIER);
-                    std::optional<std::shared_ptr<Type>> type = Type::get_type_from_str(it->lexme);
-                    if (type.has_value()) {
-                        *it = TokenContext(TOK_TYPE, it->line, it->column, type.value());
-                    }
-                }
-            } else if (it->token != TOK_IDENTIFIER || Type::get_type_from_str(it->lexme).has_value()) {
-                // If its a bigger type and it starts with an identifier, the identifier itself must be a known type already. If the
-                // identifier is not a known type, this is an edge case like `i < 5 and x > 2` where `i<5 and x>` is interpreted as `T<..>`.
-                // So, `T` must be a known type in this case, otherwise the whole thing is no type. *or* it has to be a keyword, like `data`
-                // or `variant`. But when it's a keywords it's no identifier annyway.
-                std::optional<std::shared_ptr<Type>> type = Type::get_type(token_slice{it, it + type_range.value().second});
-                if (!type.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    std::exit(EXIT_FAILURE);
-                }
-                // Change this token to be a type token
-                *it = TokenContext(TOK_TYPE, it->line, it->column, type.value());
-                // Erase all the following type tokens from the tokens list
-                Line::delete_tokens(*source.value(), it + 1, type_range.value().second - 1);
-                // Update the end iterator of the tokens, as a few tokens have been erased.
-                tokens.second = source.value()->end();
-            }
-        }
         ++it;
     }
 
@@ -300,6 +237,59 @@ std::vector<Line> Parser::get_body_lines( //
     }
 
     return body_lines;
+}
+
+void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &source) {
+    for (auto line : lines) {
+        token_list toks = clone_from_slice(line.tokens);
+        for (auto it = line.tokens.first; it != line.tokens.second;) {
+            // Erase all indentations within a line, which are not at the beginning of a line
+            if (it->token == TOK_INDENT) {
+                Line::delete_tokens(source, it, 1);
+                continue;
+            }
+            // Check if the next token will definitely be not the begin of a type, like commas or a lot of other tokens. In that case no
+            // expensive matching logic needs to be run, so we can safely skip that token entirely
+            if (it->token != TOK_TYPE && it->token != TOK_DATA && it->token != TOK_VARIANT && it->token != TOK_IDENTIFIER) {
+                ++it;
+                continue;
+            }
+            // Check if the next chunk is a type definition, if it is we replace all tokens forming the type with a single type token
+            if (Matcher::tokens_start_with(token_slice{it, line.tokens.second}, Matcher::type)) {
+                // It's a type token
+                std::optional<uint2> type_range = Matcher::get_next_match_range(token_slice{it, line.tokens.second}, Matcher::type);
+                assert(type_range.has_value());
+                assert(type_range.value().first == 0);
+                if (type_range.value().second == 1) {
+                    // It's a primitive / simple type. Such types definitely need to exist already, so if it does not exists it's a regular
+                    // identifier. And if this token is already a type it means its a primitive type, so we can skip it as well
+                    if (it->token != TOK_TYPE) {
+                        // Types of size 1 always need to be an identifier if they are not already a type (primitives)
+                        assert(it->token == TOK_IDENTIFIER);
+                        std::optional<std::shared_ptr<Type>> type = Type::get_type_from_str(it->lexme);
+                        if (type.has_value()) {
+                            *it = TokenContext(TOK_TYPE, it->line, it->column, type.value());
+                        }
+                    }
+                } else if (it->token != TOK_IDENTIFIER || Type::get_type_from_str(it->lexme).has_value()) {
+                    // If its a bigger type and it starts with an identifier, the identifier itself must be a known type already. If the
+                    // identifier is not a known type, this is an edge case like `i < 5 and x > 2` where `i<5 and x>` is interpreted as
+                    // `T<..>`. So, `T` must be a known type in this case, otherwise the whole thing is no type. *or* it has to be a
+                    // keyword, like `data` or `variant`. But when it's a keywords it's no identifier annyway.
+                    std::optional<std::shared_ptr<Type>> type = Type::get_type(token_slice{it, it + type_range.value().second});
+                    if (!type.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        std::exit(EXIT_FAILURE);
+                    }
+                    // Change this token to be a type token
+                    *it = TokenContext(TOK_TYPE, it->line, it->column, type.value());
+                    // Erase all the following type tokens from the tokens list
+                    Line::delete_tokens(source, it + 1, type_range.value().second - 1);
+                }
+            }
+            ++it;
+        }
+    }
 }
 
 std::optional<std::tuple<                                          //

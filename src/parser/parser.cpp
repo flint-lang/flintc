@@ -37,7 +37,7 @@ std::optional<FileNode *> Parser::parse() {
     // Consume all tokens and convert them to nodes
     bool had_failure = false;
     while (token_slice.first != token_slice.second) {
-        if (!add_next_main_node(*(file_node_ptr.get()), token_slice, file_node_ptr->tokens)) {
+        if (!add_next_main_node(*(file_node_ptr.get()), token_slice)) {
             had_failure = true;
         }
     }
@@ -103,11 +103,19 @@ std::vector<FunctionNode *> Parser::get_open_functions() {
     return open_function_list;
 }
 
-bool Parser::parse_all_open_functions(const bool parse_parallel) {
+bool Parser::parse_all_open_functions(const bool parse_parallel, token_list &source) {
     PROFILE_SCOPE("Parse Open Functions");
 
     // Define a task to process a single function
-    auto process_function = [](Parser &parser, FunctionNode *function, std::vector<Line> &body) -> bool {
+    auto process_function = [](Parser &parser, FunctionNode *function, std::vector<Line> &body, token_list &source) -> bool {
+        // First, refine all the body lines
+        collapse_types_in_lines(body, source);
+        if (DEBUG_MODE) {
+            // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
+            std::cout << "\n"
+                      << YELLOW << "[Debug Info] Printing refined body tokens of function: " << DEFAULT << function->name << std::endl;
+            Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
+        }
         // Create the body and add the body statements to the created scope
         auto body_statements = parser.create_body(function->scope, body);
         if (!body_statements.has_value()) {
@@ -127,7 +135,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
             while (auto next = parser.get_next_open_function()) {
                 auto &[function, body] = next.value();
                 // Enqueue a task for each function
-                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), function, std::ref(body)));
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), function, std::ref(body), std::ref(source)));
             }
         }
         // Collect results from all tasks
@@ -139,18 +147,25 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
         for (auto &parser : Parser::instances) {
             while (auto next = parser.get_next_open_function()) {
                 auto &[function, body] = next.value();
-                result = result && process_function(parser, function, std::ref(body));
+                result = result && process_function(parser, function, std::ref(body), std::ref(source));
             }
         }
     }
     return result;
 }
 
-bool Parser::parse_all_open_tests(const bool parse_parallel) {
+bool Parser::parse_all_open_tests(const bool parse_parallel, token_list &source) {
     PROFILE_SCOPE("Parse Open Tests");
 
     // Define a task to process a single test
-    auto process_test = [](Parser &parser, TestNode *test, std::vector<Line> &body) -> bool {
+    auto process_test = [](Parser &parser, TestNode *test, std::vector<Line> &body, token_list &source) -> bool {
+        // First, refine all the body lines
+        collapse_types_in_lines(body, source);
+        if (DEBUG_MODE) {
+            // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
+            std::cout << "\n" << YELLOW << "[Debug Info] Printing refined body tokens of test: " << DEFAULT << test->name << std::endl;
+            Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
+        }
         // Create the body and add the body statements to the created scope
         auto body_statements = parser.create_body(test->scope, body);
         if (!body_statements.has_value()) {
@@ -170,7 +185,7 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
             while (auto next = parser.get_next_open_test()) {
                 auto &[test, body] = next.value();
                 // Enqueue a task for each function
-                futures.emplace_back(thread_pool.enqueue(process_test, std::ref(parser), test, std::ref(body)));
+                futures.emplace_back(thread_pool.enqueue(process_test, std::ref(parser), test, std::ref(body), std::ref(source)));
             }
         }
         // Collect results from all tasks
@@ -182,7 +197,7 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         for (auto &parser : Parser::instances) {
             while (auto next = parser.get_next_open_test()) {
                 auto &[test, body] = next.value();
-                result = result && process_test(parser, test, std::ref(body));
+                result = result && process_test(parser, test, std::ref(body), std::ref(source));
             }
         }
     }
