@@ -473,8 +473,8 @@ bool Parser::create_switch_branch_body(                              //
     std::shared_ptr<Scope> branch_body = std::make_shared<Scope>(scope);
     if (tokens.first + match_range.second != tokens.second) {
         // A single statement follows, this means that the line needs to end with a semicolon
-        const token_slice statement_tokens = {tokens.first + match_range.second, tokens.second - 1};
-        if (statement_tokens.second->token != TOK_SEMICOLON) {
+        const token_slice statement_tokens = {tokens.first + match_range.second, tokens.second};
+        if (std::prev(statement_tokens.second)->token != TOK_SEMICOLON) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
