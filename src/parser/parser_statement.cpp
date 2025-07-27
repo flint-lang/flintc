@@ -538,7 +538,12 @@ bool Parser::create_switch_branches(            //
             return false;
         }
         const token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
-        auto match = create_expression(scope, match_tokens, switcher_type);
+        std::optional<std::unique_ptr<ExpressionNode>> match;
+        if (std::next(match_tokens.first) == match_tokens.second && match_tokens.first->token == TOK_ELSE) {
+            match = std::make_unique<DefaultNode>(switcher_type);
+        } else {
+            match = create_expression(scope, match_tokens, switcher_type);
+        }
         if (!match.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
