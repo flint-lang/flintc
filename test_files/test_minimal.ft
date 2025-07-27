@@ -1,17 +1,15 @@
 use Core.print
+use Core.assert
 
-def print_var(variant<i32, f32, str> var):
-	switch var:
-		i32(i): print($"i = {i}\n");
-		f32(f): print($"f = {f}\n");
-		str(s): print($"s = {s}\n");
+error MyError:
+	ERR_1, ERR_2, ERR_3;
+
+def throw_my_error(i32 n):
+	switch n:
+		1: throw MyError.ERR_1;
+		2: throw MyError.ERR_2;
+		3: throw MyError.ERR_3;
+		else: assert(false);
 
 def main():
-	variant<i32, f32, str> var = -55;
-	print_var(var);
-
-	var = 3.14;
-	print_var(var);
-	
-	var = str("Hello There");
-	print_var(var);
+	throw_my_error(2);

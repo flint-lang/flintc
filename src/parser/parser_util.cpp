@@ -9,6 +9,7 @@
 #include "error/error.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
@@ -142,8 +143,17 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             return false;
         }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::error_definition)) {
-        ErrorNode error_node = create_error(definition_tokens, body_lines);
-        file_node.add_error(error_node);
+        std::optional<ErrorNode> error_node = create_error(definition_tokens, body_lines);
+        if (!error_node.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        ErrorNode *added_error = file_node.add_error(error_node.value());
+        if (!Type::add_type(std::make_shared<ErrorSetType>(added_error))) {
+            // Error Set redefinition or naming collision
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::variant_definition)) {
         std::optional<VariantNode> variant_node = create_variant(definition_tokens, body_lines);
         if (!variant_node.has_value()) {

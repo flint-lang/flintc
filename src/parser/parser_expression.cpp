@@ -16,6 +16,7 @@
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/enum_type.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/tuple_type.hpp"
@@ -344,7 +345,6 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     }
 
     if (Matcher::tokens_match({tok, tok + 1}, Matcher::literal)) {
-        std::variant<unsigned long, long, unsigned int, int, double, float, std::string, bool, char, std::optional<void *>> value;
         switch (tok->token) {
             default:
                 THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, tok->lexme);
@@ -442,11 +442,9 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 }
             }
             case TOK_TRUE: {
-                value = true;
                 return LiteralNode(LitBool{.value = true}, Type::get_primitive_type("bool"));
             }
             case TOK_FALSE: {
-                value = false;
                 return LiteralNode(LitBool{.value = false}, Type::get_primitive_type("bool"));
             }
             case TOK_CHAR_VALUE: {
@@ -1255,6 +1253,19 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     return std::nullopt;
                 }
                 return std::make_unique<LiteralNode>(LitEnum{.enum_type = type, .value = value}, type);
+            }
+            const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(type.get());
+            if (error_type != nullptr) {
+                assert((tokens_mut.first + 1)->token == TOK_DOT);
+                assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                const std::string &value = (tokens_mut.first + 2)->lexme;
+                const auto &values = error_type->error_node->values;
+                if (std::find(values.begin(), values.end(), value) == values.end()) {
+                    // Unsupported error value
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                return std::make_unique<LiteralNode>(LitError{.error_type = type, .value = value}, type);
             }
         }
     }

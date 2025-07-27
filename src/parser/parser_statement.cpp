@@ -14,6 +14,7 @@
 #include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
@@ -60,13 +61,13 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> scope, cons
         }
     }
     token_slice expression_tokens = {tokens.first + throw_id + 1, tokens.second};
-    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens, Type::get_primitive_type("i32"));
+    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
     if (!expr.has_value()) {
         THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
-    if (expr.value()->type->to_string() != "i32") {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, Type::get_primitive_type("i32"), expr.value()->type);
+    if (!dynamic_cast<const ErrorSetType *>(expr.value()->type.get())) {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, Type::get_primitive_type("anyerror"), expr.value()->type);
         return std::nullopt;
     }
     return ThrowNode(expr.value());

@@ -229,6 +229,8 @@ namespace Debug {
                     print_entity(0, bits, *entity_node);
                 } else if (const auto *enum_node = dynamic_cast<const EnumNode *>(node.get())) {
                     print_enum(0, bits, *enum_node);
+                } else if (const auto *error_node = dynamic_cast<const ErrorNode *>(node.get())) {
+                    print_error(0, bits, *error_node);
                 } else if (const auto *func_node = dynamic_cast<const FuncNode *>(node.get())) {
                     print_func(0, bits, *func_node);
                 } else if (const auto *function_node = dynamic_cast<const FunctionNode *>(node.get())) {
@@ -316,6 +318,9 @@ namespace Debug {
             } else if (std::holds_alternative<LitEnum>(lit.value)) {
                 const LitEnum &lit_enum = std::get<LitEnum>(lit.value);
                 std::cout << lit_enum.enum_type->to_string() << "." << lit_enum.value;
+            } else if (std::holds_alternative<LitError>(lit.value)) {
+                const LitError &lit_error = std::get<LitError>(lit.value);
+                std::cout << lit_error.error_type->to_string() << "." << lit_error.value;
             }
             if (lit.is_folded) {
                 std::cout << " [folded]";
@@ -1127,10 +1132,17 @@ namespace Debug {
 
         // print_error
         //     Prints the content of the generated ErrorNode
-        void print_error([[maybe_unused]] unsigned int indent_lvl, [[maybe_unused]] TreeBits &bits,
-            [[maybe_unused]] const ErrorNode &error) {
+        void print_error(unsigned int indent_lvl, TreeBits &bits, const ErrorNode &error) {
             Local::print_header(indent_lvl, bits, "Error ");
-            std::cout << typeid(error).name() << "\n";
+            std::cout << error.name << "(" << error.parent_error << ")" << std::endl;
+
+            indent_lvl++;
+            for (size_t i = 0; i < error.values.size(); i++) {
+                bool is_last = i + 1 == error.values.size();
+                TreeBits value_bits = bits.child(indent_lvl, is_last);
+                Local::print_header(indent_lvl, value_bits, "Error Value " + std::to_string(i) + " ");
+                std::cout << error.values[i] << std::endl;
+            }
         }
 
         // print_func

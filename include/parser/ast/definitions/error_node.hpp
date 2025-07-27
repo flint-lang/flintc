@@ -1,29 +1,28 @@
 #pragma once
 
-#include "../ast_node.hpp"
+#include "parser/ast/ast_node.hpp"
 
 #include <string>
-#include <utility>
 #include <vector>
 
-/// ErrorNode
-///     Represents error definitions
+/// @class `ErrorNode`
+/// @brief Represents error set definitions
 class ErrorNode : public ASTNode {
   public:
-    explicit ErrorNode(std::string &name, std::string &parent_error, std::vector<std::string> &error_types) :
+    explicit ErrorNode(const std::string &name, const std::string &parent_error, const std::vector<std::string> &values) :
         name(name),
         parent_error(parent_error),
-        error_types(std::move(error_types)) {}
+        values(values) {}
 
-  private:
-    /// name
-    ///     The name of the new error type
+    /// @var `name`
+    /// @brief The name of the new error type
     std::string name;
-    /// parent_errors
-    ///     The errors that the newly created error extends -- does this need to be a vector or is only
-    ///     single-error-parent-set valid?
+
+    /// @var `parent_error`
+    /// @brief The name of the parent error set this error set extends
     std::string parent_error;
-    /// error_types
-    ///     The error types the newly created error contains
-    std::vector<std::string> error_types;
+
+    /// @var `values`
+    /// @brief The possible error values error set contains
+    std::vector<std::string> values;
 };

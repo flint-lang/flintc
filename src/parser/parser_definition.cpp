@@ -361,9 +361,9 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
     return EnumNode(name, values);
 }
 
-ErrorNode Parser::create_error(const token_slice &definition, const std::vector<Line> &body) {
+std::optional<ErrorNode> Parser::create_error(const token_slice &definition, const std::vector<Line> &body) {
     std::string name;
-    std::string parent_error;
+    std::string parent_error = "anyerror";
     std::vector<std::string> error_types;
 
     for (auto def_it = definition.first; def_it != definition.second; ++def_it) {
@@ -376,6 +376,7 @@ ErrorNode Parser::create_error(const token_slice &definition, const std::vector<
                 break;
             }
             THROW_ERR(ErrDefErrOnlyOneParent, ERR_PARSING, file_name, definition);
+            return std::nullopt;
         }
     }
 
@@ -388,8 +389,10 @@ ErrorNode Parser::create_error(const token_slice &definition, const std::vector<
                 break;
             } else {
                 const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
-                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name, body_it->line, body_it->column, //
-                    expected, body_it->token);
+                THROW_ERR(                                                                                                   //
+                    ErrParsUnexpectedToken, ERR_PARSING, file_name, body_it->line, body_it->column, expected, body_it->token //
+                );
+                return std::nullopt;
             }
         };
     }

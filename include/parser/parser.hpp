@@ -1349,8 +1349,8 @@ class Parser {
     ///
     /// @param `definition` The list of tokens representing the error definition
     /// @param `body` The list of tokens representing the error body
-    /// @return `ErrorNode` The created ErrorNode
-    ErrorNode create_error(const token_slice &definition, const std::vector<Line> &body);
+    /// @return `std::optional<ErrorNode>` The created ErrorNode, nullopt if creation failed
+    std::optional<ErrorNode> create_error(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_variant`
     /// @brief Creates a VariantNode from the given definition and body tokens

@@ -12,6 +12,13 @@ struct LitEnum {
     std::string value;
 };
 
+/// @struct `LitError`
+/// @brief The structure representing error literals (`ErrorType.VALUE`)
+struct LitError {
+    std::shared_ptr<Type> error_type;
+    std::string value;
+};
+
 /// @struct `LitOptional`
 /// @brief The structure representing optional literals ('none')
 struct LitOptional {};
@@ -72,7 +79,7 @@ struct LitStr {
 
 /// @type `LitValue`
 /// @brief The type representing a literal value
-using LitValue = std::variant<LitEnum, LitOptional, LitU32, LitU64, LitI32, LitI64, LitF32, LitF64, LitU8, LitBool, LitStr>;
+using LitValue = std::variant<LitEnum, LitError, LitOptional, LitU32, LitU64, LitI32, LitI64, LitF32, LitF64, LitU8, LitBool, LitStr>;
 
 /// @class `LiteralNode`
 /// @brief Represents literal values

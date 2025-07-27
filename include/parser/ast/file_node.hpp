@@ -112,8 +112,10 @@ class FileNode : public ASTNode {
     /// @brief Adds an error node to this file node
     ///
     /// @param `error` The error node to add
-    void add_error(ErrorNode &error) {
+    /// @return `ErrorNode *` A pointer to the added error node, because this function takes ownership of `error`
+    ErrorNode *add_error(ErrorNode &error) {
         definitions.emplace_back(std::make_unique<ErrorNode>(std::move(error)));
+        return static_cast<ErrorNode *>(definitions.back().get());
     }
 
     /// @function `add_variant`
