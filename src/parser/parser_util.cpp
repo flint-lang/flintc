@@ -150,7 +150,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        VariantNode *added_variant = file_node.add_variant(variant_node.value());
+        std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> added_variant = file_node.add_variant(variant_node.value());
         if (!Type::add_type(std::make_shared<VariantType>(added_variant))) {
             // Varaint type redefinition
             THROW_BASIC_ERR(ERR_PARSING);

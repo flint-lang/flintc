@@ -762,7 +762,7 @@ bool Parser::create_variant_switch_branches(    //
     std::vector<int> branch_indices;
     const VariantType *variant_type = dynamic_cast<const VariantType *>(switcher_type.get());
     assert(variant_type != nullptr);
-    const auto &possible_types = variant_type->variant_node->possible_types;
+    const auto &possible_types = variant_type->get_possible_types();
 
     // A match can either be tagged or untagged. For now, we only focus on untagged variants, so the "match" must be a type followed by
     // '(IDENTIFIER)' where, similar to the optional switch, the 'value' of the variant is directly accessible through that identifier as a

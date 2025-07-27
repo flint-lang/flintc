@@ -1766,11 +1766,9 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         // in the assignment / declaration generation
         return expr;
     } else if (const VariantType *to_var_type = dynamic_cast<const VariantType *>(to_type.get())) {
-        for (const auto &[_, variant] : to_var_type->variant_node->possible_types) {
-            if (from_type == variant) {
-                // It's allowed to "cast" the type to the variant
-                return expr;
-            }
+        if (to_var_type->get_idx_of_type(from_type).has_value()) {
+            // It's allowed to "cast" the type to the variant
+            return expr;
         }
     }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;

@@ -1,8 +1,18 @@
 use Core.print
 
+def print_var(variant<i32, f32, str> var):
+	switch var:
+		i32(i): print($"i = {i}\n");
+		f32(f): print($"f = {f}\n");
+		str(s): print($"s = {s}\n");
+
 def main():
-	str? opt = str("Something\n");
-	print(opt!);
-	opt = none;
-	opt = str("New Thing!\n");
-	print(opt!);
+	variant<i32, f32, str> var = -55;
+	print_var(var);
+
+	var = 3.14;
+	print_var(var);
+	
+	var = str("Hello There");
+	print_var(var);
+

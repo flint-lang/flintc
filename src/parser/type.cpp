@@ -10,6 +10,7 @@
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/unknown_type.hpp"
+#include "parser/type/variant_type.hpp"
 
 #include <mutex>
 #include <optional>
@@ -201,11 +202,6 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
                 return std::nullopt;
             }
             tokens_mut.first++;
-            // The last token should be a '>' token
-            if (std::prev(tokens_mut.second)->token != TOK_GREATER) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
             // Now get all sub-types balancedly
             std::vector<std::shared_ptr<Type>> subtypes;
             int depth = 1;
@@ -281,6 +277,44 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
                 }
             }
             return std::make_shared<TupleType>(subtypes);
+        } else if (tokens_mut.first->token == TOK_VARIANT) {
+            // It's a inline-defined variant, which has no support for tags, so this makes the parsing of the type quite a lot easier
+            tokens_mut.first++;
+            if (tokens_mut.first->token != TOK_LESS) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            tokens_mut.first++;
+            // Now get all the possible types of the variant, but we need to check them all for uniqueness too
+            std::vector<std::shared_ptr<Type>> possible_types;
+            while (tokens_mut.first != tokens_mut.second) {
+                if (tokens_mut.first->token == TOK_COMMA) {
+                    tokens_mut.first++;
+                } else if (tokens_mut.first->token == TOK_GREATER) {
+                    break;
+                }
+                token_slice type_tokens = {tokens_mut.first, tokens_mut.second};
+                std::optional<uint2> next_range = Matcher::get_next_match_range(type_tokens, Matcher::type);
+                if (!next_range.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                assert(next_range.value().first == 0);
+                type_tokens.second = type_tokens.first + next_range.value().second;
+                tokens_mut.first = type_tokens.second;
+                std::optional<std::shared_ptr<Type>> type = Type::get_type(type_tokens, mutex_already_locked);
+                if (!type.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                if (std::find(possible_types.begin(), possible_types.end(), type.value()) != possible_types.end()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                possible_types.emplace_back(type.value());
+            }
+            std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> variant_type = possible_types;
+            return std::make_shared<VariantType>(variant_type);
         }
     } else if (std::prev(tokens_mut.second)->token == TOK_QUESTION) {
         // It's an optional type
@@ -290,7 +324,7 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
             return std::nullopt;
         }
         // Everything to the left of the question mark is the base type of the optional
-        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)}, true);
+        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)}, mutex_already_locked);
         if (!base_type.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;

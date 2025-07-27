@@ -1341,26 +1341,19 @@ bool Generator::Statement::generate_declaration( //
             // do anything if the typecast is a nullptr
             if (typecast_node != nullptr) {
                 // First, we need to get the ID of the type within the variant
-                const auto &possible_types = var_type->variant_node->possible_types;
-                unsigned int index = 0;
-                for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {
-                    if (var_it->second == typecast_node->expr->type) {
-                        index = 1 + std::distance(possible_types.begin(), var_it);
-                        break;
-                    }
-                }
-                if (index == 0) {
+                std::optional<unsigned int> index = var_type->get_idx_of_type(typecast_node->expr->type);
+                if (!index.has_value()) {
                     // Rhs has wrong type
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
                 }
                 llvm::StructType *variant_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
                 llvm::Value *flag_ptr = builder.CreateStructGEP(variant_type, alloca, 0, declaration_node->name + "_flag_ptr");
-                llvm::StoreInst *store = builder.CreateStore(builder.getInt8(index), flag_ptr);
+                llvm::StoreInst *store = builder.CreateStore(builder.getInt8(index.value()), flag_ptr);
                 store->setMetadata("comment",
                     llvm::MDNode::get(context,
                         llvm::MDString::get(context,
-                            "Set 'flag' property of variant '" + declaration_node->name + "' to '" + std::to_string(index) +
+                            "Set 'flag' property of variant '" + declaration_node->name + "' to '" + std::to_string(index.value()) +
                                 "' for type '" + typecast_node->expr->type->to_string() + "'")));
                 llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, alloca, 1, declaration_node->name + "_value_ptr");
                 store = builder.CreateStore(expr_val.value().front(), value_ptr);
@@ -1469,27 +1462,20 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         const TypeCastNode *typecast_node = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
         if (typecast_node != nullptr) {
             // First, we need to get the ID of the type within the variant
-            const auto &possible_types = var_type->variant_node->possible_types;
-            unsigned int index = 0;
-            for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {
-                if (var_it->second == typecast_node->expr->type) {
-                    index = 1 + std::distance(possible_types.begin(), var_it);
-                    break;
-                }
-            }
-            if (index == 0) {
+            std::optional<unsigned int> index = var_type->get_idx_of_type(typecast_node->expr->type);
+            if (!index.has_value()) {
                 // Rhs has wrong type
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
             llvm::StructType *variant_type = IR::add_and_or_get_type(ctx.parent->getParent(), assignment_node->type, false);
             llvm::Value *flag_ptr = builder.CreateStructGEP(variant_type, lhs, 0, assignment_node->name + "_flag_ptr");
-            llvm::StoreInst *store = builder.CreateStore(builder.getInt8(index), flag_ptr);
+            llvm::StoreInst *store = builder.CreateStore(builder.getInt8(index.value()), flag_ptr);
             store->setMetadata("comment",
                 llvm::MDNode::get(context,
                     llvm::MDString::get(context,
-                        "Set 'flag' property of variant '" + assignment_node->name + "' to '" + std::to_string(index) + "' for type '" +
-                            typecast_node->expr->type->to_string() + "'")));
+                        "Set 'flag' property of variant '" + assignment_node->name + "' to '" + std::to_string(index.value()) +
+                            "' for type '" + typecast_node->expr->type->to_string() + "'")));
             llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, lhs, 1, assignment_node->name + "_value_ptr");
             store = builder.CreateStore(expr.value().front(), value_ptr);
             store->setMetadata("comment",
