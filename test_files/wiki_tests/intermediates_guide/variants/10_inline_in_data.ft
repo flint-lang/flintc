@@ -1,0 +1,14 @@
+use Core.print
+
+data MyData:
+	bool8 flags;
+	variant<i32, f32> value;
+	MyData(flags, value);
+
+def main():
+	variant<i32, f32> var = -10;
+	MyData md = MyData(u8(0), var);
+	print($"flags = {md.flags}\n");
+	switch md.value:
+		i32(i): print($"i = {i}\n");
+		f32(f): print($"f = {f}\n");

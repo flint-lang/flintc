@@ -49,3 +49,12 @@ test "8_name_collision.ft":
 	str file = "8_name_collision.ft";
 	test_file_ok($"{path}/{file}", "Is i32: 10\n");
 
+test "9_inline_defined.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "9_inline_defined.ft";
+	test_file_ok($"{path}/{file}", "i = -55\nf = 3.14\ns = Hello There\n");
+
+test "[f]10_inline_in_data.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "10_inline_in_data.ft";
+	test_file_ok($"{path}/{file}", "flags = 00000000\ni = -10\n");
