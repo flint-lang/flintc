@@ -4,14 +4,14 @@
 #include <unordered_map>
 #include <vector>
 
-/// @typedef `type_list`
-/// @brief This type is used for a list of types in the `builtin_function_types` map to make its signature much clearer
-using type_list = std::vector<std::string_view>;
+/// @typedef `string_list`
+/// @brief A simple alias for a vector of string views
+using string_list = std::vector<std::string_view>;
 
 /// @typedef `overloads`
-/// @brief This type is used for all overloads of a function, it contains the argument and return types of a function and whether the
-/// function can return an error, for Flints internal error handling system
-using overloads = std::vector<std::tuple<type_list, type_list, bool>>;
+/// @brief This type is used for all overloads of a function, it contains the argument and return types of a function and a list of all the
+/// error sets the function could throw
+using overloads = std::vector<std::tuple<string_list, string_list, string_list>>;
 
 /// @typedef `function_list`
 /// @brief A function list is a list of functions together with its signature overloads
@@ -24,101 +24,167 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
         {
             {"assert", // The 'assert' function
                 {
-                    {{"bool"}, {"void"}, true}, // The single version of the 'assert' function
+                    {{"bool"}, {"void"}, {"ErrAssert"}}, // The single version of the 'assert' function
                 }},
         }},   // End of the 'assert' module
     {"print", // The 'print' module
         {
             {"print", // The 'print' function
                 {
-                    {{"i32"}, {"void"}, false},                  // The 'i32' argument overload of the 'print' function
-                    {{"i64"}, {"void"}, false},                  // The 'i64' argument overload of the 'print' function
-                    {{"u32"}, {"void"}, false},                  // The 'u32' argument overload of the 'print' function
-                    {{"u64"}, {"void"}, false},                  // The 'u64' argument overload of the 'print' function
-                    {{"f32"}, {"void"}, false},                  // The 'f32' argument overload of the 'print' function
-                    {{"f64"}, {"void"}, false},                  // The 'f64' argument overload of the 'print' function
-                    {{"u8"}, {"void"}, false},                   // The 'u8' argument overload of the 'print' function
-                    {{"str"}, {"void"}, false},                  // The 'str' argument overload of the 'print' function
-                    {{"__flint_type_str_lit"}, {"void"}, false}, // The 'str' literal argument overload of the 'print' function
-                    {{"bool"}, {"void"}, false},                 // The 'bool' argument overload of the 'print' function
+                    {{"i32"}, {"void"}, {}},                  // The 'i32' argument overload of the 'print' function
+                    {{"i64"}, {"void"}, {}},                  // The 'i64' argument overload of the 'print' function
+                    {{"u32"}, {"void"}, {}},                  // The 'u32' argument overload of the 'print' function
+                    {{"u64"}, {"void"}, {}},                  // The 'u64' argument overload of the 'print' function
+                    {{"f32"}, {"void"}, {}},                  // The 'f32' argument overload of the 'print' function
+                    {{"f64"}, {"void"}, {}},                  // The 'f64' argument overload of the 'print' function
+                    {{"u8"}, {"void"}, {}},                   // The 'u8' argument overload of the 'print' function
+                    {{"str"}, {"void"}, {}},                  // The 'str' argument overload of the 'print' function
+                    {{"__flint_type_str_lit"}, {"void"}, {}}, // The 'str' literal argument overload of the 'print' function
+                    {{"bool"}, {"void"}, {}},                 // The 'bool' argument overload of the 'print' function
                 }},
         }},  // End of the 'print' module
     {"read", // The 'read' module
         {
             {"read_str", // The 'read_str' function
                 {
-                    {{}, {"str"}, false}, // The single version of the 'read_str' function
+                    {{}, {"str"}, {}}, // The single version of the 'read_str' function
                 }},
             {"read_i32", // The 'read_i32' function
                 {
-                    {{}, {"i32"}, true}, // The single version of the 'read_i32' function
+                    {{}, {"i32"}, {"ErrRead"}}, // The single version of the 'read_i32' function
                 }},
             {"read_i64", // The 'read_i64' function
                 {
-                    {{}, {"i64"}, true}, // The single version of the 'read_i64' function
+                    {{}, {"i64"}, {"ErrRead"}}, // The single version of the 'read_i64' function
                 }},
             {"read_u32", // The 'read_u32' function
                 {
-                    {{}, {"u32"}, true}, // The single version of the 'read_u32' function
+                    {{}, {"u32"}, {"ErrRead"}}, // The single version of the 'read_u32' function
                 }},
             {"read_u64", // The 'read_u64' function
                 {
-                    {{}, {"u64"}, true}, // The single version of the 'read_u64' function
+                    {{}, {"u64"}, {"ErrRead"}}, // The single version of the 'read_u64' function
                 }},
             {"read_f32", // The 'read_f32' function
                 {
-                    {{}, {"f32"}, true}, // The single version of the 'read_f32' function
+                    {{}, {"f32"}, {"ErrRead"}}, // The single version of the 'read_f32' function
                 }},
             {"read_f64", // The 'read_f64' function
                 {
-                    {{}, {"f64"}, true}, // The single version of the 'read_f64' function
+                    {{}, {"f64"}, {"ErrRead"}}, // The single version of the 'read_f64' function
                 }},
         }},        // End of the 'read' module
     {"filesystem", // The 'filesystem' module
         {
             {"read_file", // The 'read_file' function
                 {
-                    {{"str"}, {"str"}, true}, // The single version of the 'read_file' function
+                    {{"str"}, {"str"}, {"ErrFS"}}, // The single version of the 'read_file' function
                 }},
             {"read_lines", // The 'read_lines' function
                 {
-                    {{"str"}, {"str[]"}, true}, // The single version of the 'read_lines' function
+                    {{"str"}, {"str[]"}, {"ErrFS"}}, // The single version of the 'read_lines' function
                 }},
             {"file_exists", // The 'file_exists' function
                 {
-                    {{"str"}, {"bool"}, false}, // The single version of the 'file_exists' function
+                    {{"str"}, {"bool"}, {}}, // The single version of the 'file_exists' function
                 }},
             {"write_file", // The 'write_file' function
                 {
-                    {{"str", "str"}, {"void"}, true}, // The single version of the 'write_file' function
+                    {{"str", "str"}, {"void"}, {"ErrFS"}}, // The single version of the 'write_file' function
                 }},
             {"append_file", // The 'append_file' function
                 {
-                    {{"str", "str"}, {"void"}, true}, // The single version of the 'append_file' function
+                    {{"str", "str"}, {"void"}, {"ErrFS"}}, // The single version of the 'append_file' function
                 }},
             {"is_file", // The 'is_file' function
                 {
-                    {{"str"}, {"bool"}, false}, // The single version of the 'is_file' function
+                    {{"str"}, {"bool"}, {}}, // The single version of the 'is_file' function
                 }},
         }}, // End of the 'filesystem' module
     {"env", // The 'env' module
         {
             {"get_env", // The 'get_env' function
                 {
-                    {{"str"}, {"str"}, true}, // The single version of the 'get_env' function
+                    {{"str"}, {"str"}, {"ErrEnv"}}, // The single version of the 'get_env' function
                 }},
             {"set_env", // The 'set_env' function
                 {
-                    {{"str", "str", "bool"}, {"bool"}, false}, // The single version of the 'set_env' function
+                    {{"str", "str", "bool"}, {"bool"}, {"ErrEnv"}}, // The single version of the 'set_env' function
                 }},
         }},    // End of the 'env' module
     {"system", // The 'system' module
         {
             {"system_command", // The 'system_command' function
                 {
-                    {{"str"}, {"i32", "str"}, true}, // The single version of the 'system' function
+                    {{"str"}, {"i32", "str"}, {"ErrSystem"}}, // The single version of the 'system' function
                 }},
         }} // End of the 'system' module
+};
+
+/// @typedef `error_value`
+/// @brief The value of an error together with the description of that error value
+using error_value = std::pair<std::string_view, std::string_view>;
+
+/// @typedef `error_set`
+/// @brief All values needed to construct an error node from:
+///     - The name of the error set type
+///     - The parent this error set type extends
+///     - The list of all error values from this set
+using error_set = std::tuple<std::string_view, std::string_view, std::vector<error_value>>;
+
+/// @var `core_module_error_sets`
+/// @brief A map containing all core modules and maps the module to all the error sets it provides
+static inline std::unordered_map<std::string_view, std::vector<error_set>> core_module_error_sets = {
+    {
+        "assert",                  // The 'assert' module
+        {{"ErrAssert", "anyerror", // The 'ErrAssert' error set
+            {
+                {"AssertionFailed", "The assertion has failed"} //
+            }}},
+    }, // End of the 'assert' module
+    {
+        "read",                  // The 'read' module
+        {{"ErrRead", "anyerror", // The 'ErrRead' error set
+            {
+                {"ParseInt", "Could not parse text to integer"},         //
+                {"ParseFloat", "Could not parse text to floating‑point"} //
+            }}},
+    }, // End of the 'read' module
+    {
+        "filesystem", // The 'filesystem' module
+        {
+            {"ErrIO", "anyerror", // The 'ErrIO' error set
+                {
+                    {"OpenFailed", "Could not open the file"},                   //
+                    {"NotFound", "File does not exist"},                         //
+                    {"NotReadable", "Exists but is not readable"},               //
+                    {"NotWritable", "Exists but is not writable (permissions)"}, //
+                    {"UnexpectedEOF", "Hit EOF in the middle of a read"}         //
+                }},
+            {"ErrFS", "ErrIO", // The 'ErrFS' error set
+                {
+                    {"TooLarge", "File is unreasonably large"}, //
+                    {"InvalidPath", "Path string is malformed"} //
+                }},
+        },
+    }, // End of the 'filesystem' module
+    {
+        "env",                  // The 'env' module
+        {{"ErrEnv", "anyerror", // The 'ErrEnv' error set
+            {
+                {"VarNotFound", "Requested variable not set"},               //
+                {"InvalidName", "Name contains illegal characters"},         //
+                {"InvalidValue", "Value cannot be used (e.g. embedded NUL)"} //
+            }}},
+    }, // End of the 'env' module
+    {
+        "system",                  // The 'system' module
+        {{"ErrSystem", "anyerror", // The 'ErrSystem' error set
+            {
+                {"SpawnFailed", "Process could not be created"},                     //
+                {"ExecFailed", "Process start succeeded but exec returned an error"} //
+            }}},
+    }, // End of the 'system' module
 };
 
 /// @enum `CFunctions`

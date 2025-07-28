@@ -11,6 +11,7 @@
 #include "parser/parser.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
@@ -158,6 +159,16 @@ llvm::Value *Generator::Expression::generate_literal( //
         assert(value_it != values.end());
         const unsigned int enum_id = std::distance(values.begin(), value_it);
         return builder.getInt32(enum_id);
+    }
+    if (std::holds_alternative<LitError>(literal_node->value)) {
+        const LitError &lit_error = std::get<LitError>(literal_node->value);
+        const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(lit_error.error_type.get());
+        assert(error_type != nullptr);
+        const auto &values = error_type->error_node->values;
+        const auto value_it = std::find(values.begin(), values.end(), lit_error.value);
+        assert(value_it != values.end());
+        const unsigned int error_value = std::distance(values.begin(), value_it) + 1;
+        return builder.getInt32(error_value);
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return nullptr;
@@ -330,7 +341,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
+            if (!std::get<2>(std::get<1>(builtin_function.value()).front()).empty()) {
                 // Function returns error
                 func_decl = Module::Read::read_functions.at(call_node->function_name);
                 function_origin = FunctionOrigin::BUILTIN;
@@ -350,7 +361,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
+            if (!std::get<2>(std::get<1>(builtin_function.value()).front()).empty()) {
                 // Function returns error
                 func_decl = Module::FileSystem::fs_functions.at(call_node->function_name);
                 function_origin = FunctionOrigin::BUILTIN;
@@ -365,7 +376,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
+            if (!std::get<2>(std::get<1>(builtin_function.value()).front()).empty()) {
                 // Function returns error
                 func_decl = Module::Env::env_functions.at(call_node->function_name);
                 function_origin = FunctionOrigin::BUILTIN;
@@ -381,7 +392,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            if (std::get<2>(std::get<1>(builtin_function.value()).front())) {
+            if (!std::get<2>(std::get<1>(builtin_function.value()).front()).empty()) {
                 // Function returns error
                 func_decl = Module::System::system_functions.at(call_node->function_name);
                 function_origin = FunctionOrigin::BUILTIN;

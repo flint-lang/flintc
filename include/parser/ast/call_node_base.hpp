@@ -14,12 +14,12 @@ class CallNodeBase {
     CallNodeBase(                                                                //
         std::string function_name,                                               //
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments, //
-        const bool can_throw,                                                    //
+        const std::vector<std::shared_ptr<Type>> &error_types,                   //
         const std::shared_ptr<Type> &type                                        //
         ) :
         function_name(std::move(function_name)),
         arguments(std::move(arguments)),
-        can_throw(can_throw),
+        error_types(error_types),
         type(type) {}
 
     // deconstructor
@@ -39,9 +39,10 @@ class CallNodeBase {
     /// @brief The list of arguments of the function call and whether each argument is a reference or not
     std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments;
 
-    /// @var `can_throw`
-    /// @brief Whether this call can throw an error. All user-defined functions can throw, but not all Core functions can
-    bool can_throw;
+    /// @var `error_types`
+    /// @brief The possible error types this function could throw. If this list is empty the function cannot throw at all. All user-defined
+    /// functions can throw, but not all Core functions can
+    std::vector<std::shared_ptr<Type>> error_types;
 
     /// @var `type`
     /// @brief The type of the call`s return value(s)

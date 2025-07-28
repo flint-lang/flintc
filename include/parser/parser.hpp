@@ -506,6 +506,14 @@ class Parser {
     /// @return `bool` Whether the next main node was added correctly. Returns false if there was an error
     bool add_next_main_node(FileNode &file_node, token_slice &tokens);
 
+    /// @function `create_core_module_types`
+    /// @brief Creates all the types a given core module provides and adds them to the given file node
+    ///
+    /// @param `file_node` The file node to which the types are added to
+    /// @param `core_lib_name` The name of the core library to create the types from
+    /// @return `bool` Whether the creation of the builtin library types was successful
+    bool create_core_module_types(FileNode &file_node, const std::string &core_lib_name);
+
     /// @function `get_definition_tokens`
     /// @brief Extracts all the tokens which are part of the definition
     ///
@@ -546,13 +554,13 @@ class Parser {
     ///     to be a reference
     ///     - the third value is the call's return type, or the initializers type
     ///     - the forth value is: true if the expression is a Data initializer, false if an entity initializer, nullopt if its a call
-    ///     - the fifth value tells whether the call can throw an error
+    ///     - the fifth value contains all possible error types of this function call. If this list is empty the function can't throw
     std::optional<std::tuple<                                          //
         std::string,                                                   // name
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, // args
         std::shared_ptr<Type>,                                         // type
         bool,                                                          // is initializer (true) or call (false)
-        bool                                                           // can_throw
+        std::vector<std::shared_ptr<Type>>                             // error_types
         >>
     create_call_or_initializer_base(std::shared_ptr<Scope> scope, const token_slice &tokens, const std::optional<std::string> &alias_base);
 

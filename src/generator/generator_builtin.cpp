@@ -17,7 +17,8 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     }
     std::vector<std::shared_ptr<Type>> return_types;
     std::shared_ptr<Scope> scope;
-    FunctionNode function_node = FunctionNode(false, false, "_main", parameters, return_types, scope);
+    auto error_types = std::vector<std::shared_ptr<Type>>{Type::get_type_from_str("anyerror").value()};
+    FunctionNode function_node = FunctionNode(false, false, "_main", parameters, return_types, error_types, scope);
 
     // Create the declaration of the custom main function
     llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(module, Type::get_primitive_type("i32"));

@@ -185,7 +185,8 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     }
 
     // Dont parse the body yet, it will be parsed in the second pass of the parser
-    return FunctionNode(is_aligned, is_const, name, parameters, return_types, body_scope);
+    auto error_types = std::vector<std::shared_ptr<Type>>{Type::get_type_from_str("anyerror").value()};
+    return FunctionNode(is_aligned, is_const, name, parameters, return_types, error_types, body_scope);
 }
 
 std::optional<DataNode> Parser::create_data(const token_slice &definition, const std::vector<Line> &body) {

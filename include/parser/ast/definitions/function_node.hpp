@@ -19,6 +19,7 @@ class FunctionNode : public ASTNode {
         std::string name,                                                              //
         std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> &parameters, //
         std::vector<std::shared_ptr<Type>> &return_types,                              //
+        std::vector<std::shared_ptr<Type>> &error_types,                               //
         std::shared_ptr<Scope> &scope                                                  //
         ) :
         is_aligned(is_aligned),
@@ -26,6 +27,7 @@ class FunctionNode : public ASTNode {
         name(std::move(name)),
         parameters(std::move(parameters)),
         return_types(std::move(return_types)),
+        error_types(std::move(error_types)),
         scope(std::move(scope)) {}
 
     // empty constructor
@@ -58,6 +60,10 @@ class FunctionNode : public ASTNode {
     /// @var `return_types`
     /// @brief The types of all return values
     std::vector<std::shared_ptr<Type>> return_types;
+
+    /// @var `error_types`
+    /// @brief The types of errors this function can throw
+    std::vector<std::shared_ptr<Type>> error_types;
 
     /// @var `scope`
     /// @brief The scope of the function containing all statements

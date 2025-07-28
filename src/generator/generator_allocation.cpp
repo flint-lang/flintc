@@ -196,7 +196,7 @@ bool Generator::Allocation::generate_call_allocations(                          
                 return false;
             }
         }
-        if (std::get<2>(overload)) {
+        if (!std::get<2>(overload).empty()) {
             // Function returns error
             function_return_type = IR::add_and_or_get_type(parent->getParent(), call_node->type);
         } else {

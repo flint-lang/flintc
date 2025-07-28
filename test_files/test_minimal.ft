@@ -1,15 +1,32 @@
-use Core.print
 use Core.assert
+use Core.print
 
-error MyError:
-	ERR_1, ERR_2, ERR_3;
+// #throws(ErrArithmetic)
+def divide(i32 x, i32 y) -> i32:
+	if y == 0:
+		throw ErrAssert.AssertionFailed;
+	return x / y;
 
-def throw_my_error(i32 n):
-	switch n:
-		1: throw MyError.ERR_1;
-		2: throw MyError.ERR_2;
-		3: throw MyError.ERR_3;
-		else: assert(false);
+def catch_this(i32 x, i32 y) -> i32:
+	return divide(x, y);
 
 def main():
-	throw_my_error(2);
+	i32 res = divide(10, 2) catch err:
+		assert(false); // This should never run
+	assert(res == 5);
+
+	res = divide(10, 0) catch err:
+		print($"catched first value: {err}\n");
+		assert(true); // The error was catched
+		// assert(err == 5);
+	assert(res == 0);
+
+	res = catch_this(10, 5) catch err:
+		assert(false); // This should never run
+	assert(res == 2);
+
+	res = catch_this(10, 0) catch err:
+		print($"catched second value: {err}\n");
+		assert(true); // The error was catched
+		// assert(err == 5);
+	assert(res == 0);

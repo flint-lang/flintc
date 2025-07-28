@@ -66,6 +66,10 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                     THROW_ERR(ErrDefUnexpectedCoreModule, ERR_PARSING, file_name, tok->line, tok->column, module_str);
                     return false;
                 }
+                if (!create_core_module_types(file_node, module_str)) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
             }
         }
         std::optional<ImportNode *> added_import = file_node.add_import(import_node.value());
@@ -180,6 +184,44 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_name, definition_tokens);
         return false;
     }
+    return true;
+}
+
+bool Parser::create_core_module_types(FileNode &file_node, const std::string &core_lib_name) {
+    static std::mutex mutex;
+    std::lock_guard<std::mutex> lock_guard(mutex);
+    static std::unordered_map<std::string_view, bool> types_added = {
+        {"read", false},
+        {"assert", false},
+        {"filesystem", false},
+        {"env", false},
+        {"system", false},
+    };
+    auto added = types_added.find(core_lib_name);
+    if (added == types_added.end()) {
+        return true;
+    }
+    if (added->second) {
+        // Prevent duplicate addition of the types
+        return true;
+    }
+    auto error_sets = core_module_error_sets.find(core_lib_name);
+    assert(error_sets != core_module_error_sets.end());
+    for (const auto &error_set : error_sets->second) {
+        const std::string error_type_name(std::get<0>(error_set));
+        const std::string parent_error(std::get<1>(error_set));
+        std::vector<std::string> error_values;
+        for (const auto &error_value : std::get<2>(error_set)) {
+            error_values.emplace_back(error_value.first);
+        }
+        ErrorNode error(error_type_name, parent_error, error_values);
+        ErrorNode *error_node = file_node.add_error(error);
+        if (!Type::add_type(std::make_shared<ErrorSetType>(error_node))) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+    }
+    types_added.at(core_lib_name) = true;
     return true;
 }
 
@@ -307,10 +349,14 @@ std::optional<std::tuple<                                          //
     std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, // args
     std::shared_ptr<Type>,                                         // type
     bool,                                                          // is initializer (true) or call (false)
-    bool                                                           // can_throw
+    std::vector<std::shared_ptr<Type>>                             // error types
     >>
-Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const token_slice &tokens,
-    const std::optional<std::string> &alias_base) {
+Parser::create_call_or_initializer_base(         //
+    std::shared_ptr<Scope> scope,                //
+    const token_slice &tokens,                   //
+    const std::optional<std::string> &alias_base //
+) {
+    using types = std::vector<std::shared_ptr<Type>>;
     assert(tokens.first->token == TOK_TYPE || tokens.first->token == TOK_IDENTIFIER);
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
         tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
@@ -364,7 +410,7 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
     }
 
     // Get all the argument types
-    std::vector<std::shared_ptr<Type>> argument_types;
+    types argument_types;
     argument_types.reserve(arguments.size());
     for (size_t i = 0; i < arguments.size(); i++) {
         // Typecast all string literals in the args to string variables
@@ -410,7 +456,7 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
                     }
                 }
             }
-            return std::make_tuple(data_node->name, std::move(arguments), tokens.first->type, true, false);
+            return std::make_tuple(data_node->name, std::move(arguments), tokens.first->type, true, types{});
         } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(tokens.first->type.get())) {
             const std::shared_ptr<Type> base_type = multi_type->base_type;
             const unsigned int width = multi_type->width;
@@ -444,7 +490,7 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
                     arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
                 }
             }
-            return std::make_tuple(tokens.first->type->to_string(), std::move(arguments), tokens.first->type, true, false);
+            return std::make_tuple(tokens.first->type->to_string(), std::move(arguments), tokens.first->type, true, types{});
         } else {
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return std::nullopt;
@@ -474,22 +520,22 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
                 if (type_cast->expr->type->to_string() == "__flint_type_str_lit") {
                     arguments.front().first = std::move(type_cast->expr);
                     argument_types.front() = arguments.front().first->type;
-                    return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), false, false);
+                    return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), false, types{});
                 }
             }
         }
         // Check if the function has the same arguments as the function expects
         const auto &function_overloads = std::get<1>(builtin_function.value());
         // Check if any overloaded function exists
-        std::optional<std::tuple<std::vector<std::shared_ptr<Type>>, std::vector<std::shared_ptr<Type>>, bool>> found_function;
+        std::optional<std::tuple<types, types, types>> found_function;
 
-        for (const auto &[param_types_str, return_types_str, can_throw] : function_overloads) {
+        for (const auto &[param_types_str, return_types_str, error_types_str] : function_overloads) {
             if (arguments.size() != param_types_str.size()) {
                 continue;
             }
-            std::vector<std::shared_ptr<Type>> param_types(param_types_str.size());
+            types param_types(param_types_str.size());
             std::transform(param_types_str.begin(), param_types_str.end(), param_types.begin(), Type::str_to_type);
-            std::vector<std::shared_ptr<Type>> return_types(return_types_str.size());
+            types return_types(return_types_str.size());
             std::transform(return_types_str.begin(), return_types_str.end(), return_types.begin(), Type::str_to_type);
             if (argument_types != param_types) {
                 continue;
@@ -505,7 +551,9 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
                 ++arg_it;
             }
             if (is_same) {
-                found_function = {param_types, return_types, can_throw};
+                types error_types(error_types_str.size());
+                std::transform(error_types_str.begin(), error_types_str.end(), error_types.begin(), Type::str_to_type);
+                found_function = {param_types, return_types, error_types};
             }
         }
         if (!found_function.has_value()) {
@@ -563,17 +611,18 @@ Parser::create_call_or_initializer_base(std::shared_ptr<Scope> scope, const toke
         }
     }
 
-    std::vector<std::shared_ptr<Type>> return_types = function.value().first->return_types;
+    types return_types = function.value().first->return_types;
+    auto error_types = function.value().first->error_types;
     if (return_types.empty()) {
-        return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), false, true);
+        return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), false, error_types);
     } else if (return_types.size() > 1) {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(return_types);
         if (!Type::add_type(group_type)) {
             group_type = Type::get_type_from_str(group_type->to_string()).value();
         }
-        return std::make_tuple(function_name, std::move(arguments), group_type, false, true);
+        return std::make_tuple(function_name, std::move(arguments), group_type, false, error_types);
     }
-    return std::make_tuple(function_name, std::move(arguments), return_types.front(), false, true);
+    return std::make_tuple(function_name, std::move(arguments), return_types.front(), false, error_types);
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base( //

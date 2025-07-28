@@ -347,15 +347,24 @@ namespace Debug {
 
         void print_call(unsigned int indent_lvl, TreeBits &bits, const CallNodeBase &call) {
             Local::print_header(indent_lvl, bits, "Call ");
-            std::cout << "[" << (call.can_throw ? "throws" : "nothrow") << "] ";
-            std::cout << "'" << call.function_name << "(";
+            if (!call.error_types.empty()) {
+                std::cout << "throws[";
+                for (auto it = call.error_types.begin(); it != call.error_types.end(); ++it) {
+                    if (it != call.error_types.begin()) {
+                        std::cout << ", ";
+                    }
+                    std::cout << (*it)->to_string();
+                }
+                std::cout << "] ";
+            }
+            std::cout << call.function_name << "(";
             for (auto it = call.arguments.begin(); it != call.arguments.end(); ++it) {
                 if (it != call.arguments.begin()) {
                     std::cout << ", ";
                 }
                 std::cout << (it->second ? "ref" : "val");
             }
-            std::cout << ")' [c" << call.call_id << "] in [s" << call.scope_id << "]";
+            std::cout << ") [c" << call.call_id << "] in [s" << call.scope_id << "]";
             if (!call.arguments.empty()) {
                 std::cout << " with args";
             }
