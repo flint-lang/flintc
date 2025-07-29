@@ -47,6 +47,7 @@ bool Generator::Module::generate_module(     //
         case BuiltinLibrary::ASSERT:
             // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
             IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
+            String::generate_string_manip_functions(builder.get(), module.get(), true);
             Assert::generate_assert_functions(builder.get(), module.get(), false);
             break;
         case BuiltinLibrary::FILESYSTEM:

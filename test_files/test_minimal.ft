@@ -33,3 +33,6 @@ def main():
 	i32 val = read_i32() catch err:
 		print($"err = {err}\n");
 	print($"val = {val}\n");
+
+	assert(false) catch err:
+		print($"ErrAssert id = {err}\n");
