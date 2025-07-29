@@ -6,6 +6,7 @@
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
@@ -47,8 +48,8 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     std::vector<llvm::Type *> types_vec;
     if (is_return_type) {
         types_vec.reserve(types.size() + 1);
-        // First element is always the error code (i32)
-        types_vec.push_back(llvm::Type::getInt32Ty(context));
+        // First element is always the error struct { i32, i32, str* }
+        types_vec.push_back(type_map.at("__flint_type_err"));
     } else {
         types_vec.reserve(types.size());
     }
@@ -133,7 +134,22 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
 
 std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, const std::shared_ptr<Type> &type) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
-    if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(type.get())) {
+    if (dynamic_cast<const ErrorSetType *>(type.get())) {
+        if (type_map.find("__flint_type_err") == type_map.end()) {
+            llvm::Type *str_type = get_type(module, Type::get_primitive_type("str")).first;
+            type_map["__flint_type_err"] = llvm::StructType::create( //
+                context,                                             //
+                {
+                    llvm::Type::getInt32Ty(context), // ErrType ID (0 for 'none')
+                    llvm::Type::getInt32Ty(context), // ErrValue
+                    str_type->getPointerTo()         // ErrMessage
+                },                                   //
+                "__flint_type_err",                  //
+                false                                // is not packed, it's padded
+            );
+        }
+        return {type_map.at("__flint_type_err"), false};
+    } else if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(type.get())) {
         if (primitive_type->type_name == "__flint_type_str_struct") {
             // A string is a struct of type 'type { i64, [0 x i8] }'
             if (type_map.find("type_str") == type_map.end()) {

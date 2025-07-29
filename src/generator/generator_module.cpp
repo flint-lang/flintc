@@ -2,6 +2,7 @@
 
 #include "globals.hpp"
 #include "linker/linker.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "profiler.hpp"
 
 #include <json/parser.hpp>
@@ -37,30 +38,43 @@ bool Generator::Module::generate_module(     //
             Array::generate_array_manip_functions(builder.get(), module.get(), false);
             break;
         case BuiltinLibrary::READ:
+            // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
+            IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
             Builtin::generate_c_functions(module.get());
             String::generate_string_manip_functions(builder.get(), module.get(), true);
             Read::generate_read_functions(builder.get(), module.get(), false);
             break;
         case BuiltinLibrary::ASSERT:
+            // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
+            IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
             Assert::generate_assert_functions(builder.get(), module.get(), false);
             break;
         case BuiltinLibrary::FILESYSTEM:
+            // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
+            IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
             Builtin::generate_c_functions(module.get());
             String::generate_string_manip_functions(builder.get(), module.get(), true);
             Array::generate_array_manip_functions(builder.get(), module.get(), true);
             FileSystem::generate_filesystem_functions(builder.get(), module.get(), false);
             break;
         case BuiltinLibrary::ENV:
+            // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
+            IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
             Builtin::generate_c_functions(module.get());
             String::generate_string_manip_functions(builder.get(), module.get(), true);
             Env::generate_env_functions(builder.get(), module.get(), false);
             break;
         case BuiltinLibrary::SYSTEM:
+            // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
+            IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
             Builtin::generate_c_functions(module.get());
             String::generate_string_manip_functions(builder.get(), module.get(), true);
             System::generate_system_functions(builder.get(), module.get(), false);
             break;
     }
+
+    // Clear the type map when we are done to prevent modules using types of no longer existing modules
+    type_map.clear();
 
     // Print the module, if requested
     if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(lib_to_build))) {

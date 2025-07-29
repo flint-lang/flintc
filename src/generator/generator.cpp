@@ -6,18 +6,19 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/parser.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
 
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/Function.h>  // A basic function like in c
-#include <llvm/IR/IRBuilder.h> // Utility to generate instructions
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instructions.h>
-#include <llvm/IR/LLVMContext.h> // Manages types and global states
+#include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
-#include <llvm/IR/Module.h> // Container for the IR code
+#include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/ValueSymbolTable.h>
 #include <llvm/IR/Verifier.h>
@@ -262,6 +263,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
 
     // Generate all the c functions
     Builtin::generate_c_functions(module.get());
+
+    // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
+    IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
 
     // Generate built-in functions in the main module
     Module::Print::generate_print_functions(builder.get(), module.get());
