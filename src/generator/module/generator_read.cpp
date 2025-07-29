@@ -1,4 +1,5 @@
 #include "generator/generator.hpp"
+#include "lexer/builtins.hpp"
 
 void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
@@ -360,6 +361,12 @@ void Generator::Module::Read::generate_read_int_function( //
     llvm::Function *strtol_fn = c_functions.at(STRTOL);
 
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    const unsigned int ErrRead = Type::get_type_id_from_str("ErrRead");
+    const std::vector<error_value> &ErrReadValues = std::get<2>(core_module_error_sets.at("read").at(0));
+    const unsigned int ReadLines = 0;
+    const unsigned int ParseInt = 1;
+    const std::string ReadLinesMessage(ErrReadValues.at(ReadLines).second);
+    const std::string ParseIntMessage(ErrReadValues.at(ParseInt).second);
     llvm::Type *result_type = IR::get_type(module, result_type_ptr).first;
     llvm::FunctionType *read_int_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_int_fn = llvm::Function::Create(                     //
@@ -394,13 +401,14 @@ void Generator::Module::Read::generate_read_int_function( //
     llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
     builder->CreateCondBr(is_null, error_block, continue_block);
 
-    // Error block: throw an error with exit code 100 (allocation error)
+    // Error block: throw error ErrRead.ReadLines
     builder->SetInsertPoint(error_block);
     llvm::AllocaInst *creation_ret_alloca = Allocation::generate_default_struct( //
         *builder, function_result_type, "creation_ret_alloca", true              //
     );
     llvm::Value *creation_err_ptr = builder->CreateStructGEP(function_result_type, creation_ret_alloca, 0, "creation_err_ptr");
-    builder->CreateStore(builder->getInt32(100), creation_err_ptr);
+    llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
+    builder->CreateStore(err_value, creation_err_ptr);
     llvm::Value *creation_ret_val = builder->CreateLoad(function_result_type, creation_ret_alloca, "creation_ret_val");
     builder->CreateRet(creation_ret_val);
 
@@ -428,11 +436,12 @@ void Generator::Module::Read::generate_read_int_function( //
     llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, buffer_end, "endptr_lt_end");
     builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
 
-    // Parse error block: parse error has a error value of 101
+    // Parse error block: throw error ErrRead.ParseInt
     builder->SetInsertPoint(parse_error_block);
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
-    builder->CreateStore(builder->getInt32(101), parse_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrRead, ParseInt, ParseIntMessage);
+    builder->CreateStore(err_value, parse_err_ptr);
     llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
 
@@ -490,6 +499,14 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::Function *strtoul_fn = c_functions.at(STRTOUL);
 
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    const unsigned int ErrRead = Type::get_type_id_from_str("ErrRead");
+    const std::vector<error_value> &ErrReadValues = std::get<2>(core_module_error_sets.at("read").at(0));
+    const unsigned int ReadLines = 0;
+    const unsigned int ParseInt = 1;
+    const unsigned int NegativeUint = 2;
+    const std::string ReadLinesMessage(ErrReadValues.at(ReadLines).second);
+    const std::string ParseIntMessage(ErrReadValues.at(ParseInt).second);
+    const std::string NegativeUintMessage(ErrReadValues.at(NegativeUint).second);
     llvm::Type *result_type = IR::get_type(module, result_type_ptr).first;
     llvm::FunctionType *read_uint_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_uint_fn = llvm::Function::Create(                    //
@@ -527,11 +544,12 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
     builder->CreateCondBr(is_null, error_block, continue_block);
 
-    // Error block: return 100 error code
+    // Error block: throw ErrRead.ReadLines
     builder->SetInsertPoint(error_block);
     llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
     llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
-    builder->CreateStore(builder->getInt32(100), create_err_ptr);
+    llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
+    builder->CreateStore(err_value, create_err_ptr);
     llvm::Value *create_ret_val = builder->CreateLoad(function_result_type, create_ret_alloca, "create_ret_val");
     builder->CreateRet(create_ret_val);
 
@@ -556,11 +574,12 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::Value *is_negative = builder->CreateICmpEQ(first_char, builder->getInt8('-'), "is_negative");
     builder->CreateCondBr(is_negative, negative_error_block, parse_block);
 
-    // Negative error block: return error code 102
+    // Negative error block: throw ErrRead.NegativeUint
     builder->SetInsertPoint(negative_error_block);
     llvm::AllocaInst *neg_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "neg_ret_alloca", true);
     llvm::Value *neg_err_ptr = builder->CreateStructGEP(function_result_type, neg_ret_alloca, 0, "neg_err_ptr");
-    builder->CreateStore(builder->getInt32(102), neg_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrRead, NegativeUint, NegativeUintMessage);
+    builder->CreateStore(err_value, neg_err_ptr);
     llvm::Value *neg_ret_val = builder->CreateLoad(function_result_type, neg_ret_alloca, "neg_ret_val");
     builder->CreateRet(neg_ret_val);
 
@@ -585,11 +604,12 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, buffer_end, "endptr_lt_end");
     builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
 
-    // Parse error block: print error and abort
+    // Parse error block: throw ErrRead.ParseInt
     builder->SetInsertPoint(parse_error_block);
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
-    builder->CreateStore(builder->getInt32(101), parse_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrRead, ParseInt, ParseIntMessage);
+    builder->CreateStore(err_value, parse_err_ptr);
     llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
 
@@ -639,6 +659,12 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f32");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    const unsigned int ErrRead = Type::get_type_id_from_str("ErrRead");
+    const std::vector<error_value> &ErrReadValues = std::get<2>(core_module_error_sets.at("read").at(0));
+    const unsigned int ReadLines = 0;
+    const unsigned int ParseFloat = 3;
+    const std::string ReadLinesMessage(ErrReadValues.at(ReadLines).second);
+    const std::string ParseFloatMessage(ErrReadValues.at(ParseFloat).second);
     llvm::FunctionType *read_f32_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_f32_fn = llvm::Function::Create( //
         read_f32_type,                                    //
@@ -672,11 +698,12 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
     builder->CreateCondBr(is_null, error_block, continue_block);
 
-    // Error block: creation error is error code 100
+    // Error block: throw ErrRead.ReadLines
     builder->SetInsertPoint(error_block);
     llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
     llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
-    builder->CreateStore(builder->getInt32(100), create_err_ptr);
+    llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
+    builder->CreateStore(err_value, create_err_ptr);
     llvm::Value *create_ret_val = builder->CreateLoad(function_result_type, create_ret_alloca, "create_ret_val");
     builder->CreateRet(create_ret_val);
 
@@ -705,11 +732,12 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     // Branch if an parse error occured
     builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
 
-    // Parse warning block is error code 101
+    // Parse warning: throw ErrRead.ParseFloat
     builder->SetInsertPoint(parse_error_block);
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
-    builder->CreateStore(builder->getInt32(101), parse_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrRead, ParseFloat, ParseFloatMessage);
+    builder->CreateStore(err_value, parse_err_ptr);
     llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
 
@@ -744,6 +772,12 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f64");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    const unsigned int ErrRead = Type::get_type_id_from_str("ErrRead");
+    const std::vector<error_value> &ErrReadValues = std::get<2>(core_module_error_sets.at("read").at(0));
+    const unsigned int ReadLines = 0;
+    const unsigned int ParseFloat = 3;
+    const std::string ReadLinesMessage(ErrReadValues.at(ReadLines).second);
+    const std::string ParseFloatMessage(ErrReadValues.at(ParseFloat).second);
     llvm::FunctionType *read_f64_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_f64_fn = llvm::Function::Create( //
         read_f64_type,                                    //
@@ -777,11 +811,12 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::Value *is_null = builder->CreateICmpEQ(buffer, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), "is_null");
     builder->CreateCondBr(is_null, error_block, continue_block);
 
-    // Error block: creation error is exit code 100
+    // Error block: throw ErrRead.ReadLines
     builder->SetInsertPoint(error_block);
     llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
     llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
-    builder->CreateStore(builder->getInt32(100), create_err_ptr);
+    llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
+    builder->CreateStore(err_value, create_err_ptr);
     llvm::Value *create_ret_val = builder->CreateLoad(function_result_type, create_ret_alloca, "create_ret_val");
     builder->CreateRet(create_ret_val);
 
@@ -811,11 +846,12 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     // Branch if an parse error occured
     builder->CreateCondBr(endptr_lt_end, parse_error_block, exit_block);
 
-    // Parse warning block is error code 101
+    // Parse warning block: throw ErrRead.ParseFloat
     builder->SetInsertPoint(parse_error_block);
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
-    builder->CreateStore(builder->getInt32(101), parse_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrRead, ParseFloat, ParseFloatMessage);
+    builder->CreateStore(err_value, parse_err_ptr);
     llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
 

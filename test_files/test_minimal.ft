@@ -1,5 +1,6 @@
 use Core.assert
 use Core.print
+use Core.read
 
 def divide(i32 x, i32 y) -> i32 {ErrAssert}:
 	if y == 0:
@@ -27,3 +28,8 @@ def main():
 		print($"catched second value: {err}\n");
 		assert(true);
 	assert(res == 0);
+
+	print("Enter i32 value: ");
+	i32 val = read_i32() catch err:
+		print($"err = {err}\n");
+	print($"val = {val}\n");
