@@ -146,8 +146,10 @@ static inline std::unordered_map<std::string_view, std::vector<error_set>> core_
         "read",                  // The 'read' module
         {{"ErrRead", "anyerror", // The 'ErrRead' error set
             {
-                {"ParseInt", "Could not parse text to integer"},         //
-                {"ParseFloat", "Could not parse text to floating‑point"} //
+                {"ReadLines", "Could not read lines from console"},                   //
+                {"ParseInt", "Could not parse text to integer"},                      //
+                {"NegativeUint", "Negative input not allowed for unsigned integers"}, //
+                {"ParseFloat", "Could not parse text to floating‑point"}              //
             }}},
     }, // End of the 'read' module
     {
