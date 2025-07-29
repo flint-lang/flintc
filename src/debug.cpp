@@ -1200,6 +1200,16 @@ namespace Debug {
             if (function.return_types.size() > 1) {
                 std::cout << ")";
             }
+            if (!function.error_types.empty()) {
+                std::cout << " {";
+                for (auto it = function.error_types.begin(); it != function.error_types.end(); ++it) {
+                    if (it != function.error_types.begin()) {
+                        std::cout << ", ";
+                    }
+                    std::cout << (*it)->to_string();
+                }
+                std::cout << "}";
+            }
             std::cout << " [s" << function.scope->scope_id << "]" << std::endl;
 
             // The function body

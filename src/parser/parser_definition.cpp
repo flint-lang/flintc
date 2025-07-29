@@ -93,11 +93,13 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
         }
         if (tok_it->token != TOK_LEFT_PAREN) {
             // There is only a single return type, so everything until the colon is considere the return type
-            token_list::iterator begin_it = tok_it;
-            while (tok_it != definition.second && tok_it->token != TOK_COLON) {
-                tok_it++;
+            std::optional<uint2> type_range = Matcher::get_next_match_range({tok_it, definition.second}, Matcher::type);
+            if (!type_range.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
             }
-            token_slice type_tokens = {begin_it, tok_it};
+            assert(type_range.value().first == 0);
+            token_slice type_tokens = {tok_it, tok_it + type_range.value().second};
             const auto return_type = Type::get_type(type_tokens);
             if (!return_type.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
@@ -108,6 +110,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                 return std::nullopt;
             }
             return_types.emplace_back(return_type.value());
+            tok_it = type_tokens.second;
         } else {
             // Skip the left paren
             tok_it++;
@@ -127,6 +130,27 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                 }
                 tok_it++;
             }
+            // Skip the right paren
+            tok_it++;
+        }
+    }
+
+    // Check if a curly brace follows, if it does then the error types follow
+    std::vector<std::shared_ptr<Type>> error_types;
+    error_types.emplace_back(Type::get_primitive_type("anyerror"));
+    if (tok_it->token == TOK_LEFT_BRACE) {
+        tok_it++;
+        while (tok_it->token != TOK_RIGHT_BRACE) {
+            std::optional<std::shared_ptr<Type>> err_type = Type::get_type(token_slice{tok_it, tok_it + 1});
+            if (!err_type.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            error_types.emplace_back(err_type.value());
+            if (std::next(tok_it)->token == TOK_RIGHT_BRACE) {
+                break;
+            }
+            tok_it += 2;
         }
     }
 
@@ -137,8 +161,12 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        main_function_parsed = true;
         name = "_main";
+        if (error_types.size() > 1) {
+            // The main function cannot throw user-defined errors, it can only throw errors of type "anyerror"
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
 
         // The parameter list either has to be empty or contain one `str[]` parameter
         main_function_has_args = !parameters.empty();
@@ -156,6 +184,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        main_function_parsed = true;
     }
 
     // Create the body scope
@@ -185,7 +214,6 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     }
 
     // Dont parse the body yet, it will be parsed in the second pass of the parser
-    auto error_types = std::vector<std::shared_ptr<Type>>{Type::get_type_from_str("anyerror").value()};
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, error_types, body_scope);
 }
 

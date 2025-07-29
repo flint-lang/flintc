@@ -660,6 +660,22 @@ class Matcher {
         token(TOK_LEFT_PAREN), type, zero_or_more(sequence({token(TOK_COMMA), type})), token(TOK_RIGHT_PAREN) //
     });
 
+    // --- UNTILS ---
+    static const inline PatternPtr until_right_paren = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1);
+    static const inline PatternPtr until_right_brace = balanced_match_until(token(TOK_LEFT_BRACE), token(TOK_RIGHT_BRACE), std::nullopt, 1);
+    static const inline PatternPtr until_right_bracket = balanced_match_until(     //
+        token(TOK_LEFT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_PAREN), 0 //
+    );
+    static const inline PatternPtr until_comma = balanced_match_until(                                                              //
+        one_of({token(TOK_LEFT_PAREN), token(TOK_LESS)}), token(TOK_COMMA), one_of({token(TOK_RIGHT_PAREN), token(TOK_GREATER)}), 0 //
+    );
+    static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
+    static const inline PatternPtr until_arrow = match_until(token(TOK_ARROW));
+    static const inline PatternPtr until_semicolon = match_until(token(TOK_SEMICOLON));
+    static const inline PatternPtr until_colon_equal = match_until(token(TOK_COLON_EQUAL));
+    static const inline PatternPtr until_eq_or_colon_equal = match_until(one_of({token(TOK_EQUAL), token(TOK_COLON_EQUAL)}));
+    static const inline PatternPtr until_col_or_semicolon = match_until(one_of({token(TOK_COLON), token(TOK_SEMICOLON)}));
+
     // --- DEFINITIONS ---
     static const inline PatternPtr use_reference = sequence({
         token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_DOT), token(TOK_IDENTIFIER)})) //
@@ -668,11 +684,12 @@ class Matcher {
     static const inline PatternPtr function_definition = sequence({
         optional(token(TOK_ALIGNED)), optional(token(TOK_CONST)), token(TOK_DEF),               //
         token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
-        one_of({
-            sequence({token(TOK_ARROW), group, token(TOK_COLON)}), //
-            sequence({token(TOK_ARROW), type, token(TOK_COLON)}),  //
-            token(TOK_COLON)                                       //
-        })                                                         //
+        optional(one_of({
+            sequence({token(TOK_ARROW), group}),                        //
+            sequence({token(TOK_ARROW), type})                          //
+        })),                                                            //
+        optional(sequence({token(TOK_LEFT_BRACE), until_right_brace})), //
+        token(TOK_COLON)                                                //
     });
     static const inline PatternPtr data_definition = sequence({
         optional(one_of({token(TOK_SHARED), token(TOK_IMMUTABLE)})), optional(token(TOK_ALIGNED)), //
@@ -717,21 +734,6 @@ class Matcher {
         optional(entity_body_data), zero_or_more(anytoken), optional(entity_body_func), zero_or_more(anytoken), //
         optional(entity_body_links), zero_or_more(anytoken), entity_body_constructor                            //
     });
-
-    // --- UNTILS ---
-    static const inline PatternPtr until_right_paren = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1);
-    static const inline PatternPtr until_right_bracket = balanced_match_until(     //
-        token(TOK_LEFT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_PAREN), 0 //
-    );
-    static const inline PatternPtr until_comma = balanced_match_until(                                                              //
-        one_of({token(TOK_LEFT_PAREN), token(TOK_LESS)}), token(TOK_COMMA), one_of({token(TOK_RIGHT_PAREN), token(TOK_GREATER)}), 0 //
-    );
-    static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
-    static const inline PatternPtr until_arrow = match_until(token(TOK_ARROW));
-    static const inline PatternPtr until_semicolon = match_until(token(TOK_SEMICOLON));
-    static const inline PatternPtr until_colon_equal = match_until(token(TOK_COLON_EQUAL));
-    static const inline PatternPtr until_eq_or_colon_equal = match_until(one_of({token(TOK_EQUAL), token(TOK_COLON_EQUAL)}));
-    static const inline PatternPtr until_col_or_semicolon = match_until(one_of({token(TOK_COLON), token(TOK_SEMICOLON)}));
 
     // --- EXPRESSIONS ---
     static const inline PatternPtr string_interpolation = sequence({token(TOK_DOLLAR), token(TOK_STR_VALUE)});
