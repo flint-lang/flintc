@@ -53,6 +53,19 @@ class CLIParserTests : public CLIParserBase {
                 test_performance = true;
             } else if (arg == "--no-unit-tests" || arg == "-n") {
                 unit_tests = false;
+            } else if (arg == "--fuzzy" || arg == "-f") {
+                fuzzy_testing = true;
+                if (i + 1 < args.size()) {
+                    // Try to parse the next argument as a number, if it fails we dont have a "real" number as the next argument
+                    try {
+                        fuzzy_count = std::stoul(args.at(i + 1));
+                        ++i;
+                    } catch ([[maybe_unused]] const std::invalid_argument &) {
+                        // Not a number, just continue
+                    } catch ([[maybe_unused]] const std::out_of_range &) {
+                        // Number too large, just continue
+                    }
+                }
             } else {
                 print_err("Unknown argument: " + arg);
                 return 1;
@@ -65,6 +78,8 @@ class CLIParserTests : public CLIParserBase {
     unsigned int count{1};
     bool unit_tests{true};
     bool test_performance{false};
+    bool fuzzy_testing{false};
+    unsigned long fuzzy_count = 1000000;
 
   private:
     void print_help() override {
@@ -74,6 +89,7 @@ class CLIParserTests : public CLIParserBase {
         std::cout << "  --help, -h                  Show help\n";
         std::cout << "  --no-unit-tests, -n         Disables unit testing (not recommended)\n";
         std::cout << "  --test-performance, -p      Run all performance tests\n";
+        std::cout << "  --fuzzy, -f [<num>]         Run all fuzzy tests <num> times (default = 1.000.000)\n";
         std::cout << "\n";
         std::cout << "Performance Test Options:\n";
         std::cout << "  --count, -c <num>           The count how often each test will run. (default = 1)\n";

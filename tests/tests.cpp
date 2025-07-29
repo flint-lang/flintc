@@ -1,6 +1,7 @@
 #include "test_utils.hpp"
 
 #include "cli_parser_tests.hpp"
+#include "fuzzy/test_fuzzy.hpp"
 #include "parser/test_parser.hpp"
 #include "performance/test_performance.hpp"
 #include "signature/test_signature.hpp"
@@ -33,5 +34,9 @@ int main(int argc, char *argv[]) {
 
     if (clp.test_performance) {
         test_performance(clp.compile_flags, clp.count);
+    }
+
+    if (clp.fuzzy_testing) {
+        test_fuzzy(clp.fuzzy_count);
     }
 }

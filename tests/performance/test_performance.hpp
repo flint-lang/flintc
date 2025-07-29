@@ -3,7 +3,7 @@
 #include "test_utils.hpp"
 #include <string>
 
-TestResult test_performance(const std::string &flags, const unsigned int count) {
+static TestResult test_performance(const std::string &flags, const unsigned int count) {
     TestResult result;
     result.append_test_name("PERFORMANCE_TESTS:", true);
     std::cout << "Testing with flags \"" << flags << "\", running each test " << count << " times\n\n";
