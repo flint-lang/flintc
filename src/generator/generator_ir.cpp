@@ -360,6 +360,22 @@ llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, co
     // Return the buffer pointer
     return str_buf;
 }
+llvm::Value *Generator::IR::generate_err_value( //
+    llvm::IRBuilder<> &builder,                 //
+    const unsigned int err_id,                  //
+    const unsigned int err_value,               //
+    const std::string &err_message              //
+) {
+    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+    llvm::Value *err_struct = get_default_value_of_type(err_type);
+    err_struct = builder.CreateInsertValue(err_struct, builder.getInt32(err_id), {0}, "insert_err_type_id");
+    err_struct = builder.CreateInsertValue(err_struct, builder.getInt32(err_value), {1}, "insert_err_value");
+    llvm::Value *message_str = IR::generate_const_string(builder, err_message);
+    llvm::Value *error_message = builder.CreateCall(init_str_fn, {message_str, builder.getInt64(err_message.size())}, "err_message");
+    err_struct = builder.CreateInsertValue(err_struct, error_message, {2}, "insert_err_message");
+    return err_struct;
+}
 
 void Generator::IR::generate_debug_print( //
     llvm::IRBuilder<> *builder,           //

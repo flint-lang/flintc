@@ -427,6 +427,21 @@ class Generator {
         /// @return `llvm::Value *` The generated static string value
         static llvm::Value *generate_const_string(llvm::IRBuilder<> &builder, const std::string &str);
 
+        /// @function `generate_err_value`
+        /// @brief Generates an error value from the given error components
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `err_id` The type ID of the error
+        /// @param `err_value` The value ID of the error
+        /// @param `err_message` The message from the error
+        /// @return `llvm::Value *` The constructed error value, ready to be stored somewhere
+        static llvm::Value *generate_err_value( //
+            llvm::IRBuilder<> &builder,         //
+            const unsigned int err_id,          //
+            const unsigned int err_value,       //
+            const std::string &err_message      //
+        );
+
         /// @function `generate_debug_print`
         /// @brief Generates a small call to print which prints the given message using printf
         ///
