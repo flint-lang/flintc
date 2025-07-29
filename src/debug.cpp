@@ -1143,7 +1143,7 @@ namespace Debug {
         //     Prints the content of the generated ErrorNode
         void print_error(unsigned int indent_lvl, TreeBits &bits, const ErrorNode &error) {
             Local::print_header(indent_lvl, bits, "Error ");
-            std::cout << error.name << "(" << error.parent_error << ")" << std::endl;
+            std::cout << error.name << "(" << error.parent_error << ") ID [" << error.error_id << "]" << std::endl;
 
             indent_lvl++;
             for (size_t i = 0; i < error.values.size(); i++) {

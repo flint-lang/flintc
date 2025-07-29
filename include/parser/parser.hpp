@@ -43,7 +43,6 @@
 #include "ast/expressions/grouped_data_access_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/optional_chain_node.hpp"
-#include "ast/expressions/optional_unwrap_node.hpp"
 #include "ast/expressions/string_interpolation_node.hpp"
 #include "ast/expressions/switch_expression.hpp"
 #include "ast/expressions/unary_op_expression.hpp"

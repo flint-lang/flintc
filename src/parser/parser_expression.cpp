@@ -13,6 +13,7 @@
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
+#include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/enum_type.hpp"

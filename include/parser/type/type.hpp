@@ -66,6 +66,15 @@ class Type {
     /// @return `std::shared_ptr<Type>` The converted type
     static std::shared_ptr<Type> str_to_type(const std::string_view &str);
 
+    /// @function `get_type_id_from_str`
+    /// @brief Gets an u32 type id from the given name of the type through hashing. Will always produce the same type ID from the same name.
+    /// The value `0` is reserved and will *never* be a result from this function. All other values within the 32 bits are valid hashes
+    /// though
+    ///
+    /// @param `name` The name of the type to get a hash id from
+    /// @return `uint32_t` A u32 hash value generated from the type's name
+    static uint32_t get_type_id_from_str(const std::string &name);
+
     /// @function `clear_unknown_types`
     /// @brief Clears the map of all unknown types
     static void clear_unknown_types();
