@@ -1,59 +1,20 @@
-use Core.assert
 use Core.print
-use Core.read
-use Core.env
-use Core.system
 
-def set_and_get(str name, str value) -> str {ErrEnv}:
-	bool result = set_env(name, value, true);
-	return get_env(name);
+error Base:
+	Err1, Err2;
 
-def divide(i32 x, i32 y) -> i32 {ErrAssert}:
-	if y == 0:
-		throw ErrAssert.AssertionFailed;
-	return x / y;
+error Crash(Base):
+	Friendly, Harshly;
 
-def catch_this(i32 x, i32 y) -> i32:
-	return divide(x, y);
+def fail(bool friend) {Crash}:
+	if friend:
+		throw Crash.Friendly;
+	else:
+		throw Crash.Harshly;
 
 def main():
-	i32 res = divide(10, 2) catch err:
-		assert(false);
-	assert(res == 5);
-
-	res = divide(10, 0) catch err:
-		print($"catched first value: {err}\n");
-		assert(true);
-	assert(res == 0);
-
-	res = catch_this(10, 5) catch err:
-		assert(false);
-	assert(res == 2);
-
-	res = catch_this(10, 0) catch err:
-		print($"catched second value: {err}\n");
-		assert(true);
-	assert(res == 0);
-
-	print("Enter i32 value: ");
-	i32 val = read_i32() catch err:
+	fail(true) catch err:
 		print($"err = {err}\n");
-	print($"val = {val}\n");
 
-	assert(false) catch err:
-		print($"ErrAssert id = {err}\n");
-
-	str value = set_and_get("Wololo", "Hello There");
-	print($"value = {value}\n");
-	assert(value == "Hello There");
-
-	str content = "Hello There, Too";
-	print($"val = {content}\n");
-	value = set_and_get("Wololo", content) catch err:
-		print($"ErrEnv id = {err}");
-	print($"value = {value}\n");
-	assert(value == "Hello There, Too");
-
-	(exit_code, output) := system_command("wololo");
-	print($"exit_code = {exit_code}\n");
-	print($"output = {output}\n");
+	fail(false) catch err:
+		print($"err = {err}\n");

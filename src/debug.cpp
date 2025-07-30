@@ -1149,7 +1149,8 @@ namespace Debug {
             for (size_t i = 0; i < error.values.size(); i++) {
                 bool is_last = i + 1 == error.values.size();
                 TreeBits value_bits = bits.child(indent_lvl, is_last);
-                Local::print_header(indent_lvl, value_bits, "Error Value " + std::to_string(i) + " ");
+                const unsigned int error_value = error.get_id_of_value(error.values.at(i)).value();
+                Local::print_header(indent_lvl, value_bits, "Error Value " + std::to_string(error_value) + " ");
                 std::cout << error.values[i] << std::endl;
             }
         }

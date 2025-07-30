@@ -18,6 +18,25 @@ class ErrorNode : public ASTNode {
         error_id = Type::get_type_id_from_str(name);
     }
 
+    /// @function `get_parent_node`
+    /// @breif Returns the parent node of this node, if it has any
+    ///
+    /// @return `std::optional<const ErrorNode *>` The parent error node, nullopt if it doesnt have a parent
+    std::optional<const ErrorNode *> get_parent_node() const;
+
+    /// @function `get_value_count`
+    /// @brief Returns the total count of error values within this set, this includes all values from it's base errors too
+    ///
+    /// @return `unsigned int` The total count of values within this set
+    unsigned int get_value_count() const;
+
+    /// @function `get_id_of_value`
+    /// @brief Returns the id of a given string value, the value is either in this set or in one of it's base sets
+    ///
+    /// @param `value` The error value to search for
+    /// @return `std::optional<unsigned int>` The ID of the error value, nullopt if the value is not part of this set
+    std::optional<unsigned int> get_id_of_value(const std::string &value) const;
+
     /// @var `name`
     /// @brief The name of the new error type
     std::string name;
