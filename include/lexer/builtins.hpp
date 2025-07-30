@@ -78,7 +78,7 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
         {
             {"read_file", // The 'read_file' function
                 {
-                    {{"str"}, {"str"}, {"ErrFS"}}, // The single version of the 'read_file' function
+                    {{"str"}, {"str"}, {"ErrIO"}}, // The single version of the 'read_file' function
                 }},
             {"read_lines", // The 'read_lines' function
                 {
@@ -137,19 +137,19 @@ using error_set = std::tuple<std::string_view, std::string_view, std::vector<err
 static inline std::unordered_map<std::string_view, std::vector<error_set>> core_module_error_sets = {
     {
         "assert",                  // The 'assert' module
-        {{"ErrAssert", "anyerror", // The 'ErrAssert' error set
+        {{"ErrAssert", "anyerror", // The 'ErrAssert' error set, Value 0 is `anyerror`
             {
-                {"AssertionFailed", "The assertion has failed"} //
+                {"AssertionFailed", "The assertion has failed"} // Value 1
             }}},
     }, // End of the 'assert' module
     {
         "read",                  // The 'read' module
         {{"ErrRead", "anyerror", // The 'ErrRead' error set
             {
-                {"ReadLines", "Could not read lines from console"},                   //
-                {"ParseInt", "Could not parse text to integer"},                      //
-                {"NegativeUint", "Negative input not allowed for unsigned integers"}, //
-                {"ParseFloat", "Could not parse text to floating‑point"}              //
+                {"ReadLines", "Could not read lines from console"},                   // Value 0
+                {"ParseInt", "Could not parse text to integer"},                      // Value 1
+                {"NegativeUint", "Negative input not allowed for unsigned integers"}, // Value 2
+                {"ParseFloat", "Could not parse text to floating‑point"}              // Value 3
             }}},
     }, // End of the 'read' module
     {
@@ -157,16 +157,16 @@ static inline std::unordered_map<std::string_view, std::vector<error_set>> core_
         {
             {"ErrIO", "anyerror", // The 'ErrIO' error set
                 {
-                    {"OpenFailed", "Could not open the file"},                   //
-                    {"NotFound", "File does not exist"},                         //
-                    {"NotReadable", "Exists but is not readable"},               //
-                    {"NotWritable", "Exists but is not writable (permissions)"}, //
-                    {"UnexpectedEOF", "Hit EOF in the middle of a read"}         //
+                    {"OpenFailed", "Could not open the file"},                   // Value 0
+                    {"NotFound", "File does not exist"},                         // Value 1
+                    {"NotReadable", "Exists but is not readable"},               // Value 2
+                    {"NotWritable", "Exists but is not writable (permissions)"}, // Value 3
+                    {"UnexpectedEOF", "Hit EOF in the middle of a read"}         // Value 4
                 }},
-            {"ErrFS", "ErrIO", // The 'ErrFS' error set
+            {"ErrFS", "ErrIO", // The 'ErrFS' error set, Extends all values from `ErrIO`
                 {
-                    {"TooLarge", "File is unreasonably large"}, //
-                    {"InvalidPath", "Path string is malformed"} //
+                    {"TooLarge", "File is unreasonably large"}, // Value 5
+                    {"InvalidPath", "Path string is malformed"} // Value 6
                 }},
         },
     }, // End of the 'filesystem' module
@@ -174,17 +174,17 @@ static inline std::unordered_map<std::string_view, std::vector<error_set>> core_
         "env",                  // The 'env' module
         {{"ErrEnv", "anyerror", // The 'ErrEnv' error set
             {
-                {"VarNotFound", "Requested variable not set"},               //
-                {"InvalidName", "Name contains illegal characters"},         //
-                {"InvalidValue", "Value cannot be used (e.g. embedded NUL)"} //
+                {"VarNotFound", "Requested variable not set"},               // Value 0
+                {"InvalidName", "Name contains illegal characters"},         // Value 1
+                {"InvalidValue", "Value cannot be used (e.g. embedded NUL)"} // Value 2
             }}},
     }, // End of the 'env' module
     {
         "system",                  // The 'system' module
         {{"ErrSystem", "anyerror", // The 'ErrSystem' error set
             {
-                {"SpawnFailed", "Process could not be created"},                     //
-                {"ExecFailed", "Process start succeeded but exec returned an error"} //
+                {"SpawnFailed", "Process could not be created"},                     // Value 0
+                {"ExecFailed", "Process start succeeded but exec returned an error"} // Value 1
             }}},
     }, // End of the 'system' module
 };

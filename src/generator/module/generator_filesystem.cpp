@@ -60,6 +60,15 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
+    const unsigned int ErrIO = Type::get_type_id_from_str("ErrIO");
+    const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
+    const unsigned int NotFound = 1;
+    const unsigned int NotReadable = 2;
+    const unsigned int UnexpectedEOF = 4;
+    const std::string NotFoundMessage(ErrIOValues.at(NotFound).second);
+    const std::string NotReadableMessage(ErrIOValues.at(NotReadable).second);
+    const std::string UnexpectedEOFMessage(ErrIOValues.at(UnexpectedEOF).second);
+
     const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_file_type = llvm::FunctionType::get( //
@@ -109,11 +118,12 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Value *file_null_check = builder->CreateIsNull(file, "file_is_null");
     builder->CreateCondBr(file_null_check, file_null_block, file_valid_block);
 
-    // Handle NULL file, throw 120
+    // Handle NULL file, throw ErrIO.NotFound
     builder->SetInsertPoint(file_null_block);
     llvm::AllocaInst *ret_file_null_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_null_alloc");
     llvm::Value *ret_file_null_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_null_alloc, 0, "ret_file_null_err_ptr");
-    builder->CreateStore(builder->getInt32(120), ret_file_null_err_ptr);
+    llvm::Value *err_value = IR::generate_err_value(*builder, ErrIO, NotFound, NotFoundMessage);
+    builder->CreateStore(err_value, ret_file_null_err_ptr);
     llvm::Value *ret_file_null_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_file_null_empty_str");
     llvm::Value *ret_file_null_val_ptr = builder->CreateStructGEP(function_result_type, ret_file_null_alloc, 1, "ret_file_null_val_ptr");
     builder->CreateStore(ret_file_null_empty_str, ret_file_null_val_ptr);
@@ -131,12 +141,13 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Value *seek_end_check = builder->CreateICmpNE(seek_end_result, builder->getInt32(0), "seek_end_check");
     builder->CreateCondBr(seek_end_check, seek_end_error_block, seek_end_ok_block);
 
-    // Handle fseek SEEK_END error, throw 121
+    // Handle fseek SEEK_END error, throw ErrIO.NotReadable
     builder->SetInsertPoint(seek_end_error_block);
     builder->CreateCall(fclose_fn, {file});
     llvm::AllocaInst *ret_seek_end_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_seek_end_alloc");
     llvm::Value *ret_seek_end_err_ptr = builder->CreateStructGEP(function_result_type, ret_seek_end_alloc, 0, "ret_seek_end_err_ptr");
-    builder->CreateStore(builder->getInt32(121), ret_seek_end_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrIO, NotReadable, NotReadableMessage);
+    builder->CreateStore(err_value, ret_seek_end_err_ptr);
     llvm::Value *ret_seek_end_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_seek_end_empty_str");
     llvm::Value *ret_seek_end_val_ptr = builder->CreateStructGEP(function_result_type, ret_seek_end_alloc, 1, "ret_seek_end_val_ptr");
     builder->CreateStore(ret_seek_end_empty_str, ret_seek_end_val_ptr);
@@ -152,12 +163,13 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Value *ftell_check = builder->CreateICmpEQ(file_size, minus_one, "ftell_check");
     builder->CreateCondBr(ftell_check, ftell_error_block, ftell_ok_block);
 
-    // Handle ftell error, throw 122
+    // Handle ftell error, throw ErrIO.NotReadable
     builder->SetInsertPoint(ftell_error_block);
     builder->CreateCall(fclose_fn, {file});
     llvm::AllocaInst *ret_ftell_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_ftell_alloc");
     llvm::Value *ret_ftell_err_ptr = builder->CreateStructGEP(function_result_type, ret_ftell_alloc, 0, "ret_ftell_err_ptr");
-    builder->CreateStore(builder->getInt32(122), ret_ftell_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrIO, NotReadable, NotReadableMessage);
+    builder->CreateStore(err_value, ret_ftell_err_ptr);
     llvm::Value *ret_ftell_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_ftell_empty_str");
     llvm::Value *ret_ftell_val_ptr = builder->CreateStructGEP(function_result_type, ret_ftell_alloc, 1, "ret_ftell_val_ptr");
     builder->CreateStore(ret_ftell_empty_str, ret_ftell_val_ptr);
@@ -173,12 +185,13 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Value *seek_set_check = builder->CreateICmpNE(seek_set_result, builder->getInt32(0), "seek_set_check");
     builder->CreateCondBr(seek_set_check, seek_set_error_block, seek_set_ok_block);
 
-    // Handle fseek SEEK_SET error, throw 123
+    // Handle fseek SEEK_SET error, throw ErrIO.NotReadable
     builder->SetInsertPoint(seek_set_error_block);
     builder->CreateCall(fclose_fn, {file});
     llvm::AllocaInst *ret_seek_set_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_seek_set_alloc");
     llvm::Value *ret_seek_set_err_ptr = builder->CreateStructGEP(function_result_type, ret_seek_set_alloc, 0, "ret_seek_set_err_ptr");
-    builder->CreateStore(builder->getInt32(123), ret_seek_set_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrIO, NotReadable, NotReadableMessage);
+    builder->CreateStore(err_value, ret_seek_set_err_ptr);
     llvm::Value *ret_seek_set_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_seek_set_empty_str");
     llvm::Value *ret_seek_set_val_ptr = builder->CreateStructGEP(function_result_type, ret_seek_set_alloc, 1, "ret_seek_set_val_ptr");
     builder->CreateStore(ret_seek_set_empty_str, ret_seek_set_val_ptr);
@@ -204,12 +217,13 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Value *read_check = builder->CreateICmpNE(bytes_read, file_size, "read_check");
     builder->CreateCondBr(read_check, read_error_block, read_ok_block);
 
-    // Handle read error, throw 124
+    // Handle read error, throw ErrIO.UnexpectedEOF
     builder->SetInsertPoint(read_error_block);
     builder->CreateCall(free_fn, {content});
     llvm::AllocaInst *ret_read_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_read_alloc");
     llvm::Value *ret_read_err_ptr = builder->CreateStructGEP(function_result_type, ret_read_alloc, 0, "ret_read_err_ptr");
-    builder->CreateStore(builder->getInt32(124), ret_read_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrIO, UnexpectedEOF, UnexpectedEOFMessage);
+    builder->CreateStore(err_value, ret_read_err_ptr);
     llvm::Value *ret_read_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_read_empty_str");
     llvm::Value *ret_read_val_ptr = builder->CreateStructGEP(function_result_type, ret_read_alloc, 1, "ret_read_val_ptr");
     builder->CreateStore(ret_read_empty_str, ret_read_val_ptr);
@@ -325,6 +339,16 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Function *fill_arr_inline_fn = Array::array_manip_functions.at("fill_arr_inline");
     llvm::Function *access_arr_fn = Array::array_manip_functions.at("access_arr");
 
+    const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
+    const unsigned int NotFound = 1;
+    const std::string NotFoundMessage(ErrIOValues.at(NotFound).second);
+
+    const unsigned int ErrIOCount = 5;
+    const unsigned int ErrFS = Type::get_type_id_from_str("ErrFS");
+    const std::vector<error_value> &ErrFSValues = std::get<2>(core_module_error_sets.at("filesystem").at(1));
+    const unsigned int TooLarge = 5;
+    const std::string TooLargeMessage(ErrFSValues.at(TooLarge - ErrIOCount).second);
+
     // Define return type - str* (array of strings)
     const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
@@ -382,11 +406,12 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *file_null = builder->CreateIsNull(file, "file_null");
     builder->CreateCondBr(file_null, file_fail_block, file_ok_block);
 
-    // Handle file open failure
+    // Handle file open failure, throw ErrIO.NotFound
     builder->SetInsertPoint(file_fail_block);
     llvm::AllocaInst *ret_file_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_fail_alloc");
     llvm::Value *ret_file_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 0, "ret_file_fail_err_ptr");
-    builder->CreateStore(builder->getInt32(126), ret_file_fail_err_ptr);
+    llvm::Value *err_value = IR::generate_err_value(*builder, ErrFS, NotFound, NotFoundMessage);
+    builder->CreateStore(err_value, ret_file_fail_err_ptr);
     llvm::Value *ret_file_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_file_fail_empty_str");
     llvm::Value *ret_file_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 1, "ret_file_fail_val_ptr");
     builder->CreateStore(ret_file_fail_empty_str, ret_file_fail_val_ptr);
@@ -489,12 +514,13 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *array_null = builder->CreateIsNull(lines_array, "array_null");
     builder->CreateCondBr(array_null, array_create_fail, read_lines_loop);
 
-    // Handle array creation failure
+    // Handle array creation failure, throw ErrFS.TooLarge
     builder->SetInsertPoint(array_create_fail);
     builder->CreateCall(fclose_fn, {file});
     llvm::AllocaInst *ret_array_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_array_fail_alloc");
     llvm::Value *ret_array_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_array_fail_alloc, 0, "ret_array_fail_err_ptr");
-    builder->CreateStore(builder->getInt32(127), ret_array_fail_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrFS, TooLarge, TooLargeMessage);
+    builder->CreateStore(err_value, ret_array_fail_err_ptr);
     llvm::Value *ret_array_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_array_fail_empty_str");
     llvm::Value *ret_array_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_array_fail_alloc, 1, "ret_array_fail_val_ptr");
     builder->CreateStore(ret_array_fail_empty_str, ret_array_fail_val_ptr);
@@ -634,9 +660,11 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     builder->CreateCall(free_fn, {lines_array});
     builder->CreateCall(fclose_fn, {file});
 
+    // Throw error ErrFS.TooLarge
     llvm::AllocaInst *ret_init_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_init_fail_alloc");
     llvm::Value *ret_init_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_init_fail_alloc, 0, "ret_init_fail_err_ptr");
-    builder->CreateStore(builder->getInt32(128), ret_init_fail_err_ptr);
+    err_value = IR::generate_err_value(*builder, ErrFS, TooLarge, TooLargeMessage);
+    builder->CreateStore(err_value, ret_init_fail_err_ptr);
     llvm::Value *ret_init_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_init_fail_empty_str");
     llvm::Value *ret_init_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_init_fail_alloc, 1, "ret_init_fail_val_ptr");
     builder->CreateStore(ret_init_fail_empty_str, ret_init_fail_val_ptr);
@@ -699,7 +727,9 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
 
     llvm::AllocaInst *ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
     llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
-    builder->CreateStore(builder->getInt32(0), ret_err_ptr);
+    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
+    builder->CreateStore(err_struct, ret_err_ptr);
     llvm::Value *ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
     builder->CreateStore(lines_array, ret_val_ptr);
     llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloc, "ret_val");
@@ -812,6 +842,16 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
+    const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
+    const unsigned int NotWritable = 3;
+    const std::string NotWritableMessage(ErrIOValues.at(NotWritable).second);
+
+    const unsigned int ErrIOCount = 5;
+    const unsigned int ErrFS = Type::get_type_id_from_str("ErrFS");
+    const std::vector<error_value> &ErrFSValues = std::get<2>(core_module_error_sets.at("filesystem").at(1));
+    const unsigned int InvalidPath = 6;
+    const std::string InvalidPathMessage(ErrFSValues.at(InvalidPath - ErrIOCount).second);
+
     const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *write_file_type = llvm::FunctionType::get( //
@@ -855,14 +895,12 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::Value *file_null = builder->CreateIsNull(file, "file_null");
     builder->CreateCondBr(file_null, file_fail_block, file_ok_block);
 
-    // Handle file open failure - return error 131
+    // Handle file open failure, throw ErrFS.InvalidPath
     builder->SetInsertPoint(file_fail_block);
     llvm::AllocaInst *ret_file_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_fail_alloc");
     llvm::Value *ret_file_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 0, "ret_file_fail_err_ptr");
-    builder->CreateStore(builder->getInt32(131), ret_file_fail_err_ptr);
-    llvm::Value *ret_file_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_file_fail_empty_str");
-    llvm::Value *ret_file_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 1, "ret_file_fail_val_ptr");
-    builder->CreateStore(ret_file_fail_empty_str, ret_file_fail_val_ptr);
+    llvm::Value *error_value = IR::generate_err_value(*builder, ErrFS, InvalidPath, InvalidPathMessage);
+    builder->CreateStore(error_value, ret_file_fail_err_ptr);
     llvm::Value *ret_file_fail_val = builder->CreateLoad(function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
     builder->CreateRet(ret_file_fail_val);
 
@@ -885,15 +923,15 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     builder->CreateCall(fclose_fn, {file});
 
     // Check if write was successful (bytes_written == content_len)
-    llvm::Value *write_check = builder->CreateICmpNE(bytes_written, content_len, "write_check");
+    llvm::Value *write_check = builder->CreateICmpEQ(bytes_written, content_len, "write_check");
 
     // For write failure, return error 132
     llvm::AllocaInst *ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
     llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
-    llvm::Value *ret_err_val = builder->CreateSelect(write_check,
-        builder->getInt32(132), // Error code for write failure
-        builder->getInt32(0)    // Success
-    );
+    error_value = IR::generate_err_value(*builder, ErrFS, NotWritable, NotWritableMessage);
+    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::Value *no_error_value = IR::get_default_value_of_type(err_type);
+    llvm::Value *ret_err_val = builder->CreateSelect(write_check, no_error_value, error_value);
     builder->CreateStore(ret_err_val, ret_err_ptr);
 
     // Return empty string in the data portion regardless of success/failure
@@ -929,10 +967,19 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fwrite_fn = c_functions.at(FWRITE);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
-    llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
-    const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
+    const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
+    const unsigned int NotWritable = 3;
+    const std::string NotWritableMessage(ErrIOValues.at(NotWritable).second);
+
+    const unsigned int ErrIOCount = 5;
+    const unsigned int ErrFS = Type::get_type_id_from_str("ErrFS");
+    const std::vector<error_value> &ErrFSValues = std::get<2>(core_module_error_sets.at("filesystem").at(1));
+    const unsigned int InvalidPath = 6;
+    const std::string InvalidPathMessage(ErrFSValues.at(InvalidPath - ErrIOCount).second);
+
+    const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("void");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *append_file_type = llvm::FunctionType::get( //
         function_result_type,                                       // return struct with error code
@@ -957,6 +1004,8 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", append_file_fn);
     llvm::BasicBlock *file_fail_block = llvm::BasicBlock::Create(context, "file_fail", append_file_fn);
     llvm::BasicBlock *file_ok_block = llvm::BasicBlock::Create(context, "file_ok", append_file_fn);
+    llvm::BasicBlock *write_fail_block = llvm::BasicBlock::Create(context, "write_fail", append_file_fn);
+    llvm::BasicBlock *write_ok_block = llvm::BasicBlock::Create(context, "write_ok", append_file_fn);
 
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
@@ -977,14 +1026,12 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     llvm::Value *file_null = builder->CreateIsNull(file, "file_null");
     builder->CreateCondBr(file_null, file_fail_block, file_ok_block);
 
-    // Handle file open failure - return error 134
+    // Handle file open failure, throw ErrFS.InvalidPath
     builder->SetInsertPoint(file_fail_block);
     llvm::AllocaInst *ret_file_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_fail_alloc");
     llvm::Value *ret_file_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 0, "ret_file_fail_err_ptr");
-    builder->CreateStore(builder->getInt32(134), ret_file_fail_err_ptr);
-    llvm::Value *ret_file_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_file_fail_empty_str");
-    llvm::Value *ret_file_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 1, "ret_file_fail_val_ptr");
-    builder->CreateStore(ret_file_fail_empty_str, ret_file_fail_val_ptr);
+    llvm::Value *error_value = IR::generate_err_value(*builder, ErrFS, InvalidPath, InvalidPathMessage);
+    builder->CreateStore(error_value, ret_file_fail_err_ptr);
     llvm::Value *ret_file_fail_val = builder->CreateLoad(function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
     builder->CreateRet(ret_file_fail_val);
 
@@ -1007,23 +1054,21 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     builder->CreateCall(fclose_fn, {file});
 
     // Check if write was successful (bytes_written == content_len)
-    llvm::Value *write_check = builder->CreateICmpNE(bytes_written, content_len, "write_check");
+    llvm::Value *write_check = builder->CreateICmpEQ(bytes_written, content_len, "write_check");
+    builder->CreateCondBr(write_check, write_ok_block, write_fail_block);
 
-    // Prepare return value based on write success/failure
+    // Throw ErrFS.NotWritable when the written bytes differ with the length
+    builder->SetInsertPoint(write_fail_block);
     llvm::AllocaInst *ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
     llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
-    llvm::Value *ret_err_val = builder->CreateSelect(write_check,
-        builder->getInt32(135), // Error code for append failure
-        builder->getInt32(0)    // Success
-    );
-    builder->CreateStore(ret_err_val, ret_err_ptr);
-
-    // Return empty string in the data portion regardless of success/failure
-    llvm::Value *ret_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_empty_str");
-    llvm::Value *ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
-    builder->CreateStore(ret_empty_str, ret_val_ptr);
+    error_value = IR::generate_err_value(*builder, ErrFS, NotWritable, NotWritableMessage);
+    builder->CreateStore(error_value, ret_err_ptr);
     llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloc, "ret_val");
     builder->CreateRet(ret_val);
+
+    // Return a zeroinitialized return value if everything went okay, as this function has a void return type annyway
+    builder->SetInsertPoint(write_ok_block);
+    builder->CreateRet(IR::get_default_value_of_type(function_result_type));
 }
 
 void Generator::Module::FileSystem::generate_is_file_function( //
