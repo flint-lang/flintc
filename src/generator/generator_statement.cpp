@@ -319,7 +319,7 @@ bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, 
 
     // Create the pointer to the error value (the 0th index of the struct)
     llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
-    // Generate the expression right of the throw statement, it has to be of type int
+    // Generate the expression right of the throw statement, it has to be an error set
     Expression::garbage_type garbage;
     auto expr_result = Expression::generate_expression(builder, ctx, garbage, 0, throw_node->throw_value.get());
     llvm::Value *err_value = expr_result.value().front();
@@ -334,6 +334,25 @@ bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, 
     if (!generate_end_of_scope(builder, ctx)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
+    }
+
+    // Go through all of the return types and check if there is a string value under them, create an empty string for those
+    std::vector<std::shared_ptr<Type>> return_types;
+    if (const GroupType *group_type = dynamic_cast<const GroupType *>(throw_node->throw_value->type.get())) {
+        return_types = group_type->types;
+    } else {
+        return_types.emplace_back(throw_node->throw_value->type);
+    }
+
+    // Properly "create" return values of complex types
+    for (size_t i = 0; i < return_types.size(); i++) {
+        if (return_types[i]->to_string() == "str") {
+            llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+            llvm::Value *empty_str = builder.CreateCall(init_str_fn, {builder.getInt64(0)}, "empty_str");
+            llvm::Value *value_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, i + 1, "value_" + std::to_string(i) + "_ptr");
+            builder.CreateStore(empty_str, value_ptr);
+        }
+        // TODO: Implement this for other complex types too (like data)
     }
 
     // Generate the throw (return) instruction with the evaluated value
