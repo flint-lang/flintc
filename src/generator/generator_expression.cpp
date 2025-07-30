@@ -164,11 +164,15 @@ llvm::Value *Generator::Expression::generate_literal( //
         const LitError &lit_error = std::get<LitError>(literal_node->value);
         const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(lit_error.error_type.get());
         assert(error_type != nullptr);
-        const auto &values = error_type->error_node->values;
-        const auto value_it = std::find(values.begin(), values.end(), lit_error.value);
-        assert(value_it != values.end());
-        const unsigned int error_value = std::distance(values.begin(), value_it) + 1;
-        return builder.getInt32(error_value);
+        const std::optional<unsigned int> err_value = error_type->error_node->get_id_of_value(lit_error.value);
+        if (!err_value.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return nullptr;
+        }
+        // TODO: Add support to actually fill the error message of the literal, but for this parsing of error literals needs to be changed
+        // first
+        llvm::Value *error_value = IR::generate_err_value(builder, error_type->error_node->error_id, err_value.value(), "TODO");
+        return error_value;
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return nullptr;
