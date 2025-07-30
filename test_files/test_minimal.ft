@@ -1,6 +1,11 @@
 use Core.assert
 use Core.print
 use Core.read
+use Core.env
+
+def set_and_get(str name, str value) -> str {ErrEnv}:
+	bool result = set_env(name, value, true);
+	return get_env(name);
 
 def divide(i32 x, i32 y) -> i32 {ErrAssert}:
 	if y == 0:
@@ -36,3 +41,14 @@ def main():
 
 	assert(false) catch err:
 		print($"ErrAssert id = {err}\n");
+
+	str value = set_and_get("Wololo", "Hello There");
+	print($"value = {value}\n");
+	assert(value == "Hello There");
+
+	str content = "Hello There, Too";
+	print($"val = {content}\n");
+	value = set_and_get("Wololo", content) catch err:
+		print($"ErrEnv id = {err}");
+	print($"value = {value}\n");
+	assert(value == "Hello There, Too");
