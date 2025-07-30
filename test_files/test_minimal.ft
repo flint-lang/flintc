@@ -2,6 +2,7 @@ use Core.assert
 use Core.print
 use Core.read
 use Core.env
+use Core.system
 
 def set_and_get(str name, str value) -> str {ErrEnv}:
 	bool result = set_env(name, value, true);
@@ -52,3 +53,7 @@ def main():
 		print($"ErrEnv id = {err}");
 	print($"value = {value}\n");
 	assert(value == "Hello There, Too");
+
+	(exit_code, output) := system_command("wololo");
+	print($"exit_code = {exit_code}\n");
+	print($"output = {output}\n");

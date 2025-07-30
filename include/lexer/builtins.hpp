@@ -183,8 +183,7 @@ static inline std::unordered_map<std::string_view, std::vector<error_set>> core_
         "system",                  // The 'system' module
         {{"ErrSystem", "anyerror", // The 'ErrSystem' error set
             {
-                {"SpawnFailed", "Process could not be created"},                     // Value 0
-                {"ExecFailed", "Process start succeeded but exec returned an error"} // Value 1
+                {"SpawnFailed", "Process could not be created"}, // Value 0
             }}},
     }, // End of the 'system' module
 };

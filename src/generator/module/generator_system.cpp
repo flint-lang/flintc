@@ -58,6 +58,11 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
     llvm::Function *pclose_fn = c_functions.at(PCLOSE);
 
+    const unsigned int ErrSystem = Type::get_type_id_from_str("ErrSystem");
+    const std::vector<error_value> &ErrSystemValues = std::get<2>(core_module_error_sets.at("system").at(0));
+    const unsigned int SpawnFailed = 0;
+    const std::string SpawnFailedMessage(ErrSystemValues.at(SpawnFailed).second);
+
     const std::string return_type_str = "(i32, str)";
     std::optional<std::shared_ptr<Type>> result_type_ptr = Type::get_type_from_str(return_type_str);
     if (!result_type_ptr.has_value()) {
@@ -101,9 +106,11 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     // Create result struct on stack
     llvm::AllocaInst *result_struct = builder->CreateAlloca(function_result_type, nullptr, "result_struct");
 
-    // Initialize error value to 0
+    // Initialize error value to be empty
     llvm::Value *error_value_ptr = builder->CreateStructGEP(function_result_type, result_struct, 0, "error_value_ptr");
-    builder->CreateStore(builder->getInt32(0), error_value_ptr);
+    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
+    builder->CreateStore(err_struct, error_value_ptr);
 
     // Initialize exit_code field to -1
     llvm::Value *exit_code_ptr = builder->CreateStructGEP(function_result_type, result_struct, 1, "exit_code_ptr");
@@ -137,16 +144,14 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     llvm::Value *pipe_null_check = builder->CreateIsNull(pipe, "pipe_is_null");
     builder->CreateCondBr(pipe_null_check, pipe_null_block, pipe_valid_block);
 
-    // Handle pipe NULL error
+    // Handle pipe NULL error, throw ErrSystem.SpawnFailed
     builder->SetInsertPoint(pipe_null_block);
-    // Free result.output
     llvm::Value *output_load_null = builder->CreateLoad(str_type->getPointerTo(), output_ptr, "output_load_null");
     builder->CreateCall(free_fn, {output_load_null});
-    // Store error code in the result type
-    builder->CreateStore(builder->getInt32(1), error_value_ptr);
-    // Store empty string in the output
+    llvm::Value *err_value = IR::generate_err_value(*builder, ErrSystem, SpawnFailed, SpawnFailedMessage);
+    builder->CreateStore(err_value, error_value_ptr);
+    builder->CreateStore(builder->getInt32(0), exit_code_ptr);
     builder->CreateStore(builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str"), output_ptr);
-    // Return the result
     llvm::Value *result_ret_null = builder->CreateLoad(function_result_type, result_struct, "result_ret_null");
     builder->CreateRet(result_ret_null);
 
