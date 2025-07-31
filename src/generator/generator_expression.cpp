@@ -446,8 +446,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
         0,                                                                         //
         call_node->function_name + std::to_string(call_node->call_id) + "_err_ptr" //
     );
+    llvm::StructType *error_type = type_map.at("__flint_type_err");
     llvm::Value *err_val = builder.CreateLoad(                                     //
-        llvm::Type::getInt32Ty(context),                                           //
+        error_type,                                                                //
         err_ptr,                                                                   //
         call_node->function_name + std::to_string(call_node->call_id) + "_err_val" //
     );
