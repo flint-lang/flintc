@@ -1183,8 +1183,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
                     assert((tokens_mut.first + 3)->token == TOK_LEFT_PAREN);
                     const std::string &value = (tokens_mut.first + 2)->lexme;
-                    const auto &values = error_type->error_node->values;
-                    if (std::find(values.begin(), values.end(), value) == values.end()) {
+                    const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
+                    if (!pair.has_value()) {
                         // Unsupported error value
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
@@ -1319,8 +1319,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 assert((tokens_mut.first + 1)->token == TOK_DOT);
                 assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
                 const std::string &value = (tokens_mut.first + 2)->lexme;
-                const auto &values = error_type->error_node->values;
-                if (std::find(values.begin(), values.end(), value) == values.end()) {
+                const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
+                if (!pair.has_value()) {
                     // Unsupported error value
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;

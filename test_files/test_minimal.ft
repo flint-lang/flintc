@@ -9,14 +9,16 @@ error Crash(Base):
 	Friendly("I'm a friendly crash!"),
 	Harshly("I'm gonna kill your program!");
 
-def fail(bool friend) {Crash}:
-	if friend:
-		throw Crash.Friendly($"Hehe custom message: {friend}");
-	else:
-		assert(false);
+def fail(i32 val) {Crash}:
+	switch val:
+		0: throw Crash.Err1;
+		1: throw Crash.Err2($"Value is {val}");
+		2: throw Crash.Friendly($"Hehe custom message: {val}");
+		3: throw Crash.Harshly;
+		else: assert(false);
 
-def test_fail(bool friend):
-	fail(friend) catch err:
+def test_fail(i32 val):
+	fail(val) catch err:
 		switch err:
 			Crash(c):
 				print("is Crash\n");
@@ -30,6 +32,12 @@ def test_fail(bool friend):
 				print($"anyerror message: {a.message}\n");
 
 def main():
-	test_fail(true);
+	test_fail(0);
 	print("\n");
-	test_fail(false);
+	test_fail(1);
+	print("\n");
+	test_fail(2);
+	print("\n");
+	test_fail(3);
+	print("\n");
+	test_fail(4);
