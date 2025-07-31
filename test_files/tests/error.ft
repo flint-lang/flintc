@@ -16,16 +16,22 @@ def test_error():
     assert(res == 5);
 
     res = divide(10, 0) catch err:
-        assert(err == 1);
+        assert(err.type_id == 1484029712);
+        assert(err.value_id == 0);
+        assert(err.message == "");
     assert(res == 0);
 
     res = catch_this(10, 5) catch err:
-        assert(false); // This should never run
+        assert(false);
     assert(res == 2);
 
     res = catch_this(10, 0) catch err:
-        assert(err == 1);
+        assert(err.type_id == 1484029712);
+        assert(err.value_id == 0);
+        assert(err.message == "");
     assert(res == 0);
 
     assert(false) catch err:
-        assert(err == 1);
+        assert(err.type_id == -1846361924);
+        assert(err.value_id == 0);
+        assert(err.message == "The assertion has failed");
