@@ -148,11 +148,12 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
     auto variables = ctx.scope->get_unique_variables();
     for (const auto &[var_name, var_info] : variables) {
         // Check if the variable is a function parameter, if it is, dont free it
-        if (std::get<3>(var_info)) {
+        // Also check if the variable is a reference to another variable (like in variant switch branches), if it is dont free it
+        if (std::get<3>(var_info) || std::get<4>(var_info)) {
             continue;
         }
         // Check if the variable is returned within this scope, if it is we do not free it
-        const std::vector<unsigned int> &returned_scopes = std::get<4>(var_info);
+        const std::vector<unsigned int> &returned_scopes = std::get<5>(var_info);
         if (std::find(returned_scopes.begin(), returned_scopes.end(), ctx.scope->scope_id) != returned_scopes.end()) {
             continue;
         }
@@ -185,6 +186,28 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
+        } else if (const auto variant_type = dynamic_cast<const VariantType *>(var_type.get())) {
+            if (variant_type->is_err_variant) {
+                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+                llvm::StructType *error_type = type_map.at("__flint_type_err");
+                llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
+                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
+                llvm::Value *err_message = builder.CreateLoad(str_type, err_message_ptr, "err_message");
+                llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {err_message});
+                free_call->setMetadata("comment",
+                    llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from variant '" + var_name + "'")));
+            }
+        } else if (dynamic_cast<const ErrorSetType *>(var_type.get())) {
+            const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+            llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+            llvm::StructType *error_type = type_map.at("__flint_type_err");
+            llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
+            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
+            llvm::Value *err_message = builder.CreateLoad(str_type, err_message_ptr, "err_message");
+            llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {err_message});
+            free_call->setMetadata("comment",
+                llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from error '" + var_name + "'")));
         }
     }
     return true;

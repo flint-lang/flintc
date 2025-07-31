@@ -103,7 +103,7 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> scope, co
         return std::nullopt;
     }
     if (const VariableNode *variable_node = dynamic_cast<const VariableNode *>(expr.value().get())) {
-        std::vector<unsigned int> &return_scopes = std::get<4>(scope->variables.at(variable_node->name));
+        std::vector<unsigned int> &return_scopes = std::get<5>(scope->variables.at(variable_node->name));
         // Duplicate Return statement within the same scope, every scope should only have one return value
         assert(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
         return_scopes.push_back(scope->scope_id);
@@ -111,7 +111,7 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> scope, co
     if (const GroupExpressionNode *group_node = dynamic_cast<const GroupExpressionNode *>(expr.value().get())) {
         for (auto &group_expr : group_node->expressions) {
             if (const VariableNode *variable_node = dynamic_cast<const VariableNode *>(group_expr.get())) {
-                std::vector<unsigned int> &return_scopes = std::get<4>(scope->variables.at(variable_node->name));
+                std::vector<unsigned int> &return_scopes = std::get<5>(scope->variables.at(variable_node->name));
                 // Duplicate Return statement within the same scope, every scope should only have one return value
                 assert(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
                 return_scopes.push_back(scope->scope_id);
@@ -405,7 +405,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         if (!Type::add_type(tuple_type)) {
             tuple_type = Type::get_type_from_str(tuple_type->to_string()).value();
         }
-        if (!definition_scope->add_variable(tuple_name, tuple_type, definition_scope->scope_id, false, true)) {
+        if (!definition_scope->add_variable(tuple_name, tuple_type, definition_scope->scope_id, false, true, true)) {
             auto tuple_it = definition_mut.first - 2;
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tuple_it->line, tuple_it->column, tuple_name);
             return std::nullopt;
@@ -418,14 +418,14 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         const std::optional<std::string> element_name = its.second;
         if (index_name.has_value()) {
             auto index_it = definition_mut.first - 5;
-            if (!definition_scope->add_variable(index_name.value(), index_type, definition_scope->scope_id, false, true)) {
+            if (!definition_scope->add_variable(index_name.value(), index_type, definition_scope->scope_id, false, true, true)) {
                 THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, index_it->line, index_it->column, index_name.value());
                 return std::nullopt;
             }
         }
         if (element_name.has_value()) {
             auto element_it = definition_mut.first - 3;
-            if (!definition_scope->add_variable(element_name.value(), element_type, definition_scope->scope_id, true, true)) {
+            if (!definition_scope->add_variable(element_name.value(), element_type, definition_scope->scope_id, true, true, true)) {
                 THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, element_it->line, element_it->column, element_name.value());
                 return std::nullopt;
             }
@@ -737,7 +737,7 @@ bool Parser::create_optional_switch_branches(   //
             match_expressions.push_back(std::make_unique<SwitchMatchNode>(optional_type->base_type, match_tokens.first->lexme, 1));
             std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
             const unsigned int scope_id = branch_scope->scope_id;
-            if (!branch_scope->add_variable(match_tokens.first->lexme, optional_type->base_type, scope_id, is_mutable, false)) {
+            if (!branch_scope->add_variable(match_tokens.first->lexme, optional_type->base_type, scope_id, is_mutable, false, true)) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
@@ -876,7 +876,7 @@ bool Parser::create_variant_switch_branches(    //
         match_expressions.push_back(std::make_unique<SwitchMatchNode>(access_type, access_name, type_idx));
 
         std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
-        if (!branch_scope->add_variable(access_name, access_type, branch_scope->scope_id, is_mutable, false)) {
+        if (!branch_scope->add_variable(access_name, access_type, branch_scope->scope_id, is_mutable, false, true)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
