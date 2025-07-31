@@ -9,7 +9,7 @@ class PrimitiveType : public Type {
     PrimitiveType(const std::string &type_name) :
         type_name(type_name) {}
 
-    std::string to_string() override {
+    std::string to_string() const override {
         return type_name;
     }
 

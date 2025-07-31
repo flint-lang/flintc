@@ -9,7 +9,7 @@ class UnknownType : public Type {
     UnknownType(const std::string &type_str) :
         type_str(type_str) {}
 
-    std::string to_string() override {
+    std::string to_string() const override {
         return "Unknown(" + type_str + ")";
     }
 

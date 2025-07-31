@@ -11,7 +11,7 @@ class MultiType : public Type {
         base_type(base_type),
         width(width) {}
 
-    std::string to_string() override {
+    std::string to_string() const override {
         const std::string base_type_str = base_type->to_string();
         if (base_type_str == "bool") {
             return "bool8";

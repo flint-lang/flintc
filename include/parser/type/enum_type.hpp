@@ -10,7 +10,7 @@ class EnumType : public Type {
     EnumType(EnumNode *const enum_node) :
         enum_node(enum_node) {}
 
-    std::string to_string() override {
+    std::string to_string() const override {
         return enum_node->name;
     }
 

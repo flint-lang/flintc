@@ -12,7 +12,7 @@ class ArrayType : public Type {
         dimensionality(dimensionality),
         type(type) {}
 
-    std::string to_string() override {
+    std::string to_string() const override {
         return type->to_string() + "[" + std::string(dimensionality - 1, ',') + "]";
     }
 

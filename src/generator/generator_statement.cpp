@@ -107,7 +107,7 @@ bool Generator::Statement::clear_garbage(                                       
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return false;
                 }
-            } else if (auto array_type = dynamic_cast<ArrayType *>(type.get())) {
+            } else if (const auto array_type = dynamic_cast<const ArrayType *>(type.get())) {
                 // For now, we dont allow jagged arrays. If we would add jagged arrays we would need a recursive tip-to-root freeing system
                 // here, but for now we keep it simple
                 llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {llvm_val});

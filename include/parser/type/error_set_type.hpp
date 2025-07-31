@@ -10,7 +10,7 @@ class ErrorSetType : public Type {
     ErrorSetType(ErrorNode *const error_node) :
         error_node(error_node) {}
 
-    std::string to_string() override {
+    std::string to_string() const override {
         return error_node->name;
     }
 

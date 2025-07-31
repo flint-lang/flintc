@@ -23,7 +23,7 @@ class Type {
     /// @brief Returns the string representation of the type
     ///
     /// @return `std::strint` The string representation of this type
-    virtual std::string to_string() = 0;
+    virtual std::string to_string() const = 0;
 
     /// @function `init_types`
     /// @brief Initializes all primitive types to be ready to be used

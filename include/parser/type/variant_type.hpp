@@ -14,7 +14,7 @@ class VariantType : public Type {
         is_err_variant(is_err_variant),
         var_or_list(var_or_list) {}
 
-    std::string to_string() override {
+    std::string to_string() const override {
         if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(var_or_list)) {
             auto &types = std::get<std::vector<std::shared_ptr<Type>>>(var_or_list);
             std::string result = "variant<";

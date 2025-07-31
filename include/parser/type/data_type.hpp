@@ -10,7 +10,7 @@ class DataType : public Type {
     DataType(DataNode *const data_node) :
         data_node(data_node) {}
 
-    std::string to_string() override {
+    std::string to_string() const override {
         return data_node->name;
     }
 
