@@ -221,10 +221,11 @@ bool Generator::Allocation::generate_call_allocations(                          
         "Create alloc of struct for called function '" + call_node->function_name + "', called by '" + ret_alloca_name + "'" //
     );
 
-    // Create the error return valua allocation
+    // Create the error return value allocation
+    llvm::StructType *error_type = type_map.at("__flint_type_err");
     const std::string err_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
     generate_allocation(builder, allocations, err_alloca_name,                         //
-        llvm::Type::getInt32Ty(context),                                               //
+        error_type,                                                                    //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "__ERR", //
         "Create alloc of err ret var '" + err_alloca_name + "'"                        //
     );
