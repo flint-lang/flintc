@@ -341,7 +341,7 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
                 possible_types.emplace_back(type.value());
             }
             std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> variant_type = possible_types;
-            return std::make_shared<VariantType>(variant_type);
+            return std::make_shared<VariantType>(variant_type, false);
         }
     } else if (std::prev(tokens_mut.second)->token == TOK_QUESTION) {
         // It's an optional type

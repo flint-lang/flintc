@@ -169,6 +169,9 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
         if (primitive_type->type_name == "__flint_type_str_lit") {
             return {llvm::Type::getInt8Ty(context)->getPointerTo(), false};
         }
+        if (primitive_type->type_name == "anyerror") {
+            return {type_map.at("__flint_type_err"), false};
+        }
         if (primitives.find(primitive_type->type_name) != primitives.end()) {
             switch (primitives.at(primitive_type->type_name)) {
                 default:
@@ -273,6 +276,22 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
         }
         return {type_map.at(opt_str), true};
     } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(type.get())) {
+        if (variant_type->is_err_variant) {
+            if (type_map.find("__flint_type_err") == type_map.end()) {
+                llvm::Type *str_type = get_type(module, Type::get_primitive_type("str")).first;
+                type_map["__flint_type_err"] = llvm::StructType::create( //
+                    context,                                             //
+                    {
+                        llvm::Type::getInt32Ty(context), // ErrType ID (0 for 'none')
+                        llvm::Type::getInt32Ty(context), // ErrValue
+                        str_type->getPointerTo()         // ErrMessage
+                    },                                   //
+                    "__flint_type_err",                  //
+                    false                                // is not packed, it's padded
+                );
+            }
+            return {type_map.at("__flint_type_err"), false};
+        }
         const std::string var_str = type->to_string();
         // Check if its a known data type
         if (type_map.find(var_str) == type_map.end()) {

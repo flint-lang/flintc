@@ -1,3 +1,4 @@
+use Core.assert
 use Core.print
 
 error Base:
@@ -10,13 +11,15 @@ def fail(bool friend) {Crash}:
 	if friend:
 		throw Crash.Friendly;
 	else:
-		throw Crash.Harshly;
+		assert(false);
 
 def main():
 	fail(true) catch err:
-		print("err happened\n");
-		// print($"err = {err}\n");
+		switch err:
+			Crash(c): print("is Crash\n");
+			anyerror(a): print("is anyerror\n");
 
 	fail(false) catch err:
-		print("err happened\n");
-		// print($"err = {err}\n");
+		switch err:
+			Crash(c): print("is Crash\n");
+			anyerror(a): print("is anyerror\n");

@@ -1024,7 +1024,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
             err_variable_type = Type::get_primitive_type("anyerror");
         } else {
             const std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> var_or_list = error_types;
-            err_variable_type = std::make_shared<VariantType>(var_or_list);
+            err_variable_type = std::make_shared<VariantType>(var_or_list, true);
             if (!Type::add_type(err_variable_type)) {
                 err_variable_type = Type::get_type_from_str(err_variable_type->to_string()).value();
             }

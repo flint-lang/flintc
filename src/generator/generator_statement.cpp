@@ -11,6 +11,7 @@
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
@@ -946,7 +947,15 @@ bool Generator::Statement::generate_variant_switch_statement( //
     }
     const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
-    llvm::StructType *variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
+    // The switcher variable must be a variant type
+    const VariantType *variant_type = dynamic_cast<const VariantType *>(switch_statement->switcher->type.get());
+    assert(variant_type != nullptr);
+    llvm::StructType *variant_struct_type;
+    if (variant_type->is_err_variant) {
+        variant_struct_type = type_map.at("__flint_type_err");
+    } else {
+        variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
+    }
     if (switch_value->getType()->isPointerTy()) {
         switch_value = builder.CreateLoad(variant_struct_type, switch_value, "loaded_rhs");
     }
@@ -973,7 +982,15 @@ bool Generator::Statement::generate_variant_switch_statement( //
         assert(match_node != nullptr);
 
         const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name;
-        llvm::Value *real_value_reference = builder.CreateStructGEP(variant_struct_type, var_alloca, 1, "value_reference");
+        llvm::Value *real_value_reference = nullptr;
+        if (variant_type->is_err_variant) {
+            real_value_reference = var_alloca;
+            if (match_node->type->to_string() == "anyerror") {
+                default_block = branch_blocks[i];
+            }
+        } else {
+            real_value_reference = builder.CreateStructGEP(variant_struct_type, var_alloca, 1, "value_reference");
+        }
         ctx.allocations.emplace(var_str, real_value_reference);
 
         ctx.scope = branch.body;
@@ -1007,12 +1024,18 @@ bool Generator::Statement::generate_variant_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Skip the default node, this block is not targetted directly by any switch expression
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch_blocks[i] == default_block) {
             continue;
         }
         const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
         assert(match_node != nullptr);
-        switch_inst->addCase(builder.getInt8(match_node->id), branch_blocks[i]);
+        if (variant_type->is_err_variant) {
+            const ErrorSetType *err_set_type = dynamic_cast<const ErrorSetType *>(match_node->type.get());
+            assert(err_set_type != nullptr);
+            switch_inst->addCase(builder.getInt32(err_set_type->error_node->error_id), branch_blocks[i]);
+        } else {
+            switch_inst->addCase(builder.getInt8(match_node->id), branch_blocks[i]);
+        }
     }
 
     // Set the insert point back to the merge block

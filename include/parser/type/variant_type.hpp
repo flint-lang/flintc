@@ -10,7 +10,8 @@
 /// @brief Represents variant types
 class VariantType : public Type {
   public:
-    VariantType(const std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> &var_or_list) :
+    VariantType(const std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> &var_or_list, const bool is_err_variant) :
+        is_err_variant(is_err_variant),
         var_or_list(var_or_list) {}
 
     std::string to_string() override {
@@ -70,6 +71,10 @@ class VariantType : public Type {
             return result;
         }
     }
+
+    /// @var `ìs_err_variant`
+    /// @brief Whether this variant type is an error variant. Error variants can only contain error types
+    bool is_err_variant;
 
     /// @var `var_or_list`
     /// @brief The variant node this variant type points to or the types the variant could be directly, for when it was inline-defined
