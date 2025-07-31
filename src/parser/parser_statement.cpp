@@ -632,7 +632,8 @@ bool Parser::create_enum_switch_branches(       //
                     return false;
                 }
                 matched_enum_values.push_back(enum_value);
-                match_expressions.push_back(std::make_unique<LiteralNode>(LitEnum{switcher_type, enum_value}, switcher_type));
+                LitValue lit_value = LitEnum{switcher_type, enum_value};
+                match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
             }
         } else {
             // There could be multiple values here
@@ -661,7 +662,8 @@ bool Parser::create_enum_switch_branches(       //
                     return false;
                 }
                 matched_enum_values.push_back(enum_value);
-                match_expressions.push_back(std::make_unique<LiteralNode>(LitEnum{switcher_type, enum_value}, switcher_type));
+                LitValue lit_value = LitEnum{switcher_type, enum_value};
+                match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
             }
         }
         if (!create_switch_branch_body(                                                                                     //
@@ -715,7 +717,8 @@ bool Parser::create_optional_switch_branches(   //
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
-            match_expressions.push_back(std::make_unique<LiteralNode>(LitOptional{}, switcher_type));
+            LitValue lit_value = LitOptional{};
+            match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
             if (!create_switch_branch_body(                                                                                     //
                     scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
             ) {

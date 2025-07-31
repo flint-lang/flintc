@@ -1360,10 +1360,16 @@ class Generator {
         /// @brief Generates the literal value from the given LiteralNode
         ///
         /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `literal_node` The literal node to generate
         /// @return `llvm::Value *` The value containing the result of the literal
         static llvm::Value *generate_literal( //
             llvm::IRBuilder<> &builder,       //
+            GenerationContext &ctx,           //
+            garbage_type &garbage,            //
+            const unsigned int expr_depth,    //
             const LiteralNode *literal_node   //
         );
 

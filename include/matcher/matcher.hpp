@@ -742,7 +742,9 @@ class Matcher {
         until_right_paren                                                                                                //
     });
     static const inline PatternPtr function_call = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), until_right_paren});
-    static const inline PatternPtr aliased_function_call = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), function_call});
+    static const inline PatternPtr aliased_function_call = sequence({
+        one_of({token(TOK_IDENTIFIER), token(TOK_TYPE)}), token(TOK_DOT), function_call //
+    });
     static const inline PatternPtr type_cast = sequence({one_of({type_prim, token(TOK_TYPE)}), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr aliased_initializer = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), type_cast});
     static const inline PatternPtr bin_op_expr = sequence({

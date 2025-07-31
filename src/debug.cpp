@@ -321,6 +321,12 @@ namespace Debug {
             } else if (std::holds_alternative<LitError>(lit.value)) {
                 const LitError &lit_error = std::get<LitError>(lit.value);
                 std::cout << lit_error.error_type->to_string() << "." << lit_error.value;
+                if (lit_error.message.has_value()) {
+                    std::cout << " with message" << std::endl;
+                    TreeBits message_bits = bits.child(indent_lvl + 1, true);
+                    print_expression(indent_lvl + 1, message_bits, lit_error.message.value());
+                    return;
+                }
             }
             if (lit.is_folded) {
                 std::cout << " [folded]";

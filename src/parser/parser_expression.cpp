@@ -195,76 +195,94 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
         case TOK_PLUS:
             if (std::holds_alternative<LitI64>(lhs->value)) {
                 const long new_lit = std::get<LitI64>(lhs->value).value + std::get<LitI64>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitI64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitI64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitF64>(lhs->value)) {
                 const double new_lit = std::get<LitF64>(lhs->value).value + std::get<LitF64>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitF64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitF64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitStr>(lhs->value)) {
                 const std::string new_lit = std::get<LitStr>(lhs->value).value + std::get<LitStr>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitStr{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitStr{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value + std::get<LitU8>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitU8{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitU8{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             }
             break;
         case TOK_MINUS:
             if (std::holds_alternative<LitI64>(lhs->value)) {
                 const long new_lit = std::get<LitI64>(lhs->value).value - std::get<LitI64>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitI64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitI64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitF64>(lhs->value)) {
                 const double new_lit = std::get<LitF64>(lhs->value).value - std::get<LitF64>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitF64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitF64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value - std::get<LitU8>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitU8{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitU8{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             }
             break;
         case TOK_MULT:
             if (std::holds_alternative<LitI64>(lhs->value)) {
                 const long new_lit = std::get<LitI64>(lhs->value).value * std::get<LitI64>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitI64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitI64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitF64>(lhs->value)) {
                 const double new_lit = std::get<LitF64>(lhs->value).value * std::get<LitF64>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitF64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitF64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value * std::get<LitU8>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitU8{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitU8{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             }
             break;
         case TOK_DIV:
             if (std::holds_alternative<LitI64>(lhs->value)) {
                 const long new_lit = std::get<LitI64>(lhs->value).value / std::get<LitI64>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitI64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitI64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitF64>(lhs->value)) {
                 const double new_lit = std::get<LitF64>(lhs->value).value / std::get<LitF64>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitF64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitF64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value / std::get<LitU8>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitU8{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitU8{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             }
             break;
         case TOK_POW:
             if (std::holds_alternative<LitI64>(lhs->value)) {
                 const long new_lit = static_cast<long>(std::pow(std::get<LitI64>(lhs->value).value, std::get<LitI64>(rhs->value).value));
-                return std::make_unique<LiteralNode>(LitI64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitI64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitF64>(lhs->value)) {
                 const double new_lit = std::pow(std::get<LitF64>(lhs->value).value, std::get<LitF64>(rhs->value).value);
-                return std::make_unique<LiteralNode>(LitF64{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitF64{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = static_cast<char>(std::pow(std::get<LitU8>(lhs->value).value, std::get<LitU8>(rhs->value).value));
-                return std::make_unique<LiteralNode>(LitU8{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitU8{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             }
             break;
         case TOK_AND:
             if (std::holds_alternative<LitBool>(lhs->value)) {
                 const bool new_lit = std::get<LitBool>(lhs->value).value && std::get<LitBool>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitBool{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitBool{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             }
             break;
         case TOK_OR:
             if (std::holds_alternative<LitBool>(lhs->value)) {
                 const bool new_lit = std::get<LitBool>(lhs->value).value || std::get<LitBool>(rhs->value).value;
-                return std::make_unique<LiteralNode>(LitBool{.value = new_lit}, lhs->type, true);
+                LitValue lit_value = LitBool{.value = new_lit};
+                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
             }
             break;
     }
@@ -355,15 +373,18 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 std::shared_ptr<Type> void_type = Type::get_primitive_type("void");
                 std::optional<std::shared_ptr<Type>> opt_type = Type::get_type_from_str("void?");
                 assert(opt_type.has_value());
-                return LiteralNode(LitOptional{}, opt_type.value());
+                LitValue lit_val = LitOptional{};
+                return LiteralNode(lit_val, opt_type.value());
             }
             case TOK_INT_VALUE: {
                 if (front_token == TOK_MINUS) {
                     const long long lit_value = std::stoll(tok->lexme) * -1;
                     if (lit_value > static_cast<long long>(INT32_MAX) || lit_value < static_cast<long long>(INT32_MIN)) {
-                        return LiteralNode(LitI64{.value = static_cast<long>(lit_value)}, Type::get_primitive_type("i64"));
+                        LitValue lit_val = LitI64{.value = static_cast<long>(lit_value)};
+                        return LiteralNode(lit_val, Type::get_primitive_type("i64"));
                     } else {
-                        return LiteralNode(LitI32{.value = static_cast<int>(lit_value)}, Type::get_primitive_type("i32"));
+                        LitValue lit_val = LitI32{.value = static_cast<int>(lit_value)};
+                        return LiteralNode(lit_val, Type::get_primitive_type("i32"));
                     }
                 } else {
                     const unsigned long long lit_value = std::stoll(tok->lexme);
@@ -371,26 +392,33 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     } else if (lit_value > static_cast<unsigned long long>(INT64_MAX)) {
-                        return LiteralNode(LitU64{.value = static_cast<unsigned long>(lit_value)}, Type::get_primitive_type("u64"));
+                        LitValue lit_val = LitU64{.value = static_cast<unsigned long>(lit_value)};
+                        return LiteralNode(lit_val, Type::get_primitive_type("u64"));
                     } else if (lit_value > static_cast<unsigned long long>(UINT32_MAX)) {
-                        return LiteralNode(LitI64{.value = static_cast<long>(lit_value)}, Type::get_primitive_type("i64"));
+                        LitValue lit_val = LitI64{.value = static_cast<long>(lit_value)};
+                        return LiteralNode(lit_val, Type::get_primitive_type("i64"));
                     } else if (lit_value > static_cast<unsigned long long>(INT32_MAX)) {
-                        return LiteralNode(LitU32{.value = static_cast<unsigned int>(lit_value)}, Type::get_primitive_type("u32"));
+                        LitValue lit_val = LitU32{.value = static_cast<unsigned int>(lit_value)};
+                        return LiteralNode(lit_val, Type::get_primitive_type("u32"));
                     } else {
-                        return LiteralNode(LitI32{.value = static_cast<int>(lit_value)}, Type::get_primitive_type("i32"));
+                        LitValue lit_val = LitI32{.value = static_cast<int>(lit_value)};
+                        return LiteralNode(lit_val, Type::get_primitive_type("i32"));
                     }
                 }
             }
             case TOK_FLINT_VALUE: {
                 if (front_token == TOK_MINUS) {
-                    return LiteralNode(LitF32{.value = std::stof(tok->lexme) * -1}, Type::get_primitive_type("f32"));
+                    LitValue lit_value = LitF32{.value = std::stof(tok->lexme) * -1};
+                    return LiteralNode(lit_value, Type::get_primitive_type("f32"));
                 } else {
-                    return LiteralNode(LitF32{.value = std::stof(tok->lexme)}, Type::get_primitive_type("f32"));
+                    LitValue lit_value = LitF32{.value = std::stof(tok->lexme)};
+                    return LiteralNode(lit_value, Type::get_primitive_type("f32"));
                 }
             }
             case TOK_STR_VALUE: {
                 if (front_token == TOK_DOLLAR) {
-                    return LiteralNode(LitStr{.value = tok->lexme}, Type::get_primitive_type("str"));
+                    LitValue lit_value = LitStr{.value = tok->lexme};
+                    return LiteralNode(lit_value, Type::get_primitive_type("str"));
                 } else {
                     const std::string &str = tok->lexme;
                     std::stringstream processed_str;
@@ -439,17 +467,21 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                             processed_str << str[i];
                         }
                     }
-                    return LiteralNode(LitStr{.value = processed_str.str()}, Type::get_primitive_type("__flint_type_str_lit"));
+                    LitValue lit_value = LitStr{.value = processed_str.str()};
+                    return LiteralNode(lit_value, Type::get_primitive_type("__flint_type_str_lit"));
                 }
             }
             case TOK_TRUE: {
-                return LiteralNode(LitBool{.value = true}, Type::get_primitive_type("bool"));
+                LitValue lit_value = LitBool{.value = true};
+                return LiteralNode(lit_value, Type::get_primitive_type("bool"));
             }
             case TOK_FALSE: {
-                return LiteralNode(LitBool{.value = false}, Type::get_primitive_type("bool"));
+                LitValue lit_value = LitBool{.value = false};
+                return LiteralNode(lit_value, Type::get_primitive_type("bool"));
             }
             case TOK_CHAR_VALUE: {
-                return LiteralNode(LitU8{.value = tok->lexme[0]}, Type::get_primitive_type("u8"));
+                LitValue lit_value = LitU8{.value = tok->lexme[0]};
+                return LiteralNode(lit_value, Type::get_primitive_type("u8"));
             }
         }
     }
@@ -463,7 +495,8 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::
     std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> interpol_content;
     // If the ranges are empty, the interpolation does not contain any groups
     if (ranges.empty()) {
-        interpol_content.emplace_back(std::make_unique<LiteralNode>(LitStr{.value = interpol_string}, Type::get_primitive_type("str")));
+        LitValue lit_value = LitStr{.value = interpol_string};
+        interpol_content.emplace_back(std::make_unique<LiteralNode>(lit_value, Type::get_primitive_type("str")));
         return StringInterpolationNode(interpol_content);
     }
     // First, add all the strings from the begin to the first ranges begin to the interpolation content
@@ -1142,6 +1175,31 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (range.has_value() && range.value().second == token_size) {
             // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
             // located on the right of the call still
+            if (tokens_mut.first->token == TOK_TYPE) {
+                // It's some form of "alias" on a base type
+                if (const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(tokens_mut.first->type.get())) {
+                    // It's an error literal with a message added to it
+                    assert((tokens_mut.first + 1)->token == TOK_DOT);
+                    assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                    assert((tokens_mut.first + 3)->token == TOK_LEFT_PAREN);
+                    const std::string &value = (tokens_mut.first + 2)->lexme;
+                    const auto &values = error_type->error_node->values;
+                    if (std::find(values.begin(), values.end(), value) == values.end()) {
+                        // Unsupported error value
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    token_slice message_tokens = {tokens_mut.first + 4, tokens_mut.first + range.value().second - 1};
+                    auto message = create_expression(scope, message_tokens, Type::get_type_from_str("str"));
+                    if (!message.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    const std::shared_ptr<Type> lit_type = tokens_mut.first->type;
+                    LitValue lit_value = LitError{.error_type = lit_type, .value = value, .message = std::move(message.value())};
+                    return std::make_unique<LiteralNode>(lit_value, lit_type);
+                }
+            }
             // The first element should be an initializer for the alias
             assert(tokens_mut.first->token == TOK_IDENTIFIER);
             const std::string alias_base = tokens_mut.first->lexme;
@@ -1253,7 +1311,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                return std::make_unique<LiteralNode>(LitEnum{.enum_type = type, .value = value}, type);
+                LitValue lit_value = LitEnum{.enum_type = type, .value = value};
+                return std::make_unique<LiteralNode>(lit_value, type);
             }
             const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(type.get());
             if (error_type != nullptr) {
@@ -1266,7 +1325,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                return std::make_unique<LiteralNode>(LitError{.error_type = type, .value = value}, type);
+                LitValue lit_value = LitError{.error_type = type, .value = value, .message = std::nullopt};
+                return std::make_unique<LiteralNode>(lit_value, type);
             }
         }
     }

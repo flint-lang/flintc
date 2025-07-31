@@ -43,7 +43,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         return generate_unary_op_expression(builder, ctx, garbage, expr_depth, unary_op_node);
     }
     if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
-        group_map.emplace_back(generate_literal(builder, literal_node));
+        group_map.emplace_back(generate_literal(builder, ctx, garbage, expr_depth, literal_node));
         return group_map;
     }
     if (const auto *interpol_node = dynamic_cast<const StringInterpolationNode *>(expression_node)) {
@@ -93,7 +93,10 @@ Generator::group_mapping Generator::Expression::generate_expression( //
 }
 
 llvm::Value *Generator::Expression::generate_literal( //
-    llvm::IRBuilder<> &builder,                       //
+    llvm::IRBuilder<> &builder,                       ///
+    GenerationContext &ctx,                           //
+    garbage_type &garbage,                            //
+    const unsigned int expr_depth,                    //
     const LiteralNode *literal_node                   //
 ) {
     if (std::holds_alternative<LitU64>(literal_node->value)) {
@@ -169,12 +172,33 @@ llvm::Value *Generator::Expression::generate_literal( //
             THROW_BASIC_ERR(ERR_PARSING);
             return nullptr;
         }
-        // TODO: Add support to actually fill the error message of the literal, but for this parsing of error literals needs to be changed
-        // first
-        llvm::Value *error_value = IR::generate_err_value(                                                                 //
-            builder, error_type->error_node->error_id, err_value_msg_pair.value().first, err_value_msg_pair.value().second //
-        );
-        return error_value;
+        const unsigned int err_id = error_type->error_node->error_id;
+        const unsigned int err_value = err_value_msg_pair.value().first;
+        const std::string default_err_message = err_value_msg_pair.value().second;
+
+        llvm::StructType *err_type = type_map.at("__flint_type_err");
+        llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+        llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
+        err_struct = builder.CreateInsertValue(err_struct, builder.getInt32(err_id), {0}, "insert_err_type_id");
+        err_struct = builder.CreateInsertValue(err_struct, builder.getInt32(err_value), {1}, "insert_err_value");
+        llvm::Value *error_message = nullptr;
+        if (lit_error.message.has_value()) {
+            auto msg_expr = generate_expression(builder, ctx, garbage, expr_depth, lit_error.message.value().get());
+            if (garbage.find(expr_depth) != garbage.end()) {
+                // Don't free the string from the error here
+                garbage.at(expr_depth).clear();
+            }
+            if (!msg_expr.has_value()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
+            error_message = msg_expr.value().front();
+        } else {
+            llvm::Value *message_str = IR::generate_const_string(builder, default_err_message);
+            error_message = builder.CreateCall(init_str_fn, {message_str, builder.getInt64(default_err_message.size())}, "err_message");
+        }
+        err_struct = builder.CreateInsertValue(err_struct, error_message, {2}, "insert_err_message");
+        return err_struct;
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return nullptr;

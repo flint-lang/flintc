@@ -13,10 +13,11 @@ struct LitEnum {
 };
 
 /// @struct `LitError`
-/// @brief The structure representing error literals (`ErrorType.VALUE`)
+/// @brief The structure representing error literals (`ErrorType.VALUE` or `ErrorType.VALUE("Message")`)
 struct LitError {
     std::shared_ptr<Type> error_type;
     std::string value;
+    std::optional<std::unique_ptr<ExpressionNode>> message;
 };
 
 /// @struct `LitOptional`
@@ -86,11 +87,11 @@ using LitValue = std::variant<LitEnum, LitError, LitOptional, LitU32, LitU64, Li
 class LiteralNode : public ExpressionNode {
   public:
     explicit LiteralNode(                  //
-        const LitValue &value,             //
+        LitValue &value,                   //
         const std::shared_ptr<Type> &type, //
         const bool is_folded = false       //
         ) :
-        value(value),
+        value(std::move(value)),
         is_folded(is_folded) {
         this->type = type;
     }

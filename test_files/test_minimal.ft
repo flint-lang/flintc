@@ -11,7 +11,7 @@ error Crash(Base):
 
 def fail(bool friend) {Crash}:
 	if friend:
-		throw Crash.Friendly;
+		throw Crash.Friendly($"Hehe custom message: {friend}");
 	else:
 		assert(false);
 
