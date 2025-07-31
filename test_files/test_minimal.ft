@@ -2,10 +2,12 @@ use Core.assert
 use Core.print
 
 error Base:
-	Err1, Err2;
+	Err1("Base Error 1"),
+	Err2("Base Error 2");
 
 error Crash(Base):
-	Friendly, Harshly;
+	Friendly("I'm a friendly crash!"),
+	Harshly("I'm gonna kill your program!");
 
 def fail(bool friend) {Crash}:
 	if friend:
@@ -13,8 +15,8 @@ def fail(bool friend) {Crash}:
 	else:
 		assert(false);
 
-def main():
-	fail(true) catch err:
+def test_fail(bool friend):
+	fail(friend) catch err:
 		switch err:
 			Crash(c):
 				print("is Crash\n");
@@ -27,16 +29,7 @@ def main():
 				print($"Value ID: {a.value_id}\n");
 				print($"anyerror message: {a.message}\n");
 
+def main():
+	test_fail(true);
 	print("\n");
-	fail(false) catch err:
-		switch err:
-			Crash(c):
-				print("is Crash\n");
-				print($"Type ID: {c.type_id}\n");
-				print($"Value ID: {c.value_id}\n");
-				print($"Crash Message: {c.message}\n");
-			anyerror(a):
-				print("is anyerror\n");
-				print($"Type ID: {a.type_id}\n");
-				print($"Value ID: {a.value_id}\n");
-				print($"anyerror message: {a.message}\n");
+	test_fail(false);

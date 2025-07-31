@@ -211,10 +211,12 @@ bool Parser::create_core_module_types(FileNode &file_node, const std::string &co
         const std::string error_type_name(std::get<0>(error_set));
         const std::string parent_error(std::get<1>(error_set));
         std::vector<std::string> error_values;
-        for (const auto &error_value : std::get<2>(error_set)) {
-            error_values.emplace_back(error_value.first);
+        std::vector<std::string> default_messages;
+        for (const auto &[error_value, error_message] : std::get<2>(error_set)) {
+            error_values.emplace_back(error_value);
+            default_messages.emplace_back(error_message);
         }
-        ErrorNode error(error_type_name, parent_error, error_values);
+        ErrorNode error(error_type_name, parent_error, error_values, default_messages);
         ErrorNode *error_node = file_node.add_error(error);
         if (!Type::add_type(std::make_shared<ErrorSetType>(error_node))) {
             THROW_BASIC_ERR(ERR_PARSING);

@@ -21,7 +21,7 @@ class ErrParsUnexpectedToken : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "Unexpected token, expected one of [" << YELLOW << get_token_string(expected) << DEFAULT
-            << "] but got '" << YELLOW << but_got << DEFAULT << "'";
+            << "] but got '" << YELLOW << get_token_string({but_got}) << DEFAULT << "'";
         return oss.str();
     }
 

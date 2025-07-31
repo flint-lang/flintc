@@ -11,10 +11,16 @@
 /// @brief Represents error set definitions
 class ErrorNode : public ASTNode {
   public:
-    explicit ErrorNode(const std::string &name, const std::string &parent_error, const std::vector<std::string> &values) :
+    explicit ErrorNode(                                  //
+        const std::string &name,                         //
+        const std::string &parent_error,                 //
+        const std::vector<std::string> &values,          //
+        const std::vector<std::string> &default_messages //
+        ) :
         name(name),
         parent_error(parent_error),
-        values(values) {
+        values(values),
+        default_messages(default_messages) {
         error_id = Type::get_type_id_from_str(name);
     }
 
@@ -30,12 +36,14 @@ class ErrorNode : public ASTNode {
     /// @return `unsigned int` The total count of values within this set
     unsigned int get_value_count() const;
 
-    /// @function `get_id_of_value`
-    /// @brief Returns the id of a given string value, the value is either in this set or in one of it's base sets
+    /// @function `get_id_msg_pair_of_value`
+    /// @brief Returns the id of a given string value, the value is either in this set or in one of it's base sets together with the default
+    /// message of that value, or nullopt if the value is not part of this error set
     ///
     /// @param `value` The error value to search for
-    /// @return `std::optional<unsigned int>` The ID of the error value, nullopt if the value is not part of this set
-    std::optional<unsigned int> get_id_of_value(const std::string &value) const;
+    /// @return `std::optional<std::pair<unsigned int, std::string>>` The ID of the error value with the default message, nullopt if the
+    /// value is not part of this set
+    std::optional<std::pair<unsigned int, std::string>> get_id_msg_pair_of_value(const std::string &value) const;
 
     /// @var `name`
     /// @brief The name of the new error type
@@ -48,6 +56,10 @@ class ErrorNode : public ASTNode {
     /// @var `values`
     /// @brief The possible error values error set contains
     std::vector<std::string> values;
+
+    /// @var `default_messages`
+    /// @brief THe default messages of all the error values
+    std::vector<std::string> default_messages;
 
     /// @var `error_id`
     /// @brief The ID of the error type, which is generated using hashing of the error type's name

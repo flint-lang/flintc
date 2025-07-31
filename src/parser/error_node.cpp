@@ -23,16 +23,17 @@ unsigned int ErrorNode::get_value_count() const {
     }
 }
 
-std::optional<unsigned int> ErrorNode::get_id_of_value(const std::string &value) const {
+std::optional<std::pair<unsigned int, std::string>> ErrorNode::get_id_msg_pair_of_value(const std::string &value) const {
     unsigned int offset = get_value_count() - values.size();
     const auto it = std::find(values.begin(), values.end(), value);
     if (it != values.end()) {
-        return offset + std::distance(values.begin(), it);
+        unsigned int idx = std::distance(values.begin(), it);
+        return std::make_pair(offset + idx, default_messages.at(idx));
     }
     std::optional<const ErrorNode *> parent_node = get_parent_node();
     if (!parent_node.has_value()) {
         // Value not part of any set
         return std::nullopt;
     }
-    return parent_node.value()->get_id_of_value(value);
+    return parent_node.value()->get_id_msg_pair_of_value(value);
 }

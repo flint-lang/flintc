@@ -409,8 +409,25 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
         }
     }
 
+    std::vector<std::string> default_messages;
     for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second; ++body_it) {
         if (body_it->token == TOK_IDENTIFIER) {
+            if ((body_it + 1)->token == TOK_LEFT_PAREN) {
+                // We have a default message
+                if ((body_it + 2)->token != TOK_STR_VALUE) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                if ((body_it + 3)->token != TOK_RIGHT_PAREN) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                default_messages.emplace_back((body_it + 2)->lexme);
+                error_types.emplace_back(body_it->lexme);
+                body_it += 4;
+                continue;
+            }
+            default_messages.emplace_back("");
             if ((body_it + 1)->token == TOK_COMMA) {
                 error_types.emplace_back(body_it->lexme);
             } else if ((body_it + 1)->token == TOK_SEMICOLON) {
@@ -426,7 +443,7 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
         };
     }
 
-    return ErrorNode(name, parent_error, error_types);
+    return ErrorNode(name, parent_error, error_types, default_messages);
 }
 
 std::optional<VariantNode> Parser::create_variant(const token_slice &definition, const std::vector<Line> &body) {
