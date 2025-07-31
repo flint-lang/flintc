@@ -16,10 +16,27 @@ def fail(bool friend) {Crash}:
 def main():
 	fail(true) catch err:
 		switch err:
-			Crash(c): print("is Crash\n");
-			anyerror(a): print("is anyerror\n");
+			Crash(c):
+				print("is Crash\n");
+				print($"Type ID: {c.type_id}\n");
+				print($"Value ID: {c.value_id}\n");
+				print($"Crash Message: {c.message}\n");
+			anyerror(a):
+				print("is anyerror\n");
+				print($"Type ID: {a.type_id}\n");
+				print($"Value ID: {a.value_id}\n");
+				print($"anyerror message: {a.message}\n");
 
+	print("\n");
 	fail(false) catch err:
 		switch err:
-			Crash(c): print("is Crash\n");
-			anyerror(a): print("is anyerror\n");
+			Crash(c):
+				print("is Crash\n");
+				print($"Type ID: {c.type_id}\n");
+				print($"Value ID: {c.value_id}\n");
+				print($"Crash Message: {c.message}\n");
+			anyerror(a):
+				print("is anyerror\n");
+				print($"Type ID: {a.type_id}\n");
+				print($"Value ID: {a.value_id}\n");
+				print($"anyerror message: {a.message}\n");

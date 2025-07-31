@@ -791,6 +791,14 @@ Parser::create_field_access_base(     //
         }
         const std::shared_ptr<Type> field_type = tuple_type->types.at(field_id);
         return std::make_tuple(std::move(base_expr.value()), std::nullopt, field_id, field_type);
+    } else if (dynamic_cast<const ErrorSetType *>(base_type.get()) || base_type->to_string() == "anyerror") {
+        if (field_name == "type_id") {
+            return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("i32"));
+        } else if (field_name == "value_id") {
+            return std::make_tuple(std::move(base_expr.value()), field_name, 1, Type::get_primitive_type("i32"));
+        } else if (field_name == "message") {
+            return std::make_tuple(std::move(base_expr.value()), field_name, 2, Type::get_primitive_type("str"));
+        }
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return std::nullopt;

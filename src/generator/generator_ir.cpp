@@ -379,6 +379,7 @@ llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, co
     // Return the buffer pointer
     return str_buf;
 }
+
 llvm::Value *Generator::IR::generate_err_value( //
     llvm::IRBuilder<> &builder,                 //
     const unsigned int err_id,                  //
