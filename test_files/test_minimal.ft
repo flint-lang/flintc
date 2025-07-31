@@ -14,7 +14,9 @@ def fail(bool friend) {Crash}:
 
 def main():
 	fail(true) catch err:
-		print($"err = {err}\n");
+		print("err happened\n");
+		// print($"err = {err}\n");
 
 	fail(false) catch err:
-		print($"err = {err}\n");
+		print("err happened\n");
+		// print($"err = {err}\n");

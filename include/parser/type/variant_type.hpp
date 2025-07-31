@@ -10,7 +10,7 @@
 /// @brief Represents variant types
 class VariantType : public Type {
   public:
-    VariantType(std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> &var_or_list) :
+    VariantType(const std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> &var_or_list) :
         var_or_list(var_or_list) {}
 
     std::string to_string() override {

@@ -795,12 +795,14 @@ namespace Debug {
 
         void print_catch(unsigned int indent_lvl, TreeBits &bits, const CatchNode &catch_node) {
             Local::print_header(indent_lvl, bits, "Catch ");
-            std::cout << "catch '";
+            std::cout << "catch call '";
             std::cout << catch_node.call_node->function_name;
             std::cout << "'";
             if (catch_node.var_name.has_value()) {
-                std::cout << " in '";
+                std::cout << " in var '";
                 std::cout << catch_node.var_name.value();
+                std::cout << "' of type '";
+                std::cout << std::get<0>(catch_node.scope->variables.at(catch_node.var_name.value()))->to_string();
                 std::cout << "'";
             }
             std::cout << " [s" << catch_node.scope->scope_id << "] [c" << catch_node.call_node->call_id << "]" << std::endl;

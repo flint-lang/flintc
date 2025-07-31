@@ -1017,7 +1017,19 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(scope);
     if (err_var.has_value()) {
-        if (!body_scope->add_variable(err_var.value(), Type::get_primitive_type("i32"), body_scope->scope_id, false, false)) {
+        // Get all the possible error types of the call and give the error value a type depending on them
+        const auto &error_types = catch_base_call->error_types;
+        std::shared_ptr<Type> err_variable_type;
+        if (error_types.size() == 1) {
+            err_variable_type = Type::get_primitive_type("anyerror");
+        } else {
+            const std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> var_or_list = error_types;
+            err_variable_type = std::make_shared<VariantType>(var_or_list);
+            if (!Type::add_type(err_variable_type)) {
+                err_variable_type = Type::get_type_from_str(err_variable_type->to_string()).value();
+            }
+        }
+        if (!body_scope->add_variable(err_var.value(), err_variable_type, body_scope->scope_id, false, false)) {
             THROW_ERR(                                                                                                                //
                 ErrVarRedefinition, ERR_PARSING, file_name, right_of_catch.first->line, right_of_catch.first->column, err_var.value() //
             );
