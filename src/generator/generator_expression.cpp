@@ -521,8 +521,9 @@ void Generator::Expression::generate_rethrow( //
     llvm::Value *const err_var = ctx.allocations.at(err_ret_name);
 
     // Load error value
+    llvm::StructType *error_type = type_map.at("__flint_type_err");
     llvm::LoadInst *err_val = builder.CreateLoad(                                    //
-        llvm::Type::getInt32Ty(context),                                             //
+        error_type,                                                                  //
         err_var,                                                                     //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_val" //
     );
@@ -546,9 +547,10 @@ void Generator::Expression::generate_rethrow( //
     builder.SetInsertPoint(current_block);
 
     // Create the if check and compare the err value to 0
+    llvm::Value *err_type = builder.CreateExtractValue(err_val, {0}, "err_type");
     llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
     llvm::Value *err_condition = builder.CreateICmpNE( //
-        err_val,                                       //
+        err_type,                                      //
         zero,                                          //
         "errcmp"                                       //
     );
