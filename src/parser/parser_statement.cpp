@@ -683,6 +683,109 @@ bool Parser::create_enum_switch_branches(       //
     return true;
 }
 
+bool Parser::create_error_switch_branches(      //
+    std::shared_ptr<Scope> scope,               //
+    std::vector<SSwitchBranch> &s_branches,     //
+    std::vector<ESwitchBranch> &e_branches,     //
+    const std::vector<Line> &body,              //
+    const std::shared_ptr<Type> &switcher_type, //
+    const ErrorNode *error_node,                //
+    const bool is_statement                     //
+) {
+    // First, we check for all the matches. All matches *must* be identifiers, where each identifier matches one value of the error set.
+    // Each identifier can only be used once in the switch. If there exists a default branch (the else keyword) then it is not allowed that
+    // all other error set values are matched, as the else branch would then effectively become unreachable.
+    std::vector<unsigned int> matched_ids;
+    bool is_default_present = false;
+    for (auto line_it = body.begin(); line_it != body.end();) {
+        const token_slice &tokens = line_it->tokens;
+        // First, get all tokens until the colon to be able to parse the matching expression
+        std::optional<uint2> match_range = std::nullopt;
+        if (is_statement) {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_colon);
+        } else {
+            match_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
+        }
+        if (!match_range.has_value() || match_range.value().first != 0) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        const token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
+        std::vector<std::unique_ptr<ExpressionNode>> match_expressions;
+        if (std::next(match_tokens.first) == match_tokens.second) {
+            // We only have one value match in here
+            if (match_tokens.first->token == TOK_TYPE) {
+                // We need to access the `lexme` field of the token so a type token would cause a crash here
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            if (match_tokens.first->token == TOK_ELSE) {
+                // The else branch, which gets matched if no other branch get's matched
+                is_default_present = true;
+                match_expressions.push_back(std::make_unique<DefaultNode>(switcher_type));
+            } else {
+                const std::string &error_value = match_tokens.first->lexme;
+                auto pair_maybe = error_node->get_id_msg_pair_of_value(error_value);
+                if (!pair_maybe.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const unsigned int value_id = pair_maybe.value().first;
+                if (std::find(matched_ids.begin(), matched_ids.end(), value_id) != matched_ids.end()) {
+                    // Duplicate value in switch
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                matched_ids.push_back(value_id);
+                LitValue lit_value = LitError{switcher_type, error_value, std::nullopt};
+                match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
+            }
+        } else {
+            // There could be multiple values here
+            for (auto it = match_tokens.first; it != match_tokens.second; ++it) {
+                if (it->token == TOK_COMMA) {
+                    continue;
+                }
+                if (it->token != TOK_IDENTIFIER) {
+                    // Default branches are not allowed in a branch that has multiple values leading to it
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const std::string &error_value = it->lexme;
+                auto pair_maybe = error_node->get_id_msg_pair_of_value(error_value);
+                if (!pair_maybe.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const unsigned int value_id = pair_maybe.value().first;
+                if (std::find(matched_ids.begin(), matched_ids.end(), value_id) != matched_ids.end()) {
+                    // Duplicate value in switch
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                matched_ids.push_back(value_id);
+                LitValue lit_value = LitError{switcher_type, error_value, std::nullopt};
+                match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
+            }
+        }
+        if (!create_switch_branch_body(                                                                                     //
+                scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
+        ) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+    }
+    const unsigned int value_count = error_node->get_value_count();
+    if (is_default_present ^ (matched_ids.size() != value_count)) {
+        // Either we have a default branch and all error values are matched
+        // Or we don't have a default branch and not all error values are matched
+        // Either way, we don't have a branch for every possible value of the error set, so that's an error
+        THROW_BASIC_ERR(ERR_PARSING);
+        return false;
+    }
+    return true;
+}
+
 bool Parser::create_optional_switch_branches(   //
     std::shared_ptr<Scope> scope,               //
     std::vector<SSwitchBranch> &s_branches,     //
@@ -941,6 +1044,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
         assert(var_node != nullptr);
         const bool is_mutable = std::get<2>(scope->variables.find(var_node->name)->second);
         if (!create_variant_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    } else if (const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(switcher.value()->type.get())) {
+        const ErrorNode *error_node = error_type->error_node;
+        if (!create_error_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, error_node, is_statement)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }

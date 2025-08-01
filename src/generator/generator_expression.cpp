@@ -1043,6 +1043,9 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
 
     // Create the switch instruction
     llvm::SwitchInst *switch_inst = nullptr;
+    if (dynamic_cast<const ErrorSetType *>(switch_expression->switcher->type.get())) {
+        switch_value = builder.CreateExtractValue(switch_value, {1}, "error_value");
+    }
     if (default_block == nullptr) {
         // If no default case, create one that produces a default value
         default_block = llvm::BasicBlock::Create(context, "switch_expr_implicit_default", ctx.parent);
@@ -1071,6 +1074,17 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
 
         // Generate the case value
         for (const auto &match : branch.matches) {
+            if (const LiteralNode *literal_node = dynamic_cast<const LiteralNode *>(match.get())) {
+                if (std::holds_alternative<LitError>(literal_node->value)) {
+                    const LitError &lit_err = std::get<LitError>(literal_node->value);
+                    const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(lit_err.error_type.get());
+                    assert(error_type != nullptr);
+                    const auto pair = error_type->error_node->get_id_msg_pair_of_value(lit_err.value);
+                    assert(pair.has_value());
+                    switch_inst->addCase(builder.getInt32(pair.value().first), branch_blocks[i]);
+                    continue;
+                }
+            }
             group_mapping case_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, match.get());
             if (!case_expr.has_value() || case_expr.value().empty()) {
                 THROW_BASIC_ERR(ERR_GENERATING);

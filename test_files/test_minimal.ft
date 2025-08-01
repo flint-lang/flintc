@@ -1,43 +1,24 @@
-use Core.assert
 use Core.print
 
-error Base:
-	Err1("Base Error 1"),
-	Err2("Base Error 2");
+error ErrArithmetic:
+	NullDivision, Negative;
 
-error Crash(Base):
-	Friendly("I'm a friendly crash!"),
-	Harshly("I'm gonna kill your program!");
-
-def fail(i32 val) {Crash}:
-	switch val:
-		0: throw Crash.Err1;
-		1: throw Crash.Err2($"Value is {val}");
-		2: throw Crash.Friendly($"Hehe custom message: {val}");
-		3: throw Crash.Harshly;
-		else: assert(false);
-
-def test_fail(i32 val):
-	fail(val) catch err:
-		switch err:
-			Crash(c):
-				print("is Crash\n");
-				print($"Type ID: {c.type_id}\n");
-				print($"Value ID: {c.value_id}\n");
-				print($"Crash Message: {c.message}\n");
-			anyerror(a):
-				print("is anyerror\n");
-				print($"Type ID: {a.type_id}\n");
-				print($"Value ID: {a.value_id}\n");
-				print($"anyerror message: {a.message}\n");
+def divide(i32 x, i32 y) -> i32 {ErrArithmetic}:
+	if y == 0:
+		throw ErrArithmetic.NullDivision;
+	if x < 0 or y < 0:
+		// We just made up that error just to have a second error case
+		throw ErrArithmetic.Negative;
+	return x / y;
 
 def main():
-	test_fail(0);
-	print("\n");
-	test_fail(1);
-	print("\n");
-	test_fail(2);
-	print("\n");
-	test_fail(3);
-	print("\n");
-	test_fail(4);
+	i32 res = divide(10, 0) catch err:
+		switch err:
+			ErrArithmetic(e):
+				print("Is ErrArithmetic\n");
+				switch e:
+					NullDivision: print("Is NullDivision\n");
+					Negative: print("Is Negative\n");
+			anyerror(e):
+				print("Is anyerror\n");
+	print($"res = {res}\n");

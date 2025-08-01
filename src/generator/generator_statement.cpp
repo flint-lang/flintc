@@ -1134,6 +1134,9 @@ bool Generator::Statement::generate_switch_statement( //
 
     // Create the switch instruction. Branch to the default block, if one exists, when no default block exists we jump to the merge
     // block
+    if (dynamic_cast<const ErrorSetType *>(switch_statement->switcher->type.get())) {
+        switch_value = builder.CreateExtractValue(switch_value, {1}, "error_value");
+    }
     llvm::SwitchInst *switch_inst = nullptr;
     if (default_block == nullptr) {
         switch_inst = builder.CreateSwitch(switch_value, merge_block, switch_statement->branches.size());
@@ -1151,6 +1154,17 @@ bool Generator::Statement::generate_switch_statement( //
 
         // Generate the case values
         for (auto &match : branch.matches) {
+            if (const LiteralNode *literal_node = dynamic_cast<const LiteralNode *>(match.get())) {
+                if (std::holds_alternative<LitError>(literal_node->value)) {
+                    const LitError &lit_err = std::get<LitError>(literal_node->value);
+                    const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(lit_err.error_type.get());
+                    assert(error_type != nullptr);
+                    const auto pair = error_type->error_node->get_id_msg_pair_of_value(lit_err.value);
+                    assert(pair.has_value());
+                    switch_inst->addCase(builder.getInt32(pair.value().first), branch_blocks[i]);
+                    continue;
+                }
+            }
             Expression::garbage_type case_garbage;
             group_mapping case_expr = Expression::generate_expression(builder, ctx, case_garbage, 0, match.get());
             llvm::Value *case_value = case_expr.value().front();
