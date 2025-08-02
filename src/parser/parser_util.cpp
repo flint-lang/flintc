@@ -440,10 +440,7 @@ Parser::create_call_or_initializer_base(         //
                 }
                 const auto &field_type = std::get<1>(fields.at(i));
                 if (field_type != arg_type) {
-                    std::optional<bool> castability = check_castability(field_type, arg_type);
-                    if (castability.has_value() && castability.value()) {
-                        arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
-                    } else if (dynamic_cast<const PrimitiveType *>(arg_type.get())) {
+                    if (dynamic_cast<const PrimitiveType *>(arg_type.get())) {
                         const std::string &arg_type_str = arg_type->to_string();
                         if (primitive_implicit_casting_table.find(arg_type_str) == primitive_implicit_casting_table.end()) {
                             THROW_BASIC_ERR(ERR_PARSING);
@@ -455,6 +452,11 @@ Parser::create_call_or_initializer_base(         //
                             return std::nullopt;
                         }
                         arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
+                    } else {
+                        std::optional<bool> castability = check_castability(field_type, arg_type);
+                        if (castability.has_value() && castability.value()) {
+                            arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
+                        }
                     }
                 }
             }
