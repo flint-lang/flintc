@@ -1,0 +1,64 @@
+use Core.assert
+use Core.system
+
+use "utils.ft"
+
+test "0_declaration.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "0_declaration.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "1_throwing.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "1_throwing.ft";
+	test_file_crash($"{path}/{file}", "ERROR: Program exited with exit code '-286738258'\n");
+
+test "2_catching.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "2_catching.ft";
+	test_file_ok($"{path}/{file}", "Error catched!\nNormal execution continues\n");
+
+test "3_refinement.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "3_refinement.ft";
+	test_file_crash($"{path}/{file}", "ERROR: Program exited with exit code '803109534'\n");
+
+test "4_null_set.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "4_null_set.ft";
+	test_file_ok($"{path}/{file}", "Error catched\n");
+
+test "5_signature.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "5_signature.ft";
+	test_file_ok($"{path}/{file}", "Error happened\nres = 0\n");
+
+test "6_err_variant.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "6_err_variant.ft";
+	test_file_ok($"{path}/{file}", "Is ErrArithmetic\nres = 0\n");
+
+test "7_switch_on_set.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "7_switch_on_set.ft";
+	test_file_ok($"{path}/{file}", "Is ErrArithmetic\nIs NullDivision\nres = 0\n");
+
+test "8_structure.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "8_structure.ft";
+	test_file_ok($"{path}/{file}", "type_id = 1484029712\nvalue_id = 0\nmessage = \nIs NullDivision\nres = 0\n");
+
+test "9_context.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "9_context.ft";
+	test_file_ok($"{path}/{file}", "type_id = 803109534\nvalue_id = 2\nmessage = Special Error 1\n\ntype_id = 803109534\nvalue_id = 3\nmessage = Overwritten message: true\n");
+
+test "[f]10_anonymous_simple.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "10_anonymous_simple.ft";
+	test_file_ok($"{path}/{file}", "err.type_id = 0123456789\nerr.value_id = 0\nerr.message = Custom Message\n");
+
+test "[f]11_anonymous_complex.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "11_anonymous_complex.ft";
+	test_file_ok($"{path}/{file}", "err.type_id = 0\nerr.value_id = 0\nerr.message = Custom Message\n\nerr.type_id = 0\nerr.value_id = 1\nerr.message = \n\nerr.type_id = 0\nerr.value_id = 2\nerr.message = LAST\n");

@@ -1,0 +1,11 @@
+use Core.print
+
+error ErrorSet:
+	Value1, Value2;
+
+def fail():
+	throw ErrorSet.Value1;
+
+def main():
+	fail();
+	print("Normal execution continues\n");

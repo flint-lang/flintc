@@ -21,3 +21,11 @@ def test_file_fail(str file, str expected_output):
 	(exit_code, output) := system_command($"flintc --no-colors --file {file}");
 	assert(exit_code == 1);
 	assert(starts_with(output, expected_output));
+
+def test_file_crash(str file, str expected_output):
+	(exit_code, output) := system_command($"flintc --file {file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code != 0);
+	assert(output == expected_output);

@@ -1,0 +1,17 @@
+use Core.print
+
+error ErrArithmetic:
+	NullDivision, Negative;
+
+def divide(i32 x, i32 y) -> i32 {ErrArithmetic}:
+	if y == 0:
+		throw ErrArithmetic.NullDivision;
+	if x < 0 or y < 0:
+		// We just made up that error just to have a second error case
+		throw ErrArithmetic.Negative;
+	return x / y;
+
+def main():
+	i32 res = divide(10, 0) catch err:
+		print("Error happened\n");
+	print($"res = {res}\n");

@@ -1,0 +1,7 @@
+use Core.print
+
+error ErrorSet:
+	Value1, Value2;
+
+def main():
+	print("Hello, World!\n");

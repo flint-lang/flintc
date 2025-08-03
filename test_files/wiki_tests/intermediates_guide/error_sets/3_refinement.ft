@@ -1,0 +1,8 @@
+error ErrBase:
+	B1, B2;
+
+error ErrSpecial(ErrBase):
+	S1, S2;
+
+def main():
+	throw ErrSpecial.B1;

@@ -1,0 +1,10 @@
+use Core.print
+
+def crash():
+    throw error.Crash("Custom Message");
+
+def main():
+    crash() catch err:
+        print($"err.type_id = {err.type_id}\n");
+        print($"err.value_id = {err.value_id}\n");
+        print($"err.message = {err.message}\n");

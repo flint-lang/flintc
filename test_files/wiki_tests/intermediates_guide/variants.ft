@@ -1,6 +1,5 @@
 use Core.assert
 use Core.system
-use Core.print
 
 use "utils.ft"
 

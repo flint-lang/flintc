@@ -1,0 +1,14 @@
+use Core.print
+
+error ErrBase:
+	B1, B2;
+
+error ErrSpecial(ErrBase):
+	S1, S2;
+
+def crash():
+	throw ErrSpecial.B1;
+
+def main():
+	crash() catch err:
+		print("Error catched\n");
