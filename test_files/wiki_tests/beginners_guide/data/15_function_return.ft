@@ -6,8 +6,7 @@ data Point:
     Point(x, y);
 
 def create_point(i32 x, i32 y) -> Point:
-    Point p = Point(x, y);
-    return p;
+    return Point(x, y);
 
 def main():
     Point p = create_point(5, 7);
