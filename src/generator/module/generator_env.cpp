@@ -8,9 +8,8 @@ void Generator::Module::Env::generate_env_functions(llvm::IRBuilder<> *builder, 
 void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // str *get_env(const str *var) {
-    //     char *c_var = get_c_str(var);
+    //     char *c_var = (char *)var->value;
     //     char *c_env = getenv(c_var);
-    //     free(c_var);
     //     if (c_env == NULL) {
     //         // Env variable not found, throw error
     //         return create_str(0);
@@ -19,11 +18,9 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     //     }
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
-    llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *getenv_fn = c_functions.at(GETENV);
-    llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
 
     const unsigned int ErrEnv = Type::get_type_id_from_str("ErrEnv");
@@ -57,13 +54,10 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     builder->SetInsertPoint(entry_block);
 
     // Convert str var to C string
-    llvm::Value *c_var = builder->CreateCall(get_c_str_fn, {var_arg}, "c_var");
+    llvm::Value *c_var = builder->CreateStructGEP(str_type, var_arg, 1, "c_var");
 
     // Get environment variable: c_env = getenv(c_var)
     llvm::Value *c_env = builder->CreateCall(getenv_fn, {c_var}, "c_env");
-
-    // Free the c_var: free(c_var)
-    builder->CreateCall(free_fn, {c_var});
 
     // Check if c_env is NULL
     llvm::Value *env_null = builder->CreateIsNull(c_env, "env_null");
@@ -105,20 +99,24 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
 void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // bool set_env(const str *var, const str *content, const bool overwrite) {
-    //     char *c_var = get_c_str(var);
-    //     char *c_content = get_c_str(content);
+    //     char *c_var = (char *)var->value;
+    //     if (strlen(c_var) != var->len) {
+    //         // Contains null byte
+    //         THROW_ERR(ErrEnv, InvalidName);
+    //     }
+    //     char *c_content = (char *)content->value;
+    //     if (strlen(c_content) != content->len) {
+    //         // Contains null byte
+    //         THROW_ERR(ErrEnv, InvalidValue);
+    //     }
     //     int success = setenv(c_var, c_content, overwrite);
-    //     free(c_var);
-    //     free(c_content);
     //     if (success != 0) {
     //         return false;
     //     }
     //     return true;
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
-    llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
     llvm::Function *setenv_fn = c_functions.at(SETENV);
-    llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
 
     const unsigned int ErrEnv = Type::get_type_id_from_str("ErrEnv");
@@ -165,16 +163,15 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
 
     // Convert str var to C string
     builder->SetInsertPoint(entry_block);
-    llvm::Value *c_var = builder->CreateCall(get_c_str_fn, {var_arg}, "c_var");
+    llvm::Value *c_var = builder->CreateStructGEP(str_type, var_arg, 1, "c_var");
     llvm::Value *c_var_len = builder->CreateCall(strlen_fn, {c_var}, "c_var_len");
     llvm::Value *var_len_ptr = builder->CreateStructGEP(str_type, var_arg, 0, "var_len_ptr");
     llvm::Value *var_len = builder->CreateLoad(builder->getInt64Ty(), var_len_ptr, "var_len");
     llvm::Value *var_len_eq = builder->CreateICmpEQ(c_var_len, var_len, "var_len_eq");
     builder->CreateCondBr(var_len_eq, name_ok_block, name_fail_block, IR::generate_weights(100, 0));
 
-    // Free the C string and return an error if the var string contains a null character, throw ErrEnv.InvalidName
+    // Return an error if the var string contains a null character, throw ErrEnv.InvalidName
     builder->SetInsertPoint(name_fail_block);
-    builder->CreateCall(free_fn, {c_var});
     llvm::AllocaInst *ret_name_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_name_fail_alloc");
     llvm::Value *ret_name_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_name_fail_alloc, 0, "ret_name_fail_err_ptr");
     llvm::Value *error_value = IR::generate_err_value(*builder, ErrEnv, InvalidName, InvalidNameMessage);
@@ -186,17 +183,15 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
 
     // Convert str content to C string
     builder->SetInsertPoint(name_ok_block);
-    llvm::Value *c_content = builder->CreateCall(get_c_str_fn, {content_arg}, "c_content");
+    llvm::Value *c_content = builder->CreateStructGEP(str_type, content_arg, 1, "c_content");
     llvm::Value *c_content_len = builder->CreateCall(strlen_fn, {c_content}, "c_content_len");
     llvm::Value *content_len_ptr = builder->CreateStructGEP(str_type, content_arg, 0, "content_len_ptr");
     llvm::Value *content_len = builder->CreateLoad(builder->getInt64Ty(), content_len_ptr, "content_len");
     llvm::Value *content_len_eq = builder->CreateICmpEQ(c_content_len, content_len, "content_len_eq");
     builder->CreateCondBr(content_len_eq, value_ok_block, value_fail_block, IR::generate_weights(100, 0));
 
-    // Free the C strings and throw Err.InvalidValue if the content string contains a null character
+    // Throw Err.InvalidValue if the content string contains a null character
     builder->SetInsertPoint(value_fail_block);
-    builder->CreateCall(free_fn, {c_var});
-    builder->CreateCall(free_fn, {c_content});
     llvm::AllocaInst *ret_value_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_value_fail_alloc");
     llvm::Value *ret_value_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_value_fail_alloc, 0, "ret_value_fail_err_ptr");
     error_value = IR::generate_err_value(*builder, ErrEnv, InvalidValue, InvalidValueMessage);
@@ -210,10 +205,6 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     builder->SetInsertPoint(value_ok_block);
     llvm::Value *overwrite_int = builder->CreateZExt(overwrite_arg, builder->getInt32Ty(), "overwrite_int");
     llvm::Value *success = builder->CreateCall(setenv_fn, {c_var, c_content, overwrite_int}, "success");
-
-    // Free the c strings
-    builder->CreateCall(free_fn, {c_var});
-    builder->CreateCall(free_fn, {c_content});
 
     // Check if success != 0 (failure)
     llvm::Value *is_failure = builder->CreateICmpNE(success, builder->getInt32(0), "is_failure");

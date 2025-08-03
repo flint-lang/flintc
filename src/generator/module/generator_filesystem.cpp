@@ -20,11 +20,9 @@ void Generator::Module::FileSystem::generate_read_file_function( //
 ) {
     // THE C IMPLEMENTATION:
     // str *read_file(const str *path) {
-    //     // Convert the str to null-terminated C string
-    //     char *c_path = get_c_str(path);
+    //     char *c_path = (char *(path->value;
     //     // Open the file for reading in binary mode
     //     FILE *file = fopen(c_path, "rb");
-    //     free(c_path);
     //     // Get the file size
     //     if (fseek(file, 0, SEEK_END) != 0) {
     //         fclose(file);
@@ -58,7 +56,6 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Function *ftell_fn = c_functions.at(FTELL);
     llvm::Function *fread_fn = c_functions.at(FREAD);
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
-    llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
     const unsigned int ErrIO = Type::get_type_id_from_str("ErrIO");
     const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
@@ -102,17 +99,14 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
 
-    // Convert str path to C string using get_c_str
-    llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
+    // Get the c string from the value directly
+    llvm::Value *c_path = builder->CreateStructGEP(str_type, path_arg, 1, "c_path");
 
     // Create "rb" string constant
     llvm::Value *mode_str = IR::generate_const_string(*builder, "rb");
 
     // Open file: file = fopen(c_path, "rb")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
-
-    // Free the c_path: free(c_path)
-    builder->CreateCall(free_fn, {c_path});
 
     // Check if file is NULL
     llvm::Value *file_null_check = builder->CreateIsNull(file, "file_is_null");
@@ -248,11 +242,9 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
 ) {
     // THE C IMPLEMENTATION:
     // str *read_file_lines(const str *path) {
-    //     // Convert str path to null-terminated C string
-    //     char *c_path = get_c_str(path);
+    //     char *c_path = (char *)path->value;
     //     // Open the file for reading
     //     FILE *file = fopen(c_path, "r");
-    //     free(c_path); // We don't need the path string anymore
     //     if (!file) {
     //         return NULL; // File open error
     //     }
@@ -334,7 +326,6 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     // Get string and array utility functions
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
-    llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
     llvm::Function *create_arr_fn = Array::array_manip_functions.at("create_arr");
     llvm::Function *fill_arr_inline_fn = Array::array_manip_functions.at("fill_arr_inline");
     llvm::Function *access_arr_fn = Array::array_manip_functions.at("access_arr");
@@ -390,17 +381,14 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
 
-    // Convert str path to C string
-    llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
+    // Get the C string from the value
+    llvm::Value *c_path = builder->CreateStructGEP(str_type, path_arg, 1, "c_path");
 
     // Create "r" string constant for fopen mode
     llvm::Value *mode_str = IR::generate_const_string(*builder, "r");
 
     // Open file: file = fopen(c_path, "r")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
-
-    // Free the c_path: free(c_path)
-    builder->CreateCall(free_fn, {c_path});
 
     // Check if file is NULL
     llvm::Value *file_null = builder->CreateIsNull(file, "file_null");
@@ -743,12 +731,9 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
 ) {
     // THE C IMPLEMENTATION:
     // bool file_exists(const str *path) {
-    //     // Convert str path to null-terminated C string
-    //     char *c_path = get_c_str(path);
+    //     char *c_path = (char *)path->value;
     //     // Try to open the file
     //     FILE *file = fopen(c_path, "r");
-    //     // Free the C-string
-    //     free(c_path);
     //     // Check if file opened successfully
     //     if (file) {
     //         fclose(file);
@@ -758,10 +743,8 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
     // }
     // Get required function pointers
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
-    llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
-    llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
     llvm::FunctionType *file_exists_type = llvm::FunctionType::get( //
         llvm::Type::getInt1Ty(context),                             // return bool
@@ -789,16 +772,13 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
     builder->SetInsertPoint(entry_block);
 
     // Convert str path to C string
-    llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
+    llvm::Value *c_path = builder->CreateStructGEP(str_type, path_arg, 1, "c_path");
 
     // Create "r" string constant for fopen mode
     llvm::Value *mode_str = IR::generate_const_string(*builder, "r");
 
     // Open file: file = fopen(c_path, "r")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
-
-    // Free the c_path: free(c_path)
-    builder->CreateCall(free_fn, {c_path});
 
     // Check if file is NULL
     llvm::Value *file_null = builder->CreateIsNull(file, "file_null");
@@ -821,11 +801,9 @@ void Generator::Module::FileSystem::generate_write_file_function( //
 ) {
     // THE C IMPLEMENTATION:
     // void write_file(const str *path, const str *content) {
-    //     // Convert str path to null-terminated C string
-    //     char *c_path = get_c_str(path);
+    //     char *c_path = (char *)path->value;
     //     // Open the file for writing - this will create a new file or overwrite an existing one
     //     FILE *file = fopen(c_path, "wb");
-    //     free(c_path); // Free the path string
     //     if (!file) {
     //         return; // File open error
     //     }
@@ -836,11 +814,9 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
-    llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fwrite_fn = c_functions.at(FWRITE);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
-    llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
     const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
     const unsigned int NotWritable = 3;
@@ -880,16 +856,13 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     builder->SetInsertPoint(entry_block);
 
     // Convert str path to C string
-    llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
+    llvm::Value *c_path = builder->CreateStructGEP(str_type, path_arg, 1, "c_path");
 
     // Create "wb" string constant for fopen mode
     llvm::Value *mode_str = IR::generate_const_string(*builder, "wb");
 
     // Open file: file = fopen(c_path, "wb")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
-
-    // Free the c_path: free(c_path)
-    builder->CreateCall(free_fn, {c_path});
 
     // Check if file is NULL
     llvm::Value *file_null = builder->CreateIsNull(file, "file_null");
@@ -949,11 +922,9 @@ void Generator::Module::FileSystem::generate_append_file_function( //
 ) {
     // THE C IMPLEMENTATION:
     // void append_file(const str *path, const str *content) {
-    //     // Convert str path to null-terminated C string
-    //     char *c_path = get_c_str(path);
+    //     char *c_path = (char *)path->value;
     //     // Open the file for appending
     //     FILE *file = fopen(c_path, "ab");
-    //     free(c_path); // Free the path string
     //     if (!file) {
     //         return; // File open error
     //     }
@@ -964,10 +935,8 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
-    llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fwrite_fn = c_functions.at(FWRITE);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
-    llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
     const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
     const unsigned int NotWritable = 3;
@@ -1011,16 +980,13 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     builder->SetInsertPoint(entry_block);
 
     // Convert str path to C string
-    llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
+    llvm::Value *c_path = builder->CreateStructGEP(str_type, path_arg, 1, "c_path");
 
     // Create "ab" string constant for fopen mode (append binary)
     llvm::Value *mode_str = IR::generate_const_string(*builder, "ab");
 
     // Open file: file = fopen(c_path, "ab")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
-
-    // Free the c_path: free(c_path)
-    builder->CreateCall(free_fn, {c_path});
 
     // Check if file is NULL
     llvm::Value *file_null = builder->CreateIsNull(file, "file_null");
@@ -1078,11 +1044,9 @@ void Generator::Module::FileSystem::generate_is_file_function( //
 ) {
     // THE C IMPLEMENTATION:
     // bool is_file(const str *path) {
-    //     // Convert str path to null-terminated C string
-    //     char *c_path = get_c_str(path);
+    //     char *c_path = (char *)path->value;
     //     // Try to open as a file
     //     FILE *file = fopen(c_path, "rb");
-    //     free(c_path);
     //
     //     if (file) {
     //         // Check if it's actually a file by trying to read from it
@@ -1100,11 +1064,9 @@ void Generator::Module::FileSystem::generate_is_file_function( //
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
-    llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fread_fn = c_functions.at(FREAD);
     llvm::Function *fseek_fn = c_functions.at(FSEEK);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
-    llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
 
     llvm::FunctionType *is_file_type = llvm::FunctionType::get( //
         llvm::Type::getInt1Ty(context),                         // return bool
@@ -1132,16 +1094,13 @@ void Generator::Module::FileSystem::generate_is_file_function( //
     builder->SetInsertPoint(entry_block);
 
     // Convert str path to C string
-    llvm::Value *c_path = builder->CreateCall(get_c_str_fn, {path_arg}, "c_path");
+    llvm::Value *c_path = builder->CreateStructGEP(str_type, path_arg, 1, "c_path");
 
     // Create "rb" string constant for fopen mode (read binary)
     llvm::Value *mode_str = IR::generate_const_string(*builder, "rb");
 
     // Open file: file = fopen(c_path, "rb")
     llvm::Value *file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
-
-    // Free the c_path: free(c_path)
-    builder->CreateCall(free_fn, {c_path});
 
     // Check if file is NULL
     llvm::Value *file_null = builder->CreateIsNull(file, "file_null");

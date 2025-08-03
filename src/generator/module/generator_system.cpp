@@ -22,12 +22,9 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     //
     //     // Create command with stderr redirection
     //     str *full_command = add_str_lit(command, " 2>&1", 5);
-    //     char *c_command = get_c_str(full_command);
-    //     free(full_command);
-    //
+    //     char *c_command = (char *)full_command->value;
     //     FILE *pipe = popen(c_command, "r");
-    //     free(c_command);
-    //
+    //     free(full_command);
     //     if (!pipe) {
     //         free(result.output);
     //         result.output = NULL;
@@ -50,7 +47,6 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *add_str_lit_fn = String::string_manip_functions.at("add_str_lit");
-    llvm::Function *get_c_str_fn = String::string_manip_functions.at("get_c_str");
     llvm::Function *append_lit_fn = String::string_manip_functions.at("append_lit");
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *popen_fn = c_functions.at(POPEN);
@@ -121,15 +117,12 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     llvm::Value *output_ptr = builder->CreateStructGEP(function_result_type, result_struct, 2, "output_ptr");
     builder->CreateStore(empty_str, output_ptr);
 
-    // Create command with stderr redirection: full_command = add_str_lit(command, " 2>&1")
+    // Create command with stderr redirection: full_command = add_str_lit(command, " 2>&1", 5)
     llvm::Value *redirect_str = IR::generate_const_string(*builder, " 2>&1");
     llvm::Value *full_command = builder->CreateCall(add_str_lit_fn, {arg_command, redirect_str, builder->getInt64(5)}, "full_command");
 
-    // Get C string: c_command = get_c_str(full_command)
-    llvm::Value *c_command = builder->CreateCall(get_c_str_fn, {full_command}, "c_command");
-
-    // Free the full_command
-    builder->CreateCall(free_fn, {full_command});
+    // Get C string: c_command = (char *)full_command->value
+    llvm::Value *c_command = builder->CreateStructGEP(str_type, full_command, 1, "c_command");
 
     // Create "r" string for popen mode
     llvm::Value *mode_str = IR::generate_const_string(*builder, "r");
@@ -137,8 +130,8 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     // Open pipe: pipe = popen(c_command, "r")
     llvm::Value *pipe = builder->CreateCall(popen_fn, {c_command, mode_str}, "pipe");
 
-    // Free c_command
-    builder->CreateCall(free_fn, {c_command});
+    // Free the full_command
+    builder->CreateCall(free_fn, {full_command});
 
     // Check if pipe is NULL
     llvm::Value *pipe_null_check = builder->CreateIsNull(pipe, "pipe_is_null");

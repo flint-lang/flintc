@@ -4,70 +4,6 @@
 
 #include <llvm/IR/DerivedTypes.h>
 
-void Generator::Module::String::generate_get_c_str_function( //
-    llvm::IRBuilder<> *builder,                              //
-    llvm::Module *module,                                    //
-    const bool only_declarations                             //
-) {
-    // THE C IMPLEMENTATION:
-    // char *get_c_str(const str *string) {
-    //     char *c_string = (char *)malloc(string->len + 1);
-    //     memcpy(c_string, string->value, string->len);
-    //     c_string[string->len] = '\0';
-    //     return c_string;
-    // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
-    llvm::Function *malloc_fn = c_functions.at(MALLOC);
-    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
-
-    llvm::FunctionType *get_c_str_type = llvm::FunctionType::get( //
-        llvm::Type::getInt8Ty(context)->getPointerTo(),           // Return type: char*
-        {str_type->getPointerTo()},                               // Argument: const str* string
-        false                                                     // No varargs
-    );
-    llvm::Function *get_c_str_fn = llvm::Function::Create( //
-        get_c_str_type,                                    //
-        llvm::Function::ExternalLinkage,                   //
-        "__flint_get_c_str",                               //
-        module                                             //
-    );
-    string_manip_functions["get_c_str"] = get_c_str_fn;
-    if (only_declarations) {
-        return;
-    }
-
-    // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", get_c_str_fn);
-    builder->SetInsertPoint(entry_block);
-
-    // Get the parameter (string)
-    llvm::Argument *string_arg = get_c_str_fn->arg_begin();
-    string_arg->setName("string");
-
-    // Get string->len
-    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, string_arg, 0, "len_ptr");
-    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
-
-    // Calculate malloc size: string->len + 1
-    llvm::Value *malloc_size = builder->CreateAdd(len, builder->getInt64(1), "malloc_size");
-
-    // Call malloc to allocate memory for c_string
-    llvm::Value *c_string_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "c_string_ptr");
-
-    // Get string->value
-    llvm::Value *string_value_ptr = builder->CreateStructGEP(str_type, string_arg, 1, "string_value_ptr");
-
-    // Call memcpy to copy the string content
-    builder->CreateCall(memcpy_fn, {c_string_ptr, string_value_ptr, len});
-
-    // Set null terminator: c_string[string->len] = '\0'
-    llvm::Value *null_terminator_ptr = builder->CreateGEP(builder->getInt8Ty(), c_string_ptr, len, "null_terminator_ptr");
-    builder->CreateStore(builder->getInt8(0), null_terminator_ptr);
-
-    // Return the c_string pointer
-    builder->CreateRet(c_string_ptr);
-}
-
 void Generator::Module::String::generate_access_str_at_function( //
     llvm::IRBuilder<> *builder,                                  //
     llvm::Module *module,                                        //
@@ -179,8 +115,9 @@ void Generator::Module::String::generate_create_str_function( //
 ) {
     // THE C IMPLEMENTATION:
     // str *create_str(const size_t len) {
-    //     str *string = (str *)malloc(sizeof(str) + len);
+    //     str *string = (str *)malloc(sizeof(str) + len + 1);
     //     string->len = len;
+    //     string->value[len] = 0;
     //     return string;
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
@@ -216,13 +153,20 @@ void Generator::Module::String::generate_create_str_function( //
         len_arg,                                                        //
         "malloc_size"                                                   //
     );
+    // Increment malloc size by 1 for the null terminator
+    llvm::Value *actual_size = builder->CreateAdd(malloc_size, builder->getInt64(1), "actual_size");
 
     // Call malloc
-    llvm::Value *string_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "string_ptr");
+    llvm::Value *string_ptr = builder->CreateCall(malloc_fn, {actual_size}, "string_ptr");
 
     // Set the len field: string->len = len
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, string_ptr, 0, "len_ptr");
     builder->CreateStore(len_arg, len_ptr);
+
+    // Set the last value in the string to be a nullbyte
+    llvm::Value *value_ptr = builder->CreateStructGEP(str_type, string_ptr, 1, "value_ptr");
+    llvm::Value *term_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {len_arg}, "term_ptr");
+    builder->CreateStore(builder->getInt8(0), term_ptr);
 
     // Return the string pointer
     builder->CreateRet(string_ptr);
@@ -431,10 +375,11 @@ void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *
     const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void assign_lit(str **string, const char *value, const size_t len) {
-    //     str *new_string = (str *)realloc(*string, sizeof(str) + len);
+    //     str *new_string = (str *)realloc(*string, sizeof(str) + len + 1);
     //     *string = new_string;
     //     new_string->len = len;
     //     memcpy(new_string->value, value, len);
+    //     new_string->value[len] = 0;
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
@@ -481,7 +426,7 @@ void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *
 
     // Calculate new size: sizeof(str) + len
     size_t str_size = Allocation::get_type_size(module, str_type);
-    llvm::Value *new_size = builder->CreateAdd(builder->getInt64(str_size), arg_len, "new_size");
+    llvm::Value *new_size = builder->CreateAdd(builder->getInt64(1), builder->CreateAdd(builder->getInt64(str_size), arg_len), "new_size");
 
     // Call realloc: str* new_string = realloc(old_string, new_size)
     llvm::Value *new_string_ptr = builder->CreateCall(realloc_fn, {old_string_ptr, new_size}, "new_string_ptr");
@@ -499,6 +444,10 @@ void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *
     // Call memcpy to copy the string content
     builder->CreateCall(memcpy_fn, {data_ptr, arg_value, arg_len}, "memcpy_result");
 
+    // Set the last value in the string to be a nullbyte
+    llvm::Value *term_ptr = builder->CreateGEP(builder->getInt8Ty(), data_ptr, {arg_len}, "term_ptr");
+    builder->CreateStore(builder->getInt8(0), term_ptr);
+
     // Return void
     builder->CreateRetVoid();
 }
@@ -507,10 +456,12 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void append_str(str **dest, const str *source) {
-    //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source->len);
+    //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source->len + 1);
     //     *dest = new_dest;
     //     memcpy(new_dest->value + new_dest->len, source->value, source->len);
-    //     new_dest->len += source->len;
+    //     size_t new_len = new_dest->len + source->len;
+    //     new_dest->len = new_len;
+    //     new_dest->value[new_len] = 0;
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
@@ -556,7 +507,9 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     // Calculate new size: sizeof(str) + dest_len + source_len
     size_t str_size = Allocation::get_type_size(module, str_type);
     llvm::Value *combined_len = builder->CreateAdd(dest_len, source_len, "combined_len");
-    llvm::Value *new_size = builder->CreateAdd(builder->getInt64(str_size), combined_len, "new_size");
+    llvm::Value *new_size = builder->CreateAdd(                                                         //
+        builder->getInt64(1), builder->CreateAdd(builder->getInt64(str_size), combined_len), "new_size" //
+    );
 
     // Call realloc: str* new_dest = realloc(old_dest, new_size)
     llvm::Value *new_dest_ptr = builder->CreateCall(realloc_fn, {old_dest_ptr, new_size}, "new_dest_ptr");
@@ -581,6 +534,10 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     llvm::Value *new_dest_len_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 0, "new_dest_len_ptr");
     builder->CreateStore(new_len, new_dest_len_ptr);
 
+    // Set the last value in the string to be a nullbyte
+    llvm::Value *term_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {combined_len}, "term_ptr");
+    builder->CreateStore(builder->getInt8(0), term_ptr);
+
     // Return void
     builder->CreateRetVoid();
 }
@@ -589,10 +546,12 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // void append_lit(str **dest, const char *source, const size_t source_len) {
-    //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source_len);
+    //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source_len + 1);
     //     *dest = new_dest;
     //     memcpy(new_dest->value + new_dest->len, source, source_len);
-    //     new_dest->len += source_len;
+    //     size_t new_len = new_dest->len + source_len;
+    //     new_dest->len = new_len;
+    //     new_dest->value[new_len] = 0;
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
@@ -637,7 +596,9 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     // Calculate new size: sizeof(str) + dest_len + source_len
     size_t str_size = Allocation::get_type_size(module, str_type);
     llvm::Value *combined_len = builder->CreateAdd(dest_len, arg_source_len, "combined_len");
-    llvm::Value *new_size = builder->CreateAdd(builder->getInt64(str_size), combined_len, "new_size");
+    llvm::Value *new_size = builder->CreateAdd(                                                         //
+        builder->getInt64(1), builder->CreateAdd(builder->getInt64(str_size), combined_len), "new_size" //
+    );
 
     // Call realloc: str* new_dest = realloc(old_dest, new_size)
     llvm::Value *new_dest_ptr = builder->CreateCall(realloc_fn, {old_dest_ptr, new_size}, "new_dest_ptr");
@@ -658,6 +619,10 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     llvm::Value *new_len = builder->CreateAdd(dest_len, arg_source_len, "new_len");
     llvm::Value *new_dest_len_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 0, "new_dest_len_ptr");
     builder->CreateStore(new_len, new_dest_len_ptr);
+
+    // Set the last value in the string to be a nullbyte
+    llvm::Value *term_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {combined_len}, "term_ptr");
+    builder->CreateStore(builder->getInt8(0), term_ptr);
 
     // Return void
     builder->CreateRetVoid();
@@ -901,7 +866,6 @@ void Generator::Module::String::generate_add_lit_str_function(llvm::IRBuilder<> 
 
 void Generator::Module::String::generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
     const bool only_declarations) {
-    generate_get_c_str_function(builder, module, only_declarations);
     generate_access_str_at_function(builder, module, only_declarations);
     generate_create_str_function(builder, module, only_declarations);
     generate_init_str_function(builder, module, only_declarations);
