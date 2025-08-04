@@ -555,6 +555,8 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        std::vector<Line> lines = std::vector<Line>{Line(0, {expr_tokens.begin(), expr_tokens.end()})};
+        collapse_types_in_lines(lines, expr_tokens);
         token_slice expr_tokens_slice = {expr_tokens.begin(), expr_tokens.end()};
         if (expr_tokens.back().token == TOK_EOF) {
             expr_tokens_slice.second--;
