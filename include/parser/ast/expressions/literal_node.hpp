@@ -20,6 +20,13 @@ struct LitError {
     std::optional<std::unique_ptr<ExpressionNode>> message;
 };
 
+/// @struct `LitVariantTag`
+/// @brief The structure representing variant tag literals (`VariantType.Tag`)
+struct LitVariantTag {
+    std::shared_ptr<Type> variant_type;
+    std::shared_ptr<Type> variation_type;
+};
+
 /// @struct `LitOptional`
 /// @brief The structure representing optional literals ('none')
 struct LitOptional {};
@@ -80,7 +87,9 @@ struct LitStr {
 
 /// @type `LitValue`
 /// @brief The type representing a literal value
-using LitValue = std::variant<LitEnum, LitError, LitOptional, LitU32, LitU64, LitI32, LitI64, LitF32, LitF64, LitU8, LitBool, LitStr>;
+using LitValue = std::variant<                                                                                            //
+    LitEnum, LitError, LitVariantTag, LitOptional, LitU32, LitU64, LitI32, LitI64, LitF32, LitF64, LitU8, LitBool, LitStr //
+    >;
 
 /// @class `LiteralNode`
 /// @brief Represents literal values

@@ -319,6 +319,9 @@ namespace Debug {
             } else if (std::holds_alternative<LitEnum>(lit.value)) {
                 const LitEnum &lit_enum = std::get<LitEnum>(lit.value);
                 std::cout << lit_enum.enum_type->to_string() << "." << lit_enum.value;
+            } else if (std::holds_alternative<LitVariantTag>(lit.value)) {
+                const LitVariantTag &lit_var = std::get<LitVariantTag>(lit.value);
+                std::cout << lit_var.variant_type->to_string() << "." << lit_var.variation_type->to_string();
             } else if (std::holds_alternative<LitError>(lit.value)) {
                 const LitError &lit_error = std::get<LitError>(lit.value);
                 std::cout << lit_error.error_type->to_string() << "." << lit_error.value;

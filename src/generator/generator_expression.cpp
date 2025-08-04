@@ -204,6 +204,14 @@ llvm::Value *Generator::Expression::generate_literal( //
         err_struct = builder.CreateInsertValue(err_struct, error_message, {2}, "insert_err_message");
         return err_struct;
     }
+    if (std::holds_alternative<LitVariantTag>(literal_node->value)) {
+        const LitVariantTag &variant_tag = std::get<LitVariantTag>(literal_node->value);
+        const VariantType *variant_type = dynamic_cast<const VariantType *>(variant_tag.variant_type.get());
+        assert(variant_type != nullptr);
+        const std::optional<unsigned char> id = variant_type->get_idx_of_type(variant_tag.variation_type);
+        assert(id.has_value());
+        return builder.getInt8(id.value());
+    }
     THROW_BASIC_ERR(ERR_PARSING);
     return nullptr;
 }
@@ -2272,18 +2280,30 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                     if (dynamic_cast<const TypeNode *>(lhs_cast->expr.get())) {
                         // The lhs is the "type" value of the comparison and the rhs is the actual variant
                         rhs = builder.CreateExtractValue(rhs, {0}, "var_active_type");
+                        return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
                     }
                 } else if (const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right.get())) {
                     if (dynamic_cast<const TypeNode *>(rhs_cast->expr.get())) {
                         // The rhs is the "type" value of the comparison and the lhs is the actual variant
                         lhs = builder.CreateExtractValue(lhs, {0}, "var_active_type");
+                        return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
                     }
-                } else {
-                    // TODO: Implement this
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
+                } else if (const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->left.get())) {
+                    if (std::holds_alternative<LitVariantTag>(lhs_lit->value)) {
+                        // The lhs is the "type" value of the comparison and the rhs is the actual variant
+                        rhs = builder.CreateExtractValue(rhs, {0}, "var_active_type");
+                        return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
+                    }
+                } else if (const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->right.get())) {
+                    if (std::holds_alternative<LitVariantTag>(rhs_lit->value)) {
+                        // The rhs is the "type" value of the comparison and the lhs is the actual variant
+                        lhs = builder.CreateExtractValue(lhs, {0}, "var_active_type");
+                        return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
+                    }
                 }
-                return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
+                // Both sides are "real" variant types
+                // TODO: Implement this
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             }
             break;
         case TOK_NOT_EQUAL:

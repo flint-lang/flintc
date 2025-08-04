@@ -695,8 +695,8 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_p
     std::vector<uint2> match_ranges = Matcher::get_match_ranges(tokens_mut, Matcher::until_comma);
     // Its not a group expression, there is only one expression inside the parenthesis, this should never happen
     assert(!match_ranges.empty());
-    // Remove all duplicates, because when the fourth token is a comma we get the ranges 0-3, 1-3 and 2-3, and we only care about the first
-    // one, not all later ones
+    // Remove all duplicates, because when the fourth token is a comma we get the ranges 0-3, 1-3 and 2-3, and we only care about the
+    // first one, not all later ones
     unsigned int last_second = UINT32_MAX;
     for (auto it = match_ranges.begin(); it != match_ranges.end();) {
         if (it->second == last_second) {
@@ -710,8 +710,8 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_p
     assert(tokens_mut.first + match_ranges.back().second < tokens_mut.second);
     match_ranges.emplace_back(match_ranges.back().second, std::distance(tokens_mut.first, tokens_mut.second));
 
-    // Decrement all second matches ranges to exclude all commas from the expression (except for the last match range, it has no comma at
-    // its last position
+    // Decrement all second matches ranges to exclude all commas from the expression (except for the last match range, it has no comma
+    // at its last position
     for (auto it = match_ranges.begin(); it != match_ranges.end() - 1; ++it) {
         it->second--;
     }
@@ -864,8 +864,8 @@ std::optional<OptionalChainNode> Parser::create_optional_chain(std::shared_ptr<S
         }
         --iterator;
     }
-    // If the iterator is the beginning this means that no `?` token is present in the list of tokens, this means something in the matcher
-    // went wrong, not here in the parser
+    // If the iterator is the beginning this means that no `?` token is present in the list of tokens, this means something in the
+    // matcher went wrong, not here in the parser
     assert(iterator != tokens.first);
     // Everything to the left of the iterator is the base expression and can be parsed as such
     const token_slice base_expr_tokens = {tokens.first, iterator};
@@ -1046,11 +1046,32 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(std
     assert(iterator != tokens.first);
     assert(iterator->token == TOK_EXCLAMATION);
     const token_slice base_expr_tokens = {tokens.first, iterator};
-    // Next should follow an open paren containing a type token followed by a closing paren
+    // Next should follow an open paren containing a type token or a tag literal followed by a closing paren
     assert((++iterator)->token == TOK_LEFT_PAREN);
-    assert((++iterator)->token == TOK_TYPE);
-    const std::shared_ptr<Type> &unwrap_type = iterator->type;
-    assert((++iterator)->token == TOK_RIGHT_PAREN);
+    auto end_it = ++iterator;
+    while (end_it->token != TOK_RIGHT_PAREN) {
+        end_it++;
+    }
+    assert(end_it->token == TOK_RIGHT_PAREN);
+    const token_slice type_tokens = {iterator, end_it};
+    auto type_expr = create_expression(scope, type_tokens);
+    if (!type_expr.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    iterator = end_it;
+    std::shared_ptr<Type> unwrap_type;
+    if (dynamic_cast<const TypeNode *>(type_expr.value().get())) {
+        unwrap_type = type_expr.value()->type;
+    } else if (const LiteralNode *literal_node = dynamic_cast<const LiteralNode *>(type_expr.value().get())) {
+        if (!std::holds_alternative<LitVariantTag>(literal_node->value)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const LitVariantTag &lit_variant = std::get<LitVariantTag>(literal_node->value);
+        unwrap_type = lit_variant.variation_type;
+    }
+
     // If nothing follows after the variant unwrap node we can return it directly
     if (iterator == tokens.second - 1) {
         auto base_expr = create_expression(scope, base_expr_tokens);
@@ -1409,6 +1430,27 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     return std::nullopt;
                 }
                 LitValue lit_value = LitError{.error_type = type, .value = value, .message = std::nullopt};
+                return std::make_unique<LiteralNode>(lit_value, type);
+            }
+            const VariantType *variant_type = dynamic_cast<const VariantType *>(type.get());
+            if (variant_type != nullptr) {
+                assert((tokens_mut.first + 1)->token == TOK_DOT);
+                const auto tag_it = tokens_mut.first + 2;
+                assert(tag_it->token == TOK_IDENTIFIER || tag_it->token == TOK_TYPE);
+                const std::string &tag = (tag_it->token == TOK_IDENTIFIER) ? tag_it->lexme : tag_it->type->to_string();
+                const auto &possible_types = variant_type->get_possible_types();
+                std::optional<std::shared_ptr<Type>> variation_type;
+                for (const auto &[possible_tag, var_type] : possible_types) {
+                    if (possible_tag.has_value() && possible_tag.value() == tag) {
+                        variation_type = var_type;
+                        break;
+                    }
+                }
+                if (!variation_type.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                LitValue lit_value = LitVariantTag{.variant_type = type, .variation_type = variation_type.value()};
                 return std::make_unique<LiteralNode>(lit_value, type);
             }
         }

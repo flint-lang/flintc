@@ -1,17 +1,22 @@
 use Core.print
 
-def print_var(variant<i32, f32, bool> var):
-	if var == i32:
-		print($"is i32: {var!(i32)}\n");
-	else if var == f32:
-		print($"is f32: {var!(f32)}\n");
+variant MyVar:
+	Int(i32), Float(f32), bool;
+
+def print_var(MyVar var):
+	if var == MyVar.Int:
+		print($"is i32: {var!(MyVar.Int)}\n");
+	else if var == MyVar.Float:
+		print($"is f32: {var!(MyVar.Float)}\n");
 	else if var == bool:
 		print($"is bool: {var!(bool)}\n");
 
 def main():
-	variant<i32, f32, bool> var = -5;
+	MyVar var = -5;
 	print_var(var);
 	var = 3.14;
 	print_var(var);
 	var = false;
 	print_var(var);
+
+
