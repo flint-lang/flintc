@@ -29,7 +29,8 @@ unsigned int BUILTIN_LIBS_TO_PRINT = 0;
 Target COMPILATION_TARGET = Target::NATIVE;
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
 ArrayOutOfBoundsMode oob_mode = ArrayOutOfBoundsMode::PRINT;
-OptionalUnwrapMode unwrap_mode = OptionalUnwrapMode::CRASH;
+OptionalUnwrapMode opt_unwrap_mode = OptionalUnwrapMode::CRASH;
+VariantUnwrapMode var_unwrap_mode = VariantUnwrapMode::CRASH;
 
 PersistentThreadPool thread_pool;
 
@@ -561,13 +562,13 @@ namespace Debug {
                 std::cout << "\n";
                 for (auto it = branch->matches.begin(); it != branch->matches.end(); ++it) {
                     TreeBits case_match_header_bits = case_bits.child(indent_lvl + 2, false);
-                    Local::print_header(indent_lvl + 2, case_match_header_bits, "Case Match ");
+                    Local::print_header(indent_lvl + 2, case_match_header_bits, "CaseMatch ");
                     std::cout << "[s" << branch->scope->scope_id << "]\n";
                     TreeBits case_match_bits = case_match_header_bits.child(indent_lvl + 3, std::next(it) == branch->matches.end());
                     print_expression(indent_lvl + 3, case_match_bits, *it);
                 }
                 TreeBits case_expr_header_bits = case_bits.child(indent_lvl + 2, true);
-                Local::print_header(indent_lvl + 2, case_expr_header_bits, "Case Expr ");
+                Local::print_header(indent_lvl + 2, case_expr_header_bits, "CaseExpr ");
                 std::cout << "\n";
                 TreeBits case_expr_bits = case_expr_header_bits.child(indent_lvl + 3, true);
                 print_expression(indent_lvl + 3, case_expr_bits, branch->expr);
@@ -580,7 +581,7 @@ namespace Debug {
         }
 
         void print_optional_chain(unsigned int indent_lvl, TreeBits &bits, const OptionalChainNode &chain_node) {
-            Local::print_header(indent_lvl, bits, "Opt Chain ");
+            Local::print_header(indent_lvl, bits, "OptChain ");
             if (std::holds_alternative<ChainFieldAccess>(chain_node.operation)) {
                 const ChainFieldAccess &access = std::get<ChainFieldAccess>(chain_node.operation);
                 if (access.field_name.has_value()) {
@@ -605,7 +606,14 @@ namespace Debug {
         }
 
         void print_optional_unwrap(unsigned int indent_lvl, TreeBits &bits, const OptionalUnwrapNode &unwrap_node) {
-            Local::print_header(indent_lvl, bits, "Opt Unwrap ");
+            Local::print_header(indent_lvl, bits, "OptUnwrap ");
+            std::cout << "[" << unwrap_node.type->to_string() << "]" << std::endl;
+            TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, unwrap_node.base_expr);
+        }
+
+        void print_variant_unwrap(unsigned int indent_lvl, TreeBits &bits, const VariantUnwrapNode &unwrap_node) {
+            Local::print_header(indent_lvl, bits, "VarUnwrap ");
             std::cout << "[" << unwrap_node.type->to_string() << "]" << std::endl;
             TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
             print_expression(indent_lvl + 1, base_expr_bits, unwrap_node.base_expr);
@@ -650,6 +658,8 @@ namespace Debug {
                 print_optional_chain(indent_lvl, bits, *chain_node);
             } else if (const auto *unwrap_node = dynamic_cast<const OptionalUnwrapNode *>(expr.get())) {
                 print_optional_unwrap(indent_lvl, bits, *unwrap_node);
+            } else if (const auto *var_unwrap_node = dynamic_cast<const VariantUnwrapNode *>(expr.get())) {
+                print_variant_unwrap(indent_lvl, bits, *var_unwrap_node);
             } else {
                 assert(false);
             }

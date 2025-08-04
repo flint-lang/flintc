@@ -32,6 +32,7 @@
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
+#include "parser/ast/expressions/variant_unwrap_node.hpp"
 
 #include "parser/ast/statements/array_assignment_node.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
@@ -170,6 +171,7 @@ namespace Debug {
         void print_default(unsigned int indent_lvl, TreeBits &bits, const DefaultNode &default_node);
         void print_optional_chain(unsigned int indent_lvl, TreeBits &bits, const OptionalChainNode &chain_node);
         void print_optional_unwrap(unsigned int indent_lvl, TreeBits &bits, const OptionalUnwrapNode &unwrap_node);
+        void print_variant_unwrap(unsigned int indent_lvl, TreeBits &bits, const VariantUnwrapNode &unwrap_node);
         void print_expression(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<ExpressionNode> &expr);
 
         // --- STATEMENTS ---

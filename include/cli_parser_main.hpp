@@ -131,9 +131,20 @@ class CLIParserMain : public CLIParserBase {
                 // Erase the '--optional-' part of the string
                 const std::string optional_unwrap_behaviour = arg.substr(11, arg.length() - 11);
                 if (optional_unwrap_behaviour == "crash") {
-                    unwrap_mode = OptionalUnwrapMode::CRASH;
+                    opt_unwrap_mode = OptionalUnwrapMode::CRASH;
                 } else if (optional_unwrap_behaviour == "unsafe") {
-                    unwrap_mode = OptionalUnwrapMode::UNSAFE;
+                    opt_unwrap_mode = OptionalUnwrapMode::UNSAFE;
+                } else {
+                    print_err("Unknown argument: " + arg);
+                    return 1;
+                }
+            } else if (starts_with(arg, "--variant-")) {
+                // Erase the '--variant-' part of the string
+                const std::string variant_unwrap_behaviour = arg.substr(10, arg.length() - 10);
+                if (variant_unwrap_behaviour == "crash") {
+                    var_unwrap_mode = VariantUnwrapMode::CRASH;
+                } else if (variant_unwrap_behaviour == "unsafe") {
+                    var_unwrap_mode = VariantUnwrapMode::UNSAFE;
                 } else {
                     print_err("Unknown argument: " + arg);
                     return 1;
@@ -234,7 +245,10 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "\nOptional Options:\n";
         std::cout << "  --optional-crash            [Default] Prints a small message and crashes whenever a bad optional unwrap happens\n";
         std::cout << "  --optional-unsafe           Disables all \"has_value\"-checks for optionals when unwrapping\n";
-        std::cout << "                              HINT: All optionals which have 'none' stored on them are zero-initialized";
+        std::cout << "                              HINT: All optionals which have 'none' stored on them are zero-initialized\n";
+        std::cout << "\nVariant Options:\n";
+        std::cout << "  --variant-crash             [Default] Prints a small message and crashes whenever a bad variant unwrap happens\n";
+        std::cout << "  --variant-unsafe            Disbales all \"is_type\"-checks for variants when unwrapping";
         std::cout << std::endl;
 #ifdef DEBUG_BUILD
         std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";

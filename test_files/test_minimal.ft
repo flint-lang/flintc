@@ -2,11 +2,11 @@ use Core.print
 
 def print_var(variant<i32, f32, bool> var):
 	if var == i32:
-		print("is i32\n");
+		print($"is i32: {var!(i32)}\n");
 	else if var == f32:
-		print("is f32\n");
+		print($"is f32: {var!(f32)}\n");
 	else if var == bool:
-		print("is bool\n");
+		print($"is bool: {var!(bool)}\n");
 
 def main():
 	variant<i32, f32, bool> var = -5;

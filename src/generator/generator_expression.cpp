@@ -81,6 +81,9 @@ Generator::group_mapping Generator::Expression::generate_expression( //
     if (const auto *optional_unwrap = dynamic_cast<const OptionalUnwrapNode *>(expression_node)) {
         return generate_optional_unwrap(builder, ctx, garbage, expr_depth, optional_unwrap);
     }
+    if (const auto *variant_unwrap = dynamic_cast<const VariantUnwrapNode *>(expression_node)) {
+        return generate_variant_unwrap(builder, ctx, variant_unwrap);
+    }
     if (const auto *array_initializer = dynamic_cast<const ArrayInitializerNode *>(expression_node)) {
         group_map.emplace_back(generate_array_initializer(builder, ctx, garbage, expr_depth, array_initializer));
         return group_map;
@@ -1565,7 +1568,7 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
         llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), unwrap->base_expr->type, false);
         base_expr = builder.CreateLoad(opt_struct_type, base_expr, "loaded_base_expr");
     }
-    if (unwrap_mode == OptionalUnwrapMode::UNSAFE) {
+    if (opt_unwrap_mode == OptionalUnwrapMode::UNSAFE) {
         // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
         base_expr = builder.CreateExtractValue(base_expr, {1}, "opt_value_unsafe");
         return std::vector<llvm::Value *>{base_expr};
@@ -1590,6 +1593,56 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
     builder.SetInsertPoint(merge);
     base_expr = builder.CreateExtractValue(base_expr, {1}, "opt_value");
     return std::vector<llvm::Value *>{base_expr};
+}
+
+Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
+    llvm::IRBuilder<> &builder,                                          //
+    GenerationContext &ctx,                                              //
+    const VariantUnwrapNode *unwrap                                      //
+) {
+    const VariantType *var_type = dynamic_cast<const VariantType *>(unwrap->base_expr->type.get());
+    assert(var_type != nullptr);
+    const VariableNode *variable_node = dynamic_cast<const VariableNode *>(unwrap->base_expr.get());
+    assert(variable_node != nullptr);
+    const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(variable_node->name));
+    llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
+    llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), unwrap->type).first;
+    llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), unwrap->base_expr->type).first;
+    if (var_unwrap_mode == VariantUnwrapMode::UNSAFE) {
+        // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
+        llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, variable, 1, "var_value_ptr");
+        llvm::Value *value_cast_ptr = builder.CreateBitCast(value_ptr, element_type->getPointerTo(), "value_ptr_unsafe");
+        llvm::Value *value = builder.CreateLoad(variant_type, value_cast_ptr, "var_value_unsafe");
+        return std::vector<llvm::Value *>{value};
+    }
+
+    // First, check if the variant holds a value of our wanted type
+    llvm::BasicBlock *inserter = builder.GetInsertBlock();
+    llvm::BasicBlock *holds_wrong_type = llvm::BasicBlock::Create(context, "var_upwrap_wrong_type", ctx.parent);
+    llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "var_unwrap", ctx.parent);
+    builder.SetInsertPoint(inserter);
+    const std::optional<unsigned char> id = var_type->get_idx_of_type(unwrap->type);
+    assert(id.has_value());
+    llvm::Value *wanted_type = builder.getInt8(id.value());
+    llvm::Value *current_type_ptr = builder.CreateStructGEP(variant_type, variable, 0, "var_type_ptr");
+    llvm::Value *current_type = builder.CreateLoad(builder.getInt8Ty(), current_type_ptr, "var_type");
+    llvm::Value *holds_type = builder.CreateICmpEQ(current_type, wanted_type, "holds_type");
+    llvm::BranchInst *branch = builder.CreateCondBr(holds_type, merge, holds_wrong_type, IR::generate_weights(100, 1));
+    branch->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the variant holds the correct type")));
+
+    // The crash block, in the case of a bad variant unwrap
+    builder.SetInsertPoint(holds_wrong_type);
+    llvm::Value *err_msg = IR::generate_const_string(builder, "Bad variant unwrap occurred\n");
+    builder.CreateCall(c_functions.at(PRINTF), {err_msg});
+    builder.CreateCall(c_functions.at(ABORT), {});
+    builder.CreateUnreachable();
+
+    // The merge block, when the variant access is okay
+    builder.SetInsertPoint(merge);
+    llvm::Value *value_raw_ptr = builder.CreateStructGEP(variant_type, variable, 1, "value_raw_ptr");
+    llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, element_type->getPointerTo(), "value_ptr");
+    llvm::Value *value = builder.CreateLoad(element_type, value_ptr, "value");
+    return std::vector<llvm::Value *>{value};
 }
 
 Generator::group_mapping Generator::Expression::generate_type_cast( //

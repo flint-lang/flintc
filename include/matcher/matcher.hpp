@@ -771,6 +771,8 @@ class Matcher {
         token(TOK_LEFT_PAREN), until_right_paren                                                                      // ( initializer )
     });
     static const inline PatternPtr array_access = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_BRACKET), until_right_bracket});
+    static const inline PatternPtr optional_unwrap = sequence({token(TOK_EXCLAMATION), not_followed_by(token(TOK_LEFT_PAREN))});
+    static const inline PatternPtr variant_unwrap = sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr stacked_expression = sequence({
         token(TOK_IDENTIFIER), // Start with a base identifier
         two_or_more(           // Then one or more chained elements

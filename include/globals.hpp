@@ -72,4 +72,7 @@ enum class ArrayOutOfBoundsMode : unsigned int { PRINT = 0, SILENT = 1, CRASH = 
 extern ArrayOutOfBoundsMode oob_mode;
 
 enum class OptionalUnwrapMode : unsigned int { CRASH = 0, UNSAFE = 1 };
-extern OptionalUnwrapMode unwrap_mode;
+extern OptionalUnwrapMode opt_unwrap_mode;
+
+enum class VariantUnwrapMode : unsigned int { CRASH = 0, UNSAFE = 1 };
+extern VariantUnwrapMode var_unwrap_mode;

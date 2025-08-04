@@ -16,6 +16,7 @@
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
+#include "parser/ast/expressions/variant_unwrap_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
@@ -1031,6 +1032,61 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap(st
     return std::nullopt;
 }
 
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    // We first need to get the last exclamation operator as our separator for the base expression
+    auto iterator = tokens.second - 1;
+    while (iterator != tokens.first) {
+        if (iterator->token == TOK_EXCLAMATION) {
+            break;
+        }
+        --iterator;
+    }
+    assert(iterator != tokens.first);
+    assert(iterator->token == TOK_EXCLAMATION);
+    const token_slice base_expr_tokens = {tokens.first, iterator};
+    // Next should follow an open paren containing a type token followed by a closing paren
+    assert((++iterator)->token == TOK_LEFT_PAREN);
+    assert((++iterator)->token == TOK_TYPE);
+    const std::shared_ptr<Type> &unwrap_type = iterator->type;
+    assert((++iterator)->token == TOK_RIGHT_PAREN);
+    // If nothing follows after the variant unwrap node we can return it directly
+    if (iterator == tokens.second - 1) {
+        auto base_expr = create_expression(scope, base_expr_tokens);
+        if (!base_expr.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const VariantType *variant_type = dynamic_cast<const VariantType *>(base_expr.value()->type.get());
+        if (variant_type == nullptr) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (!variant_type->get_idx_of_type(unwrap_type).has_value()) {
+            // Type not part of the variant
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (!dynamic_cast<const VariableNode *>(base_expr.value().get())) {
+            // Unwrapping non-variable expressions is not supported yet
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_unique<VariantUnwrapNode>(base_expr.value(), unwrap_type);
+    }
+    // Skip the `)`
+    ++iterator;
+
+    if (iterator->token == TOK_LEFT_BRACKET) {
+        // TODO: It's an array access. First we need to make sure that the unwrapped type is an array or string type
+    } else if (iterator->token == TOK_DOT && (iterator + 1)->token == TOK_LEFT_PAREN) {
+        // TODO: It's a grouped field access
+    } else if (iterator->token == TOK_DOT) {
+        // TODO: It's a field access
+    }
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
 std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     // The array access must end with a closing bracket token. Then, everything from that closing bracket to the left until an opening
     // bracket is considered the indexing expressions. Everything that comes before that initial opening bracket is considered the base
@@ -1402,16 +1458,27 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<OptionalChainNode>(std::move(chain.value()));
         }
     }
-    if (Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_EXCLAMATION))) {
-        if (!Matcher::tokens_contain(tokens_mut, Matcher::unary_operator) &&
-            !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator)) {
-            std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(scope, tokens);
-            if (!unwrap.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            return std::move(unwrap.value());
+    if (Matcher::tokens_contain(tokens_mut, Matcher::variant_unwrap)      //
+        && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
+        && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
+    ) {
+        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(scope, tokens);
+        if (!unwrap.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
+        return std::move(unwrap.value());
+    }
+    if (Matcher::tokens_contain(tokens_mut, Matcher::optional_unwrap)     //
+        && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
+        && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
+    ) {
+        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(scope, tokens);
+        if (!unwrap.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::move(unwrap.value());
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::stacked_expression)) {
         return create_stacked_expression(scope, tokens_mut);
