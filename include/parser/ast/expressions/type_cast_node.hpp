@@ -4,8 +4,8 @@
 
 #include <memory>
 
-/// @class `VaraibleNode`
-/// @brief Represents variables or identifiers
+/// @class `TypeCastNode`
+/// @brief Represents type casts
 class TypeCastNode : public ExpressionNode {
   public:
     TypeCastNode(const std::shared_ptr<Type> &type, std::unique_ptr<ExpressionNode> &expr) :

@@ -425,6 +425,11 @@ namespace Debug {
             print_expression(indent_lvl, expr_bits, cast.expr);
         }
 
+        void print_type_node(unsigned int indent_lvl, TreeBits &bits, const TypeNode &type) {
+            Local::print_header(indent_lvl, bits, "Type ");
+            std::cout << type.type->to_string() << std::endl;
+        }
+
         void print_initializer(unsigned int indent_lvl, TreeBits &bits, const InitializerNode &initializer) {
             Local::print_header(indent_lvl, bits, "Initializer ");
             std::cout << initializer.type->to_string() << std::endl;
@@ -619,6 +624,8 @@ namespace Debug {
                 print_binary_op(indent_lvl, bits, *binary_op_node);
             } else if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expr.get())) {
                 print_type_cast(indent_lvl, bits, *type_cast_node);
+            } else if (const auto *type_node = dynamic_cast<const TypeNode *>(expr.get())) {
+                print_type_node(indent_lvl, bits, *type_node);
             } else if (const auto *initializer = dynamic_cast<const InitializerNode *>(expr.get())) {
                 print_initializer(indent_lvl, bits, *initializer);
             } else if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expr.get())) {

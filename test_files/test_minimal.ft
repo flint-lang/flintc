@@ -1,29 +1,17 @@
 use Core.print
 
-error ErrBase:
-	B1("Base Error 1"),
-	B2("Base Error 2");
-
-error ErrSpecial(ErrBase):
-	S1("Special Error 1"),
-	S2("Special Error 2");
-
-def throw_error(bool override) {ErrSpecial}:
-	if override:
-		throw ErrSpecial.S2($"Overwritten message: {override}");
-	else:
-		throw ErrSpecial.S1;
-
-def print_err(bool override):
-	throw_error(override) catch err:
-		switch err:
-			ErrSpecial(e):
-				print($"type_id = {e.type_id}\n");
-				print($"value_id = {e.value_id}\n");
-				print($"message = {e.message}\n");
-			anyerror(e): print("is anyerror\n");
+def print_var(variant<i32, f32, bool> var):
+	if var == i32:
+		print("is i32\n");
+	else if var == f32:
+		print("is f32\n");
+	else if var == bool:
+		print("is bool\n");
 
 def main():
-	print_err(false);
-	print("\n");
-	print_err(true);
+	variant<i32, f32, bool> var = -5;
+	print_var(var);
+	var = 3.14;
+	print_var(var);
+	var = false;
+	print_var(var);

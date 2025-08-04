@@ -30,6 +30,7 @@
 #include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
+#include "parser/ast/expressions/type_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
 
 #include "parser/ast/statements/array_assignment_node.hpp"
@@ -157,6 +158,7 @@ namespace Debug {
         void print_call(unsigned int indent_lvl, TreeBits &bits, const CallNodeBase &call);
         void print_binary_op(unsigned int indent_lvl, TreeBits &bits, const BinaryOpNode &bin);
         void print_type_cast(unsigned int indent_lvl, TreeBits &bits, const TypeCastNode &cast);
+        void print_type_node(unsigned int indent_lvl, TreeBits &bits, const TypeNode &type);
         void print_initializer(unsigned int indent_lvl, TreeBits &bits, const InitializerNode &initializer);
         void print_group_expression(unsigned int indent_lvl, TreeBits &bits, const GroupExpressionNode &group);
         void print_array_initializer(unsigned int indent_lvl, TreeBits &bits, const ArrayInitializerNode &init);

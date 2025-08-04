@@ -8,6 +8,7 @@
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
+#include "parser/ast/expressions/type_node.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
@@ -1598,6 +1599,19 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
     const unsigned int expr_depth,                                  //
     const TypeCastNode *type_cast_node                              //
 ) {
+    // If the base expression is a `TypeNode` and the type cast result is a variant the actual "value" of the type cast is dependant on the
+    // variant type, this means that this is a special case which needs special handling
+    const VariantType *variant_type = dynamic_cast<const VariantType *>(type_cast_node->type.get());
+    const bool is_type_node = dynamic_cast<const TypeNode *>(type_cast_node->expr.get()) != nullptr;
+    if (variant_type != nullptr && is_type_node) {
+        const std::shared_ptr<Type> &type = type_cast_node->expr->type;
+        const auto id = variant_type->get_idx_of_type(type);
+        if (!id.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        return std::vector<llvm::Value *>{builder.getInt8(id.value())};
+    }
     // First, generate the expression
     auto expr_res = generate_expression(builder, ctx, garbage, expr_depth + 1, type_cast_node->expr.get());
     std::vector<llvm::Value *> expr = expr_res.value();
@@ -2198,6 +2212,25 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 dynamic_cast<const OptionalType *>(bin_op_node->right->type.get())          //
             ) {
                 return generate_optional_cmp(builder, ctx, garbage, expr_depth, lhs, bin_op_node->left, rhs, bin_op_node->right, true);
+            } else if (dynamic_cast<const VariantType *>(bin_op_node->left->type.get()) && //
+                dynamic_cast<const VariantType *>(bin_op_node->right->type.get())          //
+            ) {
+                if (const TypeCastNode *lhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left.get())) {
+                    if (dynamic_cast<const TypeNode *>(lhs_cast->expr.get())) {
+                        // The lhs is the "type" value of the comparison and the rhs is the actual variant
+                        rhs = builder.CreateExtractValue(rhs, {0}, "var_active_type");
+                    }
+                } else if (const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right.get())) {
+                    if (dynamic_cast<const TypeNode *>(rhs_cast->expr.get())) {
+                        // The rhs is the "type" value of the comparison and the lhs is the actual variant
+                        lhs = builder.CreateExtractValue(lhs, {0}, "var_active_type");
+                    }
+                } else {
+                    // TODO: Implement this
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                }
+                return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
             }
             break;
         case TOK_NOT_EQUAL:
@@ -2221,11 +2254,30 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 dynamic_cast<const OptionalType *>(bin_op_node->right->type.get())          //
             ) {
                 return generate_optional_cmp(builder, ctx, garbage, expr_depth, lhs, bin_op_node->left, rhs, bin_op_node->right, false);
+            } else if (dynamic_cast<const VariantType *>(bin_op_node->left->type.get()) && //
+                dynamic_cast<const VariantType *>(bin_op_node->right->type.get())          //
+            ) {
+                if (const TypeCastNode *lhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left.get())) {
+                    if (dynamic_cast<const TypeNode *>(lhs_cast->expr.get())) {
+                        // The lhs is the "type" value of the comparison and the rhs is the actual variant
+                        rhs = builder.CreateExtractValue(rhs, {0}, "var_active_type");
+                    }
+                } else if (const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right.get())) {
+                    if (dynamic_cast<const TypeNode *>(rhs_cast->expr.get())) {
+                        // The rhs is the "type" value of the comparison and the lhs is the actual variant
+                        lhs = builder.CreateExtractValue(lhs, {0}, "var_active_type");
+                    }
+                } else {
+                    // TODO: Implement this
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+                }
+                return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
             }
             break;
         case TOK_OPT_DEFAULT: {
-            // Both the lhs and rhs expressions have already been parsed, this means we can do a simple select based on whether the lhs
-            // optional has a value stored in it
+            // Both the lhs and rhs expressions have already been parsed, this means we can do a simple select based on whether the
+            // lhs optional has a value stored in it
             if (lhs->getType()->isPointerTy()) {
                 llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), bin_op_node->left->type, false);
                 lhs = builder.CreateLoad(opt_struct_type, lhs, "loaded_lhs");

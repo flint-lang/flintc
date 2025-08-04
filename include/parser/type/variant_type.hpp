@@ -36,8 +36,8 @@ class VariantType : public Type {
     /// @brief Returns the index of the given type in the type list
     ///
     /// @brief `type` The type to seach for
-    /// @return `std::optional<unsigned int>` The index of the given type, nullopt if the given type is not a valid type of this variant
-    std::optional<unsigned int> get_idx_of_type(const std::shared_ptr<Type> &type) const {
+    /// @return `std::optional<unsigned char>` The index of the given type, nullopt if the given type is not a valid type of this variant
+    std::optional<unsigned char> get_idx_of_type(const std::shared_ptr<Type> &type) const {
         if (std::holds_alternative<VariantNode *const>(var_or_list)) {
             const auto &possible_types = std::get<VariantNode *const>(var_or_list)->possible_types;
             for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {

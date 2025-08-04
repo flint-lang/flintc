@@ -15,6 +15,7 @@
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
+#include "parser/ast/expressions/type_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
@@ -67,6 +68,28 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
                 // Completely different optional types
                 return std::nullopt;
             }
+        }
+        // Check if one or both of the sides are variant types, the other side then needs to be one of the possible variant types
+        const VariantType *lhs_var = dynamic_cast<const VariantType *>(lhs_type.get());
+        const VariantType *rhs_var = dynamic_cast<const VariantType *>(rhs_type.get());
+        if (lhs_var != nullptr && rhs_var != nullptr) {
+            // Variants of different types cannot be cast to one another in any way
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        } else if (lhs_var != nullptr) {
+            for (const auto &[_, type] : lhs_var->get_possible_types()) {
+                if (type == rhs_type) {
+                    return true;
+                }
+            }
+            return std::nullopt;
+        } else if (rhs_var != nullptr) {
+            for (const auto &[_, type] : rhs_var->get_possible_types()) {
+                if (type == lhs_type) {
+                    return false;
+                }
+            }
+            return std::nullopt;
         }
         if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
             type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
@@ -1150,6 +1173,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return std::make_unique<DefaultNode>(expected_type.value());
+        } else if (tokens_mut.first->token == TOK_TYPE) {
+            return std::make_unique<TypeNode>(tokens_mut.first->type);
         }
     } else if (token_size == 2) {
         if (Matcher::tokens_match(tokens_mut, Matcher::literal_expr)) {
