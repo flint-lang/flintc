@@ -1528,8 +1528,24 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             store->setMetadata("comment",
                 llvm::MDNode::get(context,
                     llvm::MDString::get(context, "Set 'has_value' property of optional '" + assignment_node->name + "' to 1")));
+
+            // Check if the base type is complex
+            auto base_type_info = IR::get_type(ctx.parent->getParent(), optional_type->base_type);
+            llvm::Type *base_type = base_type_info.first;
+            bool is_complex = base_type_info.second;
             llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, lhs, 1, assignment_node->name + "value_ptr");
-            store = builder.CreateStore(expr.value().front(), var_value_ptr);
+            if (is_complex) {
+                // For complex types, allocate memory and store a pointer
+                llvm::Value *type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), base_type));
+                llvm::Value *allocated_memory = builder.CreateCall(                               //
+                    c_functions.at(MALLOC), {type_size}, assignment_node->name + "allocated_data" //
+                );
+                builder.CreateStore(expr.value().front(), allocated_memory);
+                store = builder.CreateStore(allocated_memory, var_value_ptr);
+            } else {
+                // For simple types, store the value directly
+                store = builder.CreateStore(expr.value().front(), var_value_ptr);
+            }
             store->setMetadata("comment",
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
             return true;
@@ -1632,6 +1648,7 @@ bool Generator::Statement::generate_data_field_assignment( //
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
+    llvm::Value *expr_val = expression.value().front();
     const unsigned int var_decl_scope = std::get<1>(ctx.scope->variables.at(data_field_assignment->var_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_field_assignment->var_name;
     llvm::Value *const var_alloca = ctx.allocations.at(var_name);
@@ -1658,7 +1675,80 @@ bool Generator::Statement::generate_data_field_assignment( //
 
     llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), data_field_assignment->data_type).first;
     llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, data_field_assignment->field_id);
-    llvm::StoreInst *store = builder.CreateStore(expression.value().at(0), field_ptr);
+
+    // Check if the field is a complex type and create an allocation before storing
+    // Check if the field is an optional type and check whether to need an allocation for the optional value
+
+    // Get the type of the field we're assigning to
+    const DataType *struct_data_type = dynamic_cast<const DataType *>(data_field_assignment->data_type.get());
+    if (struct_data_type && data_field_assignment->field_id < struct_data_type->data_node->fields.size()) {
+        // Get the field type from the struct definition
+        auto field_it = struct_data_type->data_node->fields.begin();
+        std::advance(field_it, data_field_assignment->field_id);
+        const std::shared_ptr<Type> &field_type = field_it->second;
+
+        // Check if the field is an optional type
+        if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(field_type.get())) {
+            const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(data_field_assignment->expression.get());
+            llvm::StructType *field_optional_type = IR::add_and_or_get_type(ctx.parent->getParent(), field_type, false);
+
+            // Handle special cases (like str cleanup)
+            if (optional_type->base_type->to_string() == "str") {
+                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
+                llvm::Value *field_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 1, "field_value_ptr");
+                llvm::Value *actual_str_ptr = builder.CreateLoad(str_type->getPointerTo(), field_value_ptr, "actual_str_ptr");
+                builder.CreateCall(c_functions.at(FREE), {actual_str_ptr});
+            }
+
+            // Check if we need to handle optional conversion
+            const bool types_match = expr_val->getType() == field_optional_type;
+            if (!types_match && (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?")) {
+                // Set has_value to true
+                llvm::Value *field_has_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 0, "field_has_value_ptr");
+                llvm::StoreInst *store = builder.CreateStore(builder.getInt1(1), field_has_value_ptr);
+                store->setMetadata("comment",
+                    llvm::MDNode::get(context, llvm::MDString::get(context, "Set 'has_value' property of optional field to 1")));
+
+                // Check if the base type is complex
+                auto base_type_info = IR::get_type(ctx.parent->getParent(), optional_type->base_type);
+                llvm::Type *base_type = base_type_info.first;
+                bool is_complex = base_type_info.second;
+                llvm::Value *field_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 1, "field_value_ptr");
+
+                if (is_complex) {
+                    // For complex types, allocate memory and store a pointer
+                    llvm::Value *type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), base_type));
+                    llvm::Value *allocated_memory = builder.CreateCall(c_functions.at(MALLOC), {type_size}, "field_allocated_data");
+
+                    // Store the complex value in the allocated memory
+                    builder.CreateStore(expr_val, allocated_memory);
+
+                    // Store the pointer in the optional's value field
+                    store = builder.CreateStore(allocated_memory, field_value_ptr);
+                } else {
+                    // For simple types, store the value directly
+                    store = builder.CreateStore(expr_val, field_value_ptr);
+                }
+
+                if (data_field_assignment->field_name.has_value()) {
+                    store->setMetadata("comment",
+                        llvm::MDNode::get(context,
+                            llvm::MDString::get(context,
+                                "Store result of expr in optional field '" + data_field_assignment->var_name + "." +
+                                    data_field_assignment->field_name.value() + "'")));
+                } else {
+                    store->setMetadata("comment",
+                        llvm::MDNode::get(context,
+                            llvm::MDString::get(context,
+                                "Store result of expr in optional field '" + data_field_assignment->var_name + ".$" +
+                                    std::to_string(data_field_assignment->field_id) + "'")));
+                }
+                return true;
+            }
+        }
+    }
+
+    llvm::StoreInst *store = builder.CreateStore(expr_val, field_ptr);
     if (data_field_assignment->field_name.has_value()) {
         store->setMetadata("comment",
             llvm::MDNode::get(context,
