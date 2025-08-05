@@ -5,6 +5,7 @@
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/type/array_type.hpp"
+#include "parser/type/group_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
@@ -44,6 +45,45 @@ void Type::init_types() {
     add_type(std::make_shared<MultiType>(f64_type, 3));
     add_type(std::make_shared<MultiType>(f64_type, 4));
     add_type(std::make_shared<ArrayType>(1, str_type));
+}
+
+bool Type::resolve_type(std::shared_ptr<Type> &type) {
+    if (UnknownType *unknown_type = dynamic_cast<UnknownType *>(type.get())) {
+        // Get the "real" type from the parameter type
+        auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
+        if (!type_maybe.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        type = type_maybe.value();
+    } else if (VariantType *variant_type = dynamic_cast<VariantType *>(type.get())) {
+        for (auto &[_, var_type] : variant_type->get_possible_types()) {
+            if (!resolve_type(var_type)) {
+                return false;
+            }
+        }
+    } else if (TupleType *tuple_type = dynamic_cast<TupleType *>(type.get())) {
+        for (auto &elem_type : tuple_type->types) {
+            if (!resolve_type(elem_type)) {
+                return false;
+            }
+        }
+    } else if (OptionalType *optional_type = dynamic_cast<OptionalType *>(type.get())) {
+        if (!resolve_type(optional_type->base_type)) {
+            return false;
+        }
+    } else if (GroupType *group_type = dynamic_cast<GroupType *>(type.get())) {
+        for (auto &elem_type : group_type->types) {
+            if (!resolve_type(elem_type)) {
+                return false;
+            }
+        }
+    } else if (ArrayType *array_type = dynamic_cast<ArrayType *>(type.get())) {
+        if (!resolve_type(array_type->type)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool Type::add_type(const std::shared_ptr<Type> &type_to_add) {

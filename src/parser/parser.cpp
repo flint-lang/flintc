@@ -4,7 +4,6 @@
 #include "error/error.hpp"
 #include "globals.hpp"
 #include "lexer/lexer.hpp"
-#include "parser/type/unknown_type.hpp"
 #include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
 
@@ -53,25 +52,23 @@ bool Parser::resolve_all_unknown_types() {
         // Resolve the parameter types of all functions
         for (FunctionNode *function : parser.get_open_functions()) {
             for (auto &param : function->parameters) {
-                if (const UnknownType *unknown_type = dynamic_cast<const UnknownType *>(std::get<0>(param).get())) {
-                    // Get the "real" type from the parameter type
-                    auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
-                    if (!type_maybe.has_value()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return false;
-                    }
-                    std::get<0>(param) = type_maybe.value();
+                if (!Type::resolve_type(std::get<0>(param))) {
+                    return false;
                 }
             }
             // The parameters are added to the list of variables to the functions scope, so we need to change the types there too
             for (auto &variable : function->scope->variables) {
-                if (const UnknownType *unknown_type = dynamic_cast<const UnknownType *>(std::get<0>(variable.second).get())) {
-                    auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
-                    if (!type_maybe.has_value()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
+                if (!Type::resolve_type(std::get<0>(variable.second))) {
+                    return false;
+                }
+            }
+        }
+        for (auto &definition : parser.file_node_ptr->definitions) {
+            if (VariantNode *variant_node = dynamic_cast<VariantNode *>(definition.get())) {
+                for (auto &type : variant_node->possible_types) {
+                    if (!Type::resolve_type(type.second)) {
                         return false;
                     }
-                    std::get<0>(variable.second) = type_maybe.value();
                 }
             }
         }
@@ -80,13 +77,8 @@ bool Parser::resolve_all_unknown_types() {
     for (const auto &file : Parser::parsed_data) {
         for (DataNode *data : file.second) {
             for (auto &field : data->fields) {
-                if (const UnknownType *unknown_type = dynamic_cast<const UnknownType *>(std::get<1>(field).get())) {
-                    auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
-                    if (!type_maybe.has_value()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return false;
-                    }
-                    std::get<1>(field) = type_maybe.value();
+                if (!Type::resolve_type(std::get<1>(field))) {
+                    return false;
                 }
             }
         }

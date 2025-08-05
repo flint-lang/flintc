@@ -3,7 +3,6 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/type/type.hpp"
 
-#include <optional>
 #include <string>
 #include <utility>
 

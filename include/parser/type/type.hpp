@@ -30,6 +30,13 @@ class Type {
     /// @note This function only needs to be called once at the start of the parsing phase
     static void init_types();
 
+    /// @function `resolve_type`
+    /// @brief Resolves the given type so that the type does no longer contain any unknown types
+    ///
+    /// @param `type` The type to resolve
+    /// @return `bool` Whether the type could be resolved correctly
+    static bool resolve_type(std::shared_ptr<Type> &type);
+
     /// @function `add_type`
     /// @brief Adds the given type to the type list. Returns whether the type was already present
     ///
