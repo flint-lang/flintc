@@ -26,6 +26,11 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(type.get())) {
         types_str = "tuple_";
         types = tuple_type->types;
+    } else if (const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
+        types_str = "data_";
+        for (auto &[_, field_type] : data_type->data_node->fields) {
+            types.emplace_back(field_type);
+        }
     } else if (type->to_string() != "void") {
         types.emplace_back(type);
     }
@@ -216,20 +221,32 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
         }
     } else if (const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
         // Check if its a known data type
-        std::vector<std::shared_ptr<Type>> types;
-        for (const auto &field : data_type->data_node->fields) {
-            types.emplace_back(std::get<1>(field));
+        std::string type_str = "data_";
+        for (auto field_it = data_type->data_node->fields.begin(); field_it != data_type->data_node->fields.end(); ++field_it) {
+            if (field_it != data_type->data_node->fields.begin()) {
+                type_str += "_";
+            }
+            type_str += field_it->second->to_string();
         }
-        std::shared_ptr<Type> type_ptr = nullptr;
-        if (types.size() == 1) {
-            type_ptr = types.front();
-        } else {
-            type_ptr = std::make_shared<GroupType>(types);
-            if (!Type::add_type(type_ptr)) {
-                type_ptr = Type::get_type_from_str(type_ptr->to_string()).value();
+        if (type_map.find(type_str) != type_map.end()) {
+            return {type_map.at(type_str), true};
+        }
+        // Create an opaque struct type and store it in the map before trying to resolve the field types to prevent circles
+        llvm::StructType *struct_type = llvm::StructType::create(context, type_str);
+        type_map[type_str] = struct_type;
+        // Now process the field types
+        std::vector<llvm::Type *> field_types;
+        for (auto field_it = data_type->data_node->fields.begin(); field_it != data_type->data_node->fields.end(); ++field_it) {
+            auto pair = get_type(module, field_it->second);
+            if (pair.second) {
+                field_types.emplace_back(pair.first->getPointerTo());
+            } else {
+                field_types.emplace_back(pair.first);
             }
         }
-        return {add_and_or_get_type(module, type_ptr, false), true};
+        // Set the body of the struct now that we have all field types
+        struct_type->setBody(field_types, false); // false = not packed
+        return {struct_type, true};
     } else if (dynamic_cast<ArrayType *>(type.get())) {
         // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
         if (type_map.find("type_str") == type_map.end()) {
@@ -258,7 +275,11 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
         std::string tuple_str = type->to_string();
         std::vector<llvm::Type *> type_vector;
         for (const auto &tup_type : tuple_type->types) {
-            type_vector.emplace_back(get_type(module, tup_type).first);
+            auto pair = get_type(module, tup_type);
+            if (pair.second) {
+                pair.first = pair.first->getPointerTo();
+            }
+            type_vector.emplace_back(pair.first);
         }
         if (type_map.find(tuple_str) == type_map.end()) {
             llvm::ArrayRef<llvm::Type *> type_array(type_vector);
@@ -269,12 +290,16 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
     } else if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(type.get())) {
         const std::string opt_str = type->to_string();
         if (type_map.find(opt_str) == type_map.end()) {
-            llvm::StructType *llvm_opt_type = llvm::StructType::create(                                                     //
-                context, {llvm::Type::getInt1Ty(context), get_type(module, optional_type->base_type).first}, opt_str, false //
+            auto pair = get_type(module, optional_type->base_type);
+            if (pair.second) {
+                pair.first = pair.first->getPointerTo();
+            }
+            llvm::StructType *llvm_opt_type = llvm::StructType::create(               //
+                context, {llvm::Type::getInt1Ty(context), pair.first}, opt_str, false //
             );
             type_map[opt_str] = llvm_opt_type;
         }
-        return {type_map.at(opt_str), true};
+        return {type_map.at(opt_str), false};
     } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(type.get())) {
         if (variant_type->is_err_variant) {
             if (type_map.find("__flint_type_err") == type_map.end()) {
