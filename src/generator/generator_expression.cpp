@@ -35,11 +35,6 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         group_map.emplace_back(generate_variable(builder, ctx, variable_node, is_reference));
         return group_map;
     }
-    if (is_reference) {
-        // Only variables are allowed as references for now
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return std::nullopt;
-    }
     if (const auto *unary_op_node = dynamic_cast<const UnaryOpExpression *>(expression_node)) {
         return generate_unary_op_expression(builder, ctx, garbage, expr_depth, unary_op_node);
     }
