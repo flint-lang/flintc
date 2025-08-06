@@ -80,21 +80,21 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
     // Allocate stack variables
     // cap = 128
     llvm::Value *cap_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "cap_ptr");
-    builder->CreateStore(builder->getInt64(128), cap_ptr);
+    IR::aligned_store(*builder, builder->getInt64(128), cap_ptr);
 
     // len = 0
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
-    builder->CreateStore(builder->getInt64(0), len_ptr);
+    IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
     // c variable to hold the character read
     llvm::Value *c_ptr = builder->CreateAlloca(builder->getInt32Ty(), nullptr, "c_ptr");
 
     // char *buf = (char *)malloc(cap)
-    llvm::Value *initial_cap = builder->CreateLoad(builder->getInt64Ty(), cap_ptr, "initial_cap");
+    llvm::Value *initial_cap = IR::aligned_load(*builder, builder->getInt64Ty(), cap_ptr, "initial_cap");
     llvm::Value *buf_ptr_alloca = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "buf_ptr_alloca");
     llvm::Value *buf_malloc = builder->CreateCall(malloc_fn, {initial_cap}, "buf_malloc");
     llvm::Value *buf_init = builder->CreateBitCast(buf_malloc, builder->getInt8Ty()->getPointerTo(), "buf");
-    builder->CreateStore(buf_init, buf_ptr_alloca);
+    IR::aligned_store(*builder, buf_init, buf_ptr_alloca);
 
 #ifdef __WIN32__
     // Windows: call the UCRT helper __acrt_iob_func() to get the FILE' array, then index element 0 to get stdin
@@ -107,11 +107,11 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
     llvm::Value *zero = builder->getInt32(0);
     llvm::Value *stdin_ptr = builder->CreateInBoundsGEP(iobuf_ty, io_array, {zero}, "stdin_ptr");
     // Load the actual FILE*
-    llvm::Value *stdin_val = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), stdin_ptr, "stdin");
+    llvm::Value *stdin_val = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), stdin_ptr, "stdin");
 #else
     // Get file* stdin - needs to access global stdin
     llvm::Value *stdin_ptr = module->getOrInsertGlobal("stdin", builder->getInt8Ty()->getPointerTo()->getPointerTo());
-    llvm::Value *stdin_val = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), stdin_ptr, "stdin");
+    llvm::Value *stdin_val = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), stdin_ptr, "stdin");
 #endif
 
     // Branch to the loop entry
@@ -122,7 +122,7 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
 
     // Read a character: c = fgetc(stdin)
     llvm::Value *c_val = builder->CreateCall(fgetc_fn, {stdin_val}, "c");
-    builder->CreateStore(c_val, c_ptr);
+    IR::aligned_store(*builder, c_val, c_ptr);
 
     // Check if c != EOF
     llvm::Value *cond = builder->CreateICmpNE(c_val, const_eof, "cmp_eof");
@@ -132,21 +132,21 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
     builder->SetInsertPoint(loop_body);
 
     // Check if realloc is needed: if (len + 1 >= cap)
-    llvm::Value *curr_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "curr_len");
+    llvm::Value *curr_len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "curr_len");
     llvm::Value *len_plus_one = builder->CreateAdd(curr_len, builder->getInt64(1), "len_plus_one");
-    llvm::Value *curr_cap = builder->CreateLoad(builder->getInt64Ty(), cap_ptr, "curr_cap");
+    llvm::Value *curr_cap = IR::aligned_load(*builder, builder->getInt64Ty(), cap_ptr, "curr_cap");
     llvm::Value *need_realloc = builder->CreateICmpUGE(len_plus_one, curr_cap, "need_realloc");
     builder->CreateCondBr(need_realloc, do_realloc, loop_body->getNextNode());
 
     // Realloc block: cap *= 2; buf = realloc(buf, cap);
     builder->SetInsertPoint(do_realloc);
     llvm::Value *new_cap = builder->CreateMul(curr_cap, builder->getInt64(2), "new_cap");
-    builder->CreateStore(new_cap, cap_ptr);
+    IR::aligned_store(*builder, new_cap, cap_ptr);
 
-    llvm::Value *curr_buf = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
+    llvm::Value *curr_buf = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
     llvm::Value *new_buf_malloc = builder->CreateCall(realloc_fn, {curr_buf, new_cap}, "new_buf_malloc");
     llvm::Value *new_buf = builder->CreateBitCast(new_buf_malloc, builder->getInt8Ty()->getPointerTo(), "new_buf");
-    builder->CreateStore(new_buf, buf_ptr_alloca);
+    IR::aligned_store(*builder, new_buf, buf_ptr_alloca);
 
     // Create a new block for storing the character after possible reallocation
     llvm::BasicBlock *store_char = llvm::BasicBlock::Create(context, "store_char", getline_function, after_loop);
@@ -154,22 +154,22 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
 
     // Store character: buf[len++] = (char)c
     builder->SetInsertPoint(store_char);
-    curr_buf = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
-    curr_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "curr_len");
+    curr_buf = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
+    curr_len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "curr_len");
 
     // Get pointer to buf[len]
     llvm::Value *buf_pos = builder->CreateGEP(builder->getInt8Ty(), curr_buf, curr_len, "buf_pos");
 
     // Get current character value
-    c_val = builder->CreateLoad(builder->getInt32Ty(), c_ptr, "c_val");
+    c_val = IR::aligned_load(*builder, builder->getInt32Ty(), c_ptr, "c_val");
 
     // Store character
     llvm::Value *c_as_char = builder->CreateTrunc(c_val, builder->getInt8Ty(), "c_as_char");
-    builder->CreateStore(c_as_char, buf_pos);
+    IR::aligned_store(*builder, c_as_char, buf_pos);
 
     // Increment len
     llvm::Value *new_len = builder->CreateAdd(curr_len, builder->getInt64(1), "new_len");
-    builder->CreateStore(new_len, len_ptr);
+    IR::aligned_store(*builder, new_len, len_ptr);
 
     // Check if c == '\n'
     llvm::Value *is_newline = builder->CreateICmpEQ(c_val, const_newline, "is_newline");
@@ -179,8 +179,8 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
     builder->SetInsertPoint(after_loop);
 
     // Check if len == 0 && c == EOF
-    curr_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "curr_len");
-    c_val = builder->CreateLoad(builder->getInt32Ty(), c_ptr, "c_val");
+    curr_len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "curr_len");
+    c_val = IR::aligned_load(*builder, builder->getInt32Ty(), c_ptr, "c_val");
     llvm::Value *len_is_zero = builder->CreateICmpEQ(curr_len, builder->getInt64(0), "len_is_zero");
     llvm::Value *c_is_eof = builder->CreateICmpEQ(c_val, const_eof, "c_is_eof");
     llvm::Value *eof_and_empty = builder->CreateAnd(len_is_zero, c_is_eof, "eof_and_empty");
@@ -188,16 +188,16 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
 
     // Handle EOF case: free buffer, set *n=0, return NULL
     builder->SetInsertPoint(handle_eof);
-    curr_buf = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
+    curr_buf = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
     builder->CreateCall(free_fn, {curr_buf});
-    builder->CreateStore(builder->getInt64(0), arg_n_ptr);
+    IR::aligned_store(*builder, builder->getInt64(0), arg_n_ptr);
     builder->CreateRet(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()));
 
     // Strip newline block
     builder->SetInsertPoint(strip_newline);
 
     // Check if we need to strip newline: if (len > 0 && buf[len-1] == '\n')
-    curr_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "curr_len");
+    curr_len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "curr_len");
     llvm::Value *len_gt_zero = builder->CreateICmpUGT(curr_len, builder->getInt64(0), "len_gt_zero");
 
     // Create blocks for the nested check
@@ -208,31 +208,31 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
 
     // Check if last char is newline
     builder->SetInsertPoint(check_last_char);
-    curr_buf = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
+    curr_buf = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
     llvm::Value *last_idx = builder->CreateSub(curr_len, builder->getInt64(1), "last_idx");
     llvm::Value *last_char_ptr = builder->CreateGEP(builder->getInt8Ty(), curr_buf, last_idx, "last_char_ptr");
-    llvm::Value *last_char = builder->CreateLoad(builder->getInt8Ty(), last_char_ptr, "last_char");
+    llvm::Value *last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_ptr, "last_char");
     llvm::Value *is_last_newline = builder->CreateICmpEQ(last_char, builder->getInt8('\n'), "is_last_newline");
     builder->CreateCondBr(is_last_newline, do_strip, exit_block);
 
     // Strip the newline: buf[--len] = '\0'
     builder->SetInsertPoint(do_strip);
     llvm::Value *stripped_len = builder->CreateSub(curr_len, builder->getInt64(1), "stripped_len");
-    builder->CreateStore(stripped_len, len_ptr);
+    IR::aligned_store(*builder, stripped_len, len_ptr);
 
     // Get pointer to buf[len-1]
-    curr_buf = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
+    curr_buf = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "curr_buf");
     llvm::Value *null_pos = builder->CreateGEP(builder->getInt8Ty(), curr_buf, stripped_len, "null_pos");
 
     // Store null terminator
-    builder->CreateStore(const_null, null_pos);
+    IR::aligned_store(*builder, const_null, null_pos);
     builder->CreateBr(exit_block);
 
     // Exit block: store len to *n and return buf
     builder->SetInsertPoint(exit_block);
-    curr_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "final_len");
-    builder->CreateStore(curr_len, arg_n_ptr);
-    curr_buf = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "final_buf");
+    curr_len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "final_len");
+    IR::aligned_store(*builder, curr_len, arg_n_ptr);
+    curr_buf = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), buf_ptr_alloca, "final_buf");
     builder->CreateRet(curr_buf);
 }
 
@@ -281,7 +281,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
 
     // Create len variable: long len = 0
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
-    builder->CreateStore(builder->getInt64(0), len_ptr);
+    IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
     // Call getline: char *buffer = __flint_getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
@@ -305,7 +305,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     builder->SetInsertPoint(continue_block);
 
     // Get the length value
-    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+    llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Calculate header size: size_t header = sizeof(str)
     llvm::DataLayout data_layout = module->getDataLayout();
@@ -329,7 +329,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
 
     // Set the length: result->len = len
     llvm::Value *len_field_ptr = builder->CreateStructGEP(str_type, result, 0, "len_field_ptr");
-    builder->CreateStore(len, len_field_ptr);
+    IR::aligned_store(*builder, len, len_field_ptr);
 
     // Return the str pointer
     builder->CreateRet(result);
@@ -392,7 +392,7 @@ void Generator::Module::Read::generate_read_int_function( //
 
     // Create len variable: long len = 0
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
-    builder->CreateStore(builder->getInt64(0), len_ptr);
+    IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
     // Call getline: char *buffer = __flint_getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
@@ -408,26 +408,26 @@ void Generator::Module::Read::generate_read_int_function( //
     );
     llvm::Value *creation_err_ptr = builder->CreateStructGEP(function_result_type, creation_ret_alloca, 0, "creation_err_ptr");
     llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
-    builder->CreateStore(err_value, creation_err_ptr);
-    llvm::Value *creation_ret_val = builder->CreateLoad(function_result_type, creation_ret_alloca, "creation_ret_val");
+    IR::aligned_store(*builder, err_value, creation_err_ptr);
+    llvm::Value *creation_ret_val = IR::aligned_load(*builder, function_result_type, creation_ret_alloca, "creation_ret_val");
     builder->CreateRet(creation_ret_val);
 
     // Continue with normal execution
     builder->SetInsertPoint(continue_block);
 
     // Get the length value
-    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+    llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
     llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
-    builder->CreateStore(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
 
     // Call strtol: long value = strtol(buffer, &endptr, 10)
     llvm::Value *base = builder->getInt32(10); // base 10
     llvm::Value *value = builder->CreateCall(strtol_fn, {buffer, endptr_ptr, base}, "value");
 
     // Load the endptr value after strtol call
-    llvm::Value *endptr = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+    llvm::Value *endptr = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
 
     // Calculate buffer + len (end of the buffer)
     llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), buffer, len, "buffer_end");
@@ -441,8 +441,8 @@ void Generator::Module::Read::generate_read_int_function( //
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrRead, ParseInt, ParseIntMessage);
-    builder->CreateStore(err_value, parse_err_ptr);
-    llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
+    IR::aligned_store(*builder, err_value, parse_err_ptr);
+    llvm::Value *parse_ret_val = IR::aligned_load(*builder, function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
 
     // Create exit block for the final return
@@ -464,8 +464,8 @@ void Generator::Module::Read::generate_read_int_function( //
     // Return the converted value
     llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
     llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
-    builder->CreateStore(result_value, val_ptr);
-    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloca, "ret_val");
+    IR::aligned_store(*builder, result_value, val_ptr);
+    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -535,7 +535,7 @@ void Generator::Module::Read::generate_read_uint_function( //
 
     // Create len variable: long len = 0
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
-    builder->CreateStore(builder->getInt64(0), len_ptr);
+    IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
     // Call getline: char *buffer = __flint_getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
@@ -549,15 +549,15 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
     llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
     llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
-    builder->CreateStore(err_value, create_err_ptr);
-    llvm::Value *create_ret_val = builder->CreateLoad(function_result_type, create_ret_alloca, "create_ret_val");
+    IR::aligned_store(*builder, err_value, create_err_ptr);
+    llvm::Value *create_ret_val = IR::aligned_load(*builder, function_result_type, create_ret_alloca, "create_ret_val");
     builder->CreateRet(create_ret_val);
 
     // Continue with normal execution
     builder->SetInsertPoint(continue_block);
 
     // Get the length value
-    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+    llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Check if the length is greater than zero
     llvm::Value *len_gt_zero = builder->CreateICmpUGT(len, builder->getInt64(0), "len_gt_zero");
@@ -568,7 +568,7 @@ void Generator::Module::Read::generate_read_uint_function( //
 
     // Load the first character: buffer[0]
     llvm::Value *first_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer, builder->getInt64(0), "first_char_ptr");
-    llvm::Value *first_char = builder->CreateLoad(builder->getInt8Ty(), first_char_ptr, "first_char");
+    llvm::Value *first_char = IR::aligned_load(*builder, builder->getInt8Ty(), first_char_ptr, "first_char");
 
     // Check if first character is '-'
     llvm::Value *is_negative = builder->CreateICmpEQ(first_char, builder->getInt8('-'), "is_negative");
@@ -579,8 +579,8 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::AllocaInst *neg_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "neg_ret_alloca", true);
     llvm::Value *neg_err_ptr = builder->CreateStructGEP(function_result_type, neg_ret_alloca, 0, "neg_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrRead, NegativeUint, NegativeUintMessage);
-    builder->CreateStore(err_value, neg_err_ptr);
-    llvm::Value *neg_ret_val = builder->CreateLoad(function_result_type, neg_ret_alloca, "neg_ret_val");
+    IR::aligned_store(*builder, err_value, neg_err_ptr);
+    llvm::Value *neg_ret_val = IR::aligned_load(*builder, function_result_type, neg_ret_alloca, "neg_ret_val");
     builder->CreateRet(neg_ret_val);
 
     // Parse block: parse the string with strtoul
@@ -588,14 +588,14 @@ void Generator::Module::Read::generate_read_uint_function( //
 
     // Create endptr variable: char *endptr = NULL
     llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
-    builder->CreateStore(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
 
     // Call strtoul: unsigned long value = strtoul(buffer, &endptr, 10)
     llvm::Value *base = builder->getInt32(10); // base 10
     llvm::Value *value = builder->CreateCall(strtoul_fn, {buffer, endptr_ptr, base}, "value");
 
     // Load the endptr value after strtoul call
-    llvm::Value *endptr = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+    llvm::Value *endptr = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
 
     // Calculate buffer + len (end of the buffer)
     llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), buffer, len, "buffer_end");
@@ -609,8 +609,8 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrRead, ParseInt, ParseIntMessage);
-    builder->CreateStore(err_value, parse_err_ptr);
-    llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
+    IR::aligned_store(*builder, err_value, parse_err_ptr);
+    llvm::Value *parse_ret_val = IR::aligned_load(*builder, function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
 
     // Create exit block for the final return
@@ -632,8 +632,8 @@ void Generator::Module::Read::generate_read_uint_function( //
     // Return the converted value
     llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
     llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
-    builder->CreateStore(result_value, val_ptr);
-    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloca, "ret_val");
+    IR::aligned_store(*builder, result_value, val_ptr);
+    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -689,7 +689,7 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
 
     // Create len variable: long len = 0
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
-    builder->CreateStore(builder->getInt64(0), len_ptr);
+    IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
     // Call getline: char *buffer = __flint_getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
@@ -703,25 +703,25 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
     llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
     llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
-    builder->CreateStore(err_value, create_err_ptr);
-    llvm::Value *create_ret_val = builder->CreateLoad(function_result_type, create_ret_alloca, "create_ret_val");
+    IR::aligned_store(*builder, err_value, create_err_ptr);
+    llvm::Value *create_ret_val = IR::aligned_load(*builder, function_result_type, create_ret_alloca, "create_ret_val");
     builder->CreateRet(create_ret_val);
 
     // Continue with normal execution
     builder->SetInsertPoint(continue_block);
 
     // Get the length value
-    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+    llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
     llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
-    builder->CreateStore(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
 
     // Call strtof: float value = strtof(buffer, &endptr)
     llvm::Value *value = builder->CreateCall(strtof_fn, {buffer, endptr_ptr}, "value");
 
     // Load the endptr value after strtof call
-    llvm::Value *endptr = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+    llvm::Value *endptr = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
 
     // Calculate buffer + len (end of the buffer)
     llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), buffer, len, "buffer_end");
@@ -737,16 +737,16 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrRead, ParseFloat, ParseFloatMessage);
-    builder->CreateStore(err_value, parse_err_ptr);
-    llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
+    IR::aligned_store(*builder, err_value, parse_err_ptr);
+    llvm::Value *parse_ret_val = IR::aligned_load(*builder, function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
 
     // Exit block: return the float value
     builder->SetInsertPoint(exit_block);
     llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
     llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
-    builder->CreateStore(value, val_ptr);
-    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloca, "ret_val");
+    IR::aligned_store(*builder, value, val_ptr);
+    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -802,7 +802,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
 
     // Create len variable: long len = 0
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
-    builder->CreateStore(builder->getInt64(0), len_ptr);
+    IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
     // Call getline: char *buffer = __flint_getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
@@ -816,26 +816,26 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
     llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
     llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
-    builder->CreateStore(err_value, create_err_ptr);
-    llvm::Value *create_ret_val = builder->CreateLoad(function_result_type, create_ret_alloca, "create_ret_val");
+    IR::aligned_store(*builder, err_value, create_err_ptr);
+    llvm::Value *create_ret_val = IR::aligned_load(*builder, function_result_type, create_ret_alloca, "create_ret_val");
     builder->CreateRet(create_ret_val);
 
     // Continue with normal execution
     builder->SetInsertPoint(continue_block);
 
     // Get the length value
-    llvm::Value *len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "len");
+    llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
     llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
-    builder->CreateStore(llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
 
     // Call strtod: double value = strtod(buffer, &endptr, 10)
     llvm::Value *base = builder->getInt32(10);
     llvm::Value *value = builder->CreateCall(strtod_fn, {buffer, endptr_ptr, base}, "value");
 
     // Load the endptr value after strtod call
-    llvm::Value *endptr = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+    llvm::Value *endptr = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
 
     // Calculate buffer + len (end of the buffer)
     llvm::Value *buffer_end = builder->CreateGEP(builder->getInt8Ty(), buffer, len, "buffer_end");
@@ -851,16 +851,16 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrRead, ParseFloat, ParseFloatMessage);
-    builder->CreateStore(err_value, parse_err_ptr);
-    llvm::Value *parse_ret_val = builder->CreateLoad(function_result_type, parse_ret_alloca, "parse_ret_val");
+    IR::aligned_store(*builder, err_value, parse_err_ptr);
+    llvm::Value *parse_ret_val = IR::aligned_load(*builder, function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
 
     // Exit block: return the double value
     builder->SetInsertPoint(exit_block);
     llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
     llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
-    builder->CreateStore(value, val_ptr);
-    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloca, "ret_val");
+    IR::aligned_store(*builder, value, val_ptr);
+    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
     builder->CreateRet(ret_val);
 }
 

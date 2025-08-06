@@ -117,11 +117,11 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::AllocaInst *ret_file_null_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_null_alloc");
     llvm::Value *ret_file_null_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_null_alloc, 0, "ret_file_null_err_ptr");
     llvm::Value *err_value = IR::generate_err_value(*builder, ErrIO, NotFound, NotFoundMessage);
-    builder->CreateStore(err_value, ret_file_null_err_ptr);
+    IR::aligned_store(*builder, err_value, ret_file_null_err_ptr);
     llvm::Value *ret_file_null_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_file_null_empty_str");
     llvm::Value *ret_file_null_val_ptr = builder->CreateStructGEP(function_result_type, ret_file_null_alloc, 1, "ret_file_null_val_ptr");
-    builder->CreateStore(ret_file_null_empty_str, ret_file_null_val_ptr);
-    llvm::Value *ret_file_null_val = builder->CreateLoad(function_result_type, ret_file_null_alloc, "ret_file_null_val");
+    IR::aligned_store(*builder, ret_file_null_empty_str, ret_file_null_val_ptr);
+    llvm::Value *ret_file_null_val = IR::aligned_load(*builder, function_result_type, ret_file_null_alloc, "ret_file_null_val");
     builder->CreateRet(ret_file_null_val);
 
     // Continue with valid file
@@ -141,11 +141,11 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::AllocaInst *ret_seek_end_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_seek_end_alloc");
     llvm::Value *ret_seek_end_err_ptr = builder->CreateStructGEP(function_result_type, ret_seek_end_alloc, 0, "ret_seek_end_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrIO, NotReadable, NotReadableMessage);
-    builder->CreateStore(err_value, ret_seek_end_err_ptr);
+    IR::aligned_store(*builder, err_value, ret_seek_end_err_ptr);
     llvm::Value *ret_seek_end_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_seek_end_empty_str");
     llvm::Value *ret_seek_end_val_ptr = builder->CreateStructGEP(function_result_type, ret_seek_end_alloc, 1, "ret_seek_end_val_ptr");
-    builder->CreateStore(ret_seek_end_empty_str, ret_seek_end_val_ptr);
-    llvm::Value *ret_seek_end_val = builder->CreateLoad(function_result_type, ret_seek_end_alloc, "ret_seek_end_val");
+    IR::aligned_store(*builder, ret_seek_end_empty_str, ret_seek_end_val_ptr);
+    llvm::Value *ret_seek_end_val = IR::aligned_load(*builder, function_result_type, ret_seek_end_alloc, "ret_seek_end_val");
     builder->CreateRet(ret_seek_end_val);
 
     // Get file size
@@ -163,11 +163,11 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::AllocaInst *ret_ftell_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_ftell_alloc");
     llvm::Value *ret_ftell_err_ptr = builder->CreateStructGEP(function_result_type, ret_ftell_alloc, 0, "ret_ftell_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrIO, NotReadable, NotReadableMessage);
-    builder->CreateStore(err_value, ret_ftell_err_ptr);
+    IR::aligned_store(*builder, err_value, ret_ftell_err_ptr);
     llvm::Value *ret_ftell_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_ftell_empty_str");
     llvm::Value *ret_ftell_val_ptr = builder->CreateStructGEP(function_result_type, ret_ftell_alloc, 1, "ret_ftell_val_ptr");
-    builder->CreateStore(ret_ftell_empty_str, ret_ftell_val_ptr);
-    llvm::Value *ret_ftell_val = builder->CreateLoad(function_result_type, ret_ftell_alloc, "ret_ftell_val");
+    IR::aligned_store(*builder, ret_ftell_empty_str, ret_ftell_val_ptr);
+    llvm::Value *ret_ftell_val = IR::aligned_load(*builder, function_result_type, ret_ftell_alloc, "ret_ftell_val");
     builder->CreateRet(ret_ftell_val);
 
     // Return to beginning of file
@@ -185,11 +185,11 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::AllocaInst *ret_seek_set_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_seek_set_alloc");
     llvm::Value *ret_seek_set_err_ptr = builder->CreateStructGEP(function_result_type, ret_seek_set_alloc, 0, "ret_seek_set_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrIO, NotReadable, NotReadableMessage);
-    builder->CreateStore(err_value, ret_seek_set_err_ptr);
+    IR::aligned_store(*builder, err_value, ret_seek_set_err_ptr);
     llvm::Value *ret_seek_set_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_seek_set_empty_str");
     llvm::Value *ret_seek_set_val_ptr = builder->CreateStructGEP(function_result_type, ret_seek_set_alloc, 1, "ret_seek_set_val_ptr");
-    builder->CreateStore(ret_seek_set_empty_str, ret_seek_set_val_ptr);
-    llvm::Value *ret_seek_set_val = builder->CreateLoad(function_result_type, ret_seek_set_alloc, "ret_seek_set_val");
+    IR::aligned_store(*builder, ret_seek_set_empty_str, ret_seek_set_val_ptr);
+    llvm::Value *ret_seek_set_val = IR::aligned_load(*builder, function_result_type, ret_seek_set_alloc, "ret_seek_set_val");
     builder->CreateRet(ret_seek_set_val);
 
     // Allocate memory for file content
@@ -217,21 +217,21 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::AllocaInst *ret_read_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_read_alloc");
     llvm::Value *ret_read_err_ptr = builder->CreateStructGEP(function_result_type, ret_read_alloc, 0, "ret_read_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrIO, UnexpectedEOF, UnexpectedEOFMessage);
-    builder->CreateStore(err_value, ret_read_err_ptr);
+    IR::aligned_store(*builder, err_value, ret_read_err_ptr);
     llvm::Value *ret_read_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_read_empty_str");
     llvm::Value *ret_read_val_ptr = builder->CreateStructGEP(function_result_type, ret_read_alloc, 1, "ret_read_val_ptr");
-    builder->CreateStore(ret_read_empty_str, ret_read_val_ptr);
-    llvm::Value *ret_read_val = builder->CreateLoad(function_result_type, ret_read_alloc, "ret_read_val");
+    IR::aligned_store(*builder, ret_read_empty_str, ret_read_val_ptr);
+    llvm::Value *ret_read_val = IR::aligned_load(*builder, function_result_type, ret_read_alloc, "ret_read_val");
     builder->CreateRet(ret_read_val);
 
     // Success - return content
     builder->SetInsertPoint(read_ok_block);
     llvm::AllocaInst *ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
     llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
-    builder->CreateStore(builder->getInt32(0), ret_err_ptr);
+    IR::aligned_store(*builder, builder->getInt32(0), ret_err_ptr);
     llvm::Value *ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
-    builder->CreateStore(content, ret_val_ptr);
-    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloc, "ret_val");
+    IR::aligned_store(*builder, content, ret_val_ptr);
+    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloc, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -399,11 +399,11 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::AllocaInst *ret_file_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_fail_alloc");
     llvm::Value *ret_file_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 0, "ret_file_fail_err_ptr");
     llvm::Value *err_value = IR::generate_err_value(*builder, ErrFS, NotFound, NotFoundMessage);
-    builder->CreateStore(err_value, ret_file_fail_err_ptr);
+    IR::aligned_store(*builder, err_value, ret_file_fail_err_ptr);
     llvm::Value *ret_file_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_file_fail_empty_str");
     llvm::Value *ret_file_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 1, "ret_file_fail_val_ptr");
-    builder->CreateStore(ret_file_fail_empty_str, ret_file_fail_val_ptr);
-    llvm::Value *ret_file_fail_val = builder->CreateLoad(function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
+    IR::aligned_store(*builder, ret_file_fail_empty_str, ret_file_fail_val_ptr);
+    llvm::Value *ret_file_fail_val = IR::aligned_load(*builder, function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
     builder->CreateRet(ret_file_fail_val);
 
     // Continue with successful file open - count lines
@@ -411,10 +411,10 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
 
     // Initialize line counting variables
     llvm::AllocaInst *line_count_var = builder->CreateAlloca(builder->getInt64Ty(), 0, "line_count_var");
-    builder->CreateStore(builder->getInt64(0), line_count_var);
+    IR::aligned_store(*builder, builder->getInt64(0), line_count_var);
 
     llvm::AllocaInst *in_line_var = builder->CreateAlloca(builder->getInt1Ty(), 0, "in_line_var");
-    builder->CreateStore(builder->getFalse(), in_line_var);
+    IR::aligned_store(*builder, builder->getFalse(), in_line_var);
 
     llvm::AllocaInst *ch_var = builder->CreateAlloca(builder->getInt32Ty(), 0, "ch_var");
 
@@ -424,7 +424,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     // Line counting loop header
     builder->SetInsertPoint(count_lines_loop);
     llvm::Value *ch = builder->CreateCall(fgetc_fn, {file}, "ch");
-    builder->CreateStore(ch, ch_var);
+    IR::aligned_store(*builder, ch, ch_var);
 
     // Check if we hit EOF
     llvm::Value *is_eof = builder->CreateICmpEQ(ch, builder->getInt32(-1), "is_eof");
@@ -437,13 +437,13 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *is_newline = builder->CreateICmpEQ(ch, builder->getInt32('\n'), "is_newline");
 
     // If newline, increment line count and reset in_line
-    llvm::Value *current_line_count = builder->CreateLoad(builder->getInt64Ty(), line_count_var, "current_line_count");
+    llvm::Value *current_line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_var, "current_line_count");
     llvm::Value *incremented_count = builder->CreateAdd(current_line_count, builder->getInt64(1), "incremented_count");
 
     // Use select for conditional stores
-    llvm::Value *current_in_line = builder->CreateLoad(builder->getInt1Ty(), in_line_var, "current_in_line");
+    llvm::Value *current_in_line = IR::aligned_load(*builder, builder->getInt1Ty(), in_line_var, "current_in_line");
     llvm::Value *new_line_count = builder->CreateSelect(is_newline, incremented_count, current_line_count, "new_line_count");
-    builder->CreateStore(new_line_count, line_count_var);
+    IR::aligned_store(*builder, new_line_count, line_count_var);
 
     llvm::Value *new_in_line;
     if (is_newline->getType()->isIntegerTy(1)) {
@@ -458,21 +458,21 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
             is_newline_i1, builder->getFalse(), builder->CreateOr(current_in_line, builder->getTrue()), "new_in_line" //
         );
     }
-    builder->CreateStore(new_in_line, in_line_var);
+    IR::aligned_store(*builder, new_in_line, in_line_var);
 
     // Continue the loop
     builder->CreateBr(count_lines_loop);
 
     // Check if last line needs to be counted
     builder->SetInsertPoint(check_last_line);
-    llvm::Value *final_in_line = builder->CreateLoad(builder->getInt1Ty(), in_line_var, "final_in_line");
+    llvm::Value *final_in_line = IR::aligned_load(*builder, builder->getInt1Ty(), in_line_var, "final_in_line");
     builder->CreateCondBr(final_in_line, inc_line_count, array_create_ok);
 
     // Increment line count for the last line
     builder->SetInsertPoint(inc_line_count);
-    llvm::Value *final_line_count = builder->CreateLoad(builder->getInt64Ty(), line_count_var, "final_line_count");
+    llvm::Value *final_line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_var, "final_line_count");
     llvm::Value *final_incremented_count = builder->CreateAdd(final_line_count, builder->getInt64(1), "final_incremented_count");
-    builder->CreateStore(final_incremented_count, line_count_var);
+    IR::aligned_store(*builder, final_incremented_count, line_count_var);
     builder->CreateBr(array_create_ok);
 
     // Create array of strings
@@ -482,11 +482,11 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     builder->CreateCall(rewind_fn, {file});
 
     // Create array with 1 dimension of size line_count
-    llvm::Value *final_count = builder->CreateLoad(builder->getInt64Ty(), line_count_var, "final_count");
+    llvm::Value *final_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_var, "final_count");
 
     // Create an array for the dimension lengths
     llvm::AllocaInst *lengths_alloca = builder->CreateAlloca(builder->getInt64Ty(), builder->getInt32(1), "lengths_alloca");
-    builder->CreateStore(final_count, lengths_alloca);
+    IR::aligned_store(*builder, final_count, lengths_alloca);
 
     // Create the array of strings
     llvm::Value *lines_array = builder->CreateCall(create_arr_fn,
@@ -508,11 +508,11 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::AllocaInst *ret_array_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_array_fail_alloc");
     llvm::Value *ret_array_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_array_fail_alloc, 0, "ret_array_fail_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrFS, TooLarge, TooLargeMessage);
-    builder->CreateStore(err_value, ret_array_fail_err_ptr);
+    IR::aligned_store(*builder, err_value, ret_array_fail_err_ptr);
     llvm::Value *ret_array_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_array_fail_empty_str");
     llvm::Value *ret_array_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_array_fail_alloc, 1, "ret_array_fail_val_ptr");
-    builder->CreateStore(ret_array_fail_empty_str, ret_array_fail_val_ptr);
-    llvm::Value *ret_array_fail_val = builder->CreateLoad(function_result_type, ret_array_fail_alloc, "ret_array_fail_val");
+    IR::aligned_store(*builder, ret_array_fail_empty_str, ret_array_fail_val_ptr);
+    llvm::Value *ret_array_fail_val = IR::aligned_load(*builder, function_result_type, ret_array_fail_alloc, "ret_array_fail_val");
     builder->CreateRet(ret_array_fail_val);
 
     // Initialize array with NULL pointers
@@ -520,7 +520,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
 
     // Create a NULL str pointer to fill array
     llvm::AllocaInst *null_str_ptr = builder->CreateAlloca(str_type->getPointerTo(), 0, "null_str_ptr");
-    builder->CreateStore(llvm::ConstantPointerNull::get(str_type->getPointerTo()), null_str_ptr);
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(str_type->getPointerTo()), null_str_ptr);
 
     // Fill array with NULL pointers
     builder->CreateCall(fill_arr_inline_fn,
@@ -538,7 +538,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
 
     // Initialize line index
     llvm::AllocaInst *line_idx_var = builder->CreateAlloca(builder->getInt64Ty(), 0, "line_idx_var");
-    builder->CreateStore(builder->getInt64(0), line_idx_var);
+    IR::aligned_store(*builder, builder->getInt64(0), line_idx_var);
 
     // Start reading lines
     builder->CreateBr(read_line_body);
@@ -573,7 +573,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *last_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer, last_idx, "last_char_ptr");
 
     // Load the last character
-    llvm::Value *last_char = builder->CreateLoad(builder->getInt8Ty(), last_char_ptr, "last_char");
+    llvm::Value *last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_ptr, "last_char");
 
     // Check if last character is newline
     llvm::Value *is_last_newline = builder->CreateICmpEQ(last_char, builder->getInt8('\n'), "is_last_newline");
@@ -582,7 +582,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *new_len = builder->CreateSelect(is_last_newline, builder->CreateSub(line_len, builder->getInt64(1)), line_len, "new_len");
 
     // If newline, replace it with null terminator
-    builder->CreateStore(builder->CreateSelect(is_last_newline, builder->getInt8(0), last_char), last_char_ptr);
+    IR::aligned_store(*builder, builder->CreateSelect(is_last_newline, builder->getInt8(0), last_char), last_char_ptr);
 
     // Continue with or without newline
     builder->CreateBr(after_newline_check);
@@ -606,18 +606,18 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     builder->SetInsertPoint(init_str_fail);
 
     // Load current line index
-    llvm::Value *cleanup_line_idx = builder->CreateLoad(builder->getInt64Ty(), line_idx_var, "cleanup_line_idx");
+    llvm::Value *cleanup_line_idx = IR::aligned_load(*builder, builder->getInt64Ty(), line_idx_var, "cleanup_line_idx");
 
     // Initialize loop counter for cleanup
     llvm::AllocaInst *cleanup_i = builder->CreateAlloca(builder->getInt64Ty(), 0, "cleanup_i");
-    builder->CreateStore(builder->getInt64(0), cleanup_i);
+    IR::aligned_store(*builder, builder->getInt64(0), cleanup_i);
 
     // Start cleanup loop
     builder->CreateBr(cleanup_loop);
 
     // Cleanup loop header
     builder->SetInsertPoint(cleanup_loop);
-    llvm::Value *i = builder->CreateLoad(builder->getInt64Ty(), cleanup_i, "i");
+    llvm::Value *i = IR::aligned_load(*builder, builder->getInt64Ty(), cleanup_i, "i");
     llvm::Value *cleanup_done = builder->CreateICmpUGE(i, cleanup_line_idx, "cleanup_done");
     builder->CreateCondBr(cleanup_done, cleanup_end, cleanup_body);
 
@@ -625,20 +625,20 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     builder->SetInsertPoint(cleanup_body);
 
     // Store index for array access
-    builder->CreateStore(i, idx_alloca);
+    IR::aligned_store(*builder, i, idx_alloca);
 
     // Access array element: access_arr(lines_array, sizeof(str*), idx)
     llvm::Value *elem_ptr = builder->CreateCall(access_arr_fn, {lines_array, builder->getInt64(sizeof(void *)), idx_alloca}, "elem_ptr");
 
     // Load the string pointer
-    llvm::Value *elem_str_ptr = builder->CreateLoad(str_type->getPointerTo(), elem_ptr, "elem_str_ptr");
+    llvm::Value *elem_str_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), elem_ptr, "elem_str_ptr");
 
     // Free the string
     builder->CreateCall(free_fn, {elem_str_ptr});
 
     // Increment cleanup counter
     llvm::Value *next_i = builder->CreateAdd(i, builder->getInt64(1), "next_i");
-    builder->CreateStore(next_i, cleanup_i);
+    IR::aligned_store(*builder, next_i, cleanup_i);
 
     // Continue cleanup loop
     builder->CreateBr(cleanup_loop);
@@ -652,21 +652,21 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::AllocaInst *ret_init_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_init_fail_alloc");
     llvm::Value *ret_init_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_init_fail_alloc, 0, "ret_init_fail_err_ptr");
     err_value = IR::generate_err_value(*builder, ErrFS, TooLarge, TooLargeMessage);
-    builder->CreateStore(err_value, ret_init_fail_err_ptr);
+    IR::aligned_store(*builder, err_value, ret_init_fail_err_ptr);
     llvm::Value *ret_init_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_init_fail_empty_str");
     llvm::Value *ret_init_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_init_fail_alloc, 1, "ret_init_fail_val_ptr");
-    builder->CreateStore(ret_init_fail_empty_str, ret_init_fail_val_ptr);
-    llvm::Value *ret_init_fail_val = builder->CreateLoad(function_result_type, ret_init_fail_alloc, "ret_init_fail_val");
+    IR::aligned_store(*builder, ret_init_fail_empty_str, ret_init_fail_val_ptr);
+    llvm::Value *ret_init_fail_val = IR::aligned_load(*builder, function_result_type, ret_init_fail_alloc, "ret_init_fail_val");
     builder->CreateRet(ret_init_fail_val);
 
     // Store line in array
     builder->SetInsertPoint(store_line);
 
     // Get current line index
-    llvm::Value *current_idx = builder->CreateLoad(builder->getInt64Ty(), line_idx_var, "current_idx");
+    llvm::Value *current_idx = IR::aligned_load(*builder, builder->getInt64Ty(), line_idx_var, "current_idx");
 
     // Store index for array access
-    builder->CreateStore(current_idx, idx_alloca);
+    IR::aligned_store(*builder, current_idx, idx_alloca);
 
     // Access array element: access_arr(lines_array, sizeof(str*), idx)
     llvm::Value *line_elem_ptr = builder->CreateCall(                                                //
@@ -674,11 +674,11 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     );
 
     // Store the string pointer in the array
-    builder->CreateStore(line_str, line_elem_ptr);
+    IR::aligned_store(*builder, line_str, line_elem_ptr);
 
     // Increment line index
     llvm::Value *next_line_idx = builder->CreateAdd(current_idx, builder->getInt64(1), "next_line_idx");
-    builder->CreateStore(next_line_idx, line_idx_var);
+    IR::aligned_store(*builder, next_line_idx, line_idx_var);
 
     // Continue reading next line
     builder->CreateBr(read_line_body);
@@ -687,8 +687,8 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     builder->SetInsertPoint(size_check);
 
     // Get final line count
-    llvm::Value *expected_count = builder->CreateLoad(builder->getInt64Ty(), line_count_var, "expected_count");
-    llvm::Value *actual_count = builder->CreateLoad(builder->getInt64Ty(), line_idx_var, "actual_count");
+    llvm::Value *expected_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_var, "expected_count");
+    llvm::Value *actual_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_idx_var, "actual_count");
 
     // Check if actual count is less than expected
     llvm::Value *count_mismatch = builder->CreateICmpULT(actual_count, expected_count, "count_mismatch");
@@ -699,12 +699,12 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
 
     // Get pointer to dimension lengths in array (first element of array->value)
     llvm::Value *array_value_ptr = builder->CreateStructGEP(str_type, lines_array, 1, "array_value_ptr");
-    llvm::Value *dim_lengths = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), array_value_ptr, "dim_lengths");
+    llvm::Value *dim_lengths = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), array_value_ptr, "dim_lengths");
     llvm::Value *dim_lengths_cast = builder->CreateBitCast(dim_lengths, builder->getInt64Ty()->getPointerTo(), "dim_lengths_cast");
 
     // Update first dimension length
     llvm::Value *dim_first = builder->CreateGEP(builder->getInt64Ty(), dim_lengths_cast, builder->getInt32(0), "dim_first");
-    builder->CreateStore(actual_count, dim_first);
+    IR::aligned_store(*builder, actual_count, dim_first);
 
     // Return array
     builder->CreateBr(return_result);
@@ -717,10 +717,10 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
     llvm::StructType *err_type = type_map.at("__flint_type_err");
     llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
-    builder->CreateStore(err_struct, ret_err_ptr);
+    IR::aligned_store(*builder, err_struct, ret_err_ptr);
     llvm::Value *ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
-    builder->CreateStore(lines_array, ret_val_ptr);
-    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloc, "ret_val");
+    IR::aligned_store(*builder, lines_array, ret_val_ptr);
+    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloc, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -873,8 +873,8 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::AllocaInst *ret_file_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_fail_alloc");
     llvm::Value *ret_file_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 0, "ret_file_fail_err_ptr");
     llvm::Value *error_value = IR::generate_err_value(*builder, ErrFS, InvalidPath, InvalidPathMessage);
-    builder->CreateStore(error_value, ret_file_fail_err_ptr);
-    llvm::Value *ret_file_fail_val = builder->CreateLoad(function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
+    IR::aligned_store(*builder, error_value, ret_file_fail_err_ptr);
+    llvm::Value *ret_file_fail_val = IR::aligned_load(*builder, function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
     builder->CreateRet(ret_file_fail_val);
 
     // Write content to file
@@ -882,7 +882,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
 
     // Get content->len
     llvm::Value *content_len_ptr = builder->CreateStructGEP(str_type, content_arg, 0, "content_len_ptr");
-    llvm::Value *content_len = builder->CreateLoad(builder->getInt64Ty(), content_len_ptr, "content_len");
+    llvm::Value *content_len = IR::aligned_load(*builder, builder->getInt64Ty(), content_len_ptr, "content_len");
 
     // Get content->value
     llvm::Value *content_value_ptr = builder->CreateStructGEP(str_type, content_arg, 1, "content_value_ptr");
@@ -905,13 +905,13 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::StructType *err_type = type_map.at("__flint_type_err");
     llvm::Value *no_error_value = IR::get_default_value_of_type(err_type);
     llvm::Value *ret_err_val = builder->CreateSelect(write_check, no_error_value, error_value);
-    builder->CreateStore(ret_err_val, ret_err_ptr);
+    IR::aligned_store(*builder, ret_err_val, ret_err_ptr);
 
     // Return empty string in the data portion regardless of success/failure
     llvm::Value *ret_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_empty_str");
     llvm::Value *ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
-    builder->CreateStore(ret_empty_str, ret_val_ptr);
-    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloc, "ret_val");
+    IR::aligned_store(*builder, ret_empty_str, ret_val_ptr);
+    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloc, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -997,8 +997,8 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     llvm::AllocaInst *ret_file_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_fail_alloc");
     llvm::Value *ret_file_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_file_fail_alloc, 0, "ret_file_fail_err_ptr");
     llvm::Value *error_value = IR::generate_err_value(*builder, ErrFS, InvalidPath, InvalidPathMessage);
-    builder->CreateStore(error_value, ret_file_fail_err_ptr);
-    llvm::Value *ret_file_fail_val = builder->CreateLoad(function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
+    IR::aligned_store(*builder, error_value, ret_file_fail_err_ptr);
+    llvm::Value *ret_file_fail_val = IR::aligned_load(*builder, function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
     builder->CreateRet(ret_file_fail_val);
 
     // Append content to file
@@ -1006,7 +1006,7 @@ void Generator::Module::FileSystem::generate_append_file_function( //
 
     // Get content->len
     llvm::Value *content_len_ptr = builder->CreateStructGEP(str_type, content_arg, 0, "content_len_ptr");
-    llvm::Value *content_len = builder->CreateLoad(builder->getInt64Ty(), content_len_ptr, "content_len");
+    llvm::Value *content_len = IR::aligned_load(*builder, builder->getInt64Ty(), content_len_ptr, "content_len");
 
     // Get content->value
     llvm::Value *content_value_ptr = builder->CreateStructGEP(str_type, content_arg, 1, "content_value_ptr");
@@ -1028,8 +1028,8 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     llvm::AllocaInst *ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
     llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
     error_value = IR::generate_err_value(*builder, ErrFS, NotWritable, NotWritableMessage);
-    builder->CreateStore(error_value, ret_err_ptr);
-    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloc, "ret_val");
+    IR::aligned_store(*builder, error_value, ret_err_ptr);
+    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloc, "ret_val");
     builder->CreateRet(ret_val);
 
     // Return a zeroinitialized return value if everything went okay, as this function has a void return type annyway

@@ -73,14 +73,14 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         llvm::Value *arr_ptr = builder->CreateCall(c_functions.at(MALLOC), {arr_len}, "arr_ptr");
         // Store 1 in the dimensionality of the array
         llvm::Value *dim_ptr = builder->CreateStructGEP(str_type, arr_ptr, 0, "dim_ptr");
-        builder->CreateStore(builder->getInt64(1), dim_ptr);
+        IR::aligned_store(*builder, builder->getInt64(1), dim_ptr);
         // Store the argc in the value field of the array
         llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arr_ptr, 1, "len_ptr");
-        builder->CreateStore(builder->CreateSExt(argc, builder->getInt64Ty()), len_ptr);
+        IR::aligned_store(*builder, builder->CreateSExt(argc, builder->getInt64Ty()), len_ptr);
 
         // Create the arg_i running variable for the loop
         llvm::AllocaInst *arg_i = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "arg_i");
-        builder->CreateStore(builder->getInt32(0), arg_i);
+        IR::aligned_store(*builder, builder->getInt32(0), arg_i);
 
         llvm::BasicBlock *current_block = builder->GetInsertBlock();
         llvm::BasicBlock *arg_save_loop_cond_block = llvm::BasicBlock::Create(context, "arg_save_loop_cond", main_function);
@@ -90,7 +90,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         builder->CreateBr(arg_save_loop_cond_block);
 
         builder->SetInsertPoint(arg_save_loop_cond_block);
-        llvm::Value *arg_i_val = builder->CreateLoad(builder->getInt32Ty(), arg_i, "arg_i_val");
+        llvm::Value *arg_i_val = IR::aligned_load(*builder, builder->getInt32Ty(), arg_i, "arg_i_val");
         builder->CreateCondBr(builder->CreateICmpSLT(arg_i_val, argc), arg_save_loop_body_block, arg_save_loop_exit_block);
 
         builder->SetInsertPoint(arg_save_loop_body_block);
@@ -100,7 +100,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
             {builder->CreateSExt(arg_i_val, builder->getInt64Ty())}, //
             "argv_element_ptr"                                       //
         );
-        llvm::Value *argv_element = builder->CreateLoad(builder->getInt8Ty()->getPointerTo(), argv_element_ptr, "argv_element");
+        llvm::Value *argv_element = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), argv_element_ptr, "argv_element");
         llvm::Value *arg_length = builder->CreateCall(c_functions.at(STRLEN), {argv_element}, "arg_length");
         llvm::Value *created_str = builder->CreateCall(                                                     //
             Module::String::string_manip_functions.at("init_str"), {argv_element, arg_length}, "arg_string" //
@@ -108,24 +108,24 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         llvm::Value *arg_ptr = builder->CreateGEP(                                                              //
             str_type->getPointerTo(), len_ptr, {builder->CreateAdd(arg_i_val, builder->getInt32(1))}, "arg_ptr" //
         );
-        builder->CreateStore(created_str, arg_ptr);
-        builder->CreateStore(builder->CreateAdd(arg_i_val, builder->getInt32(1)), arg_i);
+        IR::aligned_store(*builder, created_str, arg_ptr);
+        IR::aligned_store(*builder, builder->CreateAdd(arg_i_val, builder->getInt32(1)), arg_i);
 
         builder->CreateBr(arg_save_loop_cond_block);
 
         builder->SetInsertPoint(arg_save_loop_exit_block);
         llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {arr_ptr});
         main_call_array[0] = main_call;
-        builder->CreateStore(main_call, main_ret);
+        IR::aligned_store(*builder, main_call, main_ret);
     } else {
         llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {});
         main_call_array[0] = main_call;
-        builder->CreateStore(main_call, main_ret);
+        IR::aligned_store(*builder, main_call, main_ret);
     }
 
     // First, load the first return value of the return struct
     llvm::Value *err_ptr = builder->CreateStructGEP(custom_main_ret_type, main_ret, 0);
-    llvm::LoadInst *err_val = builder->CreateLoad(llvm::Type::getInt32Ty(context), err_ptr, "main_err_val");
+    llvm::LoadInst *err_val = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), err_ptr, "main_err_val");
 
     llvm::BasicBlock *current_block = builder->GetInsertBlock();
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(context, "main_catch", main_function);
@@ -584,7 +584,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         nullptr,                                       //
         "err_counter"                                  //
     );
-    builder->CreateStore(zero, counter);
+    IR::aligned_store(*builder, zero, counter);
 
     // Create the return struct of the test call. It only needs to be allocated once and will be reused by all test calls
     llvm::AllocaInst *test_alloca = builder->CreateAlloca(                 //
@@ -627,12 +627,12 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
                 {},                                          //
                 "call_test"                                  //
             );
-            builder->CreateStore(test_call, test_alloca);
+            IR::aligned_store(*builder, test_call, test_alloca);
             llvm::Value *err_ptr = builder->CreateStructGEP(test_function->getReturnType(), test_alloca, 0, "test_err_ptr");
-            llvm::Value *err_value = builder->CreateLoad( //
-                llvm::Type::getInt32Ty(context),          //
-                err_ptr,                                  //
-                "test_er_val"                             //
+            llvm::Value *err_value = IR::aligned_load(*builder, //
+                llvm::Type::getInt32Ty(context),                //
+                err_ptr,                                        //
+                "test_er_val"                                   //
             );
 
             // Create branching condition. Go to succeed block if the test_err_val is == 0, to the fail_block otherwise
@@ -651,11 +651,11 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
                 {fail_fmt, test_name_value}             //
             );
             // Increment the fail counter only if the test has failed
-            llvm::LoadInst *counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(context), counter, "counter_val");
+            llvm::LoadInst *counter_value = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), counter, "counter_val");
             llvm::Value *new_counter_value = builder->CreateCall(                                                    //
                 Module::Arithmetic::arithmetic_functions.at("i32_safe_add"), {counter_value, one}, "new_counter_val" //
             );
-            builder->CreateStore(new_counter_value, counter);
+            IR::aligned_store(*builder, new_counter_value, counter);
             builder->CreateBr(merge_block);
 
             builder->SetInsertPoint(merge_block);
@@ -663,7 +663,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     }
 
     // Create the comparison with zero
-    llvm::Value *counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(context), counter, "counter_value");
+    llvm::Value *counter_value = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), counter, "counter_value");
     llvm::Value *is_zero = builder->CreateICmpEQ(counter_value, zero);
 
     // Create basic blocks for the two paths
@@ -686,12 +686,12 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     builder->SetInsertPoint(fail_block);
     llvm::Value *fail_fmt = IR::generate_const_string(*builder, "\n\033[31m✗ %d tests failed!\033[0m\n");
     builder->CreateCall(c_functions.at(PRINTF), {fail_fmt, counter_value});
-    builder->CreateStore(one, counter);
+    IR::aligned_store(*builder, one, counter);
     builder->CreateBr(merge_block);
 
     // Merge block and exit
     builder->SetInsertPoint(merge_block);
-    counter_value = builder->CreateLoad(llvm::Type::getInt32Ty(context), counter);
+    counter_value = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), counter);
     builder->CreateCall(c_functions.at(EXIT), {counter_value});
     builder->CreateUnreachable();
 }

@@ -398,7 +398,7 @@ llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, co
     // Create the constant string data
     llvm::Constant *str_constant = llvm::ConstantDataArray::getString(context, str);
     // Store the string data in the buffer
-    builder.CreateStore(str_constant, str_buf);
+    IR::aligned_store(builder, str_constant, str_buf);
     // Return the buffer pointer
     return str_buf;
 }
@@ -430,4 +430,18 @@ void Generator::IR::generate_debug_print( //
     llvm::Value *msg_str = generate_const_string(*builder, "DEBUG: " + message + "\n");
     llvm::Function *print_fn = c_functions.at(PRINTF);
     builder->CreateCall(print_fn, {msg_str});
+}
+
+llvm::LoadInst *Generator::IR::aligned_load(llvm::IRBuilder<> &builder, llvm::Type *type, llvm::Value *ptr, const std::string &name) {
+    const unsigned int alignment = Allocation::calculate_type_alignment(type);
+    llvm::LoadInst *load_inst = builder.CreateLoad(type, ptr, name);
+    load_inst->setAlignment(llvm::Align(alignment));
+    return load_inst;
+}
+
+llvm::StoreInst *Generator::IR::aligned_store(llvm::IRBuilder<> &builder, llvm::Value *value, llvm::Value *ptr) {
+    const unsigned int alignment = Allocation::calculate_type_alignment(value->getType());
+    llvm::StoreInst *store_inst = builder.CreateStore(value, ptr);
+    store_inst->setAlignment(llvm::Align(alignment));
+    return store_inst;
 }

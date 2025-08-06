@@ -148,17 +148,17 @@ void Generator::Module::Arithmetic::generate_pow_function( //
 
     // Create local mutable copies of the base and exponent
     llvm::AllocaInst *base_mut = builder->CreateAlloca(int_type, 0, nullptr, "base_mut");
-    builder->CreateStore(arg_base, base_mut);
+    IR::aligned_store(*builder, arg_base, base_mut);
     llvm::AllocaInst *exp_mut = builder->CreateAlloca(int_type, 0, nullptr, "exp_mut");
-    builder->CreateStore(arg_exp, exp_mut);
+    IR::aligned_store(*builder, arg_exp, exp_mut);
     llvm::AllocaInst *result = builder->CreateAlloca(int_type, 0, nullptr, "result");
-    builder->CreateStore(one, result);
+    IR::aligned_store(*builder, one, result);
     // Branch to the loop condition
     builder->CreateBr(loop_condition);
 
     // Check if exp > 0
     builder->SetInsertPoint(loop_condition);
-    llvm::Value *exp_val = builder->CreateLoad(int_type, exp_mut, "exp_val");
+    llvm::Value *exp_val = IR::aligned_load(*builder, int_type, exp_mut, "exp_val");
     llvm::Value *exp_gt_zero = nullptr;
     if (is_signed) {
         exp_gt_zero = builder->CreateICmpSGT(exp_val, zero, "exp_gt_zero");
@@ -169,7 +169,7 @@ void Generator::Module::Arithmetic::generate_pow_function( //
 
     // Check if exp % 2 == 1
     builder->SetInsertPoint(loop_body);
-    llvm::Value *base_val = builder->CreateLoad(int_type, base_mut, "base_val");
+    llvm::Value *base_val = IR::aligned_load(*builder, int_type, base_mut, "base_val");
     llvm::Value *exp_mod_2 = nullptr;
     if (is_signed) {
         exp_mod_2 = builder->CreateSRem(exp_val, two, "exp_mod_2");
@@ -181,14 +181,14 @@ void Generator::Module::Arithmetic::generate_pow_function( //
 
     // Multiply the result with the base
     builder->SetInsertPoint(exp_uneven);
-    llvm::Value *result_val = builder->CreateLoad(int_type, result, "result_val");
+    llvm::Value *result_val = IR::aligned_load(*builder, int_type, result, "result_val");
     llvm::Value *res_times_base = nullptr;
     if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
         res_times_base = builder->CreateMul(result_val, base_val, "res_times_base");
     } else {
         res_times_base = builder->CreateCall(arithmetic_functions.at(name + "_safe_mul"), {result_val, base_val}, "res_times_base");
     }
-    builder->CreateStore(res_times_base, result);
+    IR::aligned_store(*builder, res_times_base, result);
     builder->CreateBr(exp_merge);
 
     // Square base, cut exp in half
@@ -199,7 +199,7 @@ void Generator::Module::Arithmetic::generate_pow_function( //
     } else {
         base_squared = builder->CreateCall(arithmetic_functions.at(name + "_safe_mul"), {base_val, base_val}, "base_squared");
     }
-    builder->CreateStore(base_squared, base_mut);
+    IR::aligned_store(*builder, base_squared, base_mut);
     llvm::Value *exp_half = nullptr;
     if (overflow_mode == ArithmeticOverflowMode::UNSAFE) {
         if (is_signed) {
@@ -210,12 +210,12 @@ void Generator::Module::Arithmetic::generate_pow_function( //
     } else {
         exp_half = builder->CreateCall(arithmetic_functions.at(name + "_safe_div"), {exp_val, two}, "exp_half");
     }
-    builder->CreateStore(exp_half, exp_mut);
+    IR::aligned_store(*builder, exp_half, exp_mut);
     builder->CreateBr(loop_condition);
 
     // Return the result
     builder->SetInsertPoint(merge);
-    result_val = builder->CreateLoad(int_type, result, "result_ret_val");
+    result_val = IR::aligned_load(*builder, int_type, result, "result_ret_val");
     builder->CreateRet(result_val);
 }
 

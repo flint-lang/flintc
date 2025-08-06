@@ -71,13 +71,13 @@ void Generator::Module::TypeCast::generate_count_digits_function(llvm::IRBuilder
     builder->SetInsertPoint(entry_block);
     llvm::Value *n = builder->CreateAlloca(llvm::Type::getInt64Ty(context), nullptr, "n_var");
     llvm::Value *count = builder->CreateAlloca(llvm::Type::getInt64Ty(context), nullptr, "count_var");
-    builder->CreateStore(n_arg, n);
-    builder->CreateStore(builder->getInt64(0), count);
+    IR::aligned_store(*builder, n_arg, n);
+    IR::aligned_store(*builder, builder->getInt64(0), count);
     builder->CreateBr(check_zero_block);
 
     // Check if n is 0
     builder->SetInsertPoint(check_zero_block);
-    llvm::Value *n_value = builder->CreateLoad(llvm::Type::getInt64Ty(context), n, "n_val");
+    llvm::Value *n_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), n, "n_val");
     llvm::Value *is_zero = builder->CreateICmpEQ(n_value, builder->getInt64(0), "is_zero");
     builder->CreateCondBr(is_zero, return_one_block, loop_block);
 
@@ -87,28 +87,28 @@ void Generator::Module::TypeCast::generate_count_digits_function(llvm::IRBuilder
 
     // Loop header - check condition
     builder->SetInsertPoint(loop_block);
-    llvm::Value *loop_n = builder->CreateLoad(llvm::Type::getInt64Ty(context), n, "loop_n");
+    llvm::Value *loop_n = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), n, "loop_n");
     llvm::Value *loop_condition = builder->CreateICmpUGT(loop_n, builder->getInt64(0), "loop_condition");
     builder->CreateCondBr(loop_condition, loop_body_block, exit_block);
 
     // Loop body
     builder->SetInsertPoint(loop_body_block);
     // n = n / 10
-    llvm::Value *n_val = builder->CreateLoad(llvm::Type::getInt64Ty(context), n, "n_val");
+    llvm::Value *n_val = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), n, "n_val");
     llvm::Value *new_n = builder->CreateUDiv(n_val, builder->getInt64(10), "new_n");
-    builder->CreateStore(new_n, n);
+    IR::aligned_store(*builder, new_n, n);
 
     // count++
-    llvm::Value *count_val = builder->CreateLoad(llvm::Type::getInt64Ty(context), count, "count_val");
+    llvm::Value *count_val = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), count, "count_val");
     llvm::Value *new_count = builder->CreateAdd(count_val, builder->getInt64(1), "new_count");
-    builder->CreateStore(new_count, count);
+    IR::aligned_store(*builder, new_count, count);
 
     // Go back to loop header
     builder->CreateBr(loop_block);
 
     // Exit block - return count
     builder->SetInsertPoint(exit_block);
-    llvm::Value *result = builder->CreateLoad(llvm::Type::getInt64Ty(context), count, "result");
+    llvm::Value *result = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), count, "result");
     builder->CreateRet(result);
 
     // Store the function for later use
@@ -225,7 +225,7 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     llvm::Value *lparen_chars = IR::generate_const_string(*builder, "(");
     llvm::AllocaInst *multitype_str_alloca = builder->CreateAlloca(str_type->getPointerTo(), 0, nullptr, "mt_alloca");
     llvm::Value *multitype_str = builder->CreateCall(init_str_fn, {lparen_chars, builder->getInt64(1)}, multitype_string + "_str");
-    builder->CreateStore(multitype_str, multitype_str_alloca);
+    IR::aligned_store(*builder, multitype_str, multitype_str_alloca);
 
     // Fill the multi-type string with the value strings and `, ` separators between them
     llvm::Value *comma_chars = IR::generate_const_string(*builder, ", ");
@@ -246,7 +246,7 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     }
 
     // Return the result
-    multitype_str = builder->CreateLoad(str_type->getPointerTo(), multitype_str_alloca);
+    multitype_str = IR::aligned_load(*builder, str_type->getPointerTo(), multitype_str_alloca);
     builder->CreateRet(multitype_str);
 }
 
@@ -305,7 +305,7 @@ void Generator::Module::TypeCast::generate_bool8_to_str_function( //
         // Get the pointer to the current character
         llvm::Value *char_ptr = builder->CreateGEP(builder->getInt8Ty(), str_data_ptr, builder->getInt32(7 - i), "char_ptr");
         // Store either one or zero at the given character depending on the bool bit
-        builder->CreateStore(builder->CreateSelect(bool_bit, one_char, zero_char), char_ptr);
+        IR::aligned_store(*builder, builder->CreateSelect(bool_bit, one_char, zero_char), char_ptr);
     }
 
     // Return the created string
@@ -479,8 +479,8 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
     llvm::Value *current_buffer_ptr = builder->CreateAlloca(builder->getPtrTy(), nullptr, "current_buffer_ptr");
 
     // Initialize values
-    builder->CreateStore(value, current_value_ptr);
-    builder->CreateStore(buffer_end, current_buffer_ptr);
+    IR::aligned_store(*builder, value, current_value_ptr);
+    IR::aligned_store(*builder, buffer_end, current_buffer_ptr);
 
     // Start the digit loop
     builder->CreateBr(digit_loop_block);
@@ -489,7 +489,7 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
     builder->SetInsertPoint(digit_loop_block);
 
     // Load current value
-    llvm::Value *current_value = builder->CreateLoad(builder->getInt64Ty(), current_value_ptr, "current_value");
+    llvm::Value *current_value = IR::aligned_load(*builder, builder->getInt64Ty(), current_value_ptr, "current_value");
 
     // Calculate digit: value % 10
     llvm::Value *remainder = builder->CreateURem(current_value, builder->getInt64(10), "remainder");
@@ -497,16 +497,16 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
         builder->CreateAdd(builder->getInt8('0'), builder->CreateTrunc(remainder, builder->getInt8Ty(), "digit"), "digit_char");
 
     // Decrement buffer pointer
-    llvm::Value *buffer_ptr = builder->CreateLoad(builder->getPtrTy(), current_buffer_ptr, "buffer_ptr");
+    llvm::Value *buffer_ptr = IR::aligned_load(*builder, builder->getPtrTy(), current_buffer_ptr, "buffer_ptr");
     llvm::Value *prev_buffer = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, builder->getInt32(-1), "prev_buffer");
-    builder->CreateStore(prev_buffer, current_buffer_ptr);
+    IR::aligned_store(*builder, prev_buffer, current_buffer_ptr);
 
     // Store digit at the decremented position
-    builder->CreateStore(digit_char, prev_buffer);
+    IR::aligned_store(*builder, digit_char, prev_buffer);
 
     // Divide value by 10
     llvm::Value *next_value = builder->CreateUDiv(current_value, builder->getInt64(10), "next_value");
-    builder->CreateStore(next_value, current_value_ptr);
+    IR::aligned_store(*builder, next_value, current_value_ptr);
 
     // Continue loop if value > 0
     llvm::Value *continue_loop = builder->CreateICmpUGT(next_value, builder->getInt64(0), "continue_loop");
@@ -519,9 +519,9 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
 
     // Add negative sign
     builder->SetInsertPoint(add_sign_block);
-    llvm::Value *sign_buffer_ptr = builder->CreateLoad(builder->getPtrTy(), current_buffer_ptr, "sign_buffer_ptr");
+    llvm::Value *sign_buffer_ptr = IR::aligned_load(*builder, builder->getPtrTy(), current_buffer_ptr, "sign_buffer_ptr");
     llvm::Value *sign_prev_buffer = builder->CreateGEP(builder->getInt8Ty(), sign_buffer_ptr, builder->getInt32(-1), "sign_prev_buffer");
-    builder->CreateStore(builder->getInt8('-'), sign_prev_buffer);
+    IR::aligned_store(*builder, builder->getInt8('-'), sign_prev_buffer);
     builder->CreateBr(return_block);
 
     // Return the result of the function
@@ -638,7 +638,7 @@ void Generator::Module::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder
     // Get pointer to result->value (the flexible array member at index 1)
     llvm::Value *data_ptr_zero = builder->CreateStructGEP(str_type, result, 1, "data_ptr_zero");
     // Store '0' character
-    builder->CreateStore(llvm::ConstantInt::get(builder->getInt8Ty(), '0'), data_ptr_zero);
+    IR::aligned_store(*builder, llvm::ConstantInt::get(builder->getInt8Ty(), '0'), data_ptr_zero);
     builder->CreateBr(exit_block);
 
     // Non-zero case block
@@ -651,11 +651,11 @@ void Generator::Module::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder
 
     // Create local variable for value
     llvm::Value *current_value = builder->CreateAlloca(builder->getInt32Ty(), nullptr, "current_value");
-    builder->CreateStore(arg_uvalue, current_value);
+    IR::aligned_store(*builder, arg_uvalue, current_value);
 
     // Create local variable for buffer
     llvm::Value *current_buffer = builder->CreateAlloca(builder->getPtrTy(), nullptr, "current_buffer");
-    builder->CreateStore(buffer, current_buffer);
+    IR::aligned_store(*builder, buffer, current_buffer);
 
     // Branch to the loop
     builder->CreateBr(loop_block);
@@ -663,8 +663,8 @@ void Generator::Module::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder
     // Loop block
     builder->SetInsertPoint(loop_block);
     // Load current value and buffer
-    llvm::Value *value_load = builder->CreateLoad(builder->getInt32Ty(), current_value, "value_load");
-    llvm::Value *buffer_load = builder->CreateLoad(builder->getPtrTy(), current_buffer, "buffer_load");
+    llvm::Value *value_load = IR::aligned_load(*builder, builder->getInt32Ty(), current_value, "value_load");
+    llvm::Value *buffer_load = IR::aligned_load(*builder, builder->getPtrTy(), current_buffer, "buffer_load");
 
     // Calculate value % 10
     llvm::Value *remainder = builder->CreateURem(value_load, llvm::ConstantInt::get(builder->getInt32Ty(), 10), "remainder");
@@ -685,16 +685,16 @@ void Generator::Module::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder
     );
 
     // Store the digit character
-    builder->CreateStore(digit_char, buffer_prev);
+    IR::aligned_store(*builder, digit_char, buffer_prev);
 
     // Update buffer
-    builder->CreateStore(buffer_prev, current_buffer);
+    IR::aligned_store(*builder, buffer_prev, current_buffer);
 
     // Calculate value / 10
     llvm::Value *new_value = builder->CreateUDiv(value_load, llvm::ConstantInt::get(builder->getInt32Ty(), 10), "new_value");
 
     // Update value
-    builder->CreateStore(new_value, current_value);
+    IR::aligned_store(*builder, new_value, current_value);
 
     // Check if value > 0
     llvm::Value *continue_loop = builder->CreateICmpUGT(new_value, llvm::ConstantInt::get(builder->getInt32Ty(), 0), "continue_loop");
@@ -874,8 +874,8 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
     llvm::Value *current_buffer_ptr = builder->CreateAlloca(builder->getPtrTy(), nullptr, "current_buffer_ptr");
 
     // Initialize values
-    builder->CreateStore(value, current_value_ptr);
-    builder->CreateStore(buffer_end, current_buffer_ptr);
+    IR::aligned_store(*builder, value, current_value_ptr);
+    IR::aligned_store(*builder, buffer_end, current_buffer_ptr);
 
     // Start the digit loop
     builder->CreateBr(digit_loop_block);
@@ -884,7 +884,7 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
     builder->SetInsertPoint(digit_loop_block);
 
     // Load current value
-    llvm::Value *current_value = builder->CreateLoad(builder->getInt64Ty(), current_value_ptr, "current_value");
+    llvm::Value *current_value = IR::aligned_load(*builder, builder->getInt64Ty(), current_value_ptr, "current_value");
 
     // Calculate digit: value % 10
     llvm::Value *remainder = builder->CreateURem(current_value, builder->getInt64(10), "remainder");
@@ -895,16 +895,16 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
     );
 
     // Decrement buffer pointer
-    llvm::Value *buffer_ptr = builder->CreateLoad(builder->getPtrTy(), current_buffer_ptr, "buffer_ptr");
+    llvm::Value *buffer_ptr = IR::aligned_load(*builder, builder->getPtrTy(), current_buffer_ptr, "buffer_ptr");
     llvm::Value *prev_buffer = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, builder->getInt64(-1), "prev_buffer");
-    builder->CreateStore(prev_buffer, current_buffer_ptr);
+    IR::aligned_store(*builder, prev_buffer, current_buffer_ptr);
 
     // Store digit at the decremented position
-    builder->CreateStore(digit_char, prev_buffer);
+    IR::aligned_store(*builder, digit_char, prev_buffer);
 
     // Divide value by 10
     llvm::Value *next_value = builder->CreateUDiv(current_value, builder->getInt64(10), "next_value");
-    builder->CreateStore(next_value, current_value_ptr);
+    IR::aligned_store(*builder, next_value, current_value_ptr);
 
     // Continue loop if value > 0
     llvm::Value *continue_loop = builder->CreateICmpUGT(next_value, builder->getInt64(0), "continue_loop");
@@ -917,9 +917,9 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
 
     // Add negative sign
     builder->SetInsertPoint(add_sign_block);
-    llvm::Value *sign_buffer_ptr = builder->CreateLoad(builder->getPtrTy(), current_buffer_ptr, "sign_buffer_ptr");
+    llvm::Value *sign_buffer_ptr = IR::aligned_load(*builder, builder->getPtrTy(), current_buffer_ptr, "sign_buffer_ptr");
     llvm::Value *sign_prev_buffer = builder->CreateGEP(builder->getInt8Ty(), sign_buffer_ptr, builder->getInt64(-1), "sign_prev_buffer");
-    builder->CreateStore(builder->getInt8('-'), sign_prev_buffer);
+    IR::aligned_store(*builder, builder->getInt8('-'), sign_prev_buffer);
     builder->CreateBr(return_block);
 
     // Return the result of the function
@@ -1040,7 +1040,7 @@ void Generator::Module::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder
     // Get pointer to result->value (the flexible array member at index 1)
     llvm::Value *data_ptr_zero = builder->CreateStructGEP(str_type, result, 1, "data_ptr_zero");
     // Store '0' character
-    builder->CreateStore(llvm::ConstantInt::get(builder->getInt8Ty(), '0'), data_ptr_zero);
+    IR::aligned_store(*builder, llvm::ConstantInt::get(builder->getInt8Ty(), '0'), data_ptr_zero);
     builder->CreateBr(exit_block);
 
     // Non-zero case block
@@ -1053,11 +1053,11 @@ void Generator::Module::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder
 
     // Create local variable for value
     llvm::Value *current_value = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "current_value");
-    builder->CreateStore(arg_uvalue, current_value);
+    IR::aligned_store(*builder, arg_uvalue, current_value);
 
     // Create local variable for buffer
     llvm::Value *current_buffer = builder->CreateAlloca(builder->getPtrTy(), nullptr, "current_buffer");
-    builder->CreateStore(buffer, current_buffer);
+    IR::aligned_store(*builder, buffer, current_buffer);
 
     // Branch to the loop
     builder->CreateBr(loop_block);
@@ -1065,8 +1065,8 @@ void Generator::Module::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder
     // Loop block
     builder->SetInsertPoint(loop_block);
     // Load current value and buffer
-    llvm::Value *value_load = builder->CreateLoad(builder->getInt64Ty(), current_value, "value_load");
-    llvm::Value *buffer_load = builder->CreateLoad(builder->getPtrTy(), current_buffer, "buffer_load");
+    llvm::Value *value_load = IR::aligned_load(*builder, builder->getInt64Ty(), current_value, "value_load");
+    llvm::Value *buffer_load = IR::aligned_load(*builder, builder->getPtrTy(), current_buffer, "buffer_load");
 
     // Calculate value % 10
     llvm::Value *remainder = builder->CreateURem(value_load, llvm::ConstantInt::get(builder->getInt64Ty(), 10), "remainder");
@@ -1087,16 +1087,16 @@ void Generator::Module::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder
     );
 
     // Store the digit character
-    builder->CreateStore(digit_char, buffer_prev);
+    IR::aligned_store(*builder, digit_char, buffer_prev);
 
     // Update buffer
-    builder->CreateStore(buffer_prev, current_buffer);
+    IR::aligned_store(*builder, buffer_prev, current_buffer);
 
     // Calculate value / 10
     llvm::Value *new_value = builder->CreateUDiv(value_load, llvm::ConstantInt::get(builder->getInt64Ty(), 10), "new_value");
 
     // Update value
-    builder->CreateStore(new_value, current_value);
+    IR::aligned_store(*builder, new_value, current_value);
 
     // Check if value > 0
     llvm::Value *continue_loop = builder->CreateICmpUGT(new_value, llvm::ConstantInt::get(builder->getInt64Ty(), 0), "continue_loop");
@@ -1305,7 +1305,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
             },                                                     //
             "snprintf_ret_e"                                       //
         );
-        builder->CreateStore(snprintf_ret, len_var);
+        IR::aligned_store(*builder, snprintf_ret, len_var);
         builder->CreateBr(exponent_merge_block);
     }
     // The no_exponent_block
@@ -1322,22 +1322,22 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
             },                                                     //
             "snprintf_ret_f"                                       //
         );
-        builder->CreateStore(snprintf_ret, len_var);
+        IR::aligned_store(*builder, snprintf_ret, len_var);
         builder->CreateBr(exponent_merge_block);
     }
 
     // The exponent_merge_block
     builder->SetInsertPoint(exponent_merge_block);
     llvm::Value *last_non_zero = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "last_non_zero");
-    llvm::Value *len_value = builder->CreateLoad(builder->getInt32Ty(), len_var, "len_val");
+    llvm::Value *len_value = IR::aligned_load(*builder, builder->getInt32Ty(), len_var, "len_val");
     llvm::Value *len_minus_1 = builder->CreateSub(len_value, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "len_m_1");
-    builder->CreateStore(len_minus_1, last_non_zero);
+    IR::aligned_store(*builder, len_minus_1, last_non_zero);
     builder->CreateBr(loop_block);
 
     // The loop_block
     builder->SetInsertPoint(loop_block);
     // Load current value of last_non_zero
-    llvm::Value *last_zero_val = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "last_zero_val");
+    llvm::Value *last_zero_val = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "last_zero_val");
     // Check if last_non_zero > 0
     llvm::Value *is_valid_index = builder->CreateICmpSGT( //
         last_zero_val,                                    //
@@ -1352,7 +1352,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
         // Get pointer to buffer[last_non_zero]
         llvm::Value *cur_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, last_zero_val, "cur_char_ptr");
         // Load the current character
-        llvm::Value *cur_char = builder->CreateLoad(builder->getInt8Ty(), cur_char_ptr, "cur_char");
+        llvm::Value *cur_char = IR::aligned_load(*builder, builder->getInt8Ty(), cur_char_ptr, "cur_char");
         // Check if the current character is '0'
         llvm::Value *is_zero = builder->CreateICmpEQ(cur_char, llvm::ConstantInt::get(builder->getInt8Ty(), '0'), "is_zero");
         // Combine conditions: should continue if index > 0 && char == '0'
@@ -1365,9 +1365,9 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     {
         builder->SetInsertPoint(loop_body_block);
         // Decrement last_non_zero
-        last_zero_val = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "last_zero_val");
+        last_zero_val = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "last_zero_val");
         llvm::Value *new_last_zero = builder->CreateSub(last_zero_val, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "new_last_zero");
-        builder->CreateStore(new_last_zero, last_non_zero);
+        IR::aligned_store(*builder, new_last_zero, last_non_zero);
         // Jump back to loop condition
         builder->CreateBr(loop_block);
     }
@@ -1376,11 +1376,11 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     {
         builder->SetInsertPoint(loop_merge_block);
         // Load final value of last_non_zero
-        llvm::Value *final_last_zero = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "final_last_zero");
+        llvm::Value *final_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "final_last_zero");
         // Get pointer to buffer[last_non_zero]
         llvm::Value *last_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, final_last_zero, "last_char_ptr");
         // Load the character
-        llvm::Value *last_char = builder->CreateLoad(builder->getInt8Ty(), last_char_ptr, "last_char");
+        llvm::Value *last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_ptr, "last_char");
         // Check if the character is '.'
         llvm::Value *is_dot = builder->CreateICmpEQ(last_char, llvm::ConstantInt::get(builder->getInt8Ty(), '.'), "is_dot");
         // Branch based on whether the character is a decimal point
@@ -1391,13 +1391,13 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     {
         builder->SetInsertPoint(decimal_case_block);
         // Decrement last_non_zero one more time
-        llvm::Value *decimal_last_zero = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "decimal_last_zero");
+        llvm::Value *decimal_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "decimal_last_zero");
         llvm::Value *adjusted_last_zero = builder->CreateSub( //
             decimal_last_zero,                                //
             llvm::ConstantInt::get(builder->getInt32Ty(), 1), //
             "adjusted_last_zero"                              //
         );
-        builder->CreateStore(adjusted_last_zero, last_non_zero);
+        IR::aligned_store(*builder, adjusted_last_zero, last_non_zero);
         // Branch to return block
         builder->CreateBr(return_block);
     }
@@ -1406,7 +1406,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     {
         builder->SetInsertPoint(return_block);
         // Calculate final length: last_non_zero + 1
-        llvm::Value *final_last_zero = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "final_last_zero");
+        llvm::Value *final_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "final_last_zero");
         llvm::Value *final_len = builder->CreateAdd(final_last_zero, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "final_len");
         // Convert to i64 for init_str
         llvm::Value *final_len_i64 = builder->CreateZExt(final_len, builder->getInt64Ty(), "final_len_i64");
@@ -1612,7 +1612,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
             },                                                     //
             "snprintf_ret_e"                                       //
         );
-        builder->CreateStore(snprintf_ret, len_var);
+        IR::aligned_store(*builder, snprintf_ret, len_var);
         builder->CreateBr(exponent_merge_block);
     }
     // The no_exponent_block
@@ -1628,22 +1628,22 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
             },                                                     //
             "snprintf_ret_f"                                       //
         );
-        builder->CreateStore(snprintf_ret, len_var);
+        IR::aligned_store(*builder, snprintf_ret, len_var);
         builder->CreateBr(exponent_merge_block);
     }
 
     // The exponent_merge_block
     builder->SetInsertPoint(exponent_merge_block);
     llvm::Value *last_non_zero = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "last_non_zero");
-    llvm::Value *len_value = builder->CreateLoad(builder->getInt32Ty(), len_var, "len_val");
+    llvm::Value *len_value = IR::aligned_load(*builder, builder->getInt32Ty(), len_var, "len_val");
     llvm::Value *len_minus_1 = builder->CreateSub(len_value, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "len_m_1");
-    builder->CreateStore(len_minus_1, last_non_zero);
+    IR::aligned_store(*builder, len_minus_1, last_non_zero);
     builder->CreateBr(loop_block);
 
     // The loop_block
     builder->SetInsertPoint(loop_block);
     // Load current value of last_non_zero
-    llvm::Value *last_zero_val = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "last_zero_val");
+    llvm::Value *last_zero_val = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "last_zero_val");
     // Check if last_non_zero > 0
     llvm::Value *is_valid_index = builder->CreateICmpSGT( //
         last_zero_val,                                    //
@@ -1658,7 +1658,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
         // Get pointer to buffer[last_non_zero]
         llvm::Value *cur_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, last_zero_val, "cur_char_ptr");
         // Load the current character
-        llvm::Value *cur_char = builder->CreateLoad(builder->getInt8Ty(), cur_char_ptr, "cur_char");
+        llvm::Value *cur_char = IR::aligned_load(*builder, builder->getInt8Ty(), cur_char_ptr, "cur_char");
         // Check if the current character is '0'
         llvm::Value *is_zero = builder->CreateICmpEQ(cur_char, llvm::ConstantInt::get(builder->getInt8Ty(), '0'), "is_zero");
         // Combine conditions: should continue if index > 0 && char == '0'
@@ -1671,9 +1671,9 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     {
         builder->SetInsertPoint(loop_body_block);
         // Decrement last_non_zero
-        last_zero_val = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "last_zero_val");
+        last_zero_val = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "last_zero_val");
         llvm::Value *new_last_zero = builder->CreateSub(last_zero_val, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "new_last_zero");
-        builder->CreateStore(new_last_zero, last_non_zero);
+        IR::aligned_store(*builder, new_last_zero, last_non_zero);
         // Jump back to loop condition
         builder->CreateBr(loop_block);
     }
@@ -1682,11 +1682,11 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     {
         builder->SetInsertPoint(loop_merge_block);
         // Load final value of last_non_zero
-        llvm::Value *final_last_zero = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "final_last_zero");
+        llvm::Value *final_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "final_last_zero");
         // Get pointer to buffer[last_non_zero]
         llvm::Value *last_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, final_last_zero, "last_char_ptr");
         // Load the character
-        llvm::Value *last_char = builder->CreateLoad(builder->getInt8Ty(), last_char_ptr, "last_char");
+        llvm::Value *last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_ptr, "last_char");
         // Check if the character is '.'
         llvm::Value *is_dot = builder->CreateICmpEQ(last_char, llvm::ConstantInt::get(builder->getInt8Ty(), '.'), "is_dot");
         // Branch based on whether the character is a decimal point
@@ -1697,13 +1697,13 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     {
         builder->SetInsertPoint(decimal_case_block);
         // Decrement last_non_zero one more time
-        llvm::Value *decimal_last_zero = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "decimal_last_zero");
+        llvm::Value *decimal_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "decimal_last_zero");
         llvm::Value *adjusted_last_zero = builder->CreateSub( //
             decimal_last_zero,                                //
             llvm::ConstantInt::get(builder->getInt32Ty(), 1), //
             "adjusted_last_zero"                              //
         );
-        builder->CreateStore(adjusted_last_zero, last_non_zero);
+        IR::aligned_store(*builder, adjusted_last_zero, last_non_zero);
         // Branch to return block
         builder->CreateBr(return_block);
     }
@@ -1712,7 +1712,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     {
         builder->SetInsertPoint(return_block);
         // Calculate final length: last_non_zero + 1
-        llvm::Value *final_last_zero = builder->CreateLoad(builder->getInt32Ty(), last_non_zero, "final_last_zero");
+        llvm::Value *final_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "final_last_zero");
         llvm::Value *final_len = builder->CreateAdd(final_last_zero, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "final_len");
         // Convert to i64 for init_str
         llvm::Value *final_len_i64 = builder->CreateZExt(final_len, builder->getInt64Ty(), "final_len_i64");

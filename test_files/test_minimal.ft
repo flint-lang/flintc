@@ -1,19 +1,19 @@
 use Core.print
 
 variant MyVar:
-	Int(i32), Float(f32), bool;
+	i32, i64, i32x3;
 
 def main():
-	MyVar var = -5;
-	i32? maybe = var?(MyVar.Int);
-	if maybe == none:
-		print("not i32\n");
-	else:
-		print($"is i32: {maybe!}\n");
+	MyVar var_1 = i64(-5);
+	MyVar var_2 = i64(6);
 
-	var = false;
-	maybe = var?(MyVar.Int);
-	if maybe == none:
-		print("not i32\n");
-	else:
-		print($"is i32: {maybe!}\n");
+	print($"var_1 = {var_1!(i64)}\n");
+	print($"var_2 = {var_2!(i64)}\n");
+
+	var_1 = i32x3(10, 20, 30);
+	print("stored var_1\n");
+	var_2 = i32x3(-5, -10, -15);
+	print("stored var_2\n");
+
+	print($"var_1 = {var_1!(i32x3)}\n");
+	print($"var_2 = {var_2!(i32x3)}\n");

@@ -54,11 +54,11 @@ void Generator::Module::String::generate_access_str_at_function( //
     llvm::BasicBlock *in_bounds_block = llvm::BasicBlock::Create(context, "in_bounds", access_str_at_fn);
     builder->SetInsertPoint(entry_block);
     llvm::AllocaInst *local_idx_ptr = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "local_idx_ptr");
-    builder->CreateStore(arg_idx, local_idx_ptr);
+    IR::aligned_store(*builder, arg_idx, local_idx_ptr);
 
     // Get the length: string->len
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_string, 0, "len_ptr");
-    llvm::Value *string_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "string_len");
+    llvm::Value *string_len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "string_len");
 
     if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
         // Check if idx >= string->len
@@ -78,7 +78,7 @@ void Generator::Module::String::generate_access_str_at_function( //
             case ArrayOutOfBoundsMode::SILENT: {
                 // Apply index clamping and update our LOCAL copy
                 llvm::Value *clamped_index = builder->CreateSub(string_len, builder->getInt64(1), "clamped_index");
-                builder->CreateStore(clamped_index, local_idx_ptr); // Update our local copy
+                IR::aligned_store(*builder, clamped_index, local_idx_ptr); // Update our local copy
                 builder->CreateBr(in_bounds_block);
                 break;
             }
@@ -100,11 +100,11 @@ void Generator::Module::String::generate_access_str_at_function( //
 
     // For strings, value is directly a char array, so we can access it directly
     // Calculate the address: &string->value[idx]
-    llvm::Value *local_idx = builder->CreateLoad(builder->getInt64Ty(), local_idx_ptr, "local_idx");
+    llvm::Value *local_idx = IR::aligned_load(*builder, builder->getInt64Ty(), local_idx_ptr, "local_idx");
     llvm::Value *char_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, local_idx, "char_ptr");
 
     // Load and return the character
-    llvm::Value *result_char = builder->CreateLoad(builder->getInt8Ty(), char_ptr, "result_char");
+    llvm::Value *result_char = IR::aligned_load(*builder, builder->getInt8Ty(), char_ptr, "result_char");
     builder->CreateRet(result_char);
 }
 
@@ -161,12 +161,12 @@ void Generator::Module::String::generate_create_str_function( //
 
     // Set the len field: string->len = len
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, string_ptr, 0, "len_ptr");
-    builder->CreateStore(len_arg, len_ptr);
+    IR::aligned_store(*builder, len_arg, len_ptr);
 
     // Set the last value in the string to be a nullbyte
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, string_ptr, 1, "value_ptr");
     llvm::Value *term_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {len_arg}, "term_ptr");
-    builder->CreateStore(builder->getInt8(0), term_ptr);
+    IR::aligned_store(*builder, builder->getInt8(0), term_ptr);
 
     // Return the string pointer
     builder->CreateRet(string_ptr);
@@ -278,11 +278,11 @@ void Generator::Module::String::generate_compare_str_function(llvm::IRBuilder<> 
 
     // Get length of lhs: lhs->len
     llvm::Value *lhs_len_ptr = builder->CreateStructGEP(str_type, arg_lhs, 0, "lhs_len_ptr");
-    llvm::Value *lhs_len = builder->CreateLoad(builder->getInt64Ty(), lhs_len_ptr, "lhs_len");
+    llvm::Value *lhs_len = IR::aligned_load(*builder, builder->getInt64Ty(), lhs_len_ptr, "lhs_len");
 
     // Get length of rhs: rhs->len
     llvm::Value *rhs_len_ptr = builder->CreateStructGEP(str_type, arg_rhs, 0, "rhs_len_ptr");
-    llvm::Value *rhs_len = builder->CreateLoad(builder->getInt64Ty(), rhs_len_ptr, "rhs_len");
+    llvm::Value *rhs_len = IR::aligned_load(*builder, builder->getInt64Ty(), rhs_len_ptr, "rhs_len");
 
     // Compare lengths: lhs->len < rhs->len
     llvm::Value *len_lt_cond = builder->CreateICmpULT(lhs_len, rhs_len, "len_lt_cond");
@@ -359,13 +359,13 @@ void Generator::Module::String::generate_assign_str_function(llvm::IRBuilder<> *
     arg_value->setName("value");
 
     // Load the current string pointer: str* old_string = *string
-    llvm::Value *old_string_ptr = builder->CreateLoad(str_type->getPointerTo(), arg_string, "old_str_ptr");
+    llvm::Value *old_string_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), arg_string, "old_str_ptr");
 
     // Free the old string: free(old_string)
     builder->CreateCall(free_fn, {old_string_ptr});
 
     // Store the new value: *string = value
-    builder->CreateStore(arg_value, arg_string);
+    IR::aligned_store(*builder, arg_value, arg_string);
 
     // Return void
     builder->CreateRetVoid();
@@ -422,7 +422,7 @@ void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *
     arg_len->setName("len");
 
     // Load the current string pointer: str* old_string = *string
-    llvm::Value *old_string_ptr = builder->CreateLoad(str_type->getPointerTo(), arg_string, "old_string_ptr");
+    llvm::Value *old_string_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), arg_string, "old_string_ptr");
 
     // Calculate new size: sizeof(str) + len
     size_t str_size = Allocation::get_type_size(module, str_type);
@@ -432,11 +432,11 @@ void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *
     llvm::Value *new_string_ptr = builder->CreateCall(realloc_fn, {old_string_ptr, new_size}, "new_string_ptr");
 
     // Store the new string pointer back: *string = new_string
-    builder->CreateStore(new_string_ptr, arg_string);
+    IR::aligned_store(*builder, new_string_ptr, arg_string);
 
     // Set the len field: new_string->len = len
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, new_string_ptr, 0, "len_ptr");
-    builder->CreateStore(arg_len, len_ptr);
+    IR::aligned_store(*builder, arg_len, len_ptr);
 
     // Get pointer to the string data area
     llvm::Value *data_ptr = builder->CreateStructGEP(str_type, new_string_ptr, 1, "data_ptr");
@@ -446,7 +446,7 @@ void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *
 
     // Set the last value in the string to be a nullbyte
     llvm::Value *term_ptr = builder->CreateGEP(builder->getInt8Ty(), data_ptr, {arg_len}, "term_ptr");
-    builder->CreateStore(builder->getInt8(0), term_ptr);
+    IR::aligned_store(*builder, builder->getInt8(0), term_ptr);
 
     // Return void
     builder->CreateRetVoid();
@@ -494,15 +494,15 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     arg_source->setName("source");
 
     // Load the destination string pointer: str* old_dest = *dest
-    llvm::Value *old_dest_ptr = builder->CreateLoad(str_type->getPointerTo(), arg_dest, "old_dest_ptr");
+    llvm::Value *old_dest_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), arg_dest, "old_dest_ptr");
 
     // Load the destination string length: size_t dest_len = old_dest->len
     llvm::Value *dest_len_ptr = builder->CreateStructGEP(str_type, old_dest_ptr, 0, "dest_len_ptr");
-    llvm::Value *dest_len = builder->CreateLoad(builder->getInt64Ty(), dest_len_ptr, "dest_len");
+    llvm::Value *dest_len = IR::aligned_load(*builder, builder->getInt64Ty(), dest_len_ptr, "dest_len");
 
     // Load the source string length: size_t source_len = source->len
     llvm::Value *source_len_ptr = builder->CreateStructGEP(str_type, arg_source, 0, "source_len_ptr");
-    llvm::Value *source_len = builder->CreateLoad(builder->getInt64Ty(), source_len_ptr, "source_len");
+    llvm::Value *source_len = IR::aligned_load(*builder, builder->getInt64Ty(), source_len_ptr, "source_len");
 
     // Calculate new size: sizeof(str) + dest_len + source_len
     size_t str_size = Allocation::get_type_size(module, str_type);
@@ -515,7 +515,7 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     llvm::Value *new_dest_ptr = builder->CreateCall(realloc_fn, {old_dest_ptr, new_size}, "new_dest_ptr");
 
     // Store the new dest pointer back: *dest = new_dest
-    builder->CreateStore(new_dest_ptr, arg_dest);
+    IR::aligned_store(*builder, new_dest_ptr, arg_dest);
 
     // Get pointer to the value field
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 1, "value_ptr");
@@ -532,11 +532,11 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     // Update the length of the destination string: new_dest->len += source_len
     llvm::Value *new_len = builder->CreateAdd(dest_len, source_len, "new_len");
     llvm::Value *new_dest_len_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 0, "new_dest_len_ptr");
-    builder->CreateStore(new_len, new_dest_len_ptr);
+    IR::aligned_store(*builder, new_len, new_dest_len_ptr);
 
     // Set the last value in the string to be a nullbyte
     llvm::Value *term_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {combined_len}, "term_ptr");
-    builder->CreateStore(builder->getInt8(0), term_ptr);
+    IR::aligned_store(*builder, builder->getInt8(0), term_ptr);
 
     // Return void
     builder->CreateRetVoid();
@@ -587,11 +587,11 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     arg_source_len->setName("source_len");
 
     // Load the destination string pointer: str* old_dest = *dest
-    llvm::Value *old_dest_ptr = builder->CreateLoad(str_type->getPointerTo(), arg_dest, "old_dest_ptr");
+    llvm::Value *old_dest_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), arg_dest, "old_dest_ptr");
 
     // Load the destination string length: size_t dest_len = old_dest->len
     llvm::Value *dest_len_ptr = builder->CreateStructGEP(str_type, old_dest_ptr, 0, "dest_len_ptr");
-    llvm::Value *dest_len = builder->CreateLoad(builder->getInt64Ty(), dest_len_ptr, "dest_len");
+    llvm::Value *dest_len = IR::aligned_load(*builder, builder->getInt64Ty(), dest_len_ptr, "dest_len");
 
     // Calculate new size: sizeof(str) + dest_len + source_len
     size_t str_size = Allocation::get_type_size(module, str_type);
@@ -604,7 +604,7 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     llvm::Value *new_dest_ptr = builder->CreateCall(realloc_fn, {old_dest_ptr, new_size}, "new_dest_ptr");
 
     // Store the new dest pointer back: *dest = new_dest
-    builder->CreateStore(new_dest_ptr, arg_dest);
+    IR::aligned_store(*builder, new_dest_ptr, arg_dest);
 
     // Get pointer to the value field: new_dest->value
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 1, "value_ptr");
@@ -618,11 +618,11 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     // Update the length of the destination string: new_dest->len += source_len
     llvm::Value *new_len = builder->CreateAdd(dest_len, arg_source_len, "new_len");
     llvm::Value *new_dest_len_ptr = builder->CreateStructGEP(str_type, new_dest_ptr, 0, "new_dest_len_ptr");
-    builder->CreateStore(new_len, new_dest_len_ptr);
+    IR::aligned_store(*builder, new_len, new_dest_len_ptr);
 
     // Set the last value in the string to be a nullbyte
     llvm::Value *term_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {combined_len}, "term_ptr");
-    builder->CreateStore(builder->getInt8(0), term_ptr);
+    IR::aligned_store(*builder, builder->getInt8(0), term_ptr);
 
     // Return void
     builder->CreateRetVoid();
@@ -674,11 +674,11 @@ void Generator::Module::String::generate_add_str_str_function(llvm::IRBuilder<> 
 
     // Get lhs->len
     llvm::Value *lhs_len_ptr = builder->CreateStructGEP(str_type, arg_lhs, 0, "lhs_len_ptr");
-    llvm::Value *lhs_len = builder->CreateLoad(builder->getInt64Ty(), lhs_len_ptr, "lhs_len");
+    llvm::Value *lhs_len = IR::aligned_load(*builder, builder->getInt64Ty(), lhs_len_ptr, "lhs_len");
 
     // Get rhs->len
     llvm::Value *rhs_len_ptr = builder->CreateStructGEP(str_type, arg_rhs, 0, "rhs_len_ptr");
-    llvm::Value *rhs_len = builder->CreateLoad(builder->getInt64Ty(), rhs_len_ptr, "rhs_len");
+    llvm::Value *rhs_len = IR::aligned_load(*builder, builder->getInt64Ty(), rhs_len_ptr, "rhs_len");
 
     // Calculate total length: lhs->len + rhs->len
     llvm::Value *total_len = builder->CreateAdd(lhs_len, rhs_len, "total_len");
@@ -759,7 +759,7 @@ void Generator::Module::String::generate_add_str_lit_function(llvm::IRBuilder<> 
 
     // Get lhs->len
     llvm::Value *lhs_len_ptr = builder->CreateStructGEP(str_type, arg_lhs, 0, "lhs_len_ptr");
-    llvm::Value *lhs_len = builder->CreateLoad(builder->getInt64Ty(), lhs_len_ptr, "lhs_len");
+    llvm::Value *lhs_len = IR::aligned_load(*builder, builder->getInt64Ty(), lhs_len_ptr, "lhs_len");
 
     // Calculate total length: lhs->len + rhs_len
     llvm::Value *total_len = builder->CreateAdd(lhs_len, arg_rhs_len, "total_len");
@@ -837,7 +837,7 @@ void Generator::Module::String::generate_add_lit_str_function(llvm::IRBuilder<> 
 
     // Get rhs->len
     llvm::Value *rhs_len_ptr = builder->CreateStructGEP(str_type, arg_rhs, 0, "rhs_len_ptr");
-    llvm::Value *rhs_len = builder->CreateLoad(builder->getInt64Ty(), rhs_len_ptr, "rhs_len");
+    llvm::Value *rhs_len = IR::aligned_load(*builder, builder->getInt64Ty(), rhs_len_ptr, "rhs_len");
 
     // Calculate total length: lhs_len + rhs->len
     llvm::Value *total_len = builder->CreateAdd(arg_lhs_len, rhs_len, "total_len");

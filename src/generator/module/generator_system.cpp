@@ -106,16 +106,16 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     llvm::Value *error_value_ptr = builder->CreateStructGEP(function_result_type, result_struct, 0, "error_value_ptr");
     llvm::StructType *err_type = type_map.at("__flint_type_err");
     llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
-    builder->CreateStore(err_struct, error_value_ptr);
+    IR::aligned_store(*builder, err_struct, error_value_ptr);
 
     // Initialize exit_code field to -1
     llvm::Value *exit_code_ptr = builder->CreateStructGEP(function_result_type, result_struct, 1, "exit_code_ptr");
-    builder->CreateStore(builder->getInt32(-1), exit_code_ptr);
+    IR::aligned_store(*builder, builder->getInt32(-1), exit_code_ptr);
 
     // Create empty string for output
     llvm::Value *empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str");
     llvm::Value *output_ptr = builder->CreateStructGEP(function_result_type, result_struct, 2, "output_ptr");
-    builder->CreateStore(empty_str, output_ptr);
+    IR::aligned_store(*builder, empty_str, output_ptr);
 
     // Create command with stderr redirection: full_command = add_str_lit(command, " 2>&1", 5)
     llvm::Value *redirect_str = IR::generate_const_string(*builder, " 2>&1");
@@ -139,13 +139,13 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
 
     // Handle pipe NULL error, throw ErrSystem.SpawnFailed
     builder->SetInsertPoint(pipe_null_block);
-    llvm::Value *output_load_null = builder->CreateLoad(str_type->getPointerTo(), output_ptr, "output_load_null");
+    llvm::Value *output_load_null = IR::aligned_load(*builder, str_type->getPointerTo(), output_ptr, "output_load_null");
     builder->CreateCall(free_fn, {output_load_null});
     llvm::Value *err_value = IR::generate_err_value(*builder, ErrSystem, SpawnFailed, SpawnFailedMessage);
-    builder->CreateStore(err_value, error_value_ptr);
-    builder->CreateStore(builder->getInt32(0), exit_code_ptr);
-    builder->CreateStore(builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str"), output_ptr);
-    llvm::Value *result_ret_null = builder->CreateLoad(function_result_type, result_struct, "result_ret_null");
+    IR::aligned_store(*builder, err_value, error_value_ptr);
+    IR::aligned_store(*builder, builder->getInt32(0), exit_code_ptr);
+    IR::aligned_store(*builder, builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str"), output_ptr);
+    llvm::Value *result_ret_null = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret_null");
     builder->CreateRet(result_ret_null);
 
     // Continue with valid pipe
@@ -169,15 +169,15 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     // Read loop body
     builder->SetInsertPoint(read_loop_body);
     // Load the current output
-    llvm::Value *output_load = builder->CreateLoad(str_type->getPointerTo(), output_ptr, "output_load");
+    llvm::Value *output_load = IR::aligned_load(*builder, str_type->getPointerTo(), output_ptr, "output_load");
     // Append buffer to output: append_lit(&result.output, buffer)
     llvm::Value *output_addr = builder->CreateAlloca(str_type->getPointerTo(), nullptr, "output_addr");
-    builder->CreateStore(output_load, output_addr);
+    IR::aligned_store(*builder, output_load, output_addr);
     llvm::Value *buffer_len = builder->CreateCall(strlen_fn, {buffer}, "buffer_len");
     builder->CreateCall(append_lit_fn, {output_addr, buffer, buffer_len});
     // Update the output in result struct
-    llvm::Value *updated_output = builder->CreateLoad(str_type->getPointerTo(), output_addr, "updated_output");
-    builder->CreateStore(updated_output, output_ptr);
+    llvm::Value *updated_output = IR::aligned_load(*builder, str_type->getPointerTo(), output_addr, "updated_output");
+    IR::aligned_store(*builder, updated_output, output_ptr);
     // Loop back to read more
     builder->CreateBr(read_loop_header);
 
@@ -188,9 +188,9 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     // Extract the low byte: result.exit_code = status & 0xFF
     llvm::Value *shifted_status = builder->CreateLShr(status, builder->getInt32(8), "shifted_status");
     llvm::Value *exit_code = builder->CreateAnd(shifted_status, builder->getInt32(0xFF), "exit_code");
-    builder->CreateStore(exit_code, exit_code_ptr);
+    IR::aligned_store(*builder, exit_code, exit_code_ptr);
 
     // Return the result struct
-    llvm::Value *result_ret = builder->CreateLoad(function_result_type, result_struct, "result_ret");
+    llvm::Value *result_ret = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret");
     builder->CreateRet(result_ret);
 }

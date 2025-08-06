@@ -50,13 +50,13 @@ void Generator::Module::Assert::generate_assert_function(llvm::IRBuilder<> *buil
     llvm::AllocaInst *assert_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "assert_ret_alloca", true);
     llvm::Value *assert_err_ptr = builder->CreateStructGEP(function_result_type, assert_ret_alloca, 0, "assert_err_ptr");
     llvm::Value *err_value = IR::generate_err_value(*builder, ErrAssert, AssertionFailed, AssertionFailedMessage);
-    builder->CreateStore(err_value, assert_err_ptr);
-    llvm::Value *assert_ret_val = builder->CreateLoad(function_result_type, assert_ret_alloca, "assert_ret_val");
+    IR::aligned_store(*builder, err_value, assert_err_ptr);
+    llvm::Value *assert_ret_val = IR::aligned_load(*builder, function_result_type, assert_ret_alloca, "assert_ret_val");
     builder->CreateRet(assert_ret_val);
 
     // Return a default struct for a non-error value
     builder->SetInsertPoint(exit_block);
     llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
-    llvm::Value *ret_val = builder->CreateLoad(function_result_type, ret_alloca, "ret_val");
+    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
     builder->CreateRet(ret_val);
 }

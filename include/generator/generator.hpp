@@ -453,6 +453,25 @@ class Generator {
             llvm::IRBuilder<> *builder,   //
             const std::string &message    //
         );
+
+        /// @function `aligned_load`
+        /// @brief Generates the code for a correctly type-aligned load instruction
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `type` The type of the value to load
+        /// @param `ptr` The pointer to load the value from
+        /// @param `name` The name of the loaded value
+        /// @return `llvm::LoadInst *` The loaded value
+        static llvm::LoadInst *aligned_load(llvm::IRBuilder<> &builder, llvm::Type *type, llvm::Value *ptr, const std::string &name = "");
+
+        /// @function `aligned_store`
+        /// @brief Genrates the code for a correctly type-aligned store instruction
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `value` The value to store at the pointer
+        /// @param `ptr` The pointer to store the value at
+        /// @return `llvm::StoreInst *` The store instruction
+        static llvm::StoreInst *aligned_store(llvm::IRBuilder<> &builder, llvm::Value *value, llvm::Value *ptr);
     }; // subclass IR
 
     /// @class `Builtin`

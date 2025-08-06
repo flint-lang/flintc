@@ -135,7 +135,7 @@ void Generator::Allocation::generate_function_allocations(            //
                 argAlloca->setAlignment(llvm::Align(calculate_type_alignment(arg.getType())));
 
                 // Store the initial argument value into the alloca
-                builder.CreateStore(&arg, argAlloca);
+                IR::aligned_store(builder, &arg, argAlloca);
 
                 // Register the alloca in allocations map
                 allocations.emplace(param_name, argAlloca);
@@ -558,9 +558,10 @@ unsigned int Generator::Allocation::calculate_type_alignment(llvm::Type *type) {
 
     // Check if the type is a vector type
     if (type->isVectorTy()) {
-        // For vector types, use alignment of 16 bytes (or vector size if larger)
-        unsigned int prim_size = type->getPrimitiveSizeInBits() / 8;
-        alignment = prim_size > 16 ? prim_size : 16;
+        // For vector types, always use the alignment of the base element of the vector
+        llvm::VectorType *vectorType = llvm::cast<llvm::VectorType>(type);
+        llvm::Type *elemType = vectorType->getElementType();
+        alignment = calculate_type_alignment(elemType);
     }
     // Check if the type is a struct type
     else if (type->isStructTy()) {
@@ -599,7 +600,7 @@ llvm::AllocaInst *Generator::Allocation::generate_default_struct( //
         llvm::Type *field_type = type->getElementType(i);
         llvm::Value *default_value = IR::get_default_value_of_type(field_type);
         llvm::Value *field_ptr = builder.CreateStructGEP(type, alloca, i);
-        builder.CreateStore(default_value, field_ptr);
+        IR::aligned_store(builder, default_value, field_ptr);
     }
 
     return alloca;

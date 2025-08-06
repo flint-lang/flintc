@@ -259,7 +259,7 @@ llvm::Value *Generator::Expression::generate_variable( //
     llvm::Type *value_type = IR::get_type(ctx.parent->getParent(), variable_node->type).first;
 
     // Load the variable's value if it's a pointer
-    llvm::LoadInst *load = builder.CreateLoad(value_type, variable, variable_node->name + "_val");
+    llvm::LoadInst *load = IR::aligned_load(builder, value_type, variable, variable_node->name + "_val");
     load->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + variable_node->name + "'")));
 
     return load;
@@ -472,7 +472,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
 
     // Store function result
     llvm::Value *res_var = ctx.allocations.at(call_ret_name);
-    builder.CreateStore(call, res_var);
+    IR::aligned_store(builder, call, res_var);
 
     // Extract and store error value
     llvm::StructType *return_type = static_cast<llvm::StructType *>(IR::add_and_or_get_type(ctx.parent->getParent(), call_node->type));
@@ -483,13 +483,13 @@ Generator::group_mapping Generator::Expression::generate_call( //
         call_node->function_name + std::to_string(call_node->call_id) + "_err_ptr" //
     );
     llvm::StructType *error_type = type_map.at("__flint_type_err");
-    llvm::Value *err_val = builder.CreateLoad(                                     //
+    llvm::Value *err_val = IR::aligned_load(builder,                               //
         error_type,                                                                //
         err_ptr,                                                                   //
         call_node->function_name + std::to_string(call_node->call_id) + "_err_val" //
     );
     llvm::Value *err_var = ctx.allocations.at(call_err_name);
-    builder.CreateStore(err_val, err_var);
+    IR::aligned_store(builder, err_val, err_var);
 
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
     if (!call_node->has_catch) {
@@ -533,7 +533,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
             i,                                                                                                           //
             call_node->function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value_ptr" //
         );
-        llvm::LoadInst *elem_value = builder.CreateLoad(                                                             //
+        llvm::LoadInst *elem_value = IR::aligned_load(builder,                                                       //
             return_type->getElementType(i),                                                                          //
             elem_ptr,                                                                                                //
             call_node->function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
@@ -558,7 +558,7 @@ void Generator::Expression::generate_rethrow( //
 
     // Load error value
     llvm::StructType *error_type = type_map.at("__flint_type_err");
-    llvm::LoadInst *err_val = builder.CreateLoad(                                    //
+    llvm::LoadInst *err_val = IR::aligned_load(builder,                              //
         error_type,                                                                  //
         err_var,                                                                     //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_val" //
@@ -615,10 +615,10 @@ void Generator::Expression::generate_rethrow( //
         // Create the pointer to the error value (the 0th index of the struct)
         llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
         // Store the error value in the struct
-        builder.CreateStore(err_val, error_ptr);
+        IR::aligned_store(builder, err_val, error_ptr);
 
         // Generate the throw (return) instruction with the evaluated value
-        llvm::LoadInst *throw_struct_val = builder.CreateLoad(throw_struct_type, throw_struct, "throw_val");
+        llvm::LoadInst *throw_struct_val = IR::aligned_load(builder, throw_struct_type, throw_struct, "throw_val");
         throw_struct_val->setMetadata("comment",
             llvm::MDNode::get(context,
                 llvm::MDString::get(context, "Load allocated throw struct of type '" + throw_struct_type->getName().str() + "'")));
@@ -692,7 +692,7 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 );
 
                 // Store the field value in the allocated memory
-                llvm::StoreInst *value_store = builder.CreateStore(expr_val, field_alloca);
+                llvm::StoreInst *value_store = IR::aligned_store(builder, expr_val, field_alloca);
                 value_store->setMetadata("comment",
                     llvm::MDNode::get(context,
                         llvm::MDString::get(context, "Store complex data for 'initializer_" + std::to_string(i) + "'")));
@@ -745,7 +745,7 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
     if (switch_value->getType()->isPointerTy()) {
-        switch_value = builder.CreateLoad(opt_struct_type, switch_value, "loaded_rhs");
+        switch_value = IR::aligned_load(builder, opt_struct_type, switch_value, "loaded_rhs");
     }
     llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
 
@@ -814,7 +814,7 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
     // Because it's a switch on an optional we can have a simple conditional branch here instead of the switch
     // We just check for the "has_value" field and select our result depending on what block we come from using a phi node
     llvm::Value *has_value_ptr = builder.CreateStructGEP(opt_struct_type, var_alloca, 0, "has_value_ptr");
-    llvm::Value *has_value = builder.CreateLoad(builder.getInt1Ty(), has_value_ptr, "has_value");
+    llvm::Value *has_value = IR::aligned_load(builder, builder.getInt1Ty(), has_value_ptr, "has_value");
     llvm::BasicBlock *has_value_block = branch_blocks.at(value_block_idx);
     // If value block idx == 1 none block is 0, if it's 0 the none block is idx 1
     llvm::BasicBlock *none_block = branch_blocks.at(1 - value_block_idx);
@@ -869,7 +869,7 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     llvm::StructType *variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
     if (switch_value->getType()->isPointerTy()) {
-        switch_value = builder.CreateLoad(variant_struct_type, switch_value, "loaded_rhs");
+        switch_value = IR::aligned_load(builder, variant_struct_type, switch_value, "loaded_rhs");
     }
     switch_value = builder.CreateExtractValue(switch_value, {0}, "variant_flag");
     llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
@@ -1156,7 +1156,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
     llvm::Value *const length_array = ctx.allocations.at("arr::idx::" + std::to_string(length_expressions.size()));
     for (size_t i = 0; i < length_expressions.size(); i++) {
         llvm::Value *array_element_ptr = builder.CreateGEP(builder.getInt64Ty(), length_array, builder.getInt64(i));
-        builder.CreateStore(length_expressions.at(i), array_element_ptr);
+        IR::aligned_store(builder, length_expressions.at(i), array_element_ptr);
     }
     const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
     llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), initializer->element_type).first;
@@ -1197,7 +1197,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
     if (initializer->element_type->to_string() == "str") {
         llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
         llvm::Value *str_len_ptr = builder.CreateStructGEP(str_type, initializer_expression, 0, "str_len_ptr");
-        llvm::Value *str_len = builder.CreateLoad(builder.getInt64Ty(), str_len_ptr, "str_len");
+        llvm::Value *str_len = IR::aligned_load(builder, builder.getInt64Ty(), str_len_ptr, "str_len");
         uint64_t str_size = data_layout.getTypeAllocSize(str_type);
         str_len = builder.CreateAdd(str_len, builder.getInt64(str_size));
         llvm::CallInst *fill_call = builder.CreateCall(               //
@@ -1303,7 +1303,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
         llvm::Value *index_ptr = builder.CreateGEP(                                                            //
             builder.getInt64Ty(), temp_array_indices, builder.getInt64(i), "idx_" + std::to_string(i) + "_ptr" //
         );
-        llvm::StoreInst *index_store = builder.CreateStore(index_expressions[i], index_ptr);
+        llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions[i], index_ptr);
         index_store->setMetadata("comment",                                                                       //
             llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i))) //
         );
@@ -1316,7 +1316,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
         llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr"), //
             {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                    //
         );
-        return builder.CreateLoad(element_type, result, "str_value");
+        return IR::aligned_load(builder, element_type, result, "str_value");
     } else if (dynamic_cast<const PrimitiveType *>(result_type.get())) {
         llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
             {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
@@ -1381,7 +1381,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         }
         llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
         llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 0, "length_ptr");
-        llvm::Value *length = builder.CreateLoad(builder.getInt64Ty(), length_ptr, "length");
+        llvm::Value *length = IR::aligned_load(builder, builder.getInt64Ty(), length_ptr, "length");
 
         std::vector<llvm::Value *> values;
         values.emplace_back(length);
@@ -1396,7 +1396,8 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         std::vector<llvm::Value *> length_values;
         for (size_t i = 0; i < array_type->dimensionality; i++) {
             llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
-            llvm::Value *length_value = builder.CreateLoad(builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i));
+            llvm::Value *length_value =
+                IR::aligned_load(builder, builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i));
             length_values.emplace_back(length_value);
         }
         return length_values;
@@ -1418,7 +1419,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
     // Check if expr_val is a pointer type
     if (expr_val && expr_val->getType()->isPointerTy()) {
         llvm::Type *struct_value_type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type).first;
-        expr_val = builder.CreateLoad(struct_value_type, expr_val);
+        expr_val = IR::aligned_load(builder, struct_value_type, expr_val);
     }
     std::vector<llvm::Value *> values;
     values.emplace_back(builder.CreateExtractValue(expr_val, {data_access->field_id}, "elem_" + std::to_string(data_access->field_id)));
@@ -1458,7 +1459,7 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     // Check if expr_val is a pointer type
     if (expr && expr->getType()->isPointerTy()) {
         llvm::Type *struct_value_type = IR::get_type(ctx.parent->getParent(), grouped_data_access->base_expr->type).first;
-        expr = builder.CreateLoad(struct_value_type, expr);
+        expr = IR::aligned_load(builder, struct_value_type, expr);
     }
     // Its a normal grouped data access
     for (size_t i = 0; i < grouped_data_access->field_names.size(); i++) {
@@ -1524,7 +1525,7 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
         }
 
         llvm::Value *opt_value_ptr = builder.CreateStructGEP(data_type, base_expr_value, access.field_id, "opt_value_ptr");
-        llvm::Value *opt_value = builder.CreateLoad(field_type, opt_value_ptr, "opt_value");
+        llvm::Value *opt_value = IR::aligned_load(builder, field_type, opt_value_ptr, "opt_value");
         result_value = builder.CreateInsertValue(result_value, opt_value, {1}, "filled_result");
     } else if (std::holds_alternative<ChainArrayAccess>(chain->operation)) {
         const ChainArrayAccess &access = std::get<ChainArrayAccess>(chain->operation);
@@ -1585,7 +1586,7 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
     llvm::Value *base_expr = base_expressions.value().front();
     if (base_expr->getType()->isPointerTy()) {
         llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), unwrap->base_expr->type, false);
-        base_expr = builder.CreateLoad(opt_struct_type, base_expr, "loaded_base_expr");
+        base_expr = IR::aligned_load(builder, opt_struct_type, base_expr, "loaded_base_expr");
     }
     if (opt_unwrap_mode == OptionalUnwrapMode::UNSAFE) {
         // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
@@ -1641,7 +1642,7 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
     assert(id.has_value());
     llvm::Value *wanted_type = builder.getInt8(id.value());
     llvm::Value *current_type_ptr = builder.CreateStructGEP(variant_type, variable, 0, "var_type_ptr");
-    llvm::Value *current_type = builder.CreateLoad(builder.getInt8Ty(), current_type_ptr, "var_type");
+    llvm::Value *current_type = IR::aligned_load(builder, builder.getInt8Ty(), current_type_ptr, "var_type");
     llvm::Value *holds_type = builder.CreateICmpEQ(current_type, wanted_type, "holds_type");
     llvm::BranchInst *branch = builder.CreateCondBr(holds_type, holds_correct_type, holds_wrong_type);
     branch->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the variant holds the correct type")));
@@ -1658,7 +1659,7 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
     builder.SetInsertPoint(holds_correct_type);
     llvm::Value *value_raw_ptr = builder.CreateStructGEP(variant_type, variable, 1, "value_raw_ptr");
     llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, element_type->getPointerTo(), "value_ptr");
-    llvm::Value *value = builder.CreateLoad(element_type, value_ptr, "value");
+    llvm::Value *value = IR::aligned_load(builder, element_type, value_ptr, "value");
     llvm::Value *value_ok = IR::get_default_value_of_type(opt_type);
     value_ok = builder.CreateInsertValue(value_ok, builder.getInt1(true), {0}, "value_ok_fill_has_value");
     value_ok = builder.CreateInsertValue(value_ok, value, {1}, "value_ok_fill_value");
@@ -1689,7 +1690,7 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
         // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
         llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, variable, 1, "var_value_ptr");
         llvm::Value *value_cast_ptr = builder.CreateBitCast(value_ptr, element_type->getPointerTo(), "value_ptr_unsafe");
-        llvm::Value *value = builder.CreateLoad(variant_type, value_cast_ptr, "var_value_unsafe");
+        llvm::Value *value = IR::aligned_load(builder, variant_type, value_cast_ptr, "var_value_unsafe");
         return std::vector<llvm::Value *>{value};
     }
 
@@ -1702,7 +1703,7 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     assert(id.has_value());
     llvm::Value *wanted_type = builder.getInt8(id.value());
     llvm::Value *current_type_ptr = builder.CreateStructGEP(variant_type, variable, 0, "var_type_ptr");
-    llvm::Value *current_type = builder.CreateLoad(builder.getInt8Ty(), current_type_ptr, "var_type");
+    llvm::Value *current_type = IR::aligned_load(builder, builder.getInt8Ty(), current_type_ptr, "var_type");
     llvm::Value *holds_type = builder.CreateICmpEQ(current_type, wanted_type, "holds_type");
     llvm::BranchInst *branch = builder.CreateCondBr(holds_type, merge, holds_wrong_type, IR::generate_weights(100, 1));
     branch->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the variant holds the correct type")));
@@ -1718,7 +1719,7 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     builder.SetInsertPoint(merge);
     llvm::Value *value_raw_ptr = builder.CreateStructGEP(variant_type, variable, 1, "value_raw_ptr");
     llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, element_type->getPointerTo(), "value_ptr");
-    llvm::Value *value = builder.CreateLoad(element_type, value_ptr, "value");
+    llvm::Value *value = IR::aligned_load(builder, element_type, value_ptr, "value");
     return std::vector<llvm::Value *>{value};
 }
 
@@ -1943,7 +1944,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             );
             llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *val_ptr = builder.CreateStructGEP(str_type, str_value, 1);
-            builder.CreateStore(expr, val_ptr);
+            IR::aligned_store(builder, expr, val_ptr);
             return str_value;
         } else if (to_type_str == "i32") {
             return builder.CreateSExt(expr, builder.getInt32Ty());
@@ -2423,7 +2424,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             // lhs optional has a value stored in it
             if (lhs->getType()->isPointerTy()) {
                 llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), bin_op_node->left->type, false);
-                lhs = builder.CreateLoad(opt_struct_type, lhs, "loaded_lhs");
+                lhs = IR::aligned_load(builder, opt_struct_type, lhs, "loaded_lhs");
             }
             llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
             llvm::Value *lhs_value = builder.CreateExtractValue(lhs, {1}, "value");
@@ -2471,7 +2472,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
             if (lhs->getType()->isPointerTy()) {
                 // The optional is a function argument
                 llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), rhs_expr->type, false);
-                rhs = builder.CreateLoad(opt_struct_type, rhs, "loaded_rhs");
+                rhs = IR::aligned_load(builder, opt_struct_type, rhs, "loaded_rhs");
             }
             llvm::Value *has_value = builder.CreateExtractValue(rhs, {0}, "has_value");
             if (eq) {
@@ -2487,7 +2488,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
             if (lhs->getType()->isPointerTy()) {
                 // The optional is a function argument
                 llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), lhs_expr->type, false);
-                lhs = builder.CreateLoad(opt_struct_type, lhs, "loaded_lhs");
+                lhs = IR::aligned_load(builder, opt_struct_type, lhs, "loaded_lhs");
             }
             llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
             if (eq) {
@@ -2510,10 +2511,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     builder.SetInsertPoint(inserter);
     llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), lhs_expr->type, false);
     if (lhs->getType()->isPointerTy()) {
-        lhs = builder.CreateLoad(opt_struct_type, lhs, "loaded_lhs");
+        lhs = IR::aligned_load(builder, opt_struct_type, lhs, "loaded_lhs");
     }
     if (rhs->getType()->isPointerTy()) {
-        rhs = builder.CreateLoad(opt_struct_type, rhs, "loaded_rhs");
+        rhs = IR::aligned_load(builder, opt_struct_type, rhs, "loaded_rhs");
     }
     llvm::Value *lhs_has_value = builder.CreateExtractValue(lhs, {0}, "lhs_has_value");
     llvm::Value *rhs_has_value = builder.CreateExtractValue(rhs, {0}, "rhs_has_value");

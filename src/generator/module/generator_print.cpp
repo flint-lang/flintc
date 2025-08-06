@@ -143,7 +143,7 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
     arg_string->setName("string");
 
     llvm::Value *str_len_ptr = builder->CreateStructGEP(str_type, arg_string, 0, "str_len_ptr");
-    llvm::Value *str_len = builder->CreateLoad(llvm::Type::getInt64Ty(context), str_len_ptr, "str_len");
+    llvm::Value *str_len = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), str_len_ptr, "str_len");
     llvm::Value *str_len_val = TypeCast::i64_to_i32(*builder, str_len);
 
     llvm::Value *str_val_ptr = builder->CreateStructGEP(str_type, arg_string, 1, "str_val_ptr");

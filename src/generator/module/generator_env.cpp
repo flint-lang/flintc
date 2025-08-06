@@ -68,11 +68,11 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     llvm::AllocaInst *ret_null_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_null_alloc");
     llvm::Value *ret_null_err_ptr = builder->CreateStructGEP(function_result_type, ret_null_alloc, 0, "ret_null_err_ptr");
     llvm::Value *error_value = IR::generate_err_value(*builder, ErrEnv, VarNotFound, VarNotFoundMessage);
-    builder->CreateStore(error_value, ret_null_err_ptr);
+    IR::aligned_store(*builder, error_value, ret_null_err_ptr);
     llvm::Value *ret_null_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_null_empty_str");
     llvm::Value *ret_null_val_ptr = builder->CreateStructGEP(function_result_type, ret_null_alloc, 1, "ret_null_val_ptr");
-    builder->CreateStore(ret_null_empty_str, ret_null_val_ptr);
-    llvm::Value *ret_null_val = builder->CreateLoad(function_result_type, ret_null_alloc, "ret_null_val");
+    IR::aligned_store(*builder, ret_null_empty_str, ret_null_val_ptr);
+    llvm::Value *ret_null_val = IR::aligned_load(*builder, function_result_type, ret_null_alloc, "ret_null_val");
     builder->CreateRet(ret_null_val);
 
     // Handle environment variable found
@@ -89,10 +89,10 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     llvm::Value *ret_success_err_ptr = builder->CreateStructGEP(function_result_type, ret_success_alloc, 0, "ret_success_err_ptr");
     llvm::StructType *err_type = type_map.at("__flint_type_err");
     llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
-    builder->CreateStore(err_struct, ret_success_err_ptr);
+    IR::aligned_store(*builder, err_struct, ret_success_err_ptr);
     llvm::Value *ret_success_val_ptr = builder->CreateStructGEP(function_result_type, ret_success_alloc, 1, "ret_success_val_ptr");
-    builder->CreateStore(result_str, ret_success_val_ptr);
-    llvm::Value *ret_success_val = builder->CreateLoad(function_result_type, ret_success_alloc, "ret_success_val");
+    IR::aligned_store(*builder, result_str, ret_success_val_ptr);
+    llvm::Value *ret_success_val = IR::aligned_load(*builder, function_result_type, ret_success_alloc, "ret_success_val");
     builder->CreateRet(ret_success_val);
 }
 
@@ -166,7 +166,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::Value *c_var = builder->CreateStructGEP(str_type, var_arg, 1, "c_var");
     llvm::Value *c_var_len = builder->CreateCall(strlen_fn, {c_var}, "c_var_len");
     llvm::Value *var_len_ptr = builder->CreateStructGEP(str_type, var_arg, 0, "var_len_ptr");
-    llvm::Value *var_len = builder->CreateLoad(builder->getInt64Ty(), var_len_ptr, "var_len");
+    llvm::Value *var_len = IR::aligned_load(*builder, builder->getInt64Ty(), var_len_ptr, "var_len");
     llvm::Value *var_len_eq = builder->CreateICmpEQ(c_var_len, var_len, "var_len_eq");
     builder->CreateCondBr(var_len_eq, name_ok_block, name_fail_block, IR::generate_weights(100, 0));
 
@@ -175,10 +175,10 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::AllocaInst *ret_name_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_name_fail_alloc");
     llvm::Value *ret_name_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_name_fail_alloc, 0, "ret_name_fail_err_ptr");
     llvm::Value *error_value = IR::generate_err_value(*builder, ErrEnv, InvalidName, InvalidNameMessage);
-    builder->CreateStore(error_value, ret_name_fail_err_ptr);
+    IR::aligned_store(*builder, error_value, ret_name_fail_err_ptr);
     llvm::Value *ret_name_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_name_fail_alloc, 1, "ret_name_fail_val_ptr");
-    builder->CreateStore(builder->getInt1(false), ret_name_fail_val_ptr);
-    llvm::Value *ret_name_fail_val = builder->CreateLoad(function_result_type, ret_name_fail_alloc, "ret_name_fail_val");
+    IR::aligned_store(*builder, builder->getInt1(false), ret_name_fail_val_ptr);
+    llvm::Value *ret_name_fail_val = IR::aligned_load(*builder, function_result_type, ret_name_fail_alloc, "ret_name_fail_val");
     builder->CreateRet(ret_name_fail_val);
 
     // Convert str content to C string
@@ -186,7 +186,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::Value *c_content = builder->CreateStructGEP(str_type, content_arg, 1, "c_content");
     llvm::Value *c_content_len = builder->CreateCall(strlen_fn, {c_content}, "c_content_len");
     llvm::Value *content_len_ptr = builder->CreateStructGEP(str_type, content_arg, 0, "content_len_ptr");
-    llvm::Value *content_len = builder->CreateLoad(builder->getInt64Ty(), content_len_ptr, "content_len");
+    llvm::Value *content_len = IR::aligned_load(*builder, builder->getInt64Ty(), content_len_ptr, "content_len");
     llvm::Value *content_len_eq = builder->CreateICmpEQ(c_content_len, content_len, "content_len_eq");
     builder->CreateCondBr(content_len_eq, value_ok_block, value_fail_block, IR::generate_weights(100, 0));
 
@@ -195,10 +195,10 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::AllocaInst *ret_value_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_value_fail_alloc");
     llvm::Value *ret_value_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_value_fail_alloc, 0, "ret_value_fail_err_ptr");
     error_value = IR::generate_err_value(*builder, ErrEnv, InvalidValue, InvalidValueMessage);
-    builder->CreateStore(error_value, ret_value_fail_err_ptr);
+    IR::aligned_store(*builder, error_value, ret_value_fail_err_ptr);
     llvm::Value *ret_value_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_value_fail_alloc, 1, "ret_value_fail_val_ptr");
-    builder->CreateStore(builder->getInt1(false), ret_value_fail_val_ptr);
-    llvm::Value *ret_value_fail_val = builder->CreateLoad(function_result_type, ret_value_fail_alloc, "ret_value_fail_val");
+    IR::aligned_store(*builder, builder->getInt1(false), ret_value_fail_val_ptr);
+    llvm::Value *ret_value_fail_val = IR::aligned_load(*builder, function_result_type, ret_value_fail_alloc, "ret_value_fail_val");
     builder->CreateRet(ret_value_fail_val);
 
     // Convert bool overwrite to int for setenv (setenv expects int, not bool)
@@ -217,9 +217,9 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::Value *ret_result_err_ptr = builder->CreateStructGEP(function_result_type, ret_result_alloc, 0, "ret_result_err_ptr");
     llvm::StructType *err_type = type_map.at("__flint_type_err");
     llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
-    builder->CreateStore(err_struct, ret_result_err_ptr);
+    IR::aligned_store(*builder, err_struct, ret_result_err_ptr);
     llvm::Value *ret_result_val_ptr = builder->CreateStructGEP(function_result_type, ret_result_alloc, 1, "ret_result_val_ptr");
-    builder->CreateStore(result, ret_result_val_ptr);
-    llvm::Value *ret_result_val = builder->CreateLoad(function_result_type, ret_result_alloc, "ret_result_val");
+    IR::aligned_store(*builder, result, ret_result_val_ptr);
+    llvm::Value *ret_result_val = IR::aligned_load(*builder, function_result_type, ret_result_alloc, "ret_result_val");
     builder->CreateRet(ret_result_val);
 }

@@ -62,7 +62,7 @@ void Generator::Module::Array::generate_create_arr_function(llvm::IRBuilder<> *b
 
     // Initialize arr_len = 1
     llvm::Value *arr_len = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "arr_len_ptr");
-    builder->CreateStore(builder->getInt64(1), arr_len);
+    IR::aligned_store(*builder, builder->getInt64(1), arr_len);
 
     // Calculate total_size = sizeof(str) + dimensionality * sizeof(size_t)
     llvm::DataLayout data_layout = module->getDataLayout();
@@ -82,13 +82,13 @@ void Generator::Module::Array::generate_create_arr_function(llvm::IRBuilder<> *b
     builder->SetInsertPoint(entry_block);
     // Create loop counter
     llvm::Value *counter = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
-    builder->CreateStore(builder->getInt64(0), counter);
+    IR::aligned_store(*builder, builder->getInt64(0), counter);
     // Create branch to the loop entry block
     builder->CreateBr(loop_entry_block);
 
     // Loop entry (condition check)
     builder->SetInsertPoint(loop_entry_block);
-    llvm::Value *current_counter = builder->CreateLoad(builder->getInt64Ty(), counter, "current_counter");
+    llvm::Value *current_counter = IR::aligned_load(*builder, builder->getInt64Ty(), counter, "current_counter");
     llvm::Value *cond = builder->CreateICmpULT(current_counter, arg_dimensionality, "loop_cond");
     builder->CreateCondBr(cond, loop_body_block, merge_block);
 
@@ -97,15 +97,15 @@ void Generator::Module::Array::generate_create_arr_function(llvm::IRBuilder<> *b
 
     // Load the current dimension length: lenghs[i]
     llvm::Value *length_ptr = builder->CreateGEP(builder->getInt64Ty(), arg_lengths, current_counter, "length_ptr");
-    llvm::Value *current_length = builder->CreateLoad(builder->getInt64Ty(), length_ptr, "current_length");
+    llvm::Value *current_length = IR::aligned_load(*builder, builder->getInt64Ty(), length_ptr, "current_length");
 
     // arg_len *= lengths[i]
-    llvm::Value *current_arr_len = builder->CreateLoad(builder->getInt64Ty(), arr_len, "current_arr_len");
+    llvm::Value *current_arr_len = IR::aligned_load(*builder, builder->getInt64Ty(), arr_len, "current_arr_len");
     llvm::Value *new_arr_len = builder->CreateMul(current_arr_len, current_length, "arr_len");
-    builder->CreateStore(new_arr_len, arr_len);
+    IR::aligned_store(*builder, new_arr_len, arr_len);
     // Increnment counter
     llvm::Value *next_counter = builder->CreateAdd(current_counter, builder->getInt64(1), "next_counter");
-    builder->CreateStore(next_counter, counter);
+    IR::aligned_store(*builder, next_counter, counter);
 
     // Jump back to the condition check
     builder->CreateBr(loop_entry_block);
@@ -114,7 +114,7 @@ void Generator::Module::Array::generate_create_arr_function(llvm::IRBuilder<> *b
     builder->SetInsertPoint(merge_block);
 
     // Load the final arr_len value
-    llvm::Value *final_arr_len = builder->CreateLoad(builder->getInt64Ty(), arr_len, "final_arr_len");
+    llvm::Value *final_arr_len = IR::aligned_load(*builder, builder->getInt64Ty(), arr_len, "final_arr_len");
 
     // Calculate the total allocation size: total_size + arr_len * element_size
     llvm::Value *malloc_size = builder->CreateAdd(total_size, builder->CreateMul(final_arr_len, arg_element_size), "malloc_size");
@@ -125,7 +125,7 @@ void Generator::Module::Array::generate_create_arr_function(llvm::IRBuilder<> *b
 
     // Set the dimensionality (len field): arr->len = dimensionality
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arr, 0, "len_ptr");
-    llvm::StoreInst *dim_store = builder->CreateStore(arg_dimensionality, len_ptr);
+    llvm::StoreInst *dim_store = IR::aligned_store(*builder, arg_dimensionality, len_ptr);
     dim_store->setAlignment(llvm::Align(8));
 
     // Store the lengths of each dimension in the value array
@@ -205,7 +205,7 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
 
     // Get dimensionality = arr->len
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_arr, 0, "len_ptr");
-    llvm::Value *dimensionality = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "dimensionality");
+    llvm::Value *dimensionality = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "dimensionality");
 
     // Get dim_lengths = (size_t *)arr->value
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
@@ -213,7 +213,7 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
 
     // Initialize total_elements = 1
     llvm::Value *total_elements_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "total_elements_ptr");
-    builder->CreateStore(builder->getInt64(1), total_elements_ptr);
+    IR::aligned_store(*builder, builder->getInt64(1), total_elements_ptr);
 
     // Create loop for calculating total_elements
     llvm::BasicBlock *loop1_entry = llvm::BasicBlock::Create(context, "loop1_entry", fill_arr_inline_fn);
@@ -229,14 +229,14 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
 
     // Create loop counter
     llvm::Value *counter1 = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
-    builder->CreateStore(builder->getInt64(0), counter1);
+    IR::aligned_store(*builder, builder->getInt64(0), counter1);
 
     // Branch to loop condition check
     builder->CreateBr(loop1_entry);
 
     // Loop entry (condition check)
     builder->SetInsertPoint(loop1_entry);
-    llvm::Value *current_counter1 = builder->CreateLoad(builder->getInt64Ty(), counter1, "current_counter");
+    llvm::Value *current_counter1 = IR::aligned_load(*builder, builder->getInt64Ty(), counter1, "current_counter");
     llvm::Value *cond1 = builder->CreateICmpULT(current_counter1, dimensionality, "loop1_cond");
     builder->CreateCondBr(cond1, loop1_body, loop1_exit);
 
@@ -245,16 +245,16 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
 
     // Load the current dimension length: dim_lengths[i]
     llvm::Value *length_ptr = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, current_counter1, "length_ptr");
-    llvm::Value *current_length = builder->CreateLoad(builder->getInt64Ty(), length_ptr, "current_length");
+    llvm::Value *current_length = IR::aligned_load(*builder, builder->getInt64Ty(), length_ptr, "current_length");
 
     // total_elements *= dim_lengths[i]
-    llvm::Value *current_total = builder->CreateLoad(builder->getInt64Ty(), total_elements_ptr, "current_total");
+    llvm::Value *current_total = IR::aligned_load(*builder, builder->getInt64Ty(), total_elements_ptr, "current_total");
     llvm::Value *new_total = builder->CreateMul(current_total, current_length, "new_total");
-    builder->CreateStore(new_total, total_elements_ptr);
+    IR::aligned_store(*builder, new_total, total_elements_ptr);
 
     // Increment counter
     llvm::Value *next_counter1 = builder->CreateAdd(current_counter1, builder->getInt64(1), "next_counter");
-    builder->CreateStore(next_counter1, counter1);
+    IR::aligned_store(*builder, next_counter1, counter1);
 
     // Jump back to condition check
     builder->CreateBr(loop1_entry);
@@ -263,7 +263,7 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
     builder->SetInsertPoint(loop1_exit);
 
     // Load the final total_elements value
-    llvm::Value *total_elements = builder->CreateLoad(builder->getInt64Ty(), total_elements_ptr, "total_elements");
+    llvm::Value *total_elements = IR::aligned_load(*builder, builder->getInt64Ty(), total_elements_ptr, "total_elements");
 
     // Calculate data_start = (char *)(dim_lengths + dimensionality)
     // This means moving past the dimension lengths to get to the actual array data
@@ -283,12 +283,12 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
 
     // size_t filled = 1
     llvm::Value *filled_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "filled_ptr");
-    builder->CreateStore(builder->getInt64(1), filled_ptr);
+    IR::aligned_store(*builder, builder->getInt64(1), filled_ptr);
     builder->CreateBr(exp_loop_entry);
 
     // Exponential fill loop condition
     builder->SetInsertPoint(exp_loop_entry);
-    llvm::Value *current_filled = builder->CreateLoad(builder->getInt64Ty(), filled_ptr, "current_filled");
+    llvm::Value *current_filled = IR::aligned_load(*builder, builder->getInt64Ty(), filled_ptr, "current_filled");
     llvm::Value *exp_cond = builder->CreateICmpULT(current_filled, total_elements, "exp_cond");
     builder->CreateCondBr(exp_cond, exp_loop_body, exit_block);
 
@@ -312,7 +312,7 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
 
     // filled += to_copy
     llvm::Value *new_filled = builder->CreateAdd(current_filled, to_copy, "new_filled");
-    builder->CreateStore(new_filled, filled_ptr);
+    IR::aligned_store(*builder, new_filled, filled_ptr);
 
     // Jump back to loop condition
     builder->CreateBr(exp_loop_entry);
@@ -322,13 +322,13 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
 
     // Initialize i = 1
     llvm::Value *seq_counter = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "seq_i");
-    builder->CreateStore(builder->getInt64(1), seq_counter);
+    IR::aligned_store(*builder, builder->getInt64(1), seq_counter);
 
     builder->CreateBr(seq_loop_entry);
 
     // Sequential fill loop condition
     builder->SetInsertPoint(seq_loop_entry);
-    llvm::Value *current_seq_counter = builder->CreateLoad(builder->getInt64Ty(), seq_counter, "current_seq_counter");
+    llvm::Value *current_seq_counter = IR::aligned_load(*builder, builder->getInt64Ty(), seq_counter, "current_seq_counter");
     llvm::Value *seq_cond = builder->CreateICmpULT(current_seq_counter, total_elements, "seq_cond");
     builder->CreateCondBr(seq_cond, seq_loop_body, exit_block);
 
@@ -349,7 +349,7 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
 
     // Increment counter
     llvm::Value *next_seq_counter = builder->CreateAdd(current_seq_counter, builder->getInt64(1), "next_seq_counter");
-    builder->CreateStore(next_seq_counter, seq_counter);
+    IR::aligned_store(*builder, next_seq_counter, seq_counter);
 
     // Jump back to loop condition
     builder->CreateBr(seq_loop_entry);
@@ -426,7 +426,7 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
 
     // Get dimensionality = arr->len
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_arr, 0, "len_ptr");
-    llvm::Value *dimensionality = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "dimensionality");
+    llvm::Value *dimensionality = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "dimensionality");
 
     // Get dim_lengths = (size_t *)arr->value
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
@@ -434,18 +434,18 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
 
     // Initialize total_elements = 1
     llvm::Value *total_elements_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "total_elements_ptr");
-    builder->CreateStore(builder->getInt64(1), total_elements_ptr);
+    IR::aligned_store(*builder, builder->getInt64(1), total_elements_ptr);
 
     // Create loop counter
     llvm::Value *counter1 = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
-    builder->CreateStore(builder->getInt64(0), counter1);
+    IR::aligned_store(*builder, builder->getInt64(0), counter1);
 
     // Branch to loop condition check
     builder->CreateBr(loop1_entry);
 
     // Loop entry (condition check)
     builder->SetInsertPoint(loop1_entry);
-    llvm::Value *current_counter1 = builder->CreateLoad(builder->getInt64Ty(), counter1, "current_counter");
+    llvm::Value *current_counter1 = IR::aligned_load(*builder, builder->getInt64Ty(), counter1, "current_counter");
     llvm::Value *cond1 = builder->CreateICmpULT(current_counter1, dimensionality, "loop1_cond");
     builder->CreateCondBr(cond1, loop1_body, loop1_exit);
 
@@ -454,16 +454,16 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
 
     // Load the current dimension length: dim_lengths[i]
     llvm::Value *length_ptr = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, current_counter1, "length_ptr");
-    llvm::Value *current_length = builder->CreateLoad(builder->getInt64Ty(), length_ptr, "current_length");
+    llvm::Value *current_length = IR::aligned_load(*builder, builder->getInt64Ty(), length_ptr, "current_length");
 
     // total_elements *= dim_lengths[i]
-    llvm::Value *current_total = builder->CreateLoad(builder->getInt64Ty(), total_elements_ptr, "current_total");
+    llvm::Value *current_total = IR::aligned_load(*builder, builder->getInt64Ty(), total_elements_ptr, "current_total");
     llvm::Value *new_total = builder->CreateMul(current_total, current_length, "new_total");
-    builder->CreateStore(new_total, total_elements_ptr);
+    IR::aligned_store(*builder, new_total, total_elements_ptr);
 
     // Increment counter
     llvm::Value *next_counter1 = builder->CreateAdd(current_counter1, builder->getInt64(1), "next_counter");
-    builder->CreateStore(next_counter1, counter1);
+    IR::aligned_store(*builder, next_counter1, counter1);
 
     // Jump back to condition check
     builder->CreateBr(loop1_entry);
@@ -472,7 +472,7 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
     builder->SetInsertPoint(loop1_exit);
 
     // Load the final total_elements value
-    llvm::Value *total_elements = builder->CreateLoad(builder->getInt64Ty(), total_elements_ptr, "total_elements");
+    llvm::Value *total_elements = IR::aligned_load(*builder, builder->getInt64Ty(), total_elements_ptr, "total_elements");
 
     // Calculate data_start = (void **)(dim_lengths + dimensionality)
     llvm::Value *dim_lengths_offset = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, dimensionality, "dim_lengths_offset");
@@ -482,14 +482,14 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
 
     // Create loop counter
     llvm::Value *counter2 = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
-    builder->CreateStore(builder->getInt64(0), counter2);
+    IR::aligned_store(*builder, builder->getInt64(0), counter2);
 
     // Branch to loop condition check
     builder->CreateBr(loop2_entry);
 
     // Loop entry (condition check)
     builder->SetInsertPoint(loop2_entry);
-    llvm::Value *current_counter2 = builder->CreateLoad(builder->getInt64Ty(), counter2, "current_counter");
+    llvm::Value *current_counter2 = IR::aligned_load(*builder, builder->getInt64Ty(), counter2, "current_counter");
     llvm::Value *cond2 = builder->CreateICmpULT(current_counter2, total_elements, "loop2_cond");
     builder->CreateCondBr(cond2, loop2_body, loop2_exit);
 
@@ -503,15 +503,15 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
     llvm::Value *allocated_mem = builder->CreateCall(malloc_fn, {arg_value_size}, "allocated_mem");
 
     // Store the allocated pointer: *element_ptr = allocated_mem
-    builder->CreateStore(allocated_mem, element_ptr);
+    IR::aligned_store(*builder, allocated_mem, element_ptr);
 
     // Call memcpy: memcpy(*element_ptr, value, value_size)
-    llvm::Value *element_value = builder->CreateLoad(builder->getVoidTy()->getPointerTo(), element_ptr, "element_value");
+    llvm::Value *element_value = IR::aligned_load(*builder, builder->getVoidTy()->getPointerTo(), element_ptr, "element_value");
     builder->CreateCall(memcpy_fn, {element_value, arg_value, arg_value_size});
 
     // Increment counter
     llvm::Value *next_counter2 = builder->CreateAdd(current_counter2, builder->getInt64(1), "next_counter");
-    builder->CreateStore(next_counter2, counter2);
+    IR::aligned_store(*builder, next_counter2, counter2);
 
     // Jump back to condition check
     builder->CreateBr(loop2_entry);
@@ -591,7 +591,7 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // Get dimensionality = arr->len
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_arr, 0, "len_ptr");
-    llvm::Value *dimensionality = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "dimensionality");
+    llvm::Value *dimensionality = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "dimensionality");
 
     // Get dim_lengths = (size_t *)arr->value
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
@@ -599,7 +599,7 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // Initialize total_elements = 1
     llvm::Value *total_elements_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "total_elements_ptr");
-    builder->CreateStore(builder->getInt64(1), total_elements_ptr);
+    IR::aligned_store(*builder, builder->getInt64(1), total_elements_ptr);
 
     // Create loop for calculating total_elements
     llvm::BasicBlock *loop1_entry = llvm::BasicBlock::Create(context, "loop1_entry", fill_arr_val_fn);
@@ -608,14 +608,14 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // Create loop counter
     llvm::Value *counter1 = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
-    builder->CreateStore(builder->getInt64(0), counter1);
+    IR::aligned_store(*builder, builder->getInt64(0), counter1);
 
     // Branch to loop condition check
     builder->CreateBr(loop1_entry);
 
     // Loop entry (condition check)
     builder->SetInsertPoint(loop1_entry);
-    llvm::Value *current_counter1 = builder->CreateLoad(builder->getInt64Ty(), counter1, "current_counter");
+    llvm::Value *current_counter1 = IR::aligned_load(*builder, builder->getInt64Ty(), counter1, "current_counter");
     llvm::Value *cond1 = builder->CreateICmpULT(current_counter1, dimensionality, "loop1_cond");
     builder->CreateCondBr(cond1, loop1_body, loop1_exit);
 
@@ -624,16 +624,16 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // Load the current dimension length: dim_lengths[i]
     llvm::Value *length_ptr = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, current_counter1, "length_ptr");
-    llvm::Value *current_length = builder->CreateLoad(builder->getInt64Ty(), length_ptr, "current_length");
+    llvm::Value *current_length = IR::aligned_load(*builder, builder->getInt64Ty(), length_ptr, "current_length");
 
     // total_elements *= dim_lengths[i]
-    llvm::Value *current_total = builder->CreateLoad(builder->getInt64Ty(), total_elements_ptr, "current_total");
+    llvm::Value *current_total = IR::aligned_load(*builder, builder->getInt64Ty(), total_elements_ptr, "current_total");
     llvm::Value *new_total = builder->CreateMul(current_total, current_length, "new_total");
-    builder->CreateStore(new_total, total_elements_ptr);
+    IR::aligned_store(*builder, new_total, total_elements_ptr);
 
     // Increment counter
     llvm::Value *next_counter1 = builder->CreateAdd(current_counter1, builder->getInt64(1), "next_counter");
-    builder->CreateStore(next_counter1, counter1);
+    IR::aligned_store(*builder, next_counter1, counter1);
 
     // Jump back to condition check
     builder->CreateBr(loop1_entry);
@@ -642,7 +642,7 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
     builder->SetInsertPoint(loop1_exit);
 
     // Load the final total_elements value
-    llvm::Value *total_elements = builder->CreateLoad(builder->getInt64Ty(), total_elements_ptr, "total_elements");
+    llvm::Value *total_elements = IR::aligned_load(*builder, builder->getInt64Ty(), total_elements_ptr, "total_elements");
 
     // Calculate data_start = (char *)(dim_lengths + dimensionality)
     // This means moving past the dimension lengths to get to the actual array data
@@ -651,7 +651,7 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // memcpy(data_start, &value, element_size) - copy the initial value to the first element
     llvm::Value *value_alloca = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "value_temp");
-    builder->CreateStore(arg_value, value_alloca);
+    IR::aligned_store(*builder, arg_value, value_alloca);
     builder->CreateCall(memcpy_fn, {data_start, value_alloca, arg_element_size});
 
     // Create if-else for choosing exponential or sequential fill
@@ -668,7 +668,7 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // size_t filled = 1
     llvm::Value *filled_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "filled_ptr");
-    builder->CreateStore(builder->getInt64(1), filled_ptr);
+    IR::aligned_store(*builder, builder->getInt64(1), filled_ptr);
 
     llvm::BasicBlock *exp_loop_entry = llvm::BasicBlock::Create(context, "exp_loop_entry", fill_arr_val_fn);
     llvm::BasicBlock *exp_loop_body = llvm::BasicBlock::Create(context, "exp_loop_body", fill_arr_val_fn);
@@ -677,7 +677,7 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // Exponential fill loop condition
     builder->SetInsertPoint(exp_loop_entry);
-    llvm::Value *current_filled = builder->CreateLoad(builder->getInt64Ty(), filled_ptr, "current_filled");
+    llvm::Value *current_filled = IR::aligned_load(*builder, builder->getInt64Ty(), filled_ptr, "current_filled");
     llvm::Value *exp_cond = builder->CreateICmpULT(current_filled, total_elements, "exp_cond");
     builder->CreateCondBr(exp_cond, exp_loop_body, exit_block);
 
@@ -701,7 +701,7 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // filled += to_copy
     llvm::Value *new_filled = builder->CreateAdd(current_filled, to_copy, "new_filled");
-    builder->CreateStore(new_filled, filled_ptr);
+    IR::aligned_store(*builder, new_filled, filled_ptr);
 
     // Jump back to loop condition
     builder->CreateBr(exp_loop_entry);
@@ -715,13 +715,13 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // Initialize i = 1
     llvm::Value *seq_counter = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "seq_i");
-    builder->CreateStore(builder->getInt64(1), seq_counter);
+    IR::aligned_store(*builder, builder->getInt64(1), seq_counter);
 
     builder->CreateBr(seq_loop_entry);
 
     // Sequential fill loop condition
     builder->SetInsertPoint(seq_loop_entry);
-    llvm::Value *current_seq_counter = builder->CreateLoad(builder->getInt64Ty(), seq_counter, "current_seq_counter");
+    llvm::Value *current_seq_counter = IR::aligned_load(*builder, builder->getInt64Ty(), seq_counter, "current_seq_counter");
     llvm::Value *seq_cond = builder->CreateICmpULT(current_seq_counter, total_elements, "seq_cond");
     builder->CreateCondBr(seq_cond, seq_loop_body, exit_block);
 
@@ -742,7 +742,7 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
 
     // Increment counter
     llvm::Value *next_seq_counter = builder->CreateAdd(current_seq_counter, builder->getInt64(1), "next_seq_counter");
-    builder->CreateStore(next_seq_counter, seq_counter);
+    IR::aligned_store(*builder, next_seq_counter, seq_counter);
 
     // Jump back to loop condition
     builder->CreateBr(seq_loop_entry);
@@ -826,7 +826,7 @@ void Generator::Module::Array::generate_access_arr_function( //
 
     // const size_t dimensionality = arr->len;
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_arr, 0, "len_ptr");
-    llvm::Value *dimensionality = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "dimensionality");
+    llvm::Value *dimensionality = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "dimensionality");
 
     // size_t *dim_lengths = (size_t *)arr->value;
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
@@ -834,29 +834,29 @@ void Generator::Module::Array::generate_access_arr_function( //
 
     // Initialize offset = 0
     llvm::Value *offset_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "offset_ptr");
-    builder->CreateStore(builder->getInt64(0), offset_ptr);
+    IR::aligned_store(*builder, builder->getInt64(0), offset_ptr);
 
     // Initialize stride = 1
     llvm::Value *stride_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "stride_ptr");
-    builder->CreateStore(builder->getInt64(1), stride_ptr);
+    IR::aligned_store(*builder, builder->getInt64(1), stride_ptr);
 
     // Initialize counter i = 0
     llvm::Value *counter_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i_ptr");
-    builder->CreateStore(builder->getInt64(0), counter_ptr);
+    IR::aligned_store(*builder, builder->getInt64(0), counter_ptr);
 
     // Branch to loop condition
     builder->CreateBr(loop_block);
 
     // Loop condition: i < dimensionality
     builder->SetInsertPoint(loop_block);
-    llvm::Value *current_counter = builder->CreateLoad(builder->getInt64Ty(), counter_ptr, "i");
+    llvm::Value *current_counter = IR::aligned_load(*builder, builder->getInt64Ty(), counter_ptr, "i");
     llvm::Value *loop_cond = builder->CreateICmpULT(current_counter, dimensionality, "loop_cond");
 
     // size_t index = indices[i] - Now use our local copy
     llvm::Value *index_ptr = builder->CreateGEP(builder->getInt64Ty(), arg_indices, current_counter, "index_ptr");
-    llvm::Value *current_index = builder->CreateLoad(builder->getInt64Ty(), index_ptr, "index");
+    llvm::Value *current_index = IR::aligned_load(*builder, builder->getInt64Ty(), index_ptr, "index");
     llvm::Value *dim_length_ptr = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, current_counter, "dim_length_ptr");
-    llvm::Value *current_dim_length = builder->CreateLoad(builder->getInt64Ty(), dim_length_ptr, "dim_length");
+    llvm::Value *current_dim_length = IR::aligned_load(*builder, builder->getInt64Ty(), dim_length_ptr, "dim_length");
 
     if (oob_mode == ArrayOutOfBoundsMode::UNSAFE) {
         // Just jump to the "in bounds" block as we don't include a bounds check
@@ -884,7 +884,7 @@ void Generator::Module::Array::generate_access_arr_function( //
             case ArrayOutOfBoundsMode::SILENT: {
                 // Apply index clamping and update our LOCAL copy
                 llvm::Value *clamped_index = builder->CreateSub(current_dim_length, builder->getInt64(1), "clamped_index");
-                builder->CreateStore(clamped_index, index_ptr); // Update our local copy
+                IR::aligned_store(*builder, clamped_index, index_ptr); // Update our local copy
                 builder->CreateBr(in_bounds_block);
                 break;
             }
@@ -902,27 +902,27 @@ void Generator::Module::Array::generate_access_arr_function( //
     builder->SetInsertPoint(in_bounds_block);
 
     // Reload the potentially updated index from our local copy
-    llvm::Value *index_to_use = builder->CreateLoad(builder->getInt64Ty(), index_ptr, "index_after_bounds_check");
+    llvm::Value *index_to_use = IR::aligned_load(*builder, builder->getInt64Ty(), index_ptr, "index_after_bounds_check");
 
     // load stride
-    llvm::Value *current_stride = builder->CreateLoad(builder->getInt64Ty(), stride_ptr, "stride");
+    llvm::Value *current_stride = IR::aligned_load(*builder, builder->getInt64Ty(), stride_ptr, "stride");
 
     // offset += index * stride;
-    llvm::Value *current_offset = builder->CreateLoad(builder->getInt64Ty(), offset_ptr, "offset");
+    llvm::Value *current_offset = IR::aligned_load(*builder, builder->getInt64Ty(), offset_ptr, "offset");
     llvm::Value *index_times_stride = builder->CreateMul(index_to_use, current_stride, "index_times_stride");
     llvm::Value *new_offset = builder->CreateAdd(current_offset, index_times_stride, "new_offset");
-    builder->CreateStore(new_offset, offset_ptr);
+    IR::aligned_store(*builder, new_offset, offset_ptr);
 
     // stride *= dim_lengths[i];
     llvm::Value *new_stride = builder->CreateMul(current_stride, current_dim_length, "new_stride");
-    builder->CreateStore(new_stride, stride_ptr);
+    IR::aligned_store(*builder, new_stride, stride_ptr);
 
     builder->CreateBr(continue_block);
 
     // Continue loop - increment counter
     builder->SetInsertPoint(continue_block);
     llvm::Value *next_counter = builder->CreateAdd(current_counter, builder->getInt64(1), "next_counter");
-    builder->CreateStore(next_counter, counter_ptr);
+    IR::aligned_store(*builder, next_counter, counter_ptr);
     builder->CreateBr(loop_block);
 
     // Exit block - calculate final pointer
@@ -934,7 +934,7 @@ void Generator::Module::Array::generate_access_arr_function( //
     llvm::Value *data_start = builder->CreateBitCast(dim_lengths_offset, builder->getInt8Ty()->getPointerTo(), "data_start");
 
     // Calculate the final offset: data_start + offset * element_size
-    llvm::Value *final_offset = builder->CreateLoad(builder->getInt64Ty(), offset_ptr, "final_offset");
+    llvm::Value *final_offset = IR::aligned_load(*builder, builder->getInt64Ty(), offset_ptr, "final_offset");
     llvm::Value *byte_offset = builder->CreateMul(final_offset, arg_element_size, "byte_offset");
     llvm::Value *result_ptr = builder->CreateGEP(builder->getInt8Ty(), data_start, byte_offset, "result_ptr");
 
@@ -994,7 +994,7 @@ void Generator::Module::Array::generate_access_arr_val_function( //
     llvm::Value *access_result = builder->CreateCall(access_arr_fn, {arg_arr, arg_element_size, arg_indices}, "element");
     llvm::Value *value = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "value_buffer");
     builder->CreateCall(memcpy_fn, {value, access_result, arg_element_size});
-    llvm::Value *loaded_value = builder->CreateLoad(builder->getInt64Ty(), value, "value");
+    llvm::Value *loaded_value = IR::aligned_load(*builder, builder->getInt64Ty(), value, "value");
     builder->CreateRet(loaded_value);
 }
 
@@ -1108,7 +1108,7 @@ void Generator::Module::Array::generate_assign_arr_val_at_function( //
 
     llvm::Value *access_result = builder->CreateCall(access_arr_fn, {arg_arr, arg_element_size, arg_indices}, "element");
     llvm::Value *val = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "val");
-    builder->CreateStore(arg_value, val);
+    IR::aligned_store(*builder, arg_value, val);
     builder->CreateCall(memcpy_fn, {access_result, val, arg_element_size});
 
     builder->CreateRetVoid();
@@ -1188,7 +1188,7 @@ void Generator::Module::Array::generate_free_arr_function(llvm::IRBuilder<> *bui
 
     // Get dimensionality = arr->len
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_arr, 0, "len_ptr");
-    llvm::Value *dimensionality = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "dimensionality");
+    llvm::Value *dimensionality = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "dimensionality");
 
     // Get lens = (size_t *)arr->value
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
@@ -1196,18 +1196,18 @@ void Generator::Module::Array::generate_free_arr_function(llvm::IRBuilder<> *bui
 
     // Calculate total length
     llvm::Value *length_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "length_ptr");
-    builder->CreateStore(builder->getInt64(1), length_ptr);
+    IR::aligned_store(*builder, builder->getInt64(1), length_ptr);
 
     // Create loop counter
     llvm::Value *counter1 = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
-    builder->CreateStore(builder->getInt64(0), counter1);
+    IR::aligned_store(*builder, builder->getInt64(0), counter1);
 
     // Branch to loop condition check
     builder->CreateBr(loop1_entry);
 
     // Loop entry (condition check)
     builder->SetInsertPoint(loop1_entry);
-    llvm::Value *current_counter1 = builder->CreateLoad(builder->getInt64Ty(), counter1, "current_counter");
+    llvm::Value *current_counter1 = IR::aligned_load(*builder, builder->getInt64Ty(), counter1, "current_counter");
     llvm::Value *cond1 = builder->CreateICmpULT(current_counter1, dimensionality, "loop1_cond");
     builder->CreateCondBr(cond1, loop1_body, loop1_exit);
 
@@ -1216,23 +1216,23 @@ void Generator::Module::Array::generate_free_arr_function(llvm::IRBuilder<> *bui
 
     // Load the current dimension length: lens[i]
     llvm::Value *dim_length_ptr = builder->CreateGEP(builder->getInt64Ty(), lens_size_t, current_counter1, "dim_length_ptr");
-    llvm::Value *current_length = builder->CreateLoad(builder->getInt64Ty(), dim_length_ptr, "current_length");
+    llvm::Value *current_length = IR::aligned_load(*builder, builder->getInt64Ty(), dim_length_ptr, "current_length");
 
     // length *= lens[i]
-    llvm::Value *current_total = builder->CreateLoad(builder->getInt64Ty(), length_ptr, "current_total");
+    llvm::Value *current_total = IR::aligned_load(*builder, builder->getInt64Ty(), length_ptr, "current_total");
     llvm::Value *new_total = builder->CreateMul(current_total, current_length, "new_total");
-    builder->CreateStore(new_total, length_ptr);
+    IR::aligned_store(*builder, new_total, length_ptr);
 
     // Increment counter
     llvm::Value *next_counter1 = builder->CreateAdd(current_counter1, builder->getInt64(1), "next_counter");
-    builder->CreateStore(next_counter1, counter1);
+    IR::aligned_store(*builder, next_counter1, counter1);
 
     // Jump back to condition check
     builder->CreateBr(loop1_entry);
 
     // After calculating total length
     builder->SetInsertPoint(loop1_exit);
-    llvm::Value *total_length = builder->CreateLoad(builder->getInt64Ty(), length_ptr, "total_length");
+    llvm::Value *total_length = IR::aligned_load(*builder, builder->getInt64Ty(), length_ptr, "total_length");
 
     // Calculate fields = (str **)(lens + dimensionality)
     // This gives us a pointer to the array of str pointers
@@ -1244,14 +1244,14 @@ void Generator::Module::Array::generate_free_arr_function(llvm::IRBuilder<> *bui
 
     // Create loop counter
     llvm::Value *counter2 = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "j");
-    builder->CreateStore(builder->getInt64(0), counter2);
+    IR::aligned_store(*builder, builder->getInt64(0), counter2);
 
     // Branch to loop condition check
     builder->CreateBr(loop2_entry);
 
     // Loop entry (condition check)
     builder->SetInsertPoint(loop2_entry);
-    llvm::Value *current_counter2 = builder->CreateLoad(builder->getInt64Ty(), counter2, "current_counter2");
+    llvm::Value *current_counter2 = IR::aligned_load(*builder, builder->getInt64Ty(), counter2, "current_counter2");
     llvm::Value *cond2 = builder->CreateICmpULT(current_counter2, total_length, "loop2_cond");
     builder->CreateCondBr(cond2, loop2_body, loop2_exit);
 
@@ -1260,14 +1260,14 @@ void Generator::Module::Array::generate_free_arr_function(llvm::IRBuilder<> *bui
 
     // Get current field: fields[i]
     llvm::Value *field_ptr = builder->CreateGEP(str_type->getPointerTo(), fields, current_counter2, "field_ptr");
-    llvm::Value *field = builder->CreateLoad(str_type->getPointerTo(), field_ptr, "field");
+    llvm::Value *field = IR::aligned_load(*builder, str_type->getPointerTo(), field_ptr, "field");
 
     // Call free_arr recursively: free_arr(fields[i], next_complexity)
     builder->CreateCall(free_arr_fn, {field, next_complexity});
 
     // Increment counter
     llvm::Value *next_counter2 = builder->CreateAdd(current_counter2, builder->getInt64(1), "next_counter2");
-    builder->CreateStore(next_counter2, counter2);
+    IR::aligned_store(*builder, next_counter2, counter2);
 
     // Jump back to condition check
     builder->CreateBr(loop2_entry);
