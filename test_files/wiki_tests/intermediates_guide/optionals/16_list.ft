@@ -1,0 +1,26 @@
+use Core.print
+
+data IntList:
+	i32 value;
+	IntList? next;
+	IntList(value, next);
+
+def append(mut IntList list, i32 value):
+	if list.next == none:
+		list.next = IntList(value, none);
+	else:
+		append(list.next!, value);
+
+def print_list(IntList list):
+	print($"{list.value}");
+	if list.next != none:
+		print(" -> ");
+		print_list(list.next!);
+	else:
+		print("\n");
+
+def main():
+	IntList list = IntList(10, none);
+	print_list(list);
+	append(list, 20);
+	print_list(list);

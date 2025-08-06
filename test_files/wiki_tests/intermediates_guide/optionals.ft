@@ -85,3 +85,13 @@ test "[f]14_chain_nested_data.ft":
 	str path = "wiki_tests/intermediates_guide/optionals";
 	str file = "14_chain_nested_data.ft";
 	test_file_ok($"{path}/{file}", "x! = 10\n");
+
+test "15_reference.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "15_reference.ft";
+	test_file_ok($"{path}/{file}", "md.(x, y, v) = (7, 6.28, \"Hello There\")\n");
+
+test "16_list.ft":
+	str path = "wiki_tests/intermediates_guide/optionals";
+	str file = "16_list.ft";
+	test_file_ok($"{path}/{file}", "10\n10 -> 20\n");
