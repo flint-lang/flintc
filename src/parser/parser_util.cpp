@@ -803,6 +803,10 @@ Parser::create_field_access_base(     //
         } else if (field_name == "message") {
             return std::make_tuple(std::move(base_expr.value()), field_name, 2, Type::get_primitive_type("str"));
         }
+    } else if (dynamic_cast<const VariantType *>(base_type.get())) {
+        if (field_name == "active_type") {
+            return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u8"));
+        }
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return std::nullopt;

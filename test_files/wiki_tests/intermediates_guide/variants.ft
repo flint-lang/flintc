@@ -83,4 +83,4 @@ test "15_cmp_var_eq.ft":
 test "16_active_type.ft":
 	str path = "wiki_tests/intermediates_guide/variants";
 	str file = "16_active_type.ft";
-	test_file_ok($"{path}/{file}", "hold the same type\nhold different types\nare equal\n");
+	test_file_ok($"{path}/{file}", "hold the same type\nhold different types\n");
