@@ -1,6 +1,3 @@
-use Core.assert
-use Core.system
-
 use "utils.ft"
 
 test "0_declaration.ft":
@@ -57,3 +54,33 @@ test "[f]10_inline_in_data.ft":
 	str path = "wiki_tests/intermediates_guide/variants";
 	str file = "10_inline_in_data.ft";
 	test_file_ok($"{path}/{file}", "flags = 00000000\ni = -10\n");
+
+test "11_cmp_type.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "11_cmp_type.ft";
+	test_file_ok($"{path}/{file}", "holds f32 value\n");
+
+test "12_cmp_type_switch.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "12_cmp_type_switch.ft";
+	test_file_ok($"{path}/{file}", "holds f32 value\n");
+
+test "13_cmp_type_tag.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "13_cmp_type_tag.ft";
+	test_file_ok($"{path}/{file}", "holds Int value\n");
+
+test "14_cmp_type_switch_tag.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "14_cmp_type_switch_tag.ft";
+	test_file_ok($"{path}/{file}", "holds Float value\n");
+
+test "15_cmp_var_eq.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "15_cmp_var_eq.ft";
+	test_file_ok($"{path}/{file}", "differ\nare equal\n");
+
+test "16_active_type.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "16_active_type.ft";
+	test_file_ok($"{path}/{file}", "hold the same type\nhold different types\nare equal\n");

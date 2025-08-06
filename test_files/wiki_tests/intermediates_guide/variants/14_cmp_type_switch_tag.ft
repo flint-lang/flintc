@@ -1,0 +1,12 @@
+use Core.print
+
+variant MyVar:
+	Int(i32), Float(f32), bool;
+
+def main():
+	MyVar var = 3.14;
+
+	switch var:
+		MyVar.Int(v):   print("holds Int value\n");
+		MyVar.Float(v): print("holds Float value\n");
+		bool(v):        print("holds bool value\n");

@@ -1,0 +1,26 @@
+use Core.print
+
+variant MyVar:
+	i32, i64, i32x3;
+
+def main():
+	MyVar var_1 = i64(-5);
+	MyVar var_2 = i64(6);
+
+	if var_1.active_type == var_2.active_type:
+		print("hold the same type\n");
+	else:
+		print("hold different types\n");
+
+	var_1 = 5;
+	if var_1.active_type == var_2.active_type:
+		print("hold the same type\n");
+	else:
+		print("hold different types\n");
+
+	var_1 = 5;
+	var_2 = 5;
+	if var_1 == var_2:
+		print("are equal\n");
+	else:
+		print("differ\n");

@@ -1,0 +1,14 @@
+use Core.print
+
+variant MyVar:
+	Int(i32), Float(f32), bool;
+
+def main():
+	MyVar var = -7;
+
+	if var == MyVar.Int:
+		print("holds Int value\n");
+	else if var == MyVar.Float:
+		print("holds Float value\n");
+	else if var == bool:
+		print("holds bool value\n");

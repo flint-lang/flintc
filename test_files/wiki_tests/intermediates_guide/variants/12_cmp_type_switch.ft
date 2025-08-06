@@ -1,0 +1,12 @@
+use Core.print
+
+variant MyVar:
+	i32, f32, bool;
+
+def main():
+	MyVar var = 3.14;
+
+	switch var:
+		i32(v):  print("holds i32 value\n");
+		f32(v):  print("holds f32 value\n");
+		bool(v): print("holds bool value\n");

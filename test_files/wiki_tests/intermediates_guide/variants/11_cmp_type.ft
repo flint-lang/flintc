@@ -1,0 +1,14 @@
+use Core.print
+
+variant MyVar:
+	i32, f32, bool;
+
+def main():
+	MyVar var = 3.14;
+
+	if var == i32:
+		print("holds i32 value\n");
+	else if var == f32:
+		print("holds f32 value\n");
+	else if var == bool:
+		print("holds bool value\n");
