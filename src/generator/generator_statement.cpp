@@ -1325,7 +1325,10 @@ bool Generator::Statement::generate_declaration( //
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
         Expression::garbage_type garbage;
-        auto expr_val = Expression::generate_expression(builder, ctx, garbage, 0, declaration_node->initializer.value().get());
+        const bool is_reference = dynamic_cast<const OptionalType *>(declaration_node->type.get()) != nullptr;
+        auto expr_val = Expression::generate_expression(                                        //
+            builder, ctx, garbage, 0, declaration_node->initializer.value().get(), is_reference //
+        );
         if (!expr_val.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
@@ -1464,7 +1467,8 @@ bool Generator::Statement::generate_declaration( //
 
 bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, GenerationContext &ctx, const AssignmentNode *assignment_node) {
     Expression::garbage_type garbage;
-    auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get());
+    const bool is_reference = dynamic_cast<const OptionalType *>(assignment_node->type.get()) != nullptr;
+    auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get(), is_reference);
     if (!expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -1635,7 +1639,10 @@ bool Generator::Statement::generate_data_field_assignment( //
 ) {
     // Just save the result of the expression in the field of the data
     Expression::garbage_type garbage;
-    group_mapping expression = Expression::generate_expression(builder, ctx, garbage, 0, data_field_assignment->expression.get());
+    const bool is_reference = dynamic_cast<const OptionalType *>(data_field_assignment->field_type.get()) != nullptr;
+    group_mapping expression = Expression::generate_expression(                         //
+        builder, ctx, garbage, 0, data_field_assignment->expression.get(), is_reference //
+    );
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;

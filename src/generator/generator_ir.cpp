@@ -27,9 +27,13 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
         types_str = "tuple_";
         types = tuple_type->types;
     } else if (const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
-        types_str = "data_";
-        for (auto &[_, field_type] : data_type->data_node->fields) {
-            types.emplace_back(field_type);
+        if (!is_return_type) {
+            types_str = "data." + data_type->data_node->name;
+            for (auto &[_, field_type] : data_type->data_node->fields) {
+                types.emplace_back(field_type);
+            }
+        } else {
+            types.emplace_back(type);
         }
     } else if (type->to_string() != "void") {
         types.emplace_back(type);
@@ -61,7 +65,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     // Rest of the elements are the return types
     for (const auto &ret_value : types) {
         auto ret_type = get_type(module, ret_value);
-        if (ret_type.second) {
+        if (ret_type.second && !dynamic_cast<const OptionalType *>(ret_value.get())) {
             types_vec.emplace_back(ret_type.first->getPointerTo());
         } else {
             types_vec.emplace_back(ret_type.first);
@@ -221,13 +225,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
         }
     } else if (const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
         // Check if its a known data type
-        std::string type_str = "data_";
-        for (auto field_it = data_type->data_node->fields.begin(); field_it != data_type->data_node->fields.end(); ++field_it) {
-            if (field_it != data_type->data_node->fields.begin()) {
-                type_str += "_";
-            }
-            type_str += field_it->second->to_string();
-        }
+        const std::string type_str = "data." + data_type->data_node->name;
         if (type_map.find(type_str) != type_map.end()) {
             return {type_map.at(type_str), true};
         }
@@ -238,7 +236,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
         std::vector<llvm::Type *> field_types;
         for (auto field_it = data_type->data_node->fields.begin(); field_it != data_type->data_node->fields.end(); ++field_it) {
             auto pair = get_type(module, field_it->second);
-            if (pair.second) {
+            if (pair.second && !dynamic_cast<const OptionalType *>(field_it->second.get())) {
                 field_types.emplace_back(pair.first->getPointerTo());
             } else {
                 field_types.emplace_back(pair.first);
@@ -276,7 +274,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
         std::vector<llvm::Type *> type_vector;
         for (const auto &tup_type : tuple_type->types) {
             auto pair = get_type(module, tup_type);
-            if (pair.second) {
+            if (pair.second && !dynamic_cast<const OptionalType *>(tup_type.get())) {
                 pair.first = pair.first->getPointerTo();
             }
             type_vector.emplace_back(pair.first);
@@ -299,7 +297,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
             );
             type_map[opt_str] = llvm_opt_type;
         }
-        return {type_map.at(opt_str), false};
+        return {type_map.at(opt_str), true};
     } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(type.get())) {
         if (variant_type->is_err_variant) {
             if (type_map.find("__flint_type_err") == type_map.end()) {
@@ -351,7 +349,7 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
         }
         return {type_map.at(var_str), true};
     }
-    // Pointer to more complex data type
+    // Pointer to non-supported type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return {nullptr, false};
 }

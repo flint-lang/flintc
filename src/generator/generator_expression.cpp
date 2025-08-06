@@ -53,7 +53,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         return generate_binary_op(builder, ctx, garbage, expr_depth, binary_op_node);
     }
     if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expression_node)) {
-        return generate_type_cast(builder, ctx, garbage, expr_depth, type_cast_node);
+        return generate_type_cast(builder, ctx, garbage, expr_depth, type_cast_node, is_reference);
     }
     if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expression_node)) {
         return generate_group_expression(builder, ctx, garbage, expr_depth, group_node);
@@ -1508,7 +1508,20 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
     result_value = builder.CreateInsertValue(result_value, builder.getInt1(true), {0});
     if (std::holds_alternative<ChainFieldAccess>(chain->operation)) {
         const ChainFieldAccess &access = std::get<ChainFieldAccess>(chain->operation);
-        llvm::Value *opt_value = builder.CreateExtractValue(base_expr_value, access.field_id);
+        const OptionalType *base_expr_type = dynamic_cast<const OptionalType *>(chain->base_expr->type.get());
+        assert(base_expr_type != nullptr);
+        llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), base_expr_type->base_type).first;
+        llvm::Type *field_type = nullptr;
+        if (chain->is_toplevel_chain_node) {
+            const OptionalType *optional_result_type = dynamic_cast<const OptionalType *>(chain->type.get());
+            assert(optional_result_type != nullptr);
+            field_type = IR::get_type(ctx.parent->getParent(), optional_result_type->base_type).first;
+        } else {
+            field_type = IR::get_type(ctx.parent->getParent(), chain->type).first;
+        }
+
+        llvm::Value *opt_value_ptr = builder.CreateStructGEP(data_type, base_expr_value, access.field_id, "opt_value_ptr");
+        llvm::Value *opt_value = builder.CreateLoad(field_type, opt_value_ptr, "opt_value");
         result_value = builder.CreateInsertValue(result_value, opt_value, {1}, "filled_result");
     } else if (std::holds_alternative<ChainArrayAccess>(chain->operation)) {
         const ChainArrayAccess &access = std::get<ChainArrayAccess>(chain->operation);
@@ -1653,7 +1666,8 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
     GenerationContext &ctx,                                         //
     garbage_type &garbage,                                          //
     const unsigned int expr_depth,                                  //
-    const TypeCastNode *type_cast_node                              //
+    const TypeCastNode *type_cast_node,                             //
+    const bool is_reference                                         //
 ) {
     // If the base expression is a `TypeNode` and the type cast result is a variant the actual "value" of the type cast is dependant on the
     // variant type, this means that this is a special case which needs special handling
@@ -1669,7 +1683,7 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
         return std::vector<llvm::Value *>{builder.getInt8(id.value())};
     }
     // First, generate the expression
-    auto expr_res = generate_expression(builder, ctx, garbage, expr_depth + 1, type_cast_node->expr.get());
+    auto expr_res = generate_expression(builder, ctx, garbage, expr_depth + 1, type_cast_node->expr.get(), is_reference);
     std::vector<llvm::Value *> expr = expr_res.value();
     std::shared_ptr<Type> to_type;
     if (const GroupType *group_type = dynamic_cast<const GroupType *>(type_cast_node->type.get())) {
