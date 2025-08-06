@@ -1034,6 +1034,84 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap(st
     return std::nullopt;
 }
 
+std::optional<VariantExtractionNode> Parser::create_variant_extraction(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    token_list toks = clone_from_slice(tokens);
+    // We first need to get the last question operator as our separator for the base expression
+    auto iterator = tokens.second - 1;
+    while (iterator != tokens.first) {
+        if (iterator->token == TOK_QUESTION) {
+            break;
+        }
+        --iterator;
+    }
+    assert(iterator != tokens.first);
+    assert(iterator->token == TOK_QUESTION);
+    const token_slice base_expr_tokens = {tokens.first, iterator};
+    // Next should follow an open paren containing a type token or a tag literal followed by a closing paren
+    assert((++iterator)->token == TOK_LEFT_PAREN);
+    auto end_it = ++iterator;
+    while (end_it->token != TOK_RIGHT_PAREN) {
+        end_it++;
+    }
+    assert(end_it->token == TOK_RIGHT_PAREN);
+    const token_slice type_tokens = {iterator, end_it};
+    auto type_expr = create_expression(scope, type_tokens);
+    if (!type_expr.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    iterator = end_it;
+    std::shared_ptr<Type> unwrap_type;
+    if (dynamic_cast<const TypeNode *>(type_expr.value().get())) {
+        unwrap_type = type_expr.value()->type;
+    } else if (const LiteralNode *literal_node = dynamic_cast<const LiteralNode *>(type_expr.value().get())) {
+        if (!std::holds_alternative<LitVariantTag>(literal_node->value)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const LitVariantTag &lit_variant = std::get<LitVariantTag>(literal_node->value);
+        unwrap_type = lit_variant.variation_type;
+    }
+    type_expr.value().reset();
+
+    // If nothing follows after the variant extraction node we can return its result wrapped in an optional directly
+    if (iterator == tokens.second - 1) {
+        auto base_expr = create_expression(scope, base_expr_tokens);
+        if (!base_expr.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const VariantType *variant_type = dynamic_cast<const VariantType *>(base_expr.value()->type.get());
+        if (variant_type == nullptr) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (!variant_type->get_idx_of_type(unwrap_type).has_value()) {
+            // Type not part of the variant
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (!dynamic_cast<const VariableNode *>(base_expr.value().get())) {
+            // Extracting from non-variable expressions is not supported yet
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return VariantExtractionNode(base_expr.value(), unwrap_type);
+    }
+    // Skip the `)`
+    ++iterator;
+
+    if (iterator->token == TOK_LEFT_BRACKET) {
+        // TODO: It's an array access. First we need to make sure that the extracted type is an array or string type
+    } else if (iterator->token == TOK_DOT && (iterator + 1)->token == TOK_LEFT_PAREN) {
+        // TODO: It's a grouped field access
+    } else if (iterator->token == TOK_DOT) {
+        // TODO: It's a field access
+    }
+    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+    return std::nullopt;
+}
+
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens) {
     // We first need to get the last exclamation operator as our separator for the base expression
     auto iterator = tokens.second - 1;
@@ -1071,6 +1149,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(std
         const LitVariantTag &lit_variant = std::get<LitVariantTag>(literal_node->value);
         unwrap_type = lit_variant.variation_type;
     }
+    type_expr.value().reset();
 
     // If nothing follows after the variant unwrap node we can return it directly
     if (iterator == tokens.second - 1) {
@@ -1491,7 +1570,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
         return std::make_unique<ArrayAccessNode>(std::move(access.value()));
     }
-    if (Matcher::tokens_contain(tokens_mut, Matcher::token(TOK_QUESTION))) {
+    if (Matcher::tokens_contain(tokens_mut, Matcher::optional_chain)) {
         if (!Matcher::tokens_contain(tokens_mut, Matcher::unary_operator) &&
             !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator)) {
             std::optional<OptionalChainNode> chain = create_optional_chain(scope, tokens);
@@ -1502,22 +1581,33 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<OptionalChainNode>(std::move(chain.value()));
         }
     }
-    if (Matcher::tokens_contain(tokens_mut, Matcher::variant_unwrap)      //
+    if (Matcher::tokens_contain(tokens_mut, Matcher::optional_unwrap)     //
         && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
         && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
     ) {
-        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(scope, tokens);
+        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(scope, tokens);
         if (!unwrap.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::move(unwrap.value());
     }
-    if (Matcher::tokens_contain(tokens_mut, Matcher::optional_unwrap)     //
+    if (Matcher::tokens_contain(tokens_mut, Matcher::variant_extraction)  //
         && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
         && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
     ) {
-        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(scope, tokens);
+        std::optional<VariantExtractionNode> extraction = create_variant_extraction(scope, tokens);
+        if (!extraction.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_unique<VariantExtractionNode>(std::move(extraction.value()));
+    }
+    if (Matcher::tokens_contain(tokens_mut, Matcher::variant_unwrap)      //
+        && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
+        && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
+    ) {
+        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(scope, tokens);
         if (!unwrap.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;

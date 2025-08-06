@@ -615,6 +615,13 @@ namespace Debug {
             print_expression(indent_lvl + 1, base_expr_bits, unwrap_node.base_expr);
         }
 
+        void print_variant_extraction(unsigned int indent_lvl, TreeBits &bits, const VariantExtractionNode &extraction) {
+            Local::print_header(indent_lvl, bits, "VariantExtract ");
+            std::cout << "?(" << extraction.extracted_type->to_string() << ") -> " << extraction.type->to_string() << std::endl;
+            TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, extraction.base_expr);
+        }
+
         void print_variant_unwrap(unsigned int indent_lvl, TreeBits &bits, const VariantUnwrapNode &unwrap_node) {
             Local::print_header(indent_lvl, bits, "VarUnwrap ");
             std::cout << "[" << unwrap_node.type->to_string() << "]" << std::endl;
@@ -661,6 +668,8 @@ namespace Debug {
                 print_optional_chain(indent_lvl, bits, *chain_node);
             } else if (const auto *unwrap_node = dynamic_cast<const OptionalUnwrapNode *>(expr.get())) {
                 print_optional_unwrap(indent_lvl, bits, *unwrap_node);
+            } else if (const auto *var_extract_node = dynamic_cast<const VariantExtractionNode *>(expr.get())) {
+                print_variant_extraction(indent_lvl, bits, *var_extract_node);
             } else if (const auto *var_unwrap_node = dynamic_cast<const VariantUnwrapNode *>(expr.get())) {
                 print_variant_unwrap(indent_lvl, bits, *var_unwrap_node);
             } else {

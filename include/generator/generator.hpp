@@ -19,6 +19,7 @@
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
+#include "parser/ast/expressions/variant_extraction_node.hpp"
 #include "parser/ast/expressions/variant_unwrap_node.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/scope.hpp"
@@ -1662,6 +1663,19 @@ class Generator {
             garbage_type &garbage,                     //
             const unsigned int expr_depth,             //
             const OptionalUnwrapNode *unwrap           //
+        );
+
+        /// @function `generate_variant_extraction`
+        /// @brief Generates a variant extraction from a given VariantExtractionNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `extraction` The variant extraction node to generate
+        /// @return `group_mapping` The value containing the result of the variant extraction
+        static group_mapping generate_variant_extraction( //
+            llvm::IRBuilder<> &builder,                   //
+            GenerationContext &ctx,                       //
+            const VariantExtractionNode *extraction       //
         );
 
         /// @function `generate_variant_unwrap`

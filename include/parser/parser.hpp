@@ -49,6 +49,7 @@
 #include "ast/expressions/variable_node.hpp"
 #include "ast/statements/catch_node.hpp"
 #include "ast/statements/throw_node.hpp"
+#include "parser/ast/expressions/variant_extraction_node.hpp"
 
 #include "type/multi_type.hpp"
 
@@ -804,6 +805,14 @@ class Parser {
     /// @param `tokens` The list of tokens representing the optional unwrap
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The expression containing the optional unwrap, nullopt if creation failed
     std::optional<std::unique_ptr<ExpressionNode>> create_optional_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens);
+
+    /// @function `create_variant_extraction`
+    /// @brief Creates an VariantExtractionNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the variant extraction is defined
+    /// @param `tokens` The list of tokens representing the variant extraction
+    /// @return `std::optional<VariantExtractionNode>` A variant extraction, nullopt if its creation failed
+    std::optional<VariantExtractionNode> create_variant_extraction(std::shared_ptr<Scope> scope, const token_slice &tokens);
 
     /// @function `create_variant_unwrap`
     /// @brief Creates a VariantUnwrapNode from the given tokens

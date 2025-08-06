@@ -76,6 +76,9 @@ Generator::group_mapping Generator::Expression::generate_expression( //
     if (const auto *optional_unwrap = dynamic_cast<const OptionalUnwrapNode *>(expression_node)) {
         return generate_optional_unwrap(builder, ctx, garbage, expr_depth, optional_unwrap);
     }
+    if (const auto *variant_extraction = dynamic_cast<const VariantExtractionNode *>(expression_node)) {
+        return generate_variant_extraction(builder, ctx, variant_extraction);
+    }
     if (const auto *variant_unwrap = dynamic_cast<const VariantUnwrapNode *>(expression_node)) {
         return generate_variant_unwrap(builder, ctx, variant_unwrap);
     }
@@ -1609,6 +1612,64 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
     builder.SetInsertPoint(merge);
     base_expr = builder.CreateExtractValue(base_expr, {1}, "opt_value");
     return std::vector<llvm::Value *>{base_expr};
+}
+
+Generator::group_mapping Generator::Expression::generate_variant_extraction( //
+    llvm::IRBuilder<> &builder,                                              //
+    GenerationContext &ctx,                                                  //
+    const VariantExtractionNode *extraction                                  //
+) {
+    const VariantType *var_type = dynamic_cast<const VariantType *>(extraction->base_expr->type.get());
+    assert(var_type != nullptr);
+    const VariableNode *variable_node = dynamic_cast<const VariableNode *>(extraction->base_expr.get());
+    assert(variable_node != nullptr);
+    const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(variable_node->name));
+    llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
+    const OptionalType *result_type_ptr = dynamic_cast<const OptionalType *>(extraction->type.get());
+    assert(result_type_ptr != nullptr);
+    const std::shared_ptr<Type> &extract_type_ptr = result_type_ptr->base_type;
+    llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), extract_type_ptr).first;
+    llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), extraction->base_expr->type).first;
+
+    // First, check if the variant holds a value of our wanted type
+    llvm::BasicBlock *inserter = builder.GetInsertBlock();
+    llvm::BasicBlock *holds_wrong_type = llvm::BasicBlock::Create(context, "var_extract_wrong_type", ctx.parent);
+    llvm::BasicBlock *holds_correct_type = llvm::BasicBlock::Create(context, "var_extract_correct_type", ctx.parent);
+    llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "var_extract_merge", ctx.parent);
+    builder.SetInsertPoint(inserter);
+    const std::optional<unsigned char> id = var_type->get_idx_of_type(extract_type_ptr);
+    assert(id.has_value());
+    llvm::Value *wanted_type = builder.getInt8(id.value());
+    llvm::Value *current_type_ptr = builder.CreateStructGEP(variant_type, variable, 0, "var_type_ptr");
+    llvm::Value *current_type = builder.CreateLoad(builder.getInt8Ty(), current_type_ptr, "var_type");
+    llvm::Value *holds_type = builder.CreateICmpEQ(current_type, wanted_type, "holds_type");
+    llvm::BranchInst *branch = builder.CreateCondBr(holds_type, holds_correct_type, holds_wrong_type);
+    branch->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the variant holds the correct type")));
+
+    llvm::Type *opt_type = IR::get_type(ctx.parent->getParent(), extraction->type).first;
+
+    // The none block, in the case the variant does not hold the requested type
+    builder.SetInsertPoint(holds_wrong_type);
+    llvm::Value *value_nok = IR::get_default_value_of_type(opt_type);
+    builder.CreateBr(merge);
+
+    // The OK block, in the case the variant does contain the correct type, the value of the variant needs to be stored in an optional
+    // wrapper
+    builder.SetInsertPoint(holds_correct_type);
+    llvm::Value *value_raw_ptr = builder.CreateStructGEP(variant_type, variable, 1, "value_raw_ptr");
+    llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, element_type->getPointerTo(), "value_ptr");
+    llvm::Value *value = builder.CreateLoad(element_type, value_ptr, "value");
+    llvm::Value *value_ok = IR::get_default_value_of_type(opt_type);
+    value_ok = builder.CreateInsertValue(value_ok, builder.getInt1(true), {0}, "value_ok_fill_has_value");
+    value_ok = builder.CreateInsertValue(value_ok, value, {1}, "value_ok_fill_value");
+    builder.CreateBr(merge);
+
+    // The merge block, where we select the correct value depending on the accesses success
+    builder.SetInsertPoint(merge);
+    llvm::PHINode *phi_node = builder.CreatePHI(opt_type, 2, "selected_value");
+    phi_node->addIncoming(value_nok, holds_wrong_type);
+    phi_node->addIncoming(value_ok, holds_correct_type);
+    return std::vector<llvm::Value *>{phi_node};
 }
 
 Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
