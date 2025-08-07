@@ -1974,6 +1974,17 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             // It's allowed to "cast" the type to the variant
             return expr;
         }
+    } else if (const EnumType *from_enum_type = dynamic_cast<const EnumType *>(from_type.get())) {
+        // Enum types are only allowed to be cast to strings
+        assert(to_type_str == "str");
+        llvm::GlobalVariable *name_array = enum_name_arrays_map.at(from_enum_type->enum_node->name);
+        llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {expr}, "name_str_ptr");
+        llvm::Type *i8_ptr_type = builder.getInt8Ty()->getPointerTo();
+        llvm::Value *name_str = IR::aligned_load(builder, i8_ptr_type, name_str_ptr, "name_str");
+        llvm::Value *name_len = builder.CreateCall(c_functions.at(STRLEN), {name_str}, "name_len");
+        llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+        llvm::Value *cast_value = builder.CreateCall(init_str_fn, {name_str, name_len}, "cast_enum");
+        return cast_value;
     }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);

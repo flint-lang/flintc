@@ -1,8 +1,10 @@
-error ErrBase:
-	B1, B2;
+use Core.print
 
-error ErrSpecial(ErrBase):
-	S1, S2;
+enum Direction:
+	LEFT, RIGHT, UP, DOWN;
 
 def main():
-	throw ErrSpecial.B1;
+	Direction dir = Direction.LEFT;
+	print($"dir = Direction.{dir}\n");
+
+

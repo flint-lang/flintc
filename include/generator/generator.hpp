@@ -331,6 +331,11 @@ class Generator {
     /// statement
     static inline std::vector<llvm::BasicBlock *> last_loop_merge_blocks;
 
+    /// @var `enum_name_arrays_map`
+    /// @brief A map containing all references to all enum name arrays which map each enum value to it's string name, the key is the type
+    /// name of the enum
+    static inline std::unordered_map<std::string, llvm::GlobalVariable *> enum_name_arrays_map;
+
     /// @function `get_data_nodes`
     /// @brief This function collects all data nodes from the parser and puts them into the `data_nodes` map in the generator
     static void get_data_nodes();

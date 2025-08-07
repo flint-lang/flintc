@@ -503,7 +503,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     // Store the mangle ids of this file within the file_function_mangle_ids
     file_function_mangle_ids[file.file_name] = function_mangle_ids;
 
-    // Iterate through all AST Nodes in the file and generate them accordingly (only functions for now!)
+    // Iterate through all AST Nodes in the file and generate them accordingly
     for (const std::unique_ptr<ASTNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             if (is_test && function_node->name == "_main") {
@@ -537,6 +537,43 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             } else {
                 tests.at(test_node->file_name).emplace_back(test_node->name, test_function.value()->getName().str());
             }
+        } else if (auto *enum_node = dynamic_cast<EnumNode *>(node.get())) {
+            // Generate the type name array for later typecast lookups
+            // Create individual string constants
+            if (enum_name_arrays_map.find(enum_node->name) != enum_name_arrays_map.end()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            std::vector<llvm::Constant *> string_pointers;
+            llvm::Type *const i8_ptr_type = llvm::Type::getInt8Ty(context)->getPointerTo();
+
+            for (size_t i = 0; i < enum_node->values.size(); ++i) {
+                // Create the string constant data
+                llvm::Constant *string_data = llvm::ConstantDataArray::getString(context, enum_node->values[i], true);
+
+                // Create a global variable to hold the string
+                llvm::GlobalVariable *string_global = new llvm::GlobalVariable(                             //
+                    *module, string_data->getType(), true, llvm::GlobalValue::ExternalLinkage, string_data, //
+                    "enum." + enum_node->name + ".name." + std::to_string(i)                                //
+                );
+
+                // Get pointer to the string data (cast to i8*)
+                llvm::Constant *string_ptr = llvm::ConstantExpr::getBitCast(string_global, i8_ptr_type);
+                string_pointers.push_back(string_ptr);
+            }
+
+            // Create the array type and global array
+            llvm::ArrayType *array_type = llvm::ArrayType::get(i8_ptr_type, enum_node->values.size());
+            llvm::Constant *string_array = llvm::ConstantArray::get(array_type, string_pointers);
+            llvm::GlobalVariable *global_string_array = new llvm::GlobalVariable(                                                 //
+                *module, array_type, true, llvm::GlobalValue::ExternalLinkage, string_array, "enum." + enum_node->name + ".names" //
+            );
+
+            // Optional Windows compatibility settings
+#ifdef __WIN32__
+            globalStringArray->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
+#endif
+            enum_name_arrays_map[enum_node->name] = global_string_array;
         }
     }
 

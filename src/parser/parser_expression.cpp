@@ -650,7 +650,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(std::sha
 
     // Get the type the expression needs to be converted to
     std::shared_ptr<Type> to_type = tokens.first->type;
-    std::string to_type_string = to_type->to_string();
+    const std::string to_type_string = to_type->to_string();
 
     // Create the expression
     token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
@@ -663,6 +663,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(std::sha
     // Check if the expression already is the desired type, in that case just return the expression directly
     if (expression.value()->type == to_type) {
         return expression;
+    }
+
+    // Enums are allowed to be cast to strings
+    if (dynamic_cast<const EnumType *>(expression.value()->type.get()) && to_type_string == "str") {
+        return std::make_unique<TypeCastNode>(to_type, expression.value());
     }
 
     // Check if the type of the expression is castable at all
