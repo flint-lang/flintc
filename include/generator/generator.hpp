@@ -1862,6 +1862,27 @@ class Generator {
             const bool eq                                          //
         );
 
+        /// @function `generate_variant_cmp`
+        /// @brief Generates the instructions for the variant comparison of the lhs and rhs
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `lhs` The left hand side llvm instruction of the comparison
+        /// @param `lhs_expr` The left hand side expression node of the comparison
+        /// @param `rhs` The right hand side llvm instruction of the comparison
+        /// @param `hhs_expr` The right hand side expression node of the comparison
+        /// @param `eq` Whether to compare for equality (true) or inequality (false)
+        /// @return `std::optional<llvm::Value *>` The result of the variant comparison
+        static std::optional<llvm::Value *> generate_variant_cmp( //
+            llvm::IRBuilder<> &builder,                           //
+            GenerationContext &ctx,                               //
+            llvm::Value *lhs,                                     //
+            const std::unique_ptr<ExpressionNode> &lhs_expr,      //
+            llvm::Value *rhs,                                     //
+            const std::unique_ptr<ExpressionNode> &rhs_expr,      //
+            const bool eq                                         //
+        );
+
         /// @function `generate_binary_op_vector`
         /// @brief Generates the binary operation for vector binary ops
         ///
