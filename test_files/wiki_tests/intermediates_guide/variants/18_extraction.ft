@@ -1,0 +1,20 @@
+use Core.print
+
+variant MyVar:
+	i32, f32, str;
+
+def main():
+	MyVar var = -5;
+
+	i32? i = var?(i32);
+	f32? f = var?(f32);
+
+	if i != none:
+		print($"i == {i!}\n");
+	else:
+		print("i == none\n");
+
+	if f != none:
+		print($"f == {f!}\n");
+	else:
+		print("f == none\n");

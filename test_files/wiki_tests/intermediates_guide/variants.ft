@@ -84,3 +84,18 @@ test "16_active_type.ft":
 	str path = "wiki_tests/intermediates_guide/variants";
 	str file = "16_active_type.ft";
 	test_file_ok($"{path}/{file}", "hold the same type\nhold different types\n");
+
+test "17_unwrapping.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "17_unwrapping.ft";
+	test_file_ok($"{path}/{file}", "holds f32 value: 3.14\n");
+
+test "18_extraction.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "18_extraction.ft";
+	test_file_ok($"{path}/{file}", "i == -5\nf == none\n");
+
+test "[f]19_extraction_chain.ft":
+	str path = "wiki_tests/intermediates_guide/variants";
+	str file = "19_extraction_chain.ft";
+	test_file_ok($"{path}/{file}", "x = 10\nx2 = 30\n");

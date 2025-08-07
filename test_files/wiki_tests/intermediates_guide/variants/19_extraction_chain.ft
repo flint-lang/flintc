@@ -1,0 +1,22 @@
+use Core.print
+use Core.assert
+
+data MyData:
+	i32 x;
+	f32 y;
+	MyData? next;
+	MyData(x, y, next);
+
+variant MyVar:
+	i32, Data(MyData?), str;
+
+def main():
+	MyData? md = MyData(10, 20, MyData(30, 40, none));
+	MyVar var = md;
+
+	i32? x = var?(MyVar.Data).x;
+	assert(x != none);
+	i32? x2 = var?(MyVar.Data).next?.x;
+	assert(x2 != none):
+	print($"x = {x!}\n");
+	print($"x2 = {x2!}\n");
