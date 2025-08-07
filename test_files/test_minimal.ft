@@ -1,10 +1,12 @@
 use Core.print
 
-enum Direction:
-	LEFT, RIGHT, UP, DOWN;
+error ErrBlah:
+	Blah;
+
+def will_throw() {ErrBlah}:
+	throw ErrBlah.Blah("Wahu");
 
 def main():
-	Direction dir = Direction.LEFT;
-	print($"dir = Direction.{dir}\n");
-
-
+	will_throw() catch:
+		ErrBlah(b):  print("is blah\n");
+		anyerror(a): print("is anyerror\n");

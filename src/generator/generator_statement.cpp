@@ -1199,9 +1199,11 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     llvm::Value *const err_var = ctx.allocations.at(err_ret_name);
 
     // Load the error value
+    llvm::Type *const error_type = type_map.at("__flint_type_err");
+    llvm::Value *err_val_ptr = builder.CreateStructGEP(error_type, err_var, 0, "err_val_ptr");
     llvm::LoadInst *err_val = IR::aligned_load(builder,                              //
         llvm::Type::getInt32Ty(context),                                             //
-        err_var,                                                                     //
+        err_val_ptr,                                                                 //
         call_node->function_name + "_" + std::to_string(call_node->call_id) + "_err" //
     );
     err_val->setMetadata("comment",
@@ -1247,20 +1249,33 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
                 llvm::MDString::get(context,
                     "Branch to '" + catch_block->getName().str() + "' if '" + call_node->function_name + "' returned error")));
 
-    // Add the error variable to the list of allocations (temporarily)
-    // TODO: Add support for catch blocks which do not define a catch variable name
-    const std::string err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::" + catch_node->var_name.value();
-    ctx.allocations.insert({err_alloca_name, ctx.allocations.at(err_ret_name)});
-
-    // Generate the body of the catch block
-    builder.SetInsertPoint(catch_block);
     const std::shared_ptr<Scope> current_scope = ctx.scope;
     ctx.scope = catch_node->scope;
-    if (!generate_body(builder, ctx)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
+    builder.SetInsertPoint(catch_block);
 
+    std::string err_alloca_name;
+    if (catch_node->var_name.has_value()) {
+        // Add the error variable to the list of allocations (temporarily)
+        err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::" + catch_node->var_name.value();
+        ctx.allocations.insert({err_alloca_name, ctx.allocations.at(err_ret_name)});
+        // Generate the body of the catch block
+        if (!generate_body(builder, ctx)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+    } else {
+        // Generate the implicit switch on the error value
+        assert(catch_node->scope->body.size() == 1);
+        const SwitchStatement *switch_statement = dynamic_cast<const SwitchStatement *>(catch_node->scope->body.front().get());
+        assert(switch_statement != nullptr);
+        // Add the error variable to the list of allocations (temporarily)
+        err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::__flint_value_err";
+        ctx.allocations.insert({err_alloca_name, ctx.allocations.at(err_ret_name)});
+        if (!generate_variant_switch_statement(builder, ctx, switch_statement, err_var)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+    }
     // Remove the error variable from the list of allocations
     ctx.allocations.erase(ctx.allocations.find(err_alloca_name));
 
@@ -1398,9 +1413,9 @@ bool Generator::Statement::generate_declaration( //
         ) {
             // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
             // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
-            // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead to a
-            // double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just checking
-            // whether the LLVM type of the expression's type matches our expected optional type
+            // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead
+            // to a double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just
+            // checking whether the LLVM type of the expression's type matches our expected optional type
             llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
             const bool types_match = expr_val.value().front()->getType() == var_type;
             if (!types_match) {

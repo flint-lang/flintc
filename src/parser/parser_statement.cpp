@@ -1146,14 +1146,35 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
                 ErrVarRedefinition, ERR_PARSING, file_name, right_of_catch.first->line, right_of_catch.first->column, err_var.value() //
             );
         }
+        auto body_statements = create_body(body_scope, body);
+        if (!body_statements.has_value()) {
+            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
+            return std::nullopt;
+        }
+        body_scope->body = std::move(body_statements.value());
+    } else {
+        // Implicit switch on the "error variable"
+        if (catch_base_call->error_types.size() == 1) {
+            // Implicit switch not possible on a function returning only the `anyerror` and not other error sets
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        std::vector<SSwitchBranch> s_branches;
+        std::vector<ESwitchBranch> e_branches;
+        const std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> &var_or_list = catch_base_call->error_types;
+        std::shared_ptr<Type> switcher_type = std::make_shared<VariantType>(var_or_list, true);
+        if (!Type::add_type(switcher_type)) {
+            switcher_type = Type::get_type_from_str(switcher_type->to_string()).value();
+        }
+        assert(body_scope->add_variable("__flint_value_err", switcher_type, body_scope->scope_id, false, false));
+        if (!create_variant_switch_branches(body_scope, s_branches, e_branches, body, switcher_type, true, false)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>("__flint_value_err", switcher_type);
+        std::unique_ptr<StatementNode> switch_statement = std::make_unique<SwitchStatement>(dummy_switcher, s_branches);
+        body_scope->body.push_back(std::move(switch_statement));
     }
-    auto body_statements = create_body(body_scope, body);
-    if (!body_statements.has_value()) {
-        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
-        return std::nullopt;
-    }
-    body_scope->body = std::move(body_statements.value());
-
     return std::make_unique<CatchNode>(err_var, body_scope, catch_base_call);
 }
 

@@ -839,6 +839,10 @@ namespace Debug {
                 std::cout << "' of type '";
                 std::cout << std::get<0>(catch_node.scope->variables.at(catch_node.var_name.value()))->to_string();
                 std::cout << "'";
+            } else {
+                std::cout << " on implicit error variable of type '";
+                std::cout << std::get<0>(catch_node.scope->variables.at("__flint_value_err"))->to_string();
+                std::cout << "'";
             }
             std::cout << " [s" << catch_node.scope->scope_id << "] [c" << catch_node.call_node->call_id << "]" << std::endl;
 
