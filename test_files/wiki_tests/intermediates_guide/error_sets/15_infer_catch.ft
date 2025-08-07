@@ -1,0 +1,29 @@
+use Core.print
+use Core.assert
+
+error ErrBase:
+	Base1, Base2;
+
+error ErrSpecial(ErrBase):
+	Special1, Special2;
+
+def do_base(i32 x) {_}:
+	if x > 7:
+		throw ErrBase.Base2;
+
+def do_something(i32 x) {_}:
+	assert(x > 0);
+	for i32 i = 0; i < x; i++:
+		do_base(i) catch err:
+			print("doing nothing\n");
+		if i > 10:
+			throw ErrSpecial.Special1;
+
+def main():
+	do_something(13) catch:
+		ErrAssert(e):
+			print("assertion error thrown\n");
+		ErrSpecial(e):
+			print("special error thrown\n");
+		anyerror(e):
+			print("anyerror thrown\n");

@@ -59,3 +59,23 @@ test "[f]11_anonymous_complex.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";
 	str file = "11_anonymous_complex.ft";
 	test_file_ok($"{path}/{file}", "err.type_id = 0\nerr.value_id = 0\nerr.message = Custom Message\n\nerr.type_id = 0\nerr.value_id = 1\nerr.message = \n\nerr.type_id = 0\nerr.value_id = 2\nerr.message = LAST\n");
+
+test "12_inline_catch.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "12_inline_catch.ft";
+	test_file_ok($"{path}/{file}", "is inline thrown\n");
+
+test "13_inline_fail.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "13_inline_fail.ft";
+	test_file_fail($"{path}/{file}", "Custom Error: 2\nParse Error at wiki_tests/intermediates_guide/error_sets/13_inline_fail.ft:10:5\n -- Failed to parse catch statement: will_throw() catch:\n");
+
+test "[f]14_infer.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "14_infer.ft";
+	test_file_ok($"{path}/{file}", "special error thrown\n");
+
+test "[f]15_infer_catch.ft":
+	str path = "wiki_tests/intermediates_guide/error_sets";
+	str file = "15_infer_catch.ft";
+	test_file_ok($"{path}/{file}", "doing nothing\ndoing nothing\ndoing nothing\ndoing nothing\nspecial error thrown\n");

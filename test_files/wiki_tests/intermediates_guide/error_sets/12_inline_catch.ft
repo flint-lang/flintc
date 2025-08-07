@@ -1,0 +1,12 @@
+use Core.print
+
+error ErrInline:
+	Throwing;
+
+def will_throw() {ErrInline}:
+	throw ErrInline.Throwing("Wahu");
+
+def main():
+	will_throw() catch:
+		ErrInline(b): print("is inline thrown\n");
+		anyerror(a): print("is anyerror\n");
