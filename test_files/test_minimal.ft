@@ -1,20 +1,8 @@
-use Core.print
+error ErrBase:
+	B1, B2;
 
-variant MyVar:
-	i32, i64, i32x3;
+error ErrSpecial(ErrBase):
+	S1, S2;
 
 def main():
-	MyVar var_1 = i64(-5);
-	MyVar var_2 = i64(6);
-
-	if var_1 == var_2:
-		print("are equal\n");
-	else:
-		print("differ\n");
-
-	var_1 = 5;
-	var_2 = 5;
-	if var_1 == var_2:
-		print("are equal\n");
-	else:
-		print("differ\n");
+	throw ErrSpecial.B1;

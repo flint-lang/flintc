@@ -8,7 +8,7 @@ test "0_declaration.ft":
 test "1_throwing.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";
 	str file = "1_throwing.ft";
-	test_file_crash($"{path}/{file}", "ERROR: Program exited with exit code '-286738258'\n");
+	test_file_crash($"{path}/{file}", "ERROR: main function returned error\n - type_id: 4008229038\n - value_id: 0\n - message: \"\"\n");
 
 test "2_catching.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";
@@ -18,7 +18,7 @@ test "2_catching.ft":
 test "3_refinement.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";
 	str file = "3_refinement.ft";
-	test_file_crash($"{path}/{file}", "ERROR: Program exited with exit code '803109534'\n");
+	test_file_crash($"{path}/{file}", "ERROR: main function returned error\n - type_id: 803109534\n - value_id: 0\n - message: \"\"\n");
 
 test "4_null_set.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";

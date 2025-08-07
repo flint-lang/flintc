@@ -125,7 +125,8 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // First, load the first return value of the return struct
     llvm::Value *err_ptr = builder->CreateStructGEP(custom_main_ret_type, main_ret, 0);
-    llvm::LoadInst *err_val = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), err_ptr, "main_err_val");
+    llvm::Type *err_type = type_map.at("__flint_type_err");
+    llvm::LoadInst *err_val = IR::aligned_load(*builder, err_type, err_ptr, "main_err_val");
 
     llvm::BasicBlock *current_block = builder->GetInsertBlock();
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(context, "main_catch", main_function);
@@ -134,8 +135,9 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Create the if check and compare the err value to 0
     llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
+    llvm::Value *type_id = builder->CreateExtractValue(err_val, {0}, "type_id");
     llvm::Value *err_condition = builder->CreateICmpNE( //
-        err_val,                                        //
+        type_id,                                        //
         zero,                                           //
         "errcmp"                                        //
     );
@@ -150,17 +152,23 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     builder->SetInsertPoint(catch_block);
 
     // Create the message that an error has occured
-    llvm::Value *message_begin_ptr = IR::generate_const_string(*builder, "ERROR: Program exited with exit code '");
-    builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr});
-    // Print the actual error value
-    builder->CreateCall(Module::Print::print_functions.at("i32"), {err_val});
-    // Print the rest of the string
-    llvm::Value *message_end_ptr = IR::generate_const_string(*builder, "'\n");
-    builder->CreateCall(c_functions.at(PRINTF), {message_end_ptr});
-
+    llvm::Value *value_id = builder->CreateExtractValue(err_val, {1}, "value_id");
+    llvm::Value *message_ptr = builder->CreateExtractValue(err_val, {2}, "message_ptr");
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Value *message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
+    llvm::Value *message_begin_ptr = IR::generate_const_string(                                                //
+        *builder, "ERROR: main function returned error\n - type_id: %u\n - value_id: %u\n - message: \"%s\"\n" //
+    );
+    builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr, type_id, value_id, message});
+    // Free the error message
+    builder->CreateCall(c_functions.at(FREE), {message_ptr});
     builder->CreateBr(merge_block);
+
     builder->SetInsertPoint(merge_block);
-    builder->CreateCall(c_functions.at(EXIT), {err_val});
+    llvm::PHINode *exit_value = builder->CreatePHI(builder->getInt32Ty(), 2, "exit_value");
+    exit_value->addIncoming(builder->getInt32(0), current_block);
+    exit_value->addIncoming(builder->getInt32(1), catch_block);
+    builder->CreateCall(c_functions.at(EXIT), {exit_value});
     builder->CreateUnreachable();
 }
 
