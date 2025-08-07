@@ -513,7 +513,6 @@ void Lexer::add_token(Token token) {
     size_t pos = 0;
     while ((pos = lexme.find("\\\"", pos)) != std::string::npos) {
         lexme.replace(pos, 2, "\"");
-        pos += 2;
     }
     add_token(token, lexme);
 }
