@@ -1975,7 +1975,17 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return expr;
         }
     } else if (const EnumType *from_enum_type = dynamic_cast<const EnumType *>(from_type.get())) {
-        // Enum types are only allowed to be cast to strings
+        // Enum types are only allowed to be cast to strings or to integers
+        if (to_type_str == "i32" || to_type_str == "u32") {
+            // Enums are i32 values internally annyway, so we actually do not need any casting in this case
+            return expr;
+        } else if (to_type_str == "i64") {
+            return builder.CreateSExt(expr, builder.getInt64Ty(), "enum_cast_i64");
+        } else if (to_type_str == "u64") {
+            return builder.CreateZExt(expr, builder.getInt64Ty(), "enum_cast_u64");
+        } else if (to_type_str == "u8") {
+            return builder.CreateTrunc(expr, builder.getInt8Ty(), "num_cast_u8");
+        }
         assert(to_type_str == "str");
         llvm::GlobalVariable *name_array = enum_name_arrays_map.at(from_enum_type->enum_node->name);
         llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {expr}, "name_str_ptr");

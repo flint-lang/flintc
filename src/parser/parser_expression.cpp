@@ -665,9 +665,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(std::sha
         return expression;
     }
 
-    // Enums are allowed to be cast to strings
-    if (dynamic_cast<const EnumType *>(expression.value()->type.get()) && to_type_string == "str") {
-        return std::make_unique<TypeCastNode>(to_type, expression.value());
+    // Enums are allowed to be cast to strings and to integers
+    if (dynamic_cast<const EnumType *>(expression.value()->type.get())) {
+        if (to_type_string == "str") {
+            return std::make_unique<TypeCastNode>(to_type, expression.value());
+        } else if (to_type_string == "i32" || to_type_string == "u32" || to_type_string == "i64" || to_type_string == "u64" ||
+            to_type_string == "u8") {
+            return std::make_unique<TypeCastNode>(to_type, expression.value());
+        }
     }
 
     // Check if the type of the expression is castable at all

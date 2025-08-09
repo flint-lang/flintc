@@ -5,5 +5,8 @@ enum MyEnum:
 
 def main():
 	MyEnum e = MyEnum.VAL1;
-	print("Hello, World!\n");
-	print($"e = MyEnum.{e}\n");
+	print($"e = {e}, id = {u32(e)}\n");
+	e = MyEnum.VAL2;
+	print($"e = {e}, id = {i32(e)}\n");
+	e = MyEnum.VAL3;
+	print($"e = {e}, id = {i64(e)}\n");
