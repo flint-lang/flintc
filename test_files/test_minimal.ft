@@ -1,12 +1,9 @@
 use Core.print
 
-error ErrBlah:
-	Blah;
-
-def will_throw() {ErrBlah}:
-	throw ErrBlah.Blah("Wahu");
+enum MyEnum:
+	VAL1, VAL2, VAL3;
 
 def main():
-	will_throw() catch:
-		ErrBlah(b):  print("is blah\n");
-		anyerror(a): print("is anyerror\n");
+	MyEnum e = MyEnum.VAL1;
+	print("Hello, World!\n");
+	print($"e = MyEnum.{e}\n");

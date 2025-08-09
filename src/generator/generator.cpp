@@ -140,7 +140,7 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
         llvm::sys::getHostCPUName(),                   //
         "",                                            //
         opt,                                           //
-        llvm::Reloc::Static                            //
+        llvm::Reloc::DynamicNoPIC                      //
     );
     // Disable individual sections for functions and data
     target_machine->Options.FunctionSections = false;
@@ -571,7 +571,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
 
             // Optional Windows compatibility settings
 #ifdef __WIN32__
-            globalStringArray->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
+            global_string_array->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
 #endif
             enum_name_arrays_map[enum_node->name] = global_string_array;
         }
