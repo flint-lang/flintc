@@ -18,7 +18,8 @@ Options:
         --rebuild-llvm      Forces rebuilding of llvm
     -t, --test              Run the tests after compilation
     -v, --verbose           Toggle verbosity on
-        --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')"
+        --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')
+    -j <num>                The number of cores to use for compilation"
 }
 
 # Prints an given error message and returns with the given error code
@@ -499,7 +500,7 @@ while [ "$#" -gt 0 ]; do
         print_usage
         exit 0
         ;;
-    -a | --all)
+    --all)
         build_linux=true
         build_windows=true
         build_static=true
@@ -550,6 +551,11 @@ while [ "$#" -gt 0 ]; do
     --verbose)
         verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=ON"
         shift
+        ;;
+    -j)
+        [ "$2" != "" ] || err_exit 1 "Option '$1' requires an argument"
+        core_count="$2"
+        shift 2
         ;;
     --*) # Handle long options
         err_exit 1 "Unknown cli argument: '$1'"
