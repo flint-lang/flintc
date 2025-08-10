@@ -320,12 +320,12 @@ void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &sourc
                     if (it->token != TOK_TYPE) {
                         // Types of size 1 always need to be an identifier if they are not already a type (primitives)
                         assert(it->token == TOK_IDENTIFIER);
-                        std::optional<std::shared_ptr<Type>> type = Type::get_type_from_str(it->lexme);
+                        std::optional<std::shared_ptr<Type>> type = Type::get_type_from_str(std::string(it->lexme));
                         if (type.has_value()) {
                             *it = TokenContext(TOK_TYPE, it->line, it->column, type.value());
                         }
                     }
-                } else if (it->token != TOK_IDENTIFIER || Type::get_type_from_str(it->lexme).has_value()) {
+                } else if (it->token != TOK_IDENTIFIER || Type::get_type_from_str(std::string(it->lexme)).has_value()) {
                     // If its a bigger type and it starts with an identifier, the identifier itself must be a known type already. If the
                     // identifier is not a known type, this is an edge case like `i < 5 and x > 2` where `i<5 and x>` is interpreted as
                     // `T<..>`. So, `T` must be a known type in this case, otherwise the whole thing is no type. *or* it has to be a
@@ -693,7 +693,7 @@ Parser::create_field_access_base(     //
         field_name = base_expr_tokens.second->lexme;
     } else if (base_expr_tokens.second->token == TOK_INT_VALUE) {
         assert(std::prev(base_expr_tokens.second)->token == TOK_DOLLAR);
-        long int_value = std::stol(base_expr_tokens.second->lexme);
+        long int_value = std::stol(std::string(base_expr_tokens.second->lexme));
         if (int_value < 0) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -929,7 +929,8 @@ Parser::create_grouped_access_base(   //
         if (access_tokens.first->token == TOK_IDENTIFIER) {
             field_names.emplace_back(access_tokens.first->lexme);
         } else if (access_tokens.first->token == TOK_DOLLAR && std::next(access_tokens.first)->token == TOK_INT_VALUE) {
-            field_names.emplace_back("$" + std::next(access_tokens.first)->lexme);
+            assert(std::next(access_tokens.first)->lexme.find('_') == std::string::npos);
+            field_names.emplace_back("$" + std::string(std::next(access_tokens.first)->lexme));
             access_tokens.first++;
         }
         access_tokens.first++;

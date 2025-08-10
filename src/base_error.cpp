@@ -49,13 +49,13 @@ std::string BaseError::get_token_string(const std::vector<Token> &tokens) {
                 }
                 break;
             case TOK_STR_VALUE:
-                token_str << "\"" + it->lexme + "\"";
+                token_str << "\"" + std::string(it->lexme) + "\"";
                 if (space_needed(tokens, it, {TOK_RIGHT_PAREN, TOK_COMMA, TOK_SEMICOLON, TOK_COLON})) {
                     token_str << " ";
                 }
                 break;
             case TOK_CHAR_VALUE:
-                token_str << "'" + it->lexme + "' ";
+                token_str << "'" + std::string(it->lexme) + "' ";
                 break;
             case TOK_IDENTIFIER:
                 token_str << it->lexme;

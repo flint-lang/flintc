@@ -4,7 +4,7 @@
 
 #include <cassert>
 #include <memory>
-#include <string>
+#include <string_view>
 
 // Forward-declaration of the type class to prevent circular imports
 class Type;
@@ -17,17 +17,17 @@ struct TokenContext {
     unsigned int line;
     unsigned int column;
     union {
-        std::string lexme;
+        std::string_view lexme;
         std::shared_ptr<Type> type;
     };
 
     // The constructor for the case the token is a regular token. In this case the token is not allowed to be `TOK_TYPE`
-    TokenContext(Token t, unsigned int l, unsigned int c, const std::string &s) :
+    TokenContext(Token t, unsigned int l, unsigned int c, const std::string_view &s) :
         token(t),
         line(l),
         column(c) {
         assert(token != TOK_TYPE);
-        new (&lexme) std::string(s);
+        lexme = s;
     }
 
     // The constructor for the case the token is a type token. In this case the token is only allowed to be `TOK_TYPE`
@@ -43,8 +43,6 @@ struct TokenContext {
     ~TokenContext() {
         if (token == TOK_TYPE) {
             type.~shared_ptr();
-        } else {
-            lexme.~basic_string();
         }
     }
 
@@ -56,7 +54,7 @@ struct TokenContext {
         if (token == TOK_TYPE) {
             new (&type) std::shared_ptr<Type>(other.type);
         } else {
-            new (&lexme) std::string(other.lexme);
+            lexme = other.lexme;
         }
     }
 
@@ -75,7 +73,7 @@ struct TokenContext {
             if (token == TOK_TYPE) {
                 new (&type) std::shared_ptr<Type>(other.type);
             } else {
-                new (&lexme) std::string(other.lexme);
+                lexme = other.lexme;
             }
         }
         return *this;
@@ -89,7 +87,7 @@ struct TokenContext {
         if (token == TOK_TYPE) {
             new (&type) std::shared_ptr<Type>(std::move(other.type));
         } else {
-            new (&lexme) std::string(std::move(other.lexme));
+            lexme = other.lexme;
         }
 
         // Make sure other's destructor doesn't delete our moved resources
@@ -98,10 +96,6 @@ struct TokenContext {
             // Replace with a default-constructed shared_ptr
             other.type.~shared_ptr();
             new (&other.type) std::shared_ptr<Type>();
-        } else {
-            // Replace with an empty string
-            other.lexme.~basic_string();
-            new (&other.lexme) std::string();
         }
     }
 
@@ -120,16 +114,13 @@ struct TokenContext {
             if (token == TOK_TYPE) {
                 new (&type) std::shared_ptr<Type>(std::move(other.type));
             } else {
-                new (&lexme) std::string(std::move(other.lexme));
+                lexme = other.lexme;
             }
 
             // Reset the other object to a valid state
             if (other.token == TOK_TYPE) {
                 other.type.~shared_ptr();
                 new (&other.type) std::shared_ptr<Type>();
-            } else {
-                other.lexme.~basic_string();
-                new (&other.lexme) std::string();
             }
         }
         return *this;

@@ -218,12 +218,10 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
             assert(false);
         } else if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim_mult)) {
             // Its a multi-type
-            const std::string &type_string = tokens_mut.first->lexme;
+            const std::string type_string(tokens_mut.first->lexme);
             // The last character should be a number
             const char width_char = type_string.back();
-            if (width_char < '0' || width_char > '9') {
-                assert(false);
-            }
+            assert(width_char >= '0' && width_char <= '9');
             // Skip the last character (being the number) as well as the `x`, if the last character is an 'x'
             const bool ends_with_x = type_string.at(type_string.size() - 2) == 'x';
             const std::string type_str = type_string.substr(0, type_string.size() - (ends_with_x ? 2 : 1));
@@ -234,7 +232,7 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
         }
         // Its a data, entity or any other type that only has one string as its descriptor, and this type has not been added yet. This means
         // that its an up until now unknown type. This should only happen in the definition phase.
-        return std::make_shared<UnknownType>(tokens_mut.first->lexme);
+        return std::make_shared<UnknownType>(std::string(tokens_mut.first->lexme));
     }
     // If the type list ends with a ], its definitely an array type
     if (std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET) {

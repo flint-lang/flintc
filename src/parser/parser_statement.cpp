@@ -346,7 +346,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     std::variant<std::pair<std::optional<std::string>, std::optional<std::string>>, std::string> iterators;
     if (definition_mut.first->token == TOK_IDENTIFIER) {
         // Its a tuple, e.g. `for t in iterable:` where `t` is of type `data<u64, T>`
-        iterators = definition_mut.first->lexme;
+        iterators = std::string(definition_mut.first->lexme);
         definition_mut.first++;
     } else {
         // Its a group, e.g. `for (index, element) in iterable:`
@@ -354,14 +354,14 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         definition_mut.first++;
         std::optional<std::string> index_identifier;
         if (definition_mut.first->token == TOK_IDENTIFIER) {
-            index_identifier = definition_mut.first->lexme;
+            index_identifier = std::string(definition_mut.first->lexme);
         }
         definition_mut.first++;
         assert(definition_mut.first->token == TOK_COMMA);
         definition_mut.first++;
         std::optional<std::string> element_identifier;
         if (definition_mut.first->token == TOK_IDENTIFIER) {
-            element_identifier = definition_mut.first->lexme;
+            element_identifier = std::string(definition_mut.first->lexme);
         }
         definition_mut.first++;
         assert(definition_mut.first->token == TOK_RIGHT_PAREN);
@@ -616,7 +616,7 @@ bool Parser::create_enum_switch_branches(       //
                 is_default_present = true;
                 match_expressions.push_back(std::make_unique<DefaultNode>(switcher_type));
             } else {
-                const std::string &enum_value = match_tokens.first->lexme;
+                const std::string enum_value(match_tokens.first->lexme);
                 std::vector<std::string>::const_iterator enum_id = std::find(          //
                     matched_enum_values.begin(), matched_enum_values.end(), enum_value //
                 );
@@ -646,7 +646,7 @@ bool Parser::create_enum_switch_branches(       //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
                 }
-                const std::string &enum_value = it->lexme;
+                const std::string enum_value(it->lexme);
                 std::vector<std::string>::const_iterator enum_id = std::find(          //
                     matched_enum_values.begin(), matched_enum_values.end(), enum_value //
                 );
@@ -724,7 +724,7 @@ bool Parser::create_error_switch_branches(      //
                 is_default_present = true;
                 match_expressions.push_back(std::make_unique<DefaultNode>(switcher_type));
             } else {
-                const std::string &error_value = match_tokens.first->lexme;
+                const std::string error_value(match_tokens.first->lexme);
                 auto pair_maybe = error_node->get_id_msg_pair_of_value(error_value);
                 if (!pair_maybe.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
@@ -751,7 +751,7 @@ bool Parser::create_error_switch_branches(      //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
                 }
-                const std::string &error_value = it->lexme;
+                const std::string error_value(it->lexme);
                 auto pair_maybe = error_node->get_id_msg_pair_of_value(error_value);
                 if (!pair_maybe.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
@@ -837,10 +837,12 @@ bool Parser::create_optional_switch_branches(   //
                 return false;
             }
             const OptionalType *optional_type = dynamic_cast<const OptionalType *>(switcher_type.get());
-            match_expressions.push_back(std::make_unique<SwitchMatchNode>(optional_type->base_type, match_tokens.first->lexme, 1));
+            const std::string match_str(match_tokens.first->lexme);
+            match_expressions.push_back(std::make_unique<SwitchMatchNode>(optional_type->base_type, match_str, 1));
             std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
             const unsigned int scope_id = branch_scope->scope_id;
-            if (!branch_scope->add_variable(match_tokens.first->lexme, optional_type->base_type, scope_id, is_mutable, false, true)) {
+            const std::string var_name(match_tokens.first->lexme);
+            if (!branch_scope->add_variable(var_name, optional_type->base_type, scope_id, is_mutable, false, true)) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
@@ -974,7 +976,7 @@ bool Parser::create_variant_switch_branches(    //
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        const std::string &access_name = (match_tokens.first + 2)->lexme;
+        const std::string access_name((match_tokens.first + 2)->lexme);
         const std::shared_ptr<Type> &access_type = possible_types.at(type_idx - 1).second;
         match_expressions.push_back(std::make_unique<SwitchMatchNode>(access_type, access_name, type_idx));
 
@@ -1202,17 +1204,18 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        const std::string it_lexme(it->lexme);
         // This element is the assignee
-        if (scope->variables.find(it->lexme) == scope->variables.end()) {
-            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+        if (scope->variables.find(it_lexme) == scope->variables.end()) {
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it_lexme);
             return std::nullopt;
         }
-        if (!std::get<2>(scope->variables.at(it->lexme))) {
-            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+        if (!std::get<2>(scope->variables.at(it_lexme))) {
+            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it_lexme);
             return std::nullopt;
         }
-        const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it->lexme));
-        assignees.emplace_back(expected_type, it->lexme);
+        const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it_lexme));
+        assignees.emplace_back(expected_type, it_lexme);
         index += 2;
         if (std::next(it)->token == TOK_RIGHT_PAREN) {
             break;
@@ -1263,17 +1266,18 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        const std::string it_lexme(it->lexme);
         // This element is the assignee
-        if (scope->variables.find(it->lexme) == scope->variables.end()) {
-            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+        if (scope->variables.find(it_lexme) == scope->variables.end()) {
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it_lexme);
             return std::nullopt;
         }
-        if (!std::get<2>(scope->variables.at(it->lexme))) {
-            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+        if (!std::get<2>(scope->variables.at(it_lexme))) {
+            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it_lexme);
             return std::nullopt;
         }
-        const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it->lexme));
-        assignees.emplace_back(expected_type, it->lexme);
+        const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it_lexme));
+        assignees.emplace_back(expected_type, it_lexme);
         index += 2;
         if (std::next(it)->token == TOK_RIGHT_PAREN) {
             break;
@@ -1342,22 +1346,23 @@ std::optional<AssignmentNode> Parser::create_assignment( //
     token_list toks = clone_from_slice(tokens);
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_IDENTIFIER) {
+            const std::string it_lexme(it->lexme);
             if (std::next(it)->token == TOK_EQUAL && ((it + 2) != tokens.second || rhs.has_value())) {
-                if (scope->variables.find(it->lexme) == scope->variables.end()) {
-                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+                if (scope->variables.find(it_lexme) == scope->variables.end()) {
+                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
-                if (!std::get<2>(scope->variables.at(it->lexme))) {
-                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+                if (!std::get<2>(scope->variables.at(it_lexme))) {
+                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
-                std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it->lexme));
+                std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it_lexme));
                 if (rhs.has_value()) {
                     if (rhs.value()->type != expected_type) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    return AssignmentNode(expected_type, it->lexme, rhs.value());
+                    return AssignmentNode(expected_type, it_lexme, rhs.value());
                 }
                 // Parse the expression with the expected type passed into it
                 token_slice expression_tokens = {it + 2, tokens.second};
@@ -1366,7 +1371,7 @@ std::optional<AssignmentNode> Parser::create_assignment( //
                     THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
                     return std::nullopt;
                 }
-                return AssignmentNode(expected_type, it->lexme, expression.value());
+                return AssignmentNode(expected_type, it_lexme, expression.value());
             } else {
                 THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
@@ -1383,16 +1388,17 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
 ) {
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_IDENTIFIER) {
+            const std::string it_lexme(it->lexme);
             if (Matcher::tokens_match({it + 1, it + 2}, Matcher::assignment_shorthand_operator) && (it + 2) != tokens.second) {
-                if (scope->variables.find(it->lexme) == scope->variables.end()) {
-                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+                if (scope->variables.find(it_lexme) == scope->variables.end()) {
+                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
-                if (!std::get<2>(scope->variables.at(it->lexme))) {
-                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it->lexme);
+                if (!std::get<2>(scope->variables.at(it_lexme))) {
+                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
-                std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it->lexme));
+                std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it_lexme));
                 // Parse the expression with the expected type passed into it
                 token_slice expression_tokens = {it + 2, tokens.second};
                 std::optional<std::unique_ptr<ExpressionNode>> expression;
@@ -1423,11 +1429,11 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
                         op = TOK_DIV;
                         break;
                 }
-                std::unique_ptr<ExpressionNode> var_node = std::make_unique<VariableNode>(it->lexme, expected_type);
+                std::unique_ptr<ExpressionNode> var_node = std::make_unique<VariableNode>(it_lexme, expected_type);
                 std::unique_ptr<ExpressionNode> bin_op = std::make_unique<BinaryOpNode>( //
                     op, var_node, expression.value(), expected_type, true                //
                 );
-                return AssignmentNode(expected_type, it->lexme, bin_op, true);
+                return AssignmentNode(expected_type, it_lexme, bin_op, true);
             } else {
                 THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
@@ -1871,7 +1877,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
     token_slice tokens_mut = tokens;
     // Now the first token should be the array identifier
     assert(tokens_mut.first->token == TOK_IDENTIFIER);
-    const std::string variable_name = tokens_mut.first->lexme;
+    const std::string variable_name(tokens_mut.first->lexme);
     std::optional<std::shared_ptr<Type>> var_type = scope->get_variable_type(variable_name);
     if (!var_type.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -1968,7 +1974,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
             return std::nullopt;
         }
         // Handle the special case of tuple / multi-type accesses in a stacked expression
-        size_t field_id = std::stoul(std::next(iterator)->lexme);
+        size_t field_id = std::stoul(std::string(std::next(iterator)->lexme));
         const std::string field_name = "$" + std::to_string(field_id);
         if (field_id >= tuple_type->types.size()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -1984,7 +1990,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
                 return std::nullopt;
             }
             size_t field_id = 0;
-            const std::string &field_name = iterator->lexme;
+            const std::string field_name(iterator->lexme);
             if (multi_type->width == 4) {
                 if (field_name == "r") {
                     field_id = 0;
@@ -2015,7 +2021,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
             );
         } else if (iterator->token == TOK_DOLLAR && std::next(iterator)->token == TOK_INT_VALUE) {
             // Handle the special case of tuple / multi-type accesses in a stacked expression
-            size_t field_id = std::stoul(std::next(iterator)->lexme);
+            size_t field_id = std::stoul(std::string(std::next(iterator)->lexme));
             const std::string field_name = "$" + std::to_string(field_id);
             if (field_id >= multi_type->width) {
                 THROW_BASIC_ERR(ERR_PARSING);
@@ -2030,7 +2036,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
     } else if (const DataType *data_type = dynamic_cast<const DataType *>(base_expr_type.get())) {
         if (iterator->token == TOK_IDENTIFIER) {
             // It's a single value assignment
-            const std::string field_name = iterator->lexme;
+            const std::string field_name(iterator->lexme);
             const DataNode *data_node = data_type->data_node;
             auto field_it = data_node->fields.begin();
             while (field_it != data_node->fields.end()) {
@@ -2055,7 +2061,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
             ++iterator;
             while (iterator != tokens.second && iterator->token != TOK_RIGHT_PAREN) {
                 if (iterator->token == TOK_IDENTIFIER) {
-                    const std::string &field_str = iterator->lexme;
+                    const std::string field_str(iterator->lexme);
                     bool field_found = false;
                     for (auto field_it = data_node->fields.begin(); field_it != data_node->fields.end(); ++field_it) {
                         if (field_it->first == field_str) {
@@ -2198,7 +2204,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     } else if (Matcher::tokens_contain(tokens, Matcher::aliased_function_call)) {
         token_slice tokens_mut = tokens;
         assert(tokens_mut.first->token == TOK_IDENTIFIER && std::next(tokens_mut.first)->token == TOK_DOT);
-        const std::string alias_base = tokens_mut.first->lexme;
+        const std::string alias_base(tokens_mut.first->lexme);
         if (aliases.find(alias_base) == aliases.end()) {
             THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, alias_base);
             return std::nullopt;
@@ -2320,7 +2326,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         statement_node = std::move(catch_node.value());
     } else if (Matcher::tokens_contain(definition, Matcher::aliased_function_call)) {
         assert(definition.first->token == TOK_IDENTIFIER && std::next(definition.first)->token == TOK_DOT);
-        const std::string alias_base = definition.first->lexme;
+        const std::string alias_base(definition.first->lexme);
         statement_node = create_call_statement(scope, {definition.first + 2, definition.second}, alias_base);
     } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {
         statement_node = create_call_statement(scope, definition, std::nullopt);

@@ -317,7 +317,7 @@ std::optional<VariableNode> Parser::create_variable(std::shared_ptr<Scope> scope
     std::optional<VariableNode> var = std::nullopt;
     for (auto tok = tokens.first; tok != tokens.second; tok++) {
         if (tok->token == TOK_IDENTIFIER) {
-            std::string name = tok->lexme;
+            const std::string name(tok->lexme);
             if (scope->variables.find(name) == scope->variables.end()) {
                 THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tok->line, tok->column, name);
                 return std::nullopt;
@@ -387,10 +387,15 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
         tok = tokens.first;
     }
 
+    std::string lexme(tok->lexme);
+    if (tok->token == TOK_FLINT_VALUE || tok->token == TOK_INT_VALUE) {
+        // Erase all '_' characters from the literal
+        lexme.erase(std::remove(lexme.begin(), lexme.end(), '_'), lexme.end());
+    }
     if (Matcher::tokens_match({tok, tok + 1}, Matcher::literal)) {
         switch (tok->token) {
             default:
-                THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, tok->lexme);
+                THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, lexme);
                 return std::nullopt;
                 break;
             case TOK_NONE: {
@@ -402,7 +407,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
             }
             case TOK_INT_VALUE: {
                 if (front_token == TOK_MINUS) {
-                    const long long lit_value = std::stoll(tok->lexme) * -1;
+                    const long long lit_value = std::stoll(lexme) * -1;
                     if (lit_value > static_cast<long long>(INT32_MAX) || lit_value < static_cast<long long>(INT32_MIN)) {
                         LitValue lit_val = LitI64{.value = static_cast<long>(lit_value)};
                         return LiteralNode(lit_val, Type::get_primitive_type("i64"));
@@ -411,7 +416,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                         return LiteralNode(lit_val, Type::get_primitive_type("i32"));
                     }
                 } else {
-                    const unsigned long long lit_value = std::stoll(tok->lexme);
+                    const unsigned long long lit_value = std::stoll(lexme);
                     if (lit_value > static_cast<unsigned long long>(UINT64_MAX)) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
@@ -432,19 +437,23 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
             }
             case TOK_FLINT_VALUE: {
                 if (front_token == TOK_MINUS) {
-                    LitValue lit_value = LitF32{.value = std::stof(tok->lexme) * -1};
+                    LitValue lit_value = LitF32{.value = std::stof(lexme) * -1};
                     return LiteralNode(lit_value, Type::get_primitive_type("f32"));
                 } else {
-                    LitValue lit_value = LitF32{.value = std::stof(tok->lexme)};
+                    LitValue lit_value = LitF32{.value = std::stof(lexme)};
                     return LiteralNode(lit_value, Type::get_primitive_type("f32"));
                 }
             }
             case TOK_STR_VALUE: {
+                size_t pos = 0;
+                while ((pos = lexme.find("\\\"", pos)) != std::string::npos) {
+                    lexme.replace(pos, 2, "\"");
+                }
                 if (front_token == TOK_DOLLAR) {
-                    LitValue lit_value = LitStr{.value = tok->lexme};
+                    LitValue lit_value = LitStr{.value = lexme};
                     return LiteralNode(lit_value, Type::get_primitive_type("str"));
                 } else {
-                    const std::string &str = tok->lexme;
+                    const std::string &str = lexme;
                     std::stringstream processed_str;
                     for (unsigned int i = 0; i < str.length(); i++) {
                         if (str[i] == '\\' && i + 1 < str.length()) {
@@ -504,7 +513,27 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 return LiteralNode(lit_value, Type::get_primitive_type("bool"));
             }
             case TOK_CHAR_VALUE: {
-                LitValue lit_value = LitU8{.value = tok->lexme[0]};
+                char char_value = lexme[0];
+                // Handle special cases
+                if (lexme == "\\n") {
+                    char_value = '\n';
+                } else if (lexme == "\\t") {
+                    char_value = '\t';
+                } else if (lexme == "\\r") {
+                    char_value = '\r';
+                } else if (lexme == "\\\\") {
+                    char_value = '\\';
+                } else if (lexme == "\\0") {
+                    char_value = '\0';
+                } else if (lexme == "\\'") {
+                    char_value = '\'';
+                } else if (lexme.substr(0, 2) == "\\x") {
+                    assert(lexme.size() == 4);
+                    const std::string hex_digits = lexme.substr(2, 2);
+                    unsigned int hex_value = std::stoi(hex_digits, nullptr, 16);
+                    char_value = static_cast<char>(hex_value);
+                }
+                LitValue lit_value = LitU8{.value = char_value};
                 return LiteralNode(lit_value, Type::get_primitive_type("u8"));
             }
         }
@@ -534,14 +563,14 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::
         // Add string before first { or between } and {
         if (it == ranges.begin() && it->first > 0) {
             // Add string that's present before the first { symbol
-            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, interpol_string.substr(0, it->first)}};
+            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, std::string_view(interpol_string.data(), it->first)}};
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         } else if (it != ranges.begin() && it->first - std::prev(it)->second > 1) {
             // Add string in between } and { symbols
             size_t start_pos = std::prev(it)->second + 1; // Position after previous }
             size_t length = it->first - start_pos;        // Length until current {
-            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, interpol_string.substr(start_pos, length)}};
+            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, std::string_view(interpol_string.data() + start_pos, length)}};
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
@@ -576,7 +605,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::
         // Add string after last } symbol
         if (std::next(it) == ranges.end() && it->second + 1 < interpol_string.length()) {
             size_t start_pos = it->second + 1; // Position after }
-            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, interpol_string.substr(start_pos)}};
+            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, std::string_view(interpol_string.data() + start_pos)}};
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
@@ -1354,7 +1383,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<LiteralNode>(std::move(lit.value()));
         } else if (Matcher::tokens_match(tokens_mut, Matcher::string_interpolation)) {
             assert(tokens_mut.first->token == TOK_DOLLAR && std::prev(tokens_mut.second)->token == TOK_STR_VALUE);
-            std::optional<StringInterpolationNode> interpol = create_string_interpolation(scope, std::prev(tokens_mut.second)->lexme);
+            std::optional<StringInterpolationNode> interpol = create_string_interpolation( //
+                scope, std::string(std::prev(tokens_mut.second)->lexme)                    //
+            );
             if (!interpol.has_value()) {
                 THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
@@ -1375,7 +1406,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     assert((tokens_mut.first + 1)->token == TOK_DOT);
                     assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
                     assert((tokens_mut.first + 3)->token == TOK_LEFT_PAREN);
-                    const std::string &value = (tokens_mut.first + 2)->lexme;
+                    const std::string value((tokens_mut.first + 2)->lexme);
                     const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
                     if (!pair.has_value()) {
                         // Unsupported error value
@@ -1395,7 +1426,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             // The first element should be an initializer for the alias
             assert(tokens_mut.first->token == TOK_IDENTIFIER);
-            const std::string alias_base = tokens_mut.first->lexme;
+            const std::string alias_base(tokens_mut.first->lexme);
             tokens_mut.first++;
             // Then a dot should follow
             assert(tokens_mut.first->token == TOK_DOT);
@@ -1425,7 +1456,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
         if (range.has_value() && range.value().second == token_size) {
             assert(tokens_mut.first->token == TOK_IDENTIFIER);
-            const std::string alias_base = tokens_mut.first->lexme;
+            const std::string alias_base(tokens_mut.first->lexme);
             tokens_mut.first++;
             // Then a dot should follow
             assert(tokens_mut.first->token == TOK_DOT);
@@ -1497,7 +1528,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             if (enum_type != nullptr) {
                 assert((tokens_mut.first + 1)->token == TOK_DOT);
                 assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
-                const std::string &value = (tokens_mut.first + 2)->lexme;
+                const std::string value((tokens_mut.first + 2)->lexme);
                 const auto &values = enum_type->enum_node->values;
                 if (std::find(values.begin(), values.end(), value) == values.end()) {
                     // Unsupported enum value
@@ -1511,7 +1542,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             if (error_type != nullptr) {
                 assert((tokens_mut.first + 1)->token == TOK_DOT);
                 assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
-                const std::string &value = (tokens_mut.first + 2)->lexme;
+                const std::string value((tokens_mut.first + 2)->lexme);
                 const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
                 if (!pair.has_value()) {
                     // Unsupported error value
@@ -1526,7 +1557,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 assert((tokens_mut.first + 1)->token == TOK_DOT);
                 const auto tag_it = tokens_mut.first + 2;
                 assert(tag_it->token == TOK_IDENTIFIER || tag_it->token == TOK_TYPE);
-                const std::string &tag = (tag_it->token == TOK_IDENTIFIER) ? tag_it->lexme : tag_it->type->to_string();
+                const std::string tag = (tag_it->token == TOK_IDENTIFIER) ? std::string(tag_it->lexme) : tag_it->type->to_string();
                 const auto &possible_types = variant_type->get_possible_types();
                 std::optional<std::shared_ptr<Type>> variation_type;
                 for (const auto &[possible_tag, var_type] : possible_types) {

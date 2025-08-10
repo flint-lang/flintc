@@ -7,28 +7,11 @@
 #include "error/error_type.hpp"
 #include "types.hpp"
 
-#include <fstream>
-#include <iostream>
 #include <iterator>
 #include <map>
 #include <sstream>
 #include <string>
 #include <vector>
-
-bool Lexer::file_exists_and_is_readable(const std::filesystem::path &file_path) {
-    std::ifstream file(file_path.string());
-    return file.is_open() && !file.fail();
-}
-
-std::string Lexer::load_file(const std::filesystem::path &file_path) {
-    std::ifstream file(file_path.string());
-    if (!file) {
-        throw std::runtime_error("Failed to load file " + file_path.string());
-    }
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
 
 token_list Lexer::scan() {
     tokens.clear();
@@ -201,40 +184,39 @@ bool Lexer::scan_token() {
             break;
         case '\'': {
             advance();
-            char char_value = peek();
-            if (char_value == '\\') {
+            start = current;
+            if (peek() == '\\') {
                 char next_val = peek_next();
                 // Skip '\\'
-                advance();
+                advance(false);
                 switch (next_val) {
+                    default:
+                        THROW_BASIC_ERR(ERR_LEXING);
+                        return false;
                     case 'n':
-                        char_value = '\n';
-                        break;
                     case 't':
-                        char_value = '\t';
-                        break;
                     case 'r':
-                        char_value = '\r';
-                        break;
                     case '\\':
-                        char_value = '\\';
-                        break;
+                    case '\'':
                     case '0':
-                        char_value = '\0';
                         break;
                     case 'x': {
-                        // Hex value follows
+                        // Hex value follows, check if the hex value is correct
                         // Skip 'x'
-                        advance();
+                        advance(false);
                         if (peek() == '\'' || peek_next() == '\'') {
                             THROW_BASIC_ERR(ERR_LEXING);
                             return false;
                         }
                         std::string hex_digits = source.substr(current, 2);
-                        int hex_value = std::stoi(hex_digits, nullptr, 16);
-                        char_value = static_cast<char>(hex_value);
+                        try {
+                            std::stoi(hex_digits, nullptr, 16);
+                        } catch (std::invalid_argument) {
+                            THROW_BASIC_ERR(ERR_LEXING);
+                            return false;
+                        }
                         // Skip one of the two hex digits
-                        advance();
+                        advance(false);
                         break;
                     }
                 }
@@ -244,9 +226,7 @@ bool Lexer::scan_token() {
                     std::to_string(peek()) + std::to_string(peek_next()));
                 return false;
             }
-            std::string char_value_str = " ";
-            char_value_str[0] = char_value;
-            add_token(TOK_CHAR_VALUE, char_value_str);
+            add_token(TOK_CHAR_VALUE);
             // Eat the '
             advance();
             break;
@@ -282,6 +262,8 @@ bool Lexer::scan_token() {
                 unsigned int comment_start_column = column;
                 while (peek() != '*' && peek_next() != '/') {
                     if (peek() == '\n') {
+                        lines.emplace_back(std::string_view(source.data() + current - line_offset + 1, line_offset));
+                        line_offset = 0;
                         line_count++;
                         column = 0;
                         column_diff = 0;
@@ -343,6 +325,8 @@ bool Lexer::scan_token() {
             break;
         case '\n':
             add_token(TOK_EOL);
+            lines.emplace_back(std::string_view(source.data() + current - line_offset + 1, line_offset));
+            line_offset = 0;
             column = 0;
             column_diff = 0;
             space_counter = 0;
@@ -373,19 +357,20 @@ bool Lexer::identifier() {
         advance(false);
     }
 
-    std::string identifier = source.substr(start, current - start + 1);
+    std::string_view identifier = std::string_view(source.data() + start, current - start + 1);
+    std::string identifier_str(identifier);
     // Check if the name starts with __flint_ as these names are not permitted for user-defined functions
     if (identifier.length() > 8 && identifier.substr(0, 8) == "__flint_") {
-        THROW_ERR(ErrInvalidIdentifier, ERR_LEXING, file, line, column, identifier);
+        THROW_ERR(ErrInvalidIdentifier, ERR_LEXING, file, line, column, identifier_str);
         return false;
     }
     if (primitives.count(identifier) > 0) {
-        std::shared_ptr<Type> type = Type::get_primitive_type(identifier);
+        std::shared_ptr<Type> type = Type::get_primitive_type(identifier_str);
         tokens.emplace_back(TokenContext{TOK_TYPE, line, column, type});
         return true;
     }
 
-    Token token = (keywords.count(identifier) > 0) ? keywords.at(identifier) : TOK_IDENTIFIER;
+    Token token = (keywords.count(identifier_str) > 0) ? keywords.at(identifier_str) : TOK_IDENTIFIER;
     add_token(token, identifier);
     return true;
 }
@@ -436,6 +421,8 @@ void Lexer::str() {
             break;
         }
         if (peek() == '\n') {
+            lines.emplace_back(std::string_view(source.data() + current - line_offset + 1, line_offset));
+            line_offset = 0;
             line++;
             column = 0;
             column_diff = 0;
@@ -492,6 +479,7 @@ bool Lexer::is_at_end() {
 }
 
 char Lexer::advance(bool increment_column) {
+    line_offset++;
     if (increment_column) {
         if (column_diff > 0) {
             column += column_diff;
@@ -505,26 +493,18 @@ char Lexer::advance(bool increment_column) {
 }
 
 void Lexer::add_token(Token token) {
-    std::string lexme = source.substr(start, current - start + 1);
-    if (token == TOK_FLINT_VALUE || token == TOK_INT_VALUE) {
-        // Erase all '_' characters from the literal
-        lexme.erase(std::remove(lexme.begin(), lexme.end(), '_'), lexme.end());
-    }
-    size_t pos = 0;
-    while ((pos = lexme.find("\\\"", pos)) != std::string::npos) {
-        lexme.replace(pos, 2, "\"");
-    }
+    std::string_view lexme = std::string_view(source.data() + start, current - start + 1);
     add_token(token, lexme);
 }
 
-void Lexer::add_token(Token token, std::string lexme) {
-    tokens.emplace_back(TokenContext{token, line, column, std::move(lexme)});
+void Lexer::add_token(Token token, std::string_view lexme) {
+    tokens.emplace_back(TokenContext{token, line, column, lexme});
 }
 
 void Lexer::add_token_option(Token single_token, char c, Token mult_token) {
     if (peek_next() == c) {
-        std::string substr = source.substr(current, 2);
-        add_token(mult_token, substr);
+        std::string_view lexme(source.data() + current, 2);
+        add_token(mult_token, lexme);
         advance();
     } else {
         add_token(single_token);
@@ -535,7 +515,7 @@ void Lexer::add_token_options(Token single_token, const std::map<char, Token> &o
     bool token_added = false;
     for (const auto &option : options) {
         if (peek_next() == option.first) {
-            add_token(option.second, source.substr(current, 2));
+            add_token(option.second, std::string_view(source.data() + current, 2));
             advance();
             token_added = true;
             break;

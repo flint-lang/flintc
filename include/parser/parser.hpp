@@ -59,6 +59,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -188,7 +189,12 @@ class Parser {
     // The constructor is private because only the Parser (the instances list) contains the actual Parser
     explicit Parser(const std::filesystem::path &file) :
         file(file),
-        file_name(file.filename().string()) {};
+        file_name(file.filename().string()) {
+        if (!file_exists_and_is_readable(file)) {
+            throw std::runtime_error("The passed file '" + file.string() + "' could not be opened!");
+        }
+        source_code = std::make_unique<const std::string>(load_file(file));
+    };
 
     /// @var `instances`
     /// @brief All Parser instances which are present. Used by the two-pass parsing system
@@ -305,6 +311,14 @@ class Parser {
     /// @brief All the aliases within this file
     std::unordered_map<std::string, ImportNode *> aliases;
 
+    /// @var `source_code`
+    /// @brief The source code of the file this parser instance handles
+    std::unique_ptr<const std::string> source_code;
+
+    /// @var `source_code_lines`
+    /// @brief A list of all the lines of the source code where each line is a slice into the file content
+    std::vector<std::string_view> source_code_lines;
+
     /// @var `file`
     /// @brief The path to the file to parse
     const std::filesystem::path file;
@@ -312,6 +326,20 @@ class Parser {
     /// @var `file_name`
     /// @brief The name of the file to be parsed
     const std::string file_name;
+
+    /// @function `file_exists_and_is_readable`
+    /// @brief Checks if the given file does exist and is readable
+    ///
+    /// @param `file_path` The file path to check
+    /// @return `bool` Whether the file exists and is readable
+    [[nodiscard]] static bool file_exists_and_is_readable(const std::filesystem::path &file_path);
+
+    /// @function `load_file`
+    /// @brief Loads a given file from a file path and returns the files content
+    ///
+    /// @param `path` The path to the file
+    /// @return `std::string` The loaded file
+    static std::string load_file(const std::filesystem::path &path);
 
     /// @function `add_parsed_function`
     /// @brief Adds a given function combined with the file it is contained in
@@ -451,13 +479,13 @@ class Parser {
     bool check_type_aliasing(token_slice &tokens) {
         if (std::distance(tokens.first, tokens.second) > 2 && tokens.first->token == TOK_IDENTIFIER &&
             std::next(tokens.first)->token == TOK_DOT) {
-            const std::string alias = tokens.first->lexme;
+            const std::string alias(tokens.first->lexme);
             // Check if this file even has the given alias
             if (aliases.find(alias) == aliases.end()) {
                 THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, alias);
                 return false;
             }
-            const std::string type_name = (tokens.first + 2)->lexme;
+            const std::string type_name((tokens.first + 2)->lexme);
             for (const auto &import : imported_files) {
                 if (import->alias.has_value() && import->alias.value() == alias &&                           //
                     std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(import->path) //

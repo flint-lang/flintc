@@ -4,27 +4,16 @@
 #include "types.hpp"
 
 #include <atomic>
-#include <filesystem>
 #include <map>
-#include <stdexcept>
 #include <string>
 
 /// @class `Lexer`
 /// @brief This class is responsible for lexing a character stream and outputting a token stream
 class Lexer {
   public:
-    explicit Lexer(const std::filesystem::path &path) {
-        if (!file_exists_and_is_readable(path)) {
-            throw std::runtime_error("The passed file '" + path.string() + "' could not be opened!");
-        }
-        file = path.filename().string();
-        source = load_file(path);
-    }
-
-    explicit Lexer(const std::string &file_name, const std::string &file_content) {
-        source = file_content;
-        file = file_name;
-    }
+    explicit Lexer(const std::string &file_name, const std::string &file_content) :
+        source(file_content),
+        file(file_name) {}
 
     /// @function `scan`
     /// @brief Scans the given file of the lexer and returns the token stream
@@ -38,6 +27,10 @@ class Lexer {
     /// @param `tokens` The list of tokens to "convert"
     /// @return `std::string` The stream of characters from the given list of tokens
     static std::string to_string(const token_slice &tokens);
+
+    /// @var `file_content_lines`
+    /// @brief A list of all the lines of the file where each line is a slice into the file
+    std::vector<std::string_view> lines;
 
   public:
     /// @var `TAB_SIZE`
@@ -57,7 +50,7 @@ class Lexer {
 
     /// @var `source`
     /// @brief The source file's content which will be lexed to a token stream
-    std::string source;
+    const std::string &source;
 
     /// @var `file`
     /// @brief The name of the source file which is currently being tokenized
@@ -83,19 +76,9 @@ class Lexer {
     /// @brief This variable is used to defer the increasing of the column
     unsigned int column_diff = 0;
 
-    /// @function `file_exists_and_is_readable`
-    /// @brief Checks if the given file does exist and is readable
-    ///
-    /// @param `file_path` The file path to check
-    /// @return `bool` Whether the file exists and is readable
-    [[nodiscard]] static bool file_exists_and_is_readable(const std::filesystem::path &file_path);
-
-    /// @function `load_file`
-    /// @brief Loads a given file from a file path and returns the files content
-    ///
-    /// @param `path` The path to the file
-    /// @return `std::string` The loaded file
-    static std::string load_file(const std::filesystem::path &path);
+    /// @var `line_offset`
+    /// @brief The offset within the current line
+    unsigned int line_offset = 1;
 
     /// @function `scan_token`
     /// @brief Scans the current character and creates tokens depending on the current character
@@ -181,7 +164,7 @@ class Lexer {
     ///
     /// @param `token` The token type to add
     /// @param `lexme` The string of the token to add
-    void add_token(Token token, std::string lexme);
+    void add_token(Token token, std::string_view lexme);
 
     /// @function `add_token_option`
     /// @brief Adds the 'mult_token' when the next character is equal to 'c', otherwise adds the 'single_token'

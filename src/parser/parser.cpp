@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cassert>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -21,10 +23,35 @@ Parser *Parser::create(const std::filesystem::path &file) {
     return &instances.back();
 }
 
+bool Parser::file_exists_and_is_readable(const std::filesystem::path &file_path) {
+    std::ifstream file(file_path.string());
+    return file.is_open() && !file.fail();
+}
+
+std::string Parser::load_file(const std::filesystem::path &file_path) {
+    std::ifstream file(file_path.string());
+    if (!file) {
+        throw std::runtime_error("Failed to load file " + file_path.string());
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
 std::optional<FileNode *> Parser::parse() {
     PROFILE_SCOPE("Parse file '" + file_name + "'");
     file_node_ptr = std::make_unique<FileNode>(file_name);
-    file_node_ptr->tokens = Lexer(file).scan();
+    Lexer lexer(file_name, *source_code.get());
+    file_node_ptr->tokens = lexer.scan();
+    source_code_lines = lexer.lines;
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Lexer lines of file '" << file_name << "'" << DEFAULT << std::endl;
+        unsigned int line_idx = 1;
+        for (const auto &line : source_code_lines) {
+            std::cout << std::to_string(line_idx) << " | " << std::string(line);
+            line_idx++;
+        }
+    }
     if (file_node_ptr->tokens.empty()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;

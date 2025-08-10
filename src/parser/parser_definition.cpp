@@ -56,7 +56,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             }
             if (depth == 0 && (std::next(tok_it)->token == TOK_COMMA || std::next(tok_it)->token == TOK_RIGHT_PAREN)) {
                 // The current token is the parameter type
-                const std::string param_name = tok_it->lexme;
+                const std::string param_name(tok_it->lexme);
                 // The type is everything from the last param begin
                 token_slice type_tokens = {last_param_begin, tok_it};
                 bool is_mutable = false;
@@ -248,8 +248,8 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
             if (token_it->token == TOK_IDENTIFIER && std::next(token_it)->token == TOK_LEFT_PAREN) {
                 // It's the initializer
                 if (token_it->lexme != name) {
-                    THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,                 //
-                        file_name, token_it->line, token_it->column, name, token_it->lexme //
+                    THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,                              //
+                        file_name, token_it->line, token_it->column, name, std::string(token_it->lexme) //
                     );
                     return std::nullopt;
                 }
@@ -293,17 +293,18 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                     return std::nullopt;
                 }
                 token_it += range.value().second;
+                const std::string token_it_lexme(token_it->lexme);
                 if (token_it->token != TOK_IDENTIFIER) {
                     // Missing field name
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                if (fields.find(token_it->lexme) != fields.end()) {
+                if (fields.find(token_it_lexme) != fields.end()) {
                     // Field name duplication
-                    THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name, token_it->line, token_it->column, token_it->lexme);
+                    THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name, token_it->line, token_it->column, token_it_lexme);
                     return std::nullopt;
                 }
-                fields[token_it->lexme] = field_type.value();
+                fields[token_it_lexme] = field_type.value();
             }
         }
     }
@@ -451,7 +452,7 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
     assert((definition.first + 1)->token == TOK_IDENTIFIER);
     assert((definition.first + 2)->token == TOK_COLON);
     assert((definition.first + 3) == definition.second);
-    const std::string name = (definition.first + 1)->lexme;
+    const std::string name((definition.first + 1)->lexme);
 
     std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> possible_types;
     for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second;) {
@@ -581,11 +582,11 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
             if (iterator->token == TOK_STR_VALUE) {
                 const size_t path_separator = iterator->lexme.find_last_of('/');
                 if (path_separator == std::string::npos) {
-                    import_path = std::make_pair(std::nullopt, iterator->lexme.substr(0, iterator->lexme.length()));
+                    import_path = std::make_pair(std::nullopt, std::string(iterator->lexme));
                 } else {
-                    import_path = std::make_pair(                                                                 //
-                        iterator->lexme.substr(0, path_separator),                                                //
-                        iterator->lexme.substr(path_separator + 1, iterator->lexme.length() - path_separator - 1) //
+                    import_path = std::make_pair(                               //
+                        std::string(iterator->lexme.substr(0, path_separator)), //
+                        std::string(iterator->lexme.substr(path_separator + 1)) //
                     );
                 }
                 ++iterator;
