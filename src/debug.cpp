@@ -24,6 +24,8 @@ std::string YELLOW = "\033[33m";
 std::string BLUE = "\033[34m";
 std::string WHITE = "\033[37m";
 std::string DEFAULT = "\033[0m";
+std::string GREY = "\033[90m";
+std::string RED_UNDERLINE = "\033[4:3;58;2;255;0;0m";
 
 unsigned int BUILTIN_LIBS_TO_PRINT = 0;
 Target COMPILATION_TARGET = Target::NATIVE;

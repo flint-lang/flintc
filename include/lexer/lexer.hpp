@@ -28,9 +28,9 @@ class Lexer {
     /// @return `std::string` The stream of characters from the given list of tokens
     static std::string to_string(const token_slice &tokens);
 
-    /// @var `file_content_lines`
-    /// @brief A list of all the lines of the file where each line is a slice into the file
-    std::vector<std::string_view> lines;
+    /// @var `lines`
+    /// @brief A list of all the lines of the file where each line is a slice into the file + the indentation level of that line
+    std::vector<std::pair<unsigned int, std::string_view>> lines;
 
   public:
     /// @var `TAB_SIZE`
@@ -76,9 +76,21 @@ class Lexer {
     /// @brief This variable is used to defer the increasing of the column
     unsigned int column_diff = 0;
 
-    /// @var `line_offset`
-    /// @brief The offset within the current line
-    unsigned int line_offset = 1;
+    /// @var `line_vars`
+    /// @brief A collection of all variables responsible for creating the source `line` vector
+    struct {
+        /// @var `offset`
+        /// @brief The offset within the current line
+        unsigned int offset = 1;
+
+        /// @var `indent_lvl`
+        /// @brief The indentation level of the current line
+        unsigned int indent_lvl = 0;
+
+        /// @var `is_at_start`
+        /// @brief Whether the line is at it's beginning
+        bool is_at_start = true;
+    } line_vars;
 
     /// @function `scan_token`
     /// @brief Scans the current character and creates tokens depending on the current character

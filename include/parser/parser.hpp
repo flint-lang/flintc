@@ -83,6 +83,12 @@ class Parser {
     /// takes care of the tokenization too
     std::optional<FileNode *> parse();
 
+    /// @function `get_source_code_lines`
+    /// @brief Returns the source code lines from this parser's instance
+    ///
+    /// @return `std::vector<std::string_view>` The source code lines
+    std::vector<std::pair<unsigned int, std::string_view>> get_source_code_lines() const;
+
     /// @function `resolve_all_unknown_types`
     /// @brief Resolves all unknown types to point to real types
     ///
@@ -184,6 +190,13 @@ class Parser {
     /// @param `slice` The token slice to clone
     /// @return `token_list` The real cloned vector from the slice
     static token_list clone_from_slice(const token_slice &slice);
+
+    /// @function `get_instance_from_filename`
+    /// @brief Returns the instance of the given file name or nullopt if no instance with that name exists
+    ///
+    /// @param `file` The file name to search the correct instance for
+    /// @return `std::optional<const Parser &>` A reference to the parser instance
+    static std::optional<const Parser *> get_instance_from_filename(const std::string &file);
 
   private:
     // The constructor is private because only the Parser (the instances list) contains the actual Parser
@@ -317,7 +330,7 @@ class Parser {
 
     /// @var `source_code_lines`
     /// @brief A list of all the lines of the source code where each line is a slice into the file content
-    std::vector<std::string_view> source_code_lines;
+    std::vector<std::pair<unsigned int, std::string_view>> source_code_lines;
 
     /// @var `file`
     /// @brief The path to the file to parse

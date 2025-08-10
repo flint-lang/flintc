@@ -8,3 +8,5 @@ extern std::string YELLOW;
 extern std::string BLUE;
 extern std::string WHITE;
 extern std::string DEFAULT;
+extern std::string GREY;
+extern std::string RED_UNDERLINE;

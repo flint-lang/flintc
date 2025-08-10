@@ -48,7 +48,7 @@ std::optional<FileNode *> Parser::parse() {
         std::cout << YELLOW << "[Debug Info] Lexer lines of file '" << file_name << "'" << DEFAULT << std::endl;
         unsigned int line_idx = 1;
         for (const auto &line : source_code_lines) {
-            std::cout << std::to_string(line_idx) << " | " << std::string(line);
+            std::cout << std::to_string(line_idx) << " | " << std::string(line.second);
             line_idx++;
         }
     }
@@ -71,6 +71,10 @@ std::optional<FileNode *> Parser::parse() {
         return std::nullopt;
     }
     return file_node_ptr.get();
+}
+
+std::vector<std::pair<unsigned int, std::string_view>> Parser::get_source_code_lines() const {
+    return source_code_lines;
 }
 
 bool Parser::resolve_all_unknown_types() {
@@ -288,4 +292,13 @@ token_list Parser::clone_from_slice(const token_slice &slice) {
     extraction.reserve(std::distance(slice.first, slice.second));
     std::copy(slice.first, slice.second, std::back_inserter(extraction));
     return extraction;
+}
+
+std::optional<const Parser *> Parser::get_instance_from_filename(const std::string &file) {
+    for (const auto &instance : instances) {
+        if (instance.file_name == file) {
+            return &instance;
+        }
+    }
+    return std::nullopt;
 }

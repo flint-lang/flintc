@@ -1,16 +1,119 @@
 #include "error/error_types/base_error.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/lexer_utils.hpp"
+#include "parser/parser.hpp"
 #include "resolver/resolver.hpp"
 
 #include <algorithm>
 #include <filesystem>
+#include <iomanip>
+#include <stack>
 
 std::string BaseError::to_string() const {
     std::ostringstream oss;
     oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN
         << std::filesystem::relative(Resolver::get_path(file) / file, std::filesystem::current_path()).string() << ":" << line << ":"
-        << column << DEFAULT << "\n -- ";
+        << column << DEFAULT << "\n";
+    // Print the lines in which the error happened as a stack, as we will add prior lines to the stack and then print it in reverse
+    std::stack<std::string> lines_to_print;
+    std::optional<const Parser *> parser = Parser::get_instance_from_filename(file);
+    assert(parser.has_value());
+    const std::vector<std::pair<unsigned int, std::string_view>> &source_code_lines = parser.value()->get_source_code_lines();
+    // First, we need to get the indent level of the line the error happened in
+    unsigned int indent_lvl = source_code_lines.at(line - 1).first;
+    unsigned int leading_spaces = indent_lvl * Lexer::TAB_SIZE;
+    std::string_view err_line = source_code_lines.at(line - 1).second;
+    while (leading_spaces > 0) {
+        if (err_line[0] == '\t') {
+            err_line = err_line.substr(1);
+        } else if (err_line[0] == ' ') {
+            err_line = err_line.substr(Lexer::TAB_SIZE);
+        } else {
+            // This should never come here, it's my fault if it would
+            assert(false);
+        }
+        leading_spaces -= Lexer::TAB_SIZE;
+    }
+    // Get the number of characters needed to represent the `line` number (3 for `123` etc)
+    const unsigned int line_space = std::to_string(line).size();
+    oss << "└";
+    for (unsigned int i = 0; i < line_space; i++) {
+        oss << "─";
+    }
+    oss << "┐\n";
+    // We push the error line as the first line to the stack until we have reached the top level
+    std::stringstream line_string;
+    line_string << std::left << std::setw(line_space) << std::to_string(line) << " │ " << GREY;
+    for (unsigned int i = 0; i < indent_lvl; i++) {
+        // The `»` unicode character takes up 2 bytes, that's why we need to set the width to one more to visually end up with
+        // TAB_SIZE characters
+        line_string << std::left << std::setw(Lexer::TAB_SIZE + 1) << "»";
+    }
+    const unsigned int offset = indent_lvl * Lexer::TAB_SIZE;
+    line_string << DEFAULT << std::string(err_line.substr(0, column - 1 - offset));
+    line_string << RED_UNDERLINE << std::string(err_line.substr(column - 1 - offset)) << DEFAULT;
+    lines_to_print.push(line_string.str());
+    line_string.str("");
+    line_string.clear();
+    for (unsigned int current_line = line - 1; current_line > 0; current_line--) {
+        unsigned int line_indent_lvl = source_code_lines.at(current_line - 1).first;
+        std::string_view current_line_view = source_code_lines.at(current_line - 1).second;
+        leading_spaces = line_indent_lvl * Lexer::TAB_SIZE;
+        while (leading_spaces > 0) {
+            if (current_line_view[0] == '\t') {
+                current_line_view = current_line_view.substr(1);
+            } else if (current_line_view[0] == ' ') {
+                current_line_view = current_line_view.substr(Lexer::TAB_SIZE);
+            } else {
+                // This should never come here, it's my fault if it would
+                assert(false);
+            }
+            leading_spaces -= Lexer::TAB_SIZE;
+        }
+        // Check if the current line even contains anything other than spaces, \t and \n and only continue if it contains *real* content
+        size_t comment_pos = current_line_view.find("//");
+        if (comment_pos == std::string::npos) {
+            comment_pos = current_line_view.size();
+        }
+        std::string_view code_part = current_line_view.substr(0, comment_pos);
+        if (code_part.find_first_not_of(" \t\n") == std::string_view::npos) {
+            // Is empty line
+            continue;
+        }
+        if (line_indent_lvl < indent_lvl) {
+            // Double-indent difference should not be possible at all
+            assert(line_indent_lvl == indent_lvl - 1);
+            line_string << std::left << std::setw(line_space) << std::to_string(current_line) << " │ " << GREY;
+            for (unsigned int i = 0; i < line_indent_lvl; i++) {
+                // The `»` unicode character takes up 2 bytes, that's why we need to set the width to one more to visually end up with
+                // TAB_SIZE characters
+                line_string << std::left << std::setw(Lexer::TAB_SIZE + 1) << "»";
+            }
+            line_string << DEFAULT << std::string(current_line_view);
+            lines_to_print.push(line_string.str());
+            line_string.str("");
+            line_string.clear();
+            indent_lvl--;
+            if (indent_lvl == 0) {
+                break;
+            }
+        }
+    }
+    // Okay now we can add all the lines to the console output in reverse
+    while (!lines_to_print.empty()) {
+        oss << lines_to_print.top();
+        lines_to_print.pop();
+    }
+    // We can now add the marker for the errors to specify where the error was
+    oss << "┌";
+    for (unsigned int i = 0; i < line_space; i++) {
+        oss << "─";
+    }
+    oss << "┴─";
+    for (unsigned int i = column; i > 1; i--) {
+        oss << "─";
+    }
+    oss << "┘\n└─ ";
     return oss.str();
 }
 

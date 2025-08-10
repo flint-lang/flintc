@@ -5,7 +5,7 @@
 #include "parser/type/type.hpp"
 #include "types.hpp"
 
-#include <sstream>
+#include <sstream> // Used by all derived error types, so we need it
 #include <string>
 
 /// @class `BaseError`

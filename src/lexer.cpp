@@ -262,8 +262,10 @@ bool Lexer::scan_token() {
                 unsigned int comment_start_column = column;
                 while (peek() != '*' && peek_next() != '/') {
                     if (peek() == '\n') {
-                        lines.emplace_back(std::string_view(source.data() + current - line_offset + 1, line_offset));
-                        line_offset = 0;
+                        lines.emplace_back(                                                                                          //
+                            line_vars.indent_lvl, std::string_view(source.data() + current - line_vars.offset + 1, line_vars.offset) //
+                        );
+                        line_vars = {.offset = 0, .indent_lvl = 0, .is_at_start = true};
                         line_count++;
                         column = 0;
                         column_diff = 0;
@@ -325,8 +327,8 @@ bool Lexer::scan_token() {
             break;
         case '\n':
             add_token(TOK_EOL);
-            lines.emplace_back(std::string_view(source.data() + current - line_offset + 1, line_offset));
-            line_offset = 0;
+            lines.emplace_back(line_vars.indent_lvl, std::string_view(source.data() + current - line_vars.offset + 1, line_vars.offset));
+            line_vars = {.offset = 0, .indent_lvl = 0, .is_at_start = true};
             column = 0;
             column_diff = 0;
             space_counter = 0;
@@ -421,8 +423,8 @@ void Lexer::str() {
             break;
         }
         if (peek() == '\n') {
-            lines.emplace_back(std::string_view(source.data() + current - line_offset + 1, line_offset));
-            line_offset = 0;
+            lines.emplace_back(line_vars.indent_lvl, std::string_view(source.data() + current - line_vars.offset + 1, line_vars.offset));
+            line_vars = {.offset = 0, .indent_lvl = 0, .is_at_start = true};
             line++;
             column = 0;
             column_diff = 0;
@@ -479,7 +481,7 @@ bool Lexer::is_at_end() {
 }
 
 char Lexer::advance(bool increment_column) {
-    line_offset++;
+    line_vars.offset++;
     if (increment_column) {
         if (column_diff > 0) {
             column += column_diff;
@@ -493,6 +495,11 @@ char Lexer::advance(bool increment_column) {
 }
 
 void Lexer::add_token(Token token) {
+    if (line_vars.is_at_start && token == TOK_INDENT) {
+        line_vars.indent_lvl++;
+    } else if (token != TOK_INDENT) {
+        line_vars.is_at_start = false;
+    }
     std::string_view lexme = std::string_view(source.data() + start, current - start + 1);
     add_token(token, lexme);
 }

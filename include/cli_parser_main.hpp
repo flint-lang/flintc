@@ -42,6 +42,8 @@ class CLIParserMain : public CLIParserBase {
                 BLUE = "";
                 WHITE = "";
                 DEFAULT = "";
+                GREY = "";
+                RED_UNDERLINE = "";
             } else if (arg == "--file" || arg == "-f") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
