@@ -578,7 +578,8 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::
         // Extract the expression between { and }
         size_t expr_start = it->first + 1;               // Position after {
         size_t expr_length = it->second - it->first - 1; // Length between { and }
-        Lexer lexer("string_interpolation", interpol_string.substr(expr_start, expr_length));
+        const std::string expr_str = interpol_string.substr(expr_start, expr_length);
+        Lexer lexer("string_interpolation", expr_str);
         token_list expr_tokens = lexer.scan();
         if (expr_tokens.empty()) {
             THROW_BASIC_ERR(ERR_PARSING);

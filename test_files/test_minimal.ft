@@ -1,8 +1,16 @@
 use Core.print
 
-def main():
-    u8 character = '\x49';
-    print($"character '{character}' is {i32(character)}\n");
+data Point:
+    i32 x;
+    i32 y;
+    Point(x, y);
 
-    character++;
-    print($"character '{character}' is {i32(character)}\n");
+data Rectangle:
+    Point top_left;
+    Point bottom_right;
+    Rectangle(top_left, bottom_right);
+
+def main():
+    Rectangle rect = Rectangle(Point(0, 0), Point(10, 10));
+    print($"rect.top_left.(x, y) = ({rect.top_left.x}, {rect.top_left.y})\n");
+    print($"rect.bottom_right.(x, y) = ({rect.bottom_right.x}, {rect.bottom_right.y})\n");
