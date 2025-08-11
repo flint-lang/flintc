@@ -593,7 +593,6 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::
         }
         std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expr_tokens_slice);
         if (!expr.has_value()) {
-            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens_slice);
             return std::nullopt;
         }
         // Cast every expression inside to a str type (if it isn't already)
@@ -623,7 +622,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     remove_surrounding_paren(tokens_mut);
     auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
     if (!call_or_init_node_args.has_value()) {
-        THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     assert(!std::get<3>(call_or_init_node_args.value()));
@@ -647,7 +645,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
     remove_surrounding_paren(tokens_mut);
     auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
     if (!call_or_init_node_args.has_value()) {
-        THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     assert(std::get<3>(call_or_init_node_args.value()));
@@ -686,7 +683,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(std::sha
     token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
     std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expr_tokens);
     if (!expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expr_tokens);
         return std::nullopt;
     }
 
@@ -762,7 +758,6 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_p
         token_slice expression_tokens = {tokens_mut.first + match_range.first, tokens_mut.first + match_range.second};
         auto expr = create_expression(scope, expression_tokens);
         if (!expr.has_value()) {
-            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
             return std::nullopt;
         }
         expressions.emplace_back(std::move(expr.value()));
@@ -793,7 +788,6 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
             std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(scope, tokens);
             tokens.first = tokens.second;
             if (!indexing_expression.has_value()) {
-                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             expressions.emplace_back(std::move(indexing_expression.value()));
@@ -804,7 +798,6 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
             );
             tokens.first += next_expr_range.value().second;
             if (!indexing_expression.has_value()) {
-                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             expressions.emplace_back(std::move(indexing_expression.value()));
@@ -864,7 +857,6 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(std::shared
         initializer = create_expression(scope, initializer_tokens);
     }
     if (!initializer.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, initializer_tokens);
         return std::nullopt;
     }
 
@@ -1353,14 +1345,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (Matcher::tokens_match(tokens_mut, Matcher::literal)) {
             std::optional<LiteralNode> lit = create_literal(tokens_mut);
             if (!lit.has_value()) {
-                THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
         } else if (Matcher::tokens_match(tokens_mut, Matcher::variable_expr)) {
             std::optional<VariableNode> variable = create_variable(scope, tokens_mut);
             if (!variable.has_value()) {
-                THROW_ERR(ErrExprVariableCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return std::make_unique<VariableNode>(std::move(variable.value()));
@@ -1378,7 +1368,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (Matcher::tokens_match(tokens_mut, Matcher::literal_expr)) {
             std::optional<LiteralNode> lit = create_literal(tokens_mut);
             if (!lit.has_value()) {
-                THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
@@ -1388,7 +1377,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 scope, std::string(std::prev(tokens_mut.second)->lexme)                    //
             );
             if (!interpol.has_value()) {
-                THROW_ERR(ErrExprLitCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
             return std::make_unique<StringInterpolationNode>(std::move(interpol.value()));
@@ -1417,7 +1405,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     token_slice message_tokens = {tokens_mut.first + 4, tokens_mut.first + range.value().second - 1};
                     auto message = create_expression(scope, message_tokens, Type::get_type_from_str("str"));
                     if (!message.has_value()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
                     const std::shared_ptr<Type> lit_type = tokens_mut.first->type;
@@ -1434,7 +1421,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             tokens_mut.first++;
             auto call_node = create_call_expression(scope, tokens_mut, alias_base);
             if (!call_node.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return std::move(call_node.value());
@@ -1447,7 +1433,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             // located on the right of the call still
             auto call_node = create_call_expression(scope, tokens_mut, std::nullopt);
             if (!call_node.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return call_node;
@@ -1464,7 +1449,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             tokens_mut.first++;
             auto initializer_node = create_initializer(scope, tokens_mut, alias_base);
             if (!initializer_node.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return initializer_node;
@@ -1475,7 +1459,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (range.has_value() && range.value().first == 0 && range.value().second == token_size) {
             std::optional<GroupExpressionNode> group = create_group_expression(scope, tokens_mut);
             if (!group.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return std::make_unique<GroupExpressionNode>(std::move(group.value()));
@@ -1486,7 +1469,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             // It's an initializer
             std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(scope, tokens_mut, std::nullopt);
             if (!initializer.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return initializer;
@@ -1494,7 +1476,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             // It's an explicit initializer of an multi-type
             std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(scope, tokens_mut, std::nullopt);
             if (!initializer.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return initializer;
@@ -1502,7 +1483,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer)
             std::optional<std::unique_ptr<ExpressionNode>> type_cast = create_type_cast(scope, tokens_mut);
             if (!type_cast.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return type_cast;
@@ -1701,7 +1681,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 
     // If no binary operators, this is an error
     if (smallest_precedence == 0) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
 
@@ -1712,13 +1691,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     // Recursively parse both sides
     auto lhs = create_pivot_expression(scope, lhs_tokens, expected_type);
     if (!lhs.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, lhs_tokens);
         return std::nullopt;
     }
 
     auto rhs = create_pivot_expression(scope, rhs_tokens, expected_type);
     if (!rhs.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_tokens);
         return std::nullopt;
     }
 
@@ -1778,7 +1755,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     auto expression = create_pivot_expression(scope, expr_tokens, expected_type);
 
     if (!expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
 

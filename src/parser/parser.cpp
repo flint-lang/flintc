@@ -142,7 +142,6 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
         // Create the body and add the body statements to the created scope
         auto body_statements = parser.create_body(function->scope, body);
         if (!body_statements.has_value()) {
-            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, body);
             return false;
         }
         function->scope->body = std::move(body_statements.value());
@@ -192,7 +191,6 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         // Create the body and add the body statements to the created scope
         auto body_statements = parser.create_body(test->scope, body);
         if (!body_statements.has_value()) {
-            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, parser.file_name, body);
             return false;
         }
         test->scope->body = std::move(body_statements.value());

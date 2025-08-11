@@ -98,7 +98,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         // Dont actually parse the function body, only its definition
         std::optional<FunctionNode> function_node = create_function(definition_tokens);
         if (!function_node.has_value()) {
-            THROW_ERR(ErrDefFunctionCreation, ERR_PARSING, file_name, definition_tokens);
             return false;
         }
         FunctionNode *added_function = file_node.add_function(function_node.value());
@@ -107,7 +106,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::data_definition)) {
         std::optional<DataNode> data_node = create_data(definition_tokens, body_lines);
         if (!data_node.has_value()) {
-            THROW_ERR(ErrDefDataCreation, ERR_PARSING, file_name, definition_tokens);
             return false;
         }
         DataNode *added_data = file_node.add_data(data_node.value());
@@ -121,7 +119,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_lines);
         if (!func_node.has_value()) {
-            THROW_ERR(ErrDefFuncCreation, ERR_PARSING, file_name, definition_tokens);
             return false;
         }
         file_node.add_func(func_node.value());
@@ -392,7 +389,6 @@ Parser::create_call_or_initializer_base(         //
                 }
                 auto expression = create_expression(scope, argument_tokens);
                 if (!expression.has_value()) {
-                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
                     return std::nullopt;
                 }
                 arguments.emplace_back(std::move(expression.value()), false);
@@ -404,7 +400,6 @@ Parser::create_call_or_initializer_base(         //
             token_slice argument_tokens = {tokens.first + arg_range.value().first, tokens.first + arg_range.value().second};
             auto expression = create_expression(scope, argument_tokens);
             if (!expression.has_value()) {
-                THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, argument_tokens);
                 return std::nullopt;
             }
             arguments.emplace_back(std::move(expression.value()), false);
@@ -670,7 +665,6 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     // All other tokens now are the expression
     auto expression = create_expression(scope, tokens_mut);
     if (!expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
 

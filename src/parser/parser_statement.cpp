@@ -34,7 +34,6 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
     token_slice tokens_mut = tokens;
     auto call_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
     if (!call_node_args.has_value()) {
-        THROW_ERR(ErrExprCallCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     assert(!std::get<3>(call_node_args.value()));
@@ -54,7 +53,8 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> scope, cons
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_THROW) {
             if (std::next(it) == tokens.second) {
-                THROW_ERR(ErrStmtThrowCreationFailed, ERR_PARSING, file_name, tokens);
+                // Missing expression in throw statement
+                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             throw_id = std::distance(tokens.first, it);
@@ -63,7 +63,6 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> scope, cons
     token_slice expression_tokens = {tokens.first + throw_id + 1, tokens.second};
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
     if (!expr.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
     if (!dynamic_cast<const ErrorSetType *>(expr.value()->type.get())) {
@@ -74,32 +73,29 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> scope, cons
 }
 
 std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    // Get the return type of the function
+    std::shared_ptr<Type> return_type = scope->get_variable_type("__flint_return_type").value();
     unsigned int return_id = 0;
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_RETURN) {
-            if (std::next(it) == tokens.second) {
-                THROW_ERR(ErrStmtReturnCreationFailed, ERR_PARSING, file_name, tokens);
+            if (std::next(it) == tokens.second && return_type->to_string() != "void") {
+                // Return statement without expression for a function that returns a non-void value
+                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return_id = std::distance(tokens.first, it);
         }
     }
-    // Get the return type of the function
-    std::shared_ptr<Type> return_type = scope->get_variable_type("__flint_return_type").value();
 
     token_slice expression_tokens = {tokens.first + return_id + 1, tokens.second};
     std::optional<std::unique_ptr<ExpressionNode>> return_expr;
     if (std::next(expression_tokens.first) == expression_tokens.second) {
-        if (return_type->to_string() != "void") {
-            // Void return on non-void function
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
+        // This can be asserted because of the check above
+        assert(return_type->to_string() != "void");
         return ReturnNode(return_expr);
     }
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);
     if (!expr.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
         return std::nullopt;
     }
     if (const VariableNode *variable_node = dynamic_cast<const VariableNode *>(expr.value().get())) {
@@ -172,7 +168,6 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(std::shared_ptr<Scope> 
         create_expression(scope, this_if_pair.first, Type::get_primitive_type("bool"));
     if (!condition.has_value()) {
         // Invalid expression inside if statement
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, this_if_pair.first);
         return std::nullopt;
     }
     if (condition.value()->type->to_string() != "bool") {
@@ -183,7 +178,6 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(std::shared_ptr<Scope> 
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(scope);
     auto body_statements = create_body(body_scope, this_if_pair.second);
     if (!body_statements.has_value()) {
-        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, this_if_pair.second);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
@@ -199,7 +193,6 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(std::shared_ptr<Scope> 
             std::shared_ptr<Scope> else_scope_ptr = std::make_shared<Scope>(scope);
             auto else_body_statements = create_body(else_scope_ptr, if_chain.at(0).second);
             if (!else_body_statements.has_value()) {
-                THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, if_chain.at(0).second);
                 return std::nullopt;
             }
             else_scope_ptr->body = std::move(else_body_statements.value());
@@ -236,14 +229,12 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression(scope, condition_tokens, Type::get_primitive_type("bool"));
     if (!condition.has_value()) {
         // Invalid expression inside while statement
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, condition_tokens);
         return std::nullopt;
     }
 
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(scope);
     auto body_statements = create_body(body_scope, body);
     if (!body_statements.has_value()) {
-        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
@@ -314,7 +305,6 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope);
     auto body_statements = create_body(body_scope, body);
     if (!body_statements.has_value()) {
-        THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
@@ -377,7 +367,6 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     // The rest of the definition is the iterable expression
     std::optional<std::unique_ptr<ExpressionNode>> iterable = create_expression(definition_scope, definition_mut);
     if (!iterable.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, definition_mut);
         return std::nullopt;
     }
     // Now that the iterable is parsed we know its type and we can check if its an iterable. For now, only arrays and strings are considered
@@ -1109,7 +1098,6 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     token_slice left_of_catch = {definition.first, catch_id.value()};
     std::optional<std::unique_ptr<StatementNode>> lhs = create_statement(scope, left_of_catch);
     if (!lhs.has_value()) {
-        THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, left_of_catch);
         return std::nullopt;
     }
     statements.emplace_back(std::move(lhs.value()));
@@ -1150,7 +1138,6 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         }
         auto body_statements = create_body(body_scope, body);
         if (!body_statements.has_value()) {
-            THROW_ERR(ErrBodyCreationFailed, ERR_PARSING, file_name, body);
             return std::nullopt;
         }
         body_scope->body = std::move(body_statements.value());
@@ -1236,7 +1223,6 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
     }
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, tokens_mut);
     if (!expr.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     return GroupAssignmentNode(assignees, expr.value());
@@ -1315,7 +1301,6 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
         expr = create_expression(scope, tokens_mut);
     }
     if (!expr.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
 
@@ -1368,12 +1353,10 @@ std::optional<AssignmentNode> Parser::create_assignment( //
                 token_slice expression_tokens = {it + 2, tokens.second};
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens, expected_type);
                 if (!expression.has_value()) {
-                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
                     return std::nullopt;
                 }
                 return AssignmentNode(expected_type, it_lexme, expression.value());
             } else {
-                THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
         }
@@ -1408,7 +1391,6 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
                     expression = create_expression(scope, expression_tokens, expected_type);
                 }
                 if (!expression.has_value()) {
-                    THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, expression_tokens);
                     return std::nullopt;
                 }
                 Token op;
@@ -1435,7 +1417,6 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
                 );
                 return AssignmentNode(expected_type, it_lexme, bin_op, true);
             } else {
-                THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
                 return std::nullopt;
             }
         }
@@ -1490,7 +1471,6 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
         expression = create_expression(scope, tokens_mut);
     }
     if (!expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     const GroupType *group_type = dynamic_cast<const GroupType *>(expression.value()->type.get());
@@ -1607,7 +1587,6 @@ std::optional<DeclarationNode> Parser::create_declaration( //
             expr = create_expression(scope, tokens_mut);
         }
         if (!expr.has_value()) {
-            THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
             return std::nullopt;
         }
         if (dynamic_cast<const GroupType *>(expr.value()->type.get())) {
@@ -1635,7 +1614,6 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     }
     auto expr = create_expression(scope, tokens_mut, type);
     if (!expr.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     return DeclarationNode(type, name, expr);
@@ -1921,7 +1899,6 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
     // Parse the rhs expression
     std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, tokens_mut, array_type->type);
     if (!expression.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, tokens_mut);
         return std::nullopt;
     }
     return ArrayAssignmentNode(variable_name, var_type.value(), array_type->type, indexing_expressions.value(), expression.value());
@@ -1944,7 +1921,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
     const token_slice rhs_expr_tokens = {iterator + 1, tokens.second};
     auto rhs_expr = create_expression(scope, rhs_expr_tokens);
     if (!rhs_expr.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, rhs_expr_tokens);
         return std::nullopt;
     }
     // Okay, so now we find the dot token for the last stack and create an expression with everything to the left of it
@@ -1963,7 +1939,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
     const token_slice base_expr_tokens = {tokens.first, iterator};
     auto base_expr = create_expression(scope, base_expr_tokens);
     if (!base_expr.has_value()) {
-        THROW_ERR(ErrExprCreationFailed, ERR_PARSING, file_name, base_expr_tokens);
         return std::nullopt;
     }
     ++iterator;
@@ -2113,21 +2088,18 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     } else if (Matcher::tokens_contain(tokens, Matcher::declaration_explicit)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false, true, rhs);
         if (!decl.has_value()) {
-            THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::declaration_inferred)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, true, true, rhs);
         if (!decl.has_value()) {
-            THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::declaration_without_initializer)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false, false, rhs);
         if (!decl.has_value()) {
-            THROW_ERR(ErrStmtDeclarationCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
@@ -2176,7 +2148,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     } else if (Matcher::tokens_contain(tokens, Matcher::assignment)) {
         std::optional<AssignmentNode> assign = create_assignment(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_ERR(ErrStmtAssignmentCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
@@ -2190,14 +2161,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     } else if (Matcher::tokens_contain(tokens, Matcher::return_statement)) {
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
         if (!return_node.has_value()) {
-            THROW_ERR(ErrStmtReturnCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::throw_statement)) {
         std::optional<ThrowNode> throw_node = create_throw(scope, tokens);
         if (!throw_node.has_value()) {
-            THROW_ERR(ErrStmtThrowCreationFailed, ERR_PARSING, file_name, tokens);
             return std::nullopt;
         }
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
@@ -2225,7 +2194,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     } else if (Matcher::tokens_contain(tokens, Matcher::continue_statement)) {
         statement_node = std::make_unique<ContinueNode>();
     } else {
-        THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, tokens);
         return std::nullopt;
     }
 
@@ -2291,14 +2259,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
 
         std::optional<std::unique_ptr<IfNode>> if_node = create_if(scope, if_chain);
         if (!if_node.has_value()) {
-            THROW_ERR(ErrStmtIfCreationFailed, ERR_PARSING, file_name, if_chain);
             return std::nullopt;
         }
         statement_node = std::move(if_node.value());
     } else if (Matcher::tokens_contain(definition, Matcher::for_loop)) {
         std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, definition, scoped_body.value());
         if (!for_loop.has_value()) {
-            THROW_ERR(ErrStmtForCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(for_loop.value());
@@ -2306,21 +2272,18 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         Matcher::tokens_contain(definition, Matcher::enhanced_for_loop)) {
         std::optional<std::unique_ptr<EnhForLoopNode>> enh_for_loop = create_enh_for_loop(scope, definition, scoped_body.value());
         if (!enh_for_loop.has_value()) {
-            THROW_ERR(ErrStmtForCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(enh_for_loop.value());
     } else if (Matcher::tokens_contain(definition, Matcher::while_loop)) {
         std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, definition, scoped_body.value());
         if (!while_loop.has_value()) {
-            THROW_ERR(ErrStmtWhileCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(while_loop.value());
     } else if (Matcher::tokens_contain(definition, Matcher::catch_statement)) {
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body.value(), statements);
         if (!catch_node.has_value()) {
-            THROW_ERR(ErrStmtCatchCreationFailed, ERR_PARSING, file_name, definition);
             return std::nullopt;
         }
         statement_node = std::move(catch_node.value());
@@ -2333,7 +2296,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     } else if (Matcher::tokens_contain(definition, Matcher::switch_statement)) {
         statement_node = create_switch_statement(scope, definition, scoped_body.value());
     } else {
-        THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, definition);
         return std::nullopt;
     }
 
@@ -2361,7 +2323,6 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(s
             }
         }
         if (!next_statement.has_value()) {
-            THROW_ERR(ErrStmtCreationFailed, ERR_PARSING, file_name, statement_tokens);
             return std::nullopt;
         }
         body_statements.emplace_back(std::move(next_statement.value()));
