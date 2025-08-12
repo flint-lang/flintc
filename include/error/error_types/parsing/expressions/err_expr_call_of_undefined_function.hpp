@@ -1,26 +1,27 @@
 #pragma once
 
-#include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 #include "types.hpp"
 
 class ErrExprCallOfUndefinedFunction : public BaseError {
   public:
-    ErrExprCallOfUndefinedFunction(const ErrorType error_type, const std::string &file, const token_slice &tokens,
-        const std::string &function_name) :
-        BaseError(error_type, file, tokens.first->line, tokens.first->column),
-        tokens(tokens),
-        function_name(function_name) {}
+    ErrExprCallOfUndefinedFunction(                         //
+        const ErrorType error_type,                         //
+        const std::string &file,                            //
+        const token_slice &tokens,                          //
+        const std::string &function_name,                   //
+        const std::vector<std::shared_ptr<Type>> &arg_types //
+        ) :
+        BaseError(error_type, file, tokens.first->line, tokens.first->column, (tokens.first + 1)->column - tokens.first->column),
+        file_name(file),
+        function_name(function_name),
+        arg_types(arg_types) {}
 
     [[nodiscard]]
-    std::string to_string() const override {
-        std::ostringstream oss;
-        oss << BaseError::to_string() << "Failed to call function '" << YELLOW << function_name << DEFAULT << "' in expression " << YELLOW
-            << get_token_string(tokens, {}) << DEFAULT;
-        return oss.str();
-    }
+    std::string to_string() const override;
 
   private:
-    token_slice tokens;
+    std::string file_name;
     std::string function_name;
+    std::vector<std::shared_ptr<Type>> arg_types;
 };

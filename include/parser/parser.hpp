@@ -160,6 +160,20 @@ class Parser {
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser
     std::vector<std::pair<FunctionNode *, std::vector<Line>>> open_functions_list{};
 
+    /// @var `parsed_functions`
+    /// @brief Stores all the functions that have been parsed
+    ///
+    /// @details This list exists to keep track of all parsed function nodes
+    static inline std::vector<std::pair<FunctionNode *, std::string>> parsed_functions;
+
+    /// @var `parsed_functions_mutex`
+    /// @brief A mutex for the `parsed_functions` variable, which is used to provide thread-safe access to the list
+    static inline std::mutex parsed_functions_mutex;
+
+    /// @var `file_node_ptr`
+    /// @brief The file node this parser is currently parsing
+    std::unique_ptr<FileNode> file_node_ptr;
+
     /// @function `extract_from_to`
     /// @brief Extracts the tokens from a given index up to the given index from the given tokens list
     ///
@@ -288,16 +302,6 @@ class Parser {
     /// @brief Stores a pointer to the last parsed call of this parser
     std::optional<CallNodeBase *> last_parsed_call;
 
-    /// @var `parsed_functions`
-    /// @brief Stores all the functions that have been parsed
-    ///
-    /// @details This list exists to keep track of all parsed function nodes
-    static inline std::vector<std::pair<FunctionNode *, std::string>> parsed_functions;
-
-    /// @var `parsed_functions_mutex`
-    /// @brief A mutex for the `parsed_functions` variable, which is used to provide thread-safe access to the list
-    static inline std::mutex parsed_functions_mutex;
-
     /// @var `parsed_tests`
     /// @brief Stores all the tests that have been parsed
     ///
@@ -315,10 +319,6 @@ class Parser {
     /// @var `imported_files`
     /// @brief The list of all files the file that is currently parsed can seee / has imported
     std::vector<ImportNode *> imported_files{};
-
-    /// @var `file_node_ptr`
-    /// @brief The file node this parser is currently parsing
-    std::unique_ptr<FileNode> file_node_ptr;
 
     /// @var `aliases`
     /// @brief All the aliases within this file

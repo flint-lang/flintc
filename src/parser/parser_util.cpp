@@ -553,10 +553,7 @@ Parser::create_call_or_initializer_base(         //
         }
         if (!found_function.has_value()) {
             token_slice err_tokens = {tokens.first + arg_range.value().first - 2, tokens.first + arg_range.value().second + 1};
-            THROW_ERR(                                                                                          //
-                ErrExprCallWrongArgsBuiltin, ERR_PARSING, file_name, err_tokens, function_name, argument_types, //
-                file_node_ptr->imported_core_modules                                                            //
-            );
+            THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, err_tokens, function_name, argument_types);
             return std::nullopt;
         }
         auto &fn = found_function.value();
@@ -575,16 +572,15 @@ Parser::create_call_or_initializer_base(         //
     // Get the acutal function this call targets, and check if it even exists
     auto function = get_function_from_call(function_name, argument_types);
     if (!function.has_value()) {
-        THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name);
+        THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name, argument_types);
         return std::nullopt;
     }
     // Check if the argument count does match the parameter count
     const unsigned int param_count = function.value().first->parameters.size();
     const unsigned int arg_count = arguments.size();
-    if (param_count != arg_count) {
-        THROW_ERR(ErrExprCallWrongArgCount, ERR_PARSING, file_name, tokens, function_name, param_count, arg_count);
-        return std::nullopt;
-    }
+    // Argument counts are guaranteed to match the param count because if they would not, the `get_function_from_call` function would have
+    // returned `std::nullopt`
+    assert(param_count != arg_count);
     // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been
     // found Lastly, update the arguments of the call with the information of the function definition, if the arguments should be
     // references Every non-primitive type is always a reference (except enum types, for now)
