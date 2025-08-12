@@ -377,12 +377,20 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
             if ((body_it + 1)->token == TOK_COMMA) {
                 values.emplace_back(body_it->lexme);
             } else if ((body_it + 1)->token == TOK_SEMICOLON) {
+                if ((body_it + 2)->token != TOK_EOL) {
+                    // There are more values following in the same line, so the ; is actually a wrong token and should be a , instead
+                    THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,                                           //
+                        (body_it + 1)->line, (body_it + 1)->column, std::vector<Token>{TOK_COMMA}, (body_it + 1)->token //
+                    );
+                    return std::nullopt;
+                }
                 values.emplace_back(body_it->lexme);
                 break;
             } else {
                 const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
-                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name, body_it->line, body_it->column, //
-                    expected, body_it->token);
+                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,                      //
+                    (body_it + 1)->line, (body_it + 1)->column, expected, (body_it + 1)->token //
+                );
                 return std::nullopt;
             }
         }
@@ -432,12 +440,18 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
             if ((body_it + 1)->token == TOK_COMMA) {
                 error_types.emplace_back(body_it->lexme);
             } else if ((body_it + 1)->token == TOK_SEMICOLON) {
+                if ((body_it + 2)->token != TOK_EOL) {
+                    // There are more values following in the same line, so the ; is actually a wrong token and should be a , instead
+                    THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,                                           //
+                        (body_it + 1)->line, (body_it + 1)->column, std::vector<Token>{TOK_COMMA}, (body_it + 1)->token //
+                    );
+                    return std::nullopt;
+                }
                 error_types.emplace_back(body_it->lexme);
                 break;
             } else {
-                const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
-                THROW_ERR(                                                                                                   //
-                    ErrParsUnexpectedToken, ERR_PARSING, file_name, body_it->line, body_it->column, expected, body_it->token //
+                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,                                                          //
+                    (body_it + 1)->line, (body_it + 1)->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON}, (body_it + 1)->token //
                 );
                 return std::nullopt;
             }
