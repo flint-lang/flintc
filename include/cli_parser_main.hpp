@@ -40,6 +40,7 @@ class CLIParserMain : public CLIParserBase {
                 GREEN = "";
                 YELLOW = "";
                 BLUE = "";
+                CYAN = "";
                 WHITE = "";
                 DEFAULT = "";
                 GREY = "";
