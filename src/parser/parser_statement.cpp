@@ -156,16 +156,12 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(std::shared_ptr<Scope> 
         }
         this_if_pair.first.second--;
     }
-
-    // Dangling else statement without if statement
-    if (has_else && !has_if) {
-        THROW_ERR(ErrStmtDanglingElse, ERR_PARSING, file_name, this_if_pair.first);
-        return std::nullopt;
-    }
+    assert(!has_else || has_if);
 
     // Create the if statements condition and body statements
-    std::optional<std::unique_ptr<ExpressionNode>> condition =
-        create_expression(scope, this_if_pair.first, Type::get_primitive_type("bool"));
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression( //
+        scope, this_if_pair.first, Type::get_primitive_type("bool")               //
+    );
     if (!condition.has_value()) {
         // Invalid expression inside if statement
         return std::nullopt;
@@ -185,13 +181,18 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(std::shared_ptr<Scope> 
 
     // Check if the chain contains any values (more if blocks in the chain) and parse them accordingly
     if (!if_chain.empty()) {
-        if (Matcher::tokens_contain(if_chain.at(0).first, Matcher::token(TOK_IF))) {
+        if (Matcher::tokens_contain(if_chain.front().first, Matcher::token(TOK_IF))) {
             // 'else if'
             else_scope = create_if(scope, if_chain);
         } else {
             // 'else'
+            if (if_chain.size() > 1) {
+                // Dangling else or else if statement after last else statement
+                THROW_ERR(ErrStmtDanglingElse, ERR_PARSING, file_name, if_chain.at(1).first);
+                return std::nullopt;
+            }
             std::shared_ptr<Scope> else_scope_ptr = std::make_shared<Scope>(scope);
-            auto else_body_statements = create_body(else_scope_ptr, if_chain.at(0).second);
+            auto else_body_statements = create_body(else_scope_ptr, if_chain.front().second);
             if (!else_body_statements.has_value()) {
                 return std::nullopt;
             }
