@@ -260,7 +260,7 @@ bool Lexer::scan_token() {
                 advance();
                 unsigned int line_count = 0;
                 unsigned int comment_start_column = column;
-                while (peek() != '*' && peek_next() != '/') {
+                while (peek() != '*' || peek_next() != '/') {
                     if (peek() == '\n') {
                         lines.emplace_back(                                                                                          //
                             line_vars.indent_lvl, std::string_view(source.data() + current - line_vars.offset + 1, line_vars.offset) //
