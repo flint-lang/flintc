@@ -12,13 +12,13 @@ class ErrDefDataDuplicateFieldName : public BaseError {
         const unsigned int column,         //
         const std::string &duplicate_field //
         ) :
-        BaseError(error_type, file, line, column),
+        BaseError(error_type, file, line, column, duplicate_field.size()),
         duplicate_field(duplicate_field) {}
 
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Duplicate data field '" << YELLOW << duplicate_field << DEFAULT << "'";
+        oss << BaseError::to_string() << "└─ Duplicate data field '" << YELLOW << duplicate_field << DEFAULT << "'";
         return oss.str();
     }
 

@@ -16,9 +16,13 @@ class ErrExprBinopTypeMismatch : public BaseError {
         const std::string &lhs_type,   //
         const std::string &rhs_type    //
         ) :
-        BaseError(error_type, file, lhs_tokens.first->line, lhs_tokens.first->column),
-        lhs_tokens(lhs_tokens),
-        rhs_tokens(rhs_tokens),
+        BaseError(                                               //
+            error_type,                                          //
+            file,                                                //
+            lhs_tokens.first->line,                              //
+            lhs_tokens.first->column,                            //
+            rhs_tokens.second->column - lhs_tokens.first->column //
+            ),
         operator_token(operator_token),
         lhs_type(lhs_type),
         rhs_type(rhs_type) {}
@@ -26,16 +30,15 @@ class ErrExprBinopTypeMismatch : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Type mismatch in binary expression:\n -- Type of " << YELLOW << get_token_string(lhs_tokens, {})
-            << DEFAULT << " doesn't match the type of " << YELLOW << get_token_string(rhs_tokens, {}) << DEFAULT
-            << "\n -- LHS type: " << YELLOW << lhs_type << DEFAULT << "\n -- RHS type: " << YELLOW << rhs_type << DEFAULT
-            << "\n -- Operator: " << YELLOW << get_token_name(operator_token) << DEFAULT;
+        oss << BaseError::to_string() << "├─ Type mismatch in binary expression. Cannot apply operation " << YELLOW
+            << get_token_name(operator_token) << DEFAULT << " on types:\n";
+        oss << "│   ├─ LHS type: " << YELLOW << lhs_type << DEFAULT << "\n";
+        oss << "│   └─ RHS type: " << YELLOW << rhs_type << DEFAULT << "\n";
+        oss << "└─ Have you considered using explicit casting of types?";
         return oss.str();
     }
 
   private:
-    token_slice lhs_tokens;
-    token_slice rhs_tokens;
     Token operator_token;
     std::string lhs_type;
     std::string rhs_type;

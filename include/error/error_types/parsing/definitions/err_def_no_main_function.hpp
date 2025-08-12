@@ -10,7 +10,7 @@ class ErrDefNoMainFunction : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "No main function found anywhere";
+        oss << BaseError::to_string() << "└─ No main function found in the project";
         return oss.str();
     }
 };

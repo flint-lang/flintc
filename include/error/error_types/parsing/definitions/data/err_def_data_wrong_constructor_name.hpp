@@ -13,15 +13,15 @@ class ErrDefDataWrongConstructorName : public BaseError {
         const std::string &expected_name, //
         const std::string &actual_name    //
         ) :
-        BaseError(error_type, file, line, column),
+        BaseError(error_type, file, line, column, actual_name.size()),
         expected_name(expected_name),
         actual_name(actual_name) {}
 
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Expected data constructor name '" << YELLOW << expected_name << DEFAULT << "' but got '" << YELLOW
-            << actual_name << DEFAULT << "'";
+        oss << BaseError::to_string() << "└─ Expected data constructor name '" << YELLOW << expected_name << DEFAULT << "' but got '"
+            << YELLOW << actual_name << DEFAULT << "'";
         return oss.str();
     }
 

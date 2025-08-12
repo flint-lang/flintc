@@ -16,24 +16,20 @@ class ErrExprTypeMismatch : public BaseError {
         const std::shared_ptr<Type> &expected, //
         const std::shared_ptr<Type> &type      //
         ) :
-        BaseError(error_type, file, tokens.first->line, tokens.first->column),
-        tokens(tokens),
+        BaseError(error_type, file, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column),
         expected(expected),
         type(type) {}
 
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Type mismatch of expression " << YELLOW << get_token_string(tokens, {}) << DEFAULT
-            << "\n -- Expected " << YELLOW << expected->to_string() << DEFAULT << " but got " << YELLOW << type->to_string() << DEFAULT;
+        oss << BaseError::to_string() << "└─ Type mismatch of expression\n";
+        oss << "    ├─ Expected: " << YELLOW << expected->to_string() << DEFAULT << "\n";
+        oss << "    └─ But got:  " << YELLOW << type->to_string() << DEFAULT;
         return oss.str();
     }
 
   private:
-    /// @var `tokens`
-    /// @brief The tokens whose resulting type was wrong
-    token_slice tokens;
-
     /// @var `expected`
     /// @brief The expected type
     std::shared_ptr<Type> expected;

@@ -2197,6 +2197,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     } else if (Matcher::tokens_contain(tokens, Matcher::continue_statement)) {
         statement_node = std::make_unique<ContinueNode>();
     } else {
+        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
