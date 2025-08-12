@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -13,20 +14,13 @@ using string_list = std::vector<std::string_view>;
 /// error sets the function could throw
 using overloads = std::vector<std::tuple<string_list, string_list, string_list>>;
 
-/// @typedef `function_list`
+/// @typedef `function_overload_list`
 /// @brief A function list is a list of functions together with its signature overloads
 using function_overload_list = std::unordered_map<std::string_view, overloads>;
 
 /// @var `core_module_functions`
 /// @brief A map containing all core modules and maps the module to its functions
-static inline std::unordered_map<std::string_view, function_overload_list> core_module_functions = {
-    {"assert", // The 'assert' module
-        {
-            {"assert", // The 'assert' function
-                {
-                    {{"bool"}, {"void"}, {"ErrAssert"}}, // The single version of the 'assert' function
-                }},
-        }},   // End of the 'assert' module
+static inline std::map<std::string_view, function_overload_list> core_module_functions = {
     {"print", // The 'print' module
         {
             {"print", // The 'print' function
@@ -73,7 +67,14 @@ static inline std::unordered_map<std::string_view, function_overload_list> core_
                 {
                     {{}, {"f64"}, {"ErrRead"}}, // The single version of the 'read_f64' function
                 }},
-        }},        // End of the 'read' module
+        }},    // End of the 'read' module
+    {"assert", // The 'assert' module
+        {
+            {"assert", // The 'assert' function
+                {
+                    {{"bool"}, {"void"}, {"ErrAssert"}}, // The single version of the 'assert' function
+                }},
+        }},        // End of the 'assert' module
     {"filesystem", // The 'filesystem' module
         {
             {"read_file", // The 'read_file' function
