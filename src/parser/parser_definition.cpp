@@ -550,12 +550,16 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
 std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     std::string test_name;
     // Extract the name of the test
-    for (auto it = definition.first; it != definition.second; ++it) {
+    auto it = definition.first;
+    for (; it != definition.second; ++it) {
         if (it->token == TOK_TEST && std::next(it) != definition.second && std::next(it)->token == TOK_STR_VALUE) {
-            test_name = std::next(it)->lexme;
+            ++it;
+            test_name = it->lexme;
+            break;
         }
     }
     if (test_name == "") {
+        // Empty test names are not allowed
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -565,6 +569,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
 
     // Check if this test already exists within this file
     if (!TestNode::check_test_name(file_name, test_name)) {
+        THROW_ERR(ErrTestRedefinition, ERR_PARSING, file_name, it->line, it->column, test_name);
         return std::nullopt;
     }
 

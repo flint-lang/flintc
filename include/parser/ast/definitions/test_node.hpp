@@ -65,8 +65,6 @@ class TestNode : public ASTNode {
         }
         std::vector<std::string> &tests = test_names.at(file_name);
         if (std::find(tests.begin(), tests.end(), name) != tests.end()) {
-            // Test already exists in this file
-            THROW_ERR(ErrTestRedefinition, ERR_PARSING, file_name, 1, 1, name);
             return false;
         }
         tests.emplace_back(name);
