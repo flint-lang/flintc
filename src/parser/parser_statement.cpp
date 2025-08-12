@@ -2212,7 +2212,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
     auto definition_it = line_it;
 
-    auto get_scoped_body = [&body](std::vector<Line>::const_iterator &line_it) -> std::optional<std::vector<Line>> {
+    auto get_scoped_body = [this, &body](std::vector<Line>::const_iterator &line_it) -> std::optional<std::vector<Line>> {
         const unsigned int indent_lvl_statement = line_it->indent_lvl;
         auto scoped_body_begin = ++line_it;
         unsigned int indent_lvl_line = line_it->indent_lvl;
@@ -2221,8 +2221,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             indent_lvl_line = line_it->indent_lvl;
         }
         if (line_it == scoped_body_begin) {
-            // No body found after scoped statement definition line
-            THROW_BASIC_ERR(ERR_PARSING);
+            // No body found after scoped statement definition line, so we go back to the definition's line
+            THROW_ERR(ErrMissingBody, ERR_PARSING, file_name, (line_it - 1)->tokens);
             return std::nullopt;
         }
         std::vector<Line> scoped_body(scoped_body_begin, line_it);

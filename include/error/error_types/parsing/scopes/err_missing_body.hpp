@@ -7,13 +7,13 @@
 class ErrMissingBody : public BaseError {
   public:
     ErrMissingBody(const ErrorType error_type, const std::string &file, const token_slice &tokens) :
-        BaseError(error_type, file, tokens.first->line, tokens.first->column),
+        BaseError(error_type, file, tokens.first->line, (tokens.second - 1)->column),
         tokens(tokens) {}
 
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Expected a body, but got:\n" << YELLOW << get_token_string(tokens, {}) << DEFAULT;
+        oss << BaseError::to_string() << "Expected a body after the " << YELLOW << ":" << DEFAULT;
         return oss.str();
     }
 
