@@ -32,11 +32,12 @@ class BaseError {
     [[nodiscard]] static std::string get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens);
 
   protected:
-    BaseError(const ErrorType error_type, std::string file, int line, int column) :
+    BaseError(const ErrorType error_type, std::string file, int line, int column, int length = 1) :
         error_type(error_type),
         file(std::move(file)),
         line(line),
-        column(column) {}
+        column(column),
+        length(length) {}
 
     /// @var `error_type`
     /// @brief The error type of the error, e.g. where it came from
@@ -53,6 +54,10 @@ class BaseError {
     /// @var `column`
     /// @biref The column the error occured
     int column;
+
+    /// @var `length`
+    /// @brief The length of the erroneous part
+    int length;
 
     /// @function `trim_right`
     /// @brief Trims a given string from right (removes all trailing spaces from it)

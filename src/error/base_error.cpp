@@ -40,7 +40,7 @@ std::string BaseError::to_string() const {
     for (unsigned int i = 0; i < line_space; i++) {
         oss << "─";
     }
-    oss << "┐\n";
+    oss << "┬┤E0000│\n";
     // We push the error line as the first line to the stack until we have reached the top level
     std::stringstream line_string;
     line_string << std::left << std::setw(line_space) << std::to_string(line) << " │ " << GREY;
@@ -51,7 +51,8 @@ std::string BaseError::to_string() const {
     }
     const unsigned int offset = indent_lvl * Lexer::TAB_SIZE;
     line_string << DEFAULT << std::string(err_line.substr(0, column - 1 - offset));
-    line_string << RED_UNDERLINE << std::string(err_line.substr(column - 1 - offset)) << DEFAULT;
+    line_string << RED_UNDERLINE << std::string(err_line.substr(column - 1 - offset, length));
+    line_string << DEFAULT << std::string(err_line.substr(column - 1 - offset + length));
     lines_to_print.push(line_string.str());
     line_string.str("");
     line_string.clear();
@@ -113,7 +114,7 @@ std::string BaseError::to_string() const {
     for (unsigned int i = column; i > 1; i--) {
         oss << "─";
     }
-    oss << "┘\n└─ ";
+    oss << "┘\n";
     return oss.str();
 }
 
