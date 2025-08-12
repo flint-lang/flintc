@@ -33,22 +33,16 @@
 
 #include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"
-#include "error_types/parsing/expressions/err_expr_call_wrong_arg_count.hpp"
-#include "error_types/parsing/expressions/err_expr_call_wrong_args_builtin.hpp"
 #include "error_types/parsing/expressions/err_expr_nested_group.hpp"
 #include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"
 
 #include "error_types/parsing/scopes/err_missing_body.hpp"
-#include "error_types/parsing/scopes/err_unclosed_paren.hpp"
 
 #include "error_types/parsing/statements/err_stmt_dangling_catch.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_else.hpp"
-#include "error_types/parsing/statements/err_stmt_dangling_equal_sign.hpp"
 #include "error_types/parsing/statements/err_stmt_if_chain_missing_if.hpp"
 
 #include "error_types/parsing/unexpected/err_pars_unexpected_token.hpp"
-
-#include "error_types/parsing/values/err_val_unknown_literal.hpp"
 
 #include "error_types/parsing/variables/err_var_from_requires_list.hpp"
 #include "error_types/parsing/variables/err_var_mutating_const.hpp"

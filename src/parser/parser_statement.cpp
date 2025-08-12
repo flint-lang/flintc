@@ -2296,6 +2296,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     } else if (Matcher::tokens_contain(definition, Matcher::switch_statement)) {
         statement_node = create_switch_statement(scope, definition, scoped_body.value());
     } else {
+        // Unknown scoped statement
+        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 

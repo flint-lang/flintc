@@ -134,7 +134,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::enum_definition)) {
         std::optional<EnumNode> enum_node = create_enum(definition_tokens, body_lines);
         if (!enum_node.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
         EnumNode *added_enum = file_node.add_enum(enum_node.value());
@@ -146,7 +145,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::error_definition)) {
         std::optional<ErrorNode> error_node = create_error(definition_tokens, body_lines);
         if (!error_node.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
         ErrorNode *added_error = file_node.add_error(error_node.value());
@@ -158,7 +156,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::variant_definition)) {
         std::optional<VariantNode> variant_node = create_variant(definition_tokens, body_lines);
         if (!variant_node.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
         std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> added_variant = file_node.add_variant(variant_node.value());
@@ -170,7 +167,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::test_definition)) {
         std::optional<TestNode> test_node = create_test(definition_tokens);
         if (!test_node.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
         TestNode *added_test = file_node.add_test(test_node.value());

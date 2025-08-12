@@ -95,10 +95,6 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
         if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
             type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
             // Not castable, wrong arg types
-            // TODO: Make the token list ant column and line the actual line and column the type mismatch occurs at
-            token_list token_list = {TokenContext(TOK_EOF, 1, 1, "EOF")};
-            token_slice tokens = {token_list.begin(), token_list.end()};
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, lhs_type, rhs_type);
             return std::nullopt;
         }
         const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
@@ -109,18 +105,15 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
         // Check if left is a multi-type, then the right is castable to the left
         const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get());
         if (lhs_mult == nullptr) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         // The group must have the same size as the multi-type
         if (lhs_mult->width != rhs_group->types.size()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         // All elements in the group must have the same type as the multi-type
         for (size_t i = 0; i < lhs_mult->width; i++) {
             if (lhs_mult->base_type != rhs_group->types[i]) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
         }
@@ -130,18 +123,15 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
         // Check if right is a multi-type, then the left is castable to the right
         const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs_type.get());
         if (rhs_mult == nullptr) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         // The group must have the same size as the multi-type
         if (rhs_mult->width != lhs_group->types.size()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         // All elements in the group must have the same type as the multi-type
         for (size_t i = 0; i < rhs_mult->width; i++) {
             if (rhs_mult->base_type != lhs_group->types[i]) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
         }
@@ -395,8 +385,10 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     if (Matcher::tokens_match({tok, tok + 1}, Matcher::literal)) {
         switch (tok->token) {
             default:
-                THROW_ERR(ErrValUnknownLiteral, ERR_PARSING, file_name, tok->line, tok->column, lexme);
-                return std::nullopt;
+                // As long as the pattern of the literal is added in the Matcher::literal pattern this branch actually is unreachable
+                // because if it would be reached it would mean that something about the Matcher went wrong, which is not a user error but a
+                // dev error
+                assert(false);
                 break;
             case TOK_NONE: {
                 std::shared_ptr<Type> void_type = Type::get_primitive_type("void");
@@ -728,8 +720,14 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_p
     tokens_mut.second--;
 
     // Get all balanced match ranges of commas in the group expression
-    std::vector<uint2> match_ranges = Matcher::get_match_ranges(tokens_mut, Matcher::until_comma);
-    // Its not a group expression, there is only one expression inside the parenthesis, this should never happen
+    std::vector<uint2> match_ranges = Matcher::get_match_ranges_in_range_outside_group( //
+        tokens_mut,                                                                     //
+        Matcher::until_comma,                                                           //
+        {0, std::distance(tokens_mut.first, tokens_mut.second)},                        //
+        Matcher::token(TOK_LEFT_PAREN),                                                 //
+        Matcher::token(TOK_RIGHT_PAREN)                                                 //
+    );
+    // Its not a group expression if there is only one expression inside the parenthesis, this should never happen
     assert(!match_ranges.empty());
     // Remove all duplicates, because when the fourth token is a comma we get the ranges 0-3, 1-3 and 2-3, and we only care about the
     // first one, not all later ones
@@ -764,13 +762,15 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_p
     }
 
     // Check if the types in the group are correct
-    for (auto it = expressions.begin(); it != expressions.end(); ++it) {
-        if (dynamic_cast<const GroupType *>((*it)->type.get())) {
+    for (unsigned int i = 0; i < expressions.size(); i++) {
+        if (dynamic_cast<const GroupType *>(expressions[i]->type.get())) {
             // Nested groups are not allowed
-            THROW_ERR(ErrExprNestedGroup, ERR_PARSING, file_name, tokens);
+            const auto match_range = match_ranges[i];
+            token_slice expression_tokens = {tokens_mut.first + match_range.first, tokens_mut.first + match_range.second};
+            THROW_ERR(ErrExprNestedGroup, ERR_PARSING, file_name, expression_tokens);
             return std::nullopt;
-        } else if ((*it)->type->to_string() == "__flint_type_str_lit") {
-            *it = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), *it);
+        } else if (expressions[i]->type->to_string() == "__flint_type_str_lit") {
+            expressions[i] = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expressions[i]);
         }
     }
     return GroupExpressionNode(expressions);
@@ -1718,6 +1718,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type);
         } else if (!check_castability(lhs.value(), rhs.value())) {
+            THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_name,                                             //
+                lhs_tokens, rhs_tokens, pivot_token, lhs.value()->type->to_string(), rhs.value()->type->to_string() //
+            );
             return std::nullopt;
         }
     }
