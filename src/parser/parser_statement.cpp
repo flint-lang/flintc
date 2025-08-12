@@ -528,33 +528,36 @@ bool Parser::create_switch_branches(            //
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        const token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
-        std::optional<std::unique_ptr<ExpressionNode>> match;
+        token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
+        std::vector<std::unique_ptr<ExpressionNode>> matches;
         if (std::next(match_tokens.first) == match_tokens.second && match_tokens.first->token == TOK_ELSE) {
-            match = std::make_unique<DefaultNode>(switcher_type);
+            matches.emplace_back(std::make_unique<DefaultNode>(switcher_type));
         } else {
-            match = create_expression(scope, match_tokens, switcher_type);
+            auto match_expressions = create_group_expressions(scope, match_tokens);
+            if (!match_expressions.has_value()) {
+                return false;
+            }
+            matches = std::move(match_expressions.value());
         }
-        if (!match.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+        if (matches.empty()) {
             return false;
         }
         if (dynamic_cast<const PrimitiveType *>(switcher_type.get())) {
-            const bool is_literal = dynamic_cast<const LiteralNode *>(match.value().get()) != nullptr;
-            const bool is_default_value = dynamic_cast<const DefaultNode *>(match.value().get()) != nullptr;
-            if (!is_literal && !is_default_value) {
-                // Not allowed value for the switch statement's expression
-                THROW_BASIC_ERR(ERR_PARSING);
-                return false;
+            for (const auto &match : matches) {
+                const bool is_literal = dynamic_cast<const LiteralNode *>(match.get()) != nullptr;
+                const bool is_default_value = dynamic_cast<const DefaultNode *>(match.get()) != nullptr;
+                if (!is_literal && !is_default_value) {
+                    // Not allowed value for the switch statement's expression
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
             }
         } else {
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return false;
         }
-        std::vector<std::unique_ptr<ExpressionNode>> match_expressions;
-        match_expressions.push_back(std::move(match.value()));
-        if (!create_switch_branch_body(                                                                                     //
-                scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
+        if (!create_switch_branch_body(                                                                           //
+                scope, matches, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
         ) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;

@@ -1,7 +1,10 @@
 use Core.print
 
+def print_i32(i32 x):
+	switch x:
+		1, 2, 3: print($"is 1, 2 or 3: {x}\n");
+		else: print($"is something else: {x}\n");
 
 def main():
-	print("Hello, World!\n"); /* This is a multi-line
-	* Commeneeeet
-	comment afterwards */	print("Hello, World 2!\n");
+	for i32 i = 0; i < 5; i++:
+		print_i32(i);
