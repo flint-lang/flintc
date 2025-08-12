@@ -12,13 +12,13 @@ class ErrDefDataRedefinition : public BaseError {
         const unsigned int column,   //
         const std::string &data_name //
         ) :
-        BaseError(error_type, file, line, column),
+        BaseError(error_type, file, line, column, data_name.size()),
         data_name(data_name) {}
 
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Redefinition of data module: " << YELLOW << data_name << DEFAULT;
+        oss << BaseError::to_string() << "└─ Redefinition of data module: " << YELLOW << data_name << DEFAULT;
         return oss.str();
     }
 

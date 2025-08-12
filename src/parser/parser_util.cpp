@@ -111,9 +111,13 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         DataNode *added_data = file_node.add_data(data_node.value());
         add_parsed_data(added_data, file_name);
         if (!Type::add_type(std::make_shared<DataType>(added_data))) {
-            THROW_ERR(ErrDefDataRedefinition, ERR_PARSING, file_name,                                  //
-                definition_tokens.first->line, definition_tokens.first->column, data_node.value().name //
-            );
+            auto it = definition_tokens.first;
+            while (it->token != TOK_DATA) {
+                ++it;
+            }
+            // Skip the `data` token so that `it` now points at the name of the data node
+            ++it;
+            THROW_ERR(ErrDefDataRedefinition, ERR_PARSING, file_name, it->line, it->column, added_data->name);
             return false;
         }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
