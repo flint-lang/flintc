@@ -1091,7 +1091,9 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
             break;
         }
     }
-    if (!catch_id.has_value()) {
+    assert(catch_id.has_value());
+    // A call is three tokens minimum: identifier(), so everything smaller than that means the catch stands alone
+    if (catch_id.value() < definition.first + 3) {
         THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_name, definition);
         return std::nullopt;
     }
@@ -2282,7 +2284,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             return std::nullopt;
         }
         statement_node = std::move(while_loop.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::catch_statement)) {
+    } else if (Matcher::tokens_contain(definition, Matcher::catch_statement) //
+        || Matcher::tokens_contain(definition, Matcher::token(TOK_CATCH))    //
+    ) {
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body.value(), statements);
         if (!catch_node.has_value()) {
             return std::nullopt;
