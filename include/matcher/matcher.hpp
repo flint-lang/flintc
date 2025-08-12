@@ -700,9 +700,9 @@ class Matcher {
         optional(sequence({token(TOK_REQUIRES), token(TOK_LEFT_PAREN), no_prim_args, token(TOK_RIGHT_PAREN)})), token(TOK_COLON) //
     });
     static const inline PatternPtr error_definition = sequence({
-        token(TOK_ERROR), token(TOK_IDENTIFIER),                                                    //
-        optional(sequence({token(TOK_LEFT_PAREN), token(TOK_IDENTIFIER), token(TOK_RIGHT_PAREN)})), //
-        token(TOK_COLON)                                                                            //
+        token(TOK_ERROR), token(TOK_IDENTIFIER),                        //
+        optional(sequence({token(TOK_LEFT_PAREN), until_right_paren})), //
+        token(TOK_COLON)                                                //
     });
     static const inline PatternPtr enum_definition = sequence({token(TOK_ENUM), token(TOK_IDENTIFIER), token(TOK_COLON)});
     static const inline PatternPtr variant_definition = sequence({token(TOK_VARIANT), token(TOK_IDENTIFIER), token(TOK_COLON)});
