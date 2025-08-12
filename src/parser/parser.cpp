@@ -62,7 +62,7 @@ std::optional<FileNode *> Parser::parse() {
     }
     // Consume all tokens and convert them to nodes
     bool had_failure = false;
-    while (token_slice.first != token_slice.second) {
+    while (token_slice.first != token_slice.second && token_slice.first->token != TOK_EOF) {
         if (!add_next_main_node(*(file_node_ptr.get()), token_slice)) {
             had_failure = true;
         }
