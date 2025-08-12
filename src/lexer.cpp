@@ -262,6 +262,11 @@ bool Lexer::scan_token() {
                 unsigned int comment_start_column = column;
                 while (peek() != '*' || peek_next() != '/') {
                     if (peek() == '\n') {
+                        if (line_count == 0) {
+                            // Add a token for the first line break in the multi-line comment, as the comment would "eat up" newline
+                            // characters otherwise
+                            add_token(TOK_EOL);
+                        }
                         lines.emplace_back(                                                                                          //
                             line_vars.indent_lvl, std::string_view(source.data() + current - line_vars.offset + 1, line_vars.offset) //
                         );
