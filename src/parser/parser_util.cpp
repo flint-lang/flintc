@@ -584,7 +584,7 @@ Parser::create_call_or_initializer_base(         //
     const unsigned int arg_count = arguments.size();
     // Argument counts are guaranteed to match the param count because if they would not, the `get_function_from_call` function would have
     // returned `std::nullopt`
-    assert(param_count != arg_count);
+    assert(param_count == arg_count);
     // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been
     // found Lastly, update the arguments of the call with the information of the function definition, if the arguments should be
     // references Every non-primitive type is always a reference (except enum types, for now)
