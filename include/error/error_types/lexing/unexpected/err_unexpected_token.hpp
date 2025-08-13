@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 
 class ErrUnexpectedToken : public BaseError {
@@ -11,7 +12,7 @@ class ErrUnexpectedToken : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Unknown character '" << text << "'";
+        oss << BaseError::to_string() << "└─ Unknown character '" << YELLOW << text << DEFAULT << "'";
         return oss.str();
     }
 

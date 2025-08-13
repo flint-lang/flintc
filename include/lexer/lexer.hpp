@@ -101,12 +101,14 @@ class Lexer {
     /// @function `identifier`
     /// @brief Lexes an identifier
     ///
-    /// @return `bool` Whether lexing the identifier failed (When it started with __flint_)
+    /// @return `bool` Whether lexing the identifier was successful (It fails when it starts with __flint_)
     [[nodiscard]] bool identifier();
 
     /// @function `number`
     /// @brief Lexes a number
-    void number();
+    ///
+    /// @return `bool` Whether lexing the number was successful
+    [[nodiscard]] bool number();
 
     /// @function `str`
     /// @brief Lexes a string value

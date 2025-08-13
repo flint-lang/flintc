@@ -10,7 +10,7 @@ class ErrCommentUnterminatedMultiline : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Multiline comment not terminated!";
+        oss << BaseError::to_string() << "└─ Multiline comment not terminated anywhere";
         return oss.str();
     }
 };

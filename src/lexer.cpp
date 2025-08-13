@@ -18,7 +18,6 @@ token_list Lexer::scan() {
 
     while (!is_at_end()) {
         if (!scan_token()) {
-            THROW_BASIC_ERR(ERR_LEXING);
             return {};
         }
     }
@@ -172,7 +171,6 @@ bool Lexer::scan_token() {
         case '_':
             if (is_alpha_num(peek_next())) {
                 if (!identifier()) {
-                    THROW_BASIC_ERR(ERR_LEXING);
                     return false;
                 }
             } else {
@@ -223,7 +221,7 @@ bool Lexer::scan_token() {
             }
             if (peek_next() != '\'') {
                 THROW_ERR(ErrLitCharLongerThanSingleCharacter, ERR_LEXING, file, line, column,
-                    std::to_string(peek()) + std::to_string(peek_next()));
+                    std::string(1, peek()) + std::string(1, peek_next()));
                 return false;
             }
             add_token(TOK_CHAR_VALUE);
@@ -254,12 +252,12 @@ bool Lexer::scan_token() {
                     return true;
                 }
             } else if (peek_next() == '*') {
+                unsigned int comment_start_column = column;
                 // eat the '/'
                 advance();
                 // eat the '*'
                 advance();
                 unsigned int line_count = 0;
-                unsigned int comment_start_column = column;
                 while (peek() != '*' || peek_next() != '/') {
                     if (peek() == '\n') {
                         if (line_count == 0) {
@@ -341,14 +339,15 @@ bool Lexer::scan_token() {
             break;
         default:
             if (is_digit(character)) {
-                number();
+                if (!number()) {
+                    return false;
+                }
             } else if (is_alpha(character)) {
                 if (!identifier()) {
-                    THROW_BASIC_ERR(ERR_LEXING);
                     return false;
                 }
             } else {
-                THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, std::to_string(character));
+                THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, std::string(1, character));
                 return false;
             }
             break;
@@ -382,7 +381,7 @@ bool Lexer::identifier() {
     return true;
 }
 
-void Lexer::number() {
+bool Lexer::number() {
     while (is_digit(peek_next()) || peek_next() == '_') {
         advance(false);
     }
@@ -391,8 +390,8 @@ void Lexer::number() {
         // Get to '.'
         advance(false);
         if (!is_digit(peek_next())) {
-            THROW_ERR(ErrUnexpectedTokenNumber, ERR_LEXING, file, line, column, peek_next());
-            return;
+            THROW_ERR(ErrUnexpectedTokenNumber, ERR_LEXING, file, line, column + column_diff + 1, peek_next());
+            return false;
         }
 
         while (is_digit(peek_next()) || peek_next() == '_') {
@@ -402,6 +401,7 @@ void Lexer::number() {
     } else {
         add_token(TOK_INT_VALUE);
     }
+    return true;
 }
 
 void Lexer::str() {

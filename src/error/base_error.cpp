@@ -14,6 +14,12 @@ std::string BaseError::to_string() const {
     oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN
         << std::filesystem::relative(Resolver::get_path(file) / file, std::filesystem::current_path()).string() << ":" << line << ":"
         << column << DEFAULT << "\n";
+    if (error_type == ERR_LEXING) {
+        // The lines have not been lexed and added to the parser instances yet, so trying to print the lines will cause an exception
+        // Instead, we need to do minimal printing, without the file content
+        oss << "├┤E0000│\n";
+        return oss.str();
+    }
     // Print the lines in which the error happened as a stack, as we will add prior lines to the stack and then print it in reverse
     std::stack<std::string> lines_to_print;
     std::optional<const Parser *> parser = Parser::get_instance_from_filename(file);

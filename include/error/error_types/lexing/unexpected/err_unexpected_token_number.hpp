@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 
 class ErrUnexpectedTokenNumber : public BaseError {
@@ -11,8 +12,9 @@ class ErrUnexpectedTokenNumber : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Expected number after '.' but got '" << text
-            << "'.\n -- Floating point numbers have the form '5.3' and '5.' or '5.x' is not allowed";
+        oss << BaseError::to_string() << "├─ Expected number after '" << YELLOW << "." << DEFAULT;
+        oss << "' but got '" << YELLOW << text << DEFAULT << "'.\n";
+        oss << "└─ Floating point numbers have the form '" << CYAN << "3.14" << DEFAULT << "' for example";
         return oss.str();
     }
 

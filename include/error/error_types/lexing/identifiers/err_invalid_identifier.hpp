@@ -12,7 +12,8 @@ class ErrInvalidIdentifier : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Invalid identifier: '" << YELLOW << identifier << DEFAULT << "'. The name '__flint_' is reserved";
+        oss << BaseError::to_string() << "├─ Invalid identifier '" << YELLOW << identifier << DEFAULT << "'\n";
+        oss << "└─ The prefix '" << CYAN << "__flint_" << DEFAULT << "' is reserved, nothing you define is allowed to start with it";
         return oss.str();
     }
 
