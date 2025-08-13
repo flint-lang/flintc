@@ -1809,6 +1809,36 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                 THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
                 return std::nullopt;
             }
+            expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+        } else if (const ErrorSetType *target_error_type = dynamic_cast<const ErrorSetType *>(expected_type.value().get())) {
+            const ErrorSetType *expr_error_type = dynamic_cast<const ErrorSetType *>(expression.value()->type.get());
+            if (expr_error_type == nullptr) {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
+            }
+            // The expr error set type needs to be a superset of the target error type to be castable to it, this means that the expression
+            // type "extends" the target type
+            std::optional<const ErrorNode *> parent_node = target_error_type->error_node;
+            bool is_castable = false;
+            while (parent_node.has_value()) {
+                if (parent_node.value() == expr_error_type->error_node) {
+                    is_castable = true;
+                    break;
+                }
+                parent_node = parent_node.value()->get_parent_node();
+            }
+            if (!is_castable) {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
+            }
+            expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+        } else if (expected_type.value()->to_string() == "anyerror") {
+            // Every error set type is castable to the anyerror type
+            if (!dynamic_cast<const ErrorSetType *>(expression.value()->type.get())) {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                return std::nullopt;
+            }
+            expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
         } else {
             THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
             return std::nullopt;

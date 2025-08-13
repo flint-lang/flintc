@@ -1,37 +1,89 @@
 use Core.assert
 
+
 error ErrArithmetic:
-    ZeroDivision;
+	ZeroDivision;
 
 def divide(i32 x, i32 y) -> i32:
-    if y == 0:
-        throw ErrArithmetic.ZeroDivision;
-    return x / y;
+	if y == 0:
+		throw ErrArithmetic.ZeroDivision;
+	return x / y;
 
 def catch_this(i32 x, i32 y) -> i32:
-    return divide(x, y);
+	return divide(x, y);
+
+def test_simple_error():
+	i32 res = divide(10, 2);
+	assert(res == 5);
+
+	res = divide(10, 0) catch err:
+		assert(err.type_id == 1484029712);
+		assert(err.value_id == 0);
+		assert(err.message == "");
+	assert(res == 0);
+
+	res = catch_this(10, 5) catch err:
+		assert(false);
+	assert(res == 2);
+
+	res = catch_this(10, 0) catch err:
+		assert(err.type_id == 1484029712);
+		assert(err.value_id == 0);
+		assert(err.message == "");
+	assert(res == 0);
+
+	assert(false) catch err:
+		assert(err.type_id == 2448605372);
+		assert(err.value_id == 0);
+		assert(err.message == "The assertion has failed");
+
+
+error ErrBase:
+	B1, B2;
+
+error ErrSpecial(ErrBase):
+	S1, S2;
+
+error ErrExtraSpecial(ErrSpecial):
+	E1, E2;
+
+def throw_base(u32 i) {ErrBase}:
+	switch i:
+		1: throw ErrBase.B2;
+		else: throw ErrBase.B1;
+
+def throw_special(u32 i) {ErrSpecial}:
+	switch i:
+		0, 1:
+			throw_base(i) catch:
+				ErrBase(eb):
+					ErrSpecial es = eb;
+					throw es;
+				anyerror(e): throw ErrAssert.AssertionFailed;
+		2: throw ErrSpecial.S1;
+		3: throw ErrSpecial.S2;
+		else: throw ErrAssert.AssertionFailed;
+
+def throw_extra_special(u32 i) {ErrExtraSpecial}:
+	switch i:
+		0, 1, 2, 3:
+			throw_special(i) catch:
+				ErrSpecial(es):
+					ErrExtraSpecial ees = es;
+					throw ees;
+				anyerror(e): throw ErrAssert.AssertionFailed;
+		4: throw ErrExtraSpecial.E1;
+		5: throw ErrExtraSpecial.E2;
+		else: throw ErrAssert.AssertionFailed;
+
+def test_complex_error():
+	for u32 i = 0; i < 6; i++:
+		throw_extra_special(i) catch:
+			ErrExtraSpecial(e):
+				assert(e.value_id == i);
+			anyerror(e):
+				assert(false);
 
 def test_error():
-    i32 res = divide(10, 2);
-    assert(res == 5);
-
-    res = divide(10, 0) catch err:
-        assert(err.type_id == 1484029712);
-        assert(err.value_id == 0);
-        assert(err.message == "");
-    assert(res == 0);
-
-    res = catch_this(10, 5) catch err:
-        assert(false);
-    assert(res == 2);
-
-    res = catch_this(10, 0) catch err:
-        assert(err.type_id == 1484029712);
-        assert(err.value_id == 0);
-        assert(err.message == "");
-    assert(res == 0);
-
-    assert(false) catch err:
-        assert(err.type_id == -1846361924);
-        assert(err.value_id == 0);
-        assert(err.message == "The assertion has failed");
+	test_simple_error();
+	test_complex_error();

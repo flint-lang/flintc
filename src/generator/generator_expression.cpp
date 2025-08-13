@@ -1995,6 +1995,16 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
         llvm::Value *cast_value = builder.CreateCall(init_str_fn, {name_str, name_len}, "cast_enum");
         return cast_value;
+    } else if (dynamic_cast<const ErrorSetType *>(from_type.get())) {
+        if (to_type_str == "anyerror") {
+            // Every error is an anyerror and we don't need to change the `type_id` value of the error
+            return expr;
+        }
+        // We simply need to change the `type_id` value field of the error
+        const ErrorSetType *to_error_type = dynamic_cast<const ErrorSetType *>(to_type.get());
+        unsigned int new_type_id = Type::get_type_id_from_str(to_error_type->error_node->name);
+        expr = builder.CreateInsertValue(expr, builder.getInt32(new_type_id), {0}, "cast_type_id");
+        return expr;
     }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);
