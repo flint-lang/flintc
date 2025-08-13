@@ -80,7 +80,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
         std::cout << YELLOW << "[Debug Info] Token parsing performance\n"
                   << DEFAULT << "-- Total token count: " << token_count << "\n"
                   << "-- Total parsing time: " << std::to_string(duration.count()) << " µs\n"
-                  << "-- Tokens per second parsing speed: " << ((token_count * 1000000) / duration.count()) << " kTok/s\n"
+                  << "-- Tokens per second parsing speed: " << ((token_count * 1000000) / duration.count()) << " Tok/s\n"
                   << std::endl;
     }
     if (DEBUG_MODE && NO_GENERATION) {
