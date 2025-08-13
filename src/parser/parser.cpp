@@ -43,6 +43,9 @@ std::optional<FileNode *> Parser::parse() {
     file_node_ptr = std::make_unique<FileNode>(file_name);
     Lexer lexer(file_name, *source_code.get());
     file_node_ptr->tokens = lexer.scan();
+    if (file_node_ptr->tokens.empty()) {
+        return std::nullopt;
+    }
     source_code_lines = lexer.lines;
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] Lexer lines of file '" << file_name << "'" << DEFAULT << std::endl;
@@ -51,10 +54,6 @@ std::optional<FileNode *> Parser::parse() {
             std::cout << std::to_string(line_idx) << " | " << std::string(line.second);
             line_idx++;
         }
-    }
-    if (file_node_ptr->tokens.empty()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
     }
     token_slice token_slice = {file_node_ptr->tokens.begin(), file_node_ptr->tokens.end()};
     if (PRINT_TOK_STREAM) {
