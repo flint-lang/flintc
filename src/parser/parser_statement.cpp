@@ -69,6 +69,11 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> scope, cons
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, Type::get_primitive_type("anyerror"), expr.value()->type);
         return std::nullopt;
     }
+    if (const VariableNode *var_node = dynamic_cast<const VariableNode *>(expr.value().get())) {
+        // Add the current scope to the scope list in the variable we throw to determine that the variable is returned, excluding it from
+        // being freed to early
+        std::get<5>(scope->variables.at(var_node->name)).emplace_back(scope->scope_id);
+    }
     return ThrowNode(expr.value());
 }
 
