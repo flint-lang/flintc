@@ -500,7 +500,6 @@ bool Parser::create_switch_branch_body(                              //
     const std::vector<Line> body_lines(body_start, line_it);
     auto body_statements = create_body(branch_body, body_lines);
     if (!body_statements.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return false;
     }
     branch_body->body = std::move(body_statements.value());
@@ -564,7 +563,6 @@ bool Parser::create_switch_branches(            //
         if (!create_switch_branch_body(                                                                           //
                 scope, matches, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
         ) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
     }
@@ -986,7 +984,6 @@ bool Parser::create_variant_switch_branches(    //
         if (!create_switch_branch_body(                                                                                            //
                 branch_scope, match_expressions, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
         ) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
     }
@@ -1023,12 +1020,10 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     std::vector<ESwitchBranch> e_branches;
     std::optional<std::unique_ptr<ExpressionNode>> switcher = create_expression(scope, switcher_tokens);
     if (!switcher.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     if (const EnumType *enum_type = dynamic_cast<const EnumType *>(switcher.value()->type.get())) {
         if (!create_enum_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, enum_type->enum_node, is_statement)) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
     } else if (dynamic_cast<const OptionalType *>(switcher.value()->type.get())) {
@@ -1036,7 +1031,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
         assert(var_node != nullptr);
         const bool is_mutable = std::get<2>(scope->variables.find(var_node->name)->second);
         if (!create_optional_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
     } else if (dynamic_cast<const VariantType *>(switcher.value()->type.get())) {
@@ -1044,18 +1038,15 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
         assert(var_node != nullptr);
         const bool is_mutable = std::get<2>(scope->variables.find(var_node->name)->second);
         if (!create_variant_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
     } else if (const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(switcher.value()->type.get())) {
         const ErrorNode *error_node = error_type->error_node;
         if (!create_error_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, error_node, is_statement)) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
     } else {
         if (!create_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement)) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
     }
@@ -1079,7 +1070,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     assert(lhs_tokens.second->token == TOK_SWITCH);
     auto whole_statement = create_statement(scope, lhs_tokens, std::move(switch_expr));
     if (!whole_statement.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     return whole_statement;
@@ -1168,7 +1158,6 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         }
         assert(body_scope->add_variable("__flint_value_err", switcher_type, body_scope->scope_id, false, false));
         if (!create_variant_switch_branches(body_scope, s_branches, e_branches, body, switcher_type, true, false)) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>("__flint_value_err", switcher_type);
@@ -2205,6 +2194,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     } else if (Matcher::tokens_contain(tokens, Matcher::continue_statement)) {
         statement_node = std::make_unique<ContinueNode>();
     } else {
+        token_list toks = clone_from_slice(tokens);
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -2311,6 +2301,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         statement_node = create_switch_statement(scope, definition, scoped_body.value());
     } else {
         // Unknown scoped statement
+        token_list toks = clone_from_slice(definition);
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }

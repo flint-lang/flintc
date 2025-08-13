@@ -574,7 +574,6 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::
         Lexer lexer("string_interpolation", expr_str);
         token_list expr_tokens = lexer.scan();
         if (expr_tokens.empty()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         std::vector<Line> lines = std::vector<Line>{Line(0, {expr_tokens.begin(), expr_tokens.end()})};
