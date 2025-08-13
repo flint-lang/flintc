@@ -199,7 +199,7 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     return true;
 }
 
-bool Generator::verify_module(llvm::Module *module) {
+bool Generator::verify_module(const llvm::Module *module) {
     // Capture verification errors in a string
     std::string errorOutput;
     llvm::raw_string_ostream errorStream(errorOutput);

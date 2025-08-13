@@ -875,7 +875,7 @@ void Generator::Module::Array::generate_access_arr_function( //
         builder->SetInsertPoint(out_of_bounds_block);
         // Print to the console that an OOB happened
         if (oob_mode == ArrayOutOfBoundsMode::PRINT || oob_mode == ArrayOutOfBoundsMode::CRASH) {
-            llvm::Value *format_str = IR::generate_const_string(*builder, "Out Of Bounds access occured: Arr Len: %lu, Index: %lu\n");
+            llvm::Value *format_str = IR::generate_const_string(module, "Out Of Bounds access occured: Arr Len: %lu, Index: %lu\n");
             builder->CreateCall(c_functions.at(PRINTF), {format_str, current_dim_length, current_index});
         }
         switch (oob_mode) {

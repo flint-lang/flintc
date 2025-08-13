@@ -290,8 +290,8 @@ void Generator::Module::Arithmetic::generate_int_safe_add( //
         builder->CreateCondBr(overflow_happened, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " add overflow caught\n");
-        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " add underflow caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " add overflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(module, name + " add underflow caught\n");
         llvm::Value *message = builder->CreateSelect(overflow_happened, overflow_message, underflow_message);
         builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
@@ -386,8 +386,8 @@ void Generator::Module::Arithmetic::generate_int_safe_sub( //
         builder->CreateCondBr(overflow_happened, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " sub overflow caught\n");
-        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " sub underflow caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " sub overflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(module, name + " sub underflow caught\n");
         llvm::Value *message = builder->CreateSelect(overflow_happened, overflow_message, underflow_message);
         builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
@@ -475,7 +475,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
 
     // Check if the bit width is below or equal to 32 bits, in this case we can cast to an i64 and just calculate it that way
     if (int_type->getBitWidth() <= 32) {
-        generate_int_safe_mul_small(builder, int_safe_mul_fn, int_type, name, arg_lhs, arg_rhs);
+        generate_int_safe_mul_small(builder, module, int_safe_mul_fn, int_type, name, arg_lhs, arg_rhs);
         return;
     }
 
@@ -598,7 +598,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
         if (overflow_mode == ArithmeticOverflowMode::SILENT) {
             builder->CreateRet(int_max);
         } else {
-            llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mult overflow caught\n");
+            llvm::Value *overflow_message = IR::generate_const_string(module, name + " mult overflow caught\n");
             builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
             switch (overflow_mode) {
                 default:
@@ -620,7 +620,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
         if (overflow_mode == ArithmeticOverflowMode::SILENT) {
             builder->CreateRet(int_min);
         } else {
-            llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mult underflow caught\n");
+            llvm::Value *overflow_message = IR::generate_const_string(module, name + " mult underflow caught\n");
             builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
             switch (overflow_mode) {
                 default:
@@ -645,6 +645,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
 
 void Generator::Module::Arithmetic::generate_int_safe_mul_small( //
     llvm::IRBuilder<> *builder,                                  //
+    llvm::Module *module,                                        //
     llvm::Function *int_safe_mul_fn,                             //
     llvm::IntegerType *int_type,                                 //
     const std::string &name,                                     //
@@ -698,7 +699,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul_small( //
         llvm::Value *int_max_cast = builder->CreateTrunc(int_max, int_type, "int_max_cast");
         builder->CreateRet(int_max_cast);
     } else {
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mult overflow caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " mult overflow caught\n");
         builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
@@ -727,7 +728,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul_small( //
         llvm::Value *int_min_cast = builder->CreateTrunc(int_min, int_type, "int_min_cast");
         builder->CreateRet(int_min_cast);
     } else {
-        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " mult underflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(module, name + " mult underflow caught\n");
         builder->CreateCall(c_functions.at(PRINTF), {underflow_message});
         switch (overflow_mode) {
             default:
@@ -808,8 +809,8 @@ void Generator::Module::Arithmetic::generate_int_safe_div( //
         builder->CreateCondBr(error_happened, error_block, no_error_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(error_block);
-        llvm::Value *div_zero_message = IR::generate_const_string(*builder, name + " division by zero caught\n");
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " division overflow caught\n");
+        llvm::Value *div_zero_message = IR::generate_const_string(module, name + " division by zero caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " division overflow caught\n");
         llvm::Value *message = builder->CreateSelect(div_by_zero, div_zero_message, overflow_message);
         builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
@@ -930,7 +931,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_add( //
         builder->CreateCondBr(would_overflow, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " add overflow caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " add overflow caught\n");
         builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
@@ -1001,7 +1002,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_sub( //
         builder->CreateCondBr(cmp, no_underflow_block, underflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(underflow_block);
-        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " sub underflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(module, name + " sub underflow caught\n");
         builder->CreateCall(c_functions.at(PRINTF), {underflow_message});
         switch (overflow_mode) {
             default:
@@ -1078,7 +1079,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
         builder->CreateCondBr(use_max, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mult overflow caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " mult overflow caught\n");
         builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
@@ -1149,7 +1150,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_div( //
         builder->CreateCondBr(div_by_zero, error_block, no_error_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(error_block);
-        llvm::Value *div_zero_message = IR::generate_const_string(*builder, name + " division by zero caught\n");
+        llvm::Value *div_zero_message = IR::generate_const_string(module, name + " division by zero caught\n");
         builder->CreateCall(c_functions.at(PRINTF), {div_zero_message});
         switch (overflow_mode) {
             default:
@@ -1265,8 +1266,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
         builder->CreateCondBr(any_overflow, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " add overflow caught\n");
-        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " add underflow caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " add overflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(module, name + " add underflow caught\n");
 
         // Determine if the overflow is positive or negative
         // For vectors, just check if any positive overflow happened
@@ -1394,8 +1395,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
         builder->CreateCondBr(any_overflow, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " sub overflow caught\n");
-        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " sub underflow caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " sub overflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(module, name + " sub underflow caught\n");
 
         // Determine if the overflow is positive or negative
         // For vectors, just check if any positive overflow happened
@@ -1513,8 +1514,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
         builder->CreateCondBr(any_wrong_sign, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(overflow_block);
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " mul overflow caught\n");
-        llvm::Value *underflow_message = IR::generate_const_string(*builder, name + " mul underflow caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " mul overflow caught\n");
+        llvm::Value *underflow_message = IR::generate_const_string(module, name + " mul underflow caught\n");
 
         // Determine if we should display overflow or underflow message
         // Check if any element has use_max set (which indicates positive overflow)
@@ -1622,8 +1623,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
         builder->CreateCondBr(any_error, error_block, no_error_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(error_block);
-        llvm::Value *div_zero_message = IR::generate_const_string(*builder, name + " division by zero caught\n");
-        llvm::Value *overflow_message = IR::generate_const_string(*builder, name + " division overflow caught\n");
+        llvm::Value *div_zero_message = IR::generate_const_string(module, name + " division by zero caught\n");
+        llvm::Value *overflow_message = IR::generate_const_string(module, name + " division overflow caught\n");
 
         // Determine if we should display division by zero or overflow message
         // Check if any element has division by zero

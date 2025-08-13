@@ -296,7 +296,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     // In a real implementation, we'd add a printf call here
     // For simplicity, we'll just abort directly since the error message
     // is mostly informational
-    llvm::Value *format_str = IR::generate_const_string(*builder, "Got a NULL from __flint_getline function call\n");
+    llvm::Value *format_str = IR::generate_const_string(module, "Got a NULL from __flint_getline function call\n");
     builder->CreateCall(printf_fn, {format_str});
     builder->CreateCall(abort_fn, {});
     builder->CreateUnreachable(); // This block never returns
@@ -407,7 +407,7 @@ void Generator::Module::Read::generate_read_int_function( //
         *builder, function_result_type, "creation_ret_alloca", true              //
     );
     llvm::Value *creation_err_ptr = builder->CreateStructGEP(function_result_type, creation_ret_alloca, 0, "creation_err_ptr");
-    llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
+    llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrRead, ReadLines, ReadLinesMessage);
     IR::aligned_store(*builder, err_value, creation_err_ptr);
     llvm::Value *creation_ret_val = IR::aligned_load(*builder, function_result_type, creation_ret_alloca, "creation_ret_val");
     builder->CreateRet(creation_ret_val);
@@ -440,7 +440,7 @@ void Generator::Module::Read::generate_read_int_function( //
     builder->SetInsertPoint(parse_error_block);
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
-    err_value = IR::generate_err_value(*builder, ErrRead, ParseInt, ParseIntMessage);
+    err_value = IR::generate_err_value(*builder, module, ErrRead, ParseInt, ParseIntMessage);
     IR::aligned_store(*builder, err_value, parse_err_ptr);
     llvm::Value *parse_ret_val = IR::aligned_load(*builder, function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
@@ -548,7 +548,7 @@ void Generator::Module::Read::generate_read_uint_function( //
     builder->SetInsertPoint(error_block);
     llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
     llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
-    llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
+    llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrRead, ReadLines, ReadLinesMessage);
     IR::aligned_store(*builder, err_value, create_err_ptr);
     llvm::Value *create_ret_val = IR::aligned_load(*builder, function_result_type, create_ret_alloca, "create_ret_val");
     builder->CreateRet(create_ret_val);
@@ -578,7 +578,7 @@ void Generator::Module::Read::generate_read_uint_function( //
     builder->SetInsertPoint(negative_error_block);
     llvm::AllocaInst *neg_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "neg_ret_alloca", true);
     llvm::Value *neg_err_ptr = builder->CreateStructGEP(function_result_type, neg_ret_alloca, 0, "neg_err_ptr");
-    err_value = IR::generate_err_value(*builder, ErrRead, NegativeUint, NegativeUintMessage);
+    err_value = IR::generate_err_value(*builder, module, ErrRead, NegativeUint, NegativeUintMessage);
     IR::aligned_store(*builder, err_value, neg_err_ptr);
     llvm::Value *neg_ret_val = IR::aligned_load(*builder, function_result_type, neg_ret_alloca, "neg_ret_val");
     builder->CreateRet(neg_ret_val);
@@ -608,7 +608,7 @@ void Generator::Module::Read::generate_read_uint_function( //
     builder->SetInsertPoint(parse_error_block);
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
-    err_value = IR::generate_err_value(*builder, ErrRead, ParseInt, ParseIntMessage);
+    err_value = IR::generate_err_value(*builder, module, ErrRead, ParseInt, ParseIntMessage);
     IR::aligned_store(*builder, err_value, parse_err_ptr);
     llvm::Value *parse_ret_val = IR::aligned_load(*builder, function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
@@ -702,7 +702,7 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     builder->SetInsertPoint(error_block);
     llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
     llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
-    llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
+    llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrRead, ReadLines, ReadLinesMessage);
     IR::aligned_store(*builder, err_value, create_err_ptr);
     llvm::Value *create_ret_val = IR::aligned_load(*builder, function_result_type, create_ret_alloca, "create_ret_val");
     builder->CreateRet(create_ret_val);
@@ -736,7 +736,7 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     builder->SetInsertPoint(parse_error_block);
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
-    err_value = IR::generate_err_value(*builder, ErrRead, ParseFloat, ParseFloatMessage);
+    err_value = IR::generate_err_value(*builder, module, ErrRead, ParseFloat, ParseFloatMessage);
     IR::aligned_store(*builder, err_value, parse_err_ptr);
     llvm::Value *parse_ret_val = IR::aligned_load(*builder, function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);
@@ -815,7 +815,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     builder->SetInsertPoint(error_block);
     llvm::AllocaInst *create_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "create_ret_alloca", true);
     llvm::Value *create_err_ptr = builder->CreateStructGEP(function_result_type, create_ret_alloca, 0, "create_err_ptr");
-    llvm::Value *err_value = IR::generate_err_value(*builder, ErrRead, ReadLines, ReadLinesMessage);
+    llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrRead, ReadLines, ReadLinesMessage);
     IR::aligned_store(*builder, err_value, create_err_ptr);
     llvm::Value *create_ret_val = IR::aligned_load(*builder, function_result_type, create_ret_alloca, "create_ret_val");
     builder->CreateRet(create_ret_val);
@@ -850,7 +850,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     builder->SetInsertPoint(parse_error_block);
     llvm::AllocaInst *parse_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "parse_ret_alloca", true);
     llvm::Value *parse_err_ptr = builder->CreateStructGEP(function_result_type, parse_ret_alloca, 0, "parse_err_ptr");
-    err_value = IR::generate_err_value(*builder, ErrRead, ParseFloat, ParseFloatMessage);
+    err_value = IR::generate_err_value(*builder, module, ErrRead, ParseFloat, ParseFloatMessage);
     IR::aligned_store(*builder, err_value, parse_err_ptr);
     llvm::Value *parse_ret_val = IR::aligned_load(*builder, function_result_type, parse_ret_alloca, "parse_ret_val");
     builder->CreateRet(parse_ret_val);

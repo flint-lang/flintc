@@ -154,12 +154,12 @@ void Generator::Module::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builde
     builder->CreateCondBr(arg_bvalue, true_block, false_block);
 
     builder->SetInsertPoint(true_block);
-    llvm::Value *true_string = IR::generate_const_string(*builder, "true");
+    llvm::Value *true_string = IR::generate_const_string(module, "true");
     llvm::Value *true_str = builder->CreateCall(init_str_fn, {true_string, builder->getInt64(4)}, "true_str");
     builder->CreateRet(true_str);
 
     builder->SetInsertPoint(false_block);
-    llvm::Value *false_string = IR::generate_const_string(*builder, "false");
+    llvm::Value *false_string = IR::generate_const_string(module, "false");
     llvm::Value *false_str = builder->CreateCall(init_str_fn, {false_string, builder->getInt64(5)}, "false_str");
     builder->CreateRet(false_str);
 }
@@ -222,13 +222,13 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     }
 
     // Create the multi-type string with '(' in it
-    llvm::Value *lparen_chars = IR::generate_const_string(*builder, "(");
+    llvm::Value *lparen_chars = IR::generate_const_string(module, "(");
     llvm::AllocaInst *multitype_str_alloca = builder->CreateAlloca(str_type->getPointerTo(), 0, nullptr, "mt_alloca");
     llvm::Value *multitype_str = builder->CreateCall(init_str_fn, {lparen_chars, builder->getInt64(1)}, multitype_string + "_str");
     IR::aligned_store(*builder, multitype_str, multitype_str_alloca);
 
     // Fill the multi-type string with the value strings and `, ` separators between them
-    llvm::Value *comma_chars = IR::generate_const_string(*builder, ", ");
+    llvm::Value *comma_chars = IR::generate_const_string(module, ", ");
     for (size_t i = 0; i < width; i++) {
         if (i > 0) {
             builder->CreateCall(append_lit_fn, {multitype_str_alloca, comma_chars, builder->getInt64(2)});
@@ -237,7 +237,7 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     }
 
     // Append the end of the string with a ')' symbol
-    llvm::Value *rparen_chars = IR::generate_const_string(*builder, ")");
+    llvm::Value *rparen_chars = IR::generate_const_string(module, ")");
     builder->CreateCall(append_lit_fn, {multitype_str_alloca, rparen_chars, builder->getInt64(1)});
 
     // Free the value strings
@@ -446,7 +446,7 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
 
     // Handle INT32_MIN special case
     builder->SetInsertPoint(min_value_block);
-    llvm::Value *min_str_ptr = IR::generate_const_string(*builder, "-2147483648");
+    llvm::Value *min_str_ptr = IR::generate_const_string(module, "-2147483648");
     llvm::Value *min_result = builder->CreateCall(init_str_fn, {min_str_ptr, builder->getInt64(11)}, "min_result");
     builder->CreateRet(min_result);
 
@@ -841,7 +841,7 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
 
     // Handle INT32_MIN special case
     builder->SetInsertPoint(min_value_block);
-    llvm::Value *min_str_ptr = IR::generate_const_string(*builder, "-9223372036854775808");
+    llvm::Value *min_str_ptr = IR::generate_const_string(module, "-9223372036854775808");
     llvm::Value *min_result = builder->CreateCall(init_str_fn, {min_str_ptr, builder->getInt64(21)}, "min_result");
     builder->CreateRet(min_result);
 
@@ -1225,7 +1225,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     // The nan_block
     {
         builder->SetInsertPoint(nan_block);
-        llvm::Value *nan_str = IR::generate_const_string(*builder, "nan");
+        llvm::Value *nan_str = IR::generate_const_string(module, "nan");
         llvm::Value *nan_str_value = builder->CreateCall(                          //
             init_str_fn,                                                           //
             {nan_str, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 3)}, //
@@ -1257,8 +1257,8 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
         llvm::Value *is_neg_inf = builder->CreateICmpNE(sign_bit, builder->getInt32(0), "is_neg_inf");
 
         // Create the two possible strings and select based on sign
-        llvm::Value *neg_inf_str = IR::generate_const_string(*builder, "-inf");
-        llvm::Value *pos_inf_str = IR::generate_const_string(*builder, "inf");
+        llvm::Value *neg_inf_str = IR::generate_const_string(module, "-inf");
+        llvm::Value *pos_inf_str = IR::generate_const_string(module, "inf");
 
         // Create string for negative infinity
         llvm::Value *neg_inf_value = builder->CreateCall(init_str_fn, {neg_inf_str, builder->getInt64(4)}, "neg_inf_value");
@@ -1294,7 +1294,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     // The exponent_block
     {
         builder->SetInsertPoint(exponent_block);
-        llvm::Value *snprintf_format = IR::generate_const_string(*builder, "%.6e");
+        llvm::Value *snprintf_format = IR::generate_const_string(module, "%.6e");
         llvm::Value *f_value_as_d = f32_to_f64(*builder, arg_fvalue);
         llvm::CallInst *snprintf_ret = builder->CreateCall(snprintf_fn,
             {
@@ -1311,7 +1311,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     // The no_exponent_block
     {
         builder->SetInsertPoint(no_exponent_block);
-        llvm::Value *snprintf_format = IR::generate_const_string(*builder, "%.6f");
+        llvm::Value *snprintf_format = IR::generate_const_string(module, "%.6f");
         llvm::Value *f_value_as_d = f32_to_f64(*builder, arg_fvalue);
         llvm::Value *snprintf_ret = builder->CreateCall(snprintf_fn,
             {
@@ -1533,7 +1533,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     // The nan_block
     {
         builder->SetInsertPoint(nan_block);
-        llvm::Value *nan_str = IR::generate_const_string(*builder, "nan");
+        llvm::Value *nan_str = IR::generate_const_string(module, "nan");
         llvm::Value *nan_str_value = builder->CreateCall(                          //
             init_str_fn,                                                           //
             {nan_str, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 3)}, //
@@ -1565,8 +1565,8 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
         llvm::Value *is_neg_inf = builder->CreateICmpNE(sign_bit, builder->getInt64(0), "is_neg_inf");
 
         // Create the two possible strings and select based on sign
-        llvm::Value *neg_inf_str = IR::generate_const_string(*builder, "-inf");
-        llvm::Value *pos_inf_str = IR::generate_const_string(*builder, "inf");
+        llvm::Value *neg_inf_str = IR::generate_const_string(module, "-inf");
+        llvm::Value *pos_inf_str = IR::generate_const_string(module, "inf");
 
         // Create string for negative infinity
         llvm::Value *neg_inf_value = builder->CreateCall(init_str_fn, {neg_inf_str, builder->getInt64(4)}, "neg_inf_value");
@@ -1602,7 +1602,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     // The exponent_block
     {
         builder->SetInsertPoint(exponent_block);
-        llvm::Value *snprintf_format = IR::generate_const_string(*builder, "%.15e");
+        llvm::Value *snprintf_format = IR::generate_const_string(module, "%.15e");
         llvm::CallInst *snprintf_ret = builder->CreateCall(snprintf_fn,
             {
                 buffer_ptr,                                        //
@@ -1618,7 +1618,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     // The no_exponent_block
     {
         builder->SetInsertPoint(no_exponent_block);
-        llvm::Value *snprintf_format = IR::generate_const_string(*builder, "%.15f");
+        llvm::Value *snprintf_format = IR::generate_const_string(module, "%.15f");
         llvm::Value *snprintf_ret = builder->CreateCall(snprintf_fn,
             {
                 buffer_ptr,                                        //

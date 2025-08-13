@@ -67,7 +67,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     builder->SetInsertPoint(env_null_block);
     llvm::AllocaInst *ret_null_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_null_alloc");
     llvm::Value *ret_null_err_ptr = builder->CreateStructGEP(function_result_type, ret_null_alloc, 0, "ret_null_err_ptr");
-    llvm::Value *error_value = IR::generate_err_value(*builder, ErrEnv, VarNotFound, VarNotFoundMessage);
+    llvm::Value *error_value = IR::generate_err_value(*builder, module, ErrEnv, VarNotFound, VarNotFoundMessage);
     IR::aligned_store(*builder, error_value, ret_null_err_ptr);
     llvm::Value *ret_null_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_null_empty_str");
     llvm::Value *ret_null_val_ptr = builder->CreateStructGEP(function_result_type, ret_null_alloc, 1, "ret_null_val_ptr");
@@ -174,7 +174,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     builder->SetInsertPoint(name_fail_block);
     llvm::AllocaInst *ret_name_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_name_fail_alloc");
     llvm::Value *ret_name_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_name_fail_alloc, 0, "ret_name_fail_err_ptr");
-    llvm::Value *error_value = IR::generate_err_value(*builder, ErrEnv, InvalidName, InvalidNameMessage);
+    llvm::Value *error_value = IR::generate_err_value(*builder, module, ErrEnv, InvalidName, InvalidNameMessage);
     IR::aligned_store(*builder, error_value, ret_name_fail_err_ptr);
     llvm::Value *ret_name_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_name_fail_alloc, 1, "ret_name_fail_val_ptr");
     IR::aligned_store(*builder, builder->getInt1(false), ret_name_fail_val_ptr);
@@ -194,7 +194,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     builder->SetInsertPoint(value_fail_block);
     llvm::AllocaInst *ret_value_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_value_fail_alloc");
     llvm::Value *ret_value_fail_err_ptr = builder->CreateStructGEP(function_result_type, ret_value_fail_alloc, 0, "ret_value_fail_err_ptr");
-    error_value = IR::generate_err_value(*builder, ErrEnv, InvalidValue, InvalidValueMessage);
+    error_value = IR::generate_err_value(*builder, module, ErrEnv, InvalidValue, InvalidValueMessage);
     IR::aligned_store(*builder, error_value, ret_value_fail_err_ptr);
     llvm::Value *ret_value_fail_val_ptr = builder->CreateStructGEP(function_result_type, ret_value_fail_alloc, 1, "ret_value_fail_val_ptr");
     IR::aligned_store(*builder, builder->getInt1(false), ret_value_fail_val_ptr);

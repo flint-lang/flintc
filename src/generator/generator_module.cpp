@@ -13,6 +13,7 @@ bool Generator::Module::generate_module(     //
     const std::string &module_name           //
 ) {
     PROFILE_SCOPE("Generating module '" + module_name + "'");
+    generating_builtin_module = true;
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
     auto module = std::make_unique<llvm::Module>(module_name, context);
     switch (lib_to_build) {
@@ -77,6 +78,11 @@ bool Generator::Module::generate_module(     //
     // Clear the type map when we are done to prevent modules using types of no longer existing modules
     type_map.clear();
 
+    // Verify the module after generation
+    if (!verify_module(module.get())) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
     // Print the module, if requested
     if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(lib_to_build))) {
         std::cout << YELLOW << "[Debug Info] Generated module '" << module_name << "':\n"
@@ -86,6 +92,8 @@ bool Generator::Module::generate_module(     //
     bool compilation_successful = compile_module(module.get(), cache_path / module_name);
     module.reset();
     builder.reset();
+    global_strings.clear();
+    generating_builtin_module = false;
     if (!compilation_successful) {
         std::cerr << "Error: Failed to generate builtin module '" << module_name << "'" << std::endl;
     }

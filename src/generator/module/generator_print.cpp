@@ -58,7 +58,7 @@ void Generator::Module::Print::generate_print_function( //
     }
 
     // Call printf with format string and argument
-    llvm::Value *format_str = IR::generate_const_string(*builder, format);
+    llvm::Value *format_str = IR::generate_const_string(module, format);
     builder->CreateCall(c_functions.at(PRINTF), //
         {format_str, arg}                       //
     );
@@ -149,7 +149,7 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
     llvm::Value *str_val_ptr = builder->CreateStructGEP(str_type, arg_string, 1, "str_val_ptr");
 
     // Call printf with format string and argument
-    llvm::Value *format_str = IR::generate_const_string(*builder, "%.*s");
+    llvm::Value *format_str = IR::generate_const_string(module, "%.*s");
     builder->CreateCall(c_functions.at(PRINTF), //
         {format_str, str_len_val, str_val_ptr}  //
     );
@@ -202,18 +202,18 @@ void Generator::Module::Print::generate_print_bool_function(llvm::IRBuilder<> *b
 
     // The entry block, create condition and branch
     builder->SetInsertPoint(entry_block);
-    llvm::Value *format_str = IR::generate_const_string(*builder, "%s");
+    llvm::Value *format_str = IR::generate_const_string(module, "%s");
     builder->CreateCondBr(arg, true_block, false_block);
 
     // True block
     builder->SetInsertPoint(true_block);
-    llvm::Value *str_true = IR::generate_const_string(*builder, "true");
+    llvm::Value *str_true = IR::generate_const_string(module, "true");
     builder->CreateCall(c_functions.at(PRINTF), {format_str, str_true});
     builder->CreateBr(merge_block);
 
     // False block
     builder->SetInsertPoint(false_block);
-    llvm::Value *str_false = IR::generate_const_string(*builder, "false");
+    llvm::Value *str_false = IR::generate_const_string(module, "false");
     builder->CreateCall(c_functions.at(PRINTF), {format_str, str_false});
     builder->CreateBr(merge_block);
 

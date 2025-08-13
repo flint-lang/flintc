@@ -387,24 +387,23 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     return nullptr;
 }
 
-llvm::Value *Generator::IR::generate_const_string(llvm::IRBuilder<> &builder, const std::string &str) {
-    // Create array type for the string (including null terminator)
-    llvm::ArrayType *str_type = llvm::ArrayType::get( //
-        builder.getInt8Ty(),                          //
-        str.length() + 1                              // +1 for null terminator
+llvm::Value *Generator::IR::generate_const_string(llvm::Module *module, const std::string &str) {
+    if (global_strings.find(str) != global_strings.end()) {
+        return global_strings.at(str);
+    }
+    llvm::Constant *string_data = llvm::ConstantDataArray::getString(context, str, true);
+    llvm::GlobalVariable *string_global = new llvm::GlobalVariable(                                             //
+        *module, string_data->getType(), true,                                                                  //
+        generating_builtin_module ? llvm::GlobalVariable::InternalLinkage : llvm::GlobalValue::ExternalLinkage, //
+        string_data, "string.global." + std::to_string(global_strings.size())                                   //
     );
-    // Allocate space for the string data on the stack
-    llvm::AllocaInst *str_buf = builder.CreateAlloca(str_type, nullptr, "str_buf");
-    // Create the constant string data
-    llvm::Constant *str_constant = llvm::ConstantDataArray::getString(context, str);
-    // Store the string data in the buffer
-    IR::aligned_store(builder, str_constant, str_buf);
-    // Return the buffer pointer
-    return str_buf;
+    global_strings[str] = string_global;
+    return string_global;
 }
 
 llvm::Value *Generator::IR::generate_err_value( //
     llvm::IRBuilder<> &builder,                 //
+    llvm::Module *module,                       //
     const unsigned int err_id,                  //
     const unsigned int err_value,               //
     const std::string &err_message              //
@@ -414,7 +413,7 @@ llvm::Value *Generator::IR::generate_err_value( //
     llvm::Value *err_struct = get_default_value_of_type(err_type);
     err_struct = builder.CreateInsertValue(err_struct, builder.getInt32(err_id), {0}, "insert_err_type_id");
     err_struct = builder.CreateInsertValue(err_struct, builder.getInt32(err_value), {1}, "insert_err_value");
-    llvm::Value *message_str = IR::generate_const_string(builder, err_message);
+    llvm::Value *message_str = IR::generate_const_string(module, err_message);
     llvm::Value *error_message = builder.CreateCall(init_str_fn, {message_str, builder.getInt64(err_message.size())}, "err_message");
     err_struct = builder.CreateInsertValue(err_struct, error_message, {2}, "insert_err_message");
     return err_struct;
@@ -422,12 +421,13 @@ llvm::Value *Generator::IR::generate_err_value( //
 
 void Generator::IR::generate_debug_print( //
     llvm::IRBuilder<> *builder,           //
+    llvm::Module *module,                 //
     const std::string &message            //
 ) {
     if (!DEBUG_MODE) {
         return;
     }
-    llvm::Value *msg_str = generate_const_string(*builder, "DEBUG: " + message + "\n");
+    llvm::Value *msg_str = generate_const_string(module, "DEBUG: " + message + "\n");
     llvm::Function *print_fn = c_functions.at(PRINTF);
     builder->CreateCall(print_fn, {msg_str});
 }

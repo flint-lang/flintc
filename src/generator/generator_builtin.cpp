@@ -156,8 +156,8 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Value *message_ptr = builder->CreateExtractValue(err_val, {2}, "message_ptr");
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Value *message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
-    llvm::Value *message_begin_ptr = IR::generate_const_string(                                                //
-        *builder, "ERROR: main function returned error\n - type_id: %u\n - value_id: %u\n - message: \"%s\"\n" //
+    llvm::Value *message_begin_ptr = IR::generate_const_string(                                              //
+        module, "ERROR: main function returned error\n - type_id: %u\n - value_id: %u\n - message: \"%s\"\n" //
     );
     builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr, type_id, value_id, message});
     // Free the error message
@@ -579,7 +579,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 
     // Handle the case that there are no tests to run
     if (tests.empty()) {
-        llvm::Value *msg = IR::generate_const_string(*builder, "There are no tests to run\n");
+        llvm::Value *msg = IR::generate_const_string(module, "There are no tests to run\n");
         builder->CreateCall(c_functions.at(PRINTF), {msg});
         builder->CreateCall(c_functions.at(EXIT), {zero});
         builder->CreateUnreachable();
@@ -604,9 +604,9 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     // Go through all files for all tests
     for (const auto &[file_name, test_list] : tests) {
         // Print which file we are currently at
-        llvm::Value *success_fmt = IR::generate_const_string(*builder, " -> \"%s\" \033[32m✓ passed\033[0m\n");
-        llvm::Value *fail_fmt = IR::generate_const_string(*builder, " -> \"%s\" \033[31m✗ failed\033[0m\n");
-        llvm::Value *file_name_value = IR::generate_const_string(*builder, "\n" + file_name + ":\n");
+        llvm::Value *success_fmt = IR::generate_const_string(module, " -> \"%s\" \033[32m✓ passed\033[0m\n");
+        llvm::Value *fail_fmt = IR::generate_const_string(module, " -> \"%s\" \033[31m✗ failed\033[0m\n");
+        llvm::Value *file_name_value = IR::generate_const_string(module, "\n" + file_name + ":\n");
         builder->CreateCall(c_functions.at(PRINTF), //
             {file_name_value}                       //
         );
@@ -627,7 +627,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             }
 
             // Print the tests name
-            llvm::Value *test_name_value = IR::generate_const_string(*builder, test_name);
+            llvm::Value *test_name_value = IR::generate_const_string(module, test_name);
 
             // Add a call to the actual function
             llvm::CallInst *test_call = builder->CreateCall( //
@@ -686,13 +686,13 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 
     // Success block
     builder->SetInsertPoint(success_block);
-    llvm::Value *success_fmt = IR::generate_const_string(*builder, "\n\033[32m✓ All tests passed!\033[0m\n");
+    llvm::Value *success_fmt = IR::generate_const_string(module, "\n\033[32m✓ All tests passed!\033[0m\n");
     builder->CreateCall(c_functions.at(PRINTF), {success_fmt});
     builder->CreateBr(merge_block);
 
     // Fail block
     builder->SetInsertPoint(fail_block);
-    llvm::Value *fail_fmt = IR::generate_const_string(*builder, "\n\033[31m✗ %d tests failed!\033[0m\n");
+    llvm::Value *fail_fmt = IR::generate_const_string(module, "\n\033[31m✗ %d tests failed!\033[0m\n");
     builder->CreateCall(c_functions.at(PRINTF), {fail_fmt, counter_value});
     IR::aligned_store(*builder, one, counter);
     builder->CreateBr(merge_block);

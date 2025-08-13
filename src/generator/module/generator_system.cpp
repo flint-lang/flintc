@@ -118,14 +118,14 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     IR::aligned_store(*builder, empty_str, output_ptr);
 
     // Create command with stderr redirection: full_command = add_str_lit(command, " 2>&1", 5)
-    llvm::Value *redirect_str = IR::generate_const_string(*builder, " 2>&1");
+    llvm::Value *redirect_str = IR::generate_const_string(module, " 2>&1");
     llvm::Value *full_command = builder->CreateCall(add_str_lit_fn, {arg_command, redirect_str, builder->getInt64(5)}, "full_command");
 
     // Get C string: c_command = (char *)full_command->value
     llvm::Value *c_command = builder->CreateStructGEP(str_type, full_command, 1, "c_command");
 
     // Create "r" string for popen mode
-    llvm::Value *mode_str = IR::generate_const_string(*builder, "r");
+    llvm::Value *mode_str = IR::generate_const_string(module, "r");
 
     // Open pipe: pipe = popen(c_command, "r")
     llvm::Value *pipe = builder->CreateCall(popen_fn, {c_command, mode_str}, "pipe");
@@ -141,7 +141,7 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     builder->SetInsertPoint(pipe_null_block);
     llvm::Value *output_load_null = IR::aligned_load(*builder, str_type->getPointerTo(), output_ptr, "output_load_null");
     builder->CreateCall(free_fn, {output_load_null});
-    llvm::Value *err_value = IR::generate_err_value(*builder, ErrSystem, SpawnFailed, SpawnFailedMessage);
+    llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrSystem, SpawnFailed, SpawnFailedMessage);
     IR::aligned_store(*builder, err_value, error_value_ptr);
     IR::aligned_store(*builder, builder->getInt32(0), exit_code_ptr);
     IR::aligned_store(*builder, builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str"), output_ptr);

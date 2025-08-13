@@ -49,7 +49,7 @@ void Generator::Module::Assert::generate_assert_function(llvm::IRBuilder<> *buil
     builder->SetInsertPoint(error_block);
     llvm::AllocaInst *assert_ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "assert_ret_alloca", true);
     llvm::Value *assert_err_ptr = builder->CreateStructGEP(function_result_type, assert_ret_alloca, 0, "assert_err_ptr");
-    llvm::Value *err_value = IR::generate_err_value(*builder, ErrAssert, AssertionFailed, AssertionFailedMessage);
+    llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrAssert, AssertionFailed, AssertionFailedMessage);
     IR::aligned_store(*builder, err_value, assert_err_ptr);
     llvm::Value *assert_ret_val = IR::aligned_load(*builder, function_result_type, assert_ret_alloca, "assert_ret_val");
     builder->CreateRet(assert_ret_val);

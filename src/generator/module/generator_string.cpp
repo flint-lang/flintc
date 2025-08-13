@@ -69,7 +69,7 @@ void Generator::Module::String::generate_access_str_at_function( //
         builder->SetInsertPoint(out_of_bounds_block);
 
         if (oob_mode == ArrayOutOfBoundsMode::PRINT || oob_mode == ArrayOutOfBoundsMode::CRASH) {
-            llvm::Value *format_str = IR::generate_const_string(*builder, "Out Of Bounds string access occured: len: %lu, idx: %lu\n");
+            llvm::Value *format_str = IR::generate_const_string(module, "Out Of Bounds string access occured: len: %lu, idx: %lu\n");
             builder->CreateCall(c_functions.at(PRINTF), {format_str, string_len, arg_idx});
         }
         switch (oob_mode) {

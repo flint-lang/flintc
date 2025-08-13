@@ -144,7 +144,7 @@ llvm::Value *Generator::Expression::generate_literal( //
     if (std::holds_alternative<LitStr>(literal_node->value)) {
         // Get the constant string value
         const std::string &str = std::get<LitStr>(literal_node->value).value;
-        return IR::generate_const_string(builder, str);
+        return IR::generate_const_string(ctx.parent->getParent(), str);
     }
     if (std::holds_alternative<LitBool>(literal_node->value)) {
         return builder.getInt1(std::get<LitBool>(literal_node->value).value);
@@ -196,7 +196,7 @@ llvm::Value *Generator::Expression::generate_literal( //
             }
             error_message = msg_expr.value().front();
         } else {
-            llvm::Value *message_str = IR::generate_const_string(builder, default_err_message);
+            llvm::Value *message_str = IR::generate_const_string(ctx.parent->getParent(), default_err_message);
             error_message = builder.CreateCall(init_str_fn, {message_str, builder.getInt64(default_err_message.size())}, "err_message");
         }
         err_struct = builder.CreateInsertValue(err_struct, error_message, {2}, "insert_err_message");
@@ -280,7 +280,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
     if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
         llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
         const std::string lit_string = std::get<LitStr>(std::get<std::unique_ptr<LiteralNode>>(*it)->value).value;
-        llvm::Value *lit_str = IR::generate_const_string(builder, lit_string);
+        llvm::Value *lit_str = IR::generate_const_string(ctx.parent->getParent(), lit_string);
         str_value = builder.CreateCall(init_str_fn, {lit_str, builder.getInt64(lit_string.length())}, "init_str_value");
     } else {
         // Currently only the first output of a group is supported in string interpolation, as there currently is no group printing yet
@@ -306,7 +306,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
     for (; it != interpol_node->string_content.end(); ++it) {
         if (std::holds_alternative<std::unique_ptr<LiteralNode>>(*it)) {
             const std::string lit_string = std::get<LitStr>(std::get<std::unique_ptr<LiteralNode>>(*it)->value).value;
-            llvm::Value *lit_str = IR::generate_const_string(builder, lit_string);
+            llvm::Value *lit_str = IR::generate_const_string(ctx.parent->getParent(), lit_string);
             str_value = builder.CreateCall(add_str_lit, {str_value, lit_str, builder.getInt64(lit_string.length())});
         } else {
             ExpressionNode *expr = std::get<std::unique_ptr<ExpressionNode>>(*it).get();
@@ -1604,7 +1604,7 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
 
     // The crash block, in the case of a bad optional access
     builder.SetInsertPoint(has_no_value);
-    llvm::Value *err_msg = IR::generate_const_string(builder, "Bad optional access occurred\n");
+    llvm::Value *err_msg = IR::generate_const_string(ctx.parent->getParent(), "Bad optional access occurred\n");
     builder.CreateCall(c_functions.at(PRINTF), {err_msg});
     builder.CreateCall(c_functions.at(ABORT), {});
     builder.CreateUnreachable();
@@ -1710,7 +1710,7 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
 
     // The crash block, in the case of a bad variant unwrap
     builder.SetInsertPoint(holds_wrong_type);
-    llvm::Value *err_msg = IR::generate_const_string(builder, "Bad variant unwrap occurred\n");
+    llvm::Value *err_msg = IR::generate_const_string(ctx.parent->getParent(), "Bad variant unwrap occurred\n");
     builder.CreateCall(c_functions.at(PRINTF), {err_msg});
     builder.CreateCall(c_functions.at(ABORT), {});
     builder.CreateUnreachable();

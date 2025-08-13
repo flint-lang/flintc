@@ -80,7 +80,7 @@ class Generator {
     ///
     /// @param `module` The module to verify
     /// @return `bool` Whether the module is error-free
-    static bool verify_module(llvm::Module *module);
+    static bool verify_module(const llvm::Module *module);
 
     /// @function `generate_program_ir`
     /// @brief Generates the llvm IR code for a complete program
@@ -336,6 +336,14 @@ class Generator {
     /// name of the enum
     static inline std::unordered_map<std::string, llvm::GlobalVariable *> enum_name_arrays_map;
 
+    /// @var `global_strings`
+    /// @brief A map containing all references to all global string variables, each string only exists once
+    static inline std::unordered_map<std::string, llvm::GlobalVariable *> global_strings;
+
+    /// @var `generating_builtin_module`
+    /// @brief Whether the generator currently is generating a builtin module
+    static inline bool generating_builtin_module = false;
+
     /// @function `get_data_nodes`
     /// @brief This function collects all data nodes from the parser and puts them into the `data_nodes` map in the generator
     static void get_data_nodes();
@@ -428,22 +436,23 @@ class Generator {
         /// @function `generate_const_string`
         /// @brief Generates a compile-time constant string that will be embedded into the binary itself, this string is not mutable
         ///
-        /// @param `builder` The IRBuilder
-        /// @param `parent` The function the constant string will be contained in
+        /// @param `module` The module in which to generate the constant string in
         /// @param `str` The value of the string
         /// @return `llvm::Value *` The generated static string value
-        static llvm::Value *generate_const_string(llvm::IRBuilder<> &builder, const std::string &str);
+        static llvm::Value *generate_const_string(llvm::Module *module, const std::string &str);
 
         /// @function `generate_err_value`
         /// @brief Generates an error value from the given error components
         ///
         /// @param `builder` The IRBuilder
+        /// @param `module` The module in which to generate the error value in
         /// @param `err_id` The type ID of the error
         /// @param `err_value` The value ID of the error
         /// @param `err_message` The message from the error
         /// @return `llvm::Value *` The constructed error value, ready to be stored somewhere
         static llvm::Value *generate_err_value( //
             llvm::IRBuilder<> &builder,         //
+            llvm::Module *module,               //
             const unsigned int err_id,          //
             const unsigned int err_value,       //
             const std::string &err_message      //
@@ -453,9 +462,11 @@ class Generator {
         /// @brief Generates a small call to print which prints the given message using printf
         ///
         /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The module in which to generate the debug print
         /// @param `message` The message to print
         static void generate_debug_print( //
             llvm::IRBuilder<> *builder,   //
+            llvm::Module *module,         //
             const std::string &message    //
         );
 
@@ -2112,6 +2123,7 @@ class Generator {
             /// @brief Creates a safe multiplication of two signed integer types for all types <= 32 bit width
             ///
             /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `iX_safe_mul_small` function will be generated in
             /// @param `int_safe_mul_fn` The to-be-created int safe mul function
             /// @param `int_type` The type of the integer arguments the safe mul function will be created with
             /// @param `name` The name of the integer type
@@ -2119,6 +2131,7 @@ class Generator {
             /// @param `arg_rhs` The rhs argument of the function to create
             static void generate_int_safe_mul_small( //
                 llvm::IRBuilder<> *builder,          //
+                llvm::Module *module,                //
                 llvm::Function *int_safe_mul_fn,     //
                 llvm::IntegerType *int_type,         //
                 const std::string &name,             //
