@@ -1796,6 +1796,27 @@ class Generator {
             const BinaryOpNode *bin_op_node      //
         );
 
+        /// @function `generate_binary_op_set_cmp`
+        /// @brief Generates a scalar vs group binary operator comparison for set-like comparisons
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 every layer)
+        /// @param `bin_op_node` The binary operation to generate the set comparisons from
+        /// @param `lhs` The list of all lhs values, 1 for scalar, n for group
+        /// @param `rhs` The list of all rhs values, 1 for scalar, n for group
+        /// @return `std::optional<llvm::Value *>` The result of the binary op comparison
+        static std::optional<llvm::Value *> generate_binary_op_set_cmp( //
+            llvm::IRBuilder<> &builder,                                 //
+            GenerationContext &ctx,                                     //
+            garbage_type &garbage,                                      //
+            const unsigned int expr_depth,                              //
+            const BinaryOpNode *bin_op_node,                            //
+            std::vector<llvm::Value *> lhs,                             //
+            std::vector<llvm::Value *> rhs                              //
+        );
+
         /// @function `generate_binary_op_scalar`
         /// @brief Generates the binary operation for scalar binary ops
         ///
@@ -1824,8 +1845,8 @@ class Generator {
         /// "normal" BinaryOpNode
         struct FakeBinaryOpNode {
             const Token operator_token;
-            const std::unique_ptr<ExpressionNode> &left;
-            const std::unique_ptr<ExpressionNode> &right;
+            const ExpressionNode *left;
+            const ExpressionNode *right;
             const std::shared_ptr<Type> &type;
             const bool is_shorthand;
         };
@@ -1872,9 +1893,9 @@ class Generator {
             garbage_type &garbage,                                 //
             const unsigned int expr_depth,                         //
             llvm::Value *lhs,                                      //
-            const std::unique_ptr<ExpressionNode> &lhs_expr,       //
+            const ExpressionNode *lhs_expr,                        //
             llvm::Value *rhs,                                      //
-            const std::unique_ptr<ExpressionNode> &rhs_expr,       //
+            const ExpressionNode *rhs_expr,                        //
             const bool eq                                          //
         );
 
@@ -1893,9 +1914,9 @@ class Generator {
             llvm::IRBuilder<> &builder,                           //
             GenerationContext &ctx,                               //
             llvm::Value *lhs,                                     //
-            const std::unique_ptr<ExpressionNode> &lhs_expr,      //
+            const ExpressionNode *lhs_expr,                       //
             llvm::Value *rhs,                                     //
-            const std::unique_ptr<ExpressionNode> &rhs_expr,      //
+            const ExpressionNode *rhs_expr,                       //
             const bool eq                                         //
         );
 

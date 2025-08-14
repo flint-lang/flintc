@@ -22,6 +22,7 @@
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/optional_type.hpp"
+#include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
 
@@ -1717,10 +1718,42 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type);
         } else if (!check_castability(lhs.value(), rhs.value())) {
-            THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_name,                                             //
-                lhs_tokens, rhs_tokens, pivot_token, lhs.value()->type->to_string(), rhs.value()->type->to_string() //
-            );
-            return std::nullopt;
+            // Check if one of the sides is a homogeneous group variation of the other side
+            // This only works if the *other side*s type is comparable at all. Only primitive types and enums are comparable
+            bool is_castable = true;
+            const std::shared_ptr<Type> &lhs_type = lhs.value()->type;
+            const std::shared_ptr<Type> &rhs_type = rhs.value()->type;
+            const GroupType *lhs_group_type = dynamic_cast<const GroupType *>(lhs_type.get());
+            const GroupType *rhs_group_type = dynamic_cast<const GroupType *>(rhs_type.get());
+            const EnumType *lhs_enum_type = dynamic_cast<const EnumType *>(lhs_type.get());
+            const EnumType *rhs_enum_type = dynamic_cast<const EnumType *>(rhs_type.get());
+            const PrimitiveType *lhs_prim_type = dynamic_cast<const PrimitiveType *>(lhs_type.get());
+            const PrimitiveType *rhs_prim_type = dynamic_cast<const PrimitiveType *>(rhs_type.get());
+            if (lhs_group_type != nullptr && (rhs_enum_type != nullptr || rhs_prim_type != nullptr)) {
+                // All elements of the lhs group must match the rhs type, otherwise it's not a homogenous group
+                for (const auto &type : lhs_group_type->types) {
+                    if (type != rhs_type) {
+                        is_castable = false;
+                        break;
+                    }
+                }
+            } else if (rhs_group_type != nullptr && (lhs_enum_type != nullptr || lhs_prim_type != nullptr)) {
+                // All elements of the rhs group must match the lhs type, otherwise it's not a homogenous group
+                for (const auto &type : rhs_group_type->types) {
+                    if (type != lhs_type) {
+                        is_castable = false;
+                        break;
+                    }
+                }
+            } else {
+                is_castable = false;
+            }
+            if (!is_castable) {
+                THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_name,                           //
+                    lhs_tokens, rhs_tokens, pivot_token, lhs_type->to_string(), rhs_type->to_string() //
+                );
+                return std::nullopt;
+            }
         }
     }
 

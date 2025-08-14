@@ -2146,7 +2146,14 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
         return std::nullopt;
     }
     std::vector<llvm::Value *> rhs = rhs_maybe.value();
-    assert(lhs.size() == rhs.size());
+    if (lhs.size() != rhs.size()) {
+        assert(lhs.size() == 1 || rhs.size() == 1);
+        auto result = generate_binary_op_set_cmp(builder, ctx, garbage, expr_depth, bin_op_node, lhs, rhs);
+        if (!result.has_value()) {
+            return std::nullopt;
+        }
+        return std::vector<llvm::Value *>{result.value()};
+    }
     std::vector<llvm::Value *> return_value;
 
     const MultiType *lhs_mult = dynamic_cast<const MultiType *>(bin_op_node->left->type.get());
@@ -2189,6 +2196,99 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
     return return_value;
 }
 
+std::optional<llvm::Value *> Generator::Expression::generate_binary_op_set_cmp( //
+    llvm::IRBuilder<> &builder,                                                 //
+    GenerationContext &ctx,                                                     //
+    garbage_type &garbage,                                                      //
+    const unsigned int expr_depth,                                              //
+    const BinaryOpNode *bin_op_node,                                            //
+    std::vector<llvm::Value *> lhs,                                             //
+    std::vector<llvm::Value *> rhs                                              //
+) {
+    llvm::Value *scalar_value;
+    std::vector<llvm::Value *> group_value;
+    ExpressionNode const *lhs_expr = bin_op_node->left.get();
+    ExpressionNode const *rhs_expr = bin_op_node->right.get();
+    if (lhs.size() == 1) {
+        scalar_value = lhs.front();
+        group_value = rhs;
+        rhs_expr = lhs_expr;
+    } else {
+        scalar_value = rhs.front();
+        group_value = lhs;
+        lhs_expr = rhs_expr;
+    }
+    const FakeBinaryOpNode bin_op = {
+        bin_op_node->operator_token, //
+        lhs_expr,                    //
+        rhs_expr,                    //
+        bin_op_node->type,           //
+        bin_op_node->is_shorthand    //
+    };
+
+    // Let's check all the cases and how they will compile down for the scalar—group operation
+    // `x == (1, 2)` -> `x == 1 or x == 2`
+    // `x != (1, 2)` -> `x != 1 and x != 2`
+    // `x <= (1, 2)` -> `x <= 1 and x <= 2`
+    // `x >= (1, 2)` -> `x >= 1 and x >= 2`
+    // `x < (1, 2)` -> `x < 1 and x < 2`
+    // `x > (1, 2)` -> `x > 1 and x > 2`
+    // As we can see, the `==` case is the *only* case where we combine the comparisons with an `or`, all other cases use the `and` to
+    // connect the expressions
+    const bool is_or_cmp = bin_op_node->operator_token == TOK_EQUAL_EQUAL;
+    llvm::BasicBlock *inserter = builder.GetInsertBlock();
+    // We need to create N blocks here because we need N - 1 for all cases + 1 for the merge block
+    std::vector<llvm::BasicBlock *> blocks;
+    for (size_t i = 1; i < group_value.size(); i++) {
+        blocks.push_back(llvm::BasicBlock::Create(context, "set_cmp_" + std::to_string(i), ctx.parent));
+    }
+    blocks.push_back(llvm::BasicBlock::Create(context, std::string(is_or_cmp ? "true" : "false") + "_block", ctx.parent));
+    llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "merge", ctx.parent);
+
+    // Now we can create all the checks and branch accordingly
+    builder.SetInsertPoint(inserter);
+    auto result_maybe = generate_binary_op_scalar(                                                                        //
+        builder, ctx, garbage, expr_depth, bin_op_node, bin_op.left->type->to_string(), scalar_value, group_value.front() //
+    );
+    if (!result_maybe.has_value()) {
+        return std::nullopt;
+    }
+    if (is_or_cmp) {
+        // Branch to the merge block if result is true, otherwise to the first other block
+        builder.CreateCondBr(result_maybe.value(), blocks.back(), blocks.front());
+    } else {
+        // Branch to the first other block if result is true, otherwise to the merge block
+        builder.CreateCondBr(result_maybe.value(), blocks.front(), blocks.back());
+    }
+    for (size_t i = 0; i < blocks.size() - 1; i++) {
+        builder.SetInsertPoint(blocks[i]);
+        result_maybe = generate_binary_op_scalar(                                                                            //
+            builder, ctx, garbage, expr_depth, bin_op_node, bin_op.left->type->to_string(), scalar_value, group_value[i + 1] //
+        );
+        if (!result_maybe.has_value()) {
+            return std::nullopt;
+        }
+        // Now we simply branch according to the result, either to the next block or to the merge block. To which block we branch, again,
+        // depends on the 'or' or 'and' operation. The 'and' operation just means that we have gone through all blocks successfully
+        if (is_or_cmp) {
+            builder.CreateCondBr(result_maybe.value(), blocks.back(), (i + 2 == blocks.size()) ? merge : blocks[i + 1]);
+        } else {
+            builder.CreateCondBr(result_maybe.value(), (i + 2 == blocks.size()) ? merge : blocks[i + 1], blocks.back());
+        }
+    }
+
+    // Just branch to the merge block in the false block, this way we can tell whether we
+    builder.SetInsertPoint(blocks.back());
+    builder.CreateBr(merge);
+
+    // The result is either true or false, depending from which block we come from
+    builder.SetInsertPoint(merge);
+    llvm::PHINode *phi_node = builder.CreatePHI(builder.getInt1Ty(), group_value.size(), "set_cmp_result");
+    phi_node->addIncoming(builder.getInt1(!is_or_cmp), blocks[blocks.size() - 2]);
+    phi_node->addIncoming(builder.getInt1(is_or_cmp), blocks.back());
+    return phi_node;
+}
+
 std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( //
     llvm::IRBuilder<> &builder,                                                //
     GenerationContext &ctx,                                                    //
@@ -2201,8 +2301,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
 ) {
     const FakeBinaryOpNode bin_op = {
         bin_op_node->operator_token, //
-        bin_op_node->left,           //
-        bin_op_node->right,          //
+        bin_op_node->left.get(),     //
+        bin_op_node->right.get(),    //
         bin_op_node->type,           //
         bin_op_node->is_shorthand    //
     };
@@ -2238,8 +2338,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 return Module::String::generate_string_addition(builder, //
                     ctx.scope, ctx.allocations,                          //
                     garbage, expr_depth + 1,                             //
-                    lhs, bin_op_node->left.get(),                        //
-                    rhs, bin_op_node->right.get(),                       //
+                    lhs, bin_op_node->left,                              //
+                    rhs, bin_op_node->right,                             //
                     bin_op_node->is_shorthand                            //
                 );
             }
@@ -2313,7 +2413,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
-                return Logical::generate_string_cmp_lt(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+                return Logical::generate_string_cmp_lt(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             }
             break;
         case TOK_GREATER:
@@ -2327,7 +2427,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
-                return Logical::generate_string_cmp_gt(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+                return Logical::generate_string_cmp_gt(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             }
             break;
         case TOK_LESS_EQUAL:
@@ -2341,7 +2441,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
-                return Logical::generate_string_cmp_le(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+                return Logical::generate_string_cmp_le(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             }
             break;
         case TOK_GREATER_EQUAL:
@@ -2355,7 +2455,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
-                return Logical::generate_string_cmp_ge(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+                return Logical::generate_string_cmp_ge(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             }
             break;
         case TOK_EQUAL_EQUAL:
@@ -2371,7 +2471,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
-                return Logical::generate_string_cmp_eq(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+                return Logical::generate_string_cmp_eq(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             } else if (dynamic_cast<const EnumType *>(bin_op_node->left->type.get()) &&
                 dynamic_cast<const EnumType *>(bin_op_node->right->type.get())) {
                 return builder.CreateICmpEQ(lhs, rhs, "enumeq");
@@ -2383,28 +2483,28 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 dynamic_cast<const VariantType *>(bin_op_node->right->type.get())          //
             ) {
                 llvm::Type *variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).first;
-                if (const TypeCastNode *lhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left.get())) {
+                if (const TypeCastNode *lhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left)) {
                     if (dynamic_cast<const TypeNode *>(lhs_cast->expr.get())) {
                         // The lhs is the "type" value of the comparison and the rhs is the actual variant
                         llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
                         rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
                         return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
                     }
-                } else if (const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right.get())) {
+                } else if (const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right)) {
                     if (dynamic_cast<const TypeNode *>(rhs_cast->expr.get())) {
                         // The rhs is the "type" value of the comparison and the lhs is the actual variant
                         llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
                         lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
                         return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
                     }
-                } else if (const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->left.get())) {
+                } else if (const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->left)) {
                     if (std::holds_alternative<LitVariantTag>(lhs_lit->value)) {
                         // The lhs is the "type" value of the comparison and the rhs is the actual variant
                         llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
                         rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
                         return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
                     }
-                } else if (const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->right.get())) {
+                } else if (const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->right)) {
                     if (std::holds_alternative<LitVariantTag>(rhs_lit->value)) {
                         // The rhs is the "type" value of the comparison and the lhs is the actual variant
                         llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
@@ -2429,7 +2529,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
-                return Logical::generate_string_cmp_neq(builder, lhs, bin_op_node->left.get(), rhs, bin_op_node->right.get());
+                return Logical::generate_string_cmp_neq(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             } else if (dynamic_cast<const EnumType *>(bin_op_node->left->type.get()) &&
                 dynamic_cast<const EnumType *>(bin_op_node->right->type.get())) {
                 return builder.CreateICmpNE(lhs, rhs, "enumneq");
@@ -2441,28 +2541,28 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 dynamic_cast<const VariantType *>(bin_op_node->right->type.get())          //
             ) {
                 llvm::Type *variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).first;
-                if (const TypeCastNode *lhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left.get())) {
+                if (const TypeCastNode *lhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left)) {
                     if (dynamic_cast<const TypeNode *>(lhs_cast->expr.get())) {
                         // The lhs is the "type" value of the comparison and the rhs is the actual variant
                         llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
                         rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
                         return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
                     }
-                } else if (const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right.get())) {
+                } else if (const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right)) {
                     if (dynamic_cast<const TypeNode *>(rhs_cast->expr.get())) {
                         // The rhs is the "type" value of the comparison and the lhs is the actual variant
                         llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
                         lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
                         return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
                     }
-                } else if (const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->left.get())) {
+                } else if (const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->left)) {
                     if (std::holds_alternative<LitVariantTag>(lhs_lit->value)) {
                         // The lhs is the "type" value of the comparison and the rhs is the actual variant
                         llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
                         rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
                         return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
                     }
-                } else if (const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->right.get())) {
+                } else if (const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->right)) {
                     if (std::holds_alternative<LitVariantTag>(rhs_lit->value)) {
                         // The rhs is the "type" value of the comparison and the lhs is the actual variant
                         llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
@@ -2510,9 +2610,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     garbage_type &garbage,                                                 //
     const unsigned int expr_depth,                                         //
     llvm::Value *lhs,                                                      //
-    const std::unique_ptr<ExpressionNode> &lhs_expr,                       //
+    const ExpressionNode *lhs_expr,                                        //
     llvm::Value *rhs,                                                      //
-    const std::unique_ptr<ExpressionNode> &rhs_expr,                       //
+    const ExpressionNode *rhs_expr,                                        //
     const bool eq                                                          //
 ) {
     // If both sides are the 'none' literal, we can return a constant as the result directly
@@ -2521,7 +2621,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     }
     // First, we check if one of the sides is a TypeCast Node, and if one side is a TypeCast we can check if the base type
     // is of type `void?`, indicating that we check if one side is the 'none' literal.
-    if (const TypeCastNode *lhs_type_cast = dynamic_cast<const TypeCastNode *>(lhs_expr.get())) {
+    if (const TypeCastNode *lhs_type_cast = dynamic_cast<const TypeCastNode *>(lhs_expr)) {
         if (lhs_type_cast->expr->type->to_string() == "void?") {
             // We can just extract the first bit of the rhs and return it's (negated) value directly
             if (lhs->getType()->isPointerTy()) {
@@ -2537,7 +2637,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
             }
         }
     }
-    if (const TypeCastNode *rhs_type_cast = dynamic_cast<const TypeCastNode *>(rhs_expr.get())) {
+    if (const TypeCastNode *rhs_type_cast = dynamic_cast<const TypeCastNode *>(rhs_expr)) {
         if (rhs_type_cast->expr->type->to_string() == "void?") {
             // We can just extract the first bit of the rhs and return it's (negated) value directly
             if (lhs->getType()->isPointerTy()) {
@@ -2621,9 +2721,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
     llvm::IRBuilder<> &builder,                                           //
     GenerationContext &ctx,                                               //
     llvm::Value *lhs,                                                     //
-    const std::unique_ptr<ExpressionNode> &lhs_expr,                      //
+    const ExpressionNode *lhs_expr,                                       //
     llvm::Value *rhs,                                                     //
-    const std::unique_ptr<ExpressionNode> &rhs_expr,                      //
+    const ExpressionNode *rhs_expr,                                       //
     const bool eq                                                         //
 ) {
     // Ge the variant type of the comparison
