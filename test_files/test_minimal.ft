@@ -2,5 +2,6 @@ use Core.print
 
 def main():
 	data<bool, i32> maybe = (false, 0);
-	print($"maybe.$0 = {maybe.$0}\n");
-	print($"maybe.$1 = {maybe.$1}\n");
+	(d, i) := maybe;
+	print($"d = {d}\n");
+	print($"i = {i}\n");

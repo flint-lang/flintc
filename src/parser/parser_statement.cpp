@@ -1476,39 +1476,74 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
     const GroupType *group_type = dynamic_cast<const GroupType *>(expression.value()->type.get());
     if (group_type == nullptr) {
         // Rhs could be a multi-type
-        const MultiType *multi_type = dynamic_cast<const MultiType *>(expression.value()->type.get());
-        if (multi_type == nullptr) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        for (unsigned int i = 0; i < variables.size(); i++) {
-            variables.at(i).first = multi_type->base_type;
-            if (!scope->add_variable(variables.at(i).second, multi_type->base_type, scope->scope_id, true, false)) {
-                THROW_ERR(                                                                                                               //
-                    ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column, variables.at(i).second //
-                );
+        if (const MultiType *multi_type = dynamic_cast<const MultiType *>(expression.value()->type.get())) {
+            for (unsigned int i = 0; i < variables.size(); i++) {
+                variables.at(i).first = multi_type->base_type;
+                if (!scope->add_variable(variables.at(i).second, multi_type->base_type, scope->scope_id, true, false)) {
+                    THROW_ERR( //
+                        ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column,
+                        variables.at(i).second //
+                    );
+                    return std::nullopt;
+                }
+            }
+            std::string group_type_str = "(";
+            for (unsigned int i = 0; i < multi_type->width; i++) {
+                if (i > 0) {
+                    group_type_str += ", ";
+                }
+                group_type_str += multi_type->base_type->to_string();
+            }
+            group_type_str += ")";
+            std::optional<std::shared_ptr<Type>> expr_group_type = Type::get_type_from_str(group_type_str);
+            if (!expr_group_type.has_value()) {
+                std::vector<std::shared_ptr<Type>> group_types;
+                for (unsigned int i = 0; i < multi_type->width; i++) {
+                    group_types.emplace_back(multi_type->base_type);
+                }
+                expr_group_type = std::make_shared<GroupType>(group_types);
+                Type::add_type(expr_group_type.value());
+            }
+            expression = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
+            return GroupDeclarationNode(variables, expression.value());
+        } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(expression.value()->type.get())) {
+            if (variables.size() != tuple_type->types.size()) {
+                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-        }
-        std::string group_type_str = "(";
-        for (unsigned int i = 0; i < multi_type->width; i++) {
-            if (i > 0) {
-                group_type_str += ", ";
+            for (unsigned int i = 0; i < variables.size(); i++) {
+                variables.at(i).first = tuple_type->types[i];
+                if (!scope->add_variable(variables.at(i).second, tuple_type->types[i], scope->scope_id, true, false)) {
+                    THROW_ERR( //
+                        ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column,
+                        variables.at(i).second //
+                    );
+                    return std::nullopt;
+                }
             }
-            group_type_str += multi_type->base_type->to_string();
-        }
-        group_type_str += ")";
-        std::optional<std::shared_ptr<Type>> expr_group_type = Type::get_type_from_str(group_type_str);
-        if (!expr_group_type.has_value()) {
-            std::vector<std::shared_ptr<Type>> group_types;
-            for (unsigned int i = 0; i < multi_type->width; i++) {
-                group_types.emplace_back(multi_type->base_type);
+            std::string group_type_str = "(";
+            for (unsigned int i = 0; i < tuple_type->types.size(); i++) {
+                if (i > 0) {
+                    group_type_str += ", ";
+                }
+                group_type_str += tuple_type->types[i]->to_string();
             }
-            expr_group_type = std::make_shared<GroupType>(group_types);
-            Type::add_type(expr_group_type.value());
+            group_type_str += ")";
+            std::optional<std::shared_ptr<Type>> expr_group_type = Type::get_type_from_str(group_type_str);
+            if (!expr_group_type.has_value()) {
+                std::vector<std::shared_ptr<Type>> group_types;
+                for (unsigned int i = 0; i < tuple_type->types.size(); i++) {
+                    group_types.emplace_back(tuple_type->types[i]);
+                }
+                expr_group_type = std::make_shared<GroupType>(group_types);
+                Type::add_type(expr_group_type.value());
+            }
+            expression = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
+            return GroupDeclarationNode(variables, expression.value());
+        } else {
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
         }
-        expression = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
-        return GroupDeclarationNode(variables, expression.value());
     }
     assert(group_type != nullptr);
     const std::vector<std::shared_ptr<Type>> &types = group_type->types;
