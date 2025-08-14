@@ -16,6 +16,7 @@
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
+#include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
 
 #include <llvm/IR/Instructions.h>
@@ -1744,6 +1745,7 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
     if (const GroupType *group_type = dynamic_cast<const GroupType *>(type_cast_node->type.get())) {
         const std::vector<std::shared_ptr<Type>> &types = group_type->types;
         if (types.size() > 1) {
+            // TODO: Add ability to cast tuples to groups too
             const MultiType *multi_type = dynamic_cast<const MultiType *>(type_cast_node->expr->type.get());
             if (multi_type == nullptr) {
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1790,6 +1792,22 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
         std::vector<llvm::Value *> result;
         result.emplace_back(vec);
         return result;
+    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(type_cast_node->type.get())) {
+        if (const GroupType *expr_group_type = dynamic_cast<const GroupType *>(type_cast_node->expr->type.get())) {
+            // Type-checking should have been happened in the parser, so we can assert that the types match
+            assert(tuple_type->types.size() == expr_group_type->types.size());
+            llvm::Type *tup_type = IR::get_type(ctx.parent->getParent(), type_cast_node->type).first;
+            llvm::Value *result = IR::get_default_value_of_type(tup_type);
+            for (unsigned int i = 0; i < expr_group_type->types.size(); i++) {
+                assert(expr_group_type->types[i] == tuple_type->types[i]);
+                result = builder.CreateInsertValue(result, expr[i], {i});
+            }
+            return std::vector<llvm::Value *>{result};
+        } else {
+            // Only groups can be cast to tuples
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
     } else {
         to_type = type_cast_node->type;
     }

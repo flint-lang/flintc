@@ -1,28 +1,6 @@
 use Core.print
 
-enum MyEnum:
-	VAL1, VAL2, VAL3, VAL4, VAL5;
-
-def print_i(i32 i):
-	if i == (2, 3, 4):
-		print($"{i} is 2, 3 or 4\n");
-	else:
-		print($"{i} is not 2, 3 or 4\n");
-
-def print_enum(MyEnum e):
-	if e == MyEnum.(VAL2, VAL3, VAL4):
-		print($"MyEnum.{str(e)} == MyEnum.(VAL2, VAL3, VAL4)\n");
-	else:
-		print($"MyEnum.{str(e)} != MyEnum.(VAL2, VAL3, VAL4)\n");
-
 def main():
-	for i32 i = 0; i < 6; i++:
-		print_i(i);
-
-	print("\n");
-
-	print_enum(MyEnum.VAL1);
-	print_enum(MyEnum.VAL2);
-	print_enum(MyEnum.VAL3);
-	print_enum(MyEnum.VAL4);
-	print_enum(MyEnum.VAL5);
+	data<bool, i32> maybe = (false, 0);
+	print($"maybe.$0 = {maybe.$0}\n");
+	print($"maybe.$1 = {maybe.$1}\n");
