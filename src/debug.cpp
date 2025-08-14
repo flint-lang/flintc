@@ -321,7 +321,19 @@ namespace Debug {
                 std::cout << "none";
             } else if (std::holds_alternative<LitEnum>(lit.value)) {
                 const LitEnum &lit_enum = std::get<LitEnum>(lit.value);
-                std::cout << lit_enum.enum_type->to_string() << "." << lit_enum.value;
+                std::cout << lit_enum.enum_type->to_string() << ".";
+                if (lit_enum.values.size() == 1) {
+                    std::cout << lit_enum.values.front();
+                } else {
+                    std::cout << "(";
+                    for (auto it = lit_enum.values.begin(); it != lit_enum.values.end(); ++it) {
+                        if (it != lit_enum.values.begin()) {
+                            std::cout << ", ";
+                        }
+                        std::cout << *it;
+                    }
+                    std::cout << ")";
+                }
             } else if (std::holds_alternative<LitVariantTag>(lit.value)) {
                 const LitVariantTag &lit_var = std::get<LitVariantTag>(lit.value);
                 std::cout << lit_var.variant_type->to_string() << "." << lit_var.variation_type->to_string();

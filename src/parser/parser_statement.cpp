@@ -628,7 +628,7 @@ bool Parser::create_enum_switch_branches(       //
                     return false;
                 }
                 matched_enum_values.push_back(enum_value);
-                LitValue lit_value = LitEnum{switcher_type, enum_value};
+                LitValue lit_value = LitEnum{switcher_type, std::vector<std::string>{enum_value}};
                 match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
             }
         } else {
@@ -658,7 +658,7 @@ bool Parser::create_enum_switch_branches(       //
                     return false;
                 }
                 matched_enum_values.push_back(enum_value);
-                LitValue lit_value = LitEnum{switcher_type, enum_value};
+                LitValue lit_value = LitEnum{switcher_type, std::vector<std::string>{enum_value}};
                 match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
             }
         }

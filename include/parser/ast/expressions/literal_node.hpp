@@ -6,10 +6,10 @@
 #include <variant>
 
 /// @struct `LitEnum`
-/// @brief The structure representing enum literals ('Type.VALUE')
+/// @brief The structure representing enum literals ('Type.VALUE' or 'Type.(VALUE, VALUE, ...)')
 struct LitEnum {
     std::shared_ptr<Type> enum_type;
-    std::string value;
+    std::vector<std::string> values;
 };
 
 /// @struct `LitError`

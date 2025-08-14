@@ -1516,7 +1516,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                LitValue lit_value = LitEnum{.enum_type = type, .value = value};
+                LitValue lit_value = LitEnum{.enum_type = type, .values = std::vector<std::string>{value}};
                 return std::make_unique<LiteralNode>(lit_value, type);
             }
             const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(type.get());
@@ -1567,6 +1567,41 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::grouped_data_access)) {
+        if (tokens_mut.first->token == TOK_TYPE) {
+            const std::shared_ptr<Type> &type = tokens_mut.first->type;
+            // Its a grouped enum access, like `EnumType.(VAL1, VAL2, VAL3)`
+            // All other types other than enums are not supported yet
+            if (const EnumType *enum_type = dynamic_cast<const EnumType *>(tokens_mut.first->type.get())) {
+                auto tok_it = tokens_mut.first + 1;
+                assert((tok_it++)->token == TOK_DOT);
+                assert((tok_it++)->token == TOK_LEFT_PAREN);
+                const auto &enum_values = enum_type->enum_node->values;
+                std::vector<std::string> values;
+                while (tok_it->token != TOK_RIGHT_PAREN) {
+                    if (tok_it->token == TOK_COMMA) {
+                        ++tok_it;
+                        continue;
+                    } else if (tok_it->token != TOK_IDENTIFIER) {
+                        // Unexpected Token, expected an identifier
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    const std::string value(tok_it->lexme);
+                    if (std::find(enum_values.begin(), enum_values.end(), value) == enum_values.end()) {
+                        // Unsupported enum value
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    values.emplace_back(value);
+                    ++tok_it;
+                }
+                LitValue lit_value = LitEnum{.enum_type = type, .values = values};
+                return std::make_unique<LiteralNode>(lit_value, type);
+            } else {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+        }
         auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
         if (range.has_value() && range.value().first == 2 && range.value().second == token_size) {
             std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(scope, tokens_mut);

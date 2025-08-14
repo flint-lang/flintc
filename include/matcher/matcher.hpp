@@ -763,7 +763,9 @@ class Matcher {
         token(TOK_IDENTIFIER), token(TOK_DOT), one_of({token(TOK_IDENTIFIER), sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)})}), //
         not_followed_by(token(TOK_LEFT_PAREN))                                                                                       //
     });
-    static const inline PatternPtr grouped_data_access = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), group_expression});
+    static const inline PatternPtr grouped_data_access = sequence({
+        one_of({token(TOK_IDENTIFIER), token(TOK_TYPE)}), token(TOK_DOT), group_expression //
+    });
     static const inline PatternPtr array_initializer = sequence({
         type, token(TOK_LEFT_BRACKET),                                                                                // T[ sizes ]
         one_or_more(balanced_match_until(                                                                             //
