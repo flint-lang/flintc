@@ -338,7 +338,9 @@ class Generator {
 
     /// @var `global_strings`
     /// @brief A map containing all references to all global string variables, each string only exists once
-    static inline std::unordered_map<std::string, llvm::GlobalVariable *> global_strings;
+    ///
+    /// @note The global string variables are stored by name, this is to keep them as valid as possible
+    static inline std::unordered_map<std::string, std::string> global_strings;
 
     /// @var `generating_builtin_module`
     /// @brief Whether the generator currently is generating a builtin module

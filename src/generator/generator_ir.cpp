@@ -388,16 +388,31 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
 }
 
 llvm::Value *Generator::IR::generate_const_string(llvm::Module *module, const std::string &str) {
-    if (global_strings.find(str) != global_strings.end()) {
-        return global_strings.at(str);
+    std::string str_name = "string.global." + std::to_string(global_strings.size());
+    const bool str_exists = global_strings.find(str) != global_strings.end();
+    if (str_exists) {
+        str_name = global_strings.at(str);
+        if (auto *existing = module->getNamedGlobal(str_name)) {
+            return existing;
+        }
     }
-    llvm::Constant *string_data = llvm::ConstantDataArray::getString(context, str, true);
+    llvm::Constant *string_data = nullptr;
+    llvm::Type *string_type = nullptr;
+    if (!str_exists) {
+        string_data = llvm::ConstantDataArray::getString(context, str, true);
+        string_type = string_data->getType();
+    } else {
+        // Create the array type manually: [length+1 x i8]
+        string_type = llvm::ArrayType::get(llvm::Type::getInt8Ty(context), str.length() + 1);
+    }
     llvm::GlobalVariable *string_global = new llvm::GlobalVariable(                                             //
-        *module, string_data->getType(), true,                                                                  //
+        *module, string_type, true,                                                                             //
         generating_builtin_module ? llvm::GlobalVariable::InternalLinkage : llvm::GlobalValue::ExternalLinkage, //
-        string_data, "string.global." + std::to_string(global_strings.size())                                   //
+        string_data, str_name                                                                                   //
     );
-    global_strings[str] = string_global;
+    if (!str_exists) {
+        global_strings[str] = str_name;
+    }
     return string_global;
 }
 
