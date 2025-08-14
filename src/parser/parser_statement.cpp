@@ -96,7 +96,7 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> scope, co
     std::optional<std::unique_ptr<ExpressionNode>> return_expr;
     if (std::next(expression_tokens.first) == expression_tokens.second) {
         // This can be asserted because of the check above
-        assert(return_type->to_string() != "void");
+        assert(return_type->to_string() == "void");
         return ReturnNode(return_expr);
     }
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, expression_tokens);

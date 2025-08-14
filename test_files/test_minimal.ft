@@ -1,7 +1,7 @@
-use Core.print
+data Node:
+    i32 value;
+    Node next;
+    Node(value, next);
 
 def main():
-	data<bool, i32> maybe = (false, 0);
-	(d, i) := maybe;
-	print($"d = {d}\n");
-	print($"i = {i}\n");
+	return;
