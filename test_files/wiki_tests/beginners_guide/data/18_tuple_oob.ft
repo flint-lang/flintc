@@ -1,3 +1,3 @@
 def main():
     data<i32, f32, str> tuple = (3, 2.2, "hello!");
-    i32 = tuple.$3;
+    i32 x = tuple.$3;

@@ -34,6 +34,7 @@
 #include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"
 #include "error_types/parsing/expressions/err_expr_nested_group.hpp"
+#include "error_types/parsing/expressions/err_expr_tuple_access_oob.hpp"
 #include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"
 
 #include "error_types/parsing/scopes/err_missing_body.hpp"

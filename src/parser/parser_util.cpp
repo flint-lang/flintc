@@ -806,7 +806,8 @@ Parser::create_field_access_base(     //
         return std::make_tuple(std::move(base_expr.value()), field_name, field_id, field_type);
     } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(base_type.get())) {
         if (field_id >= tuple_type->types.size()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            auto it = base_expr_tokens.second + 1; // 'it' now is the $ symbol
+            THROW_ERR(ErrExprTupleAccessOOB, ERR_PARSING, file_name, it->line, it->column, "$" + std::to_string(field_id), base_type);
             return std::nullopt;
         }
         const std::shared_ptr<Type> field_type = tuple_type->types.at(field_id);
