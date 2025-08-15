@@ -534,8 +534,11 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     return std::nullopt;
 }
 
-std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::shared_ptr<Scope> scope,
-    const std::string &interpol_string) {
+std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
+    std::shared_ptr<Scope> scope,                                           //
+    const std::string &interpol_string,                                     //
+    const token_slice &tokens                                               //
+) {
     // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
     std::vector<uint2> ranges = Matcher::balanced_ranges_vec(interpol_string, "([^\\\\]|^)\\{", "[^\\\\]\\}");
     std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> interpol_content;
@@ -576,6 +579,10 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation(std::
         token_list expr_tokens = lexer.scan();
         if (expr_tokens.empty()) {
             return std::nullopt;
+        }
+        for (auto &tok : expr_tokens) {
+            tok.line = std::prev(tokens.second)->line;
+            tok.column += std::prev(tokens.second)->column + it->first + 1;
         }
         std::vector<Line> lines = std::vector<Line>{Line(0, {expr_tokens.begin(), expr_tokens.end()})};
         collapse_types_in_lines(lines, expr_tokens);
@@ -810,7 +817,6 @@ std::optional<DataAccessNode> Parser::create_data_access(std::shared_ptr<Scope> 
     token_slice tokens_mut = tokens;
     auto field_access_base = create_field_access_base(scope, tokens_mut);
     if (!field_access_base.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
@@ -828,7 +834,6 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(std::shared
         tokens_mut, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //
     );
     if (!length_expression_range.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
@@ -1374,7 +1379,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         } else if (Matcher::tokens_match(tokens_mut, Matcher::string_interpolation)) {
             assert(tokens_mut.first->token == TOK_DOLLAR && std::prev(tokens_mut.second)->token == TOK_STR_VALUE);
             std::optional<StringInterpolationNode> interpol = create_string_interpolation( //
-                scope, std::string(std::prev(tokens_mut.second)->lexme)                    //
+                scope, std::string(std::prev(tokens_mut.second)->lexme), tokens_mut        //
             );
             if (!interpol.has_value()) {
                 return std::nullopt;
@@ -1560,7 +1565,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
             std::optional<DataAccessNode> data_access = create_data_access(scope, tokens_mut);
             if (!data_access.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return std::make_unique<DataAccessNode>(std::move(data_access.value()));

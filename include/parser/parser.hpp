@@ -748,8 +748,13 @@ class Parser {
     ///
     /// @param `scope` The scope the string interpolation takes place in
     /// @param `interpol_string` The string from which the interpolation is created
+    /// @param `tokens` The tokens which contain the string interpolation (needed for correct error output)
     /// @retun `std::optional<StringInterpolationNode>` An optional StringInterpolationNode if creation was successful, nullopt otherwise
-    std::optional<StringInterpolationNode> create_string_interpolation(std::shared_ptr<Scope> scope, const std::string &interpol_string);
+    std::optional<StringInterpolationNode> create_string_interpolation( //
+        std::shared_ptr<Scope> scope,                                   //
+        const std::string &interpol_string,                             //
+        const token_slice &tokens                                       //
+    );
 
     /// @function `create_call_expression`
     /// @brief Creates a CallNodeExpression from the given tokens

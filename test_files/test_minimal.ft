@@ -1,7 +1,10 @@
-data Node:
-    i32 value;
-    Node next;
-    Node(value, next);
+use Core.print
 
 def main():
-	return;
+    i32 age = 18;
+
+    if age >= 18:
+        i32 somevalue = 22;
+        print("Age is above or equal to 18!\n");
+
+    print($"somevalue = {somevalue}\n");
