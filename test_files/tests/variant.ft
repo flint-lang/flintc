@@ -110,12 +110,12 @@ def test_force_extraction():
 	assert(not x);
 
 	my_var = 10;
-	i32 res_i = my_var?!(VarTag.Int);
+	i32 res_i = my_var!(VarTag.Int);
 	assert(res_i == 10);
 
 	my_var = 3.3;
 	f32 res_f = my_var!(VarTag.Float);
-	assert(i32((res_f - 3.3) * 100_000) == 100_000);
+	assert(i32((res_f - 3.3) * 100_000) == 0);
 
 def test_extraction_operator():
 	VarTag my_var = true;
@@ -131,7 +131,7 @@ def test_extraction_operator():
 	my_var = 3.3;
 	f32? res_f = my_var?(VarTag.Float);
 	assert(res_f != none);
-	assert(i32((res_f! - 3.3) * 100_000) == 100_000);
+	assert(i32((res_f! - 3.3) * 100_000) == 0);
 
 def test_variant():
 	test_switch_statements();

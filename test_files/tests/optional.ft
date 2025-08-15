@@ -5,15 +5,9 @@ data Vec2:
     i32 y;
     Vec2(x, y);
 
-def vec2_equals(Vec2? v2, i32 x, i32 y) -> bool:
-    Vec2 v = v2!;
-    return v.x == x and v.y == y;
-
 def move_maybe(mut Vec2? v2, i32 x, i32 y):
     if v2 != none:
-        Vec2 v = v2!;
-        v.(x, y) += (x, y);
-        v2 = v;
+        v2!.(x, y) = v2!.(x, y) + (x, y);
 
 def equals(i32? lhs, i32? rhs) -> bool:
     return lhs == rhs;
@@ -91,9 +85,10 @@ def test_optional():
     Vec2 v = Vec2(10, 20);
     Vec2? vm = v;
     assert(v.x == 10 and v.y == 20);
-    assert(vec2_equals(vm, 10, 20));
+    assert(vm!.x == 10 and vm!.y == 20);
+
     move_maybe(vm, 2, 3);
-    assert(v.x == 10 and v.y == 20);
-    assert(vec2_equals(vm, 12, 23));
+    assert(v.x == 12 and v.y == 23);
+    assert(vm!.x == 12 and vm!.y == 23);
 
     test_optional_switch();
