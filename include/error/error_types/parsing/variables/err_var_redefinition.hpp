@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 
 class ErrVarRedefinition : public BaseError {
@@ -11,7 +12,7 @@ class ErrVarRedefinition : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Variable '" + var_name + "' already exists";
+        oss << BaseError::to_string() << "└─ Variable '" << YELLOW << var_name << DEFAULT << "' already exists";
         return oss.str();
     }
 

@@ -63,7 +63,7 @@ test "11_function_simple.ft":
 test "12_function_mutating_immutable.ft":
 	str path = "wiki_tests/beginners_guide/data";
 	str file = "12_function_mutating_immutable.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/12_function_mutating_immutable.ft:9:5\n -- Variable 'p' is marked as 'const' and cannot be modified!\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/12_function_mutating_immutable.ft:9:5\n└─┬┤E0000│\n8 │ def increment_by(Point p, i32 value):\n9 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
 
 test "13_function_mutating_mutable.ft":
 	str path = "wiki_tests/beginners_guide/data";
@@ -73,7 +73,7 @@ test "13_function_mutating_mutable.ft":
 test "14_function_pass_immutable.ft":
 	str path = "wiki_tests/beginners_guide/data";
 	str file = "14_function_pass_immutable.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/14_function_pass_immutable.ft:1:1\n -- Variable 'p' is marked as 'const' and cannot be modified!\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/14_function_pass_immutable.ft:13:18\n└──┬┤E0000│\n11 │ def main():\n13 │ »   increment_by(p, 3);\n┌──┴──────────────────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
 
 test "15_function_return.ft":
 	str path = "wiki_tests/beginners_guide/data";
@@ -93,7 +93,7 @@ test "17_tuple_access.ft":
 test "18_tuple_oob.ft":
 	str path = "wiki_tests/beginners_guide/data";
 	str file = "18_tuple_oob.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/18_tuple_oob.ft:3:5\n -- Failed to parse statement: i32 = tuple . $ 3;\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/18_tuple_oob.ft:3:19\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = tuple.$3;\n┌─┴───────────────────┘\n├─ Out of bounds access on tuple type 'data<i32, f32, str>'\n└─ The tuples last element is '$2'\n");
 
 test "19_tuple_assign.ft":
 	str path = "wiki_tests/beginners_guide/data";
@@ -108,14 +108,12 @@ test "20_tuple_grouped.ft":
 test "21_tuple_multitype_overlap.ft":
 	str path = "wiki_tests/beginners_guide/data";
 	str file = "21_tuple_multitype_overlap.ft";
-	// NOTE: The error message is wrong, it should be something on the lines of "hey, use i32x3 instead of data<i32,i32,i32>!"...
-	test_file_fail($"{path}/{file}", "Custom Error: 2\nCustom Error: 2\nCustom Error: 2\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/21_tuple_multitype_overlap.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<i32, i32, i32> tuple = (1, 1, 1);\n┌─┴─────┘\n└─ Cannot create a tuple type which overlaps with a multi-type\n");
 
 test "22_tuple_return_wrong.ft":
 	str path = "wiki_tests/beginners_guide/data";
 	str file = "22_tuple_return_wrong.ft";
-	// NOTE: The error message is wrong, it should be something on the lines of "hey, don't return tuples from functions, return groups instead!"...
-	test_file_fail($"{path}/{file}", "Custom Error: 2\nParse Error at wiki_tests/beginners_guide/data/22_tuple_return_wrong.ft:3:1\n -- Failed to parse function: def get_tuple(i32 a, f32 b, str c) -> data < i32, f32, str >:\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/22_tuple_return_wrong.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly.\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
 
 test "23_tuple_return_correct.ft":
 	str path = "wiki_tests/beginners_guide/data";

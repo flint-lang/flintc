@@ -51,7 +51,7 @@ test "8_branching_if.ft":
 test "9_branching_scope.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "9_branching_scope.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/control_flow/9_branching_scope.ft:1:1\n -- Use of undeclared variable 'somevalue'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/control_flow/9_branching_scope.ft:10:26\n└──┬┤E0000│\n3  │ def main():\n10 │ »   print($\"somevalue = {somevalue}\\n\");\n┌──┴──────────────────────────┘\n└─ Use of undeclared variable 'somevalue'\n");
 
 test "10_branching_visibility.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
@@ -107,9 +107,7 @@ test "19_enum.ft":
 test "20_enum_cmp.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "20_enum_cmp.ft";
-	// NOTE: This should be the correct output, but currently the error message is different in the compiler
-	// assert(starts_with(output, "Parse Error at main.ft:12:8\n -- Type mismatch of expression e1 == Enum2.TAG1\n -- Expected Enum1 but got Enum2"));
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/control_flow/20_enum_cmp.ft:1:1\n -- Type mismatch of expression \n -- Expected Enum1 but got Enum2\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/control_flow/20_enum_cmp.ft:12:8\n└──┬┤E0000│\n9  │ def main():\n12 │ »   if e1 == Enum2.TAG1:\n┌──┴────────┘\n├─ Type mismatch in binary expression. Cannot apply operation == on types:\n│   ├─ LHS type: Enum1\n│   └─ RHS type: Enum2\n└─ Have you considered using explicit casting of types?\n");
 
 test "21_enum_function.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";

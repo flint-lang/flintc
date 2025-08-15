@@ -68,7 +68,7 @@ test "12_inline_catch.ft":
 test "13_inline_fail.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";
 	str file = "13_inline_fail.ft";
-	test_file_fail($"{path}/{file}", "Custom Error: 2\nParse Error at wiki_tests/intermediates_guide/error_sets/13_inline_fail.ft:10:5\n -- Failed to parse catch statement: will_throw() catch:\n");
+	test_file_fail($"{path}/{file}", "Custom Error: 2\n");
 
 test "[f]14_infer.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";

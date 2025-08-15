@@ -33,12 +33,12 @@ test "5_variables_assignment.ft":
 test "6_variables_shadowing.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";
 	str file = "6_variables_shadowing.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/6_variables_shadowing.ft:3:9\n -- Variable 'x' already exists\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/6_variables_shadowing.ft:3:9\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = 8;\n┌─┴─────────┘\n└─ Variable 'x' already exists\n");
 
 test "7_variables_shadowing_diff.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";
 	str file = "7_variables_shadowing_diff.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/7_variables_shadowing_diff.ft:3:9\n -- Variable 'x' already exists\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/7_variables_shadowing_diff.ft:3:9\n└─┬┤E0000│\n1 │ def main():\n3 │ »   f32 x = 3.3;\n┌─┴─────────┘\n└─ Variable 'x' already exists\n");
 
 test "8_inferred_typing_inf.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";
@@ -78,7 +78,7 @@ test "14_operators_strings.ft":
 test "15_casting_mismatch.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";
 	str file = "15_casting_mismatch.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/15_casting_mismatch.ft:2:15\n -- Type mismatch of expression 3.3;\n -- Expected i32 but got f32\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/15_casting_mismatch.ft:2:15\n└─┬┤E0000│\n1 │ def main():\n2 │ »   i32 val = 3.3;\n┌─┴───────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: i32\n    └─ But got:  f32\n");
 
 test "16_casting_simple.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";

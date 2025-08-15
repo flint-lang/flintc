@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 
 class ErrVarNotDeclared : public BaseError {
@@ -11,7 +12,7 @@ class ErrVarNotDeclared : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Use of undeclared variable '" + var_name + "'";
+        oss << BaseError::to_string() << "└─ Use of undeclared variable '" << YELLOW << var_name << DEFAULT << "'";
         return oss.str();
     }
 
