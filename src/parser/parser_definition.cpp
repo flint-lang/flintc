@@ -106,7 +106,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                 return std::nullopt;
             }
             if (dynamic_cast<const TupleType *>(return_type.value().get())) {
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrFnCannotReturnTuple, ERR_PARSING, file_name, type_tokens, return_type.value());
                 return std::nullopt;
             }
             return_types.emplace_back(return_type.value());

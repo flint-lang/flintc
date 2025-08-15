@@ -25,6 +25,7 @@
 #include "error_types/parsing/definitions/err_def_err_only_one_parent.hpp"
 #include "error_types/parsing/definitions/err_def_no_main_function.hpp"
 #include "error_types/parsing/definitions/err_unexpected_definition.hpp"
+#include "error_types/parsing/definitions/function/err_fn_cannot_return_tuple.hpp"
 #include "error_types/parsing/definitions/import//err_alias_not_found.hpp"
 #include "error_types/parsing/definitions/import/err_def_not_found_in_aliased_file.hpp"
 #include "error_types/parsing/definitions/import/err_def_unexpected_core_module.hpp"

@@ -1,10 +1,9 @@
 use Core.print
 
+def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:
+    data<i32, f32, str> tuple = (a, b, c);
+    return tuple;
+
 def main():
-    i32 age = 18;
-
-    if age >= 18:
-        i32 somevalue = 22;
-        print("Age is above or equal to 18!\n");
-
-    print($"somevalue = {somevalue}\n");
+    data<i32, f32, str> tuple = get_tuple(1, 4.7, "hello");
+    print($"tuple.($0, $1, $2) = ({tuple.$0}, {tuple.$1}, {tuple.$2})\n");
