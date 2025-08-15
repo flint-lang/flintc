@@ -13,7 +13,7 @@ class ErrMissingBody : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Expected a body after the " << YELLOW << ":" << DEFAULT;
+        oss << BaseError::to_string() << "└─ Expected a body after the " << YELLOW << ":" << DEFAULT << " from the line above";
         return oss.str();
     }
 
