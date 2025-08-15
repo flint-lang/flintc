@@ -597,9 +597,35 @@ Parser::create_call_or_initializer_base(         //
         // Also, we check here if the variable is immutable but the function expects an mutable reference instead
         if (arguments[i].second) {
             // Its a complex data type, so its a reference
+            auto tok = tokens.first;
+            for (; tok != tokens.second; ++tok) {
+                // Get the function name
+                if (tok->token == TOK_IDENTIFIER && tok->lexme == function_name) {
+                    break;
+                }
+            }
+            // Next is the open paren
+            assert((++tok)->token == TOK_LEFT_PAREN);
+            // Now we need to get until the token where the error happened, e.g. the ith argument
+            ++tok;
+            size_t depth = 0;
+            size_t arg_id = i;
+            while (arg_id > 0) {
+                if (tok->token == TOK_COMMA && depth == 0) {
+                    arg_id--;
+                    if (arg_id == 0) {
+                        break;
+                    }
+                } else if (tok->token == TOK_LEFT_PAREN || tok->token == TOK_LEFT_BRACKET) {
+                    depth++;
+                } else if (tok->token == TOK_RIGHT_PAREN || tok->token == TOK_RIGHT_BRACKET) {
+                    depth--;
+                }
+                ++tok;
+            }
             if (const VariableNode *variable_node = dynamic_cast<const VariableNode *>(arguments[i].first.get())) {
                 if (!std::get<2>(scope->variables.at(variable_node->name)) && std::get<2>(function.value().first->parameters[i])) {
-                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, 1, 1, variable_node->name);
+                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tok->line, tok->column, variable_node->name);
                     return std::nullopt;
                 }
             }
