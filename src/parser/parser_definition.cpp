@@ -1,3 +1,4 @@
+#include "error/error_types/parsing/definitions/function/err_fn_main_too_many_args.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/parser.hpp"
@@ -29,17 +30,21 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
         }
         tok_it++;
     }
-    if (tok_it == definition.second) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
+    assert(tok_it != definition.second);
     // Check if the name is reserved
-    if (name == "_start" || name == "_main") {
-        THROW_BASIC_ERR(ERR_PARSING);
+    if (name == "_main") {
+        token_slice err_tokens = {std::prev(tok_it), definition.second};
+        THROW_ERR(ErrFnReservedName, ERR_PARSING, file_name, err_tokens, name);
+        return std::nullopt;
+    } else if (name == "main" && main_function_parsed) {
+        // Redefinition of the main function
+        token_slice err_tokens = {std::prev(tok_it), definition.second};
+        THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_name, err_tokens);
         return std::nullopt;
     }
     // Skip the left paren
     tok_it++;
+    const auto arg_start_it = tok_it;
     // Parse the parameters only if there are any parameters
     if (tok_it->token != TOK_RIGHT_PAREN) {
         // Set the last_param_begin to + 1 to skip the left paren
@@ -68,7 +73,6 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                 }
                 const auto param_type = Type::get_type(type_tokens);
                 if (!param_type.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
                 parameters.emplace_back(param_type.value(), param_name, is_mutable);
@@ -76,33 +80,26 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             }
             tok_it++;
         }
-        if (tok_it == definition.second) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
+        assert(tok_it != definition.second);
     }
+    const auto arg_end_it = tok_it;
     // Skip the right paren
     tok_it++;
 
     // Now the token should be an arrow, if not there are no return values
+    auto ret_start_it = tok_it;
     if (tok_it->token == TOK_ARROW) {
         tok_it++;
-        if (tok_it == definition.second) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
+        ret_start_it++;
+        assert(tok_it != definition.second);
         if (tok_it->token != TOK_LEFT_PAREN) {
             // There is only a single return type, so everything until the colon is considere the return type
             std::optional<uint2> type_range = Matcher::get_next_match_range({tok_it, definition.second}, Matcher::type);
-            if (!type_range.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
+            assert(type_range.has_value());
             assert(type_range.value().first == 0);
             token_slice type_tokens = {tok_it, tok_it + type_range.value().second};
             const auto return_type = Type::get_type(type_tokens);
             if (!return_type.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             if (dynamic_cast<const TupleType *>(return_type.value().get())) {
@@ -122,7 +119,6 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                     token_slice type_tokens = {last_type_begin, tok_it + 1};
                     const auto return_type = Type::get_type(type_tokens);
                     if (!return_type.has_value()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
                     return_types.emplace_back(return_type.value());
@@ -138,12 +134,12 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     // Check if a curly brace follows, if it does then the error types follow
     std::vector<std::shared_ptr<Type>> error_types;
     error_types.emplace_back(Type::get_primitive_type("anyerror"));
+    const auto brace_start_it = tok_it;
     if (tok_it->token == TOK_LEFT_BRACE) {
         tok_it++;
         while (tok_it->token != TOK_RIGHT_BRACE) {
             std::optional<std::shared_ptr<Type>> err_type = Type::get_type(token_slice{tok_it, tok_it + 1});
             if (!err_type.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             error_types.emplace_back(err_type.value());
@@ -156,15 +152,11 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
 
     // If its the main function, change its name
     if (name == "main") {
-        if (main_function_parsed) {
-            // Redefinition of the main function
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
         name = "_main";
         if (error_types.size() > 1) {
             // The main function cannot throw user-defined errors, it can only throw errors of type "anyerror"
-            THROW_BASIC_ERR(ERR_PARSING);
+            const token_slice err_tokens = {brace_start_it, std::prev(definition.second)};
+            THROW_ERR(ErrFnMainErrSet, ERR_PARSING, file_name, err_tokens);
             return std::nullopt;
         }
 
@@ -172,16 +164,20 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
         main_function_has_args = !parameters.empty();
         if (parameters.size() > 1) {
             // Too many parameters for the main function
-            THROW_BASIC_ERR(ERR_PARSING);
+            const token_slice err_tokens = {arg_start_it, arg_end_it};
+            THROW_ERR(ErrFnMainTooManyArgs, ERR_PARSING, file_name, err_tokens);
             return std::nullopt;
         } else if (parameters.size() == 1 && std::get<0>(parameters.front())->to_string() != "str[]") {
-            THROW_BASIC_ERR(ERR_PARSING);
+            // Wrong main argument type
+            const token_slice err_tokens = {arg_start_it, arg_end_it};
+            THROW_ERR(ErrFnMainWrongArgType, ERR_PARSING, file_name, err_tokens, std::get<0>(parameters.front()));
             return std::nullopt;
         }
 
         // The main funcition is not allowed to return anything
         if (!return_types.empty()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            const token_slice err_tokens = {ret_start_it, std::prev(definition.second)};
+            THROW_ERR(ErrFnMainNoReturns, ERR_PARSING, file_name, err_tokens);
             return std::nullopt;
         }
         main_function_parsed = true;

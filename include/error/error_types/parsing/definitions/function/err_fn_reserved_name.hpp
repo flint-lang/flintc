@@ -1,0 +1,27 @@
+#pragma once
+
+#include "colors.hpp"
+#include "error/error_types/base_error.hpp"
+#include "types.hpp"
+
+class ErrFnReservedName : public BaseError {
+  public:
+    ErrFnReservedName(              //
+        const ErrorType error_type, //
+        const std::string &file,    //
+        const token_slice &tokens,  //
+        const std::string &name     //
+        ) :
+        BaseError(error_type, file, tokens.first->line, tokens.first->column, name.size()),
+        name(name) {}
+
+    [[nodiscard]]
+    std::string to_string() const override {
+        std::ostringstream oss;
+        oss << BaseError::to_string() << "└─ The function name '" << YELLOW << name << DEFAULT << "' is reserved";
+        return oss.str();
+    }
+
+  private:
+    std::string name;
+};
