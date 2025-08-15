@@ -16,25 +16,28 @@ struct TokenContext {
     Token token;
     unsigned int line;
     unsigned int column;
+    unsigned int file_id;
     union {
         std::string_view lexme;
         std::shared_ptr<Type> type;
     };
 
     // The constructor for the case the token is a regular token. In this case the token is not allowed to be `TOK_TYPE`
-    TokenContext(Token t, unsigned int l, unsigned int c, const std::string_view &s) :
+    TokenContext(Token t, unsigned int l, unsigned int c, unsigned int id, const std::string_view &s) :
         token(t),
         line(l),
-        column(c) {
+        column(c),
+        file_id(id) {
         assert(token != TOK_TYPE);
         lexme = s;
     }
 
     // The constructor for the case the token is a type token. In this case the token is only allowed to be `TOK_TYPE`
-    TokenContext(Token t, unsigned int l, unsigned int c, std::shared_ptr<Type> t_ptr) :
+    TokenContext(Token t, unsigned int l, unsigned int c, unsigned int id, std::shared_ptr<Type> t_ptr) :
         token(t),
         line(l),
-        column(c) {
+        column(c),
+        file_id(id) {
         assert(token == TOK_TYPE);
         new (&type) std::shared_ptr<Type>(t_ptr);
     }
@@ -50,7 +53,8 @@ struct TokenContext {
     TokenContext(const TokenContext &other) :
         token(other.token),
         line(other.line),
-        column(other.column) {
+        column(other.column),
+        file_id(other.file_id) {
         if (token == TOK_TYPE) {
             new (&type) std::shared_ptr<Type>(other.type);
         } else {
@@ -68,6 +72,7 @@ struct TokenContext {
             token = other.token;
             line = other.line;
             column = other.column;
+            file_id = other.file_id;
 
             // Initialize the appropriate union member
             if (token == TOK_TYPE) {
@@ -83,7 +88,8 @@ struct TokenContext {
     TokenContext(TokenContext &&other) noexcept :
         token(other.token),
         line(other.line),
-        column(other.column) {
+        column(other.column),
+        file_id(other.file_id) {
         if (token == TOK_TYPE) {
             new (&type) std::shared_ptr<Type>(std::move(other.type));
         } else {
@@ -109,6 +115,7 @@ struct TokenContext {
             token = other.token;
             line = other.line;
             column = other.column;
+            file_id = other.file_id;
 
             // Initialize the appropriate union member by moving from other
             if (token == TOK_TYPE) {

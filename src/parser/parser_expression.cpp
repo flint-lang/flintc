@@ -540,6 +540,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
     const token_slice &tokens                                               //
 ) {
     // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
+    const auto &tok = std::prev(tokens.second);
     std::vector<uint2> ranges = Matcher::balanced_ranges_vec(interpol_string, "([^\\\\]|^)\\{", "[^\\\\]\\}");
     std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> interpol_content;
     // If the ranges are empty, the interpolation does not contain any groups
@@ -559,14 +560,18 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
         // Add string before first { or between } and {
         if (it == ranges.begin() && it->first > 0) {
             // Add string that's present before the first { symbol
-            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, std::string_view(interpol_string.data(), it->first)}};
+            token_list lit_toks = {
+                {TOK_STR_VALUE, tok->line, tok->column, tok->file_id, std::string_view(interpol_string.data(), it->first)} //
+            };
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         } else if (it != ranges.begin() && it->first - std::prev(it)->second > 1) {
             // Add string in between } and { symbols
             size_t start_pos = std::prev(it)->second + 1; // Position after previous }
             size_t length = it->first - start_pos;        // Length until current {
-            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, std::string_view(interpol_string.data() + start_pos, length)}};
+            token_list lit_toks = {
+                {TOK_STR_VALUE, tok->line, tok->column, tok->file_id, std::string_view(interpol_string.data() + start_pos, length)} //
+            };
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
@@ -575,14 +580,14 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
         size_t expr_start = it->first + 1;               // Position after {
         size_t expr_length = it->second - it->first - 1; // Length between { and }
         const std::string expr_str = interpol_string.substr(expr_start, expr_length);
-        Lexer lexer("string_interpolation", expr_str);
+        Lexer lexer("__flint_string_interpolation", expr_str);
         token_list expr_tokens = lexer.scan();
         if (expr_tokens.empty()) {
             return std::nullopt;
         }
-        for (auto &tok : expr_tokens) {
-            tok.line = std::prev(tokens.second)->line;
-            tok.column += std::prev(tokens.second)->column + it->first + 1;
+        for (auto &token : expr_tokens) {
+            token.line = tok->line;
+            token.column += tok->column + it->first + 1;
         }
         std::vector<Line> lines = std::vector<Line>{Line(0, {expr_tokens.begin(), expr_tokens.end()})};
         collapse_types_in_lines(lines, expr_tokens);
@@ -604,7 +609,9 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
         // Add string after last } symbol
         if (std::next(it) == ranges.end() && it->second + 1 < interpol_string.length()) {
             size_t start_pos = it->second + 1; // Position after }
-            token_list lit_toks = {{TOK_STR_VALUE, 0, 0, std::string_view(interpol_string.data() + start_pos)}};
+            token_list lit_toks = {
+                {TOK_STR_VALUE, tok->line, tok->column, tok->file_id, std::string_view(interpol_string.data() + start_pos)} //
+            };
             std::optional<LiteralNode> lit = create_literal({lit_toks.begin(), lit_toks.end()});
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }

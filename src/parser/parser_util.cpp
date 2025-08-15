@@ -319,7 +319,7 @@ void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &sourc
                         assert(it->token == TOK_IDENTIFIER);
                         std::optional<std::shared_ptr<Type>> type = Type::get_type_from_str(std::string(it->lexme));
                         if (type.has_value()) {
-                            *it = TokenContext(TOK_TYPE, it->line, it->column, type.value());
+                            *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
                         }
                     }
                 } else if (it->token != TOK_IDENTIFIER || Type::get_type_from_str(std::string(it->lexme)).has_value()) {
@@ -329,11 +329,10 @@ void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &sourc
                     // keyword, like `data` or `variant`. But when it's a keywords it's no identifier annyway.
                     std::optional<std::shared_ptr<Type>> type = Type::get_type(token_slice{it, it + type_range.value().second});
                     if (!type.has_value()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
                         std::exit(EXIT_FAILURE);
                     }
                     // Change this token to be a type token
-                    *it = TokenContext(TOK_TYPE, it->line, it->column, type.value());
+                    *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
                     // Erase all the following type tokens from the tokens list
                     Line::delete_tokens(source, it + 1, type_range.value().second - 1);
                 }

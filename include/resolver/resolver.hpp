@@ -48,6 +48,10 @@ class Resolver {
     /// @brief A map which contains all FileNodes of the whole program (This map owns the whole AST of all parsed files)
     static inline std::unordered_map<std::string, FileNode *> file_map;
 
+    /// @var `file_ids`
+    /// @brief A vector where the index of the element is equal to the file_id
+    static inline std::vector<std::string> file_ids;
+
     /// @var `file_map_mutex`
     /// @brief A mutex for the `file_map` variable, to make accessing the `file_map` thread-safe
     static inline std::mutex file_map_mutex;

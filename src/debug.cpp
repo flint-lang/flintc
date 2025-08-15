@@ -84,7 +84,8 @@ namespace Debug {
         std::stringstream type_stream;
         for (auto tc = tokens.first; tc != tokens.second; ++tc) {
             type_stream << " | Type: '" << get_token_name(tc->token) << "' => " << std::to_string(static_cast<int>(tc->token));
-            std::cout << "Line: " << tc->line << " | Column: " << tc->column << get_string_container(30, type_stream.str()) << " | Lexme: ";
+            std::cout << "Line: " << tc->line << " | Column: " << tc->column << " | FileID: " << tc->file_id
+                      << get_string_container(30, type_stream.str()) << " | Lexme: ";
             if (tc->token == TOK_TYPE) {
                 std::cout << tc->type->to_string();
             } else {

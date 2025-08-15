@@ -63,7 +63,7 @@ token_list Lexer::scan() {
         }
     }
 
-    tokens.emplace_back(TOK_EOF, line, column, "EOF");
+    tokens.emplace_back(TOK_EOF, line, column, file_id, "EOF");
     total_token_count += tokens.size();
     return tokens;
 }
@@ -372,7 +372,7 @@ bool Lexer::identifier() {
     }
     if (primitives.count(identifier) > 0) {
         std::shared_ptr<Type> type = Type::get_primitive_type(identifier_str);
-        tokens.emplace_back(TokenContext{TOK_TYPE, line, column, type});
+        tokens.emplace_back(TokenContext{TOK_TYPE, line, column, file_id, type});
         return true;
     }
 
@@ -510,7 +510,7 @@ void Lexer::add_token(Token token) {
 }
 
 void Lexer::add_token(Token token, std::string_view lexme) {
-    tokens.emplace_back(TokenContext{token, line, column, lexme});
+    tokens.emplace_back(TokenContext{token, line, column, file_id, lexme});
 }
 
 void Lexer::add_token_option(Token single_token, char c, Token mult_token) {

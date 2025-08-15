@@ -101,6 +101,7 @@ void Resolver::clear() {
 
     dependency_map.clear();
     file_map.clear();
+    file_ids.clear();
     generated_files.clear();
     path_map.clear();
 }
@@ -117,6 +118,9 @@ bool Resolver::generated_files_contain(const std::string &file_name) {
 void Resolver::add_path(const std::string &file_name, const std::filesystem::path &path) {
     std::lock_guard<std::mutex> lock(path_map_mutex);
     path_map.emplace(std::string(file_name), path.string());
+    if (std::find(file_ids.begin(), file_ids.end(), file_name) == file_ids.end()) {
+        file_ids.emplace_back(file_name);
+    }
 }
 
 std::filesystem::path Resolver::get_path(const std::string &file_name) {
@@ -265,6 +269,7 @@ std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode *file_node, 
 
     dependency_map.emplace(file_name, dependencies);
     file_map.emplace(file_name, file_node);
+    file_ids.emplace_back(file_name);
     return DepNode{file_name, {}, {}};
 }
 

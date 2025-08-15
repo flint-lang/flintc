@@ -173,7 +173,7 @@ bool Matcher::tokens_match(const token_slice &tokens, const PatternPtr &pattern)
 }
 
 bool Matcher::token_match(const Token token, const PatternPtr &pattern) {
-    token_list match_list = {TokenContext{token, 0, 0, ""}};
+    token_list match_list = {TokenContext{token, 0, 0, 0, ""}};
     return tokens_match({match_list.begin(), match_list.end()}, pattern);
 }
 

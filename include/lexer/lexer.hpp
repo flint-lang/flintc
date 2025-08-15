@@ -1,5 +1,6 @@
 #pragma once
 
+#include "resolver/resolver.hpp"
 #include "token.hpp"
 #include "types.hpp"
 
@@ -13,7 +14,16 @@ class Lexer {
   public:
     explicit Lexer(const std::string &file_name, const std::string &file_content) :
         source(file_content),
-        file(file_name) {}
+        file(file_name) {
+        std::lock_guard<std::mutex> lock_guard(Resolver::file_map_mutex);
+        auto it = std::find(Resolver::file_ids.begin(), Resolver::file_ids.end(), file_name);
+        if (file_name == "__flint_string_interpolation") {
+            file_id = UINT32_MAX;
+        } else {
+            assert(it != Resolver::file_ids.end());
+            file_id = static_cast<unsigned int>(std::distance(Resolver::file_ids.begin(), it));
+        }
+    }
 
     /// @function `scan`
     /// @brief Scans the given file of the lexer and returns the token stream
@@ -55,6 +65,10 @@ class Lexer {
     /// @var `file`
     /// @brief The name of the source file which is currently being tokenized
     std::string file;
+
+    /// @var `file_id`
+    /// @brief The ID of the source file which is currently being tokenized
+    unsigned int file_id;
 
     /// @var `start`
     /// @brief This variable is used for extracting longer strings or other values from the file

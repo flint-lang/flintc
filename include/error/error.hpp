@@ -44,6 +44,8 @@
 #include "error_types/parsing/statements/err_stmt_dangling_else.hpp"
 #include "error_types/parsing/statements/err_stmt_if_chain_missing_if.hpp"
 
+#include "error_types/parsing/types/err_type_tuple_multitype_overlap.hpp"
+
 #include "error_types/parsing/unexpected/err_pars_unexpected_token.hpp"
 
 #include "error_types/parsing/variables/err_var_from_requires_list.hpp"

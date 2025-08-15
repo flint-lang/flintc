@@ -121,7 +121,6 @@ std::optional<std::shared_ptr<Type>> Type::get_type(const token_slice &tokens, c
     }
     std::optional<std::shared_ptr<Type>> created_type = create_type(tokens, true);
     if (!created_type.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     if (dynamic_cast<const UnknownType *>(created_type.value().get())) {
@@ -336,7 +335,8 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
                     }
                     if (all_types_same) {
                         // Its a multi-type but defined as a tuple, which is not valid
-                        THROW_BASIC_ERR(ERR_PARSING);
+                        const std::string &file_name = Resolver::file_ids.at(tokens_mut.first->file_id);
+                        THROW_ERR(ErrTypeTupleMultiTypeOverlap, ERR_PARSING, file_name, tokens);
                         return std::nullopt;
                     }
                 }
