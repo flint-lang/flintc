@@ -1456,9 +1456,17 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
         expr = IR::aligned_load(builder, struct_value_type, expr);
     }
     // Its a normal grouped data access
+    const bool is_vector_type = expr->getType()->isVectorTy();
+    if (!is_vector_type) {
+        assert(expr->getType()->isStructTy());
+    }
     for (size_t i = 0; i < grouped_data_access->field_names.size(); i++) {
         const unsigned int id = grouped_data_access->field_ids.at(i);
-        return_values.push_back(builder.CreateExtractValue(expr, id, "group_" + grouped_data_access->field_names.at(i) + "_val"));
+        if (is_vector_type) {
+            return_values.push_back(builder.CreateExtractElement(expr, id, "group_" + grouped_data_access->field_names.at(i) + "_val"));
+        } else {
+            return_values.push_back(builder.CreateExtractValue(expr, id, "group_" + grouped_data_access->field_names.at(i) + "_val"));
+        }
     }
     return return_values;
 }
