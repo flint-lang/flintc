@@ -1,0 +1,12 @@
+use Core.print
+
+data MyData:
+    i32 x;
+    f32 y;
+    u64 z;
+    MyData(x, y, z);
+
+def main():
+    MyData m = MyData(10, 3.5, u64(100));
+    m.(x, y, z) = (3, 3.14, u64(33));
+    print($"m.(x, y, z) = ({m.x}, {m.y}, {m.z})\n");

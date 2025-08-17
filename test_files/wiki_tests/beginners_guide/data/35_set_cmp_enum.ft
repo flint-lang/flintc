@@ -1,0 +1,16 @@
+use Core.print
+
+enum MyEnum:
+    VAL1, VAL2, VAL3, VAL4, VAL5;
+
+def main():
+    MyEnum me = MyEnum.VAL2;
+    if me == MyEnum.VAL1 or me == MyEnum.VAL3 or me == MyEnum.VAL5:
+        print("is VAL1, VAL3 or VAL5\n");
+    else:
+        print("is VAL2 or VAL4\n");
+
+    if me == MyEnum.(VAL1, VAL3, VAL5):
+        print("is VAL1, VAL3 or VAL5\n");
+    else:
+        print("is VAL2 or VAL4\n");

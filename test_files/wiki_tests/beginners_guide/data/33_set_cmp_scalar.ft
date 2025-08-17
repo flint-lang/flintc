@@ -1,0 +1,12 @@
+use Core.print
+
+def print_cmp(i32 x):
+    if x == 1 or x == 2 or x == 3:
+        print($"{x} is 1, 2 or 3\n");
+
+    if x != 1 and x != 2 and x != 3:
+        print($"{x} is not 1, 2 or 3\n");
+
+def main():
+    for i := 0; i < 5; i++:
+        print_cmp(i);

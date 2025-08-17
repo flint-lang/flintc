@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    i32x4 vec4 = (10, 20, 30, 40);
+    vec4.(r, g, b, a) = vec4.(b, r, a, g);
+    print($"vec4 = {vec4}\n");
