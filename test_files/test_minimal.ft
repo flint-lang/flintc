@@ -1,9 +1,31 @@
+use Core.assert
 use Core.print
 
-def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:
-    data<i32, f32, str> tuple = (a, b, c);
-    return tuple;
-
 def main():
-    data<i32, f32, str> tuple = get_tuple(1, 4.7, "hello");
-    print($"tuple.($0, $1, $2) = ({tuple.$0}, {tuple.$1}, {tuple.$2})\n");
+    f32x2 vec2 = (3.0, 3.1);
+    f32x3 vec3 = (3.2, 3.3, 3.4);
+    f32x4 vec4 = (3.5, 3.6, 3.7, 3.8);
+
+    (x, y, z, w) := vec4.(x, y, z, w);
+    (r, g, b, a) := vec4.(r, g, b, a);
+    (s, t, p, q) := vec4.(s, t, p, q);
+    assert((x, y, z, w) == (r, g, b, a));
+    assert((x, y, z, w) == (s, t, p, q));
+
+    (x, y, z) = vec3.(x, y, z);
+    (r, g, b) = vec3.(r, g, b);
+    (s, t, p) = vec3.(s, t, p);
+    (i, j, k) := vec3.(i, j, k);
+    assert((x, y, z) == (r, g, b));
+    assert((x, y, z) == (s, t, p));
+    assert((x, y, z) == (i, j, k));
+
+    (x, y) = vec2.(x, y);
+    (u, v) := vec2.(u, v);
+    (s, t) = vec2.(s, t);
+    (i, j) = vec2.(i, j);
+    assert((x, y) == (u, v));
+    assert((x, y) == (s, t));
+    assert((x, y) == (i, j));
+
+    print("All tests passed\n");

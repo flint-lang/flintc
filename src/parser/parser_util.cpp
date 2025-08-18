@@ -834,9 +834,9 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
 ) {
     if (multi_type->width == 2) {
         // The fields are called x and y, but can be accessed via $N
-        if (field_name == "x" || field_name == "$0") {
+        if (field_name == "x" || field_name == "s" || field_name == "i" || field_name == "u" || field_name == "$0") {
             return std::make_tuple("$0", 0);
-        } else if (field_name == "y" || field_name == "$1") {
+        } else if (field_name == "y" || field_name == "t" || field_name == "j" || field_name == "v" || field_name == "$1") {
             return std::make_tuple("$1", 1);
         } else {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -844,11 +844,11 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
         }
     } else if (multi_type->width == 3) {
         // The fields are called x, y and z, but can be accessed via $N
-        if (field_name == "x" || field_name == "$0") {
+        if (field_name == "x" || field_name == "r" || field_name == "s" || field_name == "i" || field_name == "$0") {
             return std::make_tuple("$0", 0);
-        } else if (field_name == "y" || field_name == "$1") {
+        } else if (field_name == "y" || field_name == "g" || field_name == "t" || field_name == "j" || field_name == "$1") {
             return std::make_tuple("$1", 1);
-        } else if (field_name == "z" || field_name == "$2") {
+        } else if (field_name == "z" || field_name == "b" || field_name == "p" || field_name == "k" || field_name == "$2") {
             return std::make_tuple("$2", 2);
         } else {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -856,19 +856,21 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
         }
     } else if (multi_type->width == 4) {
         // The fields are called r, g, b and a, but can be accessed via $N
-        if (field_name == "r" || field_name == "$0") {
+        if (field_name == "x" || field_name == "r" || field_name == "s" || field_name == "$0") {
             return std::make_tuple("$0", 0);
-        } else if (field_name == "g" || field_name == "$1") {
+        } else if (field_name == "y" || field_name == "g" || field_name == "t" || field_name == "$1") {
             return std::make_tuple("$1", 1);
-        } else if (field_name == "b" || field_name == "$2") {
+        } else if (field_name == "z" || field_name == "b" || field_name == "p" || field_name == "$2") {
             return std::make_tuple("$2", 2);
-        } else if (field_name == "a" || field_name == "$3") {
+        } else if (field_name == "w" || field_name == "a" || field_name == "q" || field_name == "$3") {
             return std::make_tuple("$3", 3);
         } else {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
     } else {
+        // Widths of 16 are not supported by Flint yet
+        assert(multi_type->width == 8);
         // The fields are accessed via $N
         if (field_name.front() != '$') {
             THROW_BASIC_ERR(ERR_PARSING);
