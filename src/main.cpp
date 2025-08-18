@@ -211,7 +211,12 @@ int main(int argc, char *argv[]) {
 
     if (clp.run) {
         std::cout << "\n--- Running the executable '" << clp.out_file_path.string() << "' ---" << std::endl;
-        return system(std::string("./" + clp.out_file_path.string()).c_str());
+#ifdef __WIN32__
+        const std::string system_command(std::string(".\\" + clp.out_file_path.string() + ".exe"));
+#else
+        const std::string system_command(std::string("./" + clp.out_file_path.string()));
+#endif
+        return system(system_command.c_str());
     }
     return 0;
 }
