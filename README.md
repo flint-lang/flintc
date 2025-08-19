@@ -53,18 +53,58 @@ Installing Flint is really easy. Just download the `flintc` binary for your give
 
 ### Linux
 
-To make the Flint compiler available from any path in your terminal, and to make it executable through just calling `flintc` in your terminal, you need to copy the `flintc` executable into the `$HOME/.local/bin/` directory and you need to ensure it is marked as executable with this command:
+To make the Flint compiler available from any path in your terminal, and to make it executable through just calling `flintc` in your terminal, you need to copy the `flintc` executable into the `$HOME/.local/bin/` directory (if it does not exist yet, i would highly recommend to create it) and you need to ensure it is marked as executable with this command:
 
 ```sh
 chmod +x $HOME/.local/bin/flintc
+```
+
+After adding the `flintc` binary to the `$HOME/.local/bin` directory you should edit your `$HOME/.bashrc` file and ensure it contains the line
+
+```sh
+PATH="$PATH:$HOME/.local/bin"
+```
+
+And then you can simply use the compiler from any terminal like so:
+
+```sh
+flintc --help
 ```
 
 You need `base-devel` (Arch) or `build-essential` (Ubuntu) in order for the Flint compiler to be able to compile any program. It needs the `crt1.o`, `crti.o` and `crtn.o` files available to it.
 
 ### Windows
 
-It is actively worked on an installer (`.msi` file) which will download the compiler for you and will set the `PATH` variable accordingly. Until then, the path to the executable (`flintc.exe`) needs to be specified manually when compiling a Flint program.
+Installation on Windows is pretty easy, it's just a one-line command:
+
+```ps1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (irm 'https://github.com/flint-lang/flint/releases/download/installer/flint_installer.ps1')"
+```
+
+Or if this one-liner scares you you can still [download](https://github.com/flint-lang/flint/releases/download/installer/flint_installer.ps1) the installer directly and execute the downloaded script using the command
+
+```ps1
+PowerShell -NoProfile -ExecutionPolicy Bypass -File .\flint_installer.ps1
+```
+
+The installer will always download the latest Flint release directly and add a wrapper command for it to always point at the correct latest compiler version. You can then use the compiler using
+
+```ps1
+flintc.cmd --help
+```
+
+directly in any PowerShell. Note that the `flintc.cmd` command is only available in PowerShell, not in the command prompt.
 
 ## Building
 
-Building is easy. You obviously first need to clone this repository. There exists a single `build.sh` script in the `scripts` directory, with many cli options to choose from. Choose what you whish to do and the script will do it for you. You must be in the root directory of the `flintc` repository for the build script to work properly (cause CMake). After compiling the compiler you need `base-devel` (Arch) or `build-essential` (Ubuntu) in order for the Flint compiler to be able to compile any program. It needs the `crt1.o`, `crti.o` and `crtn.o` files available to it.
+Building is easy. You obviously first need to clone this repository. There exists a single `build.sh` script in the `scripts` directory, with many cli options to choose from. Choose what you whish to do and the script will do it for you. You must be in the root directory of the `flintc` repository for the build script to work properly.
+
+You *need* to compile the linux build at least once, the build script relies on the built `llvm-config` executable built from the LLVM source. So, execute the build script like so:
+
+```sh
+./scripts/build.sh -l
+```
+
+before compiling for windows using `./scripts/build.sh -w`, otherwise the Windows compilation will fail. After the initial compilation for Linux you can mix and match all possible commands of the build.sh script, it will work just fine.
+
+After compiling the compiler you need `base-devel` (Arch) or `build-essential` (Ubuntu) in order for the Flint compiler to be able to compile any program. It needs the `crt1.o`, `crti.o` and `crtn.o` files available to it.
