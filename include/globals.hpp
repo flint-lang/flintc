@@ -11,11 +11,11 @@ constexpr inline bool DEBUG_MODE = false;
 #endif
 
 #ifndef MINOR
-#define MINOR "1"
+#define MINOR "2"
 #endif
 
 #ifndef PATCH
-#define PATCH "6"
+#define PATCH "0"
 #endif
 
 #ifndef VERSION
