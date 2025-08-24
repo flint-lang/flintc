@@ -13,11 +13,11 @@ class Linker {
     /// @function `link`
     /// @brief Links together the given `obj_file` with all the needed libraries and creates an executable at the `output_file`
     ///
-    /// @param `obj_file` The path to the object file to link and create the executable with
+    /// @param `obj_files` The paths to the object files to link together and create the executable with
     /// @param `output_file` The path to the executable to create
     /// @param `is_static` Whether the executable should be static
     /// @return `bool` Whether linking and creation of the executable was successful
-    static bool link(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static);
+    static bool link(const std::vector<std::filesystem::path> &obj_files, const std::filesystem::path &output_file, const bool is_static);
 
     /// @function `create_static_library`
     /// @brief Creates a static `.a` library from the given `.o` files
@@ -41,13 +41,13 @@ class Linker {
     /// @function `get_windows_args`
     /// @brief Get all the windows args to call lld with
     ///
-    /// @param `obj_file` The path to the object file to link to the executable
+    /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
     /// @param `is_static` Whether the output file should be linked as static
     /// @return `std::optional<std::vector<std::string>>` The list of all arguments with which lld will be called, nullopt if something
     /// failed
     static std::optional<std::vector<std::string>> get_windows_args( //
-        const std::filesystem::path &obj_file,                       //
+        const std::vector<std::filesystem::path> &obj_files,         //
         const std::filesystem::path &output_file,                    //
         const bool is_static                                         //
     );
@@ -55,21 +55,25 @@ class Linker {
     /// @function `link_windows`
     /// @brief Links the built program for windows and outputs an .exe file
     ///
-    /// @param `obj_file` The path to the object file to link to the executable
+    /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
     /// @param `is_static` Whether the output file should be linked as static
     /// @return `bool` Whether linking the executable was succesful
-    static bool link_windows(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static);
+    static bool link_windows(                                //
+        const std::vector<std::filesystem::path> &obj_files, //
+        const std::filesystem::path &output_file,            //
+        const bool is_static                                 //
+    );
 
     /// @function `get_linux_args`
     /// @brief Get all the linux args to call lld with
     ///
-    /// @param `obj_file` The path to the object file to link to the executable
+    /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
     /// @param `is_static` Whether the output file should be linked as static
     /// @return `std::vector<std::string>` The list of all arguments with which lld will be called
     static std::optional<std::vector<std::string>> get_linux_args( //
-        const std::filesystem::path &obj_file,                     //
+        const std::vector<std::filesystem::path> &obj_files,       //
         const std::filesystem::path &output_file,                  //
         const bool is_static                                       //
     );
@@ -77,9 +81,13 @@ class Linker {
     /// @function `link_linux`
     /// @brief Links the built program for linux and outputs a binary file
     ///
-    /// @param `obj_file` The path to the object file to link to the executable
+    /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
     /// @param `is_static` Whether the output file should be linked as static
     /// @return `bool` Whether linking the executable was succesful
-    static bool link_linux(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static);
+    static bool link_linux(                                  //
+        const std::vector<std::filesystem::path> &obj_files, //
+        const std::filesystem::path &output_file,            //
+        const bool is_static                                 //
+    );
 };

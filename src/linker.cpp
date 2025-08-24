@@ -90,20 +90,20 @@ if (Test-Path $installer) {
 LLD_HAS_DRIVER(coff)
 LLD_HAS_DRIVER(elf)
 
-bool Linker::link(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static) {
+bool Linker::link(const std::vector<std::filesystem::path> &obj_files, const std::filesystem::path &output_file, const bool is_static) {
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
 #ifdef __WIN32__
-            return link_windows(obj_file, output_file, is_static);
+            return link_windows(obj_files, output_file, is_static);
 #else
-            return link_linux(obj_file, output_file, is_static);
+            return link_linux(obj_files, output_file, is_static);
 #endif
             break;
         case Target::LINUX:
-            return link_linux(obj_file, output_file, is_static);
+            return link_linux(obj_files, output_file, is_static);
             break;
         case Target::WINDOWS:
-            return link_windows(obj_file, output_file, is_static);
+            return link_windows(obj_files, output_file, is_static);
             break;
     }
     assert(false);
@@ -254,7 +254,7 @@ std::string Linker::get_lib_env_win() {
 }
 
 std::optional<std::vector<std::string>> Linker::get_windows_args( //
-    const std::filesystem::path &obj_file,                        //
+    const std::vector<std::filesystem::path> &obj_files,          //
     const std::filesystem::path &output_file,                     //
     const bool is_static                                          //
 ) {
@@ -262,7 +262,9 @@ std::optional<std::vector<std::string>> Linker::get_windows_args( //
     std::string output_exe = output_file.string() + ".exe";
 
     args.push_back("lld-link");
-    args.push_back(obj_file.string());
+    for (const auto &obj_file : obj_files) {
+        args.push_back(obj_file.string());
+    }
 
     args.push_back("/OUT:" + output_exe);
     args.push_back("/VERBOSE:LIB");
@@ -306,7 +308,11 @@ std::optional<std::vector<std::string>> Linker::get_windows_args( //
     return args;
 }
 
-bool Linker::link_windows(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static) {
+bool Linker::link_windows(                               //
+    const std::vector<std::filesystem::path> &obj_files, //
+    const std::filesystem::path &output_file,            //
+    const bool is_static                                 //
+) {
 #ifdef __WIN32__
     // Get the 'LIB' environment variable
     std::string lib_env_str = get_lib_env_win();
@@ -323,7 +329,7 @@ bool Linker::link_windows(const std::filesystem::path &obj_file, const std::file
 #endif
 
     // Get the arguments with which to call the linker
-    std::optional<std::vector<std::string>> arguments = get_windows_args(obj_file, output_file, is_static);
+    std::optional<std::vector<std::string>> arguments = get_windows_args(obj_files, output_file, is_static);
     if (!arguments.has_value()) {
         return false;
     }
@@ -357,7 +363,7 @@ bool Linker::link_windows(const std::filesystem::path &obj_file, const std::file
 }
 
 std::optional<std::vector<std::string>> Linker::get_linux_args( //
-    const std::filesystem::path &obj_file,                      //
+    const std::vector<std::filesystem::path> &obj_files,        //
     const std::filesystem::path &output_file,                   //
     const bool is_static                                        //
 ) {
@@ -403,8 +409,10 @@ std::optional<std::vector<std::string>> Linker::get_linux_args( //
             args.push_back("/usr/lib/crt1.o");
         }
 
-        // Add object file
-        args.push_back(obj_file.string());
+        // Add object files
+        for (const auto &obj_file : obj_files) {
+            args.push_back(obj_file.string());
+        }
 
         // Use musl libc.a directly by path (not with -l flag)
         args.push_back(std::string(musl_libc_path));
@@ -414,7 +422,9 @@ std::optional<std::vector<std::string>> Linker::get_linux_args( //
         args.push_back("--no-gc-sections"); // Prevent removal of unused sections
         args.push_back("--no-relax");       // Disable relocation relaxation
         args.push_back("-g");
-        args.push_back(obj_file.string());
+        for (const auto &obj_file : obj_files) {
+            args.push_back(obj_file.string());
+        }
         args.push_back("-L" + Generator::get_flintc_cache_path().string());
         args.push_back("-lbuiltins");
         args.push_back("-L/usr/lib");
@@ -432,9 +442,13 @@ std::optional<std::vector<std::string>> Linker::get_linux_args( //
     return args;
 }
 
-bool Linker::link_linux(const std::filesystem::path &obj_file, const std::filesystem::path &output_file, const bool is_static) {
+bool Linker::link_linux(                                 //
+    const std::vector<std::filesystem::path> &obj_files, //
+    const std::filesystem::path &output_file,            //
+    const bool is_static                                 //
+) {
     // Get the arguments for linking
-    std::optional<std::vector<std::string>> arguments = get_linux_args(obj_file, output_file, is_static);
+    std::optional<std::vector<std::string>> arguments = get_linux_args(obj_files, output_file, is_static);
     if (!arguments.has_value()) {
         return false;
     }

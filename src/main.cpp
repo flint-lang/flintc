@@ -130,26 +130,35 @@ void compile_program(const std::filesystem::path &binary_file, llvm::Module *mod
     }
 
     std::string obj_file = binary_file.string();
+    std::string file_ending = "";
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
 #ifdef __WIN32__
-            obj_file += ".obj";
+            file_ending = ".obj";
 #else
-            obj_file += ".o";
+            file_ending = ".o";
 #endif
             break;
         case Target::LINUX:
-            obj_file += ".o";
+            file_ending = ".o";
             break;
         case Target::WINDOWS:
-            obj_file += ".obj";
+            file_ending = ".obj";
             break;
     }
+    obj_file += file_ending;
 
     Profiler::start_task("Linking " + obj_file + " to a binary");
-    bool link_success = Linker::link(obj_file, // input object file
-        binary_file,                           // output executable
-        is_static                              // debug flag
+    std::vector<std::filesystem::path> obj_files{obj_file};
+    std::vector<std::array<char, 9>> fip_objects = FIP::gather_objects();
+    for (const auto &fip_obj : fip_objects) {
+        std::string fip_obj_path = ".fip/cache/" + std::string(fip_obj.data()) + file_ending;
+        obj_files.emplace_back(fip_obj_path);
+    }
+    bool link_success = Linker::link( //
+        obj_files,                    // input object files
+        binary_file,                  // output executable
+        is_static                     // debug flag
     );
     Profiler::end_task("Linking " + obj_file + " to a binary");
 

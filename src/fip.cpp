@@ -3,6 +3,8 @@
 
 #include "profiler.hpp"
 
+#include <iostream>
+
 bool FIP::init() {
     PROFILE_SCOPE("FIP init");
     socket_fd = fip_master_init_socket();
@@ -157,6 +159,42 @@ void FIP::send_compile_request() {
     fip_master_broadcast_message(buffer, &msg);
 }
 
-std::vector<std::array<char, 8>> FIP::gather_objects() {
-    return {};
+std::vector<std::array<char, 9>> FIP::gather_objects() {
+    std::vector<std::array<char, 9>> objects;
+    uint8_t wrong_msg_count = fip_master_await_responses( //
+        buffer,                                           //
+        master_state.responses,                           //
+        &master_state.response_count,                     //
+        FIP_MSG_OBJECT_RESPONSE                           //
+    );
+    if (wrong_msg_count > 0) {
+        fip_print(0, "Recieved %u faulty messages", wrong_msg_count);
+        return {};
+    }
+    // Now we can go through all responses and print all the .o files we
+    // recieved
+    for (uint8_t i = 0; i < master_state.response_count; i++) {
+        const fip_msg_t *response = &master_state.responses[i];
+        assert(response->type == FIP_MSG_OBJECT_RESPONSE);
+        if (response->u.obj_res.has_obj) {
+            fip_print(0, "Object response from module: %s", response->u.obj_res.module_name);
+            fip_print(0, "Paths: %s", response->u.obj_res.paths);
+            char const *paths = response->u.obj_res.paths;
+            while (*paths != '\0') {
+                std::array<char, 9> obj;
+                std::copy_n(paths, 8, obj.begin());
+                obj.at(8) = '\0';
+                objects.emplace_back(obj);
+                paths += 8;
+            }
+        } else {
+            fip_print(0, "Object response has no objects");
+        }
+    }
+    std::cout << "Objects: ";
+    for (const auto &obj : objects) {
+        std::cout << obj.data() << ":";
+    }
+    std::cout << std::endl;
+    return objects;
 }
