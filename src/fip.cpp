@@ -11,8 +11,6 @@ bool FIP::init() {
         abort();
     }
 
-    // TODO: Change it to dynamically discovering the interop modules from the `.fip/modules` path
-
     // Parse the config file (fip.toml)
     fip_master_config_t config_file = fip_master_load_config();
 
@@ -75,8 +73,81 @@ void FIP::shutdown() {
     fip_print(0, "Master shutting down");
 }
 
-bool FIP::resolve_function([[maybe_unused]] FunctionNode *function) {
-    return false;
+bool FIP::resolve_function(FunctionNode *function) {
+    // This function is not concurrency-safe. FIP assumes a strict order for the master's messages so only one thread is allowed to send /
+    // recieve messages to and from the FIP at a time
+    static std::mutex resolve_mutex;
+    std::lock_guard<std::mutex> lock(resolve_mutex);
+    fip_msg_t msg = fip_msg_t{};
+    msg.type = FIP_MSG_SYMBOL_REQUEST;
+    msg.u.sym_req.type = FIP_SYM_FUNCTION;
+    strncpy(msg.u.sym_req.sig.fn.name, function->name.c_str(), function->name.size());
+    if (!function->return_types.empty()) {
+        const uint8_t rets_len = static_cast<uint8_t>(function->return_types.size());
+        msg.u.sym_req.sig.fn.rets_len = rets_len;
+        msg.u.sym_req.sig.fn.rets = static_cast<fip_sig_type_t *>(malloc(sizeof(fip_sig_type_t) * rets_len));
+        for (uint8_t i = 0; i < rets_len; i++) {
+            msg.u.sym_req.sig.fn.rets[i].is_mutable = false;
+            // Find the type ID
+            uint8_t type_id = 0;
+            for (; type_id < FIP_TYPE_COUNT; type_id++) {
+                const std::string type_str(fip_type_names[type_id]);
+                if (type_str == function->return_types.at(i)->to_string()) {
+                    break;
+                }
+            }
+            if (type_id == FIP_TYPE_COUNT) {
+                // No valid FIP type found
+                return false;
+            }
+            msg.u.sym_req.sig.fn.rets[i].type = static_cast<fip_type_enum_t>(type_id);
+        }
+    }
+    if (!function->parameters.empty()) {
+        const uint8_t args_len = static_cast<uint8_t>(function->parameters.size());
+        msg.u.sym_req.sig.fn.args_len = args_len;
+        msg.u.sym_req.sig.fn.args = static_cast<fip_sig_type_t *>(malloc(sizeof(fip_sig_type_t) * args_len));
+        for (uint8_t i = 0; i < args_len; i++) {
+            msg.u.sym_req.sig.fn.args[i].is_mutable = std::get<2>(function->parameters.at(i));
+            // Find the type ID
+            uint8_t type_id = 0;
+            for (; type_id < FIP_TYPE_COUNT; type_id++) {
+                const std::string type_str(fip_type_names[type_id]);
+                if (type_str == std::get<0>(function->parameters.at(i))->to_string()) {
+                    break;
+                }
+            }
+            if (type_id == FIP_TYPE_COUNT) {
+                // No valid FIP type found
+                return false;
+            }
+            msg.u.sym_req.sig.fn.args[i].type = static_cast<fip_type_enum_t>(type_id);
+        }
+    }
+    fip_print(0, "Checking whether the function '%s' exists", function->name.c_str());
+    if (!fip_master_symbol_request(buffer, &msg)) {
+        fip_print(0, "The function '%s' does not exist", function->name.c_str());
+        return false;
+    }
+    fake_function fake_fn{};
+    fake_fn.ret_types = function->return_types;
+    for (const auto &param : function->parameters) {
+        fake_fn.arg_types.emplace_back(std::get<0>(param));
+    }
+    for (uint8_t i = 0; i < master_state.response_count; i++) {
+        if (master_state.responses[i].type == FIP_MSG_SYMBOL_RESPONSE //
+            && master_state.responses[i].u.sym_res.found              //
+        ) {
+            fake_fn.module_name = std::string(master_state.responses[i].u.sym_res.module_name);
+            break;
+        }
+    }
+    // Change the function tame to have the prefix `__fip_X_` where `X` is the module name it came from (`fip-X`)
+    function->extern_name_alias = "__fip_" + fake_fn.module_name.substr(4) + "_" + function->name;
+    function->error_types.clear();
+    fake_fn.name = function->name;
+    resolved_functions.push_back(fake_fn);
+    return true;
 }
 
 std::vector<std::array<char, 8>> FIP::gather_objects() {

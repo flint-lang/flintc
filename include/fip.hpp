@@ -30,6 +30,17 @@ class FIP {
   public:
     FIP() = delete;
 
+    /// @typedef `fake_fn`
+    /// @breif A small structure containing all necessary information about a function to later tell if a given function node is the same as
+    /// this function
+    /// It also contains information about in which interop module it was found
+    typedef struct {
+        std::string module_name;
+        std::string name;
+        std::vector<std::shared_ptr<Type>> ret_types;
+        std::vector<std::shared_ptr<Type>> arg_types;
+    } fake_function;
+
     /// @var `modules`
     /// @brief All the available modules of the FIP which contains the file descriptors of all active and spawned modules
     static inline fip_interop_modules_t modules;
@@ -45,6 +56,10 @@ class FIP {
     /// @var `message`
     /// @brief The message which will be re-used for all FIP communications
     static inline fip_msg_t message;
+
+    /// @var `resolved_functions`
+    /// @brief A list containing all functions which have been matched by FIP
+    static inline std::vector<fake_function> resolved_functions;
 
     /// @function `init`
     /// @brief Initializes the FIP and does whatever needs to be done at the FIP setup stage
