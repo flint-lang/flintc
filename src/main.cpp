@@ -93,6 +93,9 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
         exit(0);
     }
 
+    // Now we can send the compile request to all interop modules
+    FIP::send_compile_request();
+
     // Generate the whole program
     return Generator::generate_program_ir(is_test ? "test" : "main", dep_graph.value(), is_test);
 }

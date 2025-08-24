@@ -150,6 +150,13 @@ bool FIP::resolve_function(FunctionNode *function) {
     return true;
 }
 
+void FIP::send_compile_request() {
+    fip_msg_t msg{};
+    msg.type = FIP_MSG_COMPILE_REQUEST;
+    // TODO: Change the target of the compile request
+    fip_master_broadcast_message(buffer, &msg);
+}
+
 std::vector<std::array<char, 8>> FIP::gather_objects() {
     return {};
 }

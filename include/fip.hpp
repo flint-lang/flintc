@@ -79,6 +79,10 @@ class FIP {
     /// @return `bool` Whether the function symbol could be resolved
     static bool resolve_function(FunctionNode *function);
 
+    /// @function `send_compile_request`
+    /// @brief Sends the compile request to all interop modules, meaning that they now can start compiling their respective source files
+    static void send_compile_request();
+
     /// @function `gather_objects`
     /// @brief Gathers all built objects of all interop modules which need to be linked to the final executable
     ///
