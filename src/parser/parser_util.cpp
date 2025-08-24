@@ -87,6 +87,14 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             imported_files.emplace_back(added_import.value());
         }
         return true;
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::extern_function_declaration)) {
+        std::optional<FunctionNode> function_node = create_extern_function(definition_tokens);
+        if (!function_node.has_value()) {
+            return false;
+        }
+        FunctionNode *added_function = file_node.add_function(function_node.value());
+        add_parsed_function(added_function, file_name);
+        return true;
     }
 
     std::vector<Line> body_lines = get_body_lines(definition_indentation, tokens);
@@ -577,6 +585,10 @@ Parser::create_call_or_initializer_base(         //
     if (!function.has_value()) {
         THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name, argument_types);
         return std::nullopt;
+    }
+    // Check if the function has an extern alias and if it has overwrite the name
+    if (function.value().first->extern_name_alias.has_value()) {
+        function_name = function.value().first->extern_name_alias.value();
     }
     // Check if the argument count does match the parameter count
     const unsigned int param_count = function.value().first->parameters.size();

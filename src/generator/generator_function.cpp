@@ -4,13 +4,13 @@
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *module, FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;
     if (function_node->return_types.size() == 1) {
-        return_types = IR::add_and_or_get_type(module, function_node->return_types.front());
+        return_types = IR::add_and_or_get_type(module, function_node->return_types.front(), !function_node->extern_name_alias.has_value());
     } else {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(function_node->return_types);
         if (!Type::add_type(group_type)) {
             group_type = Type::get_type_from_str(group_type->to_string()).value();
         }
-        return_types = IR::add_and_or_get_type(module, group_type);
+        return_types = IR::add_and_or_get_type(module, group_type, !function_node->extern_name_alias.has_value());
     }
 
     // Get the parameter types
@@ -45,12 +45,10 @@ bool Generator::Function::generate_function(                                    
     llvm::FunctionType *function_type = generate_function_type(module, function_node);
 
     // Creating the function itself
-    llvm::Function *function = llvm::Function::Create( //
-        function_type,                                 //
-        llvm::Function::ExternalLinkage,               //
-        function_node->name,                           //
-        module                                         //
-    );
+    const std::string fn_name = function_node->extern_name_alias.has_value() //
+        ? function_node->extern_name_alias.value()                           //
+        : function_node->name;
+    llvm::Function *function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, fn_name, module);
 
     if (!function_node->scope.has_value()) {
         // It's only a declaration, not an implementation

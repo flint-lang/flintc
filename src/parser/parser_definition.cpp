@@ -6,6 +6,8 @@
 #include "error/error.hpp"
 #include "parser/type/tuple_type.hpp"
 
+#include "fip.hpp"
+
 #include <algorithm>
 #include <optional>
 
@@ -213,6 +215,22 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
 
     // Dont parse the body yet, it will be parsed in the second pass of the parser
     return FunctionNode(is_aligned, is_const, name, parameters, return_types, error_types, body_scope);
+}
+
+std::optional<FunctionNode> Parser::create_extern_function(const token_slice &definition) {
+    // First we check if the definition starts with `extern`, it should
+    assert(definition.first->token == TOK_EXTERN);
+    std::optional<FunctionNode> fn = create_function({definition.first + 1, definition.second});
+    if (!fn.has_value()) {
+        return std::nullopt;
+    }
+    // "Delete" the scope of the function, it is not needed for declarations
+    fn.value().scope = std::nullopt;
+    // Now check whether the FIP provides the searched for function in any of it's modules
+    if (!FIP::resolve_function(&fn.value())) {
+        return std::nullopt;
+    }
+    return fn;
 }
 
 std::optional<DataNode> Parser::create_data(const token_slice &definition, const std::vector<Line> &body) {

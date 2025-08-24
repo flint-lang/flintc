@@ -1385,6 +1385,14 @@ class Parser {
     /// @return `std::optional<FunctionNode>` The created FunctionNode
     std::optional<FunctionNode> create_function(const token_slice &definition);
 
+    /// @function `create_extern_function`
+    /// @brief Creates an extern function definition from the given definition tokens. Communicates with the FIP to find out where the
+    /// function comes from and whether any external language provides the function being searched for
+    ///
+    /// @param `definition` The list of tokens containing the function definition
+    /// @return `std::optional<FunctionNode>` The created FunctionNode
+    std::optional<FunctionNode> create_extern_function(const token_slice &definition);
+
     /// @function `create_data`
     /// @brief Creates a DataNode from the given definition and body tokens
     ///

@@ -170,6 +170,10 @@ enum Token {
     // test keywords
     TOK_TEST,
 
+    // fip keywords
+    TOK_EXTERN,
+    TOK_EXPORT,
+
     // other tokens
     TOK_INDENT,
     TOK_EOL,

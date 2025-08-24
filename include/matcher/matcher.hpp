@@ -352,6 +352,10 @@ class Matcher {
         // test keywords
         {TOK_TEST, std::make_shared<TokenTypeMatcher>(TOK_TEST)},
 
+        // fip tokens
+        {TOK_EXTERN, std::make_shared<TokenTypeMatcher>(TOK_EXTERN)},
+        {TOK_EXPORT, std::make_shared<TokenTypeMatcher>(TOK_EXPORT)},
+
         // other tokens
         {TOK_INDENT, std::make_shared<TokenTypeMatcher>(TOK_INDENT)},
         {TOK_EOL, std::make_shared<TokenTypeMatcher>(TOK_EOL)},
@@ -681,6 +685,14 @@ class Matcher {
         token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_DOT), token(TOK_IDENTIFIER)})) //
     });
     static const inline PatternPtr use_statement = sequence({token(TOK_USE), one_of({token(TOK_STR_VALUE), use_reference})});
+    static const inline PatternPtr extern_function_declaration = sequence({
+        token(TOK_EXTERN), token(TOK_DEF), token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
+        optional(one_of({
+            sequence({token(TOK_ARROW), group}), //
+            sequence({token(TOK_ARROW), type})   //
+        })),                                     //
+        token(TOK_SEMICOLON)                     //
+    });
     static const inline PatternPtr function_definition = sequence({
         optional(token(TOK_ALIGNED)), optional(token(TOK_CONST)), token(TOK_DEF),               //
         token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //

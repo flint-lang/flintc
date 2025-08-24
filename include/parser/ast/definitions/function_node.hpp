@@ -68,4 +68,9 @@ class FunctionNode : public ASTNode {
     /// @var `scope`
     /// @brief The scope of the function containing all statements or nullopt if the function is just a definition
     std::optional<std::shared_ptr<Scope>> scope;
+
+    /// @var `extern_name_alias`
+    /// @brief The extern name alias of the function used in the code generation phase. Extern FIP functions have the `__fip_X_` prefix.
+    /// This is not important for the parser itself but it definitely is for the code generation and for correct linking
+    std::optional<std::string> extern_name_alias{std::nullopt};
 };

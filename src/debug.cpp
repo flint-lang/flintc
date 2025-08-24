@@ -1230,7 +1230,12 @@ namespace Debug {
             if (function.is_const) {
                 std::cout << "const ";
             }
-            std::cout << function.name << "(";
+            if (function.extern_name_alias.has_value()) {
+                std::cout << function.extern_name_alias.value();
+            } else {
+                std::cout << function.name;
+            }
+            std::cout << "(";
             size_t counter = 0;
             for (const std::tuple<std::shared_ptr<Type>, std::string, bool> &param : function.parameters) {
                 std::cout << (std::get<2>(param) ? "mut" : "const") << " "; // Whether the param is const or mut

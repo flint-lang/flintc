@@ -179,6 +179,9 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     {"persistent", TOK_PERSISTENT},
     // other tokens
     {"test", TOK_TEST},
+    // fip tokens
+    {"extern", TOK_EXTERN},
+    {"export", TOK_EXPORT},
 };
 
 static const std::unordered_map<Token, std::string_view> keywords_rev = {

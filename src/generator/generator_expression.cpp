@@ -440,6 +440,27 @@ Generator::group_mapping Generator::Expression::generate_call( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
+    } else if (call_node->function_name.size() > 6 && call_node->function_name.substr(0, 6) == "__fip_") {
+        // It's a call to an externally defined function so we call it directly
+        auto result = Function::get_function_definition(ctx.parent, call_node);
+        llvm::CallInst *call = builder.CreateCall(                                  //
+            result.first.value(),                                                   //
+            args,                                                                   //
+            call_node->function_name + std::to_string(call_node->call_id) + "_call" //
+        );
+        call->setMetadata("comment",
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "'")));
+        std::vector<llvm::Value *> return_value;
+        if (const GroupType *group_type = dynamic_cast<const GroupType *>(call_node->type.get())) {
+            // We have multiple returns and need to extract them all and put into the return value vector
+            for (unsigned int i = 0; i < group_type->types.size(); i++) {
+                return_value.emplace_back(builder.CreateExtractValue(call, {i}));
+            }
+        } else {
+            // We have a single return value and can return that directly
+            return_value.emplace_back(call);
+        }
+        return return_value;
     } else {
         // Get the function definition from any module
         auto result = Function::get_function_definition(ctx.parent, call_node);

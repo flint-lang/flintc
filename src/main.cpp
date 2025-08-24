@@ -44,12 +44,12 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     if (!file.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << source_file_path.filename() << DEFAULT
                   << std::endl;
-        std::exit(EXIT_FAILURE);
+        return std::nullopt;
     }
     auto dep_graph = Resolver::create_dependency_graph(file.value(), source_file_path.parent_path(), parse_parallel);
     if (!dep_graph.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to create dependency graph" << std::endl;
-        std::exit(EXIT_FAILURE);
+        return std::nullopt;
     }
     if (!Parser::main_function_parsed && !is_test) {
         // No main function found
@@ -191,6 +191,8 @@ int main(int argc, char *argv[]) {
     }
     auto program = generate_program(clp.source_file_path, clp.test, clp.parallel);
     if (!program.has_value()) {
+        Profiler::end_task("ALL");
+        FIP::shutdown();
         return 1;
     }
     Parser::clear_instances();
