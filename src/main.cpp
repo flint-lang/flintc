@@ -1,5 +1,6 @@
 #include "cli_parser_main.hpp"
 #include "debug.hpp"
+#include "fip.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
 #include "lexer/lexer.hpp"
@@ -184,6 +185,10 @@ int main(int argc, char *argv[]) {
     }
 
     Profiler::start_task("ALL");
+    if (!FIP::init()) {
+        Profiler::end_task("ALL");
+        return 1;
+    }
     auto program = generate_program(clp.source_file_path, clp.test, clp.parallel);
     if (!program.has_value()) {
         return 1;
@@ -202,6 +207,7 @@ int main(int argc, char *argv[]) {
     }
 
     Resolver::clear();
+    FIP::shutdown();
     Profiler::end_task("ALL");
     if (PRINT_PROFILE_RESULTS) {
         Profiler::print_results(Profiler::TimeUnit::MICS);

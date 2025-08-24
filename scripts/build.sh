@@ -233,6 +233,28 @@ fetch_json_mini() {
     fi
 }
 
+fetch_fip() {
+    if [ ! -d "$root/vendor/sources/fip" ]; then
+        echo "-- Fetching fip from GitHub..."
+        cd "$root/vendor/sources"
+        git clone "https://github.com/flint-lang/fip.git"
+        cd "$root"
+    else
+        # Checking for internet connection
+        echo "-- Checking for internet connection..."
+        if ping -w 5 -c 2 google.com >/dev/null 2>&1; then
+            echo "-- Updating fip repository..."
+            echo -n "-- "
+            cd "$root/vendor/sources/fip"
+            git fetch
+            git pull
+            cd "$root"
+        else
+            echo "-- No internet connection, skipping updating the fip repository..."
+        fi
+    fi
+}
+
 # Sets up the cmake build directory for windows
 # $1 - is_static - Whether to build the dynamic ("false") or the static ("true") version of the compiler
 # $2 - is_debug - Whether to build the release ("false") or the debug ("true") build
@@ -644,6 +666,9 @@ build_llvm
 
 echo "-- Making sure json-mini is up to date..."
 fetch_json_mini
+
+echo "-- Making sure fip is up to date..."
+fetch_fip
 
 echo "-- Starting CMake configuration phase..."
 setup_builds

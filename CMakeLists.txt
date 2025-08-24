@@ -95,6 +95,33 @@ else()
     )
 endif()
 
+add_library(external_deps STATIC vendor/sources/fip/toml/tomlc17.c)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(EXTERNAL_CXX_FLAGS
+        -g
+        -O1
+        -w  # Suppress all warnings
+        -D_GNU_SOURCE
+        -D__STDC_CONSTANT_MACROS
+        -D__STDC_FORMAT_MACROS
+        -D__STDC_LIMIT_MACROS
+    )
+else()
+    set(EXTERNAL_CXX_FLAGS
+        -g
+        -O0
+        -w  # Suppress all warnings
+        -D_GNU_SOURCE
+        -D__STDC_CONSTANT_MACROS
+        -D__STDC_FORMAT_MACROS
+        -D__STDC_LIMIT_MACROS
+    )
+endif()
+
+target_compile_options(external_deps PRIVATE ${EXTERNAL_CXX_FLAGS})
+# target_include_directories(external_deps PUBLIC ${CMAKE_SOURCE_DIR}/vendor/sources/fip)
+
 # Setting the default LLVM lib path based on platform and build type
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw/lib" CACHE PATH "Path to LLVM libraries")
@@ -112,8 +139,9 @@ endif()
 
 message(STATUS "Using LLVM include directory: ${LLVM_INCLUDE_DIR}")
 
-# Include the vendor stuff (json-mini)
+# Include the vendor stuff (json-mini, fip)
 include_directories(${CMAKE_SOURCE_DIR}/vendor/sources/json-mini/include)
+include_directories(${CMAKE_SOURCE_DIR}/vendor/sources/fip)
 
 # Always add this definition to prevent LLVM from using zstd
 add_definitions(-DLLVM_DISABLE_ZLIB_SYMBOLS -DLLVM_ENABLE_ZSTD=0)
@@ -334,6 +362,7 @@ endif()
 set(MAIN_FILE src/main.cpp)
 set(TEST_FILES tests/tests.cpp)
 file(GLOB_RECURSE SRC_FILES "src/*.cpp")
+# list(APPEND SRC_FILES "vendor/sources/fip/toml/tomlc17.c")
 list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/${MAIN_FILE})
 
 # Include both directories where the headers are located
@@ -353,7 +382,7 @@ function(create_executable target_name sources is_static)
     target_compile_options(${target_name} PRIVATE ${BASE_CXX_FLAGS})
 
     # Link libraries with platform-specific settings
-    target_link_libraries(${target_name} PRIVATE ${FINAL_LINK_LIBS})
+    target_link_libraries(${target_name} PRIVATE ${FINAL_LINK_LIBS} external_deps)
 
     # Add the LLVM include directory to the include paths
     target_include_directories(${target_name} SYSTEM PRIVATE ${LLVM_INCLUDE_DIR})

@@ -1,0 +1,3 @@
+compiler = "clang"
+sources = ["modules/c/src/test.c"]
+compile_flags = ["-I./", "-g"]
