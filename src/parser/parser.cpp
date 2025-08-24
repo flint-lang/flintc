@@ -87,7 +87,7 @@ bool Parser::resolve_all_unknown_types() {
                 }
             }
             // The parameters are added to the list of variables to the functions scope, so we need to change the types there too
-            for (auto &variable : function->scope->variables) {
+            for (auto &variable : function->scope.value()->variables) {
                 if (!Type::resolve_type(std::get<0>(variable.second))) {
                     return false;
                 }
@@ -139,11 +139,11 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
             Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
         }
         // Create the body and add the body statements to the created scope
-        auto body_statements = parser.create_body(function->scope, body);
+        auto body_statements = parser.create_body(function->scope.value(), body);
         if (!body_statements.has_value()) {
             return false;
         }
-        function->scope->body = std::move(body_statements.value());
+        function->scope.value()->body = std::move(body_statements.value());
         return true;
     };
 

@@ -118,11 +118,14 @@ void Generator::Allocation::generate_function_allocations(            //
     std::unordered_map<std::string, llvm::Value *const> &allocations, //
     const FunctionNode *function                                      //
 ) {
+    if (!function->scope.has_value()) {
+        return;
+    }
     assert(parent->arg_size() == function->parameters.size());
     unsigned int param_id = 0;
     for (auto &arg : parent->args()) {
         const auto &param = function->parameters.at(param_id);
-        const std::string param_name = "s" + std::to_string(function->scope->scope_id) + "::" + std::get<1>(param);
+        const std::string param_name = "s" + std::to_string(function->scope.value()->scope_id) + "::" + std::get<1>(param);
         if (primitives.find(std::get<0>(param)->to_string()) == primitives.end()) {
             // Its not a primitive type, this means it must be passed by reference
             allocations.emplace(param_name, &arg);

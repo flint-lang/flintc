@@ -16,7 +16,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         parameters.emplace_back(std::make_tuple(str_arr_type.value(), "args", false));
     }
     std::vector<std::shared_ptr<Type>> return_types;
-    std::shared_ptr<Scope> scope;
+    std::optional<std::shared_ptr<Scope>> scope;
     auto error_types = std::vector<std::shared_ptr<Type>>{Type::get_type_from_str("anyerror").value()};
     FunctionNode function_node = FunctionNode(false, false, "_main", parameters, return_types, error_types, scope);
 

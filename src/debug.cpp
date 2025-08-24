@@ -1268,10 +1268,14 @@ namespace Debug {
                 }
                 std::cout << "}";
             }
-            std::cout << " [s" << function.scope->scope_id << "]" << std::endl;
+            if (!function.scope.has_value()) {
+                std::cout << ";" << std::endl;
+                return;
+            }
+            std::cout << " [s" << function.scope.value()->scope_id << "]" << std::endl;
 
             // The function body
-            print_body(indent_lvl + 1, bits, function.scope->body);
+            print_body(indent_lvl + 1, bits, function.scope.value()->body);
         }
 
         /// print_import

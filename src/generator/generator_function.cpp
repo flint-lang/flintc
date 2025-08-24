@@ -52,6 +52,11 @@ bool Generator::Function::generate_function(                                    
         module                                         //
     );
 
+    if (!function_node->scope.has_value()) {
+        // It's only a declaration, not an implementation
+        return true;
+    }
+
     // Assign names to function arguments and add them to the function's body
     size_t paramIndex = 0;
     for (auto &arg : function->args()) {
@@ -71,12 +76,12 @@ bool Generator::Function::generate_function(                                    
     // The key is a combination of the scope id and the variable name, e.g. 1::var1, 2::var2
     std::unordered_map<std::string, llvm::Value *const> allocations;
     Allocation::generate_function_allocations(builder, function, allocations, function_node);
-    if (!Allocation::generate_allocations(builder, function, function_node->scope, allocations, imported_core_modules)) {
+    if (!Allocation::generate_allocations(builder, function, function_node->scope.value(), allocations, imported_core_modules)) {
         return false;
     }
 
     // Generate all instructions of the functions body
-    GenerationContext ctx{function, function_node->scope, allocations, imported_core_modules};
+    GenerationContext ctx{function, function_node->scope.value(), allocations, imported_core_modules};
     if (!Statement::generate_body(builder, ctx)) {
         return false;
     }

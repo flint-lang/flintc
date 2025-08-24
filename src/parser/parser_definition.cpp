@@ -184,7 +184,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     }
 
     // Create the body scope
-    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>();
+    std::optional<std::shared_ptr<Scope>> body_scope = std::make_shared<Scope>();
     std::shared_ptr<Type> return_type = nullptr;
     if (return_types.size() > 1) {
         return_type = std::make_shared<GroupType>(return_types);
@@ -198,11 +198,13 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     } else {
         return_type = return_types.front();
     }
-    body_scope->add_variable("__flint_return_type", return_type, 0, false, true);
+    body_scope.value()->add_variable("__flint_return_type", return_type, 0, false, true);
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
-        if (!body_scope->add_variable(std::get<1>(param), std::get<0>(param), body_scope->scope_id, std::get<2>(param), true)) {
+        if (!body_scope.value()->add_variable(                                                                  //
+                std::get<1>(param), std::get<0>(param), body_scope.value()->scope_id, std::get<2>(param), true) //
+        ) {
             // Variable already exists in the func definition list
             THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_name, 0, 0, std::get<1>(param));
             return std::nullopt;
