@@ -1,9 +1,7 @@
-#include "fip.h"
-
-int FIP_FN foo(int x, int y) {
+int foo(const int x, const int y) {
     return x + y;
 }
 
-int FIP_FN bar() {
+int bar() {
     return 69;
 }

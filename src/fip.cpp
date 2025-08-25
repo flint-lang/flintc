@@ -1,6 +1,7 @@
 #define FIP_IMPLEMENTATION
 #include "fip.hpp"
 
+#include "parser/type/primitive_type.hpp"
 #include "profiler.hpp"
 
 #include <iostream>
@@ -75,6 +76,43 @@ void FIP::shutdown() {
     fip_print(0, "Master shutting down");
 }
 
+bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const bool is_ret) {
+    dest->is_mutable = is_ret;
+    if (const PrimitiveType *prim_type = dynamic_cast<const PrimitiveType *>(src.get())) {
+        dest->type = FIP_TYPE_PRIMITIVE;
+
+        // Map primitive type string to enum
+        const std::string type_str = prim_type->to_string();
+        if (type_str == "u8") {
+            dest->u.prim = FIP_U8;
+        } else if (type_str == "u32") {
+            dest->u.prim = FIP_U32;
+        } else if (type_str == "u64") {
+            dest->u.prim = FIP_U64;
+        } else if (type_str == "i32") {
+            dest->u.prim = FIP_I32;
+        } else if (type_str == "i64") {
+            dest->u.prim = FIP_I64;
+        } else if (type_str == "f32") {
+            dest->u.prim = FIP_F32;
+        } else if (type_str == "f64") {
+            dest->u.prim = FIP_F64;
+        } else if (type_str == "bool") {
+            dest->u.prim = FIP_BOOL;
+        } else {
+            // Unknown primitive type
+            return false;
+        }
+        return true;
+    } else {
+        // Handle pointer types or other complex types
+        dest->type = FIP_TYPE_PTR;
+        // TODO: Implement pointer type handling based on your type system
+        // For now, return false for unsupported types
+        return false;
+    }
+}
+
 bool FIP::resolve_function(FunctionNode *function) {
     // This function is not concurrency-safe. FIP assumes a strict order for the master's messages so only one thread is allowed to send /
     // recieve messages to and from the FIP at a time
@@ -84,53 +122,39 @@ bool FIP::resolve_function(FunctionNode *function) {
     msg.type = FIP_MSG_SYMBOL_REQUEST;
     msg.u.sym_req.type = FIP_SYM_FUNCTION;
     strncpy(msg.u.sym_req.sig.fn.name, function->name.c_str(), function->name.size());
+
     if (!function->return_types.empty()) {
         const uint8_t rets_len = static_cast<uint8_t>(function->return_types.size());
         msg.u.sym_req.sig.fn.rets_len = rets_len;
-        msg.u.sym_req.sig.fn.rets = static_cast<fip_sig_type_t *>(malloc(sizeof(fip_sig_type_t) * rets_len));
+        msg.u.sym_req.sig.fn.rets = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * rets_len));
         for (uint8_t i = 0; i < rets_len; i++) {
-            msg.u.sym_req.sig.fn.rets[i].is_mutable = false;
-            // Find the type ID
-            uint8_t type_id = 0;
-            for (; type_id < FIP_TYPE_COUNT; type_id++) {
-                const std::string type_str(fip_type_names[type_id]);
-                if (type_str == function->return_types.at(i)->to_string()) {
-                    break;
-                }
-            }
-            if (type_id == FIP_TYPE_COUNT) {
-                // No valid FIP type found
+            if (!convert_type(&msg.u.sym_req.sig.fn.rets[i], function->return_types.at(i), true)) {
+                const std::string type_str = function->return_types.at(i)->to_string();
+                fip_print(0, "Type '%s' not compatible with FIP", type_str.c_str());
                 return false;
             }
-            msg.u.sym_req.sig.fn.rets[i].type = static_cast<fip_type_enum_t>(type_id);
         }
     }
+
     if (!function->parameters.empty()) {
         const uint8_t args_len = static_cast<uint8_t>(function->parameters.size());
         msg.u.sym_req.sig.fn.args_len = args_len;
-        msg.u.sym_req.sig.fn.args = static_cast<fip_sig_type_t *>(malloc(sizeof(fip_sig_type_t) * args_len));
+        msg.u.sym_req.sig.fn.args = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * args_len));
         for (uint8_t i = 0; i < args_len; i++) {
-            msg.u.sym_req.sig.fn.args[i].is_mutable = std::get<2>(function->parameters.at(i));
-            // Find the type ID
-            uint8_t type_id = 0;
-            for (; type_id < FIP_TYPE_COUNT; type_id++) {
-                const std::string type_str(fip_type_names[type_id]);
-                if (type_str == std::get<0>(function->parameters.at(i))->to_string()) {
-                    break;
-                }
-            }
-            if (type_id == FIP_TYPE_COUNT) {
-                // No valid FIP type found
+            if (!convert_type(&msg.u.sym_req.sig.fn.args[i], std::get<0>(function->parameters.at(i)), false)) {
+                const std::string type_str = function->return_types.at(i)->to_string();
+                fip_print(0, "Type '%s' not compatible with FIP", type_str.c_str());
                 return false;
             }
-            msg.u.sym_req.sig.fn.args[i].type = static_cast<fip_type_enum_t>(type_id);
         }
     }
+
     fip_print(0, "Checking whether the function '%s' exists", function->name.c_str());
     if (!fip_master_symbol_request(buffer, &msg)) {
         fip_print(0, "The function '%s' does not exist", function->name.c_str());
         return false;
     }
+
     fake_function fake_fn{};
     fake_fn.ret_types = function->return_types;
     for (const auto &param : function->parameters) {
@@ -144,7 +168,8 @@ bool FIP::resolve_function(FunctionNode *function) {
             break;
         }
     }
-    // Change the function tame to have the prefix `__fip_X_` where `X` is the module name it came from (`fip-X`)
+
+    // Change the function name to have the prefix `__fip_X_` where `X` is the module name it came from (`fip-X`)
     function->extern_name_alias = "__fip_" + fake_fn.module_name.substr(4) + "_" + function->name;
     function->error_types.clear();
     fake_fn.name = function->name;

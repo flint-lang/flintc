@@ -71,6 +71,15 @@ class FIP {
     /// @brief Shuts down the FIP and sends the kill messages to all interop modules
     static void shutdown();
 
+    /// @function `convert_type`
+    /// @brief Converts a given type to a FIP type which other FIP modules can understand
+    ///
+    /// @param `dest` The destination FIP type
+    /// @param `src` The source Flint type
+    /// @param `is_ret` Whether the given type is a return type of a function
+    /// @return `bool` Whether conversion was successful
+    static bool convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const bool is_ret);
+
     /// @function `resolve_function`
     /// @brief Resolves a given function definition, changes it's internal name for code generation and returns whether the function was
     /// even found in one of the interop modules at all
