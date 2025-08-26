@@ -321,6 +321,174 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
     return str_value;
 }
 
+Generator::group_mapping Generator::Expression::generate_extern_call( //
+    llvm::IRBuilder<> &builder,                                       //
+    GenerationContext &ctx,                                           //
+    const CallNodeBase *call_node,                                    //
+    std::vector<llvm::Value *> &args                                  //
+) {
+    // It's a call to an externally defined function so we call it directly. But we first need to check the args and see whether they
+    // are an unsupported type, like a multi-type or a string. Unsupported extern types will be auto-mapped to correct texternal types,
+    // like structs or char*
+
+    // Converts a Flint type to the external type
+    const auto convert_type_to_ext = [](                                    //
+                                         llvm::IRBuilder<> &builder,        //
+                                         llvm::Module *module,              //
+                                         const std::shared_ptr<Type> &type, //
+                                         llvm::Value *const value,          //
+                                         std::vector<llvm::Value *> &args   //
+                                     ) {
+        if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
+            // Multi-types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
+            // to the functions too. This means that the multi-type needs to be converted not into a struct but into a multiple of
+            // two-component vector types.
+            // A vector type of size 2 can be passed to the function directly and does not need to be converted at all
+            // A vector type of size 3 is split into a two-component vector type + a scalar value
+            // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
+            llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
+            const std::string base_type_str = multi_type->base_type->to_string();
+            if (base_type_str == "f64" || base_type_str == "i64") {
+                for (size_t i = 0; i < multi_type->width; i++) {
+                    args.emplace_back(builder.CreateExtractElement(value, builder.getInt64(i)));
+                }
+                return;
+            }
+            if (multi_type->width == 2) {
+                args.emplace_back(value);
+                return;
+            } else if (multi_type->width == 3) {
+                // Extract the first two elements as a vector type
+                llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
+
+                llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(0));
+                llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(1));
+                llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
+                vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
+                vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
+                args.emplace_back(vec2);
+
+                // Extract the third value as a scalar element
+                llvm::Value *third = builder.CreateExtractElement(value, builder.getInt64(2));
+                args.emplace_back(third);
+                return;
+            }
+            // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... multi-types in Flint, so we know all bigger than 3 are even
+            // numbers
+            llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
+            for (size_t i = 0; i < multi_type->width; i += 2) {
+                llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(i));
+                llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(i + 1));
+                llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
+                vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
+                vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
+                args.emplace_back(vec2);
+            }
+            return;
+        } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
+            if (type->to_string() == "str") {
+                llvm::Type *str_struct = type_map.at("__flint_type_str_struct");
+                args.emplace_back(builder.CreateStructGEP(str_struct, value, 1, "char_ptr"));
+                return;
+            }
+        }
+        args.emplace_back(value);
+    };
+    // Converts an External type to the Flint type
+    const auto convert_type_from_ext = [](                                    //
+                                           llvm::IRBuilder<> &builder,        //
+                                           llvm::Module *module,              //
+                                           const std::shared_ptr<Type> &type, //
+                                           llvm::Value *&value                //
+                                       ) {
+        if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
+            llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
+            llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+            const std::string base_type_str = multi_type->base_type->to_string();
+            if (base_type_str == "f64" || base_type_str == "i64") {
+                llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+                for (size_t i = 0; i < multi_type->width; i++) {
+                    llvm::Value *elem_i = builder.CreateExtractValue(value, i);
+                    result_vec = builder.CreateInsertElement(result_vec, elem_i, builder.getInt64(i));
+                }
+                value = result_vec;
+            } else if (multi_type->width == 2) {
+                // vec2 is returned as <2 x T> directly - no conversion needed
+                return;
+            } else if (multi_type->width == 3) {
+                // vec3 is returned as { <2 x T>, T } struct from extern calls
+                assert(value->getType()->isStructTy());
+
+                // Extract the <2 x T> part
+                llvm::Value *vec2_part = builder.CreateExtractValue(value, 0, "vec2_part");
+                llvm::Value *scalar_part = builder.CreateExtractValue(value, 1, "scalar_part");
+
+                // Reconstruct <3 x T> vector
+                llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+
+                // Extract elements from vec2 and insert into result
+                llvm::Value *elem0 = builder.CreateExtractElement(vec2_part, builder.getInt64(0));
+                llvm::Value *elem1 = builder.CreateExtractElement(vec2_part, builder.getInt64(1));
+
+                result_vec = builder.CreateInsertElement(result_vec, elem0, builder.getInt64(0));
+                result_vec = builder.CreateInsertElement(result_vec, elem1, builder.getInt64(1));
+                result_vec = builder.CreateInsertElement(result_vec, scalar_part, builder.getInt64(2));
+
+                value = result_vec;
+            } else {
+                // vecN (N > 3) is returned as { <2 x T>, <2 x T>, ... } struct from extern calls
+                assert(value->getType()->isStructTy());
+                llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+                size_t element_index = 0;
+
+                // Extract each <2 x T> chunk and rebuild the original vector
+                for (size_t chunk = 0; chunk < (multi_type->width + 1) / 2; chunk++) {
+                    llvm::Value *chunk_vec = builder.CreateExtractValue(value, chunk, "chunk_vec");
+
+                    // Extract elements from this chunk
+                    for (size_t i = 0; i < 2 && element_index < multi_type->width; i++, element_index++) {
+                        llvm::Value *elem = builder.CreateExtractElement(chunk_vec, builder.getInt64(i));
+                        result_vec = builder.CreateInsertElement(result_vec, elem, builder.getInt64(element_index));
+                    }
+                }
+                value = result_vec;
+            }
+        } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
+            if (type->to_string() == "str") {
+                llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), value, "str_len");
+                value = builder.CreateCall(Module::String::string_manip_functions.at("init_str"), {value, str_len}, "str");
+            }
+        }
+    };
+    std::vector<llvm::Value *> converted_args;
+    for (size_t i = 0; i < call_node->arguments.size(); i++) {
+        const auto &arg = call_node->arguments[i];
+        convert_type_to_ext(builder, ctx.parent->getParent(), arg.first->type, args[i], converted_args);
+    }
+    auto result = Function::get_function_definition(ctx.parent, call_node);
+    llvm::CallInst *call = builder.CreateCall(                                  //
+        result.first.value(),                                                   //
+        converted_args,                                                         //
+        call_node->function_name + std::to_string(call_node->call_id) + "_call" //
+    );
+    call->setMetadata("comment",
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "'")));
+    std::vector<llvm::Value *> return_value;
+    if (const GroupType *group_type = dynamic_cast<const GroupType *>(call_node->type.get())) {
+        // We have multiple returns and need to extract them all and put into the return value vector
+        for (unsigned int i = 0; i < group_type->types.size(); i++) {
+            llvm::Value *ret_val = builder.CreateExtractValue(call, {i});
+            convert_type_from_ext(builder, ctx.parent->getParent(), group_type->types.at(i), ret_val);
+            return_value.emplace_back(ret_val);
+        }
+    } else {
+        // We have a single return value and can return that directly, but we need to check it's type still
+        return_value.emplace_back(call);
+        convert_type_from_ext(builder, ctx.parent->getParent(), call_node->type, return_value.back());
+    }
+    return return_value;
+}
+
 Generator::group_mapping Generator::Expression::generate_call( //
     llvm::IRBuilder<> &builder,                                //
     GenerationContext &ctx,                                    //
@@ -441,26 +609,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
             return std::nullopt;
         }
     } else if (call_node->function_name.size() > 6 && call_node->function_name.substr(0, 6) == "__fip_") {
-        // It's a call to an externally defined function so we call it directly
-        auto result = Function::get_function_definition(ctx.parent, call_node);
-        llvm::CallInst *call = builder.CreateCall(                                  //
-            result.first.value(),                                                   //
-            args,                                                                   //
-            call_node->function_name + std::to_string(call_node->call_id) + "_call" //
-        );
-        call->setMetadata("comment",
-            llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "'")));
-        std::vector<llvm::Value *> return_value;
-        if (const GroupType *group_type = dynamic_cast<const GroupType *>(call_node->type.get())) {
-            // We have multiple returns and need to extract them all and put into the return value vector
-            for (unsigned int i = 0; i < group_type->types.size(); i++) {
-                return_value.emplace_back(builder.CreateExtractValue(call, {i}));
-            }
-        } else {
-            // We have a single return value and can return that directly
-            return_value.emplace_back(call);
-        }
-        return return_value;
+        return generate_extern_call(builder, ctx, call_node, args);
     } else {
         // Get the function definition from any module
         auto result = Function::get_function_definition(ctx.parent, call_node);

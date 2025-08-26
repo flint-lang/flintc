@@ -581,7 +581,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     // Function calls to functions in outside modules already have the correct call, they dont need to be resolved here
     for (const auto &[fn_name, calls] : unresolved_functions) {
         for (llvm::CallInst *call : calls) {
-            llvm::Function *actual_function = module->getFunction(fn_name + "." + std::to_string(function_mangle_ids[fn_name]));
+            const std::string actual_function_name = fn_name + "." + std::to_string(function_mangle_ids[fn_name]);
+            llvm::Function *actual_function = module->getFunction(actual_function_name);
             if (actual_function == nullptr) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;

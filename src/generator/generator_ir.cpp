@@ -17,7 +17,8 @@
 llvm::StructType *Generator::IR::add_and_or_get_type( //
     llvm::Module *module,                             //
     const std::shared_ptr<Type> &type,                //
-    const bool is_return_type                         //
+    const bool is_return_type,                        //
+    const bool is_extern                              //
 ) {
     std::vector<std::shared_ptr<Type>> types;
     std::string types_str = is_return_type ? "ret_" : "";
@@ -64,7 +65,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     }
     // Rest of the elements are the return types
     for (const auto &ret_value : types) {
-        auto ret_type = get_type(module, ret_value);
+        auto ret_type = get_type(module, ret_value, is_extern);
         if (ret_type.second && !dynamic_cast<const OptionalType *>(ret_value.get())) {
             types_vec.emplace_back(ret_type.first->getPointerTo());
         } else {
@@ -141,7 +142,11 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
     }
 }
 
-std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, const std::shared_ptr<Type> &type) {
+std::pair<llvm::Type *, bool> Generator::IR::get_type( //
+    llvm::Module *module,                              //
+    const std::shared_ptr<Type> &type,                 //
+    const bool is_extern                               //
+) {
     // Check if its a primitive or not. If it is not a primitive, its just a pointer type
     if (dynamic_cast<const ErrorSetType *>(type.get())) {
         if (type_map.find("__flint_type_err") == type_map.end()) {
@@ -202,6 +207,10 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
                 case TOK_U8:
                     return {llvm::Type::getInt8Ty(context), false};
                 case TOK_STR: {
+                    if (is_extern) {
+                        // If it's an extern call we pass in the c_str
+                        return {llvm::Type::getInt8Ty(context)->getPointerTo(), false};
+                    }
                     // A string is a struct of type 'type { i64, [0 x i8] }'
                     if (type_map.find("type_str") == type_map.end()) {
                         llvm::StructType *str_type = llvm::StructType::create( //
@@ -265,6 +274,34 @@ std::pair<llvm::Type *, bool> Generator::IR::get_type(llvm::Module *module, cons
             return {llvm::Type::getInt8Ty(context), false};
         }
         llvm::Type *element_type = get_type(module, multi_type->base_type).first;
+        if (is_extern) {
+            const std::string type_str = "type_" + multi_type->to_string() + ".extern";
+            if (type_map.find(type_str) == type_map.end()) {
+                std::vector<llvm::Type *> types;
+                llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
+                const std::string base_type_str = multi_type->base_type->to_string();
+                if (base_type_str == "f64" || base_type_str == "i64") {
+                    for (size_t i = 0; i < multi_type->width; i++) {
+                        types.emplace_back(element_type);
+                    }
+                } else if (multi_type->width == 2) {
+                    return {vec2_type, false};
+                } else if (multi_type->width == 3) {
+                    types.emplace_back(vec2_type);
+                    types.emplace_back(element_type);
+                } else {
+                    for (size_t i = 0; i < multi_type->width; i += 2) {
+                        types.emplace_back(vec2_type);
+                    }
+                }
+
+                llvm::StructType *struct_type = llvm::StructType::create( //
+                    context, types, type_str, false                       //
+                );
+                type_map[type_str] = struct_type;
+            }
+            return {type_map.at(type_str), false};
+        }
         llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
         return {vector_type, false};
     } else if (dynamic_cast<const EnumType *>(type.get())) {

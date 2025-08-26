@@ -1,29 +1,65 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
+#include "parser/type/multi_type.hpp"
 
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *module, FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;
+    const bool is_extern = function_node->extern_name_alias.has_value();
     if (function_node->return_types.size() == 1) {
-        return_types = IR::add_and_or_get_type(module, function_node->return_types.front(), !function_node->extern_name_alias.has_value());
+        if (is_extern) {
+            return_types = IR::get_type(module, function_node->return_types.front(), true).first;
+        } else {
+            return_types = IR::add_and_or_get_type(module, function_node->return_types.front(), !is_extern, is_extern);
+        }
     } else {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(function_node->return_types);
         if (!Type::add_type(group_type)) {
             group_type = Type::get_type_from_str(group_type->to_string()).value();
         }
-        return_types = IR::add_and_or_get_type(module, group_type, !function_node->extern_name_alias.has_value());
+        return_types = IR::add_and_or_get_type(module, group_type, !is_extern, is_extern);
     }
 
     // Get the parameter types
     std::vector<llvm::Type *> param_types_vec;
-    param_types_vec.reserve(function_node->parameters.size());
-    for (const auto &param : function_node->parameters) {
-        auto param_type = IR::get_type(module, std::get<0>(param));
-        if (param_type.second) {
-            // Complex type, passed by reference
-            param_types_vec.emplace_back(param_type.first->getPointerTo());
-        } else {
-            // Primitive type, passed by copy
-            param_types_vec.emplace_back(param_type.first);
+    if (is_extern) {
+        for (const auto &param : function_node->parameters) {
+            const std::shared_ptr<Type> &param_type = std::get<0>(param);
+            if (const MultiType *multi_type = dynamic_cast<const MultiType *>(param_type.get())) {
+                llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
+                const std::string base_type_str = multi_type->base_type->to_string();
+                if (base_type_str == "f64" || base_type_str == "i64") {
+                    for (size_t i = 0; i < multi_type->width; i++) {
+                        param_types_vec.emplace_back(element_type);
+                    }
+                    continue;
+                }
+                if (multi_type->width == 2) {
+                    param_types_vec.emplace_back(IR::get_type(module, param_type).first);
+                } else if (multi_type->width == 3) {
+                    llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
+                    param_types_vec.emplace_back(vec2_type);
+                    param_types_vec.emplace_back(element_type);
+                } else {
+                    llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
+                    for (size_t i = 0; i < multi_type->width; i += 2) {
+                        param_types_vec.emplace_back(vec2_type);
+                    }
+                }
+                continue;
+            }
+            param_types_vec.emplace_back(IR::get_type(module, std::get<0>(param), true).first);
+        }
+    } else {
+        param_types_vec.reserve(function_node->parameters.size());
+        for (const auto &param : function_node->parameters) {
+            auto param_type = IR::get_type(module, std::get<0>(param));
+            if (param_type.second) {
+                // Complex type, passed by reference
+                param_types_vec.emplace_back(param_type.first->getPointerTo());
+            } else {
+                // Primitive type, passed by copy
+                param_types_vec.emplace_back(param_type.first);
+            }
         }
     }
     llvm::ArrayRef<llvm::Type *> param_types(param_types_vec);
@@ -45,8 +81,9 @@ bool Generator::Function::generate_function(                                    
     llvm::FunctionType *function_type = generate_function_type(module, function_node);
 
     // Creating the function itself
-    const std::string fn_name = function_node->extern_name_alias.has_value() //
-        ? function_node->extern_name_alias.value()                           //
+    const bool is_extern = function_node->extern_name_alias.has_value();
+    const std::string fn_name = is_extern          //
+        ? function_node->extern_name_alias.value() //
         : function_node->name;
     llvm::Function *function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, fn_name, module);
 

@@ -365,11 +365,13 @@ class Generator {
         /// @param `module` The module in which to get the type from
         /// @param `type` The type to get or set the struct type from
         /// @param `is_return_type` Whether the StructType is a return type (if it is, it has one return value more, the error return value)
+        /// @param `is_extern` Whether the type to get is extern-targetted
         /// @return `llvm::StructType *` The reference to the StructType, representing the return type of the types map
         static llvm::StructType *add_and_or_get_type( //
             llvm::Module *module,                     //
             const std::shared_ptr<Type> &type,        //
-            const bool is_return_type = true          //
+            const bool is_return_type = true,         //
+            const bool is_extern = false              //
         );
 
         /// @function `generate_bitwidth_change`
@@ -410,11 +412,16 @@ class Generator {
         ///
         /// @param `type` The type from which to get the llvm type from
         /// @param `module` The module from which to get the type from
+        /// @param `is_extern` Whether the type is for an external function
         /// @return `std::pair<llvm::Type *, bool>` A pair containing a pointer to the correct llvm Type from the given string and a boolean
         /// value to determine if the given data type is a complex type (data, entity, tuple, optional, variant etc)
         ///
         /// @throws ErrGenerating when the type could not be created from the passed type
-        static std::pair<llvm::Type *, bool> get_type(llvm::Module *module, const std::shared_ptr<Type> &type);
+        static std::pair<llvm::Type *, bool> get_type( //
+            llvm::Module *module,                      //
+            const std::shared_ptr<Type> &type,         //
+            const bool is_extern = false               //
+        );
 
         /// @function `get_default_value_of_type`
         /// @brief Returns the default value associated with the given type
@@ -938,6 +945,10 @@ class Generator {
         /// @param `module` The module in which the function type is generated in
         /// @param `function_node` The FunctionNode used to generate the type
         /// @return `llvm::FunctionType *` A pointer to the generated FuntionType
+        ///
+        /// @note This function handles a lot of work to get external function definitions right. It splits struct argument types or refines
+        /// return types etc. This function, like the `Expression::generate_extern_call` function are the boundary between Flint and the
+        /// outside world.
         static llvm::FunctionType *generate_function_type(llvm::Module *module, FunctionNode *function_node);
 
         /// @function `generate_function`
@@ -1442,6 +1453,26 @@ class Generator {
             garbage_type &garbage,                         //
             const unsigned int expr_depth,                 //
             const StringInterpolationNode *interpol_node   //
+        );
+
+        /// @function `generate_extern_call`
+        /// @brief Generates a call to an external function defined in one of the FIP modules
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `call_node` The call node to generate
+        /// @param `args` The already generated arguments, which will be refined and reordered to be ABI-compliant
+        /// @return `group_mapping` The value(s) containing the result of the call of the extern function
+        ///
+        /// @note A lot of argument and return value changes happen in this function because of the 8-byte segmentation or 16 byte rule of
+        /// x86_64. All edge cases regarding calls to external functions defined in other languages are contained and resolved within this
+        /// function. Everything before the function and after this function is considered Flint-internal and does not comply to any ABI.
+        /// This function is the "connection point" between Flint and the outside world, so to speak.
+        static group_mapping generate_extern_call( //
+            llvm::IRBuilder<> &builder,            //
+            GenerationContext &ctx,                //
+            const CallNodeBase *call_node,         //
+            std::vector<llvm::Value *> &args       //
         );
 
         /// @function `generate_call`

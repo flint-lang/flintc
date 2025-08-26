@@ -1,7 +1,19 @@
 use Core.print
 
+extern def add_vectors_d(f64x2 v1, f64x2 v2) -> f64x2;
+extern def add_vectors(f32x3 v1, f32x3 v2) -> f32x3;
 extern def foo(i32 x, i32 y) -> i32;
 extern def bar() -> i32;
+
+def add_vectors(mut f32x3 v1, f32x3 v2) -> f32x3:
+	v1.x = 3.3;
+	return v1 + v2;
+
+def foo(i32 x, i32 y) -> i32:
+	return x + y;
+
+def bar() -> i32:
+	return 69;
 
 def main():
 	i32 res = foo(10, 20);
@@ -9,3 +21,17 @@ def main():
 	res = bar();
 	print($"res = {res}\n");
 	print("Hello, World!\n");
+
+	f32x3 v1 = (1.2, 2.3, 3.4);
+	f32x3 v2 = (4.5, 6.7, 8.9);
+	f32x3 v3 = add_vectors(v1, v2);
+	print($"v1 = {v1}\n");
+	print($"v2 = {v2}\n");
+	print($"v3 = {v3}\n");
+
+	f64x2 v1d = f64x2(1.2, 2.3);
+	f64x2 v2d = f64x2(5.6, 6.7);
+	f64x2 v3d = add_vectors_d(v1d, v2d);
+	print($"v1d = {v1d}\n");
+	print($"v2d = {v2d}\n");
+	print($"v3d = {v3d}\n");

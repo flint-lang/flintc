@@ -1,6 +1,7 @@
 #define FIP_IMPLEMENTATION
 #include "fip.hpp"
 
+#include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "profiler.hpp"
 
@@ -102,6 +103,17 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
         } else {
             // Unknown primitive type
             return false;
+        }
+        return true;
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(src.get())) {
+        // A multi-type will be handled just as a struct type and nothing more
+        dest->type = FIP_TYPE_STRUCT;
+        dest->u.struct_t.field_count = static_cast<uint8_t>(multi_type->width);
+        dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * multi_type->width));
+        for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
+            if (!convert_type(&dest->u.struct_t.fields[i], multi_type->base_type, true)) {
+                return false;
+            }
         }
         return true;
     } else {
