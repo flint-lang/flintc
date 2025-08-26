@@ -9,14 +9,46 @@
 
 bool FIP::init() {
     PROFILE_SCOPE("FIP init");
+    if (is_active) {
+        // Initializing an active FIP is considered an error case as this should not happen, but it's a me-problem, not a user problem
+        assert(false);
+        return false;
+    }
+    is_active = true;
+
+    // Parse the config file (fip.toml)
+    fip_master_config_t config_file = fip_master_load_config();
+    bool needs_shutdown = true;
+    if (config_file.ok) {
+        // Next we check whether there are any active modules in the config file, if there are not then we can shut down
+        if (config_file.enabled_count > 0) {
+            // Now we check if all of the enabled modules even exist in the `.fip/modules/` path. If an enabled module does not exist then
+            // we report it and shut down too. If all exist, however, we stay active
+            needs_shutdown = false;
+            for (uint8_t i = 0; i < config_file.enabled_count; i++) {
+                std::filesystem::path module_path = ".fip/modules/";
+                module_path = module_path / std::string(config_file.enabled_modules[i]);
+                if (!std::filesystem::exists(module_path)) {
+                    needs_shutdown = true;
+                    break;
+                }
+            }
+        }
+    }
+    if (needs_shutdown) {
+        // If there is no fip.toml file or it is faulty we just do not start FIP at all and just continue with compilation. If a symbol
+        // resolve request is done later because there are external symbols a custom error will be thrown for that case, but it's not a
+        // mistake in of itself to not have a fip.toml config file at all
+        is_active = false;
+        return true;
+    }
+
+    // Now that the config file has been parsed and we know that we *actually* need the FIP we can initialize the socket
     socket_fd = fip_master_init_socket();
     if (socket_fd == -1) {
         fip_print(0, "Failed to initialize socket, exiting");
         abort();
     }
-
-    // Parse the config file (fip.toml)
-    fip_master_config_t config_file = fip_master_load_config();
 
     // Start all enabled interop modules
     for (uint8_t i = 0; i < config_file.enabled_count; i++) {
@@ -61,6 +93,11 @@ bool FIP::init() {
 }
 
 void FIP::shutdown() {
+    if (!is_active) {
+        // Shutting down when not being active is actually fine, since the FIP could already be shut down as it never ran in the first place
+        // (for example when no fip.toml was provided)
+        return;
+    }
     PROFILE_SCOPE("FIP shutdown");
     fip_free_msg(&message);
     message.type = FIP_MSG_KILL;
@@ -126,6 +163,11 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
 }
 
 bool FIP::resolve_function(FunctionNode *function) {
+    if (!is_active) {
+        // We need an error here specifically because we try to resolve an external function without the FIP, which is not possible
+        THROW_BASIC_ERR(ERR_FIP);
+        return false;
+    }
     // This function is not concurrency-safe. FIP assumes a strict order for the master's messages so only one thread is allowed to send /
     // recieve messages to and from the FIP at a time
     static std::mutex resolve_mutex;
@@ -190,6 +232,10 @@ bool FIP::resolve_function(FunctionNode *function) {
 }
 
 void FIP::send_compile_request() {
+    if (!is_active) {
+        // No need to error out, the FIP is not running so there is nothing to compile
+        return;
+    }
     fip_msg_t msg{};
     msg.type = FIP_MSG_COMPILE_REQUEST;
     // TODO: Change the target of the compile request
@@ -197,6 +243,10 @@ void FIP::send_compile_request() {
 }
 
 std::vector<std::array<char, 9>> FIP::gather_objects() {
+    if (!is_active) {
+        // No error, just return an empty list
+        return {};
+    }
     std::vector<std::array<char, 9>> objects;
     uint8_t wrong_msg_count = fip_master_await_responses( //
         buffer,                                           //

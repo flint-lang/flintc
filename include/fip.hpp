@@ -1,6 +1,8 @@
 #pragma once
 
-#define NO_FIP_LIB
+#ifndef DEBUG_BUILD
+#define FIP_QUIET
+#endif
 #define FIP_MASTER
 #ifdef __cplusplus
 extern "C" {
@@ -40,6 +42,10 @@ class FIP {
         std::vector<std::shared_ptr<Type>> ret_types;
         std::vector<std::shared_ptr<Type>> arg_types;
     } fake_function;
+
+    /// @var `is_active`
+    /// @brief Whether the FIP is active
+    static inline bool is_active = false;
 
     /// @var `modules`
     /// @brief All the available modules of the FIP which contains the file descriptors of all active and spawned modules
