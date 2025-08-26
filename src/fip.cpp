@@ -1,6 +1,13 @@
 #define FIP_IMPLEMENTATION
 #include "fip.hpp"
 
+#ifdef DEBUG_BUILD
+fip_log_level_t LOG_LEVEL = FIP_DEBUG;
+#else
+fip_log_level_t LOG_LEVEL = FIP_ERROR;
+#endif
+fip_master_state_t master_state;
+
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "profiler.hpp"
@@ -46,24 +53,24 @@ bool FIP::init() {
     // Now that the config file has been parsed and we know that we *actually* need the FIP we can initialize the socket
     socket_fd = fip_master_init_socket();
     if (socket_fd == -1) {
-        fip_print(0, "Failed to initialize socket, exiting");
+        fip_print(0, FIP_ERROR, "Failed to initialize socket, exiting");
         abort();
     }
 
     // Start all enabled interop modules
     for (uint8_t i = 0; i < config_file.enabled_count; i++) {
         const char *mod = config_file.enabled_modules[i];
-        fip_print(0, "Starting the %s module...", mod);
+        fip_print(0, FIP_INFO, "Starting the %s module...", mod);
         char module_path[13 + FIP_MAX_MODULE_NAME_LEN] = {0};
         snprintf(module_path, sizeof(module_path), ".fip/modules/%s", mod);
         fip_spawn_interop_module(&modules, module_path);
     }
 
     // Give the Interop Modules time to connect
-    fip_print(0, "Waiting for interop modules to connect...");
+    fip_print(0, FIP_INFO, "Waiting for interop modules to connect...");
     fip_master_accept_pending_connections(socket_fd);
     // Wait for all connect messages from the IMs
-    fip_print(0, "Waiting for all connect requests...");
+    fip_print(0, FIP_INFO, "Waiting for all connect requests...");
     fip_master_await_responses(       //
         buffer,                       //
         master_state.responses,       //
@@ -79,13 +86,15 @@ bool FIP::init() {
             || req->version.minor != FIP_MINOR //
             || req->version.patch != FIP_PATCH //
         ) {
-            fip_print(0, "Version mismatch with module '%s'", response->u.con_req.module_name);
-            fip_print(0, "  Expected 'v%d.%d.%d' but got 'v%d.%d.%d'", FIP_MAJOR, FIP_MINOR, FIP_PATCH, req->version.major,
-                req->version.minor, req->version.patch);
+            fip_print(0, FIP_ERROR, "Version mismatch with module '%s'", response->u.con_req.module_name);
+            fip_print(                                                                                      //
+                0, FIP_ERROR, "  Expected 'v%d.%d.%d' but got 'v%d.%d.%d'",                                 //
+                FIP_MAJOR, FIP_MINOR, FIP_PATCH, req->version.major, req->version.minor, req->version.patch //
+            );
             return false;
         }
         if (!req->setup_ok) {
-            fip_print(0, "Module '%s' failed it's setup", req->module_name);
+            fip_print(0, FIP_ERROR, "Module '%s' failed it's setup", req->module_name);
             return false;
         }
     }
@@ -111,7 +120,7 @@ void FIP::shutdown() {
     fip_master_cleanup_socket(socket_fd);
     fip_terminate_all_slaves(&modules); // Fallback cleanup
 
-    fip_print(0, "Master shutting down");
+    fip_print(0, FIP_INFO, "Master shutting down");
 }
 
 bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const bool is_ret) {
@@ -184,7 +193,7 @@ bool FIP::resolve_function(FunctionNode *function) {
         for (uint8_t i = 0; i < rets_len; i++) {
             if (!convert_type(&msg.u.sym_req.sig.fn.rets[i], function->return_types.at(i), true)) {
                 const std::string type_str = function->return_types.at(i)->to_string();
-                fip_print(0, "Type '%s' not compatible with FIP", type_str.c_str());
+                fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
                 return false;
             }
         }
@@ -197,15 +206,15 @@ bool FIP::resolve_function(FunctionNode *function) {
         for (uint8_t i = 0; i < args_len; i++) {
             if (!convert_type(&msg.u.sym_req.sig.fn.args[i], std::get<0>(function->parameters.at(i)), false)) {
                 const std::string type_str = function->return_types.at(i)->to_string();
-                fip_print(0, "Type '%s' not compatible with FIP", type_str.c_str());
+                fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
                 return false;
             }
         }
     }
 
-    fip_print(0, "Checking whether the function '%s' exists", function->name.c_str());
+    fip_print(0, FIP_INFO, "Checking whether the function '%s' exists", function->name.c_str());
     if (!fip_master_symbol_request(buffer, &msg)) {
-        fip_print(0, "The function '%s' does not exist", function->name.c_str());
+        fip_print(0, FIP_ERROR, "The function '%s' could not be resolved", function->name.c_str());
         return false;
     }
 
@@ -255,7 +264,7 @@ std::vector<std::array<char, 9>> FIP::gather_objects() {
         FIP_MSG_OBJECT_RESPONSE                           //
     );
     if (wrong_msg_count > 0) {
-        fip_print(0, "Recieved %u faulty messages", wrong_msg_count);
+        fip_print(0, FIP_WARN, "Recieved %u faulty messages", wrong_msg_count);
         return {};
     }
     // Now we can go through all responses and print all the .o files we
@@ -264,8 +273,8 @@ std::vector<std::array<char, 9>> FIP::gather_objects() {
         const fip_msg_t *response = &master_state.responses[i];
         assert(response->type == FIP_MSG_OBJECT_RESPONSE);
         if (response->u.obj_res.has_obj) {
-            fip_print(0, "Object response from module: %s", response->u.obj_res.module_name);
-            fip_print(0, "Paths: %s", response->u.obj_res.paths);
+            fip_print(0, FIP_INFO, "Object response from module: %s", response->u.obj_res.module_name);
+            fip_print(0, FIP_DEBUG, "Paths: %s", response->u.obj_res.paths);
             char const *paths = response->u.obj_res.paths;
             while (*paths != '\0') {
                 std::array<char, 9> obj;
@@ -275,7 +284,7 @@ std::vector<std::array<char, 9>> FIP::gather_objects() {
                 paths += 8;
             }
         } else {
-            fip_print(0, "Object response has no objects");
+            fip_print(0, FIP_INFO, "Object response carries no objects");
         }
     }
     std::cout << "Objects: ";
