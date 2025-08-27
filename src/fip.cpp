@@ -123,8 +123,8 @@ void FIP::shutdown() {
     fip_print(0, FIP_INFO, "Master shutting down");
 }
 
-bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const bool is_ret) {
-    dest->is_mutable = is_ret;
+bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const bool is_mutable) {
+    dest->is_mutable = is_mutable;
     if (const PrimitiveType *prim_type = dynamic_cast<const PrimitiveType *>(src.get())) {
         dest->type = FIP_TYPE_PRIMITIVE;
 
@@ -146,6 +146,8 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             dest->u.prim = FIP_F64;
         } else if (type_str == "bool") {
             dest->u.prim = FIP_BOOL;
+        } else if (type_str == "str") {
+            dest->u.prim = FIP_STR;
         } else {
             // Unknown primitive type
             return false;
@@ -185,6 +187,33 @@ bool FIP::resolve_function(FunctionNode *function) {
     msg.type = FIP_MSG_SYMBOL_REQUEST;
     msg.u.sym_req.type = FIP_SYM_FUNCTION;
     strncpy(msg.u.sym_req.sig.fn.name, function->name.c_str(), function->name.size());
+    std::string fn_str = function->name + "(";
+    for (size_t i = 0; i < function->parameters.size(); i++) {
+        if (std::get<2>(function->parameters.at(i))) {
+            fn_str.append("mut ");
+        } else {
+            fn_str.append("const ");
+        }
+        fn_str.append(std::get<0>(function->parameters.at(i))->to_string());
+        if (i + 1 < function->parameters.size()) {
+            fn_str.append(", ");
+        }
+    }
+    fn_str.append(")");
+    if (function->return_types.size() == 1) {
+        fn_str.append("->");
+        fn_str.append(function->return_types.front()->to_string());
+    } else if (function->return_types.size() > 1) {
+        fn_str.append("->(");
+        for (size_t i = 0; i < function->return_types.size(); i++) {
+            fn_str.append(function->return_types.at(i)->to_string());
+            if (i + 1 < function->return_types.size()) {
+                fn_str.append(", ");
+            }
+        }
+        fn_str.append(")");
+    }
+    fip_print(0, FIP_INFO, "Trying to resolve function: '%s'", fn_str.c_str());
 
     if (!function->return_types.empty()) {
         const uint8_t rets_len = static_cast<uint8_t>(function->return_types.size());
@@ -204,8 +233,9 @@ bool FIP::resolve_function(FunctionNode *function) {
         msg.u.sym_req.sig.fn.args_len = args_len;
         msg.u.sym_req.sig.fn.args = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * args_len));
         for (uint8_t i = 0; i < args_len; i++) {
-            if (!convert_type(&msg.u.sym_req.sig.fn.args[i], std::get<0>(function->parameters.at(i)), false)) {
-                const std::string type_str = function->return_types.at(i)->to_string();
+            const auto &param = function->parameters.at(i);
+            if (!convert_type(&msg.u.sym_req.sig.fn.args[i], std::get<0>(param), std::get<2>(param))) {
+                const std::string type_str = std::get<0>(function->parameters.at(i))->to_string();
                 fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
                 return false;
             }

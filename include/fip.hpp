@@ -82,9 +82,9 @@ class FIP {
     ///
     /// @param `dest` The destination FIP type
     /// @param `src` The source Flint type
-    /// @param `is_ret` Whether the given type is a return type of a function
+    /// @param `is_mutable` Whether the given type is mutable
     /// @return `bool` Whether conversion was successful
-    static bool convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const bool is_ret);
+    static bool convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const bool is_mutable);
 
     /// @function `resolve_function`
     /// @brief Resolves a given function definition, changes it's internal name for code generation and returns whether the function was
