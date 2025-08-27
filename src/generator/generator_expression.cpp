@@ -387,8 +387,8 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
             return;
         } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
             if (type->to_string() == "str") {
-                llvm::Type *str_struct = type_map.at("__flint_type_str_struct");
-                args.emplace_back(builder.CreateStructGEP(str_struct, value, 1, "char_ptr"));
+                llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+                args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
                 return;
             }
         }
