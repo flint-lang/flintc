@@ -214,6 +214,11 @@ bool Generator::Allocation::generate_call_allocations(                          
             return false;
         }
         function_return_type = func_decl_res.value()->getReturnType();
+        // Check if it's a call to an external function, if it is we need to stop right here, there will be no return value allocations for
+        // external calls
+        if (call_node->function_name.size() > 6 && call_node->function_name.substr(0, 6) == "__fip_") {
+            return true;
+        }
     }
 
     // Temporary allocation for the entire return struct
