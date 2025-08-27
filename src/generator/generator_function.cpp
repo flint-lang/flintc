@@ -5,7 +5,10 @@
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *module, FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;
     const bool is_extern = function_node->extern_name_alias.has_value();
-    if (function_node->return_types.size() == 1) {
+    if (is_extern && function_node->return_types.empty()) {
+        // If it's extern and empty it's a void return type
+        return_types = llvm::Type::getVoidTy(context);
+    } else if (function_node->return_types.size() == 1) {
         if (is_extern) {
             return_types = IR::get_type(module, function_node->return_types.front(), true).first;
         } else {
