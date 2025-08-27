@@ -466,6 +466,12 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         convert_type_to_ext(builder, ctx.parent->getParent(), arg.first->type, args[i], converted_args);
     }
     auto result = Function::get_function_definition(ctx.parent, call_node);
+    if (call_node->type->to_string() == "void") {
+        llvm::CallInst *call = builder.CreateCall(result.first.value(), converted_args);
+        call->setMetadata("comment",
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "'")));
+        return std::vector<llvm::Value *>{};
+    }
     llvm::CallInst *call = builder.CreateCall(                                  //
         result.first.value(),                                                   //
         converted_args,                                                         //
