@@ -5,6 +5,7 @@ extern def print_stuff(str stuff);
 extern def add_vectors(f32x3 v1, f32x3 v2) -> f32x3;
 extern def foo(i32 x, i32 y) -> i32;
 extern def bar() -> i32;
+extern def check() -> bool;
 
 // def add_vectors(mut f32x3 v1, f32x3 v2) -> f32x3:
 // 	v1.x = 3.3;
@@ -39,3 +40,8 @@ def main():
 
 	str string = "Hello there!";
 	print_stuff(string);
+
+	if check():
+		print("Check true\n");
+	else:
+		print("Check false\n");

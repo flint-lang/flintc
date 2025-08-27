@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -31,4 +32,8 @@ int foo(const int x, const int y) {
 
 int bar() {
     return 69;
+}
+
+bool check() {
+    return true;
 }
