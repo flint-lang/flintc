@@ -10,7 +10,7 @@ Vector2 add_vectors_d(const Vector2 v1, const Vector2 v2) {
     return result;
 }
 
-void print_stuff(char *stuff) {
+void print_stuff(const char *stuff) {
     printf("%s\n", stuff);
 }
 

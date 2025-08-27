@@ -1,7 +1,7 @@
 use Core.print
 
 extern def add_vectors_d(f64x2 v1, f64x2 v2) -> f64x2;
-extern def print_stuff(mut str stuff);
+extern def print_stuff(str stuff);
 extern def add_vectors(f32x3 v1, f32x3 v2) -> f32x3;
 extern def foo(i32 x, i32 y) -> i32;
 extern def bar() -> i32;
