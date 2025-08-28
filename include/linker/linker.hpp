@@ -15,9 +15,15 @@ class Linker {
     ///
     /// @param `obj_files` The paths to the object files to link together and create the executable with
     /// @param `output_file` The path to the executable to create
+    /// @param `flags` The flags used during linking
     /// @param `is_static` Whether the executable should be static
     /// @return `bool` Whether linking and creation of the executable was successful
-    static bool link(const std::vector<std::filesystem::path> &obj_files, const std::filesystem::path &output_file, const bool is_static);
+    static bool link(                                        //
+        const std::vector<std::filesystem::path> &obj_files, //
+        const std::filesystem::path &output_file,            //
+        const std::vector<std::string> &flags,               //
+        const bool is_static                                 //
+    );
 
     /// @function `create_static_library`
     /// @brief Creates a static `.a` library from the given `.o` files
@@ -57,11 +63,13 @@ class Linker {
     ///
     /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
+    /// @param `flags` The flags with which to link the .obj file to the executable
     /// @param `is_static` Whether the output file should be linked as static
     /// @return `bool` Whether linking the executable was succesful
     static bool link_windows(                                //
         const std::vector<std::filesystem::path> &obj_files, //
         const std::filesystem::path &output_file,            //
+        const std::vector<std::string> &flags,               //
         const bool is_static                                 //
     );
 
@@ -83,11 +91,13 @@ class Linker {
     ///
     /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
+    /// @param `flags` The flags with which to link the .o file to the executable
     /// @param `is_static` Whether the output file should be linked as static
     /// @return `bool` Whether linking the executable was succesful
     static bool link_linux(                                  //
         const std::vector<std::filesystem::path> &obj_files, //
         const std::filesystem::path &output_file,            //
+        const std::vector<std::string> &flags,               //
         const bool is_static                                 //
     );
 };

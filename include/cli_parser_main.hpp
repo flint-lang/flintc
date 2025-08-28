@@ -100,6 +100,13 @@ class CLIParserMain : public CLIParserBase {
                     return 1;
                 }
                 i++;
+            } else if (arg.size() > 8 && arg.substr(0, 8) == "--flags=") {
+                const std::string flags = arg.substr(8, arg.size() - 8);
+                std::stringstream ss(flags);
+                std::string line;
+                while (std::getline(ss, line, ' ')) {
+                    compile_flags.push_back(line);
+                }
             } else if (starts_with(arg, "--arithmetic-")) {
                 // Erase the '--arithmetic-' part of the string
                 const std::string arithmetic_overflow_behaviour = arg.substr(13, arg.length() - 13);
@@ -203,6 +210,7 @@ class CLIParserMain : public CLIParserBase {
     std::filesystem::path source_file_path = "";
     std::filesystem::path out_file_path = "main";
     std::filesystem::path ll_file_path = "";
+    std::vector<std::string> compile_flags;
     bool build_exe{true};
     bool run{false};
     bool test{false};
@@ -225,6 +233,7 @@ class CLIParserMain : public CLIParserBase {
         // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
         std::cout << "  --run                       Run the built binary directly without outputting it\n";
         std::cout << "  --target <TARGET>           Targets the given target platform (run --help after --target for more information)\n";
+        std::cout << "  --flags=\"[FLAGS]*\"          The flags to pass to the linker\n";
         std::cout << "  --parallel                  Compile in parallel (only recommended for bigger projects)\n";
         std::cout << "  --static                    Build the executable as static\n";
         std::cout << "  --rebuild-core              Rebuild all the core modules\n";

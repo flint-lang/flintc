@@ -90,20 +90,25 @@ if (Test-Path $installer) {
 LLD_HAS_DRIVER(coff)
 LLD_HAS_DRIVER(elf)
 
-bool Linker::link(const std::vector<std::filesystem::path> &obj_files, const std::filesystem::path &output_file, const bool is_static) {
+bool Linker::link(                                       //
+    const std::vector<std::filesystem::path> &obj_files, ///
+    const std::filesystem::path &output_file,            //
+    const std::vector<std::string> &flags,               //
+    const bool is_static                                 //
+) {
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
 #ifdef __WIN32__
-            return link_windows(obj_files, output_file, is_static);
+            return link_windows(obj_files, output_file, flags, is_static);
 #else
-            return link_linux(obj_files, output_file, is_static);
+            return link_linux(obj_files, output_file, flags, is_static);
 #endif
             break;
         case Target::LINUX:
-            return link_linux(obj_files, output_file, is_static);
+            return link_linux(obj_files, output_file, flags, is_static);
             break;
         case Target::WINDOWS:
-            return link_windows(obj_files, output_file, is_static);
+            return link_windows(obj_files, output_file, flags, is_static);
             break;
     }
     assert(false);
@@ -311,6 +316,7 @@ std::optional<std::vector<std::string>> Linker::get_windows_args( //
 bool Linker::link_windows(                               //
     const std::vector<std::filesystem::path> &obj_files, //
     const std::filesystem::path &output_file,            //
+    const std::vector<std::string> &flags,               //
     const bool is_static                                 //
 ) {
 #ifdef __WIN32__
@@ -337,12 +343,19 @@ bool Linker::link_windows(                               //
     for (const auto &arg : arguments.value()) {
         args.push_back(arg.c_str());
     }
+    for (const auto &flag : flags) {
+        args.push_back(flag.c_str());
+    }
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] " << (is_static ? "Static" : "Dynamic") << " Windows linking with arguments:" << DEFAULT
                   << std::endl;
         for (const auto &arg : args) {
-            std::cout << "  " << arg << std::endl;
+            std::cout << "  " << arg << "\n";
         }
+        for (const auto &flag : flags) {
+            std::cout << "  " << flag << "\n";
+        }
+        std::cout << std::endl;
     }
     bool result = lld::coff::link(args, llvm::outs(), llvm::errs(), false, false);
 
@@ -445,6 +458,7 @@ std::optional<std::vector<std::string>> Linker::get_linux_args( //
 bool Linker::link_linux(                                 //
     const std::vector<std::filesystem::path> &obj_files, //
     const std::filesystem::path &output_file,            //
+    const std::vector<std::string> &flags,               //
     const bool is_static                                 //
 ) {
     // Get the arguments for linking
@@ -457,11 +471,17 @@ bool Linker::link_linux(                                 //
         for (const auto &arg : arguments.value()) {
             std::cout << "  " << arg << "\n";
         }
+        for (const auto &flag : flags) {
+            std::cout << "  " << flag << "\n";
+        }
         std::cout << std::endl;
     }
     std::vector<const char *> args;
     for (const auto &arg : arguments.value()) {
         args.push_back(arg.c_str());
+    }
+    for (const auto &flag : flags) {
+        args.push_back(flag.c_str());
     }
 
     return lld::elf::link(args, llvm::outs(), llvm::errs(), false, false);

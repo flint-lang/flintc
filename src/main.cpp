@@ -120,7 +120,14 @@ void write_ll_file(const std::filesystem::path &ll_path, const llvm::Module *mod
 ///
 /// @param `binary_file` The path where the built binary should be placed at
 /// @param `module` The program to compile
-void compile_program(const std::filesystem::path &binary_file, llvm::Module *module, const bool is_static) {
+/// @param `flags` The flags used during compilation and linking
+/// @param `is_static` Whether the program
+void compile_program(                         //
+    const std::filesystem::path &binary_file, //
+    llvm::Module *module,                     //
+    const std::vector<std::string> &flags,    //
+    const bool is_static                      //
+) {
     PROFILE_SCOPE("Compile program " + module->getName().str());
 
     // Direct linking with LDD
@@ -158,6 +165,7 @@ void compile_program(const std::filesystem::path &binary_file, llvm::Module *mod
     bool link_success = Linker::link( //
         obj_files,                    // input object files
         binary_file,                  // output executable
+        flags,                        // linking flags
         is_static                     // debug flag
     );
     Profiler::end_task("Linking " + obj_file + " to a binary");
@@ -217,7 +225,7 @@ int main(int argc, char *argv[]) {
         // TODO
     } else {
         // Compile the program and output the binary
-        compile_program(clp.out_file_path, program.value().get(), clp.is_static);
+        compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static);
     }
 
     Resolver::clear();
