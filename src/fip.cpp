@@ -262,8 +262,7 @@ bool FIP::resolve_function(FunctionNode *function) {
         }
     }
 
-    // Change the function name to have the prefix `__fip_X_` where `X` is the module name it came from (`fip-X`)
-    function->extern_name_alias = "__fip_" + fake_fn.module_name.substr(4) + "_" + function->name;
+    function->is_extern = true;
     function->error_types.clear();
     fake_fn.name = function->name;
     resolved_functions.push_back(fake_fn);

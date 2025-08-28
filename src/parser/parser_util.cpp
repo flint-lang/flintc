@@ -580,15 +580,20 @@ Parser::create_call_or_initializer_base(         //
         return std::make_tuple(function_name, std::move(arguments), std::get<1>(fn).front(), false, std::get<2>(fn));
     }
 
-    // Get the acutal function this call targets, and check if it even exists
-    auto function = get_function_from_call(function_name, argument_types);
+    // It's not a builtin call, so we need to get the function's name, either from `fc_NAME` or from `NAME` directly
+    // Let's try the `fc_NAME` first because internal functions are more likely than external function calls
+    auto function = get_function_from_call("fc_" + function_name, argument_types);
     if (!function.has_value()) {
-        THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name, argument_types);
-        return std::nullopt;
+        // Now we can try the `NAME` variation for external function calls
+        function = get_function_from_call(function_name, argument_types);
+        if (!function.has_value()) {
+            THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name, argument_types);
+            return std::nullopt;
+        }
     }
     // Check if the function has an extern alias and if it has overwrite the name
-    if (function.value().first->extern_name_alias.has_value()) {
-        function_name = function.value().first->extern_name_alias.value();
+    if (!function.value().first->is_extern) {
+        function_name = "fc_" + function_name;
     }
     // Check if the argument count does match the parameter count
     const unsigned int param_count = function.value().first->parameters.size();
@@ -611,7 +616,7 @@ Parser::create_call_or_initializer_base(         //
             auto tok = tokens.first;
             for (; tok != tokens.second; ++tok) {
                 // Get the function name
-                if (tok->token == TOK_IDENTIFIER && tok->lexme == function_name) {
+                if (tok->token == TOK_IDENTIFIER && (tok->lexme == function_name || ("fc_" + std::string(tok->lexme)) == function_name)) {
                     break;
                 }
             }

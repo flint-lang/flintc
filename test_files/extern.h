@@ -2,38 +2,56 @@
 #include <stddef.h>
 #include <stdio.h>
 
+void InitWindow(int width, int height, const char *title) {
+    printf("Init Window\n");
+    printf("width: %i, height: %i, title: %s\n", width, height, title);
+}
+
+bool WindowShouldClose(void) {
+    printf("Window Should Close\n");
+    return false;
+}
+
+void BeginDrawing(void) {
+    printf("Begin Drawing\n");
+}
+
+typedef struct Color {
+    unsigned char r; // Color red value
+    unsigned char g; // Color green value
+    unsigned char b; // Color blue value
+    unsigned char a; // Color alpha value
+} Color;
+
+void ClearBackground(Color color) {
+    printf("Clear Background\n");
+    printf("color.(r, g, b, a): (%d, %d, %d, %d)\n", color.r, color.g, color.b, color.a);
+}
+
+void DrawText(const char *text, int posX, int posY, int fontSize, Color color) {
+    printf("Draw Text\n");
+    printf("text: %s\n", text);
+    printf("pos: (%d, %d)\n", posX, posY);
+    printf("fontSize: %d\n", fontSize);
+    printf("color.(r, g, b, a): (%d, %d, %d, %d)\n", color.r, color.g, color.b, color.a);
+}
+
+void EndDrawing(void) {
+    printf("End Drawing\n");
+}
+
+void CloseWindow(void) {
+    printf("Close Window\n");
+}
+
 typedef struct {
-    double x, y;
-} Vector2;
+    int x, y;
+    int z;
+} TestStruct;
 
-Vector2 add_vectors_d(const Vector2 v1, const Vector2 v2) {
-    Vector2 result = {v1.x + v2.x, v1.y + v2.y};
+TestStruct test_struct(const TestStruct t1, const TestStruct t2) {
+    // TestStruct result = {t1.x + t2.x, t1.y + t2.y};
+    // return result;
+    TestStruct result = {0};
     return result;
-}
-
-void print_stuff(const char *stuff) {
-    printf("%s\n", stuff);
-}
-
-typedef struct {
-    float x;
-    float y;
-    float z;
-} Vector3;
-
-Vector3 add_vectors(const Vector3 v1, const Vector3 v2) {
-    Vector3 result = {v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
-    return result;
-}
-
-int foo(const int x, const int y) {
-    return x + y;
-}
-
-int bar() {
-    return 69;
-}
-
-bool check() {
-    return true;
 }

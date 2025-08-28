@@ -614,7 +614,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-    } else if (call_node->function_name.size() > 6 && call_node->function_name.substr(0, 6) == "__fip_") {
+    } else if (!(call_node->function_name.size() > 3 && call_node->function_name.substr(0, 3) == "fc_")) {
         return generate_extern_call(builder, ctx, call_node, args);
     } else {
         // Get the function definition from any module

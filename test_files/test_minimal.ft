@@ -1,47 +1,34 @@
 use Core.print
 
-extern def add_vectors_d(f64x2 v1, f64x2 v2) -> f64x2;
-extern def print_stuff(str stuff);
-extern def add_vectors(f32x3 v1, f32x3 v2) -> f32x3;
-extern def foo(i32 x, i32 y) -> i32;
-extern def bar() -> i32;
-extern def check() -> bool;
+// data Color:
+// 	u8 r;
+// 	u8 g;
+// 	u8 b;
+// 	u8 a;
+// 	Color(r, g, b, a);
 
-// def add_vectors(mut f32x3 v1, f32x3 v2) -> f32x3:
-// 	v1.x = 3.3;
-// 	return v1 + v2;
+extern def InitWindow(mut i32 width, mut i32 height, str title);
+extern def WindowShouldClose() -> bool;
+extern def BeginDrawing();
+//extern def ClearBackground(mut Color color);
+//extern def DrawText()
+extern def EndDrawing();
+extern def CloseWindow();
 
-// def foo(i32 x, i32 y) -> i32:
-// 	return x + y;
-
-// def bar() -> i32:
-// 	return 69;
+// External functions + internal functions actually is well defined lol
+// Internal functions have a higher priority than external functions
+extern def IsWindowReady() -> bool;
+def IsWindowReady() -> bool:
+	print("internal IsWindowReady\n");
+	return false;
 
 def main():
-	i32 res = foo(10, 20);
-	print($"res = {res}\n");
-	res = bar();
-	print($"res = {res}\n");
-	print("Hello, World!\n");
+	print($"IsWindowReady() = {IsWindowReady()}\n");
+	InitWindow(800, 450, "Hello from Flint!");
 
-	f32x3 v1 = (1.2, 2.3, 3.4);
-	f32x3 v2 = (4.5, 6.7, 8.9);
-	f32x3 v3 = add_vectors(v1, v2);
-	print($"v1 = {v1}\n");
-	print($"v2 = {v2}\n");
-	print($"v3 = {v3}\n");
-
-	f64x2 v1d = f64x2(1.2, 2.3);
-	f64x2 v2d = f64x2(5.6, 6.7);
-	f64x2 v3d = add_vectors_d(v1d, v2d);
-	print($"v1d = {v1d}\n");
-	print($"v2d = {v2d}\n");
-	print($"v3d = {v3d}\n");
-
-	str string = "Hello there!";
-	print_stuff(string);
-
-	if check():
-		print("Check true\n");
-	else:
-		print("Check false\n");
+	while not WindowShouldClose():
+		BeginDrawing();
+		//ClearBackground(RAYWHITE);
+		//DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+		EndDrawing();
+	CloseWindow();

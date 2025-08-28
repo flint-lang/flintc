@@ -44,6 +44,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
         THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_name, err_tokens);
         return std::nullopt;
     }
+    name = "fc_" + name;
     // Skip the left paren
     tok_it++;
     const auto arg_start_it = tok_it;
@@ -153,7 +154,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     }
 
     // If its the main function, change its name
-    if (name == "main") {
+    if (name == "fc_main") {
         name = "_main";
         if (error_types.size() > 1) {
             // The main function cannot throw user-defined errors, it can only throw errors of type "anyerror"
@@ -226,6 +227,8 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
     }
     // "Delete" the scope of the function, it is not needed for declarations
     fn.value().scope = std::nullopt;
+    // Remove the `fc_` prefix for external functions, only internal functions have the prefix
+    fn.value().name = fn.value().name.substr(3);
     // Now check whether the FIP provides the searched for function in any of it's modules
     if (!FIP::resolve_function(&fn.value())) {
         return std::nullopt;

@@ -4,7 +4,7 @@
 
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *module, FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;
-    const bool is_extern = function_node->extern_name_alias.has_value();
+    const bool is_extern = function_node->is_extern;
     if (is_extern && function_node->return_types.empty()) {
         // If it's extern and empty it's a void return type
         return_types = llvm::Type::getVoidTy(context);
@@ -84,11 +84,7 @@ bool Generator::Function::generate_function(                                    
     llvm::FunctionType *function_type = generate_function_type(module, function_node);
 
     // Creating the function itself
-    const bool is_extern = function_node->extern_name_alias.has_value();
-    const std::string fn_name = is_extern          //
-        ? function_node->extern_name_alias.value() //
-        : function_node->name;
-    llvm::Function *function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, fn_name, module);
+    llvm::Function *function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, function_node->name, module);
 
     if (!function_node->scope.has_value()) {
         // It's only a declaration, not an implementation

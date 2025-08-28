@@ -1230,11 +1230,10 @@ namespace Debug {
             if (function.is_const) {
                 std::cout << "const ";
             }
-            if (function.extern_name_alias.has_value()) {
-                std::cout << function.extern_name_alias.value();
-            } else {
-                std::cout << function.name;
+            if (function.is_extern) {
+                std::cout << "extern ";
             }
+            std::cout << function.name;
             std::cout << "(";
             size_t counter = 0;
             for (const std::tuple<std::shared_ptr<Type>, std::string, bool> &param : function.parameters) {

@@ -370,11 +370,6 @@ bool Lexer::identifier() {
         THROW_ERR(ErrInvalidIdentifier, ERR_LEXING, file, line, column, identifier_str);
         return false;
     }
-    // Check if the name starts with __fip_ as these names are not permitted for user-defined functions
-    if (identifier.length() > 6 && identifier.substr(0, 6) == "__fip_") {
-        THROW_ERR(ErrInvalidIdentifier, ERR_LEXING, file, line, column, identifier_str);
-        return false;
-    }
     if (primitives.count(identifier) > 0) {
         std::shared_ptr<Type> type = Type::get_primitive_type(identifier_str);
         tokens.emplace_back(TokenContext{TOK_TYPE, line, column, file_id, type});
