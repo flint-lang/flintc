@@ -346,6 +346,13 @@ class Generator {
     /// @brief Whether the generator currently is generating a builtin module
     static inline bool generating_builtin_module = false;
 
+    /// @var `extern_functions`
+    /// @breif A map of all extern functions where each function exists exactly once in the map. It maps each function name to the
+    /// FunctionNode of the external definition, it is used to forward-declare all extern functions at the top of each module to enable
+    /// calling extern functions defined in a different included file (file A has a `extern ...` and file B uses file A, this enables that
+    /// file B can call the extern-defined functions defined in file A)
+    static inline std::unordered_map<std::string, FunctionNode *> extern_functions;
+
     /// @function `get_data_nodes`
     /// @brief This function collects all data nodes from the parser and puts them into the `data_nodes` map in the generator
     static void get_data_nodes();

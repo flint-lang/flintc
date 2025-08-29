@@ -499,6 +499,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             }
         }
     }
+    // Forward-declare all extern functions
+    for (const auto &[fn_name, fn_node] : extern_functions) {
+        llvm::FunctionType *function_type = Function::generate_function_type(module.get(), fn_node);
+        llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, fn_node->name, module.get());
+    }
     function_names = file_function_names.at(file.file_name);
     // Store the mangle ids of this file within the file_function_mangle_ids
     file_function_mangle_ids[file.file_name] = function_mangle_ids;

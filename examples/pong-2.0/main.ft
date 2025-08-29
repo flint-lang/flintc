@@ -1,0 +1,17 @@
+use "raylib.ft"
+
+def main():
+	i32 screen_width = 1280;
+	i32 screen_height = 720;
+
+	InitWindow(screen_width, screen_height, "Pong-2.0");
+	Color white = Color(u8(190), u8(190), u8(190), u8(255));
+	Color gray = Color(u8(100), u8(100), u8(100), u8(255));
+
+	while not WindowShouldClose():
+		BeginDrawing();
+		ClearBackground(white);
+		DrawText("Hello From Flint!", 310, 200, 20, gray);
+		EndDrawing();
+
+	CloseWindow();

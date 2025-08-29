@@ -72,6 +72,14 @@ bool Generator::Function::generate_function(                                    
 
     if (!function_node->scope.has_value()) {
         // It's only a declaration, not an implementation
+        if (function_node->is_extern) {
+            if (extern_functions.find(function_node->name) != extern_functions.end()) {
+                // The extern definition is only allowed to be written once in the project
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            extern_functions.emplace(function_node->name, function_node);
+        }
         return true;
     }
 
@@ -188,8 +196,9 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
         }
     }
 
-    if (call_mangle_id.has_value()) {
+    if (call_mangle_id.has_value() && call_node->function_name.size() > 3 && call_node->function_name.substr(0, 3) == "fc_") {
         // Function has mangle id, for example a function call from another module
+        // Externally defined functions are not mangled, this is why we do not need mangling at all for them
         func_decl = main_module[0]->getFunction(call_node->function_name + "." + std::to_string(call_mangle_id.value()));
     } else {
         // Function has no mangle id, for example a builtin function
@@ -197,6 +206,11 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
     }
 
     if (func_decl == nullptr) {
+        // Let's print all function names we are aware of
+        std::cout << "All known functions:" << std::endl;
+        for (const auto &fn : main_module[0]->functions()) {
+            std::cout << "  " << fn.getName().str() << std::endl;
+        }
         // Use of undeclared function
         THROW_BASIC_ERR(ERR_GENERATING);
         return {std::nullopt, false};

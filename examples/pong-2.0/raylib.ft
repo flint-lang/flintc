@@ -1,0 +1,14 @@
+data Color:
+	u8 r;
+	u8 g;
+	u8 b;
+	u8 a;
+	Color(r, g, b, a);
+
+extern def InitWindow(mut i32 width, mut i32 height, str title);
+extern def WindowShouldClose() -> bool;
+extern def BeginDrawing();
+extern def ClearBackground(mut Color color);
+extern def DrawText(str text, mut i32 posX, mut i32 posY, mut i32 fontSize, mut Color color);
+extern def EndDrawing();
+extern def CloseWindow();
