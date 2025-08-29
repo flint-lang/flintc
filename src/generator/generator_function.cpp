@@ -65,6 +65,10 @@ bool Generator::Function::generate_function(                                    
     FunctionNode *function_node,                                                    //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
 ) {
+    if (function_node->is_extern) {
+        // Do nothing as the "declaration" of the extern function actually already happened inside the forward-declaration of the module
+        return true;
+    }
     llvm::FunctionType *function_type = generate_function_type(module, function_node);
 
     // Creating the function itself
@@ -72,14 +76,6 @@ bool Generator::Function::generate_function(                                    
 
     if (!function_node->scope.has_value()) {
         // It's only a declaration, not an implementation
-        if (function_node->is_extern) {
-            if (extern_functions.find(function_node->name) != extern_functions.end()) {
-                // The extern definition is only allowed to be written once in the project
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-            extern_functions.emplace(function_node->name, function_node);
-        }
         return true;
     }
 

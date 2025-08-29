@@ -494,15 +494,26 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             if (function_node->name != "_main") {
                 llvm::FunctionType *function_type = Function::generate_function_type(module.get(), function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
-                function_mangle_ids[function_node->name] = mangle_id++;
+                if (function_node->is_extern) {
+                    if (extern_functions.find(function_node->name) != extern_functions.end()) {
+                        // The extern definition is only allowed to be written once in the project
+                        THROW_BASIC_ERR(ERR_GENERATING);
+                        return std::nullopt;
+                    }
+                    extern_functions.emplace(function_node->name, function_node);
+                } else {
+                    function_mangle_ids[function_node->name] = mangle_id++;
+                }
                 file_function_names.at(file.file_name).emplace_back(function_node->name);
             }
         }
     }
-    // Forward-declare all extern functions
+    // Forward-declare all extern functions only if the extern function was not defined in this file
     for (const auto &[fn_name, fn_node] : extern_functions) {
-        llvm::FunctionType *function_type = Function::generate_function_type(module.get(), fn_node);
-        llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, fn_node->name, module.get());
+        if (module->getFunction(fn_name) == nullptr) {
+            llvm::FunctionType *function_type = Function::generate_function_type(module.get(), fn_node);
+            llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, fn_node->name, module.get());
+        }
     }
     function_names = file_function_names.at(file.file_name);
     // Store the mangle ids of this file within the file_function_mangle_ids
