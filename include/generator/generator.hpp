@@ -407,16 +407,26 @@ class Generator {
         /// @param `file_node` The FileNode whose construct definitions will be forward-declared in the given module
         static void generate_forward_declarations(llvm::Module *module, const FileNode &file_node);
 
+        /// @function `get_extern_type`
+        /// @brief Returns the llvm Type from a given Type for the use with FIP
+        ///
+        /// @param `module` The module from which to get the type from
+        /// @param `type` The type from which to get the llvm type from
+        /// @return `std::optional<llvm::Type *>` The correct extern type representation of the given type. If nullopt is returned then no
+        /// special handling needs to be done for this type and the normal type resolving of the `get_type` function can continue
+        static std::optional<llvm::Type *> get_extern_type( //
+            llvm::Module *module,                           //
+            const std::shared_ptr<Type> &type               //
+        );
+
         /// @function `get_type`
         /// @brief Returns the llvm Type from a given Type
         ///
-        /// @param `type` The type from which to get the llvm type from
         /// @param `module` The module from which to get the type from
+        /// @param `type` The type from which to get the llvm type from
         /// @param `is_extern` Whether the type is for an external function
         /// @return `std::pair<llvm::Type *, bool>` A pair containing a pointer to the correct llvm Type from the given string and a boolean
         /// value to determine if the given data type is a complex type (data, entity, tuple, optional, variant etc)
-        ///
-        /// @throws ErrGenerating when the type could not be created from the passed type
         static std::pair<llvm::Type *, bool> get_type( //
             llvm::Module *module,                      //
             const std::shared_ptr<Type> &type,         //
@@ -1455,6 +1465,36 @@ class Generator {
             const StringInterpolationNode *interpol_node   //
         );
 
+        /// @function `convert_type_to_ext`
+        /// @brief Converts the given type to be compatible with external types, e.g. the SystemV ABI
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The module in which the type to convert
+        /// @param `type` The type to convert
+        /// @param `value` The value to convert
+        /// @param `args` The output arguments in which to place the converted value(s)
+        static void convert_type_to_ext(       //
+            llvm::IRBuilder<> &builder,        //
+            llvm::Module *module,              //
+            const std::shared_ptr<Type> &type, //
+            llvm::Value *const value,          //
+            std::vector<llvm::Value *> &args   //
+        );
+
+        /// @function `convert_type_from_ext`
+        /// @brief Converts the returned value from the external type to the expected return type
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The module in which the type to convert
+        /// @param `type` The Flint type we want the value to be converted to
+        /// @param `value` The (return) value which needs to be converted from the external to the internal type
+        static void convert_type_from_ext(     //
+            llvm::IRBuilder<> &builder,        //
+            llvm::Module *module,              //
+            const std::shared_ptr<Type> &type, //
+            llvm::Value *value                 //
+        );
+
         /// @function `generate_extern_call`
         /// @brief Generates a call to an external function defined in one of the FIP modules
         ///
@@ -1646,7 +1686,7 @@ class Generator {
             const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
         );
 
-        /// @function `get_bool8_eleemnt_at`
+        /// @function `get_bool8_element_at`
         /// @brief Generates all the IR code to access a single element of an bool8 variable and returns the read value
         ///
         /// @param `builder` The LLVM IRBuilder

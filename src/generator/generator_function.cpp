@@ -26,31 +26,15 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
     std::vector<llvm::Type *> param_types_vec;
     if (is_extern) {
         for (const auto &param : function_node->parameters) {
-            const std::shared_ptr<Type> &param_type = std::get<0>(param);
-            if (const MultiType *multi_type = dynamic_cast<const MultiType *>(param_type.get())) {
-                llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
-                const std::string base_type_str = multi_type->base_type->to_string();
-                if (base_type_str == "f64" || base_type_str == "i64") {
-                    for (size_t i = 0; i < multi_type->width; i++) {
-                        param_types_vec.emplace_back(element_type);
-                    }
-                    continue;
-                }
-                if (multi_type->width == 2) {
-                    param_types_vec.emplace_back(IR::get_type(module, param_type).first);
-                } else if (multi_type->width == 3) {
-                    llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
-                    param_types_vec.emplace_back(vec2_type);
+            llvm::Type *param_type = IR::get_type(module, std::get<0>(param), true).first;
+            if (param_type->isStructTy()) {
+                llvm::StructType *struct_type = llvm::cast<llvm::StructType>(param_type);
+                for (const auto &element_type : struct_type->elements()) {
                     param_types_vec.emplace_back(element_type);
-                } else {
-                    llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
-                    for (size_t i = 0; i < multi_type->width; i += 2) {
-                        param_types_vec.emplace_back(vec2_type);
-                    }
                 }
-                continue;
+            } else {
+                param_types_vec.emplace_back(param_type);
             }
-            param_types_vec.emplace_back(IR::get_type(module, std::get<0>(param), true).first);
         }
     } else {
         param_types_vec.reserve(function_node->parameters.size());

@@ -8,6 +8,7 @@ fip_log_level_t LOG_LEVEL = FIP_ERROR;
 #endif
 fip_master_state_t master_state;
 
+#include "parser/type/data_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "profiler.hpp"
@@ -160,6 +161,18 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
         dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * multi_type->width));
         for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
             if (!convert_type(&dest->u.struct_t.fields[i], multi_type->base_type, true)) {
+                return false;
+            }
+        }
+        return true;
+    } else if (const DataType *data_type = dynamic_cast<const DataType *>(src.get())) {
+        // A data-type is just a struct and will be handled as such
+        const DataNode *data_node = data_type->data_node;
+        dest->type = FIP_TYPE_STRUCT;
+        dest->u.struct_t.field_count = static_cast<uint8_t>(data_node->fields.size());
+        dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * data_node->fields.size()));
+        for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
+            if (!convert_type(&dest->u.struct_t.fields[i], data_node->fields.at(i).second, true)) {
                 return false;
             }
         }

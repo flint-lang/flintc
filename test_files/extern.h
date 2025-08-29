@@ -44,6 +44,10 @@ void CloseWindow(void) {
     printf("Close Window\n");
 }
 
+bool IsWindowReady(void) {
+    return true;
+}
+
 typedef struct {
     int x, y;
     int z;

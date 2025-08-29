@@ -20,6 +20,7 @@
 #include "parser/type/variant_type.hpp"
 
 #include <llvm/IR/Instructions.h>
+#include <stack>
 #include <string>
 #include <variant>
 
@@ -321,145 +322,275 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
     return str_value;
 }
 
+void Generator::Expression::convert_type_to_ext( //
+    llvm::IRBuilder<> &builder,                  //
+    llvm::Module *module,                        //
+    const std::shared_ptr<Type> &type,           //
+    llvm::Value *const value,                    //
+    std::vector<llvm::Value *> &args             //
+) {
+    if (dynamic_cast<const DataType *>(type.get())) {
+        // get the LLVM struct type and its elements
+        llvm::Type *_struct_type = IR::get_type(module, type, false).first;
+        assert(_struct_type->isStructTy());
+        size_t struct_size = Allocation::get_type_size(module, _struct_type);
+        if (struct_size > 16) {
+            // The 16-byte-rule applies. We have not implemented it yet
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return;
+        }
+        // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
+        // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
+        // the element within the output 8-byte pack, so we create two stacks because for data greater than 16 bytes the 16-byte-rule
+        // applies
+        // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
+        // sub-64-byte packed results like packing 5 u8 values into one i40.
+        llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
+        std::vector<llvm::Type *> elem_types = struct_type->elements();
+        std::array<std::stack<unsigned int>, 2> stacks;
+        unsigned int offset = 0;
+        unsigned int first_size = 0;
+
+        size_t elem_idx = 0;
+        for (; elem_idx < elem_types.size(); elem_idx++) {
+            size_t elem_size = Allocation::get_type_size(module, elem_types.at(elem_idx));
+            // We can only pack the element into the stack if there is enough space left
+            if (8 - offset < elem_size) {
+                break;
+            }
+            // If the current offset is 0 we can simply put in the element into the stack without further checks
+            if (offset == 0) {
+                stacks[0].push(0);
+                offset += elem_size;
+                first_size += elem_size;
+                continue;
+            }
+            // Now we simply need to check where in the 8 byte structure we need to put the elements in. We can do this by calculating the
+            // padding based on the type alignment, the alignment is just the elem_size in our case because we work with types <= 8 bytes in
+            // size.
+            // If the offset is divisible by the element size it does not need to be changed. If it is not divisible we need to clamp it to
+            // the next divisible offset value, so if current offset is 2 but element size is 4 the offset needs to be clamped to 4
+            uint8_t elem_offset = offset;
+            if (offset % elem_size != 0) {
+                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+            }
+            if (elem_offset == 8) {
+                // This element does not fit into this stack, we need to put it into the next stack
+                break;
+            }
+            stacks[0].push(elem_offset);
+            offset = elem_offset + elem_size;
+            first_size = elem_offset + elem_size;
+        }
+        offset = 0;
+        for (; elem_idx < elem_types.size(); elem_idx++) {
+            size_t elem_size = Allocation::get_type_size(module, elem_types.at(elem_idx));
+            // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
+            // applied
+            assert(8 - offset >= elem_size);
+            // If the current offset is 0 we can simply put in the element into the stack without further checks
+            if (offset == 0) {
+                stacks[0].push(0);
+                offset += elem_size;
+                continue;
+            }
+            uint8_t elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+            // This element does not fit into this stack, this should not happen since it's the last stack
+            assert(elem_offset != 8);
+            stacks[0].push(elem_offset);
+            offset = elem_offset + elem_size;
+        }
+        assert(elem_idx == elem_types.size());
+        elem_idx = 0;
+        // Now we reach the second phase, we have figured out where to put the elements in the respective chunks
+        if (stacks[1].empty()) {
+            // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
+            // we pack multiple u8 values into one, for them we can get even i40, i48 or i56 results
+            if (stacks[0].size() == first_size) {
+                llvm::Value *result = builder.getIntN(first_size * 8, 0);
+                for (; elem_idx < elem_types.size(); elem_idx++) {
+                    llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+                    llvm::Value *elem = IR::aligned_load(builder, builder.getInt8Ty(), elem_ptr);
+                    // We now need to store the `elem` byte at the `elem_idx`th byte in the `result` integer. I think we can achieve this by
+                    // just extending the single byte to the integer type, then bit shifting the whole number for elem_idx elements and then
+                    // applying a bitwise or between the number to insert and the result itself
+                    // The elements are stored in the number from right to left. When we store the struct elements { u8(0), u8(1), u8(2) }
+                    // inside a `i24` for example we need to ensure the element 0 comes at the very right of the integer, so the first 8
+                    // bits. The middle is unambiguous and the second index needs to be located at the last 8 bytes. This means that the
+                    // amount we need to shift each value is exactly the position of the element in the struct. Element 0 does not need to
+                    // be shifted at all, element 1 by 1 and element 2 needs to be shifted by 2.
+                    llvm::Value *elem_big = builder.CreateZExt(elem, builder.getIntNTy(first_size * 8));
+                    if (elem_idx == 0) {
+                        result = elem_big;
+                        continue;
+                    }
+                    // Shift left by the element size - element index to shift it to the correct position
+                    llvm::Value *elem_shift = builder.CreateShl(elem_big, elem_idx * 8);
+                    // Bitwise and with the result to form the new result contianing the shifted element in it
+                    result = builder.CreateOr(result, elem_shift);
+                }
+                args.emplace_back(result);
+                return;
+            }
+        }
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return;
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
+        // Multi-types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
+        // to the functions too. This means that the multi-type needs to be converted not into a struct but into a multiple of
+        // two-component vector types.
+        // A vector type of size 2 can be passed to the function directly and does not need to be converted at all
+        // A vector type of size 3 is split into a two-component vector type + a scalar value
+        // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
+        llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
+        const std::string base_type_str = multi_type->base_type->to_string();
+        if (base_type_str == "f64" || base_type_str == "i64") {
+            for (size_t i = 0; i < multi_type->width; i++) {
+                args.emplace_back(builder.CreateExtractElement(value, builder.getInt64(i)));
+            }
+            return;
+        } else if (multi_type->width == 2) {
+            if (base_type_str == "i32") {
+                // We need to pack the two i32s as one i64
+                args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
+            } else {
+                args.emplace_back(value);
+            }
+            return;
+        } else if (multi_type->width == 3) {
+            // Extract the first two elements as a vector type
+            llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
+            llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(0));
+            llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(1));
+            llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
+            vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
+            vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
+            if (base_type_str == "i32") {
+                // Pack the two i32s as one i64
+                args.emplace_back(builder.CreateBitCast(vec2, builder.getInt64Ty()));
+            } else {
+                args.emplace_back(vec2);
+            }
+            // Extract the third value as a scalar element
+            llvm::Value *third = builder.CreateExtractElement(value, builder.getInt64(2));
+            args.emplace_back(third);
+            return;
+        }
+        // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... multi-types in Flint, so we know all bigger than 3 are even
+        // numbers
+        llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
+        for (size_t i = 0; i < multi_type->width; i += 2) {
+            llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(i));
+            llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(i + 1));
+            llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
+            vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
+            vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
+            if (base_type_str == "i32") {
+                args.emplace_back(builder.CreateBitCast(vec2, builder.getInt64Ty()));
+            } else {
+                args.emplace_back(vec2);
+            }
+        }
+        return;
+    } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
+        if (type->to_string() == "str") {
+            llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+            args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
+            return;
+        }
+    }
+    args.emplace_back(value);
+}
+
+void Generator::Expression::convert_type_from_ext( //
+    llvm::IRBuilder<> &builder,                    //
+    llvm::Module *module,                          //
+    const std::shared_ptr<Type> &type,             //
+    llvm::Value *value                             //
+) {
+    if ([[maybe_unused]] const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
+
+    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
+        llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
+        llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+        llvm::VectorType *vec2_i32 = llvm::VectorType::get(builder.getInt32Ty(), 2, false);
+        const std::string base_type_str = multi_type->base_type->to_string();
+        if (base_type_str == "f64" || base_type_str == "i64") {
+            llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+            for (size_t i = 0; i < multi_type->width; i++) {
+                llvm::Value *elem_i = builder.CreateExtractValue(value, i);
+                result_vec = builder.CreateInsertElement(result_vec, elem_i, builder.getInt64(i));
+            }
+            value = result_vec;
+        } else if (multi_type->width == 2) {
+            if (base_type_str == "i32") {
+                value = builder.CreateBitCast(value, vec2_i32);
+            } else {
+                // vec2 is returned as <2 x T> directly for floats - no conversion needed
+                return;
+            }
+        } else if (multi_type->width == 3) {
+            // vec3 is returned as { <2 x T>, T } struct from extern calls
+            assert(value->getType()->isStructTy());
+
+            // Extract the <2 x T> part
+            llvm::Value *vec2_part = builder.CreateExtractValue(value, 0, "vec2_part");
+            llvm::Value *scalar_part = builder.CreateExtractValue(value, 1, "scalar_part");
+
+            // Reconstruct <3 x T> vector
+            llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+
+            // The first element of the struct is `i64` not a vector so we need to cast it first
+            if (base_type_str == "i32") {
+                vec2_part = builder.CreateBitCast(vec2_part, vec2_i32);
+            }
+
+            // Extract elements from vec2 and insert into result
+            llvm::Value *elem0 = builder.CreateExtractElement(vec2_part, builder.getInt64(0));
+            llvm::Value *elem1 = builder.CreateExtractElement(vec2_part, builder.getInt64(1));
+
+            result_vec = builder.CreateInsertElement(result_vec, elem0, builder.getInt64(0));
+            result_vec = builder.CreateInsertElement(result_vec, elem1, builder.getInt64(1));
+            result_vec = builder.CreateInsertElement(result_vec, scalar_part, builder.getInt64(2));
+
+            value = result_vec;
+        } else {
+            // vecN (N > 3) is returned as { <2 x T>, <2 x T>, ... } struct from extern calls
+            assert(value->getType()->isStructTy());
+            llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+            size_t element_index = 0;
+
+            // Extract each <2 x T> chunk and rebuild the original vector
+            for (size_t chunk = 0; chunk < (multi_type->width + 1) / 2; chunk++) {
+                llvm::Value *chunk_vec = builder.CreateExtractValue(value, chunk, "chunk_vec");
+
+                // The first element of the struct is `i64` not a vector so we need to cast it first
+                if (base_type_str == "i32") {
+                    chunk_vec = builder.CreateBitCast(chunk_vec, vec2_i32);
+                }
+
+                // Extract elements from this chunk
+                for (size_t i = 0; i < 2 && element_index < multi_type->width; i++, element_index++) {
+                    llvm::Value *elem = builder.CreateExtractElement(chunk_vec, builder.getInt64(i));
+                    result_vec = builder.CreateInsertElement(result_vec, elem, builder.getInt64(element_index));
+                }
+            }
+            value = result_vec;
+        }
+    } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
+        if (type->to_string() == "str") {
+            llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), value, "str_len");
+            value = builder.CreateCall(Module::String::string_manip_functions.at("init_str"), {value, str_len}, "str");
+        }
+    }
+}
+
 Generator::group_mapping Generator::Expression::generate_extern_call( //
     llvm::IRBuilder<> &builder,                                       //
     GenerationContext &ctx,                                           //
     const CallNodeBase *call_node,                                    //
     std::vector<llvm::Value *> &args                                  //
 ) {
-    // It's a call to an externally defined function so we call it directly. But we first need to check the args and see whether they
-    // are an unsupported type, like a multi-type or a string. Unsupported extern types will be auto-mapped to correct texternal types,
-    // like structs or char*
-
-    // Converts a Flint type to the external type
-    const auto convert_type_to_ext = [](                                    //
-                                         llvm::IRBuilder<> &builder,        //
-                                         llvm::Module *module,              //
-                                         const std::shared_ptr<Type> &type, //
-                                         llvm::Value *const value,          //
-                                         std::vector<llvm::Value *> &args   //
-                                     ) {
-        if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
-            // Multi-types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
-            // to the functions too. This means that the multi-type needs to be converted not into a struct but into a multiple of
-            // two-component vector types.
-            // A vector type of size 2 can be passed to the function directly and does not need to be converted at all
-            // A vector type of size 3 is split into a two-component vector type + a scalar value
-            // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
-            llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
-            const std::string base_type_str = multi_type->base_type->to_string();
-            if (base_type_str == "f64" || base_type_str == "i64") {
-                for (size_t i = 0; i < multi_type->width; i++) {
-                    args.emplace_back(builder.CreateExtractElement(value, builder.getInt64(i)));
-                }
-                return;
-            }
-            if (multi_type->width == 2) {
-                args.emplace_back(value);
-                return;
-            } else if (multi_type->width == 3) {
-                // Extract the first two elements as a vector type
-                llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
-
-                llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(0));
-                llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(1));
-                llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
-                vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
-                vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
-                args.emplace_back(vec2);
-
-                // Extract the third value as a scalar element
-                llvm::Value *third = builder.CreateExtractElement(value, builder.getInt64(2));
-                args.emplace_back(third);
-                return;
-            }
-            // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... multi-types in Flint, so we know all bigger than 3 are even
-            // numbers
-            llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
-            for (size_t i = 0; i < multi_type->width; i += 2) {
-                llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(i));
-                llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(i + 1));
-                llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
-                vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
-                vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
-                args.emplace_back(vec2);
-            }
-            return;
-        } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
-            if (type->to_string() == "str") {
-                llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
-                args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
-                return;
-            }
-        }
-        args.emplace_back(value);
-    };
-    // Converts an External type to the Flint type
-    const auto convert_type_from_ext = [](                                    //
-                                           llvm::IRBuilder<> &builder,        //
-                                           llvm::Module *module,              //
-                                           const std::shared_ptr<Type> &type, //
-                                           llvm::Value *&value                //
-                                       ) {
-        if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
-            llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
-            llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
-            const std::string base_type_str = multi_type->base_type->to_string();
-            if (base_type_str == "f64" || base_type_str == "i64") {
-                llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
-                for (size_t i = 0; i < multi_type->width; i++) {
-                    llvm::Value *elem_i = builder.CreateExtractValue(value, i);
-                    result_vec = builder.CreateInsertElement(result_vec, elem_i, builder.getInt64(i));
-                }
-                value = result_vec;
-            } else if (multi_type->width == 2) {
-                // vec2 is returned as <2 x T> directly - no conversion needed
-                return;
-            } else if (multi_type->width == 3) {
-                // vec3 is returned as { <2 x T>, T } struct from extern calls
-                assert(value->getType()->isStructTy());
-
-                // Extract the <2 x T> part
-                llvm::Value *vec2_part = builder.CreateExtractValue(value, 0, "vec2_part");
-                llvm::Value *scalar_part = builder.CreateExtractValue(value, 1, "scalar_part");
-
-                // Reconstruct <3 x T> vector
-                llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
-
-                // Extract elements from vec2 and insert into result
-                llvm::Value *elem0 = builder.CreateExtractElement(vec2_part, builder.getInt64(0));
-                llvm::Value *elem1 = builder.CreateExtractElement(vec2_part, builder.getInt64(1));
-
-                result_vec = builder.CreateInsertElement(result_vec, elem0, builder.getInt64(0));
-                result_vec = builder.CreateInsertElement(result_vec, elem1, builder.getInt64(1));
-                result_vec = builder.CreateInsertElement(result_vec, scalar_part, builder.getInt64(2));
-
-                value = result_vec;
-            } else {
-                // vecN (N > 3) is returned as { <2 x T>, <2 x T>, ... } struct from extern calls
-                assert(value->getType()->isStructTy());
-                llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
-                size_t element_index = 0;
-
-                // Extract each <2 x T> chunk and rebuild the original vector
-                for (size_t chunk = 0; chunk < (multi_type->width + 1) / 2; chunk++) {
-                    llvm::Value *chunk_vec = builder.CreateExtractValue(value, chunk, "chunk_vec");
-
-                    // Extract elements from this chunk
-                    for (size_t i = 0; i < 2 && element_index < multi_type->width; i++, element_index++) {
-                        llvm::Value *elem = builder.CreateExtractElement(chunk_vec, builder.getInt64(i));
-                        result_vec = builder.CreateInsertElement(result_vec, elem, builder.getInt64(element_index));
-                    }
-                }
-                value = result_vec;
-            }
-        } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
-            if (type->to_string() == "str") {
-                llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), value, "str_len");
-                value = builder.CreateCall(Module::String::string_manip_functions.at("init_str"), {value, str_len}, "str");
-            }
-        }
-    };
     std::vector<llvm::Value *> converted_args;
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
         const auto &arg = call_node->arguments[i];
@@ -1509,8 +1640,12 @@ llvm::Value *Generator::Expression::get_bool8_element_at(llvm::IRBuilder<> &buil
     return bool_bit;
 }
 
-llvm::Value *Generator::Expression::set_bool8_element_at(llvm::IRBuilder<> &builder, llvm::Value *b8_val, llvm::Value *bit_value,
-    unsigned int elem_idx) {
+llvm::Value *Generator::Expression::set_bool8_element_at( //
+    llvm::IRBuilder<> &builder,                           //
+    llvm::Value *b8_val,                                  //
+    llvm::Value *bit_value,                               //
+    unsigned int elem_idx                                 //
+) {
     // Create a bit mask for the specific position (this is a compile-time constant)
     llvm::Value *bit_mask = builder.getInt8(1 << elem_idx);
     // Create the inverse mask (also compile-time)
