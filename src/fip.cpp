@@ -329,10 +329,12 @@ std::vector<std::array<char, 9>> FIP::gather_objects() {
             fip_print(0, FIP_INFO, "Object response carries no objects");
         }
     }
-    std::cout << "Objects: ";
-    for (const auto &obj : objects) {
-        std::cout << obj.data() << ":";
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Gathered FIP Objects:" << DEFAULT << std::endl;
+        for (const auto &obj : objects) {
+            std::cout << "-- " << obj.data() << "\n";
+        }
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
     return objects;
 }
