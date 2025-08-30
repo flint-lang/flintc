@@ -436,7 +436,59 @@ void Generator::Expression::convert_type_to_ext( //
                 return;
             }
         }
-        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        // Because we only need to fill two 8-byte containers we can resolve a few edge-cases upfront
+        elem_idx = 0;
+        if (stacks[0].size() == 1) {
+            llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem = IR::aligned_load(builder, elem_types.at(elem_idx), elem_ptr);
+            args.emplace_back(elem);
+            elem_idx++;
+        } else if (stacks[0].size() == 2) {
+            if (elem_types.front()->isFloatTy() && elem_types.at(1)->isFloatTy()) {
+                // We can create a single `<2 x float>` vector as the argument
+                llvm::Type *vec2_type = llvm::VectorType::get(elem_types.at(elem_idx), 2, false);
+                llvm::Value *result = IR::get_default_value_of_type(vec2_type);
+                llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+                llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
+                result = builder.CreateInsertElement(result, elem_1, static_cast<unsigned int>(0));
+                elem_idx++;
+                llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+                llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
+                result = builder.CreateInsertElement(result, elem_2, static_cast<unsigned int>(1));
+                args.emplace_back(result);
+                elem_idx++;
+            } else {
+                // The two elements need to be stored in the i64 result value at their correct positions
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return;
+            }
+        }
+        if (stacks[1].size() == 1) {
+            llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem = IR::aligned_load(builder, elem_types.at(elem_idx), elem_ptr);
+            args.emplace_back(elem);
+            elem_idx++;
+        } else if (stacks[1].size() == 2) {
+            if (elem_types.front()->isFloatTy() && elem_types.at(1)->isFloatTy()) {
+                // We can create a single `<2 x float>` vector as the argument
+                llvm::Type *vec2_type = llvm::VectorType::get(elem_types.at(elem_idx), 2, false);
+                llvm::Value *result = IR::get_default_value_of_type(vec2_type);
+                llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+                llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
+                result = builder.CreateInsertElement(result, elem_1, static_cast<unsigned int>(0));
+                elem_idx++;
+                llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+                llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
+                result = builder.CreateInsertElement(result, elem_2, static_cast<unsigned int>(1));
+                args.emplace_back(result);
+                elem_idx++;
+            } else {
+                // The two elements need to be stored in the i64 result value at their correct positions
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return;
+            }
+        }
+        assert(elem_idx == elem_types.size());
         return;
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
         // Multi-types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks

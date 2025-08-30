@@ -298,13 +298,39 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
                 }
             }
         }
-        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-        return std::nullopt;
+        // Because we only need to fill two 8-byte containers we can have an array here again
+        std::array<llvm::Type *, 2> types;
+        if (stacks[0].size() == 1) {
+            if (elem_types.front()->isFloatingPointTy()) {
+                types[0] = llvm::Type::getDoubleTy(context);
+            } else {
+                types[0] = llvm::Type::getInt64Ty(context);
+            }
+        } else if (stacks[0].size() == 2) {
+            if (elem_types.front()->isFloatingPointTy() && elem_types.at(1)->isFloatingPointTy()) {
+                types[0] = llvm::VectorType::get(elem_types.front(), 2, false);
+            } else {
+                types[0] = llvm::Type::getInt64Ty(context);
+            }
+        }
+        if (stacks[1].size() == 1) {
+            types[1] = elem_types.at(stacks[0].size());
+        } else if (stacks[1].size() == 2) {
+            if (elem_types.at(stacks[0].size())->isFloatingPointTy() && elem_types.at(stacks[0].size() + 1)->isFloatingPointTy()) {
+                types[1] = llvm::VectorType::get(elem_types.front(), 2, false);
+            } else {
+                types[1] = llvm::Type::getInt64Ty(context);
+            }
+        }
+        assert(types[0] != nullptr && types[1] != nullptr);
 
         // Create a struct of the computed stack types
-        // llvm::StructType *out_struct = llvm::StructType::create(context, slots, type_str, false);
-        // type_map[type_str] = out_struct;
-        // return out_struct;
+        std::vector<llvm::Type *> types_vec;
+        types_vec.push_back(types[0]);
+        types_vec.push_back(types[1]);
+        llvm::StructType *out_struct = llvm::StructType::create(context, types_vec, type_str, false);
+        type_map[type_str] = out_struct;
+        return out_struct;
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
         // Let's first look at how each multi-type behaves, considereing the 16 byte rule as well
         // They follow the same rules as above, as multi-types are passed as structs into FIP functions
