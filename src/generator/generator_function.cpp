@@ -1,6 +1,5 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
-#include "parser/type/multi_type.hpp"
 
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *module, FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;

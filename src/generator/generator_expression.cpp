@@ -390,14 +390,17 @@ void Generator::Expression::convert_type_to_ext( //
             assert(8 - offset >= elem_size);
             // If the current offset is 0 we can simply put in the element into the stack without further checks
             if (offset == 0) {
-                stacks[0].push(0);
+                stacks[1].push(0);
                 offset += elem_size;
                 continue;
             }
-            uint8_t elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+            uint8_t elem_offset = offset;
+            if (offset % elem_size != 0) {
+                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+            }
             // This element does not fit into this stack, this should not happen since it's the last stack
             assert(elem_offset != 8);
-            stacks[0].push(elem_offset);
+            stacks[1].push(elem_offset);
             offset = elem_offset + elem_size;
         }
         assert(elem_idx == elem_types.size());
