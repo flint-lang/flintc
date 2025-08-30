@@ -432,12 +432,14 @@ class Generator {
         /// @param `module` The module from which to get the type from
         /// @param `type` The type from which to get the llvm type from
         /// @param `is_extern` Whether the type is for an external function
-        /// @return `std::pair<llvm::Type *, bool>` A pair containing a pointer to the correct llvm Type from the given string and a boolean
-        /// value to determine if the given data type is a complex type (data, entity, tuple, optional, variant etc)
-        static std::pair<llvm::Type *, bool> get_type( //
-            llvm::Module *module,                      //
-            const std::shared_ptr<Type> &type,         //
-            const bool is_extern = false               //
+        /// @return `std::pair<llvm::Type *, std::pair<bool, bool>>` A pair containing a pointer to the correct llvm Type from the given
+        /// string and a pair of boolean values determining whether the given data type is:
+        ///     - A complex type (data, entity, tuple, etc)
+        ///     - Passed by reference (data, entity, tuple, optional, variant, etc)
+        static std::pair<llvm::Type *, std::pair<bool, bool>> get_type( //
+            llvm::Module *module,                                       //
+            const std::shared_ptr<Type> &type,                          //
+            const bool is_extern = false                                //
         );
 
         /// @function `get_default_value_of_type`
@@ -1097,16 +1099,14 @@ class Generator {
         /// @param `ctx` The context of the data cleanup generation
         /// @param `base_type` The base data type which is cleaned up
         /// @param `alloca` The pointer to the allocation of the data
-        /// @param `data_node` The type of the data to free
-        /// @param `cleanup_depth` The cleanup depth, only at depth != 0 the allocation of the data itself is freed
+        /// @param `data_type` The type of the data to free
         /// @return `bool` Whether generating the cleanup instructions was successful
         [[nodiscard]] static bool generate_data_cleanup( //
             llvm::IRBuilder<> &builder,                  //
             GenerationContext &ctx,                      //
             llvm::Type *base_type,                       //
             llvm::Value *const alloca,                   //
-            const DataNode *data_node,                   //
-            const size_t cleanup_depth = 0               //
+            const std::shared_ptr<Type> &data_type       //
         );
 
         /// @function `generate_return_statement`
@@ -2428,6 +2428,7 @@ class Generator {
             ///
             /// @attention The functions are nullpointers until the `generate_array_manip_functions` function is called
             static inline std::unordered_map<std::string_view, llvm::Function *> array_manip_functions = {
+                {"get_arr_len", nullptr},
                 {"create_arr", nullptr},
                 {"fill_arr_inline", nullptr},
                 {"fill_arr_deep", nullptr},

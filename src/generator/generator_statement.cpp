@@ -178,11 +178,11 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
-        } else if (DataType *data_type = dynamic_cast<DataType *>(var_type.get())) {
+        } else if (dynamic_cast<DataType *>(var_type.get())) {
             const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
             llvm::Value *const alloca = ctx.allocations.at(alloca_name);
             llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), var_type).first;
-            if (!generate_data_cleanup(builder, ctx, base_type, alloca, data_type->data_node)) {
+            if (!generate_data_cleanup(builder, ctx, base_type, alloca, var_type)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
@@ -235,22 +235,24 @@ bool Generator::Statement::generate_data_cleanup( //
     GenerationContext &ctx,                       //
     llvm::Type *base_type,                        //
     llvm::Value *const alloca,                    //
-    const DataNode *data_node,                    //
-    const size_t cleanup_depth                    //
+    const std::shared_ptr<Type> &data_type        //
 ) {
     size_t field_id = 0;
+    const DataNode *data_node = dynamic_cast<const DataType *>(data_type.get())->data_node;
+    auto type = IR::get_type(ctx.parent->getParent(), data_type);
+    llvm::Value *data_ptr = IR::aligned_load(builder, type.first->getPointerTo(), alloca, "data." + data_type->to_string() + ".ptr");
     for (const auto &field : data_node->fields) {
-        if (const DataType *data_type = dynamic_cast<const DataType *>(std::get<1>(field).get())) {
-            llvm::Type *new_base_type = IR::get_type(ctx.parent->getParent(), std::get<1>(field)).first;
-            llvm::Value *field_ptr = builder.CreateStructGEP(base_type, alloca, field_id);
-            llvm::Value *field_alloca = IR::aligned_load(builder, new_base_type->getPointerTo(), field_ptr);
-            if (!generate_data_cleanup(builder, ctx, new_base_type, field_alloca, data_type->data_node, cleanup_depth + 1)) {
+        const std::shared_ptr<Type> &field_type = std::get<1>(field);
+        if (dynamic_cast<const DataType *>(field_type.get())) {
+            llvm::Type *new_base_type = IR::get_type(ctx.parent->getParent(), field_type).first;
+            llvm::Value *field_ptr = builder.CreateStructGEP(base_type, data_ptr, field_id);
+            if (!generate_data_cleanup(builder, ctx, new_base_type, field_ptr, field_type)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
-        } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(std::get<1>(field).get())) {
+        } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(field_type.get())) {
             llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
-            llvm::Value *field_ptr = builder.CreateStructGEP(base_type, alloca, field_id);
+            llvm::Value *field_ptr = builder.CreateStructGEP(base_type, data_ptr, field_id);
             llvm::Value *arr_ptr = IR::aligned_load(builder, arr_type->getPointerTo(), field_ptr);
             if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -259,9 +261,7 @@ bool Generator::Statement::generate_data_cleanup( //
         }
         field_id++;
     }
-    if (cleanup_depth != 0) {
-        builder.CreateCall(c_functions.at(FREE), {alloca});
-    }
+    builder.CreateCall(c_functions.at(FREE), {data_ptr});
     return true;
 }
 
@@ -1347,54 +1347,8 @@ bool Generator::Statement::generate_declaration( //
         const auto *typecast_node = dynamic_cast<const TypeCastNode *>(declaration_node->initializer.value().get());
         const auto *tuple_type = dynamic_cast<const TupleType *>(declaration_node->type.get());
         if (tuple_type != nullptr) {
-            // If the rhs is a InitializerNode, it returns all element values from the initializer expression
-            // First, get the struct type of the data
-            llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), declaration_node->type).first;
-            std::vector<std::shared_ptr<Type>> types = tuple_type->types;
-            for (size_t i = 0; i < expr_val.value().size(); i++) {
-                llvm::Value *elem_ptr = builder.CreateStructGEP(              //
-                    data_type,                                                //
-                    alloca,                                                   //
-                    static_cast<unsigned int>(i),                             //
-                    declaration_node->name + "_" + std::to_string(i) + "_ptr" //
-                );
-                // If the data field is a complex field we need to allocate memory for it, then store the "real" result in the allocated
-                // memory region and then store the pointer to the allocated memory region in the 'elem_ptr' GEP
-                const std::shared_ptr<Type> &elem_type = types[i];
-                const DataType *field_data_type = dynamic_cast<const DataType *>(elem_type.get());
-                const ArrayType *field_array_type = dynamic_cast<const ArrayType *>(elem_type.get());
-                const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr;
-                if (field_is_complex) {
-                    // For complex types, allocate memory and store a pointer
-                    llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
-                    const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
-                    llvm::Value *field_size = builder.getInt64(data_layout.getTypeAllocSize(field_type));
-                    llvm::Value *field_alloca = builder.CreateCall(                                                      //
-                        c_functions.at(MALLOC), {field_size}, declaration_node->name + "_" + std::to_string(i) + "_data" //
-                    );
-
-                    // Store the field value in the allocated memory
-                    llvm::StoreInst *value_store = IR::aligned_store(builder, expr_val.value().at(i), field_alloca);
-                    value_store->setMetadata("comment",
-                        llvm::MDNode::get(context,
-                            llvm::MDString::get(context,
-                                "Store complex data for '" + declaration_node->name + "_" + std::to_string(i) + "'")));
-
-                    // Store the pointer to the complex data in the parent structure
-                    llvm::StoreInst *ptr_store = IR::aligned_store(builder, field_alloca, elem_ptr);
-                    ptr_store->setMetadata("comment",
-                        llvm::MDNode::get(context,
-                            llvm::MDString::get(context,
-                                "Store pointer to complex data '" + declaration_node->name + "_" + std::to_string(i) + "'")));
-                } else {
-                    // For primitive types, store directly
-                    llvm::StoreInst *store = IR::aligned_store(builder, expr_val.value().at(i), elem_ptr);
-                    store->setMetadata("comment",
-                        llvm::MDNode::get(context,
-                            llvm::MDString::get(context,
-                                "Store the actual val of '" + declaration_node->name + "_" + std::to_string(i) + "'")));
-                }
-            }
+            assert(expr_val.value().size() == 1);
+            IR::aligned_store(builder, expr_val.value().front(), alloca);
             return true;
         } else if (dynamic_cast<const OptionalType *>(declaration_node->type.get()) != nullptr && //
             (typecast_node == nullptr || typecast_node->expr->type->to_string() != "void?")       //
@@ -1539,7 +1493,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             // Check if the base type is complex
             auto base_type_info = IR::get_type(ctx.parent->getParent(), optional_type->base_type);
             llvm::Type *base_type = base_type_info.first;
-            bool is_complex = base_type_info.second;
+            bool is_complex = base_type_info.second.first;
             llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, lhs, 1, assignment_node->name + "value_ptr");
             if (is_complex) {
                 // For complex types, allocate memory and store a pointer
@@ -1683,8 +1637,19 @@ bool Generator::Statement::generate_data_field_assignment( //
         return true;
     }
 
-    llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), data_field_assignment->data_type).first;
-    llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, data_field_assignment->field_id);
+    auto data_type = IR::get_type(ctx.parent->getParent(), data_field_assignment->data_type);
+    llvm::Value *field_ptr = var_alloca;
+    bool is_fn_param = false;
+    for (auto &arg : ctx.parent->args()) {
+        if (arg.getName() == data_field_assignment->var_name) {
+            is_fn_param = true;
+            break;
+        }
+    }
+    if (data_type.second.first && !is_fn_param) {
+        field_ptr = IR::aligned_load(builder, data_type.first->getPointerTo(), var_alloca, data_field_assignment->var_name + "_ptr");
+    }
+    field_ptr = builder.CreateStructGEP(data_type.first, field_ptr, data_field_assignment->field_id);
 
     // Check if the field is a complex type and create an allocation before storing
     // Check if the field is an optional type and check whether to need an allocation for the optional value
@@ -1719,26 +1684,9 @@ bool Generator::Statement::generate_data_field_assignment( //
                 store->setMetadata("comment",
                     llvm::MDNode::get(context, llvm::MDString::get(context, "Set 'has_value' property of optional field to 1")));
 
-                // Check if the base type is complex
-                auto base_type_info = IR::get_type(ctx.parent->getParent(), optional_type->base_type);
-                llvm::Type *base_type = base_type_info.first;
-                bool is_complex = base_type_info.second;
+                // Store the value in the optional
                 llvm::Value *field_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 1, "field_value_ptr");
-
-                if (is_complex) {
-                    // For complex types, allocate memory and store a pointer
-                    llvm::Value *type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), base_type));
-                    llvm::Value *allocated_memory = builder.CreateCall(c_functions.at(MALLOC), {type_size}, "field_allocated_data");
-
-                    // Store the complex value in the allocated memory
-                    IR::aligned_store(builder, expr_val, allocated_memory);
-
-                    // Store the pointer in the optional's value field
-                    store = IR::aligned_store(builder, allocated_memory, field_value_ptr);
-                } else {
-                    // For simple types, store the value directly
-                    store = IR::aligned_store(builder, expr_val, field_value_ptr);
-                }
+                store = IR::aligned_store(builder, expr_val, field_value_ptr);
 
                 if (data_field_assignment->field_name.has_value()) {
                     store->setMetadata("comment",
@@ -1828,9 +1776,20 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
         return true;
     }
 
-    llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), grouped_field_assignment->data_type).first;
+    auto data_type = IR::get_type(ctx.parent->getParent(), grouped_field_assignment->data_type);
+    llvm::Value *alloca = var_alloca;
+    bool is_fn_param = false;
+    for (auto &arg : ctx.parent->args()) {
+        if (arg.getName() == grouped_field_assignment->var_name) {
+            is_fn_param = true;
+            break;
+        }
+    }
+    if (data_type.second.first && !is_fn_param) {
+        alloca = IR::aligned_load(builder, data_type.first->getPointerTo(), var_alloca, grouped_field_assignment->var_name + "_ptr");
+    }
     for (size_t i = 0; i < expression.value().size(); i++) {
-        llvm::Value *field_ptr = builder.CreateStructGEP(data_type, var_alloca, grouped_field_assignment->field_ids.at(i));
+        llvm::Value *field_ptr = builder.CreateStructGEP(data_type.first, alloca, grouped_field_assignment->field_ids.at(i));
         llvm::StoreInst *store = IR::aligned_store(builder, expression.value().at(i), field_ptr);
         store->setMetadata("comment",
             llvm::MDNode::get(context,
@@ -2020,10 +1979,10 @@ bool Generator::Statement::generate_stacked_grouped_assignment( //
         }
         if (stacked_assignment->field_types.at(i)->to_string() == "bool8") {
             // TODO: Find a way how to store the return value of the `set_bool8_element_at` function back at the value the stacked
-            // expression came from (we need a pointer to the data field, if the bool8 variable is stored in another data, for example). We
-            // currently only get the actual loaded value of bool8, and there is no way to get a pointer to where it came from. This
-            // definitely needs to be done, otherwise stacked assignments for the bool8 type will not work. It still works for tuple types
-            // and other multi-types, so this is a bool8-specific issue
+            // expression came from (we need a pointer to the data field, if the bool8 variable is stored in another data, for example).
+            // We currently only get the actual loaded value of bool8, and there is no way to get a pointer to where it came from. This
+            // definitely needs to be done, otherwise stacked assignments for the bool8 type will not work. It still works for tuple
+            // types and other multi-types, so this is a bool8-specific issue
             //
             // Expression::set_bool8_element_at(builder, base_expr, expression, stacked_assignment->field_id);
             return false;

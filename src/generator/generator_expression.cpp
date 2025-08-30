@@ -224,13 +224,14 @@ llvm::Value *Generator::Expression::generate_variable( //
     // First, check if this is a function parameter
     for (auto &arg : ctx.parent->args()) {
         if (arg.getName() == variable_node->name) {
-            // We return it directly if: It's a string, array, enum or immutable primitive type
+            // We return it directly if: It's a string, array, enum, immutable primitive type or data type
             if (ctx.scope->variables.find(arg.getName().str()) != ctx.scope->variables.end()) {
                 auto var = ctx.scope->variables.at(arg.getName().str());
                 if ((primitives.find(std::get<0>(var)->to_string()) != primitives.end() && !std::get<2>(var)) // is immutable primitive
                     || dynamic_cast<const ArrayType *>(variable_node->type.get())                             // is array type
                     || variable_node->type->to_string() == "str"                                              // is string type
                     || dynamic_cast<const EnumType *>(variable_node->type.get())                              // is enum type
+                    || dynamic_cast<const DataType *>(variable_node->type.get())                              // is data type
                 ) {
                     return &arg;
                 }
@@ -246,7 +247,11 @@ llvm::Value *Generator::Expression::generate_variable( //
     }
     const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(variable_node->name));
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
-    if (is_reference) {
+    // The variable is a "function parameter" when it's the context of the ehnhanced for loop, for example. It's set to a function paramter
+    // in all the cases where we want to return the pointer to the allocation directly instead of loading it, but this only holds true when
+    // the parameter is not a tuple. Tuples are by-value by default but when passed in to a function they are passed by reference, so we
+    // still need to load them even when it's a function parameter
+    if (std::get<3>(ctx.scope->variables.at(variable_node->name)) && !dynamic_cast<const TupleType *>(variable_node->type.get())) {
         return variable;
     }
 
@@ -255,14 +260,23 @@ llvm::Value *Generator::Expression::generate_variable( //
 
     // Check if the variable is complex, in that case we need to load the pointer first
     llvm::Value *var = variable;
-    if (type.second) {
-        var = IR::aligned_load(builder, type.first->getPointerTo(), variable, variable_node->name + "_ptr");
+    if (type.second.first) {
+        llvm::LoadInst *load = IR::aligned_load(builder, type.first->getPointerTo(), variable, variable_node->name + "_ptr");
+        load->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load ptr to '" + variable_node->name + "'")));
+        var = load;
+    }
+    // If a reference is requested we return the loaded value (this way we do not return a double pointer for complex types)
+    if (is_reference) {
+        return var;
     }
 
-    // Load the variable's value if it's a pointer
+    // Load the variable's value from the allocation or the pointer to the memory it's located at but only if it's not a complex type, if
+    // it's a complex type we return it directly without further loading
+    if (type.second.first) {
+        return var;
+    }
     llvm::LoadInst *load = IR::aligned_load(builder, type.first, var, variable_node->name + "_val");
     load->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + variable_node->name + "'")));
-
     return load;
 }
 
@@ -1046,24 +1060,42 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             // We need to check whether the given initializer value is a complex type in of itself, if it is we need to allocate space for
             // it and store it there
             const std::shared_ptr<Type> &elem_type = initializer->args.at(i)->type;
-            const DataType *field_data_type = dynamic_cast<const DataType *>(elem_type.get());
-            const ArrayType *field_array_type = dynamic_cast<const ArrayType *>(elem_type.get());
-            const bool field_is_complex = field_data_type != nullptr || field_array_type != nullptr;
-            if (field_is_complex) {
-                // For complex types, allocate memory and store a pointer
+            if (dynamic_cast<const DataType *>(elem_type.get())) {
+                // For data types, allocate memory and copy the data over
                 llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
                 llvm::Value *field_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
                 llvm::Value *field_alloca = builder.CreateCall(                                        //
                     c_functions.at(MALLOC), {field_size}, "initializer_" + std::to_string(i) + "_data" //
                 );
-
-                // Store the field value in the allocated memory
-                llvm::StoreInst *value_store = IR::aligned_store(builder, expr_val, field_alloca);
-                value_store->setMetadata("comment",
-                    llvm::MDNode::get(context,
-                        llvm::MDString::get(context, "Store complex data for 'initializer_" + std::to_string(i) + "'")));
+                // Copy the field value to the allocated memory
+                builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, field_size});
 
                 // Store the pointer to the complex data in the parent structure
+                IR::aligned_store(builder, field_alloca, field_ptr);
+            } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(elem_type.get())) {
+                // For arrays we first need to find out how large the source array is
+                llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
+                auto arr_elem_type = IR::get_type(ctx.parent->getParent(), array_type->type);
+                llvm::Value *struct_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
+                llvm::Value *dimensionality_ptr = builder.CreateStructGEP(field_type, field_ptr, 0, "dimensionality_ptr");
+                llvm::Value *dimensionality = IR::aligned_load(builder, builder.getInt32Ty(), dimensionality_ptr, "dimensionality");
+                llvm::Value *dim_lengths_size = builder.CreateMul(dimensionality, builder.getInt64(8), "dim_lengths_size");
+                llvm::Function *get_arr_len_fn = Module::Array::array_manip_functions.at("get_arr_len");
+                llvm::Value *array_len_count = builder.CreateCall(get_arr_len_fn, {expr_val}, "array_len_count");
+                llvm::Value *arr_elem_size = builder.getInt64(                                                               //
+                    arr_elem_type.second.first ? 8 : Allocation::get_type_size(ctx.parent->getParent(), arr_elem_type.first) //
+                );
+                llvm::Value *array_len_bytes = builder.CreateMul(array_len_count, arr_elem_size, "array_len_bytes");
+                llvm::Value *array_size = builder.CreateAdd(struct_size, dim_lengths_size);
+                array_size = builder.CreateAdd(array_size, array_len_bytes);
+
+                llvm::Value *field_alloca = builder.CreateCall(                                        //
+                    c_functions.at(MALLOC), {array_size}, "initializer_" + std::to_string(i) + "_data" //
+                );
+                // Copy the array to the allocated memory
+                builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, array_size});
+
+                // Store the pointer to the array in the parent structure
                 IR::aligned_store(builder, field_alloca, field_ptr);
             } else {
                 IR::aligned_store(builder, expr_val, field_ptr);
@@ -1780,19 +1812,34 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             values.emplace_back(builder.CreateExtractElement(expr_val, data_access->field_id));
         }
         return values;
+    } else if (dynamic_cast<const ErrorSetType *>(data_access->base_expr->type.get())) {
+        std::vector<llvm::Value *> values;
+        values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "err_field_val"));
+        return values;
+    } else if (dynamic_cast<const TupleType *>(data_access->base_expr->type.get())) {
+        std::vector<llvm::Value *> values;
+        values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "tuple_field_val"));
+        return values;
+    } else if (dynamic_cast<const VariantType *>(data_access->base_expr->type.get())) {
+        std::vector<llvm::Value *> values;
+        values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "variant_field_val"));
+        return values;
     }
     if (!expr_val) {
         std::cerr << "ERROR: expr_val is null" << std::endl;
         THROW_BASIC_ERR(ERR_GENERATING);
         return std::nullopt;
     }
-    // Check if expr_val is a pointer type
-    if (expr_val && expr_val->getType()->isPointerTy()) {
-        llvm::Type *struct_value_type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type).first;
-        expr_val = IR::aligned_load(builder, struct_value_type, expr_val);
-    }
     std::vector<llvm::Value *> values;
-    values.emplace_back(builder.CreateExtractValue(expr_val, {data_access->field_id}, "elem_" + std::to_string(data_access->field_id)));
+    auto type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type);
+    llvm::Value *elem_ptr = builder.CreateStructGEP(                                                     //
+        type.first, expr_val, data_access->field_id, "elem_ptr_" + std::to_string(data_access->field_id) //
+    );
+    auto elem_type = IR::get_type(ctx.parent->getParent(), data_access->type);
+    values.emplace_back(IR::aligned_load(                                                    //
+        builder, elem_type.second.first ? elem_type.first->getPointerTo() : elem_type.first, //
+        elem_ptr, "elem_" + std::to_string(data_access->field_id)                            //
+        ));
     return values;
 }
 
@@ -3175,7 +3222,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
         const unsigned int idx = std::distance(possible_types.begin(), type_it);
         builder.SetInsertPoint(type_switch_blocks.at(idx));
         const auto &pair = IR::get_type(ctx.parent->getParent(), type_it->second);
-        const unsigned int type_size = pair.second ? 8 : Allocation::get_type_size(ctx.parent->getParent(), pair.first);
+        const unsigned int type_size = pair.second.second ? 8 : Allocation::get_type_size(ctx.parent->getParent(), pair.first);
         switch_values.push_back(builder.getInt64(type_size));
         builder.CreateBr(switch_merge);
     }

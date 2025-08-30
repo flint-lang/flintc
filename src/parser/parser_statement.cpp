@@ -413,14 +413,14 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         const std::optional<std::string> element_name = its.second;
         if (index_name.has_value()) {
             auto index_it = definition_mut.first - 5;
-            if (!definition_scope->add_variable(index_name.value(), index_type, definition_scope->scope_id, false, true, true)) {
+            if (!definition_scope->add_variable(index_name.value(), index_type, definition_scope->scope_id, false, false, true)) {
                 THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, index_it->line, index_it->column, index_name.value());
                 return std::nullopt;
             }
         }
         if (element_name.has_value()) {
             auto element_it = definition_mut.first - 3;
-            if (!definition_scope->add_variable(element_name.value(), element_type, definition_scope->scope_id, true, true, true)) {
+            if (!definition_scope->add_variable(element_name.value(), element_type, definition_scope->scope_id, true, false, true)) {
                 THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, element_it->line, element_it->column, element_name.value());
                 return std::nullopt;
             }

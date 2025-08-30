@@ -39,7 +39,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
         param_types_vec.reserve(function_node->parameters.size());
         for (const auto &param : function_node->parameters) {
             auto param_type = IR::get_type(module, std::get<0>(param));
-            if (param_type.second) {
+            if (param_type.second.second) {
                 // Complex type, passed by reference
                 param_types_vec.emplace_back(param_type.first->getPointerTo());
             } else {
