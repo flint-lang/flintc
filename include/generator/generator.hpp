@@ -2439,6 +2439,18 @@ class Generator {
                 {"free_arr", nullptr},
             };
 
+            /// @function `generate_get_arr_len_function`
+            /// @brief Generates the builtin hidded `get_arr_len` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `get_arr_len` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_get_arr_len_function( //
+                llvm::IRBuilder<> *builder,            //
+                llvm::Module *module,                  //
+                const bool only_declarations = true    //
+            );
+
             /// @function `generate_create_arr_function`
             /// @brief Generates the builtin hidden `create_arr` function
             ///

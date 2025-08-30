@@ -4,8 +4,105 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Intrinsics.h"
 
-void Generator::Module::Array::generate_create_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::Array::generate_get_arr_len_function( //
+    llvm::IRBuilder<> *builder,                               //
+    llvm::Module *module,                                     //
+    const bool only_declarations                              //
+) {
+    // THE C IMPLEMENTATATION
+    // size_t get_arr_len(str * arr) {
+    //     const size_t dimensionality = arr->len;
+    //     const size_t *lengths = (size_t *)arr->value;
+    //     size_t arr_len = 1;
+    //     for (size_t i = 0; i < dimensionality; i++) {
+    //         arr_len *= lengths[i];
+    //     }
+    //     return arr_len;
+    // }
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+
+    llvm::FunctionType *get_arr_len_type = llvm::FunctionType::get( //
+        llvm::Type::getInt64Ty(context),                            // Return type: size_t
+        {str_type->getPointerTo()},                                 // Argument: str* arr
+        false                                                       // No vaargs
+    );
+    llvm::Function *get_arr_len_fn = llvm::Function::Create( //
+        get_arr_len_type,                                    //
+        llvm::Function::ExternalLinkage,                     //
+        "__flint_get_arr_len",                               //
+        module                                               //
+    );
+    array_manip_functions["get_arr_len"] = get_arr_len_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the parameter (arr)
+    llvm::Argument *arg_arr = get_arr_len_fn->arg_begin();
+    arg_arr->setName("arr");
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", get_arr_len_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Initialize arr_len = 1
+    llvm::Value *arr_len = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "arr_len_ptr");
+    IR::aligned_store(*builder, builder->getInt64(1), arr_len);
+
+    // Get the pointer to the value field of the array, it contains the dimension lengths at it's front
+    llvm::Value *lengths = builder->CreateStructGEP(str_type, arg_arr, 1, "lengths");
+
+    // Load the dimensionality from the array
+    llvm::Value *dimensionality_ptr = builder->CreateStructGEP(str_type, arg_arr, 0, "dimensionality_ptr");
+    llvm::Value *dimensionality = IR::aligned_load(*builder, builder->getInt64Ty(), dimensionality_ptr, "dimensionality");
+
+    // Create a loop to calculate arr_len by multiplying the dimension sizes
+    llvm::BasicBlock *loop_entry_block = llvm::BasicBlock::Create(context, "loop_entry", get_arr_len_fn);
+    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(context, "loop_body", get_arr_len_fn);
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", get_arr_len_fn);
+
+    builder->SetInsertPoint(entry_block);
+    // Create loop counter
+    llvm::Value *counter = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
+    IR::aligned_store(*builder, builder->getInt64(0), counter);
+    // Create branch to the loop entry block
+    builder->CreateBr(loop_entry_block);
+
+    // Loop entry (condition check)
+    builder->SetInsertPoint(loop_entry_block);
+    llvm::Value *current_counter = IR::aligned_load(*builder, builder->getInt64Ty(), counter, "current_counter");
+    llvm::Value *cond = builder->CreateICmpULT(current_counter, dimensionality, "loop_cond");
+    builder->CreateCondBr(cond, loop_body_block, merge_block);
+
+    // Loop body
+    builder->SetInsertPoint(loop_body_block);
+
+    // Load the current dimension length: lenghs[i]
+    llvm::Value *length_ptr = builder->CreateGEP(builder->getInt64Ty(), lengths, current_counter, "length_ptr");
+    llvm::Value *current_length = IR::aligned_load(*builder, builder->getInt64Ty(), length_ptr, "current_length");
+
+    // arg_len *= lengths[i]
+    llvm::Value *current_arr_len = IR::aligned_load(*builder, builder->getInt64Ty(), arr_len, "current_arr_len");
+    llvm::Value *new_arr_len = builder->CreateMul(current_arr_len, current_length, "arr_len");
+    IR::aligned_store(*builder, new_arr_len, arr_len);
+    // Increnment counter
+    llvm::Value *next_counter = builder->CreateAdd(current_counter, builder->getInt64(1), "next_counter");
+    IR::aligned_store(*builder, next_counter, counter);
+
+    // Jump back to the condition check
+    builder->CreateBr(loop_entry_block);
+
+    // The merge block
+    builder->SetInsertPoint(merge_block);
+    llvm::Value *total_length = IR::aligned_load(*builder, builder->getInt64Ty(), arr_len, "total_length");
+    builder->CreateRet(total_length);
+}
+
+void Generator::Module::Array::generate_create_arr_function( //
+    llvm::IRBuilder<> *builder,                              //
+    llvm::Module *module,                                    //
+    const bool only_declarations                             //
+) {
     // THE C IMPLEMENTATION
     // str *create_arr(const size_t dimensionality, const size_t element_size, const size_t *lengths) {
     //     size_t arr_len = 1;
@@ -1290,6 +1387,7 @@ void Generator::Module::Array::generate_array_manip_functions( //
     llvm::Module *module,                                      //
     const bool only_declaration                                //
 ) {
+    generate_get_arr_len_function(builder, module, only_declaration);
     generate_create_arr_function(builder, module, only_declaration);
     generate_fill_arr_inline_function(builder, module, only_declaration);
     generate_fill_arr_deep_function(builder, module, only_declaration);
