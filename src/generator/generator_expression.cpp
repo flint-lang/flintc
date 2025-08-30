@@ -251,10 +251,16 @@ llvm::Value *Generator::Expression::generate_variable( //
     }
 
     // Get the type that the pointer points to
-    llvm::Type *value_type = IR::get_type(ctx.parent->getParent(), variable_node->type).first;
+    auto type = IR::get_type(ctx.parent->getParent(), variable_node->type);
+
+    // Check if the variable is complex, in that case we need to load the pointer first
+    llvm::Value *var = variable;
+    if (type.second) {
+        var = IR::aligned_load(builder, type.first->getPointerTo(), variable, variable_node->name + "_ptr");
+    }
 
     // Load the variable's value if it's a pointer
-    llvm::LoadInst *load = IR::aligned_load(builder, value_type, variable, variable_node->name + "_val");
+    llvm::LoadInst *load = IR::aligned_load(builder, type.first, var, variable_node->name + "_val");
     load->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + variable_node->name + "'")));
 
     return load;
@@ -1016,9 +1022,12 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
 ) {
     // Check if its a data initializer
     if (dynamic_cast<const DataType *>(initializer->type.get())) {
-        // Create an "empty" struct of the correct data type
+        // Allocate space for the data
         llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
-        llvm::Value *initialized_value = IR::get_default_value_of_type(struct_type);
+        llvm::Value *data_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), struct_type));
+        llvm::Value *data_ptr = builder.CreateCall(                                                   //
+            c_functions.at(MALLOC), {data_size}, "initializer.data." + initializer->type->to_string() //
+        );
 
         for (unsigned int i = 0; i < initializer->args.size(); i++) {
             auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
@@ -1032,6 +1041,7 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 return std::nullopt;
             }
             llvm::Value *expr_val = expr_result.value().front();
+            llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
 
             // We need to check whether the given initializer value is a complex type in of itself, if it is we need to allocate space for
             // it and store it there
@@ -1054,12 +1064,12 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                         llvm::MDString::get(context, "Store complex data for 'initializer_" + std::to_string(i) + "'")));
 
                 // Store the pointer to the complex data in the parent structure
-                initialized_value = builder.CreateInsertValue(initialized_value, field_alloca, {i}, "initialized_" + std::to_string(i));
+                IR::aligned_store(builder, field_alloca, field_ptr);
             } else {
-                initialized_value = builder.CreateInsertValue(initialized_value, expr_val, {i}, "initialized_" + std::to_string(i));
+                IR::aligned_store(builder, expr_val, field_ptr);
             }
         }
-        return std::vector<llvm::Value *>{initialized_value};
+        return std::vector<llvm::Value *>{data_ptr};
     } else if (dynamic_cast<const MultiType *>(initializer->type.get())) {
         // Create an "empty" vector of the multi-type
         llvm::Type *vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
