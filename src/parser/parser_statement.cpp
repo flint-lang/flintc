@@ -1372,7 +1372,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_IDENTIFIER) {
             const std::string it_lexme(it->lexme);
-            if (Matcher::tokens_match({it + 1, it + 2}, Matcher::assignment_shorthand_operator) && (it + 2) != tokens.second) {
+            if (Matcher::token_match((it + 1)->token, Matcher::assignment_shorthand_operator) && (it + 2) != tokens.second) {
                 if (scope->variables.find(it_lexme) == scope->variables.end()) {
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it_lexme);
                     return std::nullopt;

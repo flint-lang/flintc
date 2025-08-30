@@ -332,6 +332,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     ordered_fields.resize(fields.size());
     for (const auto &field : fields) {
         const size_t field_id = std::distance(order.begin(), std::find(order.begin(), order.end(), field.first));
+        // TODO: This crashes when we have a field in the constructor that's not present in the field list of the data
         ordered_fields[field_id] = {field.first, field.second};
     }
 
