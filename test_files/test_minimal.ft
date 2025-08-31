@@ -2,8 +2,8 @@ use Core.print
 use Core.math
 
 def main():
-	f32 x = 3.0;
-	f32 y = 3.0;
+	f32 x = 27.0;
+	f32 y = 1.0 / 3.0;
 	f32 z = x ** y;
 	print($"{x} ** {y} = {z}\n");
 

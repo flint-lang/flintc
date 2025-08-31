@@ -2880,6 +2880,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
         case TOK_POW:
             if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64" || type_str == "u8") {
                 return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_pow"), {lhs, rhs}, "pow_res");
+            } else if (type_str == "f32") {
+                return builder.CreateCall(c_functions.at(POWF), {lhs, rhs}, "powf_res");
+            } else if (type_str == "f64") {
+                return builder.CreateCall(c_functions.at(POW), {lhs, rhs}, "pow_res");
             }
             break;
         case TOK_MOD:
