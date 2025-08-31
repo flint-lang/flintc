@@ -119,7 +119,25 @@ static inline std::map<std::string_view, function_overload_list> core_module_fun
                 {
                     {{"str"}, {"i32", "str"}, {"ErrSystem"}}, // The single version of the 'system' function
                 }},
-        }} // End of the 'system' module
+        }},  // End of the 'system' module
+    {"math", // The 'math' module
+        {
+            {"sin", // The 'sin' function
+                {
+                    {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'sin' function
+                    {{"f64"}, {"f64"}, {}}, // The 'f64' overload of the 'sin' function
+                }},
+            {"cos", // The 'cos' function
+                {
+                    {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'cos' function
+                    {{"f64"}, {"f64"}, {}}, // The 'f64' overload of the 'cos' function
+                }},
+            {"sqrt", // The 'sqrt' function
+                {
+                    {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'cos' function
+                    {{"f64"}, {"f64"}, {}}, // The 'f64' overload of the 'cos' function
+                }},
+        }}, // End of the 'math' module
 };
 
 /// @typedef `error_value`
@@ -220,6 +238,14 @@ enum CFunction {
     SETENV,
     POPEN,
     PCLOSE,
+    SIN,
+    SINF,
+    COS,
+    COSF,
+    SQRT,
+    SQRTF,
+    POW,
+    POWF,
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {

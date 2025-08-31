@@ -297,6 +297,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate all the "hidden" system module functions
     Module::System::generate_system_functions(builder.get(), module.get());
 
+    // Provide aliases for the math functions
+    Module::Math::generate_math_functions();
+
     if (!is_test) {
         // Generate main function in the main module
         Builtin::generate_builtin_main(builder.get(), module.get());
@@ -475,6 +478,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             Module::FileSystem::generate_filesystem_functions(nullptr, module.get(), true);
         } else if (core_module_name == "env") {
             Module::Env::generate_env_functions(nullptr, module.get(), true);
+        } else if (core_module_name == "math") {
+            Module::Math::generate_math_functions();
         }
     }
     // Forward declare all functions from all files where this file has a weak reference to

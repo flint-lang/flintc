@@ -61,7 +61,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                 // Check for imported core modules
                 const std::string &module_str = import_vec.back();
                 if (module_str != "print" && module_str != "read" && module_str != "assert" && module_str != "filesystem" &&
-                    module_str != "env" && module_str != "system") {
+                    module_str != "env" && module_str != "system" && module_str != "math") {
                     const auto &tok = definition_tokens.first + 3;
                     THROW_ERR(ErrDefUnexpectedCoreModule, ERR_PARSING, file_name, tok->line, tok->column, module_str);
                     return false;
@@ -201,6 +201,7 @@ bool Parser::create_core_module_types(FileNode &file_node, const std::string &co
         {"filesystem", false},
         {"env", false},
         {"system", false},
+        {"math", true},
     };
     auto added = types_added.find(core_lib_name);
     if (added == types_added.end()) {

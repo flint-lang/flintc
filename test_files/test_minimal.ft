@@ -1,14 +1,11 @@
 use Core.print
-
-data Point:
-	i32 x;
-	i32 y;
-	i32 z;
-	Point(x, y, z);
-
-def create_point(i32 x, i32 y, i32 z) -> Point:
-	return Point(x, y, z);
+use Core.math
 
 def main():
-    Point p = create_point(5, 7, 9);
-    print($"Point(x: {p.x}, y: {p.y}, z: {p.z})\n");
+	f32 x = 3.0;
+	f32 y = 3.0;
+	f32 z = x ** y;
+	print($"{x} ** {y} = {z}\n");
+
+	f32 angle = 0.5236;
+	print($"sin({angle}) = {sin(angle)}\n");

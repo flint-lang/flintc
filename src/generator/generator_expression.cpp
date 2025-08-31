@@ -816,6 +816,45 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
+        } else if (module_name == "math") {
+            std::string fn_name = call_node->function_name;
+            bool fn_found = Module::Math::math_functions.find(fn_name) != Module::System::system_functions.end();
+            if (!fn_found && !call_node->arguments.empty()) {
+                fn_name = fn_name + "_" + call_node->arguments.front().first->type->to_string();
+                fn_found = Module::Math::math_functions.find(fn_name) != Module::System::system_functions.end();
+            }
+            if (fn_found) {
+                size_t idx = 0;
+                if (std::get<1>(builtin_function.value()).size() > 1) {
+                    bool found = false;
+                    for (const auto &fn : std::get<1>(builtin_function.value())) {
+                        auto arg_types = std::get<0>(fn);
+                        if (arg_types.size() > 1) {
+                            idx++;
+                            continue;
+                        }
+                        if (arg_types.front() == call_node->arguments.front().first->type->to_string()) {
+                            found = true;
+                            break;
+                        }
+                        idx++;
+                    }
+                    if (!found) {
+                        THROW_BASIC_ERR(ERR_GENERATING);
+                        return std::nullopt;
+                    }
+                }
+                if (!std::get<2>(std::get<1>(builtin_function.value()).at(idx)).empty()) {
+                    // Function returns error
+                    func_decl = Module::Math::math_functions.at(fn_name);
+                    function_origin = FunctionOrigin::BUILTIN;
+                } else {
+                    // Function does not return error
+                    func_decl = Module::Math::math_functions.at(fn_name);
+                    return_value.emplace_back(builder.CreateCall(func_decl, args));
+                    return return_value;
+                }
+            }
         } else {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;

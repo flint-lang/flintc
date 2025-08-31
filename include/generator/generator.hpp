@@ -168,6 +168,14 @@ class Generator {
         {CFunction::SETENV, nullptr},
         {CFunction::POPEN, nullptr},
         {CFunction::PCLOSE, nullptr},
+        {CFunction::SIN, nullptr},
+        {CFunction::SINF, nullptr},
+        {CFunction::COS, nullptr},
+        {CFunction::COSF, nullptr},
+        {CFunction::SQRT, nullptr},
+        {CFunction::SQRTF, nullptr},
+        {CFunction::POW, nullptr},
+        {CFunction::POWF, nullptr},
     };
 
     /// @struct `GenerationContext`
@@ -2751,6 +2759,44 @@ class Generator {
                 llvm::Module *module,              //
                 const bool only_declarations       //
             );
+        };
+
+        /// @class `Math`
+        /// @brief The class which is responsible for generating everything related to the `math` core module
+        /// @note This class cannot be initialized and all functions within this class are static
+        // The constructor is deleted to make this class non-initializable
+        class Math {
+          public:
+            Math() = delete;
+
+            /// @var `math_functions`
+            /// @brief Map containing references to all math functions
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the function
+            /// - **Value** `llvm::Function *` - The reference to the genereated function
+            ///
+            /// @attention The functions are nullpointers until the `generate_math_functions` function is called
+            /// @attention The map is not being cleared after the program module has been generated
+            static inline std::unordered_map<std::string_view, llvm::Function *> math_functions = {
+                {"sin_f32", nullptr},
+                {"sin_f64", nullptr},
+                {"cos_f32", nullptr},
+                {"cos_f64", nullptr},
+                {"sqrt_f32", nullptr},
+                {"sqrt_f64", nullptr},
+            };
+
+            /// @function `generate_math_functions`
+            /// @brief Generates the builtin math functions
+            static void generate_math_functions() {
+                math_functions["sin_f32"] = c_functions.at(SINF);
+                math_functions["sin_f64"] = c_functions.at(SIN);
+                math_functions["cos_f32"] = c_functions.at(COSF);
+                math_functions["cos_f64"] = c_functions.at(COS);
+                math_functions["sqrt_f32"] = c_functions.at(SQRTF);
+                math_functions["sqrt_f64"] = c_functions.at(SQRT);
+            }
         };
 
         /// @class `Print`

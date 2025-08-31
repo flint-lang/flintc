@@ -517,6 +517,92 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *pclose_fn = llvm::Function::Create(pclose_type, llvm::Function::ExternalLinkage, "pclose", module);
         c_functions[PCLOSE] = pclose_fn;
     }
+    // sin
+    {
+        llvm::FunctionType *sin_type = llvm::FunctionType::get( //
+            llvm::Type::getDoubleTy(context),                   // return double
+            {llvm::Type::getDoubleTy(context)},                 // double x
+            false                                               // No vaarg
+        );
+        llvm::Function *sin_fn = llvm::Function::Create(sin_type, llvm::Function::ExternalLinkage, "sin", module);
+        c_functions[SIN] = sin_fn;
+    }
+    // sinf
+    {
+        llvm::FunctionType *sinf_type = llvm::FunctionType::get( //
+            llvm::Type::getFloatTy(context),                     // return float
+            {llvm::Type::getFloatTy(context)},                   // float x
+            false                                                // No vaarg
+        );
+        llvm::Function *sinf_fn = llvm::Function::Create(sinf_type, llvm::Function::ExternalLinkage, "sinf", module);
+        c_functions[SINF] = sinf_fn;
+    }
+    // cos
+    {
+        llvm::FunctionType *cos_type = llvm::FunctionType::get( //
+            llvm::Type::getDoubleTy(context),                   // return double
+            {llvm::Type::getDoubleTy(context)},                 // double x
+            false                                               // No vaarg
+        );
+        llvm::Function *cos_fn = llvm::Function::Create(cos_type, llvm::Function::ExternalLinkage, "cos", module);
+        c_functions[COS] = cos_fn;
+    }
+    // cosf
+    {
+        llvm::FunctionType *cosf_type = llvm::FunctionType::get( //
+            llvm::Type::getFloatTy(context),                     // return float
+            {llvm::Type::getFloatTy(context)},                   // float x
+            false                                                // No vaarg
+        );
+        llvm::Function *cosf_fn = llvm::Function::Create(cosf_type, llvm::Function::ExternalLinkage, "cosf", module);
+        c_functions[COSF] = cosf_fn;
+    }
+    // sqrt
+    {
+        llvm::FunctionType *sqrt_type = llvm::FunctionType::get( //
+            llvm::Type::getDoubleTy(context),                    // return double
+            {llvm::Type::getDoubleTy(context)},                  // double x
+            false                                                // No vaarg
+        );
+        llvm::Function *sqrt_fn = llvm::Function::Create(sqrt_type, llvm::Function::ExternalLinkage, "sqrt", module);
+        c_functions[SQRT] = sqrt_fn;
+    }
+    // sqrtf
+    {
+        llvm::FunctionType *sqrtf_type = llvm::FunctionType::get( //
+            llvm::Type::getFloatTy(context),                      // return float
+            {llvm::Type::getFloatTy(context)},                    // float x
+            false                                                 // No vaarg
+        );
+        llvm::Function *sqrtf_fn = llvm::Function::Create(sqrtf_type, llvm::Function::ExternalLinkage, "sqrtf", module);
+        c_functions[SQRTF] = sqrtf_fn;
+    }
+    // pow
+    {
+        llvm::FunctionType *pow_type = llvm::FunctionType::get( //
+            llvm::Type::getDoubleTy(context),                   // return double
+            {
+                llvm::Type::getDoubleTy(context), // double x
+                llvm::Type::getDoubleTy(context)  // double y
+            },
+            false // No vaarg
+        );
+        llvm::Function *pow_fn = llvm::Function::Create(pow_type, llvm::Function::ExternalLinkage, "pow", module);
+        c_functions[POW] = pow_fn;
+    }
+    // powf
+    {
+        llvm::FunctionType *powf_type = llvm::FunctionType::get( //
+            llvm::Type::getFloatTy(context),                     // return float
+            {
+                llvm::Type::getFloatTy(context), // float x
+                llvm::Type::getFloatTy(context)  // float y
+            },
+            false // No vaarg
+        );
+        llvm::Function *powf_fn = llvm::Function::Create(powf_type, llvm::Function::ExternalLinkage, "powf", module);
+        c_functions[POWF] = powf_fn;
+    }
 }
 
 bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
@@ -546,6 +632,16 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     c_functions[FWRITE] = module->getFunction("fwrite");
     c_functions[GETENV] = module->getFunction("getenv");
     c_functions[SETENV] = module->getFunction("setenv");
+    c_functions[POPEN] = module->getFunction("popen");
+    c_functions[PCLOSE] = module->getFunction("pclose");
+    c_functions[SIN] = module->getFunction("sin");
+    c_functions[SINF] = module->getFunction("sinf");
+    c_functions[COS] = module->getFunction("cos");
+    c_functions[COSF] = module->getFunction("cosf");
+    c_functions[SQRT] = module->getFunction("sqrt");
+    c_functions[SQRTF] = module->getFunction("sqrtf");
+    c_functions[POW] = module->getFunction("pow");
+    c_functions[POWF] = module->getFunction("powf");
     for (auto &c_function : c_functions) {
         if (c_function.second == nullptr) {
             return false;

@@ -443,6 +443,7 @@ std::optional<std::vector<std::string>> Linker::get_linux_args( //
         args.push_back("-L/usr/lib");
         args.push_back("-L/usr/lib/x86_64-linux-gnu");
         args.push_back("-lc");
+        args.push_back("-lm");
         args.push_back("-l:crt1.o");
         args.push_back("-l:crti.o");
         args.push_back("-l:crtn.o");
