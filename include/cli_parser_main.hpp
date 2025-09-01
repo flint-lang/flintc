@@ -74,6 +74,8 @@ class CLIParserMain : public CLIParserBase {
                 }
             } else if (arg == "--version") {
                 print_version = true;
+            } else if (arg == "--print-fip-version") {
+                print_fip_version = true;
             } else if (arg == "--run") {
                 run = true;
             } else if (arg == "--parallel") {
@@ -200,7 +202,7 @@ class CLIParserMain : public CLIParserBase {
                 return 1;
             }
         }
-        if (source_file_path.empty() && !print_version) {
+        if (source_file_path.empty() && !print_version && !print_fip_version) {
             print_err("There is no file to compile!");
             return 1;
         }
@@ -217,6 +219,7 @@ class CLIParserMain : public CLIParserBase {
     bool parallel{false};
     bool is_static{false};
     bool print_version{false};
+    bool print_fip_version{false};
 
   private:
     void print_help() override {
@@ -237,6 +240,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --parallel                  Compile in parallel (only recommended for bigger projects)\n";
         std::cout << "  --static                    Build the executable as static\n";
         std::cout << "  --rebuild-core              Rebuild all the core modules\n";
+        std::cout << "  --print-fip-version         Prints the version of the FIP this compiler uses\n";
         std::cout << "  --print-libbuiltins-path    Prints the path to the directory where the libbuiltins.a file is saved at\n";
         std::cout << "  --no-colors                 Disables colored console output\n";
         std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code\n";

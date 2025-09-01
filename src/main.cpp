@@ -203,6 +203,11 @@ int main(int argc, char *argv[]) {
         std::cout << std::endl;
         return 0;
     }
+    // Print the fip version if requested
+    if (clp.print_fip_version) {
+        std::cout << "fip " << FIP_MAJOR << "." << FIP_MINOR << "." << FIP_PATCH << std::endl;
+        return 0;
+    }
 
     Profiler::start_task("ALL");
     if (!FIP::init()) {
