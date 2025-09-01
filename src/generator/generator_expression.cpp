@@ -480,11 +480,11 @@ void Generator::Expression::convert_type_to_ext( //
                 llvm::Value *result = IR::get_default_value_of_type(vec2_type);
                 llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
                 llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
-                result = builder.CreateInsertElement(result, elem_1, static_cast<unsigned int>(0));
+                result = builder.CreateInsertElement(result, elem_1, static_cast<size_t>(0));
                 elem_idx++;
                 llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
                 llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
-                result = builder.CreateInsertElement(result, elem_2, static_cast<unsigned int>(1));
+                result = builder.CreateInsertElement(result, elem_2, static_cast<size_t>(1));
                 args.emplace_back(result);
                 elem_idx++;
             } else {
@@ -522,11 +522,11 @@ void Generator::Expression::convert_type_to_ext( //
                 llvm::Value *result = IR::get_default_value_of_type(vec2_type);
                 llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
                 llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
-                result = builder.CreateInsertElement(result, elem_1, static_cast<unsigned int>(0));
+                result = builder.CreateInsertElement(result, elem_1, static_cast<size_t>(0));
                 elem_idx++;
                 llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
                 llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
-                result = builder.CreateInsertElement(result, elem_2, static_cast<unsigned int>(1));
+                result = builder.CreateInsertElement(result, elem_2, static_cast<size_t>(1));
                 args.emplace_back(result);
                 elem_idx++;
             } else {
