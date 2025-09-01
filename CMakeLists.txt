@@ -40,83 +40,131 @@ add_compile_definitions(
     BUILD_DATE="${BUILD_DATE}"
 )
 
+# Add DNDEBUG when not debug mode
+if(NOT DEBUG_MODE)
+    add_compile_definitions(NDEBUG)
+    # Make sure the linker also uses LTO
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -flto -Wl,--gc-sections")
+endif()
+
 # Platform-specific settings
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     message(STATUS "Compiling for Windows target")
     add_definitions(-D_WIN32)
     set(PLATFORM_LIBS "")
     # Windows-specific compiler flags for MinGW
-    set(BASE_CXX_FLAGS
-        -g
-        -O1
-        -Wall         # Keep basic warnings
-        -Wextra       # Extra warnings
-        # Remove -Werror to allow warnings in LLVM headers
-        -Wno-unused-parameter  # Suppress specific warnings common in LLVM
-        -Wno-unused-variable
-        -Wno-deprecated-declarations
-        -fno-omit-frame-pointer
-        -funwind-tables
-        # No -fstandalone-debug for MinGW
-        -D_GNU_SOURCE
-        -D__STDC_CONSTANT_MACROS
-        -D__STDC_FORMAT_MACROS
-        -D__STDC_LIMIT_MACROS
-    )
+    if(DEBUG_MODE)
+        set(BASE_CXX_FLAGS
+            -g
+            -O1
+            -Wall         # Keep basic warnings
+            -Wextra       # Extra warnings
+            # Remove -Werror to allow warnings in LLVM headers
+            -Wno-unused-parameter  # Suppress specific warnings common in LLVM
+            -Wno-unused-variable
+            -Wno-deprecated-declarations
+            -fno-omit-frame-pointer
+            -funwind-tables
+            -ffunction-sections
+            -fdata-sections
+            # No -fstandalone-debug for MinGW
+            -D_GNU_SOURCE
+            -D__STDC_CONSTANT_MACROS
+            -D__STDC_FORMAT_MACROS
+            -D__STDC_LIMIT_MACROS
+        )
+    else()
+        # Release-ish flags for Windows
+        set(BASE_CXX_FLAGS
+            -O3
+            -DNDEBUG
+            -march=native
+            -flto
+            -pipe
+            -fno-omit-frame-pointer
+            -Wall
+            -Wextra
+            -Wno-deprecated-declarations
+            -funwind-tables
+            -ffunction-sections
+            -fdata-sections
+            -D_GNU_SOURCE
+            -D__STDC_CONSTANT_MACROS
+            -D__STDC_FORMAT_MACROS
+            -D__STDC_LIMIT_MACROS
+        )
+        # add -s to strip at link if desired: set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s")
+    endif()
 else()
     message(STATUS "Compiling for Linux target")
     set(PLATFORM_LIBS dl)
     # Linux/Unix compiler flags including Clang-specific options
-    set(BASE_CXX_FLAGS
-        -g
-        -O0
-        -Werror
-        -Wall         # Enable most warnings
-        -Wextra       # Enable extra warnings
-        -Wshadow      # Warn about shadow variables
-        -Wcast-align  # Warn about pointer casts that increase alignment requirement
-        -Wcast-qual   # Warn about casts that remove const qualifier
-        -Wunused      # Warn about unused variables
-        -Wold-style-cast  # Warn about C-style casts
-        -Wdouble-promotion # Warn about float being implicitly promoted to double
-        -Wformat=2    # Warn about printf/scanf/strftime/strfmon format string issue
-        -Wundef       # Warn if an undefined identifier is evaluated in an #if
-        -Wpointer-arith # Warn about sizeof(void) and add/sub with void*
-        -Wunreachable-code # Warn about unreachable code
-        -Wno-deprecated-declarations  # Ignore deprecation warnings
-        -Wno-deprecated  # Ignore general deprecation warnings
-        -fno-omit-frame-pointer
-        -funwind-tables
-        -fstandalone-debug # Only for Clang on Linux
-        -D_GNU_SOURCE
-        -D__STDC_CONSTANT_MACROS
-        -D__STDC_FORMAT_MACROS
-        -D__STDC_LIMIT_MACROS
-    )
+    if(DEBUG_MODE)
+        set(BASE_CXX_FLAGS
+            -g
+            -O0
+            -Werror
+            -Wall         # Enable most warnings
+            -Wextra       # Enable extra warnings
+            -Wshadow      # Warn about shadow variables
+            -Wcast-align  # Warn about pointer casts that increase alignment requirement
+            -Wcast-qual   # Warn about casts that remove const qualifier
+            -Wunused      # Warn about unused variables
+            -Wold-style-cast  # Warn about C-style casts
+            -Wdouble-promotion # Warn about float being implicitly promoted to double
+            -Wformat=2    # Warn about printf/scanf/strftime/strfmon format string issue
+            -Wundef       # Warn if an undefined identifier is evaluated in an #if
+            -Wpointer-arith # Warn about sizeof(void) and add/sub with void*
+            -Wunreachable-code # Warn about unreachable code
+            -Wno-deprecated-declarations  # Ignore deprecation warnings
+            -Wno-deprecated  # Ignore general deprecation warnings
+            -fno-omit-frame-pointer
+            -funwind-tables
+            -ffunction-sections
+            -fdata-sections
+            -fstandalone-debug # Only for Clang on Linux
+            -D_GNU_SOURCE
+            -D__STDC_CONSTANT_MACROS
+            -D__STDC_FORMAT_MACROS
+            -D__STDC_LIMIT_MACROS
+        )
+    else()
+        # Release flags for Linux
+        set(BASE_CXX_FLAGS
+            -O3
+            -DNDEBUG
+            -march=native         # enable CPU tuning
+            -flto                 # cross-module LTO
+            -ffunction-sections
+            -fdata-sections
+            -Wall
+            -Wextra
+            -Wno-deprecated-declarations
+            -funwind-tables
+            -ffunction-sections
+            -fdata-sections
+            -D_GNU_SOURCE
+            -D__STDC_CONSTANT_MACROS
+            -D__STDC_FORMAT_MACROS
+            -D__STDC_LIMIT_MACROS
+        )
+    endif()
 endif()
 
 add_library(external_deps STATIC vendor/sources/fip/toml/tomlc17.c)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    set(EXTERNAL_CXX_FLAGS
-        -g
-        -O1
-        -w  # Suppress all warnings
-        -D_GNU_SOURCE
-        -D__STDC_CONSTANT_MACROS
-        -D__STDC_FORMAT_MACROS
-        -D__STDC_LIMIT_MACROS
-    )
+    if(DEBUG_MODE)
+        set(EXTERNAL_CXX_FLAGS -g -O1 -w -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS)
+    else()
+        set(EXTERNAL_CXX_FLAGS -O3 -DNDEBUG -w -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS)
+    endif()
 else()
-    set(EXTERNAL_CXX_FLAGS
-        -g
-        -O0
-        -w  # Suppress all warnings
-        -D_GNU_SOURCE
-        -D__STDC_CONSTANT_MACROS
-        -D__STDC_FORMAT_MACROS
-        -D__STDC_LIMIT_MACROS
-    )
+    if(DEBUG_MODE)
+        set(EXTERNAL_CXX_FLAGS -g -O0 -w -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS)
+    else()
+        set(EXTERNAL_CXX_FLAGS -O3 -DNDEBUG -w -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS)
+    endif()
 endif()
 
 target_compile_options(external_deps PRIVATE ${EXTERNAL_CXX_FLAGS})
