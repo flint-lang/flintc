@@ -1,61 +1,37 @@
-#include <stdbool.h>
-#include <stddef.h>
+typedef struct BigStruct {
+    float x, y, z;
+    int r, g, b, a;
+} BigStruct;
+
+BigStruct add_big(const BigStruct b1, const BigStruct b2) {
+    BigStruct result = {0};
+    result.x = b1.x + b2.x;
+    result.y = b1.y + b2.y;
+    result.z = b1.z + b2.z;
+    result.r = b1.r + b2.r;
+    result.g = b1.g + b2.g;
+    result.b = b1.b + b2.b;
+    result.a = b1.a + b2.a;
+    return result;
+}
+
 #include <stdio.h>
 
-void InitWindow(int width, int height, const char *title) {
-    printf("Init Window\n");
-    printf("width: %i, height: %i, title: %s\n", width, height, title);
-}
-
-bool WindowShouldClose(void) {
-    printf("Window Should Close\n");
-    return false;
-}
-
-void BeginDrawing(void) {
-    printf("Begin Drawing\n");
-}
-
-typedef struct Color {
-    unsigned char r; // Color red value
-    unsigned char g; // Color green value
-    unsigned char b; // Color blue value
-    unsigned char a; // Color alpha value
-} Color;
-
-void ClearBackground(Color color) {
-    printf("Clear Background\n");
-    printf("color.(r, g, b, a): (%d, %d, %d, %d)\n", color.r, color.g, color.b, color.a);
-}
-
-void DrawText(const char *text, int posX, int posY, int fontSize, Color color) {
-    printf("Draw Text\n");
-    printf("text: %s\n", text);
-    printf("pos: (%d, %d)\n", posX, posY);
-    printf("fontSize: %d\n", fontSize);
-    printf("color.(r, g, b, a): (%d, %d, %d, %d)\n", color.r, color.g, color.b, color.a);
-}
-
-void EndDrawing(void) {
-    printf("End Drawing\n");
-}
-
-void CloseWindow(void) {
-    printf("Close Window\n");
-}
-
-bool IsWindowReady(void) {
-    return true;
-}
-
-typedef struct {
-    int x, y;
-    int z;
+typedef struct TestStruct {
+    char x;
+    int y;
+    char z, w;
+    int a;
 } TestStruct;
 
-TestStruct test_struct(const TestStruct t1, const TestStruct t2) {
-    // TestStruct result = {t1.x + t2.x, t1.y + t2.y};
-    // return result;
+TestStruct test_add(const TestStruct s1, const TestStruct s2) {
+    printf("s1.(x, y, z, w, a) = (%d, %i, %d, %d, %i)\n", s1.x, s1.y, s1.z, s1.w, s1.a);
+    printf("s2.(x, y, z, w, a) = (%d, %i, %d, %d, %i)\n", s2.x, s2.y, s2.z, s2.w, s2.a);
     TestStruct result = {0};
+    result.x = (char)(s1.x + s2.x);
+    result.y = s1.y + s2.y;
+    result.z = (char)(s1.z + s2.z);
+    result.w = (char)(s1.w + s2.w);
+    result.a = s1.a + s2.a;
     return result;
 }

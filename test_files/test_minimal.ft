@@ -1,13 +1,19 @@
 use Core.print
-use Core.math
+
+data TestStruct:
+	u8 x;
+	i32 y;
+	u8 z;
+	u8 w;
+	i32 a;
+	TestStruct(x, y, z, w, a);
+
+extern def test_add(TestStruct s1, TestStruct s2) -> TestStruct;
 
 def main():
-	u8x4 grey = u8x4(100, 120, 140, 255);
-	print($"grey = {grey}\n");
-	f32 x = 27.0;
-	f32 y = 1.0 / 3.0;
-	f32 z = x ** y;
-	print($"{x} ** {y} = {z}\n");
-
-	f32 angle = 0.5236;
-	print($"sin({angle}) = {sin(angle)}\n");
+	TestStruct s1 = TestStruct(10, 20, 30, 40, 50);
+	print($"s1.(x, y, z, w, a) = ({i32(s1.x)}, {s1.y}, {i32(s1.z)}, {i32(s1.w)}, {s1.a})\n");
+	TestStruct s2 = TestStruct(20, 30, 40, 50, 60);
+	print($"s2.(x, y, z, w, a) = ({i32(s2.x)}, {s2.y}, {i32(s2.z)}, {i32(s2.w)}, {s2.a})\n");
+	TestStruct res = test_add(s1, s2);
+	print($"res.(x, y, z, w, a) = ({i32(res.x)}, {res.y}, {i32(res.z)}, {i32(res.w)}, {res.a})\n");

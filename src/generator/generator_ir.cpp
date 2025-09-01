@@ -300,6 +300,8 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         }
         // Because we only need to fill two 8-byte containers we can have an array here again
         std::array<llvm::Type *, 2> types;
+        types[0] = nullptr;
+        types[1] = nullptr;
         if (stacks[0].size() == 1) {
             if (elem_types.front()->isFloatingPointTy()) {
                 types[0] = llvm::Type::getDoubleTy(context);
@@ -312,6 +314,8 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
             } else {
                 types[0] = llvm::Type::getInt64Ty(context);
             }
+        } else {
+            types[0] = llvm::Type::getInt64Ty(context);
         }
         if (stacks[1].size() == 1) {
             types[1] = elem_types.at(stacks[0].size());
@@ -321,8 +325,11 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
             } else {
                 types[1] = llvm::Type::getInt64Ty(context);
             }
+        } else {
+            types[1] = llvm::Type::getInt64Ty(context);
         }
-        assert(types[0] != nullptr && types[1] != nullptr);
+        assert(types[0] != nullptr);
+        assert(types[1] != nullptr);
 
         // Create a struct of the computed stack types
         std::vector<llvm::Type *> types_vec;

@@ -1481,13 +1481,13 @@ class Generator {
         /// @brief Converts the given type to be compatible with external types, e.g. the SystemV ABI
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `module` The module in which the type to convert
+        /// @param `ctx` The contet of the expression generation
         /// @param `type` The type to convert
         /// @param `value` The value to convert
         /// @param `args` The output arguments in which to place the converted value(s)
         static void convert_type_to_ext(       //
             llvm::IRBuilder<> &builder,        //
-            llvm::Module *module,              //
+            GenerationContext &ctx,            //
             const std::shared_ptr<Type> &type, //
             llvm::Value *const value,          //
             std::vector<llvm::Value *> &args   //
@@ -1497,14 +1497,15 @@ class Generator {
         /// @brief Converts the returned value from the external type to the expected return type
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `module` The module in which the type to convert
+        /// @param `ctx` The contet of the expression generation
         /// @param `type` The Flint type we want the value to be converted to
-        /// @param `value` The (return) value which needs to be converted from the external to the internal type
+        /// @param `value` The (return) value which needs to be converted from the external to the internal type. It's a reference to a
+        /// pointer because it needs to be overwritten with a new pointer location to point at
         static void convert_type_from_ext(     //
             llvm::IRBuilder<> &builder,        //
-            llvm::Module *module,              //
+            GenerationContext &ctx,            //
             const std::shared_ptr<Type> &type, //
-            llvm::Value *value                 //
+            llvm::Value *&value                //
         );
 
         /// @function `generate_extern_call`

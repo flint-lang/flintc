@@ -344,21 +344,28 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
 
 void Generator::Expression::convert_type_to_ext( //
     llvm::IRBuilder<> &builder,                  //
-    llvm::Module *module,                        //
+    GenerationContext &ctx,                      //
     const std::shared_ptr<Type> &type,           //
     llvm::Value *const value,                    //
     std::vector<llvm::Value *> &args             //
 ) {
     if (dynamic_cast<const DataType *>(type.get())) {
         // get the LLVM struct type and its elements
-        llvm::Type *_struct_type = IR::get_type(module, type, false).first;
+        llvm::Type *_struct_type = IR::get_type(ctx.parent->getParent(), type, false).first;
         assert(_struct_type->isStructTy());
-        size_t struct_size = Allocation::get_type_size(module, _struct_type);
+        size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
         if (struct_size > 16) {
             // The 16-byte-rule applies. We have not implemented it yet
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return;
         }
+        llvm::BasicBlock *current_block = builder.GetInsertBlock();
+        llvm::BasicBlock *convert_type_to_ext_block = llvm::BasicBlock::Create(context, "convert_type_to_ext", ctx.parent);
+        llvm::BasicBlock *convert_type_to_ext_merge_block = llvm::BasicBlock::Create(context, "convert_type_to_ext_merge", ctx.parent);
+        builder.SetInsertPoint(current_block);
+        builder.CreateBr(convert_type_to_ext_block);
+        builder.SetInsertPoint(convert_type_to_ext_block);
+
         // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
         // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
         // the element within the output 8-byte pack, so we create two stacks because for data greater than 16 bytes the 16-byte-rule
@@ -373,7 +380,7 @@ void Generator::Expression::convert_type_to_ext( //
 
         size_t elem_idx = 0;
         for (; elem_idx < elem_types.size(); elem_idx++) {
-            size_t elem_size = Allocation::get_type_size(module, elem_types.at(elem_idx));
+            size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
             // We can only pack the element into the stack if there is enough space left
             if (8 - offset < elem_size) {
                 break;
@@ -404,7 +411,7 @@ void Generator::Expression::convert_type_to_ext( //
         }
         offset = 0;
         for (; elem_idx < elem_types.size(); elem_idx++) {
-            size_t elem_size = Allocation::get_type_size(module, elem_types.at(elem_idx));
+            size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
             // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
             // applied
             assert(8 - offset >= elem_size);
@@ -458,6 +465,7 @@ void Generator::Expression::convert_type_to_ext( //
         }
         // Because we only need to fill two 8-byte containers we can resolve a few edge-cases upfront
         elem_idx = 0;
+        const size_t stacks_0_size = stacks[0].size();
         if (stacks[0].size() == 1) {
             llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
             llvm::Value *elem = IR::aligned_load(builder, elem_types.at(elem_idx), elem_ptr);
@@ -478,10 +486,27 @@ void Generator::Expression::convert_type_to_ext( //
                 args.emplace_back(result);
                 elem_idx++;
             } else {
-                // The two elements need to be stored in the i64 result value at their correct positions
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return;
+                goto stack_0_generic;
             }
+        } else {
+        stack_0_generic:
+            llvm::Value *result = builder.getInt64(0);
+            for (; elem_idx < stacks_0_size; elem_idx++) {
+                const size_t actual_elem_idx = stacks_0_size - elem_idx - 1;
+                llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
+                llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
+                llvm::Value *elem_big = builder.CreateZExt(elem, builder.getInt64Ty());
+                if (actual_elem_idx == stacks_0_size - 1) {
+                    // Shift left by the amount in the stacks
+                    elem_big = builder.CreateShl(elem_big, stacks[0].top() * 8);
+                }
+                // Bitwise or with the result to form the new result contianing the shifted element in it
+                result = builder.CreateOr(result, elem_big);
+                stacks[0].pop();
+            }
+            result->setName("stack_0_result");
+            args.emplace_back(result);
+            assert(stacks[0].empty());
         }
         if (stacks[1].size() == 1) {
             llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
@@ -489,7 +514,7 @@ void Generator::Expression::convert_type_to_ext( //
             args.emplace_back(elem);
             elem_idx++;
         } else if (stacks[1].size() == 2) {
-            if (elem_types.front()->isFloatTy() && elem_types.at(1)->isFloatTy()) {
+            if (elem_types.at(stacks_0_size)->isFloatTy() && elem_types.at(stacks_0_size + 1)->isFloatTy()) {
                 // We can create a single `<2 x float>` vector as the argument
                 llvm::Type *vec2_type = llvm::VectorType::get(elem_types.at(elem_idx), 2, false);
                 llvm::Value *result = IR::get_default_value_of_type(vec2_type);
@@ -503,12 +528,32 @@ void Generator::Expression::convert_type_to_ext( //
                 args.emplace_back(result);
                 elem_idx++;
             } else {
-                // The two elements need to be stored in the i64 result value at their correct positions
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return;
+                goto stack_1_generic;
             }
+        } else {
+        stack_1_generic:
+            llvm::Value *result = builder.getInt64(0);
+            const size_t stack_size = stacks[1].size();
+            for (; elem_idx < stacks_0_size + stack_size; elem_idx++) {
+                const size_t actual_elem_idx = stacks_0_size * 2 + stack_size - elem_idx - 1;
+                llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
+                llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
+                llvm::Value *elem_big = builder.CreateZExt(elem, builder.getInt64Ty());
+                if (actual_elem_idx != stacks_0_size - 1) {
+                    // Shift left by the amount in the stacks
+                    elem_big = builder.CreateShl(elem_big, stacks[1].top() * 8);
+                }
+                // Bitwise or with the result to form the new result contianing the shifted element in it
+                result = builder.CreateOr(result, elem_big);
+                stacks[1].pop();
+            }
+            result->setName("stack_1_result");
+            args.emplace_back(result);
+            assert(stacks[1].empty());
         }
         assert(elem_idx == elem_types.size());
+        builder.CreateBr(convert_type_to_ext_merge_block);
+        builder.SetInsertPoint(convert_type_to_ext_merge_block);
         return;
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
         // Multi-types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
@@ -517,7 +562,7 @@ void Generator::Expression::convert_type_to_ext( //
         // A vector type of size 2 can be passed to the function directly and does not need to be converted at all
         // A vector type of size 3 is split into a two-component vector type + a scalar value
         // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
-        llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
+        llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
         const std::string base_type_str = multi_type->base_type->to_string();
         if (base_type_str == "f64" || base_type_str == "i64") {
             for (size_t i = 0; i < multi_type->width; i++) {
@@ -569,7 +614,7 @@ void Generator::Expression::convert_type_to_ext( //
         return;
     } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
         if (type->to_string() == "str") {
-            llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
             args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
             return;
         }
@@ -579,14 +624,196 @@ void Generator::Expression::convert_type_to_ext( //
 
 void Generator::Expression::convert_type_from_ext( //
     llvm::IRBuilder<> &builder,                    //
-    llvm::Module *module,                          //
+    GenerationContext &ctx,                        //
     const std::shared_ptr<Type> &type,             //
-    llvm::Value *value                             //
+    llvm::Value *&value                            //
 ) {
-    if ([[maybe_unused]] const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
+    if (dynamic_cast<const DataType *>(type.get())) {
+        // get the LLVM struct type and its elements
+        llvm::Type *_struct_type = IR::get_type(ctx.parent->getParent(), type, false).first;
+        assert(_struct_type->isStructTy());
+        size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
+        if (struct_size > 16) {
+            // The 16-byte-rule applies. We have not implemented it yet
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return;
+        }
+        llvm::BasicBlock *current_block = builder.GetInsertBlock();
+        llvm::BasicBlock *convert_type_from_ext_block = llvm::BasicBlock::Create(context, "convert_type_from_ext", ctx.parent);
+        llvm::BasicBlock *convert_type_from_ext_merge_block = llvm::BasicBlock::Create(context, "convert_type_from_ext_merge", ctx.parent);
+        builder.SetInsertPoint(current_block);
+        builder.CreateBr(convert_type_from_ext_block);
+        builder.SetInsertPoint(convert_type_from_ext_block);
+        llvm::Value *result_ptr = builder.CreateCall(c_functions.at(MALLOC), {builder.getInt64(struct_size)}, "result_ptr");
 
+        // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
+        // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
+        // the element within the output 8-byte pack, so we create two stacks because for data greater than 16 bytes the 16-byte-rule
+        // applies
+        // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
+        // sub-64-byte packed results like packing 5 u8 values into one i40.
+        llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
+        std::vector<llvm::Type *> elem_types = struct_type->elements();
+        std::array<std::stack<unsigned int>, 2> stacks;
+        unsigned int offset = 0;
+        unsigned int first_size = 0;
+
+        size_t elem_idx = 0;
+        for (; elem_idx < elem_types.size(); elem_idx++) {
+            size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
+            // We can only pack the element into the stack if there is enough space left
+            if (8 - offset < elem_size) {
+                break;
+            }
+            // If the current offset is 0 we can simply put in the element into the stack without further checks
+            if (offset == 0) {
+                stacks[0].push(0);
+                offset += elem_size;
+                first_size += elem_size;
+                continue;
+            }
+            // Now we simply need to check where in the 8 byte structure we need to put the elements in. We can do this by calculating the
+            // padding based on the type alignment, the alignment is just the elem_size in our case because we work with types <= 8 bytes in
+            // size.
+            // If the offset is divisible by the element size it does not need to be changed. If it is not divisible we need to clamp it to
+            // the next divisible offset value, so if current offset is 2 but element size is 4 the offset needs to be clamped to 4
+            uint8_t elem_offset = offset;
+            if (offset % elem_size != 0) {
+                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+            }
+            if (elem_offset == 8) {
+                // This element does not fit into this stack, we need to put it into the next stack
+                break;
+            }
+            stacks[0].push(elem_offset);
+            offset = elem_offset + elem_size;
+            first_size = elem_offset + elem_size;
+        }
+        offset = 0;
+        for (; elem_idx < elem_types.size(); elem_idx++) {
+            size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
+            // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
+            // applied
+            assert(8 - offset >= elem_size);
+            // If the current offset is 0 we can simply put in the element into the stack without further checks
+            if (offset == 0) {
+                stacks[1].push(0);
+                offset += elem_size;
+                continue;
+            }
+            uint8_t elem_offset = offset;
+            if (offset % elem_size != 0) {
+                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+            }
+            // This element does not fit into this stack, this should not happen since it's the last stack
+            assert(elem_offset != 8);
+            stacks[1].push(elem_offset);
+            offset = elem_offset + elem_size;
+        }
+        assert(elem_idx == elem_types.size());
+        elem_idx = 0;
+        // Now we reach the second phase, we have figured out where to put the elements in the respective chunks
+        if (stacks[1].empty()) {
+            // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
+            // we pack multiple u8 values into one, for them we can get even i40, i48 or i56 results
+            if (stacks[0].size() == first_size) {
+                for (; elem_idx < elem_types.size(); elem_idx++) {
+                    // Shift right by the element index to shift it to the beginning position
+                    llvm::Value *elem_shift = builder.CreateLShr(value, elem_idx * 8);
+                    // Now we truncate the result to get the single element which we can store in the output structure
+                    llvm::Value *elem = builder.CreateTrunc(elem_shift, builder.getInt8Ty());
+                    llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, result_ptr, elem_idx);
+                    IR::aligned_store(builder, elem, elem_ptr);
+                }
+                value = result_ptr;
+                return;
+            }
+        }
+        // Because we only need to fill two 8-byte containers we can resolve a few edge-cases upfront
+        elem_idx = 0;
+        const size_t stacks_0_size = stacks[0].size();
+        if (stacks[0].size() == 1) {
+            llvm::Value *elem = builder.CreateExtractValue(value, 0);
+            llvm::Value *res_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            IR::aligned_store(builder, elem, res_ptr);
+            elem_idx++;
+        } else if (stacks[0].size() == 2) {
+            if (elem_types.front()->isFloatTy() && elem_types.at(1)->isFloatTy()) {
+                // We can create a single `<2 x float>` vector as the argument
+                llvm::Value *vec_val = builder.CreateExtractValue(value, 0);
+
+                llvm::Value *elem_1 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
+                llvm::Value *elem_1_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+                IR::aligned_store(builder, elem_1, elem_1_ptr);
+                elem_idx++;
+
+                llvm::Value *elem_2 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
+                llvm::Value *elem_2_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+                IR::aligned_store(builder, elem_2, elem_2_ptr);
+                elem_idx++;
+            } else {
+                goto stack_0_generic;
+            }
+        } else {
+        stack_0_generic:
+            llvm::Value *res = builder.CreateExtractValue(value, 0);
+            for (; elem_idx < stacks_0_size; elem_idx++) {
+                const size_t actual_elem_idx = stacks_0_size - elem_idx - 1;
+                // Shift right by the amount in the stack
+                llvm::Value *elem_big = builder.CreateLShr(res, stacks[0].top() * 8);
+                llvm::Value *elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
+                // Bitwise or with the result to form the new result contianing the shifted element in it
+                llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
+                IR::aligned_store(builder, elem_smol, elem_ptr);
+                stacks[0].pop();
+            }
+            assert(stacks[0].empty());
+        }
+        if (stacks[1].size() == 1) {
+            llvm::Value *elem = builder.CreateExtractValue(value, 1);
+            llvm::Value *res_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            IR::aligned_store(builder, elem, res_ptr);
+            elem_idx++;
+        } else if (stacks[1].size() == 2) {
+            if (elem_types.at(stacks_0_size)->isFloatTy() && elem_types.at(stacks_0_size + 1)->isFloatTy()) {
+                // We can create a single `<2 x float>` vector as the argument
+                llvm::Value *vec_val = builder.CreateExtractValue(value, 1);
+
+                llvm::Value *elem_1 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
+                llvm::Value *elem_1_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+                IR::aligned_store(builder, elem_1, elem_1_ptr);
+                elem_idx++;
+
+                llvm::Value *elem_2 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
+                llvm::Value *elem_2_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+                IR::aligned_store(builder, elem_2, elem_2_ptr);
+                elem_idx++;
+            } else {
+                goto stack_1_generic;
+            }
+        } else {
+        stack_1_generic:
+            llvm::Value *res = builder.CreateExtractValue(value, 1);
+            const size_t stack_size = stacks[1].size();
+            for (; elem_idx < stacks_0_size + stack_size; elem_idx++) {
+                const size_t actual_elem_idx = stacks_0_size * 2 + stack_size - elem_idx - 1;
+                // Shift right by the amount in the stack
+                llvm::Value *elem_big = builder.CreateLShr(res, stacks[1].top() * 8);
+                llvm::Value *elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
+                // Bitwise or with the result to form the new result contianing the shifted element in it
+                llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
+                IR::aligned_store(builder, elem_smol, elem_ptr);
+                stacks[1].pop();
+            }
+            assert(stacks[1].empty());
+        }
+        assert(elem_idx == elem_types.size());
+        value = result_ptr;
+        builder.CreateBr(convert_type_from_ext_merge_block);
+        builder.SetInsertPoint(convert_type_from_ext_merge_block);
+        return;
     } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
-        llvm::Type *element_type = IR::get_type(module, multi_type->base_type).first;
+        llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
         llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
         llvm::VectorType *vec2_i32 = llvm::VectorType::get(builder.getInt32Ty(), 2, false);
         const std::string base_type_str = multi_type->base_type->to_string();
@@ -669,7 +896,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     std::vector<llvm::Value *> converted_args;
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
         const auto &arg = call_node->arguments[i];
-        convert_type_to_ext(builder, ctx.parent->getParent(), arg.first->type, args[i], converted_args);
+        convert_type_to_ext(builder, ctx, arg.first->type, args[i], converted_args);
     }
     auto result = Function::get_function_definition(ctx.parent, call_node);
     if (call_node->type->to_string() == "void") {
@@ -690,13 +917,14 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         // We have multiple returns and need to extract them all and put into the return value vector
         for (unsigned int i = 0; i < group_type->types.size(); i++) {
             llvm::Value *ret_val = builder.CreateExtractValue(call, {i});
-            convert_type_from_ext(builder, ctx.parent->getParent(), group_type->types.at(i), ret_val);
+            convert_type_from_ext(builder, ctx, group_type->types.at(i), ret_val);
             return_value.emplace_back(ret_val);
         }
     } else {
         // We have a single return value and can return that directly, but we need to check it's type still
-        return_value.emplace_back(call);
-        convert_type_from_ext(builder, ctx.parent->getParent(), call_node->type, return_value.back());
+        llvm::Value *ret_val = call;
+        convert_type_from_ext(builder, ctx, call_node->type, ret_val);
+        return_value.emplace_back(ret_val);
     }
     return return_value;
 }

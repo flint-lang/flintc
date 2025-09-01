@@ -1,3 +1,3 @@
 compiler = "clang"
-sources = ["/usr/include/raylib.h"]
+sources = ["test_files/extern.h"]
 compile_flags = ["-g"]
