@@ -2,6 +2,8 @@ use Core.print
 use Core.math
 
 def main():
+	u8x4 grey = u8x4(100, 120, 140, 255);
+	print($"grey = {grey}\n");
 	f32 x = 27.0;
 	f32 y = 1.0 / 3.0;
 	f32 z = x ** y;

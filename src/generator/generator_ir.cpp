@@ -337,6 +337,11 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         // We now see how each multi-type looks
         //
         //  bool8 -> i8 (handled in the normal `get_type` function)
+        //  u8x2 -> i16
+        //  u8x3 -> i24
+        //  u8x4 -> i32
+        //  u8x8 -> i64
+        //
         //  i32x2 -> { i32, i32 } -> i64
         //  i32x3 -> { i32, i32, i32 } -> { i64, i32 }
         //  i32x4 -> { i32, i32, i32, i32 } -> { i64, i64 }
@@ -356,6 +361,9 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         if (type_str == "bool8") {
             // Handle the `bool8` type in the normal `get_type` function
             return std::nullopt;
+        }
+        if (multi_type->base_type->to_string() == "u8") {
+            return llvm::Type::getIntNTy(context, multi_type->width * 8);
         }
         if (type_map.find(type_str) == type_map.end()) {
             std::vector<llvm::Type *> types;

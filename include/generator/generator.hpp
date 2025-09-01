@@ -464,9 +464,6 @@ class Generator {
         ///
         /// @param `type` The Type from which the default value has to be returned
         /// @return `llvm::Value *` The default value of the given Type
-        ///
-        /// @throws ErrGenerating when the given Type has no default value available for it
-        /// @todo Add more types to the function, currently it only works with int, flint and pointer types
         static llvm::Value *get_default_value_of_type(llvm::Type *type);
 
         /// @function `generate_const_string`
@@ -3226,6 +3223,7 @@ class Generator {
             /// @attention The map is not being cleared after the program module has been generated
             static inline std::unordered_map<std::string, llvm::Function *> typecast_functions = {
                 {"count_digits", nullptr},
+                {"u8_to_str", nullptr},
                 {"i32_to_str", nullptr},
                 {"u32_to_str", nullptr},
                 {"i64_to_str", nullptr},
@@ -3234,15 +3232,21 @@ class Generator {
                 {"f64_to_str", nullptr},
                 {"bool_to_str", nullptr},
                 {"bool8_to_str", nullptr},
+                {"u8x2_to_str", nullptr},
+                {"u8x3_to_str", nullptr},
+                {"u8x4_to_str", nullptr},
+                {"u8x8_to_str", nullptr},
                 {"i32x2_to_str", nullptr},
                 {"i32x3_to_str", nullptr},
                 {"i32x4_to_str", nullptr},
+                {"i32x8_to_str", nullptr},
                 {"i64x2_to_str", nullptr},
                 {"i64x3_to_str", nullptr},
                 {"i64x4_to_str", nullptr},
                 {"f32x2_to_str", nullptr},
                 {"f32x3_to_str", nullptr},
                 {"f32x4_to_str", nullptr},
+                {"f32x8_to_str", nullptr},
                 {"f64x2_to_str", nullptr},
                 {"f64x3_to_str", nullptr},
                 {"f64x4_to_str", nullptr},
@@ -3299,6 +3303,18 @@ class Generator {
             /// @param `int_value` The i32 value to convert
             /// @return `llvm::Value *` The converted u8 value
             static void generate_bool8_to_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /**************************************************************************************************************************************
+             * @region `U8`
+             *************************************************************************************************************************************/
+
+            /// @function `generate_u8_to_str`
+            /// @brief Generates the `u8_to_str` function which is used to convert u8 values to str values (the u8 number, not the u8 char)
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module in which the function is generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_u8_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /**************************************************************************************************************************************
              * @region `I32`

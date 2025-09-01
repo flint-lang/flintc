@@ -6,6 +6,7 @@ void Generator::Module::TypeCast::generate_typecast_functions(llvm::IRBuilder<> 
         generate_count_digits_function(builder, module);
     }
     generate_bool_to_str(builder, module, only_declarations);
+    generate_u8_to_str(builder, module, only_declarations);
     generate_i32_to_str(builder, module, only_declarations);
     generate_u32_to_str(builder, module, only_declarations);
     generate_i64_to_str(builder, module, only_declarations);
@@ -13,15 +14,21 @@ void Generator::Module::TypeCast::generate_typecast_functions(llvm::IRBuilder<> 
     generate_f32_to_str(builder, module, only_declarations);
     generate_f64_to_str(builder, module, only_declarations);
     generate_bool8_to_str_function(builder, module, only_declarations);
+    generate_multitype_to_str(builder, module, only_declarations, "u8", 2);
+    generate_multitype_to_str(builder, module, only_declarations, "u8", 3);
+    generate_multitype_to_str(builder, module, only_declarations, "u8", 4);
+    generate_multitype_to_str(builder, module, only_declarations, "u8", 8);
     generate_multitype_to_str(builder, module, only_declarations, "i32", 2);
     generate_multitype_to_str(builder, module, only_declarations, "i32", 3);
     generate_multitype_to_str(builder, module, only_declarations, "i32", 4);
+    generate_multitype_to_str(builder, module, only_declarations, "i32", 8);
     generate_multitype_to_str(builder, module, only_declarations, "i64", 2);
     generate_multitype_to_str(builder, module, only_declarations, "i64", 3);
     generate_multitype_to_str(builder, module, only_declarations, "i64", 4);
     generate_multitype_to_str(builder, module, only_declarations, "f32", 2);
     generate_multitype_to_str(builder, module, only_declarations, "f32", 3);
     generate_multitype_to_str(builder, module, only_declarations, "f32", 4);
+    generate_multitype_to_str(builder, module, only_declarations, "f32", 8);
     generate_multitype_to_str(builder, module, only_declarations, "f64", 2);
     generate_multitype_to_str(builder, module, only_declarations, "f64", 3);
     generate_multitype_to_str(builder, module, only_declarations, "f64", 4);
@@ -149,7 +156,6 @@ void Generator::Module::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builde
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", bool_to_str_fn);
     llvm::BasicBlock *true_block = llvm::BasicBlock::Create(context, "true", bool_to_str_fn);
     llvm::BasicBlock *false_block = llvm::BasicBlock::Create(context, "false", bool_to_str_fn);
-
     builder->SetInsertPoint(entry_block);
     builder->CreateCondBr(arg_bvalue, true_block, false_block);
 
@@ -310,6 +316,155 @@ void Generator::Module::TypeCast::generate_bool8_to_str_function( //
 
     // Return the created string
     builder->CreateRet(b8_str);
+}
+
+/******************************************************************************************************************************************
+ * @region `U8`
+ *****************************************************************************************************************************************/
+
+void Generator::Module::TypeCast::generate_u8_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // C IMPLEMENTATION:
+    // str *u8_to_str(const uint8_t u_value) {
+    //     // Count digits
+    //     uint64_t u_value_64 = (uint64_t)u_value;
+    //     size_t len = count_digits(u_value_64);
+    //
+    //     // Allocate string
+    //     str *result = create_str(len);
+    //     char *buffer = result->value + len; // Start at the end
+    //
+    //     // Handle special case for 0
+    //     if (u_value == 0) {
+    //         result->value[0] = '0';
+    //         return result;
+    //     }
+    //
+    //     // Write digits in reverse order
+    //     uint8_t value = u_value;
+    //     do {
+    //         *--buffer = '0' + (value % 10);
+    //         value /= 10;
+    //     } while (value > 0);
+    //
+    //     return result;
+    // }
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
+    llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
+
+    llvm::FunctionType *u8_to_str_type = llvm::FunctionType::get( //
+        str_type->getPointerTo(),                                 // Return type: str*
+        {llvm::Type::getInt8Ty(context)},                         // Argument: u8 n
+        false                                                     // No varargs
+    );
+    llvm::Function *u8_to_str_fn = llvm::Function::Create( //
+        u8_to_str_type,                                    //
+        llvm::Function::ExternalLinkage,                   //
+        "__flint_u8_to_str",                               //
+        module                                             //
+    );
+    typecast_functions["u8_to_str"] = u8_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", u8_to_str_fn);
+    llvm::BasicBlock *zero_case_block = llvm::BasicBlock::Create(context, "zero_case", u8_to_str_fn);
+    llvm::BasicBlock *nonzero_case_block = llvm::BasicBlock::Create(context, "nonzero_case", u8_to_str_fn);
+    llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(context, "loop", u8_to_str_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", u8_to_str_fn);
+
+    // Set insert point to entry block
+    builder->SetInsertPoint(entry_block);
+
+    // Get the function parameter
+    llvm::Argument *arg_uvalue = u8_to_str_fn->arg_begin();
+    arg_uvalue->setName("u_value");
+
+    // Count digits - call count_digits(u_value)
+    llvm::Value *u64_value = Module::TypeCast::u32_to_u64(*builder, arg_uvalue);
+    llvm::Value *len = builder->CreateCall(count_digits_fn, {u64_value}, "len");
+
+    // Allocate string - call create_str(len)
+    llvm::Value *result = builder->CreateCall(create_str_fn, {len}, "result");
+
+    // Check if u_value == 0
+    llvm::Value *is_zero = builder->CreateICmpEQ(arg_uvalue, llvm::ConstantInt::get(builder->getInt8Ty(), 0), "is_zero");
+    builder->CreateCondBr(is_zero, zero_case_block, nonzero_case_block);
+
+    // Zero case block
+    builder->SetInsertPoint(zero_case_block);
+    // Get pointer to result->value (the flexible array member at index 1)
+    llvm::Value *data_ptr_zero = builder->CreateStructGEP(str_type, result, 1, "data_ptr_zero");
+    // Store '0' character
+    IR::aligned_store(*builder, llvm::ConstantInt::get(builder->getInt8Ty(), '0'), data_ptr_zero);
+    builder->CreateBr(exit_block);
+
+    // Non-zero case block
+    builder->SetInsertPoint(nonzero_case_block);
+    // Get pointer to result->value (the flexible array member)
+    llvm::Value *data_ptr = builder->CreateStructGEP(str_type, result, 1, "data_ptr");
+
+    // Calculate buffer = result->value + len
+    llvm::Value *buffer = builder->CreateGEP(builder->getInt8Ty(), data_ptr, len, "buffer");
+
+    // Create local variable for value
+    llvm::Value *current_value = builder->CreateAlloca(builder->getInt8Ty(), nullptr, "current_value");
+    IR::aligned_store(*builder, arg_uvalue, current_value);
+
+    // Create local variable for buffer
+    llvm::Value *current_buffer = builder->CreateAlloca(builder->getPtrTy(), nullptr, "current_buffer");
+    IR::aligned_store(*builder, buffer, current_buffer);
+
+    // Branch to the loop
+    builder->CreateBr(loop_block);
+
+    // Loop block
+    builder->SetInsertPoint(loop_block);
+    // Load current value and buffer
+    llvm::Value *value_load = IR::aligned_load(*builder, builder->getInt8Ty(), current_value, "value_load");
+    llvm::Value *buffer_load = IR::aligned_load(*builder, builder->getPtrTy(), current_buffer, "buffer_load");
+
+    // Calculate value % 10
+    llvm::Value *remainder = builder->CreateURem(value_load, llvm::ConstantInt::get(builder->getInt8Ty(), 10), "remainder");
+
+    // Calculate '0' + (value % 10)
+    llvm::Value *digit_char = builder->CreateAdd(              //
+        llvm::ConstantInt::get(builder->getInt8Ty(), '0'),     //
+        builder->CreateTrunc(remainder, builder->getInt8Ty()), //
+        "digit_char"                                           //
+    );
+
+    // Decrement buffer
+    llvm::Value *buffer_prev = builder->CreateGEP(              //
+        builder->getInt8Ty(),                                   //
+        buffer_load,                                            //
+        llvm::ConstantInt::getSigned(builder->getInt8Ty(), -1), //
+        "buffer_prev"                                           //
+    );
+
+    // Store the digit character
+    IR::aligned_store(*builder, digit_char, buffer_prev);
+
+    // Update buffer
+    IR::aligned_store(*builder, buffer_prev, current_buffer);
+
+    // Calculate value / 10
+    llvm::Value *new_value = builder->CreateUDiv(value_load, llvm::ConstantInt::get(builder->getInt8Ty(), 10), "new_value");
+
+    // Update value
+    IR::aligned_store(*builder, new_value, current_value);
+
+    // Check if value > 0
+    llvm::Value *continue_loop = builder->CreateICmpUGT(new_value, llvm::ConstantInt::get(builder->getInt8Ty(), 0), "continue_loop");
+
+    // Branch based on condition
+    builder->CreateCondBr(continue_loop, loop_block, exit_block);
+
+    // Exit block
+    builder->SetInsertPoint(exit_block);
+    builder->CreateRet(result);
 }
 
 /******************************************************************************************************************************************
