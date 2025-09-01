@@ -1,0 +1,19 @@
+use "raylib.ft"
+
+data Ball:
+	f32x2 pos;
+	f32x2 dir;
+	f32 speed;
+	f32 radius;
+	Color color;
+	Ball(pos, dir, speed, radius, color);
+
+def draw_ball(Ball ball):
+	DrawCircle(i32(ball.pos.x), i32(ball.pos.y), ball.radius, ball.color);
+
+def update_ball(mut Ball ball, f32 delta):
+	ball.pos = ball.pos + ball.dir * (delta * ball.speed, delta * ball.speed);
+	if (ball.pos.y + ball.radius > GetScreenHeight()) or (ball.pos.y - ball.radius < 0.0):
+		ball.dir = ball.dir * (1.0, -1.0);
+	if (ball.pos.x + ball.radius > GetScreenWidth()) or (ball.pos.x - ball.radius < 0.0):
+		ball.dir = ball.dir * (-1.0, 1.0);

@@ -1,0 +1,39 @@
+use "raylib.ft"
+
+data Player:
+	i32x2 size;
+	// The position of the player is the center of the rectangle
+	f32x2 pos;
+	f32 speed;
+	Color color;
+	Player(size, pos, speed, color);
+
+def draw_player(Player player):
+	// We need to claculate the rendering position by the player position through offsetting it by half the
+	// width and the height of the player
+	i32 render_pos_x = i32(player.pos.x) - (player.size.x / 2);
+	i32 render_pos_y = i32(player.pos.y) - (player.size.y / 2);
+	Rectangle rec = Rectangle(render_pos_x, render_pos_y, player.size.x, player.size.y);
+	DrawRectangleRounded(rec, 0.8, 0, player.color);
+
+def clamp_position(mut Player player):
+	if player.pos.y - player.size.y / 2 < 10.0:
+		player.pos = f32x2(player.pos.x, player.size.y / 2 + 10.0);
+	else if player.pos.y + player.size.y / 2 > GetScreenHeight() - 10.0:
+		player.pos = f32x2(player.pos.x, GetScreenHeight() - player.size.y / 2 - 10.0);
+
+def update_player(mut Player player, f32 delta):
+	if IsKeyDown(265): // 265 is the KEY_UP key in Raylib
+		player.pos = player.pos - (0.0, player.speed * delta);
+	if IsKeyDown(264): // 264 is the KEY_DOWN key in Raylib
+		player.pos = player.pos + (0.0, player.speed * delta);
+	clamp_position(player);
+	player.pos = (f32(GetScreenWidth() - player.size.x / 2 - 10), player.pos.y);
+
+def update_cpu(mut Player cpu, f32 ball_y, f32 delta):
+	if cpu.pos.y - 10.0 > ball_y:
+		cpu.pos = cpu.pos - (0.0, cpu.speed * delta);
+	else if cpu.pos.y + 10.0 < ball_y:
+		cpu.pos = cpu.pos + (0.0, cpu.speed * delta);
+	clamp_position(cpu);
+

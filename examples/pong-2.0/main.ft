@@ -1,17 +1,92 @@
+use Core.print
+use Core.math
+
 use "raylib.ft"
+use "ball.ft"
+use "player.ft"
+use "collisions.ft"
+
+def reset_objects(mut Ball ball, mut Player p1, mut Player p2):
+	// Ball start angle setup
+	i32 angle_deg = GetRandomValue(-40, 40);
+	i32 left_or_right = GetRandomValue(0, 1);
+	angle_deg += 180 * left_or_right;
+	const f32 pi = 3.141592;
+	const f32 angle_rad = (angle_deg * 180.0) / pi;
+	f32x2 ball_dir = (cos(angle_rad), sin(angle_rad));
+	// Reset the ball values
+	ball.speed = 400.0;
+	ball.dir = ball_dir;
+	ball.pos = f32x2(GetScreenWidth() / 2, GetScreenHeight() / 2);
+
+	// Resetting the positions of the players
+	f32x2 p1_pos = f32x2(10 + p1.size.x / 2, GetScreenHeight() / 2);
+	p1.pos = p1_pos;
+	f32x2 p2_pos = f32x2(GetScreenWidth() - p2.size.x / 2 - 10, GetScreenHeight() / 2);
+	p2.pos = p2_pos;
 
 def main():
-	i32 screen_width = 1280;
-	i32 screen_height = 720;
-
-	InitWindow(screen_width, screen_height, "Pong-2.0");
+	// Colors
+	Color black = Color(u8(0), u8(0), u8(0), u8(255));
 	Color white = Color(u8(190), u8(190), u8(190), u8(255));
 	Color gray = Color(u8(100), u8(100), u8(100), u8(255));
+	Color green = Color(u8(38), u8(185), u8(154), u8(255));
+	Color dark_green = Color(u8(20), u8(160), u8(133), u8(255));
+	Color light_green = Color(u8(129), u8(204), u8(184), u8(255));
+	Color yellow = Color(u8(243), u8(213), u8(91), u8(255));
 
+	// Screen
+	i32x2 screen = (1280, 800);
+	u32 flags = 4; // Enable Screen Resizable mode
+	flags += 64; // Enable Vsync
+	SetConfigFlags(flags);
+	InitWindow(screen.x, screen.y, "Pong-2.0");
+	SetTargetFPS(60);
+
+	// Objects
+	i32x2 player_size = (24, 120);
+	Ball ball = Ball(f32x2(0, 0), f32x2(0, 0), 0.0, 20.0, yellow);
+	Player p1 = Player(player_size, f32x2(0, 0), 370.0, white);
+	Player p2 = Player(player_size, f32x2(0, 0), 370.0, white);
+	reset_objects(ball, p1, p2);
+
+
+	// The scores
+	u32 player_score = 0;
+	u32 cpu_score = 0;
+	f32 delta = 1.0 / 60.0;
 	while not WindowShouldClose():
+		screen = (GetScreenWidth(), GetScreenHeight());
 		BeginDrawing();
-		ClearBackground(white);
-		DrawText("Hello From Flint!", 310, 200, 20, gray);
+		ClearBackground(dark_green);
+		DrawRectangle(screen.x / 2, 0, screen.x / 2, screen.y, green);
+		DrawCircle(screen.x / 2, screen.y / 2, 150.0, light_green);
+
+		// Update the game objects
+		update_cpu(p1, ball.pos.y, delta);
+		update_player(p2, delta);
+		update_ball(ball, delta);
+
+		// Check whether somebody has won, and reset the game if one has
+		GameState state = check_collisions(ball, p1, p2);
+		if state == GameState.P1_WON:
+			print("Player 1 Won!\n");
+			reset_objects(ball, p1, p2);
+			cpu_score++;
+		else if state == GameState.P2_WON:
+			print("Player 2 Won!\n");
+			reset_objects(ball, p1, p2);
+			player_score++;
+
+		// Drawing stuff
+		DrawLine(screen.x / 2, 0, screen.x / 2, screen.y, white);
+		draw_ball(ball);
+		draw_player(p1);
+		draw_player(p2);
+
+		// Draw UI
+		DrawText(str(cpu_score), screen.x / 4, 20, 60, white);
+		DrawText(str(player_score), (screen.x * 3) / 4, 20, 60, white);
 		EndDrawing();
 
 	CloseWindow();

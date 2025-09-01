@@ -1,0 +1,52 @@
+use Core.print
+
+use "player.ft"
+use "ball.ft"
+
+enum GameState:
+	RUNNING, P1_WON, P2_WON;
+
+def check_collision(Ball ball, Player player, bool left) -> bool:
+	const bool below = ball.pos.y > player.pos.y + player.size.y / 2 + ball.radius / 2;
+	const bool above = ball.pos.y < player.pos.y - player.size.y / 2 - ball.radius / 2;
+	if below or above:
+		return false;
+
+	f32 x_player = player.pos.x;
+	f32 x_ball = ball.pos.x;
+	if left:
+		x_player += player.size.x / 2;
+		x_ball -= ball.radius;
+		if x_ball < x_player:
+			return true;
+	else:
+		x_player -= player.size.x / 2;
+		x_ball += ball.radius;
+		if x_ball > x_player:
+			return true;
+
+	return false;
+
+
+def check_collisions(mut Ball ball, Player p1, Player p2) -> GameState:
+	// Check for collisions of the ball with player 1
+	if check_collision(ball, p1, true):
+		print("Collided with P1!\n");
+		ball.dir = ball.dir * (-1.0, 1.0);
+		ball.speed = ball.speed * 1.1;
+		return GameState.RUNNING;
+
+	// Check for collisions of the ball with player 2
+	if check_collision(ball, p2, false):
+		print("Collided with P2!\n");
+		ball.dir = ball.dir * (-1.0, 1.0);
+		ball.speed = ball.speed * 1.1;
+		return GameState.RUNNING;
+
+	// Check if the ball passed one of the players
+	if ball.pos.x - ball.radius < p1.pos.x:
+		return GameState.P2_WON;
+	if ball.pos.x + ball.radius > p2.pos.x:
+		return GameState.P1_WON;
+	
+	return GameState.RUNNING;
