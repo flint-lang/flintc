@@ -622,7 +622,8 @@ Parser::create_call_or_initializer_base(         //
                 }
             }
             // Next is the open paren
-            assert((++tok)->token == TOK_LEFT_PAREN);
+            ++tok;
+            assert(tok->token == TOK_LEFT_PAREN);
             // Now we need to get until the token where the error happened, e.g. the ith argument
             ++tok;
             size_t depth = 0;

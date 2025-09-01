@@ -1092,7 +1092,8 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction(std::shar
     assert(iterator->token == TOK_QUESTION);
     const token_slice base_expr_tokens = {tokens.first, iterator};
     // Next should follow an open paren containing a type token or a tag literal followed by a closing paren
-    assert((++iterator)->token == TOK_LEFT_PAREN);
+    ++iterator;
+    assert(iterator->token == TOK_LEFT_PAREN);
     auto end_it = ++iterator;
     while (end_it->token != TOK_RIGHT_PAREN) {
         end_it++;
@@ -1169,7 +1170,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(std
     assert(iterator->token == TOK_EXCLAMATION);
     const token_slice base_expr_tokens = {tokens.first, iterator};
     // Next should follow an open paren containing a type token or a tag literal followed by a closing paren
-    assert((++iterator)->token == TOK_LEFT_PAREN);
+    ++iterator;
+    assert(iterator->token == TOK_LEFT_PAREN);
     auto end_it = ++iterator;
     while (end_it->token != TOK_RIGHT_PAREN) {
         end_it++;
@@ -1584,8 +1586,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             // All other types other than enums are not supported yet
             if (const EnumType *enum_type = dynamic_cast<const EnumType *>(tokens_mut.first->type.get())) {
                 auto tok_it = tokens_mut.first + 1;
-                assert((tok_it++)->token == TOK_DOT);
-                assert((tok_it++)->token == TOK_LEFT_PAREN);
+                assert(tok_it->token == TOK_DOT);
+                tok_it++;
+                assert(tok_it->token == TOK_LEFT_PAREN);
+                tok_it++;
                 const auto &enum_values = enum_type->enum_node->values;
                 std::vector<std::string> values;
                 while (tok_it->token != TOK_RIGHT_PAREN) {

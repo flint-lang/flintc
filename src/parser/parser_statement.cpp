@@ -1156,7 +1156,8 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         if (!Type::add_type(switcher_type)) {
             switcher_type = Type::get_type_from_str(switcher_type->to_string()).value();
         }
-        assert(body_scope->add_variable("__flint_value_err", switcher_type, body_scope->scope_id, false, false));
+        const bool inserting_ok = body_scope->add_variable("__flint_value_err", switcher_type, body_scope->scope_id, false, false);
+        assert(inserting_ok);
         if (!create_variant_switch_branches(body_scope, s_branches, e_branches, body, switcher_type, true, false)) {
             return std::nullopt;
         }
