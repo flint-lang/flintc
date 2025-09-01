@@ -460,6 +460,8 @@ void Generator::Expression::convert_type_to_ext( //
                     result = builder.CreateOr(result, elem_shift);
                 }
                 args.emplace_back(result);
+                builder.CreateBr(convert_type_to_ext_merge_block);
+                builder.SetInsertPoint(convert_type_to_ext_merge_block);
                 return;
             }
         }
@@ -726,6 +728,8 @@ void Generator::Expression::convert_type_from_ext( //
                     IR::aligned_store(builder, elem, elem_ptr);
                 }
                 value = result_ptr;
+                builder.CreateBr(convert_type_from_ext_merge_block);
+                builder.SetInsertPoint(convert_type_from_ext_merge_block);
                 return;
             }
         }
