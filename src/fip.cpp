@@ -189,7 +189,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
 bool FIP::resolve_function(FunctionNode *function) {
     if (!is_active) {
         // We need an error here specifically because we try to resolve an external function without the FIP, which is not possible
-        THROW_BASIC_ERR(ERR_FIP);
+        THROW_ERR(ErrExternWithoutFip, ERR_PARSING, function->file_name, function->line, function->column, function->length);
         return false;
     }
     // This function is not concurrency-safe. FIP assumes a strict order for the master's messages so only one thread is allowed to send /

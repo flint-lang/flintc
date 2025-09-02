@@ -215,7 +215,11 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     }
 
     // Dont parse the body yet, it will be parsed in the second pass of the parser
-    return FunctionNode(is_aligned, is_const, name, parameters, return_types, error_types, body_scope);
+    return FunctionNode(                                                              //
+        file_name, definition.first->line, definition.first->column,                  //
+        definition.second->column - definition.first->column,                         //
+        is_aligned, is_const, name, parameters, return_types, error_types, body_scope //
+    );
 }
 
 std::optional<FunctionNode> Parser::create_extern_function(const token_slice &definition) {
@@ -225,6 +229,10 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
     if (!fn.has_value()) {
         return std::nullopt;
     }
+    // Correctly set the line and column of the function definition
+    fn.value().line = definition.first->line;
+    fn.value().column = definition.first->column;
+    fn.value().length = definition.second->column - definition.first->column;
     // "Delete" the scope of the function, it is not needed for declarations
     fn.value().scope = std::nullopt;
     // Remove the `fc_` prefix for external functions, only internal functions have the prefix

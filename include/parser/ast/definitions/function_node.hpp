@@ -14,6 +14,10 @@
 class FunctionNode : public ASTNode {
   public:
     explicit FunctionNode(                                                             //
+        const std::string &file_name,                                                  //
+        const unsigned int line,                                                       //
+        const unsigned int column,                                                     //
+        const unsigned int length,                                                     //
         bool is_aligned,                                                               //
         bool is_const,                                                                 //
         std::string name,                                                              //
@@ -22,6 +26,7 @@ class FunctionNode : public ASTNode {
         std::vector<std::shared_ptr<Type>> &error_types,                               //
         std::optional<std::shared_ptr<Scope>> &scope                                   //
         ) :
+        ASTNode(file_name, line, column, length),
         is_aligned(is_aligned),
         is_const(is_const),
         name(std::move(name)),
@@ -31,7 +36,7 @@ class FunctionNode : public ASTNode {
         scope(std::move(scope)) {}
 
     // empty constructor
-    FunctionNode() = default;
+    FunctionNode() = delete;
     // deconstructor
     ~FunctionNode() override = default;
     // copy operations - disabled due to unique_ptr member
@@ -43,11 +48,15 @@ class FunctionNode : public ASTNode {
 
     /// @var `is_aligned`
     /// @brief Determines whether the function needs to be aligned
-    bool is_aligned{false};
+    bool is_aligned;
 
     /// @var `is_const`
     /// @brief Determines whether the function is const, e.g. it cannot access data outise of its arguments
-    bool is_const{false};
+    bool is_const;
+
+    /// @var `is_extern`
+    /// @brief Whether the function is defined externally in FIP
+    bool is_extern{false};
 
     /// @var `name`
     /// @brief The name of the function
@@ -68,8 +77,4 @@ class FunctionNode : public ASTNode {
     /// @var `scope`
     /// @brief The scope of the function containing all statements or nullopt if the function is just a definition
     std::optional<std::shared_ptr<Scope>> scope;
-
-    /// @var `is_extern`
-    /// @brief Whether the function is defined externally in FIP
-    bool is_extern{false};
 };

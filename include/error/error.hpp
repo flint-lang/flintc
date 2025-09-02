@@ -44,6 +44,8 @@
 #include "error_types/parsing/expressions/err_expr_tuple_access_oob.hpp"
 #include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"
 
+#include "error_types/parsing/fip/err_extern_without_fip.hpp"
+
 #include "error_types/parsing/scopes/err_missing_body.hpp"
 
 #include "error_types/parsing/statements/err_stmt_dangling_catch.hpp"
