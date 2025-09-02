@@ -497,6 +497,9 @@ void Generator::Expression::convert_type_to_ext( //
                 const size_t actual_elem_idx = stacks_0_size - elem_idx - 1;
                 llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
                 llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
+                if (elem->getType()->isFloatTy()) {
+                    elem = builder.CreateBitCast(elem, builder.getInt32Ty());
+                }
                 llvm::Value *elem_big = builder.CreateZExt(elem, builder.getInt64Ty());
                 if (actual_elem_idx == stacks_0_size - 1) {
                     // Shift left by the amount in the stacks
@@ -540,6 +543,9 @@ void Generator::Expression::convert_type_to_ext( //
                 const size_t actual_elem_idx = stacks_0_size * 2 + stack_size - elem_idx - 1;
                 llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
                 llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
+                if (elem->getType()->isFloatTy()) {
+                    elem = builder.CreateBitCast(elem, builder.getInt32Ty());
+                }
                 llvm::Value *elem_big = builder.CreateZExt(elem, builder.getInt64Ty());
                 if (actual_elem_idx != stacks_0_size - 1) {
                     // Shift left by the amount in the stacks
@@ -765,7 +771,13 @@ void Generator::Expression::convert_type_from_ext( //
                 const size_t actual_elem_idx = stacks_0_size - elem_idx - 1;
                 // Shift right by the amount in the stack
                 llvm::Value *elem_big = builder.CreateLShr(res, stacks[0].top() * 8);
-                llvm::Value *elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
+                llvm::Value *elem_smol = nullptr;
+                if (elem_types.at(actual_elem_idx)->isFloatTy()) {
+                    elem_smol = builder.CreateTrunc(elem_big, builder.getInt32Ty());
+                    elem_smol = builder.CreateBitCast(elem_smol, builder.getFloatTy());
+                } else {
+                    elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
+                }
                 // Bitwise or with the result to form the new result contianing the shifted element in it
                 llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
                 IR::aligned_store(builder, elem_smol, elem_ptr);
@@ -803,7 +815,13 @@ void Generator::Expression::convert_type_from_ext( //
                 const size_t actual_elem_idx = stacks_0_size * 2 + stack_size - elem_idx - 1;
                 // Shift right by the amount in the stack
                 llvm::Value *elem_big = builder.CreateLShr(res, stacks[1].top() * 8);
-                llvm::Value *elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
+                llvm::Value *elem_smol = nullptr;
+                if (elem_types.at(actual_elem_idx)->isFloatTy()) {
+                    elem_smol = builder.CreateTrunc(elem_big, builder.getInt32Ty());
+                    elem_smol = builder.CreateBitCast(elem_smol, builder.getFloatTy());
+                } else {
+                    elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
+                }
                 // Bitwise or with the result to form the new result contianing the shifted element in it
                 llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
                 IR::aligned_store(builder, elem_smol, elem_ptr);
