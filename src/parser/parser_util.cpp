@@ -875,13 +875,13 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
         }
     } else if (multi_type->width == 4) {
         // The fields are called r, g, b and a, but can be accessed via $N
-        if (field_name == "x" || field_name == "r" || field_name == "s" || field_name == "$0") {
+        if (field_name == "x" || field_name == "r" || field_name == "s" || field_name == "i" || field_name == "$0") {
             return std::make_tuple("$0", 0);
-        } else if (field_name == "y" || field_name == "g" || field_name == "t" || field_name == "$1") {
+        } else if (field_name == "y" || field_name == "g" || field_name == "t" || field_name == "j" || field_name == "$1") {
             return std::make_tuple("$1", 1);
-        } else if (field_name == "z" || field_name == "b" || field_name == "p" || field_name == "$2") {
+        } else if (field_name == "z" || field_name == "b" || field_name == "p" || field_name == "k" || field_name == "$2") {
             return std::make_tuple("$2", 2);
-        } else if (field_name == "w" || field_name == "a" || field_name == "q" || field_name == "$3") {
+        } else if (field_name == "w" || field_name == "a" || field_name == "q" || field_name == "l" || field_name == "$3") {
             return std::make_tuple("$3", 3);
         } else {
             THROW_BASIC_ERR(ERR_PARSING);
