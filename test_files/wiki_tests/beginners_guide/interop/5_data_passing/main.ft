@@ -1,0 +1,16 @@
+use Core.print
+
+data MyData:
+    i32 x;
+    i32 y;
+    f32 speed;
+    bool is_something;
+    MyData(x, y, speed, is_something);
+
+extern def do_something(MyData md) -> MyData;
+
+def main():
+    md := MyData(10, 10, 3.2, false);
+    print($"md.(x, y, s, i) = ({md.x}, {md.y}, {md.speed}, {md.is_something})\n");
+    md = do_something(md);
+    print($"md.(x, y, s, i) = ({md.x}, {md.y}, {md.speed}, {md.is_something})\n");

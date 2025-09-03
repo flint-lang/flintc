@@ -1,0 +1,3 @@
+compiler = "gcc"
+sources = ["data.h"]
+compile_flags = []

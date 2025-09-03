@@ -1,0 +1,8 @@
+use Core.print
+
+extern def hello();
+extern def add(i32 x, i32 y) -> i32;
+
+def main():
+    hello();
+    print($"add(1, 8) = {add(1, 8)}\n");

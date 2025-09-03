@@ -1,0 +1,3 @@
+compiler = "gcc"
+sources = ["hello.h"]
+compile_flags = []
