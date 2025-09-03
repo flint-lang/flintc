@@ -2791,6 +2791,12 @@ class Generator {
                 {"abs_i64", nullptr},
                 {"abs_f32", nullptr},
                 {"abs_f64", nullptr},
+                {"min_u32", nullptr},
+                {"min_i32", nullptr},
+                {"min_f32", nullptr},
+                {"min_u64", nullptr},
+                {"min_i64", nullptr},
+                {"min_f64", nullptr},
             };
 
             /// @function `generate_math_functions`
@@ -2805,16 +2811,48 @@ class Generator {
             /// @brief Generates the 'abs' function for the given integer type
             ///
             /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the print function definition will be generated in
+            /// @param `module` The LLVM Module the 'abs' function definition will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            /// @param `type` The integer type for which to generate the abs function
-            /// @param `name` The name of the type for which to generate the abs function for
+            /// @param `type` The integer type for which to generate the 'abs' function
+            /// @param `name` The name of the type for which to generate the 'abs' function for
             static void generate_abs_int_function( //
                 llvm::IRBuilder<> *builder,        //
                 llvm::Module *module,              //
                 const bool only_declarations,      //
                 llvm::IntegerType *type,           //
                 const std::string &name            //
+            );
+
+            /// @function `generate_min_function`
+            /// @brief Generates the 'min' function for the given type type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the 'min' function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `type` The type for which to generate the 'min' function
+            /// @param `name` The name of the type for which to generate the 'min' function for
+            static void generate_min_function( //
+                llvm::IRBuilder<> *builder,    //
+                llvm::Module *module,          //
+                const bool only_declarations,  //
+                llvm::Type *type,              //
+                const std::string &name        //
+            );
+
+            /// @function `generate_fmin_function`
+            /// @brief Generates the 'min' function for the given floating point type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the 'min' function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `type` The type for which to generate the 'min' function
+            /// @param `name` The name of the type for which to generate the 'min' function for
+            static void generate_fmin_function( //
+                llvm::IRBuilder<> *builder,     //
+                llvm::Module *module,           //
+                const bool only_declarations,   //
+                llvm::Type *type,               //
+                const std::string &name         //
             );
         };
 

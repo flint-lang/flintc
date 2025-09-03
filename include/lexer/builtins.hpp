@@ -144,6 +144,15 @@ static inline std::map<std::string_view, function_overload_list> core_module_fun
                     {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'abs' function
                     {{"f64"}, {"i64"}, {}}, // The 'f64' overload of the 'abs' function
                 }},
+            {"min", // The 'min' function
+                {
+                    {{"u32", "u32"}, {"u32"}, {}}, // The 'u32' overload of the 'min' function
+                    {{"i32", "i32"}, {"i32"}, {}}, // The 'i32' overload of the 'min' function
+                    {{"f32", "f32"}, {"f32"}, {}}, // The 'f32' overload of the 'min' function
+                    {{"u64", "u64"}, {"u64"}, {}}, // The 'u64' overload of the 'min' function
+                    {{"i64", "i64"}, {"i64"}, {}}, // The 'i64' overload of the 'min' function
+                    {{"f64", "f64"}, {"f64"}, {}}, // The 'f64' overload of the 'min' function
+                }},
         }}, // End of the 'math' module
 };
 
