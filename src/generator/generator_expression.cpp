@@ -1079,15 +1079,23 @@ Generator::group_mapping Generator::Expression::generate_call( //
                     bool found = false;
                     for (const auto &fn : std::get<1>(builtin_function.value())) {
                         auto arg_types = std::get<0>(fn);
-                        if (arg_types.size() > 1) {
-                            idx++;
+                        if (arg_types.size() != call_node->arguments.size()) {
+                            ++idx;
                             continue;
                         }
-                        if (arg_types.front() == call_node->arguments.front().first->type->to_string()) {
-                            found = true;
-                            break;
+                        bool args_match = true;
+                        for (size_t i = 0; i < arg_types.size(); i++) {
+                            if (call_node->arguments.at(i).first->type->to_string() != arg_types.at(i)) {
+                                args_match = false;
+                                break;
+                            }
                         }
-                        idx++;
+                        if (!args_match) {
+                            ++idx;
+                            continue;
+                        }
+                        found = true;
+                        break;
                     }
                     if (!found) {
                         THROW_BASIC_ERR(ERR_GENERATING);
