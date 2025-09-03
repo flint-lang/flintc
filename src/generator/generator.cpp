@@ -503,7 +503,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
                 if (function_node->is_extern) {
                     if (extern_functions.find(function_node->name) != extern_functions.end()) {
                         // The extern definition is only allowed to be written once in the project
-                        THROW_BASIC_ERR(ERR_GENERATING);
+                        THROW_ERR(ErrExternDuplicateFunction, ERR_GENERATING, function_node, extern_functions.at(function_node->name));
                         return std::nullopt;
                     }
                     extern_functions.emplace(function_node->name, function_node);
