@@ -18,7 +18,7 @@ class ErrExternDuplicateFunction : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "├─ Defined extern function '" << YELLOW << wrong_fn->name << DEFAULT << "' with twice\n";
+        oss << BaseError::to_string() << "├─ Defined extern function '" << YELLOW << wrong_fn->name << DEFAULT << "' twice\n";
         oss << "└─ It was first defined at " << GREEN << first_defined->file_name << ":" << first_defined->line << ":"
             << first_defined->column << DEFAULT;
         return oss.str();
