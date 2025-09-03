@@ -137,6 +137,13 @@ static inline std::map<std::string_view, function_overload_list> core_module_fun
                     {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'cos' function
                     {{"f64"}, {"f64"}, {}}, // The 'f64' overload of the 'cos' function
                 }},
+            {"abs", // The 'abs' function
+                {
+                    {{"i32"}, {"i32"}, {}}, // The 'i32' overload of the 'abs' function
+                    {{"i64"}, {"i64"}, {}}, // The 'i64' overload of the 'abs' function
+                    {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'abs' function
+                    {{"f64"}, {"i64"}, {}}, // The 'f64' overload of the 'abs' function
+                }},
         }}, // End of the 'math' module
 };
 
@@ -246,6 +253,10 @@ enum CFunction {
     SQRTF,
     POW,
     POWF,
+    ABS,
+    LABS,
+    FABSF,
+    FABS,
 };
 
 static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {

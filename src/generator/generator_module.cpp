@@ -73,6 +73,10 @@ bool Generator::Module::generate_module(     //
             String::generate_string_manip_functions(builder.get(), module.get(), true);
             System::generate_system_functions(builder.get(), module.get(), false);
             break;
+        case BuiltinLibrary::MATH:
+            Builtin::generate_c_functions(module.get());
+            Math::generate_math_functions(builder.get(), module.get(), false);
+            break;
     }
 
     // Clear the type map when we are done to prevent modules using types of no longer existing modules
@@ -141,6 +145,9 @@ bool Generator::Module::generate_modules() {
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::SYSTEM)) {
         success = success && generate_module(BuiltinLibrary::SYSTEM, cache_path, "system");
     }
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::MATH)) {
+        success = success && generate_module(BuiltinLibrary::MATH, cache_path, "math");
+    }
     if (!success) {
         return false;
     }
@@ -176,6 +183,7 @@ bool Generator::Module::generate_modules() {
     libs.emplace_back(cache_path / ("filesystem" + file_ending));
     libs.emplace_back(cache_path / ("env" + file_ending));
     libs.emplace_back(cache_path / ("system" + file_ending));
+    libs.emplace_back(cache_path / ("math" + file_ending));
 
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
@@ -302,6 +310,9 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     }
     if (!std::filesystem::exists(cache_path / ("env" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ENV);
+    }
+    if (!std::filesystem::exists(cache_path / ("math" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::MATH);
     }
     return needed_rebuilds;
 }

@@ -603,6 +603,46 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *powf_fn = llvm::Function::Create(powf_type, llvm::Function::ExternalLinkage, "powf", module);
         c_functions[POWF] = powf_fn;
     }
+    // abs
+    {
+        llvm::FunctionType *abs_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                    // return int
+            {llvm::Type::getInt32Ty(context)},                  // int x
+            false                                               // No vaarg
+        );
+        llvm::Function *abs_fn = llvm::Function::Create(abs_type, llvm::Function::ExternalLinkage, "abs", module);
+        c_functions[ABS] = abs_fn;
+    }
+    // labs
+    {
+        llvm::FunctionType *labs_type = llvm::FunctionType::get( //
+            llvm::Type::getInt64Ty(context),                     // return long
+            {llvm::Type::getInt64Ty(context)},                   // long x
+            false                                                // No vaarg
+        );
+        llvm::Function *labs_fn = llvm::Function::Create(labs_type, llvm::Function::ExternalLinkage, "labs", module);
+        c_functions[LABS] = labs_fn;
+    }
+    // fabsf
+    {
+        llvm::FunctionType *fabsf_type = llvm::FunctionType::get( //
+            llvm::Type::getFloatTy(context),                      // return float
+            {llvm::Type::getFloatTy(context)},                    // float x
+            false                                                 // No vaarg
+        );
+        llvm::Function *fabsf_fn = llvm::Function::Create(fabsf_type, llvm::Function::ExternalLinkage, "fabsf", module);
+        c_functions[FABSF] = fabsf_fn;
+    }
+    // fabs
+    {
+        llvm::FunctionType *fabs_type = llvm::FunctionType::get( //
+            llvm::Type::getDoubleTy(context),                    // return double
+            {llvm::Type::getDoubleTy(context)},                  // double x
+            false                                                // No vaarg
+        );
+        llvm::Function *fabs_fn = llvm::Function::Create(fabs_type, llvm::Function::ExternalLinkage, "fabs", module);
+        c_functions[FABS] = fabs_fn;
+    }
 }
 
 bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
@@ -642,6 +682,10 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     c_functions[SQRTF] = module->getFunction("sqrtf");
     c_functions[POW] = module->getFunction("pow");
     c_functions[POWF] = module->getFunction("powf");
+    c_functions[ABS] = module->getFunction("abs");
+    c_functions[LABS] = module->getFunction("labs");
+    c_functions[FABSF] = module->getFunction("fabsf");
+    c_functions[FABS] = module->getFunction("fabs");
     for (auto &c_function : c_functions) {
         if (c_function.second == nullptr) {
             return false;

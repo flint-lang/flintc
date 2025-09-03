@@ -176,6 +176,10 @@ class Generator {
         {CFunction::SQRTF, nullptr},
         {CFunction::POW, nullptr},
         {CFunction::POWF, nullptr},
+        {CFunction::ABS, nullptr},
+        {CFunction::LABS, nullptr},
+        {CFunction::FABSF, nullptr},
+        {CFunction::FABS, nullptr},
     };
 
     /// @struct `GenerationContext`
@@ -2783,18 +2787,35 @@ class Generator {
                 {"cos_f64", nullptr},
                 {"sqrt_f32", nullptr},
                 {"sqrt_f64", nullptr},
+                {"abs_i32", nullptr},
+                {"abs_i64", nullptr},
+                {"abs_f32", nullptr},
+                {"abs_f64", nullptr},
             };
 
             /// @function `generate_math_functions`
             /// @brief Generates the builtin math functions
-            static void generate_math_functions() {
-                math_functions["sin_f32"] = c_functions.at(SINF);
-                math_functions["sin_f64"] = c_functions.at(SIN);
-                math_functions["cos_f32"] = c_functions.at(COSF);
-                math_functions["cos_f64"] = c_functions.at(COS);
-                math_functions["sqrt_f32"] = c_functions.at(SQRTF);
-                math_functions["sqrt_f64"] = c_functions.at(SQRT);
-            }
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the math function definitions will be generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_math_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_abs_int_function`
+            /// @brief Generates the 'abs' function for the given integer type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the print function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `type` The integer type for which to generate the abs function
+            /// @param `name` The name of the type for which to generate the abs function for
+            static void generate_abs_int_function( //
+                llvm::IRBuilder<> *builder,        //
+                llvm::Module *module,              //
+                const bool only_declarations,      //
+                llvm::IntegerType *type,           //
+                const std::string &name            //
+            );
         };
 
         /// @class `Print`

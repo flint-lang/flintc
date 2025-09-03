@@ -196,6 +196,8 @@ class CLIParserMain : public CLIParserBase {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ENV);
             } else if (arg == "--print-ir-system") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::SYSTEM);
+            } else if (arg == "--print-ir-math") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::MATH);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);
@@ -288,7 +290,8 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  --print-ir-print            Enables printing of the IR code for the print.o library\n";
         std::cout << "  --print-ir-read             Enables printing of the IR code for the read.o library\n";
         std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library\n";
-        std::cout << "  --print-ir-system           Enables printing of the IR code for the system.o library";
+        std::cout << "  --print-ir-system           Enables printing of the IR code for the system.o library\n";
+        std::cout << "  --print-ir-math             Enables printing of the IR code for the math.o library";
         std::cout << std::endl;
 #endif
     }

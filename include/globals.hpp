@@ -55,6 +55,7 @@ enum class BuiltinLibrary : unsigned int {
     FILESYSTEM = 128,
     ENV = 256,
     SYSTEM = 512,
+    MATH = 1024,
 };
 extern unsigned int BUILTIN_LIBS_TO_PRINT;
 
