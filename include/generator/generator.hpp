@@ -2797,6 +2797,12 @@ class Generator {
                 {"min_u64", nullptr},
                 {"min_i64", nullptr},
                 {"min_f64", nullptr},
+                {"max_u32", nullptr},
+                {"max_i32", nullptr},
+                {"max_f32", nullptr},
+                {"max_u64", nullptr},
+                {"max_i64", nullptr},
+                {"max_f64", nullptr},
             };
 
             /// @function `generate_math_functions`
@@ -2848,6 +2854,38 @@ class Generator {
             /// @param `type` The type for which to generate the 'min' function
             /// @param `name` The name of the type for which to generate the 'min' function for
             static void generate_fmin_function( //
+                llvm::IRBuilder<> *builder,     //
+                llvm::Module *module,           //
+                const bool only_declarations,   //
+                llvm::Type *type,               //
+                const std::string &name         //
+            );
+
+            /// @function `generate_max_function`
+            /// @brief Generates the 'max' function for the given type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the 'max' function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `type` The type for which to generate the 'max' function
+            /// @param `name` The name of the type for which to generate the 'max' function for
+            static void generate_max_function( //
+                llvm::IRBuilder<> *builder,    //
+                llvm::Module *module,          //
+                const bool only_declarations,  //
+                llvm::Type *type,              //
+                const std::string &name        //
+            );
+
+            /// @function `generate_fmax_function`
+            /// @brief Generates the 'max' function for the given floating point type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the 'max' function definition will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `type` The type for which to generate the 'max' function
+            /// @param `name` The name of the type for which to generate the 'max' function for
+            static void generate_fmax_function( //
                 llvm::IRBuilder<> *builder,     //
                 llvm::Module *module,           //
                 const bool only_declarations,   //

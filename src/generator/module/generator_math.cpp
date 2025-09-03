@@ -25,6 +25,13 @@ void Generator::Module::Math::generate_math_functions(llvm::IRBuilder<> *builder
     generate_min_function(builder, module, only_declarations, i64_type, "i64");
     generate_fmin_function(builder, module, only_declarations, f32_type, "f32");
     generate_fmin_function(builder, module, only_declarations, f64_type, "f64");
+
+    generate_max_function(builder, module, only_declarations, i32_type, "u32");
+    generate_max_function(builder, module, only_declarations, i64_type, "u64");
+    generate_max_function(builder, module, only_declarations, i32_type, "i32");
+    generate_max_function(builder, module, only_declarations, i64_type, "i64");
+    generate_fmax_function(builder, module, only_declarations, f32_type, "f32");
+    generate_fmax_function(builder, module, only_declarations, f64_type, "f64");
 }
 
 void Generator::Module::Math::generate_abs_int_function( //
@@ -207,5 +214,125 @@ void Generator::Module::Math::generate_fmin_function( //
     builder->CreateRet(arg_x);
 
     builder->SetInsertPoint(y_less_block);
+    builder->CreateRet(arg_y);
+}
+
+void Generator::Module::Math::generate_max_function( //
+    llvm::IRBuilder<> *builder,                      //
+    llvm::Module *module,                            //
+    const bool only_declarations,                    //
+    llvm::Type *type,                                //
+    const std::string &name                          //
+) {
+    // Create function type
+    llvm::FunctionType *max_type = llvm::FunctionType::get( //
+        type,                                               // return type
+        {type, type},                                       //  type x, type y
+        false                                               // no vaarg
+    );
+    // Create the function
+    llvm::Function *max_fn = llvm::Function::Create( //
+        max_type,                                    //
+        llvm::Function::ExternalLinkage,             //
+        "__flint_max_" + name,                       //
+        module                                       //
+    );
+    const std::string fn_name = "max_" + name;
+    math_functions[fn_name] = max_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get function parameters
+    llvm::Argument *arg_x = max_fn->arg_begin();
+    arg_x->setName("x");
+
+    llvm::Argument *arg_y = max_fn->arg_begin() + 1;
+    arg_y->setName("y");
+
+    // Create basic blocks for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", max_fn);
+    llvm::BasicBlock *x_greater_block = llvm::BasicBlock::Create(context, "x_greater", max_fn);
+    llvm::BasicBlock *y_greater_block = llvm::BasicBlock::Create(context, "y_greater", max_fn);
+
+    builder->SetInsertPoint(entry_block);
+    llvm::Value *x_gt_y = nullptr;
+    switch (name[0]) {
+        case 'u':
+            x_gt_y = builder->CreateICmpUGT(arg_x, arg_y);
+            break;
+        case 'i':
+            x_gt_y = builder->CreateICmpSGT(arg_x, arg_y);
+            break;
+        default:
+            assert(false);
+            break;
+    }
+    builder->CreateCondBr(x_gt_y, x_greater_block, y_greater_block);
+
+    builder->SetInsertPoint(x_greater_block);
+    builder->CreateRet(arg_x);
+
+    builder->SetInsertPoint(y_greater_block);
+    builder->CreateRet(arg_y);
+}
+
+void Generator::Module::Math::generate_fmax_function( //
+    llvm::IRBuilder<> *builder,                       //
+    llvm::Module *module,                             //
+    const bool only_declarations,                     //
+    llvm::Type *type,                                 //
+    const std::string &name                           //
+) {
+    // Create function type
+    llvm::FunctionType *max_type = llvm::FunctionType::get( //
+        type,                                               // return type
+        {type, type},                                       //  type x, type y
+        false                                               // no vaarg
+    );
+    // Create the function
+    llvm::Function *max_fn = llvm::Function::Create( //
+        max_type,                                    //
+        llvm::Function::ExternalLinkage,             //
+        "__flint_max_" + name,                       //
+        module                                       //
+    );
+    const std::string fn_name = "max_" + name;
+    math_functions[fn_name] = max_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get function parameters
+    llvm::Argument *arg_x = max_fn->arg_begin();
+    arg_x->setName("x");
+
+    llvm::Argument *arg_y = max_fn->arg_begin() + 1;
+    arg_y->setName("y");
+
+    // Create basic blocks for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", max_fn);
+    llvm::BasicBlock *y_nan_block = llvm::BasicBlock::Create(context, "y_nan", max_fn);
+    llvm::BasicBlock *check_block = llvm::BasicBlock::Create(context, "check", max_fn);
+    llvm::BasicBlock *x_greater_block = llvm::BasicBlock::Create(context, "x_greater", max_fn);
+    llvm::BasicBlock *y_greater_block = llvm::BasicBlock::Create(context, "y_greater", max_fn);
+
+    builder->SetInsertPoint(entry_block);
+    // Check if y is nan by comparing it to itself
+    llvm::Value *is_nan = builder->CreateFCmpONE(arg_y, arg_y);
+    builder->CreateCondBr(is_nan, y_nan_block, check_block, IR::generate_weights(1, 100));
+
+    builder->SetInsertPoint(y_nan_block);
+    builder->CreateRet(arg_x);
+
+    builder->SetInsertPoint(check_block);
+    llvm::Value *x_gt_y = builder->CreateFCmpOGT(arg_x, arg_y);
+
+    builder->CreateCondBr(x_gt_y, x_greater_block, y_greater_block);
+
+    builder->SetInsertPoint(x_greater_block);
+    builder->CreateRet(arg_x);
+
+    builder->SetInsertPoint(y_greater_block);
     builder->CreateRet(arg_y);
 }
