@@ -311,6 +311,9 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     if (!std::filesystem::exists(cache_path / ("env" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::ENV);
     }
+    if (!std::filesystem::exists(cache_path / ("system" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::SYSTEM);
+    }
     if (!std::filesystem::exists(cache_path / ("math" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::MATH);
     }
