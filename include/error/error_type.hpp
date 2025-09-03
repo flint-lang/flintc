@@ -19,7 +19,7 @@ static const std::unordered_map<ErrorType, std::string_view> error_type_names = 
     {ERR_PARSING, "Parse Error"},
     {ERR_RESOLVING, "Resolve Error"},
     {ERR_SCOPE, "Scope Error"},
-    {ERR_GENERATING, "Generate Error"},
+    {ERR_GENERATING, "Generation Error"},
     {ERR_LINKING, "Link Error"},
     {ERR_FIP, "FIP Error"},
 };
