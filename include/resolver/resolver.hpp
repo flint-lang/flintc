@@ -3,8 +3,6 @@
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/ast/file_node.hpp"
 
-#include <llvm/IR/Module.h>
-
 #include <filesystem>
 #include <map>
 #include <memory>
