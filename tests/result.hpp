@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colors.hpp"
+#include "debug.hpp"
 
 #include <string>
 
@@ -59,3 +60,19 @@ class TestResult {
         append("\t" + str + "\t...");
     }
 };
+
+namespace Debug {
+    /// print_tree_row
+    ///
+    static void print_tree_row(const std::vector<TreeType> &types, TestResult *result) {
+        std::string addition;
+        for (const TreeType &type : types) {
+            addition = tree_blocks.at(type);
+        }
+        if (result != nullptr) {
+            result->append(addition);
+        } else {
+            std::cout << addition;
+        }
+    }
+} // namespace Debug

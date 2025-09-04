@@ -1,7 +1,6 @@
 #pragma once
 
 #include "resolver/resolver.hpp"
-#include "result.hpp"
 #include "types.hpp"
 
 #include "parser/ast/definitions/data_node.hpp"
@@ -104,8 +103,6 @@ namespace Debug {
     void print_in_container(unsigned int size, const std::string &str);
     std::string fill_container_with(const unsigned int &size, const char &character);
     void print_token_context_vector(const token_slice &tokens, const std::string &file_name);
-    void print_tree_row(const std::vector<TreeType> &types, TestResult *result);
-    void print_tree_characters(const std::vector<TreeType> &types);
     std::string create_n_str(unsigned int n, const std::string &str);
 
     namespace Dep {
