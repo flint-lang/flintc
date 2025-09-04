@@ -122,6 +122,8 @@ class Parser {
     /// @brief Clears all parser instances
     static void clear_instances() {
         instances.clear();
+        main_function_parsed = false;
+        main_function_has_args = false;
     }
 
     /// @function `get_builtin_function`
