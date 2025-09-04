@@ -97,28 +97,6 @@ namespace Debug {
         }
     }
 
-    /// print_tree_row
-    ///
-    void print_tree_row(const std::vector<TreeType> &types, TestResult *result) {
-        std::string addition;
-        for (const TreeType &type : types) {
-            addition = tree_blocks.at(type);
-        }
-        if (result != nullptr) {
-            result->append(addition);
-        } else {
-            std::cout << addition;
-        }
-    }
-
-    /// print_tree_characters
-    ///     Prints the tree characters to the console
-    void print_tree_characters(const std::vector<TreeType> &types) {
-        for (const TreeType &type : types) {
-            std::cout << tree_blocks.at(type);
-        }
-    }
-
     /// create_n_str
     ///     Takes the given string and puts it into a result string n times
     std::string create_n_str(unsigned int n, const std::string &str) {
