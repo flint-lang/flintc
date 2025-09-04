@@ -1,19 +1,15 @@
 use Core.print
+use Core.math
 
-data TestStruct:
-	u8 x;
-	i32 y;
-	u8 z;
-	u8 w;
-	i32 a;
-	TestStruct(x, y, z, w, a);
+data MyData:
+	i32 x;
+	f32 y;
+	MyData(x, y);
 
-extern def test_add(TestStruct s1, TestStruct s2) -> TestStruct;
+def some_function(i32 x, i32 y) -> i32:
+	return x + y;
 
 def main():
-	TestStruct s1 = TestStruct(10, 20, 30, 40, 50);
-	print($"s1.(x, y, z, w, a) = ({i32(s1.x)}, {s1.y}, {i32(s1.z)}, {i32(s1.w)}, {s1.a})\n");
-	TestStruct s2 = TestStruct(20, 30, 40, 50, 60);
-	print($"s2.(x, y, z, w, a) = ({i32(s2.x)}, {s2.y}, {i32(s2.z)}, {i32(s2.w)}, {s2.a})\n");
-	TestStruct res = test_add(s1, s2);
-	print($"res.(x, y, z, w, a) = ({i32(res.x)}, {res.y}, {i32(res.z)}, {i32(res.w)}, {res.a})\n");
+	i32 x = 121;
+	i32 y = 234;
+	print($"max({x}, {y}) = {max(x, y)}\n");

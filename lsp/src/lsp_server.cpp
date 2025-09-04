@@ -44,8 +44,7 @@ void LspServer::process_message(const std::string &content) {
     } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_DID_CHANGE)) {
         handle_document_change(content);
     } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_COMPLETION)) {
-        std::string request_id = extract_request_id(content);
-        send_completion_response(request_id);
+        send_completion_response(content);
     } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_HOVER)) {
         std::string request_id = extract_request_id(content);
         send_hover_response(request_id);
@@ -90,9 +89,29 @@ void LspServer::send_shutdown_response(const std::string &request_id) {
     send_lsp_response(response.str());
 }
 
-void LspServer::send_completion_response(const std::string &request_id) {
-    // Get all completion items from the data store
-    auto all_completions = CompletionData::get_all_completions();
+void LspServer::send_completion_response(const std::string &content) {
+    // DEBUG: Log the actual request content
+    log_info("Full completion request content (first 500 chars): " + content.substr(0, std::min(content.length(), size_t(500))));
+
+    // Extract file context from the request
+    std::string request_id = extract_request_id(content);
+    std::string file_uri = extract_file_uri(content);
+    std::string file_path = uri_to_file_path(file_uri);
+    auto position = extract_position(request_id);
+
+    log_info("Completion request for file: " + file_path + " at line " + std::to_string(position.first) + ", char " +
+        std::to_string(position.second));
+
+    // Get context-aware completions
+    std::vector<CompletionItem> completions;
+
+    if (!file_path.empty() && file_path.size() > 3 && file_path.substr(file_path.size() - 3) == LspProtocol::FLINT_EXTENSION) {
+        // Parse the file to get context-specific completions
+        completions = get_context_aware_completions(file_path, position.first, position.second);
+    } else {
+        // Fallback to static completions
+        completions = CompletionData::get_all_completions();
+    }
 
     std::stringstream response;
     response << R"({
@@ -102,7 +121,7 @@ void LspServer::send_completion_response(const std::string &request_id) {
   "result": {
     "isIncomplete": false,
     "items": )"
-             << completion_items_to_json_array(all_completions) << R"(
+             << completion_items_to_json_array(completions) << R"(
   }
 })";
     send_lsp_response(response.str());
@@ -139,4 +158,68 @@ void LspServer::handle_document_change(const std::string &content) {
 
 void LspServer::log_info(const std::string &message) {
     std::cerr << "[INFO] " << message << std::endl;
+}
+
+std::string LspServer::extract_file_uri(const std::string &content) {
+    // Look for "textDocument":{"uri":"file://..."
+    size_t uri_start = content.find("\"uri\":\"");
+    if (uri_start != std::string::npos) {
+        uri_start += 7; // Skip past "uri":"
+        size_t uri_end = content.find("\"", uri_start);
+        if (uri_end != std::string::npos) {
+            return content.substr(uri_start, uri_end - uri_start);
+        }
+    }
+    return "";
+}
+
+std::pair<int, int> LspServer::extract_position(const std::string &content) {
+    size_t pos_start = content.find("\"position\":");
+    if (pos_start == std::string::npos) {
+        return {-1, -1};
+    }
+
+    // Find the opening brace after "position":
+    size_t brace_start = content.find("{", pos_start);
+    if (brace_start == std::string::npos) {
+        return {-1, -1};
+    }
+
+    // Extract line
+    size_t line_pos = content.find("\"line\":", brace_start);
+    if (line_pos == std::string::npos) {
+        return {-1, -1};
+    }
+
+    line_pos += 7; // Skip "line":
+    size_t line_end = content.find_first_of(",}", line_pos);
+    if (line_end == std::string::npos) {
+        return {-1, -1};
+    }
+
+    // Extract character
+    size_t char_pos = content.find("\"character\":", line_end);
+    if (char_pos == std::string::npos) {
+        return {-1, -1};
+    }
+
+    char_pos += 12; // Skip "character":
+    size_t char_end = content.find_first_of(",}", char_pos);
+    if (char_end == std::string::npos) {
+        return {-1, -1};
+    }
+
+    try {
+        int line = std::stoi(content.substr(line_pos, line_end - line_pos));
+        int character = std::stoi(content.substr(char_pos, char_end - char_pos));
+        return {line, character};
+    } catch (...) { return {-1, -1}; }
+}
+
+std::string LspServer::uri_to_file_path(const std::string &uri) {
+    // Convert file://path to path
+    if (uri.substr(0, 7) == "file://") {
+        return uri.substr(7); // Remove "file://" prefix
+    }
+    return uri;
 }
