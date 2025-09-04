@@ -30,6 +30,12 @@ class Type {
     /// @note This function only needs to be called once at the start of the parsing phase
     static void init_types();
 
+    /// @function `clear_types`
+    /// @brief Clears all the types from the type list
+    /// @note This function is only allowed to be called at the end of the program, calling it while the parser or codegen are active is
+    /// actually...not good
+    static void clear_types();
+
     /// @function `resolve_type`
     /// @brief Resolves the given type so that the type does no longer contain any unknown types
     ///

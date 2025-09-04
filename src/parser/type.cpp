@@ -54,6 +54,11 @@ void Type::init_types() {
     add_type(std::make_shared<ArrayType>(1, str_type));
 }
 
+void Type::clear_types() {
+    types.clear();
+    unknown_types.clear();
+}
+
 bool Type::resolve_type(std::shared_ptr<Type> &type) {
     if (UnknownType *unknown_type = dynamic_cast<UnknownType *>(type.get())) {
         // Get the "real" type from the parameter type
