@@ -1,3 +1,4 @@
+-Ilsp/include
 -Ivendor/llvm-project/llvm/include
 -Ivendor/llvm-linux/include
 -Ivendor/llvm-mingw/include
