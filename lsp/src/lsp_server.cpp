@@ -97,7 +97,7 @@ void LspServer::send_completion_response(const std::string &content) {
     std::string request_id = extract_request_id(content);
     std::string file_uri = extract_file_uri(content);
     std::string file_path = uri_to_file_path(file_uri);
-    auto position = extract_position(request_id);
+    auto position = extract_position(content);
 
     log_info("Completion request for file: " + file_path + " at line " + std::to_string(position.first) + ", char " +
         std::to_string(position.second));

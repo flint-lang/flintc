@@ -124,6 +124,20 @@ class Parser {
         instances.clear();
         main_function_parsed = false;
         main_function_has_args = false;
+
+        // Clear all the other static containers that hold pointers to parser data
+        {
+            std::lock_guard<std::mutex> lock(parsed_data_mutex);
+            parsed_data.clear();
+        }
+        {
+            std::lock_guard<std::mutex> lock(parsed_functions_mutex);
+            parsed_functions.clear();
+        }
+        {
+            std::lock_guard<std::mutex> lock(parsed_tests_mutex);
+            parsed_tests.clear();
+        }
     }
 
     /// @function `get_builtin_function`

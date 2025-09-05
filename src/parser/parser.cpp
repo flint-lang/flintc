@@ -1,7 +1,6 @@
 #include "parser/parser.hpp"
 
 #include "debug.hpp"
-#include "error/error.hpp"
 #include "globals.hpp"
 #include "lexer/lexer.hpp"
 #include "persistent_thread_pool.hpp"

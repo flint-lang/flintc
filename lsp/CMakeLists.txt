@@ -42,6 +42,21 @@ set(LSP_SOURCES
     ../vendor/sources/fip/toml/tomlc17.c
 )
 
+set(BASE_CXX_FLAGS
+    -g
+    -O0
+    -fno-omit-frame-pointer
+    -funwind-tables
+    -ffunction-sections
+    -fdata-sections
+    # -fstandalone-debug # Only for Clang on Linux
+    -D_GNU_SOURCE
+    -D__STDC_CONSTANT_MACROS
+    -D__STDC_FORMAT_MACROS
+    -D__STDC_LIMIT_MACROS
+)
+
+
 # Header files (for IDE organization)
 set(LSP_HEADERS
     include/lsp_server.hpp
@@ -58,11 +73,7 @@ set_target_properties(fls PROPERTIES
 )
 
 # Compiler flags
-if(MSVC)
-    target_compile_options(fls PRIVATE /W4)
-else()
-    target_compile_options(fls PRIVATE -Wall -Wextra -Wpedantic)
-endif()
+target_compile_options(fls PRIVATE ${BASE_CXX_FLAGS})
 
 # Install target
 install(TARGETS fls
