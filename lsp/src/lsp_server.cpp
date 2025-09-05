@@ -37,6 +37,15 @@ void LspServer::run() {
     }
 }
 
+void parser_cleanup() {
+    Profiler::end_task("ALL");
+    Profiler::root_nodes.clear();
+    while (!Profiler::profile_stack.empty()) {
+        Profiler::profile_stack.pop();
+    }
+    Profiler::active_tasks.clear();
+}
+
 std::optional<FileNode *> LspServer::parse_program(const std::string &source_file_path) {
     static std::mutex parsing_mutex;
     std::lock_guard<std::mutex> lock(parsing_mutex);
@@ -54,21 +63,18 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
     std::optional<FileNode *> file = Parser::create(file_path)->parse();
     if (!file.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << file_path.filename() << DEFAULT << std::endl;
+        parser_cleanup();
         return std::nullopt;
     }
     auto dep_graph = Resolver::create_dependency_graph(file.value(), file_path.parent_path(), parse_parallel);
     Parser::resolve_all_unknown_types();
     bool parsed_successful = Parser::parse_all_open_functions(parse_parallel);
     if (!parsed_successful) {
+        parser_cleanup();
         return std::nullopt;
     }
 
-    Profiler::end_task("ALL");
-    Profiler::root_nodes.clear();
-    while (!Profiler::profile_stack.empty()) {
-        Profiler::profile_stack.pop();
-    }
-    Profiler::active_tasks.clear();
+    parser_cleanup();
     return file.value();
 }
 
