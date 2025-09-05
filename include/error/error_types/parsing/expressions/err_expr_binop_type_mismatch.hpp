@@ -38,6 +38,13 @@ class ErrExprBinopTypeMismatch : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "BinOp type mismatch between '" + lhs_type + "' and '" + rhs_type + "'";
+        return d;
+    }
+
   private:
     Token operator_token;
     std::string lhs_type;

@@ -27,6 +27,14 @@ class ErrExprTupleAccessOOB : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        const TupleType *tuple_type_ptr = dynamic_cast<const TupleType *>(tuple_type.get());
+        d.message = "Out of bounds access on tuple type, tuple has " + std::to_string(tuple_type_ptr->types.size()) + " elements";
+        return d;
+    }
+
   private:
     std::string tuple_access;
     std::shared_ptr<Type> tuple_type;

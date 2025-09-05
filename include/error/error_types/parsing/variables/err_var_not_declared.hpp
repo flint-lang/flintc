@@ -16,6 +16,13 @@ class ErrVarNotDeclared : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Use of undeclared variable '" + var_name + "'";
+        return d;
+    }
+
   private:
     std::string var_name;
 };

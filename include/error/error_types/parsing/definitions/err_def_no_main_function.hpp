@@ -13,4 +13,11 @@ class ErrDefNoMainFunction : public BaseError {
         oss << BaseError::to_string() << "└─ No main function found in the project";
         return oss.str();
     }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "No main function found in the project";
+        return d;
+    }
 };

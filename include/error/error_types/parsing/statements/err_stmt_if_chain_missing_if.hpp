@@ -14,4 +14,11 @@ class ErrStmtIfChainMissingIf : public BaseError {
         oss << BaseError::to_string() << "└─ Expected if chain to start with an if statement";
         return oss.str();
     }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Expected if chain to start with an if statement";
+        return d;
+    }
 };

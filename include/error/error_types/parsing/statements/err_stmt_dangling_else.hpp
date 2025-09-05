@@ -16,6 +16,17 @@ class ErrStmtDanglingElse : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Dangling else ";
+        if (is_else_if) {
+            d.message.append("if ");
+        }
+        d.message.append("statement misses preceeding if or else if");
+        return d;
+    }
+
   private:
     bool is_else_if;
 };

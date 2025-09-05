@@ -23,6 +23,13 @@ class ErrTestRedefinition : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "The test '" + test_name + "' is already defined in this file";
+        return d;
+    }
+
   private:
     std::string test_name;
 };

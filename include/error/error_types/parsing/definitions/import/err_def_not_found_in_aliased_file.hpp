@@ -20,6 +20,13 @@ class ErrDefNotFoundInAliasedFile : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Unknown definition '" + definition + "' in aliased file '" + aliased_file_name + "'";
+        return d;
+    }
+
   private:
     std::string alias;
     std::string aliased_file_name;

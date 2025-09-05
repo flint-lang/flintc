@@ -19,7 +19,7 @@ class ErrFnCannotReturnTuple : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "├─ Functions cannot return a tuple type directly.\n";
+        oss << BaseError::to_string() << "├─ Functions cannot return a tuple type directly\n";
         oss << "└─ If you want to return multiple values, change the return type to '" << CYAN << "(";
         const TupleType *tuple_type = dynamic_cast<const TupleType *>(return_type.get());
         assert(tuple_type != nullptr);
@@ -32,6 +32,13 @@ class ErrFnCannotReturnTuple : public BaseError {
 
         oss << ")" << DEFAULT << "'";
         return oss.str();
+    }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Functions cannot return a tuple type directly, use groups instead";
+        return d;
     }
 
   private:

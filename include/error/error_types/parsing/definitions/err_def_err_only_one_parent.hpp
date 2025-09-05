@@ -20,4 +20,11 @@ class ErrDefErrOnlyOneParent : public BaseError {
         oss << BaseError::to_string() << "└─ Error sets can only extend from a single other error set";
         return oss.str();
     }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Error sets can only extend from a single other error set";
+        return d;
+    }
 };

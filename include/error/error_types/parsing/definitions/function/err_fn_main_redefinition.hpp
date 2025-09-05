@@ -20,4 +20,11 @@ class ErrFnMainRedefinition : public BaseError {
         oss << "└─ Each project is only allowed to contain a single main function";
         return oss.str();
     }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Redefinition of the main function";
+        return d;
+    }
 };

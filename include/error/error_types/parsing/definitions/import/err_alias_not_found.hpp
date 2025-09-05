@@ -17,6 +17,13 @@ class ErrAliasNotFound : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "The alias '" + alias + "' was not defined in this file";
+        return d;
+    }
+
   private:
     std::string alias;
 };

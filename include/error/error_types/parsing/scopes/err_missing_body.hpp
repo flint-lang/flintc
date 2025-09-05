@@ -17,6 +17,13 @@ class ErrMissingBody : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Expected a body after the : from the line above";
+        return d;
+    }
+
   private:
     token_slice tokens;
 };

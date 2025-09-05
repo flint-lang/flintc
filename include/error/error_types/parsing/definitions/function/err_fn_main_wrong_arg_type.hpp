@@ -26,6 +26,13 @@ class ErrFnMainWrongArgType : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Wrong argument type '" + arg_type->to_string() + "'for the main function";
+        return d;
+    }
+
   private:
     std::shared_ptr<Type> arg_type;
 };

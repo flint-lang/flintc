@@ -20,6 +20,13 @@ class ErrUseStatementNotAtTopLevel : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Use statement not at top level";
+        return d;
+    }
+
   private:
     token_slice tokens;
 };

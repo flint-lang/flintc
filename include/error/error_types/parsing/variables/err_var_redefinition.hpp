@@ -16,6 +16,13 @@ class ErrVarRedefinition : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Variable '" + var_name + "' already exists";
+        return d;
+    }
+
   private:
     std::string var_name;
 };

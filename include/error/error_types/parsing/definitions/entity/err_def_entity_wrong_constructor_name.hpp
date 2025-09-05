@@ -25,6 +25,13 @@ class ErrDefEntityWrongConstructorName : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Expected entity constructor name '" + expected_name + "' but got '" + actual_name + "'";
+        return d;
+    }
+
   private:
     std::string expected_name;
     std::string actual_name;

@@ -18,4 +18,11 @@ class ErrFnMainErrSet : public BaseError {
         oss << BaseError::to_string() << "└─ The main function is not allowed to have any error-set signature specialization";
         return oss.str();
     }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "The main function is not allowed to have any error-set signature specialization";
+        return d;
+    }
 };

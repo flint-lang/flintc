@@ -14,5 +14,12 @@ class ErrExprNestedGroup : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Nested groups are not allowed";
+        return d;
+    }
+
   private:
 };

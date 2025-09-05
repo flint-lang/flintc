@@ -43,6 +43,20 @@ class ErrParsUnexpectedToken : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Unexpected Token: '" + get_token_name(but_got) + "', expected one of [";
+        for (auto it = expected.begin(); it != expected.end(); ++it) {
+            d.message.append(get_token_name(*it));
+            if ((it + 1) != expected.end()) {
+                d.message.append(",");
+            }
+        }
+        d.message.append("]");
+        return d;
+    }
+
   private:
     std::vector<Token> expected;
     Token but_got;

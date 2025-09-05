@@ -16,6 +16,13 @@ class ErrTypeTupleMultiTypeOverlap : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Cannot create a tuple type which overlaps with a multi-type";
+        return d;
+    }
+
   private:
     token_slice tokens;
 };

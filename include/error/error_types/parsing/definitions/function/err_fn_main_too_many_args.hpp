@@ -22,4 +22,11 @@ class ErrFnMainTooManyArgs : public BaseError {
         oss << "    └─ " << CYAN << "main(str[] args)" << DEFAULT;
         return oss.str();
     }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Too many arguments in the main function";
+        return d;
+    }
 };

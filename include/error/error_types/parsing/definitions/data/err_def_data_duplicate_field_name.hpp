@@ -22,6 +22,13 @@ class ErrDefDataDuplicateFieldName : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Duplicate data field '" + duplicate_field + "'";
+        return d;
+    }
+
   private:
     std::string duplicate_field;
 };

@@ -22,4 +22,11 @@ class ErrExternWithoutFip : public BaseError {
         oss << "└─ Check your configs in '" << CYAN << ".fip/config/" << DEFAULT << "' to see if there are any problems with it";
         return oss.str();
     }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Defined extern function without the FIP running and active";
+        return d;
+    }
 };

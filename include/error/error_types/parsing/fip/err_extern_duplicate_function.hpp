@@ -24,6 +24,14 @@ class ErrExternDuplicateFunction : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Defined extern function '" + wrong_fn->name + "' twice, first defined at " + first_defined->file_name + ":" +
+            std::to_string(first_defined->line) + ":" + std::to_string(first_defined->column);
+        return d;
+    }
+
   private:
     const FunctionNode *wrong_fn;
     const FunctionNode *first_defined;

@@ -31,6 +31,13 @@ class ErrDefUnexpectedCoreModule : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "The Core module '" + core_module_name + "' does not exist";
+        return d;
+    }
+
   private:
     std::string core_module_name;
 };

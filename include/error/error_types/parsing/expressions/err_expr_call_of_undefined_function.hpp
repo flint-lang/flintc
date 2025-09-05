@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 #include "types.hpp"
 
@@ -19,6 +20,13 @@ class ErrExprCallOfUndefinedFunction : public BaseError {
 
     [[nodiscard]]
     std::string to_string() const override;
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Call of undefined function '" + function_name + "'";
+        return d;
+    }
 
   private:
     std::string file_name;

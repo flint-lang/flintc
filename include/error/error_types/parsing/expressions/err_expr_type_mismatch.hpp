@@ -29,6 +29,13 @@ class ErrExprTypeMismatch : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Expression type mismatch, expected '" + expected->to_string() + "' but got '" + type->to_string() + "'";
+        return d;
+    }
+
   private:
     /// @var `expected`
     /// @brief The expected type

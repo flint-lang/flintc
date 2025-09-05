@@ -22,6 +22,13 @@ class ErrDefDataRedefinition : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Redefinition of data module '" + data_name + "'";
+        return d;
+    }
+
   private:
     const std::string data_name;
 };

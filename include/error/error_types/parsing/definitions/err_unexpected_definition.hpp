@@ -14,4 +14,11 @@ class ErrUnexpectedDefinition : public BaseError {
         oss << BaseError::to_string() << "└─ The definition could not be parsed\n";
         return oss.str();
     }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "The definition cannot be parsed";
+        return d;
+    }
 };
