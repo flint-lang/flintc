@@ -34,7 +34,7 @@ def test_file_ok(str file, str expected_output):
 /// @param `file` The file to compile
 /// @param `expected_output` The expected output of the compiled program
 def test_file_ok_in(str path, str file, str expected_output):
-	(_, cwd) := system_command("echo -n $(pwd)");
+	(unused, cwd) := system_command("echo -n $(pwd)");
 	(exit_code, output) := system_command($"cd {cwd}/{path}; flintc --file {file}");
 	assert(exit_code == 0);
 	assert(output == "");
@@ -57,7 +57,7 @@ def test_file_fail(str file, str expected_output):
 /// @param `file` The file to compile
 /// @param `expected_output` The expected output of the failing compilation 
 def test_file_fail_in(str path, str file, str expected_output):
-	(_, cwd) := system_command("echo -n $(pwd)");
+	(unused, cwd) := system_command("echo -n $(pwd)");
 	(exit_code, output) := system_command($"cd {cwd}/{path}; flintc --no-colors --file {file}");
 	assert(exit_code == 1);
 	assert(starts_with(output, expected_output));
