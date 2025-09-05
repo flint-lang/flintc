@@ -34,18 +34,26 @@ enum class CompletionItemKind : int {
     TypeParameter = 25,
 };
 
-// Completion item data: (label, kind, detail, insert_text)
 /// @brief Alias for the tuple for all completion items, where each item is an entry in the completion json response
-using CompletionItem = std::tuple<std::string, CompletionItemKind, std::string, std::string>;
+///
+/// These are the fields of the CompletionItem:
+///   - The label of the completion (the string to match for)
+///   - The kind of completion, which item kind it is
+///   - A detail field for the item's description
+///   - The text / snippet to insert
+///   - Whether the completion item is a snippet (true) or pure text (false)
+using CompletionItem = std::tuple<std::string, CompletionItemKind, std::string, std::string, bool>;
 
 /// @class `CompletionData`
 /// @brief Class which is responsible for managing all the data of completions
 class CompletionData {
   public:
+    CompletionData() = delete;
+
     // Get all completion items organized by category
     static const std::vector<CompletionItem> &get_keywords();
     static const std::vector<CompletionItem> &get_types();
-    static const std::vector<CompletionItem> &get_functions();
+    static const std::vector<CompletionItem> &get_definitions();
     static const std::vector<CompletionItem> &get_modules();
     static const std::vector<CompletionItem> &get_storage_classes();
     static const std::vector<CompletionItem> &get_constants();
@@ -56,7 +64,7 @@ class CompletionData {
   private:
     static const std::vector<CompletionItem> keywords_;
     static const std::vector<CompletionItem> types_;
-    static const std::vector<CompletionItem> functions_;
+    static const std::vector<CompletionItem> definitions_;
     static const std::vector<CompletionItem> modules_;
     static const std::vector<CompletionItem> storage_classes_;
     static const std::vector<CompletionItem> constants_;

@@ -6,6 +6,8 @@
 /// @brief Class which is responsible for handling all the protocol part of the LSP
 class LspProtocol {
   public:
+    LspProtocol() = delete;
+
     // LSP Method names
     static constexpr const char *METHOD_INITIALIZE = "initialize";
     static constexpr const char *METHOD_INITIALIZED = "initialized";

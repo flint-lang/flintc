@@ -16,7 +16,7 @@ void add_nodes_from_file_to_completions(             //
             }
             // Remove the 'fc_' prefix from the function names
             const std::string fn_name = function_node->name.substr(3);
-            completions.emplace_back(fn_name, CompletionItemKind::Function, "The '" + fn_name + "' function", fn_name);
+            completions.emplace_back(fn_name, CompletionItemKind::Function, "The '" + fn_name + "' function", fn_name, false);
         } else if (const ImportNode *import_node = dynamic_cast<const ImportNode *>(node.get())) {
             if (!is_root_file) {
                 // Only add imports if it's the root node we are in
@@ -28,23 +28,23 @@ void add_nodes_from_file_to_completions(             //
             }
         } else if (const DataNode *data_node = dynamic_cast<const DataNode *>(node.get())) {
             // Add the data type to the completions list
-            completions.emplace_back(                                                                                  //
-                data_node->name, CompletionItemKind::Class, "The '" + data_node->name + "' data type", data_node->name //
+            completions.emplace_back(                                                                                         //
+                data_node->name, CompletionItemKind::Class, "The '" + data_node->name + "' data type", data_node->name, false //
             );
         } else if (const EnumNode *enum_node = dynamic_cast<const EnumNode *>(node.get())) {
             // Add the enum type to the completions list
-            completions.emplace_back(                                                                                  //
-                enum_node->name, CompletionItemKind::Class, "The '" + enum_node->name + "' enum type", enum_node->name //
+            completions.emplace_back(                                                                                         //
+                enum_node->name, CompletionItemKind::Class, "The '" + enum_node->name + "' enum type", enum_node->name, false //
             );
         } else if (const VariantNode *variant_node = dynamic_cast<const VariantNode *>(node.get())) {
             // Add the variant type to the completions list
-            completions.emplace_back(                                                                                              //
-                variant_node->name, CompletionItemKind::Class, "The '" + variant_node->name + "' variant type", variant_node->name //
+            completions.emplace_back(                                                                                                     //
+                variant_node->name, CompletionItemKind::Class, "The '" + variant_node->name + "' variant type", variant_node->name, false //
             );
         } else if (const ErrorNode *error_node = dynamic_cast<const ErrorNode *>(node.get())) {
             // Add the error type to the completions list
-            completions.emplace_back(                                                                                      //
-                error_node->name, CompletionItemKind::Class, "The '" + error_node->name + "' error type", error_node->name //
+            completions.emplace_back(                                                                                             //
+                error_node->name, CompletionItemKind::Class, "The '" + error_node->name + "' error type", error_node->name, false //
             );
         }
     }
@@ -95,7 +95,8 @@ void try_parse_and_add_completions(          //
                 fn_name,                                                                     //
                 CompletionItemKind::Function,                                                //
                 "The '" + fn_name + "' function from the '" + module_name + "' Core module", //
-                fn_name                                                                      //
+                fn_name,                                                                     //
+                false                                                                        //
             );
         }
     }
