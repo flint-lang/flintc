@@ -46,7 +46,15 @@ class LspServer {
     /// @param `content` The content of the request message
     void send_completion_response(const std::string &content);
 
-    std::vector<CompletionItem> get_context_aware_completions(const std::string &file_path, int line, int character);
+    /// @function `get_context_aware_completions`
+    /// @brief Parses the given file and collects all types, functions etc from the file for the completion system
+    ///
+    /// @param `file_path` The file path string to the file which needs to be parsed and checked
+    /// @param `line` The line at which the completion is requested
+    /// @param `column` The column in the given line at which the completion is requested
+    ///
+    /// @note This function parses not only the given file but all files it includes too, to give suggestions of each file it included
+    std::vector<CompletionItem> get_context_aware_completions(const std::string &file_path, int line, int column);
 
     /// @function `send_hover_response`
     /// @brief Sends the hover response over stdout

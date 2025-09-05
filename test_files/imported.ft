@@ -1,0 +1,7 @@
+use Core.assert
+
+def func1(i32 x, i32 y) -> i32:
+	return x + y;
+
+variant SomeVariant:
+	i32, f32, Tuple(i32, f32);

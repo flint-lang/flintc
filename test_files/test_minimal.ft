@@ -1,6 +1,8 @@
 use Core.print
 use Core.math
 
+use "imported.ft"
+
 data MyData:
 	i32 x;
 	f32 y;
@@ -8,6 +10,9 @@ data MyData:
 
 def some_function(i32 x, i32 y) -> i32:
 	return x + y;
+
+error MyError:
+	V1, V2, V3;
 
 def main():
 	i32 x = 121;
