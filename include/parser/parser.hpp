@@ -73,6 +73,13 @@ class Parser {
     /// @brief Creates a new instance of the Parser. The parser itself owns all instances of the parser
     static Parser *create(const std::filesystem::path &file);
 
+    /// @function `create`
+    /// @brief Creates a new instance of the Parser. The parser itself owns all instances of the parser
+    ///
+    /// @param `file` The path to the file, for storage reasons
+    /// @param `file_content` The already loaded content of the file
+    static Parser *create(const std::filesystem::path &file, const std::string &file_content);
+
     /// @function `parse`
     /// @brief Parses the file. It will tokenize it using the Lexer and then create the AST of the file and return the parsed FileNode
     ///
@@ -238,6 +245,10 @@ class Parser {
         }
         source_code = std::make_unique<const std::string>(load_file(file));
     };
+    explicit Parser(const std::filesystem::path &file, const std::string &file_content) :
+        file(file),
+        file_name(file.filename().string()),
+        source_code(std::make_unique<std::string>(file_content)) {}
 
     /// @var `instances`
     /// @brief All Parser instances which are present. Used by the two-pass parsing system

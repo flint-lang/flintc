@@ -1,5 +1,6 @@
 use Core.print
 use Core.math
+use Core.wololo
 
 use "imported.ft"
 

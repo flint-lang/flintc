@@ -56,7 +56,7 @@ void try_parse_and_add_completions(          //
     std::vector<CompletionItem> &completions //
 ) {
     // Parse the program
-    std::optional<FileNode *> file = LspServer::parse_program(file_path);
+    std::optional<FileNode *> file = LspServer::parse_program(file_path, std::nullopt);
     if (!file.has_value()) {
         return;
     }

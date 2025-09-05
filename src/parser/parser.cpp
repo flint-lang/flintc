@@ -22,6 +22,11 @@ Parser *Parser::create(const std::filesystem::path &file) {
     return &instances.back();
 }
 
+Parser *Parser::create(const std::filesystem::path &file, const std::string &file_content) {
+    instances.emplace_back(Parser(file, file_content));
+    return &instances.back();
+}
+
 bool Parser::file_exists_and_is_readable(const std::filesystem::path &file_path) {
     std::ifstream file(file_path.string());
     return file.is_open() && !file.fail();

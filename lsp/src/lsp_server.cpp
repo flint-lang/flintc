@@ -5,11 +5,6 @@
 #include "parser/parser.hpp"
 #include "profiler.hpp"
 
-#ifndef FLINT_LSP
-#define FLINT_LSP
-#endif
-#include "error/diagnostics.hpp"
-
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -46,7 +41,7 @@ void parser_cleanup() {
     Profiler::active_tasks.clear();
 }
 
-std::optional<FileNode *> LspServer::parse_program(const std::string &source_file_path) {
+std::optional<FileNode *> LspServer::parse_program(const std::string &source_file_path, const std::optional<std::string> &file_content) {
     static std::mutex parsing_mutex;
     std::lock_guard<std::mutex> lock(parsing_mutex);
     std::filesystem::path file_path(source_file_path);
@@ -60,7 +55,12 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
     Profiler::start_task("ALL");
     Type::init_types();
     Resolver::add_path(file_path.filename().string(), file_path.parent_path());
-    std::optional<FileNode *> file = Parser::create(file_path)->parse();
+    std::optional<FileNode *> file;
+    if (file_content.has_value()) {
+        file = Parser::create(file_path, file_content.value())->parse();
+    } else {
+        file = Parser::create(file_path)->parse();
+    }
     if (!file.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << file_path.filename() << DEFAULT << std::endl;
         parser_cleanup();
@@ -220,7 +220,7 @@ void LspServer::handle_document_open(const std::string &content) {
         log_info("Flint document (.ft) opened");
 
         // Parse the file and publish diagnostics
-        LspServer::parse_program(file_path);
+        LspServer::parse_program(file_path, std::nullopt);
         publish_diagnostics(file_uri);
     } else {
         log_info("Document opened");
@@ -231,13 +231,15 @@ void LspServer::handle_document_change(const std::string &content) {
     std::string file_uri = extract_file_uri(content);
     std::string file_path = uri_to_file_path(file_uri);
 
-    log_info("Document changed");
+    if (content.find(LspProtocol::FLINT_EXTENSION) != std::string::npos) {
+        log_info("Flint document (.ft) changed");
 
-    if (!file_path.empty() && file_path.size() > 3 && file_path.substr(file_path.size() - 3) == LspProtocol::FLINT_EXTENSION) {
-
-        // Re-parse the file and publish updated diagnostics
-        LspServer::parse_program(file_path);
+        // Parse the file and publish diagnostics
+        std::string file_content = extract_file_content_from_change(content);
+        LspServer::parse_program(file_path, file_content);
         publish_diagnostics(file_uri);
+    } else {
+        log_info("Document changed");
     }
 }
 
@@ -256,6 +258,80 @@ std::string LspServer::extract_file_uri(const std::string &content) {
         }
     }
     return "";
+}
+
+std::string LspServer::extract_file_content_from_change(const std::string &content) {
+    // Look for "contentChanges":[{"text":"..."}]
+    size_t changes_start = content.find("\"contentChanges\":");
+    if (changes_start == std::string::npos) {
+        return "";
+    }
+
+    // Find the first "text" field in the changes array
+    size_t text_start = content.find("\"text\":\"", changes_start);
+    if (text_start == std::string::npos) {
+        return "";
+    }
+
+    text_start += 8; // Skip past "text":"
+
+    // Find the closing quote, handling escaped quotes
+    size_t text_end = text_start;
+    while (text_end < content.length()) {
+        if (content[text_end] == '"' && (text_end == text_start || content[text_end - 1] != '\\')) {
+            break;
+        }
+        text_end++;
+    }
+
+    if (text_end >= content.length()) {
+        return "";
+    }
+
+    std::string raw_content = content.substr(text_start, text_end - text_start);
+
+    // Unescape JSON string
+    return unescape_json_string(raw_content);
+}
+
+// Helper function to unescape JSON strings
+std::string LspServer::unescape_json_string(const std::string &escaped) {
+    std::string result;
+    result.reserve(escaped.length());
+
+    for (size_t i = 0; i < escaped.length(); ++i) {
+        if (escaped[i] == '\\' && i + 1 < escaped.length()) {
+            switch (escaped[i + 1]) {
+                case 'n':
+                    result += '\n';
+                    i++;
+                    break;
+                case 't':
+                    result += '\t';
+                    i++;
+                    break;
+                case 'r':
+                    result += '\r';
+                    i++;
+                    break;
+                case '"':
+                    result += '"';
+                    i++;
+                    break;
+                case '\\':
+                    result += '\\';
+                    i++;
+                    break;
+                default:
+                    result += escaped[i];
+                    break;
+            }
+        } else {
+            result += escaped[i];
+        }
+    }
+
+    return result;
 }
 
 std::pair<int, int> LspServer::extract_position(const std::string &content) {
