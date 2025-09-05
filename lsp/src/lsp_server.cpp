@@ -1,5 +1,6 @@
 #include "lsp_server.hpp"
 #include "completion_data.hpp"
+#include "globals.hpp"
 #include "lsp_protocol.hpp"
 
 #include <iostream>
@@ -71,7 +72,7 @@ void LspServer::send_initialize_response(const std::string &request_id) {
       "name": ")"
              << LspProtocol::SERVER_NAME << R"(",
       "version": ")"
-             << LspProtocol::SERVER_VERSION << R"("
+             << "v" << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION << R"("
     }
   }
 })";

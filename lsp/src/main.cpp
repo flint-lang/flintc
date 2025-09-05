@@ -1,6 +1,8 @@
 #include "lsp_protocol.hpp"
 #include "lsp_server.hpp"
 
+#include "globals.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -15,7 +17,8 @@ void print_help() {
 }
 
 void print_version() {
-    std::cout << "fls v" << LspProtocol::SERVER_VERSION << ", LSP v" << LspProtocol::PROTOCOL_VERSION << std::endl;
+    std::cout << "fls v" << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION << ", LSP v" << LspProtocol::PROTOCOL_VERSION
+              << std::endl;
 }
 
 int main(int argc, char *argv[]) {

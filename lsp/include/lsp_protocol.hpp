@@ -20,7 +20,6 @@ class LspProtocol {
 
     // Server info
     static constexpr const char *SERVER_NAME = "Flint Language Server";
-    static constexpr const char *SERVER_VERSION = "0.2.1";
     static constexpr const char *PROTOCOL_VERSION = "3.17";
 
     // File extensions
