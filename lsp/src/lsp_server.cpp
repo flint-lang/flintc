@@ -2,10 +2,19 @@
 #include "completion_data.hpp"
 #include "globals.hpp"
 #include "lsp_protocol.hpp"
+#include "parser/parser.hpp"
+#include "profiler.hpp"
+
+#ifndef FLINT_LSP
+#define FLINT_LSP
+#endif
+#include "error/diagnostics.hpp"
 
 #include <iostream>
 #include <sstream>
 #include <string>
+
+std::vector<Diagnostic> diagnostics;
 
 void LspServer::run() {
     std::string line;
@@ -26,6 +35,41 @@ void LspServer::run() {
             process_message(content);
         }
     }
+}
+
+std::optional<FileNode *> LspServer::parse_program(const std::string &source_file_path) {
+    static std::mutex parsing_mutex;
+    std::lock_guard<std::mutex> lock(parsing_mutex);
+    std::filesystem::path file_path(source_file_path);
+    const bool parse_parallel = false;
+    // Clear all internal state before parsing so that the internal state is valid after we are done with this function
+    Resolver::clear();
+    Parser::clear_instances();
+    Type::clear_types();
+    diagnostics.clear();
+
+    Profiler::start_task("ALL");
+    Type::init_types();
+    Resolver::add_path(file_path.filename().string(), file_path.parent_path());
+    std::optional<FileNode *> file = Parser::create(file_path)->parse();
+    if (!file.has_value()) {
+        std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << file_path.filename() << DEFAULT << std::endl;
+        return std::nullopt;
+    }
+    auto dep_graph = Resolver::create_dependency_graph(file.value(), file_path.parent_path(), parse_parallel);
+    Parser::resolve_all_unknown_types();
+    bool parsed_successful = Parser::parse_all_open_functions(parse_parallel);
+    if (!parsed_successful) {
+        return std::nullopt;
+    }
+
+    Profiler::end_task("ALL");
+    Profiler::root_nodes.clear();
+    while (!Profiler::profile_stack.empty()) {
+        Profiler::profile_stack.pop();
+    }
+    Profiler::active_tasks.clear();
+    return file.value();
 }
 
 void LspServer::process_message(const std::string &content) {
@@ -128,6 +172,23 @@ void LspServer::send_completion_response(const std::string &content) {
     send_lsp_response(response.str());
 }
 
+void LspServer::publish_diagnostics(const std::string &file_uri) {
+    std::stringstream response;
+    response << R"({
+  "jsonrpc": "2.0",
+  "method": "textDocument/publishDiagnostics",
+  "params": {
+    "uri": ")"
+             << file_uri << R"(",
+    "diagnostics": )"
+             << diagnostics_to_json_array() << R"(
+  }
+})";
+
+    send_lsp_response(response.str());
+    log_info("Published " + std::to_string(diagnostics.size()) + " diagnostics for " + file_uri);
+}
+
 void LspServer::send_hover_response(const std::string &request_id) {
     std::stringstream response;
     response << R"({
@@ -146,15 +207,32 @@ void LspServer::send_hover_response(const std::string &request_id) {
 }
 
 void LspServer::handle_document_open(const std::string &content) {
+    std::string file_uri = extract_file_uri(content);
+    std::string file_path = uri_to_file_path(file_uri);
+
     if (content.find(LspProtocol::FLINT_EXTENSION) != std::string::npos) {
         log_info("Flint document (.ft) opened");
+
+        // Parse the file and publish diagnostics
+        LspServer::parse_program(file_path);
+        publish_diagnostics(file_uri);
     } else {
         log_info("Document opened");
     }
 }
 
 void LspServer::handle_document_change(const std::string &content) {
+    std::string file_uri = extract_file_uri(content);
+    std::string file_path = uri_to_file_path(file_uri);
+
     log_info("Document changed");
+
+    if (!file_path.empty() && file_path.size() > 3 && file_path.substr(file_path.size() - 3) == LspProtocol::FLINT_EXTENSION) {
+
+        // Re-parse the file and publish updated diagnostics
+        LspServer::parse_program(file_path);
+        publish_diagnostics(file_uri);
+    }
 }
 
 void LspServer::log_info(const std::string &message) {

@@ -1,6 +1,9 @@
 #pragma once
 
 #include "completion_data.hpp"
+#include "parser/ast/file_node.hpp"
+
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -14,6 +17,15 @@ class LspServer {
     /// @function `run`
     /// @brief Executes the main loop of the server. Listens for any messages on stdin and processes them
     void run();
+
+    /// @function `parse_program`
+    /// @brief Parses the whole program and returns the main file of the program
+    ///
+    /// @brief `file_path` The path to the root file of the parsing process
+    ///
+    /// @note This function is mutexed, so only one thread can ever re-parse the file at once
+    /// @note All internal state of the parser etc is cleaned at the beginning of the function before actual parsing begins
+    static std::optional<FileNode *> parse_program(const std::string &file_path);
 
   private:
     /// @function `process_message`
@@ -45,6 +57,12 @@ class LspServer {
     ///
     /// @param `content` The content of the request message
     void send_completion_response(const std::string &content);
+
+    /// @function `publish_diagnostics`
+    /// @brief Publishes diagnostics for a file
+    ///
+    /// @param `file_uri` The URI of the file
+    void publish_diagnostics(const std::string &file_uri);
 
     /// @function `get_context_aware_completions`
     /// @brief Parses the given file and collects all types, functions etc from the file for the completion system

@@ -124,6 +124,14 @@ std::string BaseError::to_string() const {
     return oss.str();
 }
 
+Diagnostic BaseError::to_diagnostic() const {
+    // We first need to get the correct character. The only character that spans wider is the \t, so we first need to get the indent lvl of
+    // the line the error happened in and then substract INDENT_LVL * (TAB_WIDTH - 1) to get the correct character offset
+    int indent_lvl = Parser::get_instance_from_filename(file).value()->get_source_code_lines().at(line - 1).first;
+    int character = column - 1 - (indent_lvl * (Lexer::TAB_SIZE - 1));
+    return Diagnostic(std::make_tuple(line - 1, character, length), DiagnosticLevel::Error, "NO_MESSAGE", file);
+}
+
 std::string BaseError::trim_right(const std::string &str) {
     size_t size = str.length();
     for (auto it = str.rbegin(); it != str.rend() && std::isspace(*it); ++it) {

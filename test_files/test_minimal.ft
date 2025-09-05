@@ -18,3 +18,5 @@ def main():
 	i32 x = 121;
 	i32 y = 234;
 	print($"max({x}, {y}) = {max(x, y)}\n");
+
+	print($"z = {k}\n");

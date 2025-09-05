@@ -1,5 +1,6 @@
 #pragma once
 
+#include "error/diagnostics.hpp"
 #include "error/error_type.hpp"
 #include "lexer/token.hpp"
 #include "parser/type/type.hpp"
@@ -13,6 +14,7 @@
 class BaseError {
   public:
     [[nodiscard]] virtual std::string to_string() const;
+    [[nodiscard]] virtual Diagnostic to_diagnostic() const;
 
     // destructor
     virtual ~BaseError() = default;

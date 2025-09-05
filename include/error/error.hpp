@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colors.hpp"
+#include "diagnostics.hpp"
 #include "error_type.hpp"
 #include "globals.hpp"
 
@@ -102,6 +103,9 @@ template <typename ErrorType, typename... Args>                                 
 std::enable_if_t<std::is_base_of_v<BaseError, ErrorType> && !std::is_same_v<BaseError, ErrorType>> //
 throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
     ErrorType error(std::forward<Args>(args)...);
+#ifdef FLINT_LSP
+    diagnostics.emplace_back(error.to_diagnostic());
+#else
     std::cerr << error.to_string();
     if (DEBUG_MODE) {
         std::cerr << YELLOW << "\n[Debug Info]" << DEFAULT << " Called from: " << file << ":" << line;
@@ -110,6 +114,7 @@ throw_err(const char *file = __FILE__, int line = __LINE__, Args &&...args) {
         assert(false);
     }
     std::cerr << "\n" << std::endl;
+#endif
 }
 
 // Define a macro to autimatically pass file and line information

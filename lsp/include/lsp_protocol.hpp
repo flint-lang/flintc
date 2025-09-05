@@ -17,6 +17,7 @@ class LspProtocol {
     static constexpr const char *METHOD_TEXT_DOCUMENT_DID_CHANGE = "textDocument/didChange";
     static constexpr const char *METHOD_TEXT_DOCUMENT_COMPLETION = "textDocument/completion";
     static constexpr const char *METHOD_TEXT_DOCUMENT_HOVER = "textDocument/hover";
+    static constexpr const char *METHOD_TEXT_DOCUMENT_PUBLISH_DIAGNOSTICS = "textDocument/publishDiagnostics";
 
     // Server info
     static constexpr const char *SERVER_NAME = "Flint Language Server";

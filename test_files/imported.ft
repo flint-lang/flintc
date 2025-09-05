@@ -5,3 +5,4 @@ def func1(i32 x, i32 y) -> i32:
 
 variant SomeVariant:
 	i32, f32, Tuple(i32, f32);
+

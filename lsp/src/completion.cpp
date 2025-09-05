@@ -1,8 +1,7 @@
 #include "lsp_server.hpp"
 
 #include "lexer/builtins.hpp"
-#include "parser/parser.hpp"
-#include "profiler.hpp"
+#include "resolver/resolver.hpp"
 
 void add_nodes_from_file_to_completions(             //
     const FileNode *file_node,                       //
@@ -51,23 +50,14 @@ void add_nodes_from_file_to_completions(             //
 }
 
 void try_parse_and_add_completions(          //
-    const std::filesystem::path &file_path,  //
+    const std::string &file_path,            //
     [[maybe_unused]] int line,               //
     [[maybe_unused]] int column,             //
     std::vector<CompletionItem> &completions //
 ) {
-    const bool parse_parallel = false;
-    Type::init_types();
-    Resolver::add_path(file_path.filename().string(), file_path.parent_path());
-    std::optional<FileNode *> file = Parser::create(file_path)->parse();
+    // Parse the program
+    std::optional<FileNode *> file = LspServer::parse_program(file_path);
     if (!file.has_value()) {
-        std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << file_path.filename() << DEFAULT << std::endl;
-        return;
-    }
-    auto dep_graph = Resolver::create_dependency_graph(file.value(), file_path.parent_path(), parse_parallel);
-    Parser::resolve_all_unknown_types();
-    bool parsed_successful = Parser::parse_all_open_functions(parse_parallel);
-    if (!parsed_successful) {
         return;
     }
 
@@ -103,21 +93,11 @@ void try_parse_and_add_completions(          //
 }
 
 std::vector<CompletionItem> LspServer::get_context_aware_completions(const std::string &file_path, int line, int column) {
-    log_info("At Begin of get_context_aware_completions");
-    static std::mutex parsing_mutex;
-    std::lock_guard<std::mutex> lock(parsing_mutex);
-    log_info("After Mutex of get_context_aware_completions");
     // Start with base completions
     auto completions = CompletionData::get_all_completions();
     // Try to parse and add the other completions
-    Profiler::start_task("ALL");
-    std::filesystem::path source_file_path(file_path);
-    try_parse_and_add_completions(source_file_path, line, column, completions);
+    try_parse_and_add_completions(file_path, line, column, completions);
 
     // Cleanup
-    Profiler::end_task("ALL");
-    Resolver::clear();
-    Parser::clear_instances();
-    Type::clear_types();
     return completions;
 }
