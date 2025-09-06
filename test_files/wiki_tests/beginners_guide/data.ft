@@ -113,7 +113,7 @@ test "21_tuple_multitype_overlap.ft":
 test "22_tuple_return_wrong.ft":
 	str path = "wiki_tests/beginners_guide/data";
 	str file = "22_tuple_return_wrong.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/22_tuple_return_wrong.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly.\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/22_tuple_return_wrong.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
 
 test "23_tuple_return_correct.ft":
 	str path = "wiki_tests/beginners_guide/data";
