@@ -8,6 +8,7 @@ fip_log_level_t LOG_LEVEL = FIP_ERROR;
 #endif
 fip_master_state_t master_state;
 
+#include "error/error.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/primitive_type.hpp"

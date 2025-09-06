@@ -1,5 +1,6 @@
 #include "generator/generator.hpp"
 
+#include "error/error.hpp"
 #include "globals.hpp"
 #include "linker/linker.hpp"
 #include "parser/type/error_set_type.hpp"

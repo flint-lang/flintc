@@ -1,5 +1,8 @@
 #include "profiler.hpp"
 
+#include "colors.hpp"
+#include "globals.hpp"
+
 std::vector<std::shared_ptr<ProfileNode>> Profiler::root_nodes;
 std::stack<std::shared_ptr<ProfileNode>> Profiler::profile_stack;
 std::map<std::string, std::shared_ptr<ProfileNode>> Profiler::active_tasks;

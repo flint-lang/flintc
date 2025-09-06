@@ -1,4 +1,5 @@
 #include "linker/linker.hpp"
+#include "colors.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
 

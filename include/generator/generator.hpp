@@ -1,5 +1,6 @@
 #pragma once
 
+#include "globals.hpp"
 #include "lexer/builtins.hpp"
 #include "parser/ast/call_node_base.hpp"
 #include "parser/ast/definitions/function_node.hpp"

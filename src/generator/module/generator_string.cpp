@@ -1,3 +1,4 @@
+#include "error/error.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
