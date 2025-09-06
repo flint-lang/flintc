@@ -54,6 +54,10 @@ class Resolver {
     /// @brief A mutex for the `file_map` variable, to make accessing the `file_map` thread-safe
     static inline std::mutex file_map_mutex;
 
+    /// @var `max_graph_depth`
+    /// @brief Number to determine the maximum depth of the graph when resolving the file dependencies
+    static inline uint64_t max_graph_depth = UINT64_MAX;
+
     /// @function `create_dependency_graph`
     /// @brief This function parses all files that the `file_node` depends on, causing parsing of the whole dependency tree
     ///

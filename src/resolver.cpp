@@ -36,9 +36,10 @@ std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph( //
 
     std::map<std::string, std::vector<dependency>> open_dependencies;
     open_dependencies[file_name] = dependency_map.at(file_name);
+    uint64_t depth = 0;
 
     // Resolve dependencies as long as there are open dependencies
-    while (!open_dependencies.empty()) {
+    while (!open_dependencies.empty() && depth < max_graph_depth) {
         std::map<std::string, std::vector<dependency>> next_dependencies;
 
         // Extract all duplicates from the open_dependencies map and remove those duplicates from the open_dependencies map
@@ -68,6 +69,7 @@ std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph( //
             next_dependencies[name].insert(next_dependencies[name].end(), deps.begin(), deps.end());
         }
         open_dependencies = next_dependencies;
+        depth++;
     }
 
     return base;

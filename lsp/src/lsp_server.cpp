@@ -47,6 +47,7 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
     std::filesystem::path file_path(source_file_path);
     const bool parse_parallel = false;
     // Clear all internal state before parsing so that the internal state is valid after we are done with this function
+    Resolver::max_graph_depth = 1;
     Resolver::clear();
     Parser::clear_instances();
     Type::clear_types();
