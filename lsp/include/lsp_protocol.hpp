@@ -15,6 +15,7 @@ class LspProtocol {
     static constexpr const char *METHOD_EXIT = "exit";
     static constexpr const char *METHOD_TEXT_DOCUMENT_DID_OPEN = "textDocument/didOpen";
     static constexpr const char *METHOD_TEXT_DOCUMENT_DID_CHANGE = "textDocument/didChange";
+    static constexpr const char *METHOD_TEXT_DOCUMENT_DID_SAVE = "textDocument/didSave";
     static constexpr const char *METHOD_TEXT_DOCUMENT_COMPLETION = "textDocument/completion";
     static constexpr const char *METHOD_TEXT_DOCUMENT_HOVER = "textDocument/hover";
     static constexpr const char *METHOD_TEXT_DOCUMENT_PUBLISH_DIAGNOSTICS = "textDocument/publishDiagnostics";

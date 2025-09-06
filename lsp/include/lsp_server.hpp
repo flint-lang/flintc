@@ -104,6 +104,12 @@ class LspServer {
     /// @brief `content` The message content from the LSP of the change event
     void handle_document_change(const std::string &content);
 
+    /// @function `handle_document_save`
+    /// @brief Handles the event when a document is saved
+    ///
+    /// @brief `content` The message content from the LSP of the save event
+    void handle_document_save(const std::string &content);
+
     /// @function `log_info`
     /// @brief Logs a given message with the [INFO] prefix to stdout
     ///

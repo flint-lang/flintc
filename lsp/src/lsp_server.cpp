@@ -95,6 +95,8 @@ void LspServer::process_message(const std::string &content) {
         handle_document_open(content);
     } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_DID_CHANGE)) {
         handle_document_change(content);
+    } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_DID_SAVE)) {
+        handle_document_save(content);
     } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_COMPLETION)) {
         send_completion_response(content);
     } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_HOVER)) {
@@ -111,7 +113,13 @@ void LspServer::send_initialize_response(const std::string &request_id) {
              << R"(,
   "result": {
     "capabilities": {
-      "textDocumentSync": 1,
+      "textDocumentSync": {
+        "openClose": true,
+        "change": 1,
+        "save": {
+          "includeText": false
+        }
+      },
       "completionProvider": {
         "triggerCharacters": ["."]
       },
@@ -234,6 +242,9 @@ void LspServer::handle_document_change(const std::string &content) {
 
     if (content.find(LspProtocol::FLINT_EXTENSION) != std::string::npos) {
         log_info("Flint document (.ft) changed");
+        // TODO: The parser crashes way too often on invalid input while typing, the change event stuff will only be re-activated when the
+        // parser has been made much more robust
+        return;
 
         // Parse the file and publish diagnostics
         std::string file_content = extract_file_content_from_change(content);
@@ -241,6 +252,21 @@ void LspServer::handle_document_change(const std::string &content) {
         publish_diagnostics(file_uri);
     } else {
         log_info("Document changed");
+    }
+}
+
+void LspServer::handle_document_save(const std::string &content) {
+    std::string file_uri = extract_file_uri(content);
+    std::string file_path = uri_to_file_path(file_uri);
+
+    if (content.find(LspProtocol::FLINT_EXTENSION) != std::string::npos) {
+        log_info("Flint document (.ft) saved");
+
+        // Parse the file and publish diagnostics
+        LspServer::parse_program(file_path, std::nullopt);
+        publish_diagnostics(file_uri);
+    } else {
+        log_info("Document saved");
     }
 }
 
