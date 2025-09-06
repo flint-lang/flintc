@@ -364,44 +364,59 @@ std::string LspServer::unescape_json_string(const std::string &escaped) {
 std::pair<int, int> LspServer::extract_position(const std::string &content) {
     size_t pos_start = content.find("\"position\":");
     if (pos_start == std::string::npos) {
+        log_info("extract_position: NOPOS");
         return {-1, -1};
     }
 
     // Find the opening brace after "position":
     size_t brace_start = content.find("{", pos_start);
     if (brace_start == std::string::npos) {
+        log_info("extract_position: NOOPEN");
+        return {-1, -1};
+    }
+
+    // Extract character
+    size_t char_pos = content.find("\"character\":", brace_start);
+    if (char_pos == std::string::npos) {
+        log_info("extract_position: NOCHAR");
+        return {-1, -1};
+    }
+    char_pos += 12; // Skip "character":
+
+    size_t first_end = content.find_first_of(",", brace_start);
+    if (first_end == std::string::npos) {
+        log_info("extract_position: NOCOMMA");
         return {-1, -1};
     }
 
     // Extract line
     size_t line_pos = content.find("\"line\":", brace_start);
     if (line_pos == std::string::npos) {
+        log_info("extract_position: NOLINE");
         return {-1, -1};
     }
-
     line_pos += 7; // Skip "line":
-    size_t line_end = content.find_first_of(",", line_pos);
-    if (line_end == std::string::npos) {
-        return {-1, -1};
-    }
 
-    // Extract character
-    size_t char_pos = content.find("\"character\":", line_end);
-    if (char_pos == std::string::npos) {
-        return {-1, -1};
-    }
-
-    char_pos += 12; // Skip "character":
-    size_t char_end = content.find_first_of(",}", char_pos);
-    if (char_end == std::string::npos) {
+    size_t second_end = content.find_first_of(",}", brace_start);
+    if (second_end == std::string::npos) {
+        log_info("extract_position: NOCLOSE");
         return {-1, -1};
     }
 
     try {
-        int line = std::stoi(content.substr(line_pos, line_end - line_pos));
-        int character = std::stoi(content.substr(char_pos, char_end - char_pos));
-        return {line, character};
-    } catch (...) { return {-1, -1}; }
+        if (char_pos < line_pos) {
+            int line = std::stoi(content.substr(line_pos, second_end - line_pos));
+            int character = std::stoi(content.substr(char_pos, first_end - char_pos));
+            return {line, character};
+        } else {
+            int line = std::stoi(content.substr(line_pos, first_end - line_pos));
+            int character = std::stoi(content.substr(char_pos, second_end - char_pos));
+            return {line, character};
+        }
+    } catch (std::exception(e)) {
+        log_info("extract_position: EXCEPTION(" + std::string(e.what()) + ")");
+        return {-1, -1};
+    }
 }
 
 std::string LspServer::uri_to_file_path(const std::string &uri) {
