@@ -9,7 +9,15 @@
 /// @brief Represents enum type definitions
 class EnumNode : public ASTNode {
   public:
-    explicit EnumNode(const std::string &name, const std::vector<std::string> &values) :
+    explicit EnumNode(                         //
+        const std::string &file_name,          //
+        const unsigned int line,               //
+        const unsigned int column,             //
+        const unsigned int length,             //
+        const std::string &name,               //
+        const std::vector<std::string> &values //
+        ) :
+        ASTNode(file_name, line, column, length),
         name(name),
         values(values) {}
 

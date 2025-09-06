@@ -318,6 +318,10 @@ std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_p
                 );
             }
         } else if (const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(type.value().get())) {
+            if (error_type->error_node->file_name == "__flint_CORE_ERR") {
+                // This is an error defined inside a core module
+                return std::nullopt;
+            }
             return std::make_tuple(                                  //
                 error_type->error_node->file_name,                   //
                 static_cast<int>(error_type->error_node->line - 1),  //

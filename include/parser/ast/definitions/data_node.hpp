@@ -12,12 +12,17 @@ class DataNode : public ASTNode {
   public:
     DataNode() = default;
     explicit DataNode(                                                           //
+        const std::string &file_name,                                            //
+        const unsigned int line,                                                 //
+        const unsigned int column,                                               //
+        const unsigned int length,                                               //
         const bool is_shared,                                                    //
         const bool is_immutable,                                                 //
         const bool is_aligned,                                                   //
         const std::string &name,                                                 //
         const std::vector<std::pair<std::string, std::shared_ptr<Type>>> &fields //
         ) :
+        ASTNode(file_name, line, column, length),
         is_shared(is_shared),
         is_immutable(is_immutable),
         is_aligned(is_aligned),

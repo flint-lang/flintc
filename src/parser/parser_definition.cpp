@@ -344,7 +344,10 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
         ordered_fields[field_id] = {field.first, field.second};
     }
 
-    return DataNode(is_shared, is_immutable, is_aligned, name, ordered_fields);
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    return DataNode(file_name, line, column, length, is_shared, is_immutable, is_aligned, name, ordered_fields);
 }
 
 std::optional<FuncNode> Parser::create_func(        //
@@ -424,7 +427,10 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
         }
     }
 
-    return EnumNode(name, values);
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    return EnumNode(file_name, line, column, length, name, values);
 }
 
 std::optional<ErrorNode> Parser::create_error(const token_slice &definition, const std::vector<Line> &body) {
@@ -486,7 +492,10 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
         };
     }
 
-    return ErrorNode(name, parent_error, error_types, default_messages);
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    return ErrorNode(file_name, line, column, length, name, parent_error, error_types, default_messages);
 }
 
 std::optional<VariantNode> Parser::create_variant(const token_slice &definition, const std::vector<Line> &body) {
@@ -586,7 +595,10 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
         ++body_it;
     }
 
-    return VariantNode(name, possible_types);
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    return VariantNode(file_name, line, column, length, name, possible_types);
 }
 
 std::optional<TestNode> Parser::create_test(const token_slice &definition) {

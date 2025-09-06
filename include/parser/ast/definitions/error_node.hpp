@@ -12,11 +12,16 @@
 class ErrorNode : public ASTNode {
   public:
     explicit ErrorNode(                                  //
+        const std::string &file_name,                    //
+        const unsigned int line,                         //
+        const unsigned int column,                       //
+        const unsigned int length,                       //
         const std::string &name,                         //
         const std::string &parent_error,                 //
         const std::vector<std::string> &values,          //
         const std::vector<std::string> &default_messages //
         ) :
+        ASTNode(file_name, line, column, length),
         name(name),
         parent_error(parent_error),
         values(values),

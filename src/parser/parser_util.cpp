@@ -222,7 +222,7 @@ bool Parser::create_core_module_types(FileNode &file_node, const std::string &co
             error_values.emplace_back(error_value);
             default_messages.emplace_back(error_message);
         }
-        ErrorNode error(error_type_name, parent_error, error_values, default_messages);
+        ErrorNode error("__flint_CORE_ERR", 1, 1, 1, error_type_name, parent_error, error_values, default_messages);
         ErrorNode *error_node = file_node.add_error(error);
         if (!Type::add_type(std::make_shared<ErrorSetType>(error_node))) {
             THROW_BASIC_ERR(ERR_PARSING);

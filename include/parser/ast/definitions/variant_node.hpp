@@ -12,9 +12,14 @@
 class VariantNode : public ASTNode {
   public:
     explicit VariantNode(                                                                         //
+        const std::string &file_name,                                                             //
+        const unsigned int line,                                                                  //
+        const unsigned int column,                                                                //
+        const unsigned int length,                                                                //
         const std::string &name,                                                                  //
         std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> &possible_types //
         ) :
+        ASTNode(file_name, line, column, length),
         name(name),
         possible_types(std::move(possible_types)) {}
 
