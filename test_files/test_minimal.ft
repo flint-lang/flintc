@@ -1,6 +1,6 @@
 use Core.print
 use Core.math
-use Core.wololo
+use Core.assert
 
 use "imported.ft"
 
@@ -20,4 +20,7 @@ def main():
 	i32 y = 234;
 	print($"max({x}, {y}) = {max(x, y)}\n");
 
-	print($"z = {k}\n");
+	print($"z = {x}\n");
+	some_function(10, 20);
+	SomeVariant v;
+	func1(10, 20);

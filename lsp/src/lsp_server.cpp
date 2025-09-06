@@ -276,7 +276,8 @@ std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_p
     log_info("[DEFINITION] lines.size() = " + std::to_string(lines.size()));
     log_info("[DEFINITION] line = " + std::to_string(line));
     const auto &[indent_lvl, line_slice] = lines.at(line);
-    int identifier_start = character + 1 + (indent_lvl * (Lexer::TAB_SIZE - 1));
+    int identifier_start = character - indent_lvl;
+    log_info("[DEFINITION] identifier_start = " + std::to_string(identifier_start));
     std::string_view identifier;
     while (Lexer::is_alpha_num(line_slice[identifier_start])) {
         identifier_start--;
