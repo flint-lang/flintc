@@ -104,6 +104,18 @@ std::string Lexer::to_string(const token_slice &tokens) {
     return token_stream.str();
 }
 
+bool Lexer::is_alpha(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+}
+
+bool Lexer::is_digit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+bool Lexer::is_alpha_num(char c) {
+    return is_alpha(c) || is_digit(c);
+}
+
 bool Lexer::scan_token() {
     static unsigned int space_counter = 0;
     // ensure the first character isnt skipped
@@ -467,18 +479,6 @@ char Lexer::peek_next() {
 
 bool Lexer::match(char expected) {
     return !is_at_end() && source.at(current) == expected;
-}
-
-bool Lexer::is_alpha(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-}
-
-bool Lexer::is_digit(char c) {
-    return c >= '0' && c <= '9';
-}
-
-bool Lexer::is_alpha_num(char c) {
-    return is_alpha(c) || is_digit(c);
 }
 
 bool Lexer::is_at_end() {

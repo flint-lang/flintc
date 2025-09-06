@@ -38,11 +38,32 @@ class Lexer {
     /// @return `std::string` The stream of characters from the given list of tokens
     static std::string to_string(const token_slice &tokens);
 
+    /// @function `is_alpha`
+    /// @brief Determines whether the given character is allowed to be used in identifiers('[a-zA-Z_]')
+    ///
+    /// @param `c` The character to check
+    /// @return `bool` Whether the given character is alpha
+    [[nodiscard]] static bool is_alpha(char c);
+
+    /// @function `is_digit`
+    /// @brief Determines whther the given character is a digit
+    ///
+    /// @param `c` The character to check
+    /// @return `bool` Whether the character is a digit
+    [[nodiscard]] static inline bool is_digit(char c);
+
+    /// @function `is_alpha_num`
+    /// @brief Determines whether the given character is alpha or a number
+    ///
+    /// @param `c` The character to check
+    /// @return `bool` Whetehr the given character is alpha or a number
+    [[nodiscard]] static bool is_alpha_num(char c);
+
+  public:
     /// @var `lines`
     /// @brief A list of all the lines of the file where each line is a slice into the file + the indentation level of that line
     std::vector<std::pair<unsigned int, std::string_view>> lines;
 
-  public:
     /// @var `TAB_SIZE`
     /// @brief This variable determines how many spaces are equal to one tab
     ///
@@ -146,27 +167,6 @@ class Lexer {
     /// @param `expected` The expected character
     /// @return `bool` Whether the next character matches the expected character
     [[nodiscard]] bool match(char expected);
-
-    /// @function `is_alpha`
-    /// @brief Determines whether the given character is allowed to be used in identifiers('[a-zA-Z_]')
-    ///
-    /// @param `c` The character to check
-    /// @return `bool` Whether the given character is alpha
-    [[nodiscard]] static bool is_alpha(char c);
-
-    /// @function `is_digit`
-    /// @brief Determines whther the given character is a digit
-    ///
-    /// @param `c` The character to check
-    /// @return `bool` Whether the character is a digit
-    [[nodiscard]] static inline bool is_digit(char c);
-
-    /// @function `is_alpha_num`
-    /// @brief Determines whether the given character is alpha or a number
-    ///
-    /// @param `c` The character to check
-    /// @return `bool` Whetehr the given character is alpha or a number
-    [[nodiscard]] static inline bool is_alpha_num(char c);
 
     /// @function `is_at_end`
     /// @brief Determines whether the scanner has reached the end of the file string
