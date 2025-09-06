@@ -246,9 +246,9 @@ class Parser {
         source_code = std::make_unique<const std::string>(load_file(file));
     };
     explicit Parser(const std::filesystem::path &file, const std::string &file_content) :
+        source_code(std::make_unique<std::string>(file_content)),
         file(file),
-        file_name(file.filename().string()),
-        source_code(std::make_unique<std::string>(file_content)) {}
+        file_name(file.filename().string()) {}
 
     /// @var `instances`
     /// @brief All Parser instances which are present. Used by the two-pass parsing system
