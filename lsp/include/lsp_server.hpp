@@ -64,6 +64,25 @@ class LspServer {
     /// @param `content` The content of the request message
     void send_completion_response(const std::string &content);
 
+    /// @function `send_definition_response`
+    /// @brief Sends the definition response over stdout
+    ///
+    /// @param `content` The content of the request message
+    void send_definition_response(const std::string &content);
+
+    /// @function `find_definition_at_position`
+    /// @brief Finds the definition of the symbol at the given position
+    ///
+    /// @param `file_path` The file path
+    /// @param `line` The line number (0-based)
+    /// @param `character` The character number (0-based)
+    /// @return `std::optional<std::tuple<std::string, int, int>>` File path and position if found
+    std::optional<std::tuple<std::string, int, int>> find_definition_at_position( //
+        const std::string &file_path,                                             //
+        int line,                                                                 //
+        int character                                                             //
+    );
+
     /// @function `publish_diagnostics`
     /// @brief Publishes diagnostics for a file
     ///

@@ -18,6 +18,7 @@ class LspProtocol {
     static constexpr const char *METHOD_TEXT_DOCUMENT_DID_SAVE = "textDocument/didSave";
     static constexpr const char *METHOD_TEXT_DOCUMENT_COMPLETION = "textDocument/completion";
     static constexpr const char *METHOD_TEXT_DOCUMENT_HOVER = "textDocument/hover";
+    static constexpr const char *METHOD_TEXT_DOCUMENT_DEFINITION = "textDocument/definition";
     static constexpr const char *METHOD_TEXT_DOCUMENT_PUBLISH_DIAGNOSTICS = "textDocument/publishDiagnostics";
 
     // Server info

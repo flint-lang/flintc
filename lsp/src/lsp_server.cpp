@@ -1,9 +1,16 @@
 #include "lsp_server.hpp"
 #include "completion_data.hpp"
 #include "globals.hpp"
+#include "lexer/lexer.hpp"
 #include "lsp_protocol.hpp"
 #include "parser/parser.hpp"
 #include "profiler.hpp"
+
+#include "parser/type/data_type.hpp"
+#include "parser/type/enum_type.hpp"
+#include "parser/type/error_set_type.hpp"
+#include "parser/type/type.hpp"
+#include "parser/type/variant_type.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -99,6 +106,8 @@ void LspServer::process_message(const std::string &content) {
         handle_document_save(content);
     } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_COMPLETION)) {
         send_completion_response(content);
+    } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_DEFINITION)) {
+        send_definition_response(content);
     } else if (contains_method(content, LspProtocol::METHOD_TEXT_DOCUMENT_HOVER)) {
         std::string request_id = extract_request_id(content);
         send_hover_response(request_id);
@@ -185,6 +194,153 @@ void LspServer::send_completion_response(const std::string &content) {
   }
 })";
     send_lsp_response(response.str());
+}
+
+void LspServer::send_definition_response(const std::string &content) {
+    const std::string request_id = extract_request_id(content);
+    const std::string file_uri = extract_file_uri(content);
+    const std::string file_path = uri_to_file_path(file_uri);
+    const auto position = extract_position(content);
+
+    log_info("Definition request for file: " + file_path + " at line " + std::to_string(position.first) + ", char " +
+        std::to_string(position.second));
+    log_info("Content of the definition request: " + content);
+
+    // Find the definition
+    const auto definition = find_definition_at_position(file_path, position.first, position.second);
+
+    std::stringstream response;
+    response << R"({
+  "jsonrpc": "2.0",
+  "id": )" << request_id
+             << R"(,
+  "result": )";
+
+    if (definition.has_value() && std::get<0>(definition.value()) != "") {
+        // Convert file path back to URI
+        const std::string file_name = std::get<0>(definition.value());
+        const std::filesystem::path target_path = Resolver::get_path(file_name) / file_name;
+        const std::string def_uri = "file://" + target_path.string();
+        response << R"({
+    "uri": ")" << def_uri
+                 << R"(",
+    "range": {
+      "start": {"line": )"
+                 << std::get<1>(definition.value()) << R"(, "character": )" << std::get<2>(definition.value()) << R"(},
+      "end": {"line": )"
+                 << std::get<1>(definition.value()) << R"(, "character": )" << std::get<2>(definition.value()) << R"(}
+    }
+  })";
+    } else {
+        response << "null";
+    }
+
+    response << "\n}";
+    log_info("DEFINITION_RESPONSE_BEGIN" + response.str() + " |DEFINTION_RESPONSE_END");
+    send_lsp_response(response.str());
+}
+
+std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_position( //
+    const std::string &file_path,                                                        //
+    int line,                                                                            //
+    int character                                                                        //
+) {
+    if (line == -1) {
+        log_info("DEFINITION: LINE -1");
+        return std::nullopt;
+    }
+    if (character == -1) {
+        log_info("DEFINITION: CHARACTER -1");
+        return std::nullopt;
+    }
+    log_info("DEFINITION: Begin");
+
+    // Parse the program to get the AST
+    std::optional<FileNode *> file = parse_program(file_path, std::nullopt);
+    if (!file.has_value()) {
+        return std::nullopt;
+    }
+    log_info("DEFINITION: After Parsing");
+
+    // First we need to find which token contains the requested position. If the identfiier `MyData` is clicked and it has character
+    // positions like these:
+    // M  y  D  a  t  a
+    // 10 11 12 13 14 15
+    // then it is possible for the definition request to have any position from 10-15. This means we first need to look at tokens from the
+    // requested line, check the indentation level and calculate the column offset, as the compiler uses column internal, not character, and
+    // then we can get the actual clicked identifier. After we have the identifier we can first try to get a type of the same identifier,
+    // and if that does not work then we can see if a function of that identifier exists.
+    std::filesystem::path source_file_path(file_path);
+    log_info("[DEFINITION] file_name = " + source_file_path.filename().string());
+    const auto &lines = Parser::get_instance_from_filename(source_file_path.filename().string()).value()->get_source_code_lines();
+    log_info("[DEFINITION] lines.size() = " + std::to_string(lines.size()));
+    log_info("[DEFINITION] line = " + std::to_string(line));
+    const auto &[indent_lvl, line_slice] = lines.at(line);
+    int identifier_start = character + 1 + (indent_lvl * (Lexer::TAB_SIZE - 1));
+    std::string_view identifier;
+    while (Lexer::is_alpha_num(line_slice[identifier_start])) {
+        identifier_start--;
+    }
+    identifier_start++;
+    int identifier_end = identifier_start;
+    while (Lexer::is_alpha_num(line_slice[identifier_end])) {
+        identifier_end++;
+    }
+    const int str_len = identifier_end - identifier_start;
+    identifier = line_slice.substr(identifier_start, str_len);
+
+    // Now that we have the identifier we can actually directly check if any type of that identifier already exists
+    const std::string identifier_str(identifier);
+    log_info("[DEFINITION] identifier: '" + identifier_str + "'");
+    std::optional<std::shared_ptr<Type>> type = Type::get_type_from_str(identifier_str);
+    if (type.has_value()) {
+        log_info("[DEFINITION] is type");
+        // The identifier is a type, so we can now check which type it is and then get where it was defined at
+        if (const DataType *data_type = dynamic_cast<const DataType *>(type.value().get())) {
+            return std::make_tuple(                                //
+                data_type->data_node->file_name,                   //
+                static_cast<int>(data_type->data_node->line - 1),  //
+                static_cast<int>(data_type->data_node->column - 1) //
+            );
+        } else if (const EnumType *enum_type = dynamic_cast<const EnumType *>(type.value().get())) {
+            return std::make_tuple(                                //
+                enum_type->enum_node->file_name,                   //
+                static_cast<int>(enum_type->enum_node->line - 1),  //
+                static_cast<int>(enum_type->enum_node->column - 1) //
+            );
+        } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(type.value().get())) {
+            if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
+                const VariantNode *const variant_node = std::get<VariantNode *const>(variant_type->var_or_list);
+                return std::make_tuple(                        //
+                    variant_node->file_name,                   //
+                    static_cast<int>(variant_node->line - 1),  //
+                    static_cast<int>(variant_node->column - 1) //
+                );
+            }
+        } else if (const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(type.value().get())) {
+            return std::make_tuple(                                  //
+                error_type->error_node->file_name,                   //
+                static_cast<int>(error_type->error_node->line - 1),  //
+                static_cast<int>(error_type->error_node->column - 1) //
+            );
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    // It's not a type, so it can only be a function otherwise
+    {
+        log_info("[DEFINITION] is function");
+        std::lock_guard<std::mutex> lock(Parser::parsed_functions_mutex);
+        for (const auto &[fn, file_name] : Parser::parsed_functions) {
+            if (fn->name == "fc_" + identifier_str) {
+                return std::make_tuple(file_name, fn->line - 1, fn->column - 1);
+            }
+        }
+    }
+
+    // It's not resolvable for now if it's not a function either
+    return std::nullopt;
 }
 
 void LspServer::publish_diagnostics(const std::string &file_uri) {
