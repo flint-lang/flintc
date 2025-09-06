@@ -380,7 +380,7 @@ std::pair<int, int> LspServer::extract_position(const std::string &content) {
     }
 
     line_pos += 7; // Skip "line":
-    size_t line_end = content.find_first_of(",}", line_pos);
+    size_t line_end = content.find_first_of(",", line_pos);
     if (line_end == std::string::npos) {
         return {-1, -1};
     }
