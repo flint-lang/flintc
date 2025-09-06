@@ -1,6 +1,5 @@
 #pragma once
 
-#include "error/error.hpp"
 #include "parser/ast/ast_node.hpp"
 #include "parser/ast/scope.hpp"
 
@@ -55,9 +54,6 @@ class TestNode : public ASTNode {
     /// @param `name` The name of the test to check for
     /// @return `bool` Whether the test name was okay
     [[nodiscard]] static bool check_test_name(const std::string &file_name, const std::string &name) {
-        // This map is only used to check whether the given file already contains a given test name
-        static std::unordered_map<std::string, std::vector<std::string>> test_names;
-        static std::mutex test_names_mutex;
         std::lock_guard<std::mutex> lock(test_names_mutex);
         if (test_names.find(file_name) == test_names.end()) {
             test_names[file_name] = {name};
@@ -71,7 +67,22 @@ class TestNode : public ASTNode {
         return true;
     }
 
+    /// @function `clear_test_namees`
+    /// @brief Clears all the test names
+    static void clear_test_names() {
+        std::lock_guard<std::mutex> lock(test_names_mutex);
+        test_names.clear();
+    }
+
   private:
+    /// @var `test_names`
+    /// @brief A map which maps each file name to a list of tests defined inside the file
+    static inline std::unordered_map<std::string, std::vector<std::string>> test_names;
+
+    /// @var `test_names_mutex`
+    /// @brief Mutex for the test names map variable
+    static inline std::mutex test_names_mutex;
+
     /// @function `get_next_test_id`
     /// @brief Returns the next test id. Ensures that each test gets its own id for the lifetime of the program
     ///

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "error/error.hpp"
 #include "matcher/matcher.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
@@ -131,6 +132,7 @@ class Parser {
         instances.clear();
         main_function_parsed = false;
         main_function_has_args = false;
+        TestNode::clear_test_names();
 
         // Clear all the other static containers that hold pointers to parser data
         {
