@@ -3,11 +3,12 @@
 #include "lexer/builtins.hpp"
 #include "resolver/resolver.hpp"
 
-void add_nodes_from_file_to_completions(             //
+void LspServer::add_nodes_from_file_to_completions(  //
     const FileNode *file_node,                       //
     std::vector<CompletionItem> &completions,        //
     std::vector<const ImportNode *> &imported_files, //
-    const bool is_root_file) {
+    const bool is_root_file                          //
+) {
     for (const std::unique_ptr<ASTNode> &node : file_node->definitions) {
         if (const FunctionNode *function_node = dynamic_cast<const FunctionNode *>(node.get())) {
             if (function_node->name == "_main") {
@@ -49,11 +50,11 @@ void add_nodes_from_file_to_completions(             //
     }
 }
 
-void try_parse_and_add_completions(          //
-    const std::string &file_path,            //
-    [[maybe_unused]] int line,               //
-    [[maybe_unused]] int column,             //
-    std::vector<CompletionItem> &completions //
+void LspServer::try_parse_and_add_completions( //
+    const std::string &file_path,              //
+    [[maybe_unused]] int line,                 //
+    [[maybe_unused]] int character,            //
+    std::vector<CompletionItem> &completions   //
 ) {
     // Parse the program
     std::optional<FileNode *> file = LspServer::parse_program(file_path, std::nullopt);
@@ -78,7 +79,7 @@ void try_parse_and_add_completions(          //
     // Add all function definitions for all core modules imported in this file
     for (const auto &[module_name, import_node] : file.value()->imported_core_modules) {
         // Go through all the functions the imported Core module supports and add them as completions
-        const auto &module = core_module_functions.at(module_name);
+        const function_overload_list &module = core_module_functions.at(module_name);
         for (const auto &[function_name, overloads] : module) {
             const std::string fn_name(function_name);
             completions.emplace_back(                                                        //
@@ -92,11 +93,11 @@ void try_parse_and_add_completions(          //
     }
 }
 
-std::vector<CompletionItem> LspServer::get_context_aware_completions(const std::string &file_path, int line, int column) {
+std::vector<CompletionItem> LspServer::get_context_aware_completions(const std::string &file_path, int line, int character) {
     // Start with base completions
     auto completions = CompletionData::get_all_completions();
     // Try to parse and add the other completions
-    try_parse_and_add_completions(file_path, line, column, completions);
+    try_parse_and_add_completions(file_path, line, character, completions);
 
     // Cleanup
     return completions;

@@ -1,6 +1,7 @@
 use Core.print
 use Core.math
 use Core.assert
+use Core.system
 
 use "imported.ft"
 
@@ -9,7 +10,9 @@ data MyData:
 	f32 y;
 	MyData(x, y);
 
-def some_function(i32 x, i32 y) -> i32:
+def some_function(i32 x, i32 y) -> i32 {ErrAssert}:
+	if x == 0:
+		throw ErrAssert.AssertionFailed;
 	return x + y;
 
 error MyError:
@@ -22,5 +25,6 @@ def main():
 
 	print($"z = {x}\n");
 	some_function(10, 20);
-	SomeVariant v;
 	func1(10, 20);
+
+	some_function(0, 1);

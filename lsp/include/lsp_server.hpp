@@ -89,15 +89,45 @@ class LspServer {
     /// @param `file_uri` The URI of the file
     void publish_diagnostics(const std::string &file_uri);
 
+    /// @function `add_nodes_from_file_to_completions`
+    /// @brief Adds all the nodes of the given file to the completions list
+    ///
+    /// @brief `file_node` The file node from which to add all definitions to the list of possible completions
+    /// @brief `completions` The list of completions to which to add the definitions
+    /// @brief `imported_files` The list of all imported files of this file node
+    /// @brief `is_root_file` Whether the given file is the root file. If it's the root file then all nodes of all imported files are added
+    /// to the completions as well, if it's not the root file then all imported file's definitions will not be added as Flint has a strict
+    /// inclusion depth of 1, always
+    void add_nodes_from_file_to_completions(             //
+        const FileNode *file_node,                       //
+        std::vector<CompletionItem> &completions,        //
+        std::vector<const ImportNode *> &imported_files, //
+        const bool is_root_file                          //
+    );
+
+    /// @function `try_parse_and_add_completions`
+    /// @brief Tries to parse the file graph and then add all completions of the parser AST to the completions list
+    ///
+    /// @param `file_path` The path to the file to start parsing at
+    /// @param `line` The line at which the completion is requested
+    /// @param `character` The character in the given line at which the completion is requested
+    /// @param `completions` The list of completions to which to add the AST definitions
+    void try_parse_and_add_completions(          //
+        const std::string &file_path,            //
+        int line,                                //
+        int character,                           //
+        std::vector<CompletionItem> &completions //
+    );
+
     /// @function `get_context_aware_completions`
     /// @brief Parses the given file and collects all types, functions etc from the file for the completion system
     ///
     /// @param `file_path` The file path string to the file which needs to be parsed and checked
     /// @param `line` The line at which the completion is requested
-    /// @param `column` The column in the given line at which the completion is requested
+    /// @param `character` The character in the given line at which the completion is requested
     ///
     /// @note This function parses not only the given file but all files it includes too, to give suggestions of each file it included
-    std::vector<CompletionItem> get_context_aware_completions(const std::string &file_path, int line, int column);
+    std::vector<CompletionItem> get_context_aware_completions(const std::string &file_path, int line, int character);
 
     /// @function `send_hover_response`
     /// @brief Sends the hover response over stdout
