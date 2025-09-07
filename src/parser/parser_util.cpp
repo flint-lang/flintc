@@ -193,18 +193,9 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
 }
 
 bool Parser::create_core_module_types(FileNode &file_node, const std::string &core_lib_name) {
-    static std::mutex mutex;
-    std::lock_guard<std::mutex> lock_guard(mutex);
-    static std::unordered_map<std::string_view, bool> types_added = {
-        {"read", false},
-        {"assert", false},
-        {"filesystem", false},
-        {"env", false},
-        {"system", false},
-        {"math", true},
-    };
-    auto added = types_added.find(core_lib_name);
-    if (added == types_added.end()) {
+    std::lock_guard<std::mutex> lock_guard(core_module_added_error_sets_mutex);
+    auto added = core_module_added_error_sets.find(core_lib_name);
+    if (added == core_module_added_error_sets.end()) {
         return true;
     }
     if (added->second) {
@@ -229,7 +220,7 @@ bool Parser::create_core_module_types(FileNode &file_node, const std::string &co
             return false;
         }
     }
-    types_added.at(core_lib_name) = true;
+    core_module_added_error_sets.at(core_lib_name) = true;
     return true;
 }
 

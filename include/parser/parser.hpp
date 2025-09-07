@@ -134,6 +134,16 @@ class Parser {
         main_function_has_args = false;
         TestNode::clear_test_names();
 
+        // Clear which error types have been added
+        {
+            std::lock_guard<std::mutex> lock(core_module_added_error_sets_mutex);
+            for (const auto &[name, flag] : core_module_added_error_sets) {
+                if (name != "math") {
+                    core_module_added_error_sets.at(name) = false;
+                }
+            }
+        }
+
         // Clear all the other static containers that hold pointers to parser data
         {
             std::lock_guard<std::mutex> lock(parsed_data_mutex);
@@ -340,6 +350,21 @@ class Parser {
     /// @var `parsed_tests_mutex`
     /// @brief A mutex for the `parsed_tests` varible, which is used to provide thread-safe access to the list
     static inline std::mutex parsed_tests_mutex;
+
+    /// @var `core_module_added_error_sets_mutex`
+    /// @brief A mutex for the `core_module_added_error_sets` map
+    static inline std::mutex core_module_added_error_sets_mutex;
+
+    /// @var `core_module_added_error_sets`
+    /// @brief Map to tell which error set types of which core modules have been added so far
+    static inline std::unordered_map<std::string_view, bool> core_module_added_error_sets = {
+        {"read", false},
+        {"assert", false},
+        {"filesystem", false},
+        {"env", false},
+        {"system", false},
+        {"math", true},
+    };
 
     /// @var `open_tests_list`
     /// @brief The lsit of all open tests, which will be parsed in the second phase of the parser
