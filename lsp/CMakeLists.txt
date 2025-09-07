@@ -75,7 +75,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
         # Release-ish flags for Windows
         set(BASE_CXX_FLAGS
             -O3
-            -DNDEBUG
             -march=native
             -flto
             -pipe
@@ -93,6 +92,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             -DFLINT_LSP
         )
     endif()
+    # Windows static linking flags
+    set(STATIC_LINK_FLAGS
+        -static
+        -static-libgcc
+        -static-libstdc++
+    )
 else()
     message(STATUS "Compiling LSP for Linux target")
     # Linux/Unix compiler flags including Clang-specific options
@@ -130,7 +135,6 @@ else()
         # Release flags for Linux
         set(BASE_CXX_FLAGS
             -O3
-            -DNDEBUG
             -march=native         # enable CPU tuning
             -flto                 # cross-module LTO
             -ffunction-sections
@@ -148,6 +152,12 @@ else()
             -DFLINT_LSP
         )
     endif()
+    # Linux static linking flags
+    set(STATIC_LINK_FLAGS
+        -static
+        -static-libgcc
+        -static-libstdc++
+    )
 endif()
 
 # Add debug definition if enabled
@@ -178,6 +188,9 @@ endif()
 
 # Compiler flags
 target_compile_options(fls PRIVATE ${BASE_CXX_FLAGS})
+
+# Static linking flags
+target_link_options(fls PRIVATE ${STATIC_LINK_FLAGS})
 
 # Install target
 install(TARGETS fls
