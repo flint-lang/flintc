@@ -14,8 +14,11 @@ void LspServer::add_nodes_from_file_to_completions(  //
             if (function_node->name == "_main") {
                 continue;
             }
-            // Remove the 'fc_' prefix from the function names
-            const std::string fn_name = function_node->name.substr(3);
+            // Remove the 'fc_' prefix from the function names if it's an internal function. If it's extenal the function name can be used
+            // as is
+            std::string fn_name = function_node->is_extern //
+                ? std::string(function_node->name)         //
+                : std::string(function_node->name.substr(3));
             completions.emplace_back(fn_name, CompletionItemKind::Function, "The '" + fn_name + "' function", fn_name, false);
         } else if (const ImportNode *import_node = dynamic_cast<const ImportNode *>(node.get())) {
             if (!is_root_file) {
