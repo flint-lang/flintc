@@ -6,6 +6,9 @@ project(FlintLanguageServer VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Options
+option(DEBUG_MODE "Enable debug build with DEBUG_BUILD definition" OFF)
+
 # Include directories
 include_directories(include)
 include_directories(../include)
@@ -42,21 +45,115 @@ set(LSP_SOURCES
     ../vendor/sources/fip/toml/tomlc17.c
 )
 
-set(BASE_CXX_FLAGS
-    -g
-    -O0
-    -fno-omit-frame-pointer
-    -funwind-tables
-    -ffunction-sections
-    -fdata-sections
-    # -fstandalone-debug # Only for Clang on Linux
-    -D_GNU_SOURCE
-    -D__STDC_CONSTANT_MACROS
-    -D__STDC_FORMAT_MACROS
-    -D__STDC_LIMIT_MACROS
-    -DFLINT_LSP
-)
+# Platform-specific compiler flags
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    message(STATUS "Compiling LSP for Windows target")
+    add_definitions(-D_WIN32)
+    # Windows-specific compiler flags for MinGW
+    if(DEBUG_MODE)
+        set(BASE_CXX_FLAGS
+            -g
+            -O1
+            -Wall         # Keep basic warnings
+            -Wextra       # Extra warnings
+            # Remove -Werror to allow warnings in LLVM headers
+            -Wno-unused-parameter  # Suppress specific warnings common in LLVM
+            -Wno-unused-variable
+            -Wno-deprecated-declarations
+            -fno-omit-frame-pointer
+            -funwind-tables
+            -ffunction-sections
+            -fdata-sections
+            # No -fstandalone-debug for MinGW
+            -D_GNU_SOURCE
+            -D__STDC_CONSTANT_MACROS
+            -D__STDC_FORMAT_MACROS
+            -D__STDC_LIMIT_MACROS
+            -DFLINT_LSP
+        )
+    else()
+        # Release-ish flags for Windows
+        set(BASE_CXX_FLAGS
+            -O3
+            -DNDEBUG
+            -march=native
+            -flto
+            -pipe
+            -fno-omit-frame-pointer
+            -Wall
+            -Wextra
+            -Wno-deprecated-declarations
+            -funwind-tables
+            -ffunction-sections
+            -fdata-sections
+            -D_GNU_SOURCE
+            -D__STDC_CONSTANT_MACROS
+            -D__STDC_FORMAT_MACROS
+            -D__STDC_LIMIT_MACROS
+            -DFLINT_LSP
+        )
+    endif()
+else()
+    message(STATUS "Compiling LSP for Linux target")
+    # Linux/Unix compiler flags including Clang-specific options
+    if(DEBUG_MODE)
+        set(BASE_CXX_FLAGS
+            -g
+            -O0
+            -Werror
+            -Wall         # Enable most warnings
+            -Wextra       # Enable extra warnings
+            -Wshadow      # Warn about shadow variables
+            -Wcast-align  # Warn about pointer casts that increase alignment requirement
+            -Wcast-qual   # Warn about casts that remove const qualifier
+            -Wunused      # Warn about unused variables
+            -Wold-style-cast  # Warn about C-style casts
+            -Wdouble-promotion # Warn about float being implicitly promoted to double
+            -Wformat=2    # Warn about printf/scanf/strftime/strfmon format string issue
+            -Wundef       # Warn if an undefined identifier is evaluated in an #if
+            -Wpointer-arith # Warn about sizeof(void) and add/sub with void*
+            -Wunreachable-code # Warn about unreachable code
+            -Wno-deprecated-declarations  # Ignore deprecation warnings
+            -Wno-deprecated  # Ignore general deprecation warnings
+            -fno-omit-frame-pointer
+            -funwind-tables
+            -ffunction-sections
+            -fdata-sections
+            -fstandalone-debug # Only for Clang on Linux
+            -D_GNU_SOURCE
+            -D__STDC_CONSTANT_MACROS
+            -D__STDC_FORMAT_MACROS
+            -D__STDC_LIMIT_MACROS
+            -DFLINT_LSP
+        )
+    else()
+        # Release flags for Linux
+        set(BASE_CXX_FLAGS
+            -O3
+            -DNDEBUG
+            -march=native         # enable CPU tuning
+            -flto                 # cross-module LTO
+            -ffunction-sections
+            -fdata-sections
+            -Wall
+            -Wextra
+            -Wno-deprecated-declarations
+            -funwind-tables
+            -ffunction-sections
+            -fdata-sections
+            -D_GNU_SOURCE
+            -D__STDC_CONSTANT_MACROS
+            -D__STDC_FORMAT_MACROS
+            -D__STDC_LIMIT_MACROS
+            -DFLINT_LSP
+        )
+    endif()
+endif()
 
+# Add debug definition if enabled
+if(DEBUG_MODE)
+    add_definitions(-DDEBUG_BUILD)
+endif()
 
 # Header files (for IDE organization)
 set(LSP_HEADERS
@@ -73,6 +170,12 @@ set_target_properties(fls PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out
 )
 
+# For Windows, set the required properties
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    # Set output name with .exe extension explicitly
+    set_target_properties(fls PROPERTIES SUFFIX ".exe")
+endif()
+
 # Compiler flags
 target_compile_options(fls PRIVATE ${BASE_CXX_FLAGS})
 
@@ -80,4 +183,3 @@ target_compile_options(fls PRIVATE ${BASE_CXX_FLAGS})
 install(TARGETS fls
     RUNTIME DESTINATION bin
 )
-

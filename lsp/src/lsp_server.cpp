@@ -574,7 +574,7 @@ std::pair<int, int> LspServer::extract_position(const std::string &content) {
             int character = std::stoi(content.substr(char_pos, second_end - char_pos));
             return {line, character};
         }
-    } catch (std::exception(e)) {
+    } catch (const std::exception &e) {
         log_info("extract_position: EXCEPTION(" + std::string(e.what()) + ")");
         return {-1, -1};
     }
@@ -582,8 +582,17 @@ std::pair<int, int> LspServer::extract_position(const std::string &content) {
 
 std::string LspServer::uri_to_file_path(const std::string &uri) {
     // Convert file://path to path
-    if (uri.substr(0, 7) == "file://") {
-        return uri.substr(7); // Remove "file://" prefix
+    if (uri.substr(0, 8) == "file:///") {
+#ifdef _WIN32
+        // Windows: file:///C:/path -> C:/path
+        return uri.substr(8);
+#else
+        // Unix: file:///path -> /path
+        return uri.substr(7);
+#endif
+    } else if (uri.substr(0, 7) == "file://") {
+        // Fallback for malformed URIs
+        return uri.substr(7);
     }
     return uri;
 }
