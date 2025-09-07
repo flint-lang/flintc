@@ -113,12 +113,16 @@ void FIP::shutdown() {
     fip_free_msg(&message);
     message.type = FIP_MSG_KILL;
     message.u.kill.reason = FIP_KILL_FINISH;
+#ifndef __WIN32__
     auto sleep_100ms = timespec{.tv_sec = 0, .tv_nsec = 100000000};
     nanosleep(&sleep_100ms, NULL);
+#endif
     fip_master_broadcast_message(buffer, &message);
 
     // Clean up
+#ifndef __WIN32__
     nanosleep(&sleep_100ms, NULL);
+#endif
     fip_master_cleanup_socket(socket_fd);
     fip_terminate_all_slaves(&modules); // Fallback cleanup
 
