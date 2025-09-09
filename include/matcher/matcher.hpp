@@ -210,6 +210,7 @@ class Matcher {
         {TOK_PIPE, std::make_shared<TokenTypeMatcher>(TOK_PIPE)},
         {TOK_REFERENCE, std::make_shared<TokenTypeMatcher>(TOK_REFERENCE)},
         {TOK_OPT_DEFAULT, std::make_shared<TokenTypeMatcher>(TOK_OPT_DEFAULT)},
+        {TOK_RANGE, std::make_shared<TokenTypeMatcher>(TOK_RANGE)},
 
         // arithmetic tokens
         {TOK_PLUS, std::make_shared<TokenTypeMatcher>(TOK_PLUS)},
@@ -833,6 +834,7 @@ class Matcher {
             }),
         }),
     });
+    static const inline PatternPtr range_expression = sequence({token(TOK_INT_VALUE), token(TOK_RANGE), token(TOK_INT_VALUE)});
 
     // --- STATEMENTS ---
     static const inline PatternPtr group_declaration_inferred = sequence({

@@ -28,6 +28,7 @@ enum Token {
     TOK_PIPE,
     TOK_REFERENCE,
     TOK_OPT_DEFAULT,
+    TOK_RANGE,
 
     // arithmetic tokens
     TOK_PLUS,

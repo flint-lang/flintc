@@ -858,6 +858,14 @@ class Parser {
     /// @return `std::optional<std::vector<std::unique_ptr<ExpressionNode>>>` The list of expressions in the group
     std::optional<std::vector<std::unique_ptr<ExpressionNode>>> create_group_expressions(std::shared_ptr<Scope> scope, token_slice &tokens);
 
+    /// @function `create_range_expression`
+    /// @brief Creates a range expression from the given tokens
+    ///
+    /// @param `scope` The scope in which the range expression is defined in
+    /// @param `tokens` The list of tokens representing the range expression
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional range expression, nullopt if its creation failed
+    std::optional<std::unique_ptr<ExpressionNode>> create_range_expression(std::shared_ptr<Scope> scope, const token_slice &tokens);
+
     /// @function `create_data_access`
     /// @brief Creates a DataAccessNode from the given tokens
     ///

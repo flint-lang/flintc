@@ -455,6 +455,24 @@ namespace Debug {
             }
         }
 
+        void print_range_expression(unsigned int indent_lvl, TreeBits &bits, const RangeExpressionNode &range) {
+            Local::print_header(indent_lvl, bits, "Range Expr ");
+            std::cout << range.type->to_string() << std::endl;
+
+            indent_lvl++;
+            TreeBits lower_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, lower_bits, "Lower Bound ");
+            std::cout << range.lower_bound->type->to_string() << std::endl;
+            TreeBits lower_expr_bits = lower_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, lower_expr_bits, range.lower_bound);
+
+            TreeBits upper_bits = bits.child(indent_lvl, true);
+            Local::print_header(indent_lvl, upper_bits, "Upper Bound ");
+            std::cout << range.upper_bound->type->to_string() << std::endl;
+            TreeBits upper_expr_bits = upper_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, upper_expr_bits, range.upper_bound);
+        }
+
         void print_array_initializer(unsigned int indent_lvl, TreeBits &bits, const ArrayInitializerNode &init) {
             Local::print_header(indent_lvl, bits, "Array Initializer ");
             std::cout << init.type->to_string();
@@ -642,6 +660,8 @@ namespace Debug {
                 print_initializer(indent_lvl, bits, *initializer);
             } else if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expr.get())) {
                 print_group_expression(indent_lvl, bits, *group_node);
+            } else if (const auto *range_node = dynamic_cast<const RangeExpressionNode *>(expr.get())) {
+                print_range_expression(indent_lvl, bits, *range_node);
             } else if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expr.get())) {
                 print_data_access(indent_lvl, bits, *data_access);
             } else if (const auto *grouped_access = dynamic_cast<const GroupedDataAccessNode *>(expr.get())) {

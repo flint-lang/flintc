@@ -29,6 +29,7 @@ static const std::unordered_map<std::string_view, Token> symbols = {
     {"|>", TOK_PIPE},
     {"::", TOK_REFERENCE},
     {"??", TOK_OPT_DEFAULT},
+    {"..", TOK_RANGE},
     // calculational tokens
     {"+", TOK_PLUS},
     {"-", TOK_MINUS},
@@ -87,6 +88,7 @@ static const std::unordered_map<Token, std::string_view> symbols_rev = {
     {TOK_PIPE, "|>"},
     {TOK_REFERENCE, "::"},
     {TOK_OPT_DEFAULT, "??"},
+    {TOK_RANGE, ".."},
     // calculational tokens
     {TOK_PLUS, "+"},
     {TOK_MINUS, "-"},

@@ -14,6 +14,7 @@
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
+#include "parser/ast/expressions/range_expression_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/ast/expressions/variant_unwrap_node.hpp"
@@ -818,6 +819,41 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
         }
     }
     return expressions;
+}
+
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    // A range expression consists of an lhs and an rhs, for now the lhs and rhs "expressions" consist of one token each, being a literal
+    // token, but range expressions will be able to consist of any expression as the lsh and rhs in the future, but this day is not today
+    const std::vector<uint2> &ranges = Matcher::get_match_ranges_in_range_outside_group( //
+        tokens,                                                                          //
+        Matcher::token(TOK_RANGE),                                                       //
+        {0, std::distance(tokens.first, tokens.second)},                                 //
+        Matcher::token(TOK_LEFT_PAREN),                                                  //
+        Matcher::token(TOK_RIGHT_PAREN)                                                  //
+    );
+    assert(ranges.size() == 1);
+    const uint2 &range = ranges.front();
+    const token_slice lhs_tokens = {tokens.first, tokens.first + range.first};
+    std::optional<std::unique_ptr<ExpressionNode>> lhs_expr = create_expression(scope, lhs_tokens);
+    if (!lhs_expr.has_value()) {
+        return std::nullopt;
+    }
+    const token_slice rhs_tokens = {tokens.first + range.second, tokens.second};
+    std::optional<std::unique_ptr<ExpressionNode>> rhs_expr = create_expression(scope, rhs_tokens);
+    if (!rhs_expr.has_value()) {
+        return std::nullopt;
+    }
+    if (lhs_expr.value()->type != rhs_expr.value()->type) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const std::string &type_str = lhs_expr.value()->type->to_string();
+    if (type_str != "i32" && type_str != "u32" && type_str != "i64" && type_str != "u64" && type_str != "u8") {
+        // Unsupported type in range expression
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    return std::make_unique<RangeExpressionNode>(lhs_expr.value(), rhs_expr.value());
 }
 
 std::optional<DataAccessNode> Parser::create_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
@@ -1688,6 +1724,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::stacked_expression)) {
         return create_stacked_expression(scope, tokens_mut);
+    }
+    if (Matcher::tokens_match(tokens_mut, Matcher::range_expression)) {
+        std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(scope, tokens_mut);
+        if (!range.has_value()) {
+            return std::nullopt;
+        }
+        return std::move(range.value());
     }
 
     // Find the highest precedence operator

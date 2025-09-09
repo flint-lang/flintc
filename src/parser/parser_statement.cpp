@@ -17,6 +17,7 @@
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
+#include "parser/type/range_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "types.hpp"
@@ -386,6 +387,8 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         element_type = Type::get_primitive_type("u8");
     } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(iterable.value()->type.get())) {
         element_type = array_type->type;
+    } else if (const RangeType *range_type = dynamic_cast<const RangeType *>(iterable.value()->type.get())) {
+        element_type = range_type->bound_type;
     } else {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;

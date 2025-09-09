@@ -25,6 +25,7 @@
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/optional_chain_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
+#include "parser/ast/expressions/range_expression_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
@@ -161,6 +162,7 @@ namespace Debug {
         void print_type_node(unsigned int indent_lvl, TreeBits &bits, const TypeNode &type);
         void print_initializer(unsigned int indent_lvl, TreeBits &bits, const InitializerNode &initializer);
         void print_group_expression(unsigned int indent_lvl, TreeBits &bits, const GroupExpressionNode &group);
+        void print_range_expression(unsigned int indent_lvl, TreeBits &bits, const RangeExpressionNode &range);
         void print_array_initializer(unsigned int indent_lvl, TreeBits &bits, const ArrayInitializerNode &init);
         void print_array_access(unsigned int indent_lvl, TreeBits &bits, const ArrayAccessNode &access);
         void print_data_access(unsigned int indent_lvl, TreeBits &bits, const DataAccessNode &access);

@@ -149,7 +149,12 @@ bool Lexer::scan_token() {
             add_token(TOK_COMMA);
             break;
         case '.':
-            add_token(TOK_DOT);
+            if (peek_next() == '.') {
+                add_token(TOK_RANGE, "..");
+                advance();
+            } else {
+                add_token(TOK_DOT);
+            }
             break;
         case ';':
             add_token(TOK_SEMICOLON);
@@ -399,6 +404,11 @@ bool Lexer::number() {
     }
 
     if (peek_next() == '.') {
+        // Check whether an additional '.' follows, if it does it's an integer followed by a range
+        if (static_cast<size_t>(current + 2) >= source.size() || source.at(current + 2) == '.') {
+            add_token(TOK_INT_VALUE);
+            return true;
+        }
         // Get to '.'
         advance(false);
         if (!is_digit(peek_next())) {
