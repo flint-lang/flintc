@@ -853,6 +853,52 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(s
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
+    const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr.value().get());
+    const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr.value().get());
+    if (lhs_lit != nullptr && rhs_lit != nullptr) {
+        // Ensure that the range is correct (a range like '5..1' is not correct, it should be '1..5'. And because the upper bound is
+        // exclusive a range like '1..1' is invalid too, since its one but exclusive to 1, so it's an empty range. Well maybe we will add
+        // this eventually, but for now it's not allowed.
+        if (std::holds_alternative<LitI32>(lhs_lit->value)) {
+            const int lhs_lit_val = std::get<LitI32>(lhs_lit->value).value;
+            const int rhs_lit_val = std::get<LitI32>(rhs_lit->value).value;
+            if (lhs_lit_val >= rhs_lit_val) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        } else if (std::holds_alternative<LitU32>(lhs_lit->value)) {
+            const unsigned int lhs_lit_val = std::get<LitU32>(lhs_lit->value).value;
+            const unsigned int rhs_lit_val = std::get<LitU32>(rhs_lit->value).value;
+            if (lhs_lit_val >= rhs_lit_val) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        } else if (std::holds_alternative<LitI64>(lhs_lit->value)) {
+            const long lhs_lit_val = std::get<LitI64>(lhs_lit->value).value;
+            const long rhs_lit_val = std::get<LitI64>(rhs_lit->value).value;
+            if (lhs_lit_val >= rhs_lit_val) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        } else if (std::holds_alternative<LitU64>(lhs_lit->value)) {
+            const unsigned long lhs_lit_val = std::get<LitU64>(lhs_lit->value).value;
+            const unsigned long rhs_lit_val = std::get<LitU64>(rhs_lit->value).value;
+            if (lhs_lit_val >= rhs_lit_val) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        } else if (std::holds_alternative<LitU8>(lhs_lit->value)) {
+            const char lhs_lit_val = std::get<LitU8>(lhs_lit->value).value;
+            const char rhs_lit_val = std::get<LitU8>(rhs_lit->value).value;
+            if (lhs_lit_val >= rhs_lit_val) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        } else {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    }
     return std::make_unique<RangeExpressionNode>(lhs_expr.value(), rhs_expr.value());
 }
 
