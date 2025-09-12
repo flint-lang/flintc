@@ -1,5 +1,6 @@
 use Core.print
 
 def main():
-	for (idx, elem) in 0..5:
-		print($"idx = {idx}, elem = {elem}\n");
+	str hello = "Hello from Flint!\n";
+	str slice = hello[3..8];
+	print($"{slice}\n");

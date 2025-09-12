@@ -59,6 +59,9 @@ Generator::group_mapping Generator::Expression::generate_expression( //
     if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expression_node)) {
         return generate_group_expression(builder, ctx, garbage, expr_depth, group_node);
     }
+    if (const auto *range_node = dynamic_cast<const RangeExpressionNode *>(expression_node)) {
+        return generate_range_expression(builder, ctx, garbage, expr_depth, range_node);
+    }
     if (const auto *initializer = dynamic_cast<const InitializerNode *>(expression_node)) {
         return generate_initializer(builder, ctx, garbage, expr_depth, initializer);
     }
@@ -1324,6 +1327,33 @@ Generator::group_mapping Generator::Expression::generate_group_expression( //
     return group_values;
 }
 
+Generator::group_mapping Generator::Expression::generate_range_expression( //
+    llvm::IRBuilder<> &builder,                                            //
+    GenerationContext &ctx,                                                //
+    garbage_type &garbage,                                                 //
+    const unsigned int expr_depth,                                         //
+    const RangeExpressionNode *range_node                                  //
+) {
+    // We simply generate the lower and upper bound expressions and return their respecive results as one group mapping
+    group_mapping lower_bound = generate_expression(builder, ctx, garbage, expr_depth, range_node->lower_bound.get());
+    if (!lower_bound.has_value()) {
+        return std::nullopt;
+    }
+    if (lower_bound.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+    group_mapping upper_bound = generate_expression(builder, ctx, garbage, expr_depth, range_node->upper_bound.get());
+    if (!upper_bound.has_value()) {
+        return std::nullopt;
+    }
+    if (upper_bound.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+    return std::vector<llvm::Value *>{lower_bound.value().front(), upper_bound.value().front()};
+}
+
 Generator::group_mapping Generator::Expression::generate_initializer( //
     llvm::IRBuilder<> &builder,                                       //
     GenerationContext &ctx,                                           //
@@ -1943,27 +1973,37 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
     const std::unique_ptr<ExpressionNode> &base_expr,                        //
     const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
 ) {
+    const bool is_slice = dynamic_cast<const ArrayType *>(result_type.get()) != nullptr || result_type->to_string() == "str";
     // First, generate the index expressions
-    std::vector<llvm::Value *> index_expressions;
+    std::vector<std::array<llvm::Value *, 2>> index_expressions;
     for (auto &index_expression : indexing_expressions) {
         group_mapping index = generate_expression(builder, ctx, garbage, expr_depth, index_expression.get());
         if (!index.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        if (index.value().size() > 1) {
+        if (index.value().size() > 2) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        llvm::Value *index_expr = index.value().front();
         if (dynamic_cast<const GroupType *>(index_expression->type.get())) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
+        std::array<llvm::Value *, 2> index_expr;
         std::shared_ptr<Type> from_type = index_expression->type;
         std::shared_ptr<Type> to_type = Type::get_primitive_type("u64");
+        if (const RangeType *range_type = dynamic_cast<const RangeType *>(index_expression->type.get())) {
+            from_type = range_type->bound_type;
+            index_expr = {index.value().front(), index.value().at(1)};
+        } else {
+            index_expr = {index.value().front(), nullptr};
+        }
         if (from_type != to_type) {
-            index_expr = generate_type_cast(builder, ctx, index_expr, from_type, to_type);
+            index_expr[0] = generate_type_cast(builder, ctx, index_expr[0], from_type, to_type);
+            if (index_expr[1] != nullptr) {
+                index_expr[1] = generate_type_cast(builder, ctx, index_expr[1], from_type, to_type);
+            }
         }
         index_expressions.emplace_back(index_expr);
     }
@@ -1989,8 +2029,13 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        llvm::Function *access_str_at_fn = Module::String::string_manip_functions.at("access_str_at");
-        return builder.CreateCall(access_str_at_fn, {array_ptr, index_expressions.front()});
+        if (is_slice) {
+            llvm::Function *get_str_slice_fn = Module::String::string_manip_functions.at("get_str_slice");
+            return builder.CreateCall(get_str_slice_fn, {array_ptr, index_expressions.front()[0], index_expressions.front()[1]});
+        } else {
+            llvm::Function *access_str_at_fn = Module::String::string_manip_functions.at("access_str_at");
+            return builder.CreateCall(access_str_at_fn, {array_ptr, index_expressions.front()[0]});
+        }
     }
     llvm::Value *const temp_array_indices = ctx.allocations.at("arr::idx::" + std::to_string(index_expressions.size()));
     // Save all the indices in the temp array
@@ -1998,7 +2043,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
         llvm::Value *index_ptr = builder.CreateGEP(                                                            //
             builder.getInt64Ty(), temp_array_indices, builder.getInt64(i), "idx_" + std::to_string(i) + "_ptr" //
         );
-        llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions[i], index_ptr);
+        llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
         index_store->setMetadata("comment",                                                                       //
             llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i))) //
         );

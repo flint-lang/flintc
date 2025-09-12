@@ -1365,7 +1365,11 @@ std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return ArrayAccessNode(base_expr.value(), Type::get_primitive_type("u8"), indexing_expressions.value());
+        if (dynamic_cast<const RangeExpressionNode *>(indexing_expressions.value().front().get())) {
+            return ArrayAccessNode(base_expr.value(), Type::get_primitive_type("str"), indexing_expressions.value());
+        } else {
+            return ArrayAccessNode(base_expr.value(), Type::get_primitive_type("u8"), indexing_expressions.value());
+        }
     }
     // The indexing expression size must match the array dimensionality
     if (indexing_expressions.value().size() != array_type->dimensionality) {

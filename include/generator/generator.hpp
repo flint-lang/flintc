@@ -15,6 +15,7 @@
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/optional_chain_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
+#include "parser/ast/expressions/range_expression_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
@@ -1575,6 +1576,25 @@ class Generator {
             const GroupExpressionNode *group_node       //
         );
 
+        /// @function `generate_range_expression`
+        /// @brief Generates a range expression from the given RangeExpressionNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `range_node` The range expression to generate
+        /// @return `group_mapping` The values containing the result of the range expression
+        ///
+        /// @note The range expression always consists of two values being the lower and the upper bound
+        static group_mapping generate_range_expression( //
+            llvm::IRBuilder<> &builder,                 //
+            GenerationContext &ctx,                     //
+            garbage_type &garbage,                      //
+            const unsigned int expr_depth,              //
+            const RangeExpressionNode *range_node       //
+        );
+
         /// @function `generate_initializer`
         /// @brief Generates an initializer from the given InitializerNode
         ///
@@ -1700,6 +1720,28 @@ class Generator {
             const unsigned int expr_depth,                                           //
             std::optional<llvm::Value *> base_expr_value,                            //
             const std::shared_ptr<Type> result_type,                                 //
+            const std::unique_ptr<ExpressionNode> &base_expr,                        //
+            const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
+        );
+
+        /// @function `generate_array_slice`
+        /// @brief Generates an array slice from all the needed information for the array slice access
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `base_expr_value` The (potentailly) already-generated base expression of the array slice access
+        /// @param `result_type` The result type of the array access (being the `base_type` of the array type itself most of times)
+        /// @param `base_expr` The base expression to generate, if no `base_expr_value` is provided
+        /// @param `indexing_expressions` The indexing expressions to generate, whose results are the indices of the array access
+        /// @return `llvm::Value *` The accessed element
+        static llvm::Value *generate_array_slice(                                    //
+            llvm::IRBuilder<> &builder,                                              //
+            GenerationContext &ctx,                                                  //
+            garbage_type &garbage,                                                   //
+            const unsigned int expr_depth,                                           //
+            std::optional<llvm::Value *> base_expr_value,                            //
             const std::unique_ptr<ExpressionNode> &base_expr,                        //
             const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
         );
@@ -3108,6 +3150,7 @@ class Generator {
                 {"add_str_str", nullptr},
                 {"add_str_lit", nullptr},
                 {"add_lit_str", nullptr},
+                {"get_str_slice", nullptr},
             };
 
             /// @function `generate_access_str_at_function`
@@ -3197,6 +3240,14 @@ class Generator {
             /// @param `module` The LLVM Module the `add_lit_str` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_add_lit_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_get_str_slice_function`
+            /// @brief Gneerates the builtin hidden `get_str_slice` function
+            ///
+            /// @brief `builder` The LLVM IRBuilder
+            /// @brief `module` The LLVM Module the `get_str_slice` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_get_str_slice_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /// @function `generate_string_manip_functions`
             /// @brief Generates all the builtin hidden string manipulation functions

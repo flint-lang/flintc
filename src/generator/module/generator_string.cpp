@@ -228,8 +228,11 @@ void Generator::Module::String::generate_init_str_function(llvm::IRBuilder<> *bu
     builder->CreateRet(string_ptr);
 }
 
-void Generator::Module::String::generate_compare_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::String::generate_compare_str_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
     // THE C IMPLEMENTATION:
     // int32_t compare_str(const str *lhs, const str *rhs) {
     //     if (lhs->len < rhs->len) {
@@ -318,8 +321,11 @@ void Generator::Module::String::generate_compare_str_function(llvm::IRBuilder<> 
     builder->CreateRet(memcmp_result);
 }
 
-void Generator::Module::String::generate_assign_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::String::generate_assign_str_function( //
+    llvm::IRBuilder<> *builder,                               //
+    llvm::Module *module,                                     //
+    const bool only_declarations                              //
+) {
     // THE C IMPLEMENTATION:
     // void assign_str(str **string, str *value) {
     //     free(*string);
@@ -372,8 +378,11 @@ void Generator::Module::String::generate_assign_str_function(llvm::IRBuilder<> *
     builder->CreateRetVoid();
 }
 
-void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::String::generate_assign_lit_function( //
+    llvm::IRBuilder<> *builder,                               //
+    llvm::Module *module,                                     //
+    const bool only_declarations                              //
+) {
     // THE C IMPLEMENTATION:
     // void assign_lit(str **string, const char *value, const size_t len) {
     //     str *new_string = (str *)realloc(*string, sizeof(str) + len + 1);
@@ -453,8 +462,11 @@ void Generator::Module::String::generate_assign_lit_function(llvm::IRBuilder<> *
     builder->CreateRetVoid();
 }
 
-void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::String::generate_append_str_function( //
+    llvm::IRBuilder<> *builder,                               //
+    llvm::Module *module,                                     //
+    const bool only_declarations                              //
+) {
     // THE C IMPLEMENTATION:
     // void append_str(str **dest, const str *source) {
     //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source->len + 1);
@@ -543,8 +555,11 @@ void Generator::Module::String::generate_append_str_function(llvm::IRBuilder<> *
     builder->CreateRetVoid();
 }
 
-void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::String::generate_append_lit_function( //
+    llvm::IRBuilder<> *builder,                               //
+    llvm::Module *module,                                     //
+    const bool only_declarations                              //
+) {
     // THE C IMPLEMENTATION:
     // void append_lit(str **dest, const char *source, const size_t source_len) {
     //     str *new_dest = (str *)realloc(*dest, sizeof(str) + (*dest)->len + source_len + 1);
@@ -629,8 +644,11 @@ void Generator::Module::String::generate_append_lit_function(llvm::IRBuilder<> *
     builder->CreateRetVoid();
 }
 
-void Generator::Module::String::generate_add_str_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::String::generate_add_str_str_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
     // THE C IMPLEMENTATION:
     // str *add_str_str(const str *lhs, const str *rhs) {
     //     str *result = create_str(lhs->len + rhs->len);
@@ -709,8 +727,11 @@ void Generator::Module::String::generate_add_str_str_function(llvm::IRBuilder<> 
     builder->CreateRet(result);
 }
 
-void Generator::Module::String::generate_add_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::String::generate_add_str_lit_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
     // THE C IMPLEMENTATION:
     // str *add_str_lit(const str *lhs, const char *rhs, const size_t rhs_len) {
     //     str *result = create_str(lhs->len + rhs_len);
@@ -787,8 +808,11 @@ void Generator::Module::String::generate_add_str_lit_function(llvm::IRBuilder<> 
     builder->CreateRet(result);
 }
 
-void Generator::Module::String::generate_add_lit_str_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::String::generate_add_lit_str_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
     // THE C IMPLEMENTATION:
     // str *add_lit_str(const char *lhs, const size_t lhs_len, const str *rhs) {
     //     str *result = create_str(lhs_len + rhs->len);
@@ -865,8 +889,73 @@ void Generator::Module::String::generate_add_lit_str_function(llvm::IRBuilder<> 
     builder->CreateRet(result);
 }
 
-void Generator::Module::String::generate_string_manip_functions(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::String::generate_get_str_slice_function( //
+    llvm::IRBuilder<> *builder,                                  //
+    llvm::Module *module,                                        //
+    const bool only_declarations                                 //
+) {
+    // THE C IMPLEMENTATION:
+    // str *get_str_slice(const str *src, const size_t from, const size_t to) {
+    //     const size_t len = to - from;
+    //     str *result = create_str(len);
+    //     memcpy(result->value, src->value + from, len);
+    //     return result;
+    // }
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+    llvm::Function *create_str_fn = string_manip_functions.at("create_str");
+
+    llvm::FunctionType *get_str_slice_type = llvm::FunctionType::get( //
+        str_type->getPointerTo(),                                     // Return Type: str*
+        {
+            str_type->getPointerTo(),        // Argument: str* src
+            llvm::Type::getInt64Ty(context), // Argument: u64 from
+            llvm::Type::getInt64Ty(context)  // Argument: u64 to
+        },                                   //
+        false                                // No varargs
+    );
+    llvm::Function *get_str_slice_fn = llvm::Function::Create( //
+        get_str_slice_type,                                    //
+        llvm::Function::ExternalLinkage,                       //
+        "__flint_get_str_slice",                               //
+        module                                                 //
+    );
+    string_manip_functions["get_str_slice"] = get_str_slice_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create a basic block for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", get_str_slice_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Get the src argument
+    llvm::Argument *arg_src = get_str_slice_fn->arg_begin();
+    arg_src->setName("src");
+
+    // Get the from argument
+    llvm::Argument *arg_from = get_str_slice_fn->arg_begin() + 1;
+    arg_from->setName("from");
+
+    // Get the to argument
+    llvm::Argument *arg_to = get_str_slice_fn->arg_begin() + 2;
+    arg_to->setName("to");
+
+    builder->SetInsertPoint(entry_block);
+    llvm::Value *len = builder->CreateSub(arg_to, arg_from, "len");
+    llvm::Value *result = builder->CreateCall(create_str_fn, {len}, "result");
+    llvm::Value *raw_src_value_ptr = builder->CreateStructGEP(str_type, arg_src, 1, "raw_src_value_ptr");
+    llvm::Value *src_value_ptr = builder->CreateGEP(builder->getInt8Ty(), raw_src_value_ptr, {arg_from}, "src_value_ptr");
+    llvm::Value *result_value_ptr = builder->CreateStructGEP(str_type, result, 1, "result_value_ptr");
+    builder->CreateCall(memcpy_fn, {result_value_ptr, src_value_ptr, len});
+    builder->CreateRet(result);
+}
+
+void Generator::Module::String::generate_string_manip_functions( //
+    llvm::IRBuilder<> *builder,                                  //
+    llvm::Module *module,                                        //
+    const bool only_declarations                                 //
+) {
     generate_access_str_at_function(builder, module, only_declarations);
     generate_create_str_function(builder, module, only_declarations);
     generate_init_str_function(builder, module, only_declarations);
@@ -878,6 +967,7 @@ void Generator::Module::String::generate_string_manip_functions(llvm::IRBuilder<
     generate_add_str_str_function(builder, module, only_declarations);
     generate_add_str_lit_function(builder, module, only_declarations);
     generate_add_lit_str_function(builder, module, only_declarations);
+    generate_get_str_slice_function(builder, module, only_declarations);
 }
 
 llvm::Value *Generator::Module::String::generate_string_declaration( //
