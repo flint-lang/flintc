@@ -953,8 +953,10 @@ void Generator::Module::String::generate_get_str_slice_function( //
     llvm::BasicBlock *from_gt_to_merge_block = nullptr;
     if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
         from_gt_to_block = llvm::BasicBlock::Create(context, "from_gt_to", get_str_slice_fn);
-        real_to_eq_0_block = llvm::BasicBlock::Create(context, "real_to_eq_0", get_str_slice_fn);
-        real_to_eq_0_merge_block = llvm::BasicBlock::Create(context, "real_to_eq_0_merge", get_str_slice_fn);
+        if (oob_mode != ArrayOutOfBoundsMode::CRASH) {
+            real_to_eq_0_block = llvm::BasicBlock::Create(context, "real_to_eq_0", get_str_slice_fn);
+            real_to_eq_0_merge_block = llvm::BasicBlock::Create(context, "real_to_eq_0_merge", get_str_slice_fn);
+        }
         from_gt_to_merge_block = llvm::BasicBlock::Create(context, "from_gt_to_merge", get_str_slice_fn);
     }
     builder->SetInsertPoint(entry_block);
@@ -993,10 +995,13 @@ void Generator::Module::String::generate_get_str_slice_function( //
             builder->CreateBr(end_oob_merge_block);
         }
         builder->SetInsertPoint(end_oob_merge_block);
-        llvm::PHINode *to_selection = builder->CreatePHI(builder->getInt64Ty(), 2, "real_to_phi");
-        to_selection->addIncoming(real_to, entry_block);
-        to_selection->addIncoming(src_len, end_oob_block);
-        real_to = to_selection;
+        if (oob_mode != ArrayOutOfBoundsMode::CRASH) {
+            // We only need a phi node if we do not crash here
+            llvm::PHINode *to_selection = builder->CreatePHI(builder->getInt64Ty(), 2, "real_to_phi");
+            to_selection->addIncoming(real_to, entry_block);
+            to_selection->addIncoming(src_len, end_oob_block);
+            real_to = to_selection;
+        }
     }
 
     // if (from == real_to) { ... }

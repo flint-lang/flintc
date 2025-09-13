@@ -2,6 +2,6 @@ use Core.print
 
 def main():
 	str hello = "Heyo from Flint!";
-	print($"'{hello[..5]}'\n");
+	print($"'{hello[..18]}'\n");
 	print($"'{hello[5..]}'\n");
 	print($"'{hello[..]}'\n");
