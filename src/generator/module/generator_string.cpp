@@ -896,7 +896,8 @@ void Generator::Module::String::generate_get_str_slice_function( //
 ) {
     // THE C IMPLEMENTATION:
     // str *get_str_slice(const str *src, const size_t from, const size_t to) {
-    //     const size_t len = to - from;
+    //     const size_t real_to = to == 0 ? src->len : to;
+    //     const size_t len = real_to - from;
     //     str *result = create_str(len);
     //     memcpy(result->value, src->value + from, len);
     //     return result;
@@ -942,7 +943,11 @@ void Generator::Module::String::generate_get_str_slice_function( //
     arg_to->setName("to");
 
     builder->SetInsertPoint(entry_block);
-    llvm::Value *len = builder->CreateSub(arg_to, arg_from, "len");
+    llvm::Value *to_eq_0 = builder->CreateICmpEQ(arg_to, builder->getInt64(0), "to_eq_0");
+    llvm::Value *src_len_ptr = builder->CreateStructGEP(str_type, arg_src, 0, "src_len_ptr");
+    llvm::Value *src_len = IR::aligned_load(*builder, builder->getInt64Ty(), src_len_ptr, "src_len");
+    llvm::Value *real_to = builder->CreateSelect(to_eq_0, src_len, arg_to, "real_to");
+    llvm::Value *len = builder->CreateSub(real_to, arg_from, "len");
     llvm::Value *result = builder->CreateCall(create_str_fn, {len}, "result");
     llvm::Value *raw_src_value_ptr = builder->CreateStructGEP(str_type, arg_src, 1, "raw_src_value_ptr");
     llvm::Value *src_value_ptr = builder->CreateGEP(builder->getInt8Ty(), raw_src_value_ptr, {arg_from}, "src_value_ptr");

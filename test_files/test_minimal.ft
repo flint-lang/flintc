@@ -1,6 +1,7 @@
 use Core.print
 
 def main():
-	str hello = "Hello from Flint!\n";
-	str slice = hello[3..8];
-	print($"{slice}\n");
+	str hello = "Heyo from Flint!";
+	print($"'{hello[..5]}'\n");
+	print($"'{hello[5..]}'\n");
+	print($"'{hello[..]}'\n");

@@ -834,7 +834,9 @@ class Matcher {
             }),
         }),
     });
-    static const inline PatternPtr range_expression = sequence({token(TOK_INT_VALUE), token(TOK_RANGE), token(TOK_INT_VALUE)});
+    static const inline PatternPtr range_expression = sequence({
+        optional(token(TOK_INT_VALUE)), token(TOK_RANGE), optional(token(TOK_INT_VALUE)) //
+    });
 
     // --- STATEMENTS ---
     static const inline PatternPtr group_declaration_inferred = sequence({

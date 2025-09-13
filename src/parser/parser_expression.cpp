@@ -834,14 +834,55 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(s
     assert(ranges.size() == 1);
     const uint2 &range = ranges.front();
     const token_slice lhs_tokens = {tokens.first, tokens.first + range.first};
-    std::optional<std::unique_ptr<ExpressionNode>> lhs_expr = create_expression(scope, lhs_tokens);
-    if (!lhs_expr.has_value()) {
-        return std::nullopt;
+    const bool is_open_low = lhs_tokens.first == lhs_tokens.second;
+    std::optional<std::unique_ptr<ExpressionNode>> lhs_expr;
+    if (!is_open_low) {
+        // Lower-bound open range, e.g. we insert a 0 literal here, but we first need to get the type of the other side
+        lhs_expr = create_expression(scope, lhs_tokens);
+        if (!lhs_expr.has_value()) {
+            return std::nullopt;
+        }
     }
     const token_slice rhs_tokens = {tokens.first + range.second, tokens.second};
-    std::optional<std::unique_ptr<ExpressionNode>> rhs_expr = create_expression(scope, rhs_tokens);
-    if (!rhs_expr.has_value()) {
-        return std::nullopt;
+    const bool is_open_up = rhs_tokens.first == rhs_tokens.second;
+    std::optional<std::unique_ptr<ExpressionNode>> rhs_expr;
+    if (!is_open_up) {
+        rhs_expr = create_expression(scope, rhs_tokens);
+        if (!rhs_expr.has_value()) {
+            return std::nullopt;
+        }
+    }
+    if (is_open_low && is_open_up) {
+        // It's an open-begin and open-ended range, e.g. it's just '..' meaning "from begin to end"
+        assert(!lhs_expr.has_value());
+        assert(!rhs_expr.has_value());
+        const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+        LitValue lhs_zero = LitU64{.value = 0};
+        lhs_expr = std::make_unique<LiteralNode>(lhs_zero, u64_ty);
+        LitValue rhs_zero = LitU64{.value = 0};
+        rhs_expr = std::make_unique<LiteralNode>(rhs_zero, u64_ty);
+        return std::make_unique<RangeExpressionNode>(lhs_expr.value(), rhs_expr.value());
+    } else if (is_open_low) {
+        // Its a range expression which begins at 0, because '0..5' and '..5' are the same
+        assert(!lhs_expr.has_value());
+        assert(rhs_expr.has_value());
+        const std::shared_ptr<Type> i32_ty = Type::get_primitive_type("i32");
+        LitValue lhs_zero = LitI32{.value = 0};
+
+        lhs_expr = std::make_unique<LiteralNode>(lhs_zero, i32_ty);
+        if (rhs_expr.value()->type != i32_ty) {
+            lhs_expr = std::make_unique<TypeCastNode>(rhs_expr.value()->type, lhs_expr.value());
+        }
+    } else if (is_open_up) {
+        // Its an open ended range expression
+        assert(lhs_expr.has_value());
+        assert(!rhs_expr.has_value());
+        const std::shared_ptr<Type> i32_ty = Type::get_primitive_type("i32");
+        LitValue rhs_zero = LitI32{.value = 0};
+        rhs_expr = std::make_unique<LiteralNode>(rhs_zero, i32_ty);
+        if (lhs_expr.value()->type != i32_ty) {
+            rhs_expr = std::make_unique<TypeCastNode>(lhs_expr.value()->type, rhs_expr.value());
+        }
     }
     if (lhs_expr.value()->type != rhs_expr.value()->type) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -862,35 +903,35 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(s
         if (std::holds_alternative<LitI32>(lhs_lit->value)) {
             const int lhs_lit_val = std::get<LitI32>(lhs_lit->value).value;
             const int rhs_lit_val = std::get<LitI32>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val) {
+            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
         } else if (std::holds_alternative<LitU32>(lhs_lit->value)) {
             const unsigned int lhs_lit_val = std::get<LitU32>(lhs_lit->value).value;
             const unsigned int rhs_lit_val = std::get<LitU32>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val) {
+            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
         } else if (std::holds_alternative<LitI64>(lhs_lit->value)) {
             const long lhs_lit_val = std::get<LitI64>(lhs_lit->value).value;
             const long rhs_lit_val = std::get<LitI64>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val) {
+            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
         } else if (std::holds_alternative<LitU64>(lhs_lit->value)) {
             const unsigned long lhs_lit_val = std::get<LitU64>(lhs_lit->value).value;
             const unsigned long rhs_lit_val = std::get<LitU64>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val) {
+            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
         } else if (std::holds_alternative<LitU8>(lhs_lit->value)) {
             const char lhs_lit_val = std::get<LitU8>(lhs_lit->value).value;
             const char rhs_lit_val = std::get<LitU8>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val) {
+            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
