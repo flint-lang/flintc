@@ -49,10 +49,11 @@ void Generator::Module::String::generate_access_str_at_function( //
     // Create basic blocks
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", access_str_at_fn);
     llvm::BasicBlock *out_of_bounds_block = nullptr;
+    llvm::BasicBlock *in_bounds_block = nullptr;
     if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
         out_of_bounds_block = llvm::BasicBlock::Create(context, "out_of_bounds", access_str_at_fn);
+        in_bounds_block = llvm::BasicBlock::Create(context, "in_bounds", access_str_at_fn);
     }
-    llvm::BasicBlock *in_bounds_block = llvm::BasicBlock::Create(context, "in_bounds", access_str_at_fn);
     builder->SetInsertPoint(entry_block);
     llvm::AllocaInst *local_idx_ptr = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "local_idx_ptr");
     IR::aligned_store(*builder, arg_idx, local_idx_ptr);
@@ -69,32 +70,22 @@ void Generator::Module::String::generate_access_str_at_function( //
         // Out of bounds block
         builder->SetInsertPoint(out_of_bounds_block);
 
-        if (oob_mode == ArrayOutOfBoundsMode::PRINT || oob_mode == ArrayOutOfBoundsMode::CRASH) {
+        if (oob_mode != ArrayOutOfBoundsMode::SILENT) {
             llvm::Value *format_str = IR::generate_const_string(module, "Out Of Bounds string access occured: len: %lu, idx: %lu\n");
             builder->CreateCall(c_functions.at(PRINTF), {format_str, string_len, arg_idx});
         }
-        switch (oob_mode) {
-            case ArrayOutOfBoundsMode::PRINT:
-                [[fallthrough]];
-            case ArrayOutOfBoundsMode::SILENT: {
-                // Apply index clamping and update our LOCAL copy
-                llvm::Value *clamped_index = builder->CreateSub(string_len, builder->getInt64(1), "clamped_index");
-                IR::aligned_store(*builder, clamped_index, local_idx_ptr); // Update our local copy
-                builder->CreateBr(in_bounds_block);
-                break;
-            }
-            case ArrayOutOfBoundsMode::CRASH:
-                builder->CreateCall(c_functions.at(ABORT));
-                builder->CreateUnreachable();
-                break;
-            case ArrayOutOfBoundsMode::UNSAFE:
-                assert(false); // This should never be happening
-                break;
+        if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            builder->CreateCall(c_functions.at(ABORT));
+            builder->CreateUnreachable();
+        } else {
+            // Apply index clamping and update our LOCAL copy
+            llvm::Value *clamped_index = builder->CreateSub(string_len, builder->getInt64(1), "clamped_index");
+            IR::aligned_store(*builder, clamped_index, local_idx_ptr); // Update our local copy
+            builder->CreateBr(in_bounds_block);
         }
+        // In bounds block - normal access
+        builder->SetInsertPoint(in_bounds_block);
     }
-
-    // In bounds block - normal access
-    builder->SetInsertPoint(in_bounds_block);
 
     // Get pointer to string->value (the char array)
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_string, 1, "value_ptr");
