@@ -897,13 +897,33 @@ void Generator::Module::String::generate_get_str_slice_function( //
     // THE C IMPLEMENTATION:
     // str *get_str_slice(const str *src, const size_t from, const size_t to) {
     //     const size_t real_to = to == 0 ? src->len : to;
-    //     const size_t len = real_to - from;
+    //     if (real_to > src->len) {
+    //         // Print error to tell a oob-slicing attempt was done and clamp to the src len
+    //         // Because slicing is technically an array operation, the array OOB options apply here
+    //         // So this could be a hard crash, silent, unsafe or verbose
+    //     }
+    //     if (from == real_to) {
+    //         // If real_to is equal to from, this block hard crashes no matter the setting, as we
+    //         // would now handle with an explicit 'x..x' range, which is not allowed, since the range does not contain a single element
+    //     }
+    //     size_t real_from = from;
+    //     if (from > real_to) {
+    //         if (real_to == 0) {
+    //             // This is a hard crash scenario, as 'from' would potentially be < 0 which is undefined for indexing
+    //         }
+    //         // The lower bound of the range was above or equal to the upper bound of the range
+    //         // The from value will get clamped to the value (real_to - 1)
+    //         // As above, the OOB options apply to whether a print, crash etc is done in here
+    //     }
+    //     const size_t len = real_to - real_from;
     //     str *result = create_str(len);
-    //     memcpy(result->value, src->value + from, len);
+    //     memcpy(result->value, src->value + real_from, len);
     //     return result;
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
+    llvm::Function *printf_fn = c_functions.at(PRINTF);
+    llvm::Function *abort_fn = c_functions.at(ABORT);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
     llvm::FunctionType *get_str_slice_type = llvm::FunctionType::get( //
@@ -928,6 +948,24 @@ void Generator::Module::String::generate_get_str_slice_function( //
 
     // Create a basic block for the function
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", get_str_slice_fn);
+    llvm::BasicBlock *end_oob_block = nullptr;
+    llvm::BasicBlock *end_oob_merge_block = nullptr;
+    if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
+        end_oob_block = llvm::BasicBlock::Create(context, "end_oob", get_str_slice_fn);
+        end_oob_merge_block = llvm::BasicBlock::Create(context, "end_oob_merge", get_str_slice_fn);
+    }
+    llvm::BasicBlock *range_empty_block = llvm::BasicBlock::Create(context, "range_empty", get_str_slice_fn);
+    llvm::BasicBlock *range_empty_merge_block = llvm::BasicBlock::Create(context, "range_empty_merge", get_str_slice_fn);
+    llvm::BasicBlock *from_gt_to_block = nullptr;
+    llvm::BasicBlock *real_to_eq_0_block = nullptr;
+    llvm::BasicBlock *real_to_eq_0_merge_block = nullptr;
+    llvm::BasicBlock *from_gt_to_merge_block = nullptr;
+    if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
+        from_gt_to_block = llvm::BasicBlock::Create(context, "from_gt_to", get_str_slice_fn);
+        real_to_eq_0_block = llvm::BasicBlock::Create(context, "real_to_eq_0", get_str_slice_fn);
+        real_to_eq_0_merge_block = llvm::BasicBlock::Create(context, "real_to_eq_0_merge", get_str_slice_fn);
+        from_gt_to_merge_block = llvm::BasicBlock::Create(context, "from_gt_to_merge", get_str_slice_fn);
+    }
     builder->SetInsertPoint(entry_block);
 
     // Get the src argument
@@ -947,10 +985,92 @@ void Generator::Module::String::generate_get_str_slice_function( //
     llvm::Value *src_len_ptr = builder->CreateStructGEP(str_type, arg_src, 0, "src_len_ptr");
     llvm::Value *src_len = IR::aligned_load(*builder, builder->getInt64Ty(), src_len_ptr, "src_len");
     llvm::Value *real_to = builder->CreateSelect(to_eq_0, src_len, arg_to, "real_to");
-    llvm::Value *len = builder->CreateSub(real_to, arg_from, "len");
+
+    // if (real_to > src->len) { ... }
+    if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
+        llvm::Value *real_to_gt_src_len = builder->CreateICmpUGT(real_to, src_len, "real_to_gt_src_len");
+        builder->CreateCondBr(real_to_gt_src_len, end_oob_block, end_oob_merge_block, IR::generate_weights(1, 100));
+        builder->SetInsertPoint(end_oob_block);
+        if (oob_mode != ArrayOutOfBoundsMode::SILENT) {
+            llvm::Value *msg = IR::generate_const_string(module, "OOB ranged string access: len=%lu, upper_bound=%lu\n");
+            builder->CreateCall(printf_fn, {msg, src_len, real_to});
+        }
+        if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            builder->CreateCall(abort_fn);
+            builder->CreateUnreachable();
+        } else {
+            builder->CreateBr(end_oob_merge_block);
+        }
+        builder->SetInsertPoint(end_oob_merge_block);
+        llvm::PHINode *to_selection = builder->CreatePHI(builder->getInt64Ty(), 2, "real_to_phi");
+        to_selection->addIncoming(real_to, entry_block);
+        to_selection->addIncoming(src_len, end_oob_block);
+        real_to = to_selection;
+    }
+
+    // if (from == real_to) { ... }
+    {
+        llvm::Value *is_range_empty = builder->CreateICmpEQ(arg_from, real_to, "is_range_empty");
+        builder->CreateCondBr(is_range_empty, range_empty_block, range_empty_merge_block, IR::generate_weights(1, 100));
+
+        builder->SetInsertPoint(range_empty_block);
+        llvm::Value *msg = IR::generate_const_string(module, "Cannot get empty slice %lu..%lu from string\n");
+        builder->CreateCall(printf_fn, {msg, arg_from, real_to});
+        builder->CreateUnreachable();
+
+        builder->SetInsertPoint(range_empty_merge_block);
+    }
+
+    // if (from > real_to) { ... }
+    llvm::Value *real_from = arg_from;
+    if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
+        llvm::Value *from_gt_to = builder->CreateICmpUGT(arg_from, real_to, "from_gt_to");
+        builder->CreateCondBr(from_gt_to, from_gt_to_block, from_gt_to_merge_block, IR::generate_weights(1, 100));
+
+        builder->SetInsertPoint(from_gt_to_block);
+        if (oob_mode != ArrayOutOfBoundsMode::SILENT) {
+            llvm::Value *msg = IR::generate_const_string(module, "String slice lower bound greater than upper bound\n");
+            builder->CreateCall(printf_fn, {msg});
+        }
+        if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            builder->CreateCall(abort_fn);
+            builder->CreateUnreachable();
+        } else {
+            // if (real_to == 0) { ... }
+            {
+                llvm::Value *real_to_eq_0 = builder->CreateICmpEQ(real_to, builder->getInt64(0), "real_to_eq_0");
+                builder->CreateCondBr(real_to_eq_0, real_to_eq_0_block, real_to_eq_0_merge_block, IR::generate_weights(1, 100));
+
+                builder->SetInsertPoint(real_to_eq_0_block);
+                if (oob_mode != ArrayOutOfBoundsMode::SILENT) {
+                    llvm::Value *msg = IR::generate_const_string(module, "Upper bound is 0, lower bound cannot be lowered any further\n");
+                    builder->CreateCall(printf_fn, {msg});
+                }
+                builder->CreateCall(abort_fn);
+                builder->CreateUnreachable();
+
+                builder->SetInsertPoint(real_to_eq_0_merge_block);
+                llvm::Value *msg = IR::generate_const_string(module, "Clamping lower bound to be (to - 1)\n");
+                builder->CreateCall(printf_fn, {msg});
+                real_from = builder->CreateSub(real_to, builder->getInt64(1), "real_from");
+                builder->CreateBr(from_gt_to_merge_block);
+            }
+        }
+
+        builder->SetInsertPoint(from_gt_to_merge_block);
+        if (oob_mode != ArrayOutOfBoundsMode::CRASH) {
+            llvm::PHINode *from_select = builder->CreatePHI(builder->getInt64Ty(), 2, "from_select");
+            from_select->addIncoming(arg_from, range_empty_merge_block);
+            from_select->addIncoming(real_from, real_to_eq_0_merge_block);
+            real_from = from_select;
+        }
+    }
+
+    // The actual slicing
+    llvm::Value *len = builder->CreateSub(real_to, real_from, "len");
     llvm::Value *result = builder->CreateCall(create_str_fn, {len}, "result");
     llvm::Value *raw_src_value_ptr = builder->CreateStructGEP(str_type, arg_src, 1, "raw_src_value_ptr");
-    llvm::Value *src_value_ptr = builder->CreateGEP(builder->getInt8Ty(), raw_src_value_ptr, {arg_from}, "src_value_ptr");
+    llvm::Value *src_value_ptr = builder->CreateGEP(builder->getInt8Ty(), raw_src_value_ptr, {real_from}, "src_value_ptr");
     llvm::Value *result_value_ptr = builder->CreateStructGEP(str_type, result, 1, "result_value_ptr");
     builder->CreateCall(memcpy_fn, {result_value_ptr, src_value_ptr, len});
     builder->CreateRet(result);
