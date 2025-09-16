@@ -1832,7 +1832,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     if (Matcher::tokens_match(tokens_mut, Matcher::stacked_expression)) {
         return create_stacked_expression(scope, tokens_mut);
     }
-    if (Matcher::tokens_match(tokens_mut, Matcher::range_expression)) {
+    if (Matcher::tokens_contain(tokens_mut, Matcher::range_expression)) {
         std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(scope, tokens_mut);
         if (!range.has_value()) {
             return std::nullopt;
