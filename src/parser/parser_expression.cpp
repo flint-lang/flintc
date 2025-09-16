@@ -1417,7 +1417,23 @@ std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    return ArrayAccessNode(base_expr.value(), array_type->type, indexing_expressions.value());
+    // Check how many of the indexing expressions are range expressions. The dimensionality of the array access only get's decreased if the
+    // indexing expression is not a range expression. For range expressions the dimensionality actually stays the same
+    unsigned int dimensionality = array_type->dimensionality;
+    for (const auto &indexing_expression : indexing_expressions.value()) {
+        if (!dynamic_cast<const RangeExpressionNode *>(indexing_expression.get())) {
+            dimensionality--;
+        }
+    }
+    if (dimensionality == 0) {
+        return ArrayAccessNode(base_expr.value(), array_type->type, indexing_expressions.value());
+    } else {
+        std::shared_ptr<Type> new_arr_type = std::make_shared<ArrayType>(dimensionality, array_type->type);
+        if (!Type::add_type(new_arr_type)) {
+            new_arr_type = Type::get_type_from_str(new_arr_type->to_string()).value();
+        }
+        return ArrayAccessNode(base_expr.value(), new_arr_type, indexing_expressions.value());
+    }
 }
 
 std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {

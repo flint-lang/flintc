@@ -1,7 +1,10 @@
 use Core.print
 
 def main():
-	str hello = "Heyo from Flint!";
-	print($"'{hello[..18]}'\n");
-	print($"'{hello[5..]}'\n");
-	print($"'{hello[..]}'\n");
+	i32[] arr = i32[10](0);
+	for (idx, elem) in arr:
+		elem = i32(idx);
+
+	print($"arr.length = {arr.length}\n");
+	i32[] slice = arr[2..8];
+	print($"slice.length = {slice.length}\n");
