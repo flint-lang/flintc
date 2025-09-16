@@ -127,3 +127,42 @@ test "23_cli_args_multiple.ft":
 	(exit_code, output) = system_command("./main someargument somethingelse third-thing");
 	assert(exit_code == 0);
 	assert(output == "args[0] = ./main\nargs[1] = someargument\nargs[2] = somethingelse\nargs[3] = third-thing\n");
+
+test "23_slices.ft":
+	str path = "wiki_tests/beginners_guide/arrays";
+	str file = "23_slices.ft";
+	test_file_ok($"{path}/{file}", "Hello there\nllo t\n");
+
+test "24_open_range.ft":
+	str path = "wiki_tests/beginners_guide/arrays";
+	str file = "24_open_range.ft";
+	test_file_ok($"{path}/{file}", "Hello there\nllo there\n");
+
+test "25_manual_slice.ft":
+	str path = "wiki_tests/beginners_guide/arrays";
+	str file = "25_manual_slice.ft";
+	test_file_ok($"{path}/{file}", "Hello there\nllo there\n");
+
+test "[f]26_perf_comp.ft":
+	str path = "wiki_tests/beginners_guide/arrays";
+	str file = "26_perf_comp.ft";
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+
+test "27_array_slice.ft":
+	str path = "wiki_tests/beginners_guide/arrays";
+	str file = "27_array_slice.ft";
+	test_file_ok($"{path}/{file}", "slice.length = 6\nslice[0] = 3\nslice[1] = 4\nslice[2] = 5\nslice[3] = 6\nslice[4] = 7\nslice[5] = 8\n");
+
+test "28_2d_to_1d_slice.ft":
+	str path = "wiki_tests/beginners_guide/arrays";
+	str file = "28_2d_to_1d_slice.ft";
+	test_file_ok($"{path}/{file}", "slice[0] = 6\nslice[1] = 8\nslice[2] = 10\nslice[3] = 12\nslice[4] = 14\nslice[5] = 16\n");
+
+test "29_2d_to_2d_slice.ft":
+	str path = "wiki_tests/beginners_guide/arrays";
+	str file = "29_2d_to_2d_slice.ft";
+	test_file_ok($"{path}/{file}", "slice[0] = 12\nslice[1] = 15\nslice[2] = 18\nslice[3] = 16\nslice[4] = 20\nslice[5] = 24\nslice[6] = 20\nslice[7] = 25\nslice[8] = 30\nslice[9] = 24\nslice[10] = 30\nslice[11] = 36\nslice[12] = 28\nslice[13] = 35\nslice[14] = 42\nslice[15] = 32\nslice[16] = 40\nslice[17] = 48\n");
