@@ -101,7 +101,7 @@ bool Generator::Allocation::generate_allocations(                               
                 return false;
             }
         } else if (const auto *array_assignment = dynamic_cast<const ArrayAssignmentNode *>(statement_node.get())) {
-            generate_array_indexing_allocation(builder, allocations, array_assignment->indexing_expressions.size());
+            generate_array_indexing_allocation(builder, allocations, array_assignment->indexing_expressions);
         } else if (const auto *switch_statement = dynamic_cast<const SwitchStatement *>(statement_node.get())) {
             if (!generate_switch_statement_allocations(builder, parent, scope, allocations, imported_core_modules, switch_statement)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -460,19 +460,26 @@ bool Generator::Allocation::generate_group_declaration_allocations(             
     return true;
 }
 
-void Generator::Allocation::generate_array_indexing_allocation(       //
-    llvm::IRBuilder<> &builder,                                       //
-    std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const size_t dimensionality                                       //
+void Generator::Allocation::generate_array_indexing_allocation(              //
+    llvm::IRBuilder<> &builder,                                              //
+    std::unordered_map<std::string, llvm::Value *const> &allocations,        //
+    const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
 ) {
-    const std::string alloca_name = "arr::idx::" + std::to_string(dimensionality);
+    size_t idx_size = indexing_expressions.size();
+    for (const auto &idx_expr : indexing_expressions) {
+        if (dynamic_cast<const RangeExpressionNode *>(idx_expr.get())) {
+            idx_size *= 2;
+            break;
+        }
+    }
+    const std::string alloca_name = "arr::idx::" + std::to_string(idx_size);
     if (allocations.find(alloca_name) != allocations.end()) {
         return;
     }
     // Create a i64 array with the length of the dimensions
-    llvm::Type *length_array_type = llvm::ArrayType::get(builder.getInt64Ty(), dimensionality);
-    generate_allocation(builder, allocations, alloca_name, length_array_type, "__arr_idx_" + std::to_string(dimensionality) + "d", //
-        "Shared " + std::to_string(dimensionality) + "D indexing array"                                                            //
+    llvm::Type *length_array_type = llvm::ArrayType::get(builder.getInt64Ty(), idx_size);
+    generate_allocation(builder, allocations, alloca_name, length_array_type, "__arr_idx_" + std::to_string(idx_size) + "d", //
+        "Shared " + std::to_string(idx_size) + "D indexing array"                                                            //
     );
 }
 
@@ -528,9 +535,9 @@ bool Generator::Allocation::generate_expression_allocations(                    
             }
         }
     } else if (const auto *array_initializer = dynamic_cast<const ArrayInitializerNode *>(expression)) {
-        generate_array_indexing_allocation(builder, allocations, array_initializer->length_expressions.size());
+        generate_array_indexing_allocation(builder, allocations, array_initializer->length_expressions);
     } else if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expression)) {
-        generate_array_indexing_allocation(builder, allocations, array_access->indexing_expressions.size());
+        generate_array_indexing_allocation(builder, allocations, array_access->indexing_expressions);
     } else if (const auto *switch_expression = dynamic_cast<const SwitchExpression *>(expression)) {
         if (!generate_switch_expression_allocations(builder, parent, scope, allocations, imported_core_modules, switch_expression)) {
             THROW_BASIC_ERR(ERR_GENERATING);

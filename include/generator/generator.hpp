@@ -881,11 +881,11 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `dimensionality` The dimensionality of the array
-        static void generate_array_indexing_allocation(                       //
-            llvm::IRBuilder<> &builder,                                       //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const size_t dimensionality                                       //
+        /// @param `indexing_expressions` The indexing expressions of the array
+        static void generate_array_indexing_allocation(                              //
+            llvm::IRBuilder<> &builder,                                              //
+            std::unordered_map<std::string, llvm::Value *const> &allocations,        //
+            const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
         );
 
         /// @function `generate_expression_allocations`

@@ -2037,20 +2037,36 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             return builder.CreateCall(access_str_at_fn, {array_ptr, index_expressions.front()[0]});
         }
     }
-    llvm::Value *const temp_array_indices = ctx.allocations.at("arr::idx::" + std::to_string(index_expressions.size()));
+    const size_t idx_size = indexing_expressions.size() * (static_cast<size_t>(is_slice) + 1);
+    llvm::Value *const temp_array_indices = ctx.allocations.at("arr::idx::" + std::to_string(idx_size));
     // Save all the indices in the temp array
     for (size_t i = 0; i < index_expressions.size(); i++) {
-        llvm::Value *index_ptr = builder.CreateGEP(                                                            //
-            builder.getInt64Ty(), temp_array_indices, builder.getInt64(i), "idx_" + std::to_string(i) + "_ptr" //
-        );
-        llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
-        index_store->setMetadata("comment",                                                                       //
-            llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i))) //
-        );
+        const bool is_range = dynamic_cast<const RangeType *>(indexing_expressions.at(i)->type.get()) != nullptr;
+        for (size_t j = 0; j < 1 + static_cast<size_t>(is_range); j++) {
+            llvm::Value *index_ptr = builder.CreateGEP(                                                                    //
+                builder.getInt64Ty(), temp_array_indices, builder.getInt64(i + j), "idx_" + std::to_string(i + j) + "_ptr" //
+            );
+            llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[j], index_ptr);
+            index_store->setMetadata("comment",                                                                           //
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i + j))) //
+            );
+            if (is_slice && !is_range) {
+                // The slicing function expects indices of non-ranges to be '1, 1' for the index 1, and '1, 3' for the range [1, 3)
+                index_ptr = builder.CreateGEP(                                                                                 //
+                    builder.getInt64Ty(), temp_array_indices, builder.getInt64(i + 1), "idx_" + std::to_string(i + 1) + "_ptr" //
+                );
+                index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
+                index_store->setMetadata("comment",                                                                           //
+                    llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i + 1))) //
+                );
+            }
+        }
     }
-    const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
     llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), result_type).first;
-    size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
+    if (is_slice) {
+        element_type = IR::get_type(ctx.parent->getParent(), dynamic_cast<const ArrayType *>(result_type.get())->type).first;
+    }
+    size_t element_size_in_bytes = Allocation::get_type_size(ctx.parent->getParent(), element_type);
     if (result_type->to_string() == "str") {
         // We get a 'str**' from the 'access_arr' function, so we need to dereference it first before returning it
         llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr"), //
@@ -2066,6 +2082,12 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
         // TODO
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return nullptr;
+    } else if (dynamic_cast<const ArrayType *>(result_type.get())) {
+        // This is a slicing operation
+        llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"), //
+            {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                       //
+        );
+        return result;
     }
     THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;
