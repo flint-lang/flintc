@@ -2041,23 +2041,33 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
     llvm::Value *const temp_array_indices = ctx.allocations.at("arr::idx::" + std::to_string(idx_size));
     // Save all the indices in the temp array
     for (size_t i = 0; i < index_expressions.size(); i++) {
+        if (!is_slice) {
+            llvm::Value *index_ptr = builder.CreateGEP(                                                            //
+                builder.getInt64Ty(), temp_array_indices, builder.getInt64(i), "idx_" + std::to_string(i) + "_ptr" //
+            );
+            llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
+            index_store->setMetadata("comment",                                                                       //
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i))) //
+            );
+            continue;
+        }
         const bool is_range = dynamic_cast<const RangeType *>(indexing_expressions.at(i)->type.get()) != nullptr;
         for (size_t j = 0; j < 1 + static_cast<size_t>(is_range); j++) {
-            llvm::Value *index_ptr = builder.CreateGEP(                                                                    //
-                builder.getInt64Ty(), temp_array_indices, builder.getInt64(i + j), "idx_" + std::to_string(i + j) + "_ptr" //
+            llvm::Value *index_ptr = builder.CreateGEP(                                                                            //
+                builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + j), "idx_" + std::to_string(i * 2 + j) + "_ptr" //
             );
             llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[j], index_ptr);
-            index_store->setMetadata("comment",                                                                           //
-                llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i + j))) //
+            index_store->setMetadata("comment",                                                                               //
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i * 2 + j))) //
             );
             if (is_slice && !is_range) {
                 // The slicing function expects indices of non-ranges to be '1, 1' for the index 1, and '1, 3' for the range [1, 3)
-                index_ptr = builder.CreateGEP(                                                                                 //
-                    builder.getInt64Ty(), temp_array_indices, builder.getInt64(i + 1), "idx_" + std::to_string(i + 1) + "_ptr" //
+                index_ptr = builder.CreateGEP(                                                                                         //
+                    builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + 1), "idx_" + std::to_string(i * 2 + 1) + "_ptr" //
                 );
                 index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
-                index_store->setMetadata("comment",                                                                           //
-                    llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i + 1))) //
+                index_store->setMetadata("comment",                                                                               //
+                    llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i * 2 + 1))) //
                 );
             }
         }
