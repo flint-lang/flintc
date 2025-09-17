@@ -408,9 +408,9 @@ void LspServer::handle_document_change(const std::string &content) {
         return;
 
         // Parse the file and publish diagnostics
-        std::string file_content = extract_file_content_from_change(content);
-        LspServer::parse_program(file_path, file_content);
-        publish_diagnostics(file_uri);
+        // std::string file_content = extract_file_content_from_change(content);
+        // LspServer::parse_program(file_path, file_content);
+        // publish_diagnostics(file_uri);
     } else {
         log_info("Document changed");
     }

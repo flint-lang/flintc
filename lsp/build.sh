@@ -11,6 +11,7 @@ print_usage() {
     echo "  -c, --clean     Clean before building"
     echo "  -l, --linux     Build for Linux (default)"
     echo "  -w, --windows   Cross-compile for Windows using MinGW"
+    echo "  -v, --verbose   Turn verbosity on"
     echo "  -j <num>        Number of cores to use (default: auto)"
     echo ""
     echo "Examples:"
@@ -29,6 +30,7 @@ build_type="Release"
 clean_build=false
 target_windows=false
 jobs=$(nproc 2>/dev/null || echo 4)
+verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=OFF"
 
 # Parse arguments
 while [ $# -gt 0 ]; do
@@ -38,6 +40,7 @@ while [ $# -gt 0 ]; do
         -c|--clean) clean_build=true; shift ;;
         -l|--linux) target_windows=false; shift ;;
         -w|--windows) target_windows=true; shift ;;
+        -v|--verbose) verbosity_flag="-DCMAKE_VERBOSE_MAKEFILE=ON"; shift ;;
         -j) jobs="$2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -93,11 +96,14 @@ if [ "$target_windows" = true ]; then
           -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
           -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
           $debug_flag \
+          $verbosity_flag \
           ..
 else
     # Native Linux build
     cmake -DCMAKE_BUILD_TYPE="$build_type" \
+          -DCMAKE_TOOLCHAIN_FILE="$root/../cmake/toolchain-linux.cmake" \
           $debug_flag \
+          $verbosity_flag \
           ..
 fi
 

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(FlintLanguageServer VERSION 0.1.0 LANGUAGES C CXX)
+project(FlintLanguageServer VERSION 0.2.2 LANGUAGES C CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -40,9 +40,6 @@ set(LSP_SOURCES
     ../src/matcher.cpp
     ../src/profiler.cpp
     ../src/resolver.cpp
-
-    # External C dependency
-    ../vendor/sources/fip/toml/tomlc17.c
 )
 
 # Platform-specific compiler flags
@@ -76,7 +73,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
         set(BASE_CXX_FLAGS
             -O3
             -march=native
-            -flto
             -pipe
             -fno-omit-frame-pointer
             -Wall
@@ -136,7 +132,6 @@ else()
         set(BASE_CXX_FLAGS
             -O3
             -march=native         # enable CPU tuning
-            -flto                 # cross-module LTO
             -ffunction-sections
             -fdata-sections
             -Wall
@@ -179,6 +174,9 @@ add_executable(fls ${LSP_SOURCES} ${LSP_HEADERS})
 set_target_properties(fls PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out
 )
+
+target_link_libraries(fls PRIVATE external_deps)
+add_library(external_deps STATIC ../vendor/sources/fip/toml/tomlc17.c)
 
 # For Windows, set the required properties
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")

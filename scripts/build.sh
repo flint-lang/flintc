@@ -14,6 +14,7 @@ Options:
     -d, --dynamic           Build the executable as dynamic (default)
     -D  --debug             Compile the compiler in debug mode (default)
     -R  --release           Compile the compiler in release mode
+    -f, --fls               Builds all versions of the Flint Language Server
     -r  --rebuild           Forces rebuilding of the compiler
         --rebuild-llvm      Forces rebuilding of llvm
     -t, --test              Run the tests after compilation
@@ -423,6 +424,33 @@ build_compilers() {
     fi
 }
 
+# Build the Flint Language Server
+build_fls() {
+    if [ "$build_fls" = "false" ]; then
+        return
+    fi
+    cd "$root/lsp"
+    if [ "$build_windows" = "true" ]; then
+        if [ "$build_debug" = "true" ]; then
+            echo "-- Building the Flint Language Server for Windows in debug mode"
+            "./build.sh" --windows --debug
+        else
+            echo "-- Building the Flint Language Server for Windows"
+            "./build.sh" --windows
+        fi
+    fi
+    if [ "$build_linux" = "true" ]; then
+        if [ "$build_debug" = "true" ]; then
+            echo "-- Building the Flint Language Server for Linux in debug mode"
+            "./build.sh" --linux --debug
+        else
+            echo "-- Building the Flint Language Server for Linux"
+            "./build.sh" --linux
+        fi
+    fi
+    cd "$root"
+}
+
 # Copies the given file to the given directory, prints a message and fails if copying failed
 checked_copy() {
     if ! cp "$1" "$2" &> /dev/null; then
@@ -454,6 +482,9 @@ copy_executables() {
                 checked_copy "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/dynamic-tests-release.exe"
             fi
         fi
+        if [ "$build_fls" = "true" ]; then
+            checked_copy "$root/lsp/build-windows/out/fls.exe" "$root/build/out/fls.exe"
+        fi
     fi
 
     if [ "$build_linux" = "true" ]; then
@@ -476,6 +507,9 @@ copy_executables() {
                 checked_copy "$root/build/linux/out/dynamic-flintc" "$root/build/out/dynamic-flintc-release"
                 checked_copy "$root/build/linux/out/dynamic-tests" "$root/build/out/dynamic-tests-release"
             fi
+        fi
+        if [ "$build_fls" = "true" ]; then
+            checked_copy "$root/lsp/build-linux/out/fls" "$root/build/out/fls"
         fi
     fi
 }
@@ -504,6 +538,7 @@ build_dynamic=false
 build_static=false
 build_windows=false
 build_linux=false
+build_fls=false
 force_rebuild=false
 force_rebuild_llvm=false
 run_tests=false
@@ -550,6 +585,10 @@ while [ "$#" -gt 0 ]; do
         llvm_version="$2"
         shift 2
         ;;
+    --fls)
+        build_fls=true
+        shift
+        ;;
     --rebuild)
         force_rebuild=true
         shift
@@ -583,7 +622,7 @@ while [ "$#" -gt 0 ]; do
         err_exit 1 "Unknown cli argument: '$1'"
         ;;
     -*) # Handle short options, including combined ones
-        while getopts "adDlrRstwv" arg; do
+        while getopts "adDflrRstwv" arg; do
             case "$arg" in
             a)
                 build_linux=true
@@ -596,6 +635,9 @@ while [ "$#" -gt 0 ]; do
                 ;;
             D)
                 build_debug=true
+                ;;
+            f)
+                build_fls=true
                 ;;
             l)
                 build_linux=true
@@ -675,6 +717,7 @@ setup_builds
 
 echo "-- Starting CMake build phase..."
 build_compilers
+build_fls
 
 echo "-- Putting the built binaries into the 'build/out' directory..."
 copy_executables

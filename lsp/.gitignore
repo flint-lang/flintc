@@ -1,4 +1,6 @@
 build-linux
+build-linux-debug
 build-windows
+build-windows-debug
 log
 log_

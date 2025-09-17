@@ -22,8 +22,8 @@ void print_version() {
 }
 
 int main(int argc, char *argv[]) {
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
+    if (argc > 1) {
+        std::string arg = argv[1];
         if (arg == "--help" || arg == "-h") {
             print_help();
             return 0;
