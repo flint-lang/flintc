@@ -155,6 +155,12 @@ else()
     )
 endif()
 
+# Add the Commit hash definition
+add_compile_definitions(
+    COMMIT_HASH=${COMMIT_HASH}
+    BUILD_DATE="${BUILD_DATE}"
+)
+
 # Add debug definition if enabled
 if(DEBUG_MODE)
     add_definitions(-DDEBUG_BUILD)

@@ -88,6 +88,9 @@ mkdir -p "$build_dir"
 cd "$build_dir"
 
 echo "-- Configuring CMake..."
+COMMIT_HASH="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+BUILD_DATE="$(date +%Y-%m-%d)"
+
 
 if [ "$target_windows" = true ]; then
     # Cross-compile for Windows
@@ -95,6 +98,8 @@ if [ "$target_windows" = true ]; then
           -DCMAKE_SYSTEM_NAME=Windows \
           -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
           -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
+          -DCOMMIT_HASH="$COMMIT_HASH" \
+          -DBUILD_DATE="$BUILD_DATE" \
           $debug_flag \
           $verbosity_flag \
           ..
@@ -102,6 +107,8 @@ else
     # Native Linux build
     cmake -DCMAKE_BUILD_TYPE="$build_type" \
           -DCMAKE_TOOLCHAIN_FILE="$root/../cmake/toolchain-linux.cmake" \
+          -DCOMMIT_HASH="$COMMIT_HASH" \
+          -DBUILD_DATE="$BUILD_DATE" \
           $debug_flag \
           $verbosity_flag \
           ..

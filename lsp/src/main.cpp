@@ -17,8 +17,12 @@ void print_help() {
 }
 
 void print_version() {
-    std::cout << "fls v" << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION << ", LSP v" << LspProtocol::PROTOCOL_VERSION
-              << std::endl;
+    std::cout << "fls " << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION << " (" << COMMIT_HASH_VALUE << ", " << BUILD_DATE
+              << ")";
+    if (DEBUG_MODE) {
+        std::cout << " [debug]";
+    }
+    std::cout << " LSP v" << LspProtocol::PROTOCOL_VERSION << std::endl;
 }
 
 int main(int argc, char *argv[]) {
