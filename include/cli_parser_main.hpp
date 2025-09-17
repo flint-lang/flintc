@@ -29,7 +29,54 @@ class CLIParserMain : public CLIParserBase {
         for (size_t i = 0; i < args.size(); ++i) {
             std::string arg = args[i];
 
-            if (arg == "--help" || arg == "-h") {
+            if (arg.length() > 2 && arg[0] == '-' && arg[1] != '-') {
+                for (size_t j = 1; j < arg.length(); j++) {
+                    switch (arg[j]) {
+                        case 'h':
+                            print_help();
+                            return 1;
+                        case 'f':
+                            if (j + 1 < arg.length()) {
+                                std::cerr << "Expected the 'f' to be the last single-element argument in the argument '" << arg << "'!\n";
+                                return 1;
+                            }
+                            if (!n_args_follow(i + 1, "<file>", arg)) {
+                                return 1;
+                            }
+                            source_file_path = get_absolute(cwd_path, args.at(i + 1));
+                            ++i;
+                            break;
+                        case 'o':
+                            if (j + 1 < arg.length()) {
+                                std::cerr << "Expected the 'o' to be the last single-element argument in the argument '" << arg << "'!\n";
+                                return 1;
+                            }
+                            if (!n_args_follow(i + 1, "<file>", arg)) {
+                                return 1;
+                            }
+                            out_file_path = get_absolute(cwd_path, args.at(i + 1));
+                            i++;
+                            break;
+                        case 'r':
+                            run = true;
+                            break;
+                        case 'p':
+                            parallel = true;
+                            break;
+                        case 's':
+                            is_static = true;
+                            break;
+                        case 't':
+                            test = true;
+                            if (out_file_path == "main") {
+                                out_file_path = "test";
+                            }
+                            break;
+                    }
+                }
+                continue;
+            }
+            if (arg == "--help") {
                 print_help();
                 return 1;
             } else if (arg == "--print-libbuiltins-path") {
@@ -45,13 +92,13 @@ class CLIParserMain : public CLIParserBase {
                 DEFAULT = "";
                 GREY = "";
                 RED_UNDERLINE = "";
-            } else if (arg == "--file" || arg == "-f") {
+            } else if (arg == "--file") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
                 }
                 source_file_path = get_absolute(cwd_path, args.at(i + 1));
                 ++i;
-            } else if (arg == "--out" || arg == "-o") {
+            } else if (arg == "--out") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
                 }
@@ -228,70 +275,72 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "Usage: flintc [OPTIONS]\n";
         std::cout << "\n";
         std::cout << "Available Options:\n";
-        std::cout << "  --help, -h                  Show help\n";
-        std::cout << "  --file, -f <file>           The file to compile\n";
-        std::cout << "  --out, -o <file>            The name and path of the built output file\n";
-        std::cout << "  --version                   Print the version of the compiler\n";
+        std::cout << "  -h, --help                      Show help\n";
+        std::cout << "  -f, --file <file>               The file to compile\n";
+        std::cout << "  -o, --out <file>                The name and path of the built output file\n";
         // If the --test flag is set, the compiler will output a test binary. The default name "main" is overwritten to
         // "test" in that case
-        std::cout << "  --test                      Output a test binary instad of the normal binary\n";
+        std::cout << "  -t, --test                      Output a test binary instad of the normal binary\n";
         // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
-        std::cout << "  --run                       Run the built binary directly without outputting it\n";
-        std::cout << "  --target <TARGET>           Targets the given target platform (run --help after --target for more information)\n";
-        std::cout << "  --flags=\"[FLAGS]*\"          The flags to pass to the linker\n";
-        std::cout << "  --parallel                  Compile in parallel (only recommended for bigger projects)\n";
-        std::cout << "  --static                    Build the executable as static\n";
-        std::cout << "  --rebuild-core              Rebuild all the core modules\n";
-        std::cout << "  --print-fip-version         Prints the version of the FIP this compiler uses\n";
-        std::cout << "  --print-libbuiltins-path    Prints the path to the directory where the libbuiltins.a file is saved at\n";
-        std::cout << "  --no-colors                 Disables colored console output\n";
-        std::cout << "  --output-ll-file <file>     Whether to output the compiled IR code\n";
-        std::cout << "                              HINT: The compiler will not create an executable with this flag set";
+        std::cout << "  -r, --run                       Run the built binary directly without outputting it\n";
+        std::cout << "  -p, --parallel                  Compile in parallel (only recommended for bigger projects)\n";
+        std::cout << "  -s, --static                    Build the executable as static\n";
+        std::cout << "      --version                   Print the version of the compiler\n";
+        std::cout << "      --target <TARGET>           Targets the given target platform (use --help for more information)\n";
+        std::cout << "      --flags=\"[FLAGS]*\"          The flags to pass to the linker\n";
+        std::cout << "      --rebuild-core              Rebuild all the core modules\n";
+        std::cout << "      --print-fip-version         Prints the version of the FIP this compiler uses\n";
+        std::cout << "      --print-libbuiltins-path    Prints the path to the directory where the libbuiltins.a file is saved at\n";
+        std::cout << "      --no-colors                 Disables colored console output\n";
+        std::cout << "      --output-ll-file <file>     Whether to output the compiled IR code\n";
+        std::cout << "                                  HINT: The compiler will not create an executable with this flag set";
         std::cout << std::endl;
         std::cout << "\nArithmetic Options:\n";
-        std::cout << "  --arithmetic-print          [Default] Prints a small message to the console whenever an overflow occurred\n";
-        std::cout << "  --arithmetic-silent         Disables the debug printing when an overflow or underflow happened\n";
-        std::cout << "  --arithmetic-crash          Hard crashes when an overflow / underflow occurred\n";
-        std::cout << "  --arithmetic-unsafe         Disables all overflow and underflow checks to make arithmetic operations faster";
+        std::cout << "      --arithmetic-print          [Default] Prints a small message to the console whenever an overflow occurred\n";
+        std::cout << "      --arithmetic-silent         Disables the debug printing when an overflow or underflow happened\n";
+        std::cout << "      --arithmetic-crash          Hard crashes when an overflow / underflow occurred\n";
+        std::cout << "      --arithmetic-unsafe         Disables all overflow and underflow checks to make arithmetic operations faster";
         std::cout << std::endl;
         std::cout << "\nArray Options:\n";
-        std::cout << "  --array-print               [Default] Prints a small message to the console whenever accessing an array OOB\n";
-        std::cout << "  --array-silent              Disables the debug printing when OOB access happens\n";
-        std::cout << "  --array-crash               Hard crashes when an OOB access happens\n";
-        std::cout << "  --array-unsafe              Disables all bounds checks for array accesses\n";
+        std::cout << "      --array-print               [Default] Prints a small message to the console whenever accessing an array OOB\n";
+        std::cout << "      --array-silent              Disables the debug printing when OOB access happens\n";
+        std::cout << "      --array-crash               Hard crashes when an OOB access happens\n";
+        std::cout << "      --array-unsafe              Disables all bounds checks for array accesses\n";
         std::cout << std::endl;
         std::cout << "\nOptional Options:\n";
-        std::cout << "  --optional-crash            [Default] Prints a small message and crashes whenever a bad optional unwrap happens\n";
-        std::cout << "  --optional-unsafe           Disables all \"has_value\"-checks for optionals when unwrapping\n";
+        std::cout
+            << "      --optional-crash            [Default] Prints a small message and crashes whenever a bad optional unwrap happens\n";
+        std::cout << "      --optional-unsafe           Disables all \"has_value\"-checks for optionals when unwrapping\n";
         std::cout << "                              HINT: All optionals which have 'none' stored on them are zero-initialized\n";
         std::cout << "\nVariant Options:\n";
-        std::cout << "  --variant-crash             [Default] Prints a small message and crashes whenever a bad variant unwrap happens\n";
-        std::cout << "  --variant-unsafe            Disbales all \"is_type\"-checks for variants when unwrapping";
+        std::cout
+            << "      --variant-crash             [Default] Prints a small message and crashes whenever a bad variant unwrap happens\n";
+        std::cout << "      --variant-unsafe            Disbales all \"is_type\"-checks for variants when unwrapping";
         std::cout << std::endl;
 #ifdef DEBUG_BUILD
         std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";
-        std::cout << "  --no-token-stream           Disables the debug printing of the lexed Token stream\n";
-        std::cout << "  --no-dep-tree               Disables the debug printing of the dependency tree\n";
-        std::cout << "  --no-ast                    Disables the debug printing of the parsed AST tree\n";
-        std::cout << "  --no-ir                     Disables the debug printing of the generated program IR code\n";
-        std::cout << "  --no-profile                Disables the debug printing of the profiling results\n";
-        std::cout << "  --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
-        std::cout << "  --no-generation             Disables code generation entirely, the program exits after the parsing phase\n";
+        std::cout << "      --no-token-stream           Disables the debug printing of the lexed Token stream\n";
+        std::cout << "      --no-dep-tree               Disables the debug printing of the dependency tree\n";
+        std::cout << "      --no-ast                    Disables the debug printing of the parsed AST tree\n";
+        std::cout << "      --no-ir                     Disables the debug printing of the generated program IR code\n";
+        std::cout << "      --no-profile                Disables the debug printing of the profiling results\n";
+        std::cout << "      --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
+        std::cout << "      --no-generation             Disables code generation entirely, the program exits after the parsing phase\n";
         std::cout << "                              HINT: Doesnt produce an executable";
         std::cout << std::endl;
         std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
-        std::cout << "  --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
-        std::cout << "                              HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used\n";
-        std::cout << "  --print-ir-assert           Enables printing of the IR code for the assert.o library\n";
-        std::cout << "  --print-ir-array            Enables printing of the IR code for the array.o library\n";
-        std::cout << "  --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
-        std::cout << "  --print-ir-env              Enables printing of the IR code for the env.o library\n";
-        std::cout << "  --print-ir-filesystem       Enables printing of the IR code for the fs.o library\n";
-        std::cout << "  --print-ir-print            Enables printing of the IR code for the print.o library\n";
-        std::cout << "  --print-ir-read             Enables printing of the IR code for the read.o library\n";
-        std::cout << "  --print-ir-str              Enables printing of the IR code for the str.o library\n";
-        std::cout << "  --print-ir-system           Enables printing of the IR code for the system.o library\n";
-        std::cout << "  --print-ir-math             Enables printing of the IR code for the math.o library";
+        std::cout << "      --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
+        std::cout << "                                  HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used\n";
+        std::cout << "      --print-ir-assert           Enables printing of the IR code for the assert.o library\n";
+        std::cout << "      --print-ir-array            Enables printing of the IR code for the array.o library\n";
+        std::cout << "      --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
+        std::cout << "      --print-ir-env              Enables printing of the IR code for the env.o library\n";
+        std::cout << "      --print-ir-filesystem       Enables printing of the IR code for the fs.o library\n";
+        std::cout << "      --print-ir-print            Enables printing of the IR code for the print.o library\n";
+        std::cout << "      --print-ir-read             Enables printing of the IR code for the read.o library\n";
+        std::cout << "      --print-ir-str              Enables printing of the IR code for the str.o library\n";
+        std::cout << "      --print-ir-system           Enables printing of the IR code for the system.o library\n";
+        std::cout << "      --print-ir-math             Enables printing of the IR code for the math.o library";
         std::cout << std::endl;
 #endif
     }
