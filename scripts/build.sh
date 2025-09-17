@@ -431,22 +431,12 @@ build_fls() {
     fi
     cd "$root/lsp"
     if [ "$build_windows" = "true" ]; then
-        if [ "$build_debug" = "true" ]; then
-            echo "-- Building the Flint Language Server for Windows in debug mode"
-            "./build.sh" --windows --debug
-        else
-            echo "-- Building the Flint Language Server for Windows"
-            "./build.sh" --windows
-        fi
+        echo "-- Building the Flint Language Server for Windows"
+        "./build.sh" --windows --clean
     fi
     if [ "$build_linux" = "true" ]; then
-        if [ "$build_debug" = "true" ]; then
-            echo "-- Building the Flint Language Server for Linux in debug mode"
-            "./build.sh" --linux --debug
-        else
-            echo "-- Building the Flint Language Server for Linux"
-            "./build.sh" --linux
-        fi
+        echo "-- Building the Flint Language Server for Linux"
+        "./build.sh" --linux --clean
     fi
     cd "$root"
 }
