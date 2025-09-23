@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 #include <sys/types.h>
 #include <vector>
 

@@ -40,12 +40,10 @@ create_directories() {
 
     if [ "$build_windows" = "true" ]; then
         mkdir -p "$root/build/llvm-mingw"
-        mkdir -p "$root/vendor/llvm-mingw"
     fi
 
     if [ "$build_linux" = "true" ]; then
         mkdir -p "$root/build/llvm-linux"
-        mkdir -p "$root/vendor/llvm-linux"
     fi
 }
 
@@ -81,7 +79,9 @@ build_zlib() {
 
     cmake -S "$root/vendor/sources/zlib" -B "$zlib_build_dir" \
         -DCMAKE_INSTALL_PREFIX="$zlib_install_dir" \
-        -DCMAKE_BUILD_TYPE=None
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DCMAKE_C_FLAGS="-fPIC"
 
     cmake --build "$zlib_build_dir" -j"$core_count"
     cmake --install "$zlib_build_dir" --prefix="$zlib_install_dir"
@@ -130,18 +130,106 @@ build_llvm_windows() {
         -DLLVM_ENABLE_PIC=OFF \
         -DCMAKE_FIND_LIBRARY_SUFFIXES='.a'
 
+    echo "-- Building LLVM..."
     cmake --build "$llvm_build_dir" -j"$core_count"
+
+    echo "-- Installing to $llvm_install_dir"
     cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir"
 }
 
 # Builds llvm for linux
 build_llvm_linux() {
-    # Set build and install directories based on static flags
     llvm_build_dir="$root/build/llvm-linux"
     llvm_install_dir="$root/vendor/llvm-linux"
-    echo "-- Building static LLVM for Linux..."
+    echo "-- Building LLVM static libraries for Linux..."
     if [ "$force_rebuild_llvm" = "true" ]; then
-        rm -r "$root/build/llvm-linux"
+        rm -rf "$llvm_build_dir"
+        rm -rf "$llvm_install_dir"
+    fi
+
+    # Create directories
+    mkdir -p "$llvm_build_dir"
+    mkdir -p "$llvm_install_dir"
+
+    cmake -S "$root/vendor/sources/llvm-project/llvm" -B "$llvm_build_dir" \
+        -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_SKIP_INSTALL_RPATH=ON \
+        -DLLVM_ENABLE_PROJECTS="clang;lld" \
+        -DCMAKE_C_COMPILER="clang" \
+        -DCMAKE_CXX_COMPILER="clang++" \
+        -DLLVM_TARGET_ARCH=X86 \
+        -DLLVM_TARGETS_TO_BUILD=X86 \
+        \
+        -DLLVM_ENABLE_THREADS=ON \
+        -DLLVM_BUILD_STATIC=ON \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DLLVM_ENABLE_PIC=OFF \
+        \
+        -DLLVM_INCLUDE_TESTS=OFF \
+        -DLLVM_INCLUDE_EXAMPLES=OFF \
+        -DLLVM_INCLUDE_BENCHMARKS=OFF \
+        -DLLVM_INCLUDE_DOCS=OFF \
+        -DLLVM_BUILD_DOCS=OFF \
+        -DLLVM_BUILD_UTILS=OFF \
+        -DLLVM_INCLUDE_UTILS=OFF \
+        -DLLVM_BUILD_RUNTIME=OFF \
+        \
+        -DLLVM_BUILD_TOOLS=ON \
+        -DLLVM_INCLUDE_TOOLS=ON \
+        \
+        -DCLANG_BUILD_TOOLS=OFF \
+        -DCLANG_INCLUDE_TESTS=OFF \
+        -DCLANG_INCLUDE_DOCS=OFF \
+        -DCLANG_BUILD_EXAMPLES=OFF \
+        -DCLANG_ENABLE_ARCMT=OFF \
+        -DCLANG_ENABLE_STATIC_ANALYZER=OFF \
+        -DCLANG_ENABLE_OBJC_REWRITER=OFF \
+        -DCLANG_PLUGIN_SUPPORT=OFF \
+        \
+        -DZLIB_LIBRARY="$root/vendor/zlib/lib/libz.a" \
+        -DLLVM_ENABLE_ZSTD=OFF \
+        -DLLVM_ENABLE_ZLIB=FORCE_ON \
+        -DZLIB_USE_STATIC_LIBS=ON \
+        -DLLVM_ENABLE_LIBXML2=OFF \
+        -DLLVM_ENABLE_CURL=OFF \
+        -DLLVM_ENABLE_HTTPLIB=OFF \
+        -DLLVM_ENABLE_FFI=OFF \
+        -DLLVM_ENABLE_LIBEDIT=OFF \
+        -DLLVM_ENABLE_Z3_SOLVER=OFF
+
+    echo "-- Building LLVM, Clang, and LLD static libraries..."
+    # Build only the library targets we need, not executables
+    cmake --build "$llvm_build_dir" -j"$core_count" --target \
+        llvm-libraries clang-libraries lldCommon lldELF lldCOFF lldMachO lldMinGW lldWasm
+
+    echo "-- Installing LLVM libraries to $llvm_install_dir"
+    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component llvm-libraries
+
+    echo "-- Manually copying libclang and the LLD libraries to $llvm_install_dir"
+    declare -a to_copy=(
+        "clang"
+        "lldCommon"
+        "lldELF"
+        "lldCOFF"
+        "lldMachO"
+        "lldMinGW"
+        "lldWasm"
+    )
+    for lib in "${to_copy[@]}"; do
+        echo "Copying lib${lib}.a ..."
+        cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+    done
+}
+
+# Builds llvm-config executable and static libraries for Linux
+build_llvm_config() {
+    llvm_build_dir="$root/build/llvm-config"
+    llvm_install_dir="$root/vendor/llvm-config"
+    echo "-- Building llvm-config executable and static libraries for Linux..."
+    if [ "$force_rebuild_llvm" = "true" ]; then
+        rm -rf "$llvm_build_dir"
+        rm -rf "$llvm_install_dir"
     fi
 
     # Create directories
@@ -152,35 +240,49 @@ build_llvm_linux() {
         -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_SKIP_INSTALL_RPATH=ON \
-        -DLLVM_ENABLE_PROJECTS="lld" \
+        -DLLVM_ENABLE_PROJECTS="" \
         -DCMAKE_C_COMPILER="clang" \
         -DCMAKE_CXX_COMPILER="clang++" \
         -DLLVM_TARGET_ARCH=X86 \
         -DLLVM_TARGETS_TO_BUILD=X86 \
+        \
         -DLLVM_ENABLE_THREADS=ON \
+        -DLLVM_BUILD_STATIC=ON \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DLLVM_ENABLE_PIC=OFF \
+        \
         -DLLVM_INCLUDE_TESTS=OFF \
         -DLLVM_INCLUDE_EXAMPLES=OFF \
         -DLLVM_INCLUDE_BENCHMARKS=OFF \
+        -DLLVM_INCLUDE_DOCS=OFF \
+        -DLLVM_BUILD_DOCS=OFF \
+        -DLLVM_BUILD_UTILS=OFF \
+        -DLLVM_INCLUDE_UTILS=OFF \
+        -DLLVM_BUILD_RUNTIME=OFF \
+        \
         -DLLVM_BUILD_TOOLS=ON \
         -DLLVM_INCLUDE_TOOLS=ON \
-        -DLLVM_TOOL_LLVM_CONFIG_BUILD=ON \
-        -DLLVM_BUILD_UTILS=OFF \
-        -DLLVM_BUILD_RUNTIME=OFF \
-        -DLLVM_INCLUDE_UTILS=OFF \
-        -DLLVM_INCLUDE_RUNTIME=OFF \
+        \
         -DZLIB_LIBRARY="$root/vendor/zlib/lib/libz.a" \
-        -DLLVM_BUILD_STATIC=ON \
-        -DBUILD_SHARED_LIBS=OFF \
         -DLLVM_ENABLE_ZSTD=OFF \
         -DLLVM_ENABLE_ZLIB=FORCE_ON \
         -DZLIB_USE_STATIC_LIBS=ON \
         -DLLVM_ENABLE_LIBXML2=OFF \
-        -DCMAKE_EXE_LINKER_FLAGS='-static' \
-        -DCMAKE_FIND_LIBRARY_SUFFIXES='.a' \
-        -DLLVM_ENABLE_PIC=OFF
+        -DLLVM_ENABLE_CURL=OFF \
+        -DLLVM_ENABLE_HTTPLIB=OFF \
+        -DLLVM_ENABLE_FFI=OFF \
+        -DLLVM_ENABLE_LIBEDIT=OFF \
+        -DLLVM_ENABLE_Z3_SOLVER=OFF
 
+    echo "-- Building all LLVM static libraries and llvm-config..."
     cmake --build "$llvm_build_dir" -j"$core_count"
-    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir"
+
+    echo "-- Installing llvm-config and libraries to $llvm_install_dir"
+    # Install just the llvm-config binary and static libraries manually
+    mkdir -p "$llvm_install_dir/bin"
+    mkdir -p "$llvm_install_dir/lib"
+    cp "$llvm_build_dir/bin/llvm-config" "$llvm_install_dir/bin/"
+    cp "$llvm_build_dir/lib/libLLVM"*.a "$llvm_install_dir/lib/" 2>/dev/null || true
 }
 
 # Checks if llvm has been cloned, if not does clone it
@@ -195,19 +297,25 @@ fetch_llvm() {
 
 # Compiles the needed versions of llvm
 build_llvm() {
-    if [ "$build_windows" = "true" ]; then
-        if ! [ -d "$root/vendor/llvm-mingw" ]; then
-            build_llvm_windows
-        else
-            echo "-- Skip building LLVM for Windows..."
-        fi
+    if ! [ -d "$root/vendor/llvm-config" ] || [ "$force_rebuild_llvm" = "true" ]; then
+        build_llvm_config
+    else
+        echo "-- Skip building llvm-config..."
     fi
 
     if [ "$build_linux" = "true" ]; then
-        if ! [ -d "$root/vendor/llvm-linux" ]; then
+        if ! [ -d "$root/vendor/llvm-linux" ] || [ "$force_rebuild_llvm" = "true" ]; then
             build_llvm_linux
         else
             echo "-- Skip building LLVM for Linux..."
+        fi
+    fi
+
+    if [ "$build_windows" = "true" ]; then
+        if ! [ -d "$root/vendor/llvm-mingw" ] || [ "$force_rebuild_llvm" = "true" ]; then
+            build_llvm_windows
+        else
+            echo "-- Skip building LLVM for Windows..."
         fi
     fi
 }

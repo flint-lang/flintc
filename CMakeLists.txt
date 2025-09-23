@@ -195,7 +195,7 @@ include_directories(${CMAKE_SOURCE_DIR}/vendor/sources/fip)
 add_definitions(-DLLVM_DISABLE_ZLIB_SYMBOLS -DLLVM_ENABLE_ZSTD=0)
 
 # Find the Linux static llvm-config for use in both Linux and Windows builds
-get_filename_component(LINUX_STATIC_LLVM_BIN_DIR "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/bin" ABSOLUTE)
+get_filename_component(LINUX_STATIC_LLVM_BIN_DIR "${CMAKE_SOURCE_DIR}/vendor/llvm-config/bin" ABSOLUTE)
 find_program(LINUX_LLVM_CONFIG llvm-config
     PATHS ${LINUX_STATIC_LLVM_BIN_DIR}
     NO_DEFAULT_PATH
@@ -342,6 +342,7 @@ if(BUILD_STATIC)
             -Wl,--start-group
             ${LLVM_STATIC_LIBS_LIST}
             -Lvendor/zlib/lib
+            -lz
             -Wl,--end-group
             ${LLVM_SYSTEM_LIBS_LIST}
         )
@@ -395,6 +396,7 @@ else()
             -Wl,--start-group
             ${LLVM_STATIC_LIBS_LIST}
             -Lvendor/zlib/lib
+            -lz
             -Wl,--end-group
             Threads::Threads
         )
