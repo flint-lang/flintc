@@ -15,8 +15,9 @@ Options:
     -D  --debug             Compile the compiler in debug mode (default)
     -R  --release           Compile the compiler in release mode
     -f, --fls               Builds all versions of the Flint Language Server
-    -r  --rebuild           Forces rebuilding of the compiler
-        --rebuild-llvm      Forces rebuilding of llvm
+    -r  --rebuild           Forces rebuilding of the Flint compiler
+        --rebuild-llvm      Forces rebuilding of the llvm libraries
+        --rebuild-config    Forces rebuilding of the llvm-config executable
     -t, --test              Run the tests after compilation
     -v, --verbose           Toggle verbosity on
         --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')
@@ -227,7 +228,7 @@ build_llvm_config() {
     llvm_build_dir="$root/build/llvm-config"
     llvm_install_dir="$root/vendor/llvm-config"
     echo "-- Building llvm-config executable and static libraries for Linux..."
-    if [ "$force_rebuild_llvm" = "true" ]; then
+    if [ "$force_rebuild_llvm_config" = "true" ]; then
         rm -rf "$llvm_build_dir"
         rm -rf "$llvm_install_dir"
     fi
@@ -297,7 +298,7 @@ fetch_llvm() {
 
 # Compiles the needed versions of llvm
 build_llvm() {
-    if ! [ -d "$root/vendor/llvm-config" ] || [ "$force_rebuild_llvm" = "true" ]; then
+    if ! [ -d "$root/vendor/llvm-config" ] || [ "$force_rebuild_llvm_config" = "true" ]; then
         build_llvm_config
     else
         echo "-- Skip building llvm-config..."
@@ -386,7 +387,7 @@ setup_build_windows() {
         echo "-- Building executable in debug mode..."
     fi
 
-    if [ "$force_rebuild" = "true" ]; then
+    if [ -d "$build_dir" ] && [ "$force_rebuild" = "true" ]; then
         rm -r "$build_dir"
     fi
 
@@ -425,7 +426,7 @@ setup_build_linux() {
         echo "-- Building executable in debug mode..."
     fi
 
-    if [ "$force_rebuild" = "true" ]; then
+    if [ -d "$build_dir" ] && [ "$force_rebuild" = "true" ]; then
         rm -r "$build_dir"
     fi
 
@@ -639,6 +640,7 @@ build_linux=false
 build_fls=false
 force_rebuild=false
 force_rebuild_llvm=false
+force_rebuild_llvm_config=false
 run_tests=false
 build_debug=false
 build_release=false
@@ -693,6 +695,10 @@ while [ "$#" -gt 0 ]; do
         ;;
     --rebuild-llvm)
         force_rebuild_llvm=true
+        shift
+        ;;
+    --rebuild-config)
+        force_rebuild_llvm_config=true
         shift
         ;;
     --static)
