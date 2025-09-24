@@ -90,52 +90,94 @@ build_zlib() {
 
 # Builds llvm for windows
 build_llvm_windows() {
-    # Set build and install directories based on static flag
     llvm_build_dir="$root/build/llvm-mingw"
     llvm_install_dir="$root/vendor/llvm-mingw"
-    echo "-- Building static LLVM for Windows..."
+    echo "-- Building LLVM static libraries for Windows..."
     if [ "$force_rebuild_llvm" = "true" ]; then
-        rm -r "$root/build/llvm-mingw"
+        rm -rf "$llvm_build_dir"
+        rm -rf "$llvm_install_dir"
     fi
 
     # Create directories
     mkdir -p "$llvm_build_dir"
     mkdir -p "$llvm_install_dir"
 
-    cmake -S vendor/sources/llvm-project/llvm -B "$llvm_build_dir" \
+    cmake -S "$root/vendor/sources/llvm-project/llvm" -B "$llvm_build_dir" \
         -DCMAKE_INSTALL_PREFIX="$llvm_install_dir" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_SKIP_INSTALL_RPATH=ON \
-        -DLLVM_ENABLE_PROJECTS="lld" \
+        -DLLVM_ENABLE_PROJECTS="clang;lld" \
         -DCMAKE_SYSTEM_NAME=Windows \
         -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
         -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
         -DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-w64-mingw32 \
         -DLLVM_TARGET_ARCH=X86 \
-        -DLLVM_ENABLE_OPAQUE_POINTERS=ON \
         -DLLVM_TARGETS_TO_BUILD=X86 \
+        \
         -DLLVM_ENABLE_THREADS=ON \
-        -DLLVM_ENABLE_ZLIB=OFF \
-        -DLLVM_ENABLE_LIBXML2=OFF \
-        -DLLVM_INCLUDE_TESTS=OFF \
-        -DLLVM_INCLUDE_EXAMPLES=OFF \
-        -DLLVM_INCLUDE_BENCHMARKS=OFF \
-        -DLLVM_BUILD_TOOLS=ON \
-        -DLLVM_INCLUDE_TOOLS=ON \
-        -DLLVM_BUILD_UTILS=OFF \
-        -DLLVM_BUILD_RUNTIME=OFF \
-        -DLLVM_INCLUDE_UTILS=OFF \
-        -DLLVM_INCLUDE_RUNTIME=OFF \
         -DLLVM_BUILD_STATIC=ON \
         -DBUILD_SHARED_LIBS=OFF \
         -DLLVM_ENABLE_PIC=OFF \
+        \
+        -DLLVM_INCLUDE_TESTS=OFF \
+        -DLLVM_INCLUDE_EXAMPLES=OFF \
+        -DLLVM_INCLUDE_BENCHMARKS=OFF \
+        -DLLVM_INCLUDE_DOCS=OFF \
+        -DLLVM_BUILD_DOCS=OFF \
+        -DLLVM_BUILD_UTILS=OFF \
+        -DLLVM_INCLUDE_UTILS=OFF \
+        -DLLVM_BUILD_RUNTIME=OFF \
+        \
+        -DLLVM_BUILD_TOOLS=ON \
+        -DLLVM_INCLUDE_TOOLS=ON \
+        \
+        -DCLANG_BUILD_TOOLS=OFF \
+        -DCLANG_INCLUDE_TESTS=OFF \
+        -DCLANG_INCLUDE_DOCS=OFF \
+        -DCLANG_BUILD_EXAMPLES=OFF \
+        -DCLANG_ENABLE_ARCMT=OFF \
+        -DCLANG_ENABLE_STATIC_ANALYZER=OFF \
+        -DCLANG_ENABLE_OBJC_REWRITER=OFF \
+        -DCLANG_PLUGIN_SUPPORT=OFF \
+        \
+        -DLLVM_ENABLE_ZLIB=OFF \
+        -DLLVM_ENABLE_ZSTD=OFF \
+        -DLLVM_ENABLE_LIBXML2=OFF \
+        -DLLVM_ENABLE_CURL=OFF \
+        -DLLVM_ENABLE_HTTPLIB=OFF \
+        -DLLVM_ENABLE_FFI=OFF \
+        -DLLVM_ENABLE_LIBEDIT=OFF \
+        -DLLVM_ENABLE_Z3_SOLVER=OFF \
         -DCMAKE_FIND_LIBRARY_SUFFIXES='.a'
 
-    echo "-- Building LLVM..."
-    cmake --build "$llvm_build_dir" -j"$core_count"
+    echo "-- Building LLVM, Clang, and LLD static libraries for Windows..."
+    # Build only the library targets we need, not executables
+    cmake --build "$llvm_build_dir" -j"$core_count" --target \
+        llvm-libraries clang-libraries lldCommon lldELF lldCOFF lldMachO lldMinGW lldWasm
 
-    echo "-- Installing to $llvm_install_dir"
-    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir"
+    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component llvm-headers
+    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component lld-headers
+    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component clang-headers
+
+    echo "-- Manually copying llvm, libclang and the LLD libraries to $llvm_install_dir"
+    read -a llvm_libs <<< "$("$root/vendor/llvm-config/bin/llvm-config" --link-static --libs all | sed "s/-l//g")"
+    declare -a to_copy=(
+        "clang"
+        "lldCommon"
+        "lldELF"
+        "lldCOFF"
+        "lldMachO"
+        "lldMinGW"
+        "lldWasm"
+    )
+    for lib in "${llvm_libs[@]}"; do
+        echo "Copying lib${lib}.a ..."
+        cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+    done
+    for lib in "${to_copy[@]}"; do
+        echo "Copying lib${lib}.a ..."
+        cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+    done
 }
 
 # Builds llvm for linux
