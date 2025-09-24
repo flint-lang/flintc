@@ -179,6 +179,8 @@ else()
     get_filename_component(LLVM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/include" ABSOLUTE)
 endif()
 
+get_filename_component(LLVM_SOURCE_LLD_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/vendor/sources/llvm-project/lld/include" ABSOLUTE)
+
 # Check if the include directory exists
 if(NOT EXISTS ${LLVM_INCLUDE_DIR})
     message(FATAL_ERROR "LLVM include directory does not exist: ${LLVM_INCLUDE_DIR}. Please check your LLVM installation.")
@@ -435,6 +437,7 @@ function(create_executable target_name sources is_static)
 
     # Add the LLVM include directory to the include paths
     target_include_directories(${target_name} SYSTEM PRIVATE ${LLVM_INCLUDE_DIR})
+    target_include_directories(${target_name} SYSTEM PRIVATE ${LLVM_SOURCE_LLD_INCLUDE_DIR})
 
     # For Windows, set the required properties
     if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
