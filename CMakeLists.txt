@@ -173,12 +173,11 @@ target_compile_options(external_deps PRIVATE ${EXTERNAL_CXX_FLAGS})
 # Setting the default LLVM lib path based on platform and build type
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw/lib" CACHE PATH "Path to LLVM libraries")
+    get_filename_component(LLVM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/vendor/llvm-mingw/include" ABSOLUTE)
 else()
     set(LLVM_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/lib" CACHE PATH "Path to LLVM libraries")
+    get_filename_component(LLVM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/vendor/llvm-linux/include" ABSOLUTE)
 endif()
-
-# Get the LLVM include directory
-get_filename_component(LLVM_INCLUDE_DIR "${LLVM_LIB_PATH}/../include" ABSOLUTE)
 
 # Check if the include directory exists
 if(NOT EXISTS ${LLVM_INCLUDE_DIR})

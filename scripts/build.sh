@@ -205,6 +205,9 @@ build_llvm_linux() {
         llvm-libraries clang-libraries lldCommon lldELF lldCOFF lldMachO lldMinGW lldWasm
 
     echo "-- Installing LLVM libraries to $llvm_install_dir"
+    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component llvm-headers
+    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component lld-headers
+    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component clang-headers
     cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component llvm-libraries
 
     echo "-- Manually copying libclang and the LLD libraries to $llvm_install_dir"
