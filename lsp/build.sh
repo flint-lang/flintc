@@ -19,7 +19,7 @@ print_usage() {
     echo "  ./build.sh -d        # Debug build for Linux"
     echo "  ./build.sh -w        # Release build for Windows"
     echo "  ./build.sh -w -d     # Debug build for Windows"
-    echo "  ./build.sh -c -j4    # Clean release build with 4 cores"
+    echo "  ./build.sh -c -j 4   # Clean release build with 4 cores"
 }
 
 # Get script directory
@@ -131,4 +131,19 @@ if [ -f "out/$binary_name" ]; then
 else
     echo "-- Build failed! Binary not found at: $build_dir/out/$binary_name"
     exit 1
+fi
+
+# Copy executable to the 'build/out' dir of the flintc project
+if [ "$target_windows" = true ]; then
+    if [ "$build_type" = "Debug" ]; then
+        cp "$root/build-windows-debug/out/fls.exe" "$root/../build/out/fls-debug.exe"
+    else
+        cp "$root/build-windows/out/fls.exe" "$root/../build/out/fls.exe"
+    fi
+else
+    if [ "$build_type" = "Debug" ]; then
+        cp "$root/build-linux-debug/out/fls" "$root/../build/out/fls-debug"
+    else
+        cp "$root/build-linux/out/fls" "$root/../build/out/fls"
+    fi
 fi
