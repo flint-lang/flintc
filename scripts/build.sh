@@ -151,15 +151,17 @@ build_llvm_windows() {
         -DCMAKE_FIND_LIBRARY_SUFFIXES='.a'
 
     echo "-- Building LLVM, Clang, and LLD static libraries for Windows..."
-    # Build only the library targets we need, not executables
+    # Build library targets including the C API
     cmake --build "$llvm_build_dir" -j"$core_count" --target \
-        llvm-libraries clang-libraries lldCommon lldELF lldCOFF lldMachO lldMinGW lldWasm
+        llvm-libraries clang-libraries libclang \
+        lldCommon lldELF lldCOFF lldMachO lldMinGW lldWasm
 
+    echo "-- Installing all headers to $llvm_install_dir ..."
     cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component llvm-headers
-    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component lld-headers
     cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component clang-headers
 
     echo "-- Manually copying llvm, libclang and the LLD libraries to $llvm_install_dir"
+    mkdir -p "$llvm_install_dir/lib"
     read -a llvm_libs <<< "$("$root/vendor/llvm-config/bin/llvm-config" --link-static --libs all | sed "s/-l//g")"
     declare -a to_copy=(
         "clang"
@@ -172,11 +174,19 @@ build_llvm_windows() {
     )
     for lib in "${llvm_libs[@]}"; do
         echo "Copying lib${lib}.a ..."
-        cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+        if [ -f "$llvm_build_dir/lib/lib${lib}.a" ]; then
+            cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+        else
+            echo "Warning: lib${lib}.a not found, skipping..."
+        fi
     done
     for lib in "${to_copy[@]}"; do
         echo "Copying lib${lib}.a ..."
-        cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+        if [ -f "$llvm_build_dir/lib/lib${lib}.a" ]; then
+            cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+        else
+            echo "Warning: lib${lib}.a not found, skipping..."
+        fi
     done
 }
 
@@ -242,17 +252,18 @@ build_llvm_linux() {
         -DLLVM_ENABLE_Z3_SOLVER=OFF
 
     echo "-- Building LLVM, Clang, and LLD static libraries..."
-    # Build only the library targets we need, not executables
+    # Build library targets including the C API
     cmake --build "$llvm_build_dir" -j"$core_count" --target \
-        llvm-libraries clang-libraries lldCommon lldELF lldCOFF lldMachO lldMinGW lldWasm
+        llvm-libraries clang-libraries libclang \
+        lldCommon lldELF lldCOFF lldMachO lldMinGW lldWasm
 
-    echo "-- Installing LLVM libraries to $llvm_install_dir"
+    echo "-- Installing all headers to $llvm_install_dir ..."
     cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component llvm-headers
-    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component lld-headers
     cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component clang-headers
-    cmake --install "$llvm_build_dir" --prefix="$llvm_install_dir" --component llvm-libraries
 
-    echo "-- Manually copying libclang and the LLD libraries to $llvm_install_dir"
+    echo "-- Manually copying llvm, libclang and the LLD libraries to $llvm_install_dir"
+    mkdir -p "$llvm_install_dir/lib"
+    read -a llvm_libs <<< "$("$root/vendor/llvm-config/bin/llvm-config" --link-static --libs all | sed "s/-l//g")"
     declare -a to_copy=(
         "clang"
         "lldCommon"
@@ -262,9 +273,21 @@ build_llvm_linux() {
         "lldMinGW"
         "lldWasm"
     )
+    for lib in "${llvm_libs[@]}"; do
+        echo "Copying lib${lib}.a ..."
+        if [ -f "$llvm_build_dir/lib/lib${lib}.a" ]; then
+            cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+        else
+            echo "Warning: lib${lib}.a not found, skipping..."
+        fi
+    done
     for lib in "${to_copy[@]}"; do
         echo "Copying lib${lib}.a ..."
-        cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+        if [ -f "$llvm_build_dir/lib/lib${lib}.a" ]; then
+            cp "$llvm_build_dir/lib/lib${lib}.a" "$llvm_install_dir/lib/lib${lib}.a"
+        else
+            echo "Warning: lib${lib}.a not found, skipping..."
+        fi
     done
 }
 
