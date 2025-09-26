@@ -11,6 +11,10 @@
 
 std::string BaseError::to_string() const {
     std::ostringstream oss;
+    if (file.empty()) {
+        oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << "unknown file" << DEFAULT << "\n" << "├┤E0000│\n";
+        return oss.str();
+    }
     oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN
         << std::filesystem::relative(Resolver::get_path(file) / file, std::filesystem::current_path()).string() << ":" << line << ":"
         << column << DEFAULT << "\n";
@@ -125,6 +129,9 @@ std::string BaseError::to_string() const {
 }
 
 Diagnostic BaseError::to_diagnostic() const {
+    if (file.empty()) {
+        return Diagnostic(std::make_tuple(0, 0, 0), DiagnosticLevel::Error, "NO_MESSAGE", file);
+    }
     // We first need to get the correct character. The only character that spans wider is the \t, so we first need to get the indent lvl of
     // the line the error happened in and then substract INDENT_LVL * (TAB_WIDTH - 1) to get the correct character offset
     int indent_lvl = Parser::get_instance_from_filename(file).value()->get_source_code_lines().at(line - 1).first;

@@ -104,7 +104,7 @@ class FIP {
     /// @function `gather_objects`
     /// @brief Gathers all built objects of all interop modules which need to be linked to the final executable
     ///
-    /// @return `std::vector<std::array<char, 9>>` The 8-byte object hashes (+ null terminator) of all objects which need to be linked to
-    /// the final executable
-    static std::vector<std::array<char, 9>> gather_objects();
+    /// @return `std::optional<std::vector<std::array<char, 9>>>` The 8-byte object hashes (+ null terminator) of all objects which need to
+    /// be linked to the final executable. `std::nullopt` if one of the external compilation's failed
+    static std::optional<std::vector<std::array<char, 9>>> gather_objects();
 };

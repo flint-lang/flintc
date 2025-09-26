@@ -329,7 +329,7 @@ void FIP::send_compile_request() {
     fip_master_broadcast_message(buffer, &msg);
 }
 
-std::vector<std::array<char, 9>> FIP::gather_objects() {
+std::optional<std::vector<std::array<char, 9>>> FIP::gather_objects() {
     if (!is_active) {
         // No error, just return an empty list
         return {};
@@ -363,6 +363,10 @@ std::vector<std::array<char, 9>> FIP::gather_objects() {
             }
         } else {
             fip_print(0, FIP_INFO, "Object response carries no objects");
+            if (response->u.obj_res.compilation_failed) {
+                THROW_ERR(ErrExternCompilationFailed, ERR_GENERATING);
+                return std::nullopt;
+            }
         }
     }
     if (DEBUG_MODE) {

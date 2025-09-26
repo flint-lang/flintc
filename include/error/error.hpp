@@ -63,6 +63,8 @@
 #include "error_types/parsing/variables/err_var_not_declared.hpp"
 #include "error_types/parsing/variables/err_var_redefinition.hpp"
 
+#include "error_types/generating/fip/err_extern_compilation_failed.hpp"
+
 #include <cassert>
 #include <iostream>
 #include <string>

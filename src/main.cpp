@@ -122,7 +122,8 @@ void write_ll_file(const std::filesystem::path &ll_path, const llvm::Module *mod
 /// @param `module` The program to compile
 /// @param `flags` The flags used during compilation and linking
 /// @param `is_static` Whether the program
-void compile_program(                         //
+/// @return `bool` Whether compilation of the program was successful
+bool compile_program(                         //
     const std::filesystem::path &binary_file, //
     llvm::Module *module,                     //
     const std::vector<std::string> &flags,    //
@@ -133,7 +134,7 @@ void compile_program(                         //
     // Direct linking with LDD
     if (!Generator::compile_module(module, binary_file)) {
         llvm::errs() << "Compilation of program '" << binary_file.string() << "' failed\n";
-        return;
+        return false;
     }
 
     std::string obj_file = binary_file.string();
@@ -157,8 +158,13 @@ void compile_program(                         //
 
     Profiler::start_task("Linking " + obj_file + " to a binary");
     std::vector<std::filesystem::path> obj_files{obj_file};
-    std::vector<std::array<char, 9>> fip_objects = FIP::gather_objects();
-    for (const auto &fip_obj : fip_objects) {
+    std::optional<std::vector<std::array<char, 9>>> fip_objects = FIP::gather_objects();
+    if (!fip_objects.has_value()) {
+        Profiler::end_task("Linking " + obj_file + " to a binary");
+        std::filesystem::remove(std::filesystem::path(obj_file));
+        return false;
+    }
+    for (const auto &fip_obj : fip_objects.value()) {
         std::string fip_obj_path = ".fip/cache/" + std::string(fip_obj.data()) + file_ending;
         obj_files.emplace_back(fip_obj_path);
     }
@@ -172,13 +178,14 @@ void compile_program(                         //
 
     if (!link_success) {
         llvm::errs() << "Linking failed with LLD\n";
-        return;
+        return false;
     }
 
     // Clean up object file
     if (!DEBUG_MODE) {
         std::filesystem::remove(std::filesystem::path(obj_file));
     }
+    return true;
 }
 
 int main(int argc, char *argv[]) {
@@ -231,7 +238,14 @@ int main(int argc, char *argv[]) {
         // TODO
     } else {
         // Compile the program and output the binary
-        compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static);
+        if (!compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static)) {
+            Resolver::clear();
+            FIP::shutdown();
+            Profiler::end_task("ALL");
+            program.value()->dropAllReferences();
+            program.value().reset();
+            return 1;
+        }
     }
 
     Resolver::clear();
