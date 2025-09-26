@@ -1,8 +1,8 @@
 use Core.print
 
+extern def hello();
+extern def add(mut i32 x, mut i32 y) -> i32;
+
 def main():
-	str string = "Hello there";
-	u64 from = 4;
-	u64 to = string.length - 1;
-	str slice = string[from..to];
-	print($"{slice}\n");
+    hello();
+    print($"add(1, 8) = {add(1, 8)}\n");

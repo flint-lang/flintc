@@ -16,6 +16,33 @@ fip_master_state_t master_state;
 
 #include <iostream>
 
+std::filesystem::path FIP::get_fip_path() {
+#ifdef __WIN32__
+    const char *local_appdata = std::getenv("LOCALAPPDATA");
+    if (local_appdata == nullptr) {
+        return std::filesystem::path();
+    }
+    const std::filesystem::path fip_path = std::filesystem::path(local_appdata) / "fip";
+#else
+    const char *home = std::getenv("HOME");
+    if (home == nullptr) {
+        return std::filesystem::path();
+    }
+    std::filesystem::path home_path = std::filesystem::path(home);
+    const std::filesystem::path fip_path = home_path / ".local" / "share" / "fip";
+#endif
+    // Check if the fip path exists, if not create directories, like `mkdir -p`
+    try {
+        if (!std::filesystem::exists(fip_path)) {
+            std::filesystem::create_directories(fip_path);
+        }
+        return fip_path;
+    } catch (const std::filesystem::filesystem_error &e) {
+        std::cerr << "Error: Could not create fip path: '" << fip_path.string() << "'" << std::endl;
+        return std::filesystem::path();
+    }
+}
+
 bool FIP::init() {
     PROFILE_SCOPE("FIP init");
     if (is_active) {
@@ -31,12 +58,12 @@ bool FIP::init() {
     if (config_file.ok) {
         // Next we check whether there are any active modules in the config file, if there are not then we can shut down
         if (config_file.enabled_count > 0) {
-            // Now we check if all of the enabled modules even exist in the `.fip/modules/` path. If an enabled module does not exist then
-            // we report it and shut down too. If all exist, however, we stay active
+            // Now we check if all of the enabled modules even exist in the `.local/share/fip/modules/` path. If an enabled module does not
+            // exist then we report it and shut down too. If all exist, however, we stay active
             needs_shutdown = false;
             for (uint8_t i = 0; i < config_file.enabled_count; i++) {
-                std::filesystem::path module_path = ".fip/modules/";
-                module_path = module_path / std::string(config_file.enabled_modules[i]);
+                std::filesystem::path module_path = get_fip_path() / "modules";
+                module_path /= std::string(config_file.enabled_modules[i]);
                 if (!std::filesystem::exists(module_path)) {
                     needs_shutdown = true;
                     break;
@@ -52,25 +79,22 @@ bool FIP::init() {
         return true;
     }
 
-    // Now that the config file has been parsed and we know that we *actually* need the FIP we can initialize the socket
-    socket_fd = fip_master_init_socket();
-    if (socket_fd == -1) {
-        fip_print(0, FIP_ERROR, "Failed to initialize socket, exiting");
-        abort();
-    }
-
     // Start all enabled interop modules
     for (uint8_t i = 0; i < config_file.enabled_count; i++) {
         const char *mod = config_file.enabled_modules[i];
         fip_print(0, FIP_INFO, "Starting the %s module...", mod);
-        char module_path[13 + FIP_MAX_MODULE_NAME_LEN] = {0};
-        snprintf(module_path, sizeof(module_path), ".fip/modules/%s", mod);
-        fip_spawn_interop_module(&modules, module_path);
+        const std::filesystem::path module_path = get_fip_path() / "modules" / std::string(mod);
+        fip_spawn_interop_module(&modules, module_path.string().data());
+    }
+
+    // Initialize the master
+    if (!fip_master_init(&modules)) {
+        fip_print(0, FIP_ERROR, "Failed to initialize master, exiting");
+        abort();
     }
 
     // Give the Interop Modules time to connect
     fip_print(0, FIP_INFO, "Waiting for interop modules to connect...");
-    fip_master_accept_pending_connections(socket_fd);
     // Wait for all connect messages from the IMs
     fip_print(0, FIP_INFO, "Waiting for all connect requests...");
     fip_master_await_responses(       //
@@ -79,6 +103,7 @@ bool FIP::init() {
         &master_state.response_count, //
         FIP_MSG_CONNECT_REQUEST       //
     );
+
     // Check if each interop module has the correct version
     for (uint8_t i = 0; i < master_state.response_count; i++) {
         const fip_msg_t *response = &master_state.responses[i];
@@ -123,7 +148,7 @@ void FIP::shutdown() {
 #ifndef __WIN32__
     nanosleep(&sleep_100ms, NULL);
 #endif
-    fip_master_cleanup_socket(socket_fd);
+    fip_master_cleanup();
     fip_terminate_all_slaves(&modules); // Fallback cleanup
 
     fip_print(0, FIP_INFO, "Master shutting down");

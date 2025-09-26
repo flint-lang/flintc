@@ -201,6 +201,7 @@ int main(int argc, char *argv[]) {
             std::cout << " [debug]";
         }
         std::cout << std::endl;
+        std::cout << " └─ Flint Interop Protocol v" << FIP_MAJOR << "." << FIP_MINOR << "." << FIP_PATCH << std::endl;
         return 0;
     }
     // Print the fip version if requested

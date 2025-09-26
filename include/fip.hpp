@@ -24,6 +24,7 @@ extern "C" {
 #include "parser/ast/definitions/function_node.hpp"
 
 #include <array>
+#include <filesystem>
 #include <vector>
 
 /// @class `FIP`
@@ -55,10 +56,6 @@ class FIP {
     /// @brief The message buffer of FIP
     static inline char buffer[FIP_MSG_SIZE];
 
-    /// @var `socket_fd`
-    /// @brief The socket file descriptor of the master
-    static inline int socket_fd;
-
     /// @var `message`
     /// @brief The message which will be re-used for all FIP communications
     static inline fip_msg_t message;
@@ -66,6 +63,12 @@ class FIP {
     /// @var `resolved_functions`
     /// @brief A list containing all functions which have been matched by FIP
     static inline std::vector<fake_function> resolved_functions;
+
+    /// @var `get_fip_path`
+    /// @brief Returns the path to the 'fip' directory in which all modules are placed for example (in the 'modules' subdirectory)
+    ///
+    /// @return `std::filesystem::path` The path to the fip directory
+    static std::filesystem::path get_fip_path();
 
     /// @function `init`
     /// @brief Initializes the FIP and does whatever needs to be done at the FIP setup stage
