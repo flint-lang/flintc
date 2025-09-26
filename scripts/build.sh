@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
+# Dependencies Commit Hashes
+FIP_HASH="3fb71c2c052d20078f37cbd599baa755e2bf68c9"
+JSON_MINI_HASH="a32d6e8319d90f5fa75f1651f30798c71464e4c6"
+
 print_usage() {
     echo "Usage:
     build.sh [OPTIONS]* ...
@@ -393,17 +397,26 @@ fetch_json_mini() {
     if [ ! -d "$root/vendor/sources/json-mini" ]; then
         echo "-- Fetching json-mini from GitHub..."
         cd "$root/vendor/sources"
-        git clone "https://github.com/flint-lang/json-mini.git"
+        git clone "https://github.com/flint-lang/json-mini.git" "$JSON_MINI_HASH"
         cd "$root"
     else
         # Checking for internet connection
         echo "-- Checking for internet connection..."
         if ping -w 5 -c 2 google.com >/dev/null 2>&1; then
             echo "-- Updating json-mini repository..."
-            echo -n "-- "
             cd "$root/vendor/sources/json-mini"
+            if [ "$(git rev-parse HEAD)" = "$JSON_MINI_HASH" ]; then
+                return
+            fi
+            echo -n "-- "
+            git checkout -f main
+            git clean -fd
+            echo -n "-- "
+            git reset
             git fetch
             git pull
+            echo "-- Set json-mini to hash '$JSON_MINI_HASH'"
+            git checkout -f "$JSON_MINI_HASH" >/dev/null 2>&1
             cd "$root"
         else
             echo "-- No internet connection, skipping updating the json-mini repository..."
@@ -415,17 +428,26 @@ fetch_fip() {
     if [ ! -d "$root/vendor/sources/fip" ]; then
         echo "-- Fetching fip from GitHub..."
         cd "$root/vendor/sources"
-        git clone "https://github.com/flint-lang/fip.git"
+        git clone "https://github.com/flint-lang/fip.git" "$FIP_HASH"
         cd "$root"
     else
         # Checking for internet connection
         echo "-- Checking for internet connection..."
         if ping -w 5 -c 2 google.com >/dev/null 2>&1; then
             echo "-- Updating fip repository..."
-            echo -n "-- "
             cd "$root/vendor/sources/fip"
+            if [ "$(git rev-parse HEAD)" = "$FIP_HASH" ]; then
+                return
+            fi
+            echo -n "-- "
+            git checkout -f main
+            git clean -fd
+            echo -n "-- "
+            git reset
             git fetch
             git pull
+            echo "-- Set fip to hash '$FIP_HASH'"
+            git checkout -f "$FIP_HASH" >/dev/null 2>&1
             cd "$root"
         else
             echo "-- No internet connection, skipping updating the fip repository..."
