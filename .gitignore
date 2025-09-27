@@ -1,11 +1,13 @@
 .vscode
+.flintc
+.cache
+.zig-cache
 documents/LLDB_Cheatsheet.md
 llvm/llvm-dev
 xml2/xml2
 build
 vendor
 main
-.flintc
 /test
 output.ll
 output.bc
@@ -17,6 +19,5 @@ main.obj
 main.o
 test.o
 logfile
-.zig-cache
 zig-out
 test
