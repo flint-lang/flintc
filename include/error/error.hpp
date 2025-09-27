@@ -45,7 +45,7 @@
 #include "error_types/parsing/expressions/err_expr_tuple_access_oob.hpp"
 #include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"
 
-#include "error_types/parsing/fip/err_extern_duplicate_function.hpp"
+#include "error_types/parsing/fip/err_extern_fn_not_found.hpp"
 #include "error_types/parsing/fip/err_extern_without_fip.hpp"
 
 #include "error_types/parsing/scopes/err_missing_body.hpp"
@@ -64,6 +64,7 @@
 #include "error_types/parsing/variables/err_var_redefinition.hpp"
 
 #include "error_types/generating/fip/err_extern_compilation_failed.hpp"
+#include "error_types/generating/fip/err_extern_duplicate_function.hpp"
 
 #include <cassert>
 #include <iostream>

@@ -1,4 +1,4 @@
-#include "error/error_types/parsing/definitions/function/err_fn_main_too_many_args.hpp"
+#include "error/error_type.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/parser.hpp"
@@ -239,6 +239,7 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
     fn.value().name = fn.value().name.substr(3);
     // Now check whether the FIP provides the searched for function in any of it's modules
     if (!FIP::resolve_function(&fn.value())) {
+        THROW_ERR(ErrExternFnNotFound, ERR_PARSING, &fn.value());
         return std::nullopt;
     }
     return fn;

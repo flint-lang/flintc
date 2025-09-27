@@ -1,8 +1,10 @@
 use Core.print
 
 extern def hello();
+extern def foos();
 extern def add(mut i32 x, mut i32 y) -> i32;
 
 def main():
-    hello();
-    print($"add(1, 8) = {add(1, 8)}\n");
+	hello();
+	print($"add(1, 8) = {add(1, 8)}\n");
+	// sdf();

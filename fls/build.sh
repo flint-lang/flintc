@@ -12,7 +12,7 @@ print_usage() {
     echo "  -l, --linux     Build for Linux (default)"
     echo "  -w, --windows   Cross-compile for Windows using MinGW"
     echo "  -v, --verbose   Turn verbosity on"
-    echo "  -j <num>        Number of cores to use (default: auto)"
+    echo "  -j <num>        Number of cores to use (default: nproc)"
     echo ""
     echo "Examples:"
     echo "  ./build.sh           # Release build for Linux"

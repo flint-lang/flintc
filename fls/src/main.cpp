@@ -1,6 +1,7 @@
 #include "lsp_protocol.hpp"
 #include "lsp_server.hpp"
 
+#include "fip.hpp"
 #include "globals.hpp"
 
 #include <iostream>
@@ -39,10 +40,14 @@ int main(int argc, char *argv[]) {
             return 1;
         }
     }
-
+    // Start FIP
+    if (!FIP::init()) {
+        return 1;
+    }
     // Create and run the LSP server
     LspServer server;
     server.run();
 
+    FIP::shutdown();
     return 0;
 }
