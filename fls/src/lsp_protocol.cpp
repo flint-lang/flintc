@@ -1,4 +1,6 @@
 #include "lsp_protocol.hpp"
+#include "globals.hpp"
+#include "lsp_server.hpp"
 
 #include <iostream>
 #include <string>
@@ -26,5 +28,9 @@ bool contains_method(const std::string &content, const char *method) {
 }
 
 void send_lsp_response(const std::string &response) {
+    if (DEBUG_MODE) {
+        LspServer::log_info("SENDING_LSP_RESPONSE: 'Content-Length: " + std::to_string(response.length()) + "\r\n\r\n" + response + "'\n");
+        LspServer::log_info("response.substr(0, 10) = '" + response.substr(0, 10) + "'\n");
+    }
     std::cout << "Content-Length: " << response.length() << "\r\n\r\n" << response << std::flush;
 }

@@ -88,6 +88,9 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
 
 void LspServer::process_message(const std::string &content) {
     // Basic JSON-RPC message handling
+    if (DEBUG_MODE) {
+        log_info("PROCESS_MESSAGE: '" + content + "'\n");
+    }
     if (contains_method(content, LspProtocol::METHOD_INITIALIZE)) {
         std::string request_id = extract_request_id(content);
         send_initialize_response(request_id);
@@ -424,7 +427,7 @@ void LspServer::handle_document_save(const std::string &content) {
         log_info("Flint document (.ft) saved");
 
         // Parse the file and publish diagnostics
-        LspServer::parse_program(file_path, std::nullopt);
+        parse_program(file_path, std::nullopt);
         publish_diagnostics(file_uri);
     } else {
         log_info("Document saved");
@@ -580,19 +583,49 @@ std::pair<int, int> LspServer::extract_position(const std::string &content) {
     }
 }
 
-std::string LspServer::uri_to_file_path(const std::string &uri) {
-    // Convert file://path to path
-    if (uri.substr(0, 8) == "file:///") {
-#ifdef _WIN32
-        // Windows: file:///C:/path -> C:/path
-        return uri.substr(8);
-#else
-        // Unix: file:///path -> /path
-        return uri.substr(7);
-#endif
-    } else if (uri.substr(0, 7) == "file://") {
-        // Fallback for malformed URIs
-        return uri.substr(7);
+static std::string url_decode(const std::string &s) {
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == '%' && i + 2 < s.size()) {
+            int hi = std::stoi(s.substr(i + 1, 2), nullptr, 16);
+            out.push_back(static_cast<char>(hi));
+            i += 2;
+        } else if (s[i] == '+') {
+            out.push_back(' ');
+        } else {
+            out.push_back(s[i]);
+        }
     }
-    return uri;
+    return out;
+}
+
+std::string LspServer::uri_to_file_path(const std::string &uri) {
+    // Expect things like:
+    //  file:///C:/path/to/file or file:///o%3A/Users/...
+    std::string decoded = url_decode(uri);
+
+    const std::string file_prefix1 = "file:///";
+    const std::string file_prefix2 = "file://";
+
+    if (decoded.rfind(file_prefix1, 0) == 0) {
+#ifdef _WIN32
+        // file:///C:/path -> C:/path
+        std::string candidate = decoded.substr(file_prefix1.size());
+        // Some clients use lowercase drive letters or other quirks; normalize
+        if (candidate.size() >= 2 && candidate[1] == ':') {
+            candidate[0] = static_cast<char>(std::toupper(candidate[0]));
+        }
+        // Convert forward slashes to backslashes for native windows paths if you prefer
+        // std::replace(candidate.begin(), candidate.end(), '/', '\\');
+        return candidate;
+#else
+        // Unix: keep leading slash
+        return decoded.substr(file_prefix1.size() - 1); // keep leading '/'
+#endif
+    } else if (decoded.rfind(file_prefix2, 0) == 0) {
+        return decoded.substr(file_prefix2.size());
+    }
+    // If the string is already a path-like thing, just return decoded
+    return decoded;
 }

@@ -7,6 +7,11 @@
 #include <iostream>
 #include <string>
 
+#ifdef _WIN32
+#include <fcntl.h> // _O_BINARY
+#include <io.h>    // _setmode, _fileno
+#endif
+
 void print_help() {
     std::cout << "Usage: fls [OPTIONS]\n\n"                                                       //
               << "Available Options:\n"                                                           //
@@ -40,13 +45,20 @@ int main(int argc, char *argv[]) {
             return 1;
         }
     }
+
+#ifdef _WIN32
+    // Disable CRLF <-> LF translations so LSP headers are sent raw bytes.
+    // Must be done before any LSP stdio I/O happens.
+    _setmode(_fileno(stdout), _O_BINARY);
+    _setmode(_fileno(stdin), _O_BINARY);
+#endif
+
     // Start FIP
     if (!FIP::init()) {
         return 1;
     }
     // Create and run the LSP server
-    LspServer server;
-    server.run();
+    LspServer::run();
 
     FIP::shutdown();
     return 0;
