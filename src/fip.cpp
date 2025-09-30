@@ -63,7 +63,11 @@ bool FIP::init() {
             needs_shutdown = false;
             for (uint8_t i = 0; i < config_file.enabled_count; i++) {
                 std::filesystem::path module_path = get_fip_path() / "modules";
-                module_path /= std::string(config_file.enabled_modules[i]);
+                std::string module = std::string(config_file.enabled_modules[i]);
+#ifdef __WIN32__
+                module += ".exe";
+#endif
+                module_path /= module;
                 if (!std::filesystem::exists(module_path)) {
                     needs_shutdown = true;
                     break;
