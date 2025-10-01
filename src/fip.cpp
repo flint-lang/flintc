@@ -330,7 +330,7 @@ void FIP::send_compile_request() {
 std::optional<std::vector<std::array<char, 9>>> FIP::gather_objects() {
     if (!is_active) {
         // No error, just return an empty list
-        return {};
+        return std::vector<std::array<char, 9>>{};
     }
     std::vector<std::array<char, 9>> objects;
     uint8_t wrong_msg_count = fip_master_await_responses( //
