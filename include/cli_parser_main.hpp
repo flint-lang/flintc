@@ -224,6 +224,8 @@ class CLIParserMain : public CLIParserBase {
                 HARD_CRASH = true;
             } else if (arg == "--no-generation") {
                 NO_GENERATION = true;
+            } else if (arg == "--no-binary") {
+                NO_BINARY = true;
             } else if (arg == "--print-ir-arithmetic") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
             } else if (arg == "--print-ir-array") {
@@ -327,6 +329,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "      --no-profile                Disables the debug printing of the profiling results\n";
         std::cout << "      --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
         std::cout << "      --no-generation             Disables code generation entirely, the program exits after the parsing phase\n";
+        std::cout << "      --no-binary                 Disables compilation of the LLVM modules to a final binary, exiting after IR gen\n";
         std::cout << "                              HINT: Doesnt produce an executable";
         std::cout << std::endl;
         std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";

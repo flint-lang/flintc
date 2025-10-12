@@ -16,6 +16,7 @@ bool PRINT_AST = true;
 bool PRINT_IR_PROGRAM = true;
 bool PRINT_PROFILE_RESULTS = true;
 bool HARD_CRASH = false;
+bool NO_BINARY = false;
 bool NO_GENERATION = false;
 
 std::string RED = "\033[31m";

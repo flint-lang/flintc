@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
         // TODO
     } else {
         // Compile the program and output the binary
-        if (!compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static)) {
+        if (!NO_BINARY && !compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static)) {
             Resolver::clear();
             FIP::shutdown();
             Profiler::end_task("ALL");

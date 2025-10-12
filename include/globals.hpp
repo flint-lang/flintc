@@ -42,6 +42,7 @@ extern bool PRINT_AST;
 extern bool PRINT_IR_PROGRAM;
 extern bool PRINT_PROFILE_RESULTS;
 extern bool HARD_CRASH;
+extern bool NO_BINARY;
 extern bool NO_GENERATION;
 
 enum class BuiltinLibrary : unsigned int {
