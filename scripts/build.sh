@@ -628,7 +628,7 @@ build_fls() {
     if [ "$build_fls" = "false" ]; then
         return
     fi
-    cd "$root/lsp"
+    cd "$root/fls"
     if [ "$build_windows" = "true" ]; then
         echo "-- Building the Flint Language Server for Windows"
         "./build.sh" --windows --clean
@@ -672,7 +672,7 @@ copy_executables() {
             fi
         fi
         if [ "$build_fls" = "true" ]; then
-            checked_copy "$root/lsp/build-windows/out/fls.exe" "$root/build/out/fls.exe"
+            checked_copy "$root/fls/build-windows/out/fls.exe" "$root/build/out/fls.exe"
         fi
     fi
 
@@ -698,7 +698,7 @@ copy_executables() {
             fi
         fi
         if [ "$build_fls" = "true" ]; then
-            checked_copy "$root/lsp/build-linux/out/fls" "$root/build/out/fls"
+            checked_copy "$root/fls/build-linux/out/fls" "$root/build/out/fls"
         fi
     fi
 }
