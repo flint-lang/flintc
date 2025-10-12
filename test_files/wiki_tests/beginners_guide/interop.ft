@@ -8,6 +8,7 @@ test "0_crash":
 test "1_still_crash":
 	str path = "wiki_tests/beginners_guide/interop/1_still_crash";
 	str file = "main.ft";
+	// To emulate a missing installed fip-c module we just disable the module in the `fip.toml` file
 	test_file_fail_in(path, file, "Parse Error at main.ft:1:1\n└─┬┤E0000│\n1 │ extern def hello();\n┌─┴─┘\n├─ Defined 'extern' function without the FIP running and active\n└─ Check your configs in '.fip/config/' to see if there are any problems with it\n");
 
 test "2_hello":
@@ -18,7 +19,7 @@ test "2_hello":
 test "3_signature_mismatch":
 	str path = "wiki_tests/beginners_guide/interop/3_signature_mismatch";
 	str file = "main.ft";
-	test_file_fail_in(path, file, "[\x1B[31mMaster\x1B[0m]:  The function 'add' could not be resolved\nError: Failed to parse file \"main.ft\"\n");
+	test_file_fail_in(path, file, "[\x1B[31mMaster\x1B[0m]:  The function 'add' could not be resolved\nParse Error at main.ft:4:1\n└─┬┤E0000│\n4 │ extern def add(i32 x, i32 y) -> i32;\n┌─┴─┘\n└─ Extern function could not be found in any FIP module\n");
 
 test "4_signature_ok":
 	str path = "wiki_tests/beginners_guide/interop/4_signature_ok";
