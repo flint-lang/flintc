@@ -1788,7 +1788,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     if (Matcher::tokens_contain(tokens_mut, Matcher::optional_chain)) {
         if (!Matcher::tokens_contain(tokens_mut, Matcher::unary_operator) &&
             !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator)) {
-            std::optional<OptionalChainNode> chain = create_optional_chain(scope, tokens);
+            std::optional<OptionalChainNode> chain = create_optional_chain(scope, tokens_mut);
             if (!chain.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -1800,7 +1800,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
         && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
     ) {
-        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(scope, tokens);
+        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(scope, tokens_mut);
         if (!unwrap.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -1811,7 +1811,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
         && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
     ) {
-        std::optional<VariantExtractionNode> extraction = create_variant_extraction(scope, tokens);
+        std::optional<VariantExtractionNode> extraction = create_variant_extraction(scope, tokens_mut);
         if (!extraction.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -1822,7 +1822,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
         && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
     ) {
-        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(scope, tokens);
+        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(scope, tokens_mut);
         if (!unwrap.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
