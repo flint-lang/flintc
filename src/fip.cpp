@@ -135,7 +135,7 @@ bool FIP::init() {
 void FIP::shutdown() {
     if (!is_active) {
         // Shutting down when not being active is actually fine, since the FIP could already be shut down as it never ran in the first place
-        // (for example when no fip.toml was provided)
+        // (for example when no fip.toml was provided or when no extern definitions were found)
         return;
     }
     PROFILE_SCOPE("FIP shutdown");
@@ -156,6 +156,7 @@ void FIP::shutdown() {
     fip_terminate_all_slaves(&modules); // Fallback cleanup
 
     fip_print(0, FIP_INFO, "Master shutting down");
+    is_active = false;
 }
 
 bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const bool is_mutable) {
@@ -222,12 +223,20 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
 
 bool FIP::resolve_function(FunctionNode *function) {
     if (!is_active) {
-        // We need an error here specifically because we try to resolve an external function without the FIP, which is not possible
-        THROW_ERR(ErrExternWithoutFip, ERR_PARSING, function->file_name, function->line, function->column, function->length);
-        return false;
+        // Try to initialize the FIP if it's not running yet
+        if (!init()) {
+            // Initialization failed for some reason
+            return false;
+        }
+        if (!is_active) {
+            // We need an error here specifically because we try to resolve an external function without the FIP running, which is not
+            // possible. This could happen because no module is active, for example
+            THROW_ERR(ErrExternWithoutFip, ERR_PARSING, function->file_name, function->line, function->column, function->length);
+            return false;
+        }
     }
     // This function is not concurrency-safe. FIP assumes a strict order for the master's messages so only one thread is allowed to send /
-    // recieve messages to and from the FIP at a time
+    // recieve messages to and from the FIP at a time, that's why we have a mutex here
     static std::mutex resolve_mutex;
     std::lock_guard<std::mutex> lock(resolve_mutex);
     fip_msg_t msg = fip_msg_t{};

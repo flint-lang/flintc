@@ -218,10 +218,10 @@ int main(int argc, char *argv[]) {
     }
 
     Profiler::start_task("ALL");
-    if (!FIP::init()) {
-        Profiler::end_task("ALL");
-        return 1;
-    }
+    // if (!FIP::init()) {
+    //     Profiler::end_task("ALL");
+    //     return 1;
+    // }
     auto program = generate_program(clp.source_file_path, clp.test, clp.parallel);
     if (!program.has_value()) {
         Profiler::end_task("ALL");
