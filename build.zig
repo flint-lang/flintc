@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 
 const DEFAULT_LLVM_VERSION = "llvmorg-19.1.7";
 
-const FIP_HASH = "99f2179ca775bf30411ea39f115959cb3b145c6c";
+const FIP_HASH = "fb49d7a5751923befbae9731c6b6ce94c02f0f01";
 const JSON_MINI_HASH = "a32d6e8319d90f5fa75f1651f30798c71464e4c6";
 
 pub fn build(b: *std.Build) !void {
