@@ -834,14 +834,11 @@ class Matcher {
             }),
         }),
     });
-    static const inline PatternPtr range_expression = one_of({
-        balanced_match_until(                                           //
-            one_of({token(TOK_LEFT_PAREN), token(TOK_LEFT_BRACKET)}),   //
-            token(TOK_RANGE),                                           //
-            one_of({token(TOK_RIGHT_PAREN), token(TOK_RIGHT_BRACKET)}), //
-            0),                                                         //
-        token(TOK_RANGE)                                                //
-    });
+    static const inline PatternPtr range_expression = balanced_match_until( //
+        one_of({token(TOK_LEFT_PAREN), token(TOK_LEFT_BRACKET)}),           //
+        token(TOK_RANGE),                                                   //
+        one_of({token(TOK_RIGHT_PAREN), token(TOK_RIGHT_BRACKET)}),         //
+        0);
 
     // --- STATEMENTS ---
     static const inline PatternPtr group_declaration_inferred = sequence({

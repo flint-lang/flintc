@@ -2,6 +2,8 @@
 
 #include "token_pattern_matcher.hpp"
 
+#include <string>
+
 class BalancedUntilMatcher : public TokenPatternMatcher {
   private:
     PatternPtr increment_pattern;

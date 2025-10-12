@@ -837,7 +837,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(s
     const bool is_open_low = lhs_tokens.first == lhs_tokens.second;
     std::optional<std::unique_ptr<ExpressionNode>> lhs_expr;
     if (!is_open_low) {
-        // Lower-bound open range, e.g. we insert a 0 literal here, but we first need to get the type of the other side
         lhs_expr = create_expression(scope, lhs_tokens);
         if (!lhs_expr.has_value()) {
             return std::nullopt;
@@ -1520,6 +1519,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<DefaultNode>(expected_type.value());
         } else if (tokens_mut.first->token == TOK_TYPE) {
             return std::make_unique<TypeNode>(tokens_mut.first->type);
+        } else if (tokens_mut.first->token == TOK_RANGE) {
+            std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(scope, tokens_mut);
+            if (!range.has_value()) {
+                return std::nullopt;
+            }
+            return std::move(range.value());
         }
     } else if (token_size == 2) {
         if (Matcher::tokens_match(tokens_mut, Matcher::literal_expr)) {
@@ -1832,7 +1837,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     if (Matcher::tokens_match(tokens_mut, Matcher::stacked_expression)) {
         return create_stacked_expression(scope, tokens_mut);
     }
-    if (Matcher::tokens_contain(tokens_mut, Matcher::range_expression)) {
+    const std::vector<uint2> range_expr_matches = Matcher::get_match_ranges_in_range_outside_group( //
+        tokens_mut,                                                                                 //
+        Matcher::range_expression,                                                                  //
+        {0, std::distance(tokens_mut.first, tokens_mut.second)},                                    //
+        Matcher::token(TOK_LEFT_BRACKET),                                                           //
+        Matcher::token(TOK_RIGHT_BRACKET)                                                           //
+    );
+    if (range_expr_matches.size() == 1) {
         std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(scope, tokens_mut);
         if (!range.has_value()) {
             return std::nullopt;

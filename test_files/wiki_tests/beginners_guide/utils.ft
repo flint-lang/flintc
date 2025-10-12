@@ -1,6 +1,5 @@
 use Core.system
 use Core.assert
-use Core.print
 
 /// @brief Checks whether a given string starts with the given other string
 ///
@@ -10,13 +9,7 @@ use Core.print
 def starts_with(str string, str check) -> bool:
 	if string.length < check.length:
 		return false;
-	for (i, c) in check:
-		if c != string[i]:
-			print($"expected_otuput:\n{string}\n");
-			print($"actual_output:\n{check}\n");
-			print("\n");
-			return false;
-	return true;
+	return string[..check.length] == check;
 
 /// @brief Compiles a given file and expects compilation to succeed. The compiled program
 ///        is expected to have the given expected output.
