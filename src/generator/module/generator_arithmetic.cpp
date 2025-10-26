@@ -1062,9 +1062,13 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
     llvm::Value *zero = llvm::ConstantInt::get(int_type, 0);
     llvm::Value *is_zero = builder->CreateOr(builder->CreateICmpEQ(arg_lhs, zero), builder->CreateICmpEQ(arg_rhs, zero));
 
+    // Protect against division by zero: use 1 as a safe divisor when arg_lhs is 0
+    llvm::Value *one = llvm::ConstantInt::get(int_type, 1);
+    llvm::Value *safe_lhs = builder->CreateSelect(builder->CreateICmpEQ(arg_lhs, zero), one, arg_lhs);
+
     // Check for overflow: if rhs > max/lhs
     llvm::Value *max = llvm::ConstantInt::get(int_type, llvm::APInt::getMaxValue(int_type->getBitWidth())); // All bits set to 1
-    llvm::Value *udiv = builder->CreateUDiv(max, arg_lhs);
+    llvm::Value *udiv = builder->CreateUDiv(max, safe_lhs);
     llvm::Value *would_overflow = builder->CreateICmpUGT(arg_rhs, udiv);
 
     // Combine checks
