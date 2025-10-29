@@ -5,31 +5,7 @@
 def starts_with(str input, str matcher) -> bool:
     if input.length < matcher.length:
         return false;
-
-    for i := 0; i < matcher.length; i++:
-        if matcher[i] != input[i]:
-            return false;
-
-    return true;
-
-/// @brief Returns a substring of the input [from, to)
-/// @param `input` The input to get a substring from
-/// @param `from` The start index to start the substring from
-/// @param `to` The index the substring goes exclusively
-/// @return `str` The substring [from, to)
-///
-/// @note Once ranges (`..`) work, this entire function will no longer be needed
-def substring(str input, mut i32 from, mut i32 to) -> str:
-    if from == to:
-        return "";
-
-    if from > to:
-        (from, to) = (to, from);
-
-    str substr = "";
-    for i32 i = from; i < to; i++:
-        substr += str(input[i]);
-    return substr;
+    return input[..matcher.length] == matcher;
 
 /// @brief Checks whether the given input string contains the given character
 /// @param `input` The input to check for the given character
@@ -76,12 +52,12 @@ def get_binary_op_sides(str input, u8 char) -> (str, str):
     u64 pos = get_first_pos_of_char(input, char);
 
     // Get everything left of the symbol as the lhs
-    str lhs = substring(input, 0, i32(pos));
+    str lhs = input[..pos];
     // Remove all spaces from the lhs string
     lhs = remove_chars(lhs, ' ');
 
     // Get everything right of the symbol as the rhs
-    str rhs = substring(input, pos + 1, i32(input.length));
+    str rhs = input[(pos + 1)..input.length];
     // Remove all spaces from the rhs string
     rhs = remove_chars(rhs, ' ');
 
@@ -89,8 +65,8 @@ def get_binary_op_sides(str input, u8 char) -> (str, str):
 
 /// Splits the given string at the position pos so that the result is [0,pos) (pos,input.length)
 def split_at(str input, u64 pos) -> (str, str):
-    str lhs = substring(input, 0, i32(pos));
+    str lhs = input[..pos];
     lhs = remove_chars(lhs, ' ');
-    str rhs = substring(input, pos + 1, i32(input.length));
+    str rhs = input[(pos + 1)..input.length];
     rhs = remove_chars(rhs, ' ');
     return (lhs, rhs);

@@ -66,7 +66,7 @@ def main():
     while run:
         print("> ");
         str input = read_str();
-        
+
         if input == "help":
             print_help();
         else if input == "exit":
@@ -75,7 +75,7 @@ def main():
             print_bin_op(input);
             print("\n");
         else if starts_with(input, "print(") and input[input.length - 1] == ')':
-            str content = substring(input, 6, input.length - 1);
+            str content = input[u64(6)..(input.length - 1)];
             print($"{content}\n");
         else:
             print($"Unknown command: '{input}'\n");
