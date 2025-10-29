@@ -4,7 +4,7 @@ def main():
     i32[] arr = i32[5](0);
     // First, fill the array with meaningful values
     for (idx, elem) in arr:
-        elem = idx * 2;
+        elem = i32(idx * 2);
 
     // Iterate through the array element by element
     for (idx, elem) in arr:

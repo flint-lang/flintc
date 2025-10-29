@@ -12,8 +12,8 @@ def main():
 	else:
 		print("differ\n");
 
-	var_1 = 5;
-	var_2 = 5;
+	var_1 = i32(5);
+	var_2 = i32(5);
 	if var_1 == var_2:
 		print("are equal\n");
 	else:

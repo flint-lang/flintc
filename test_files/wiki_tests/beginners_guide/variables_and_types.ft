@@ -68,7 +68,7 @@ test "12_operators_div.ft":
 test "13_operators_fp_arithmetic.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";
 	str file = "13_operators_fp_arithmetic.ft";
-	test_file_ok($"{path}/{file}", "0.05 + 0.3 = 0.350000012665987\n0.350000012665987 == 0.35 ? false\n");
+	test_file_ok($"{path}/{file}", "0.3 + 0.6 = 0.9\n0.9 == 0.9 ? false\n");
 
 test "14_operators_strings.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";
@@ -78,7 +78,7 @@ test "14_operators_strings.ft":
 test "15_casting_mismatch.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";
 	str file = "15_casting_mismatch.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/15_casting_mismatch.ft:2:15\n└─┬┤E0000│\n1 │ def main():\n2 │ »   i32 val = 3.3;\n┌─┴───────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: i32\n    └─ But got:  f32\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/15_casting_mismatch.ft:2:15\n└─┬┤E0000│\n1 │ def main():\n2 │ »   i32 val = 3.3;\n┌─┴───────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: i32\n    └─ But got:  float\n");
 
 test "16_casting_simple.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";

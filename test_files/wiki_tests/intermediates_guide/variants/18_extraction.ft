@@ -4,7 +4,7 @@ variant MyVar:
 	i32, f32, str;
 
 def main():
-	MyVar var = -5;
+	MyVar var = i32(-5);
 
 	i32? i = var?(i32);
 	f32? f = var?(f32);

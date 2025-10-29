@@ -4,7 +4,7 @@ variant MyVar:
 	i32, f32, bool;
 
 def main():
-	MyVar var = 3.14;
+	MyVar var = f32(3.14);
 
 	if var == i32:
 		print($"holds i32 value: {var!(i32)}\n");

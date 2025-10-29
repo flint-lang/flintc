@@ -3,7 +3,7 @@ use Core.print
 def main():
 	i32[] arr = i32[10](0);
 	for (idx, elem) in arr:
-		elem = idx + 1;
+		elem = i32(idx + 1);
 
 	i32[] slice = arr[2..8];
 	print($"slice.length = {slice.length}\n");

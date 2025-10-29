@@ -3,6 +3,6 @@ use Core.print
 def main():
     i32[] arr = i32[5](4);
     // Set each element to the double of the index
-    for i := 0; i < 5; i++:
-        arr[i] = i * 2;
+    for u32 i = 0; i < 5; i++:
+        arr[i] = i32(i * 2);
         print($"Index: {i}, Value: {arr[i]}\n");

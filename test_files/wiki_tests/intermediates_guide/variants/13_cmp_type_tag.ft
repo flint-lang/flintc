@@ -4,7 +4,7 @@ variant MyVar:
 	Int(i32), Float(f32), bool;
 
 def main():
-	MyVar var = -7;
+	MyVar var = i32(-7);
 
 	if var == MyVar.Int:
 		print("holds Int value\n");

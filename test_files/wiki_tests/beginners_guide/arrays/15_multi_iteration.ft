@@ -4,8 +4,8 @@ def main():
     i32[,] mat = i32[3, 3](0);
     i32 n = 0;
     // Row-major looping + fills the array
-    for i32 y = 0; y < 3; y++:
-        for i32 x = 0; x < 3; x++:
+    for u32 y = 0; y < 3; y++:
+        for u32 x = 0; x < 3; x++:
             mat[x, y] = n;
             print($"mat[{x}, {y}] = {mat[x, y]}\n");
             n++;
@@ -14,6 +14,6 @@ def main():
     print("\n");
 
     // Column-major looping
-    for i32 x = 0; x < 3; x++:
-        for i32 y = 0; y < 3; y++:
+    for u32 x = 0; x < 3; x++:
+        for u32 y = 0; y < 3; y++:
             print($"mat[{x}, {y}] = {mat[x, y]}\n");

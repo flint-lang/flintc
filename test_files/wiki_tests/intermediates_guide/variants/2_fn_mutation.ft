@@ -19,7 +19,7 @@ def set_u64(mut MyVariant var, u64 value):
 	var = value;
 
 def main():
-	MyVariant var = -5;
+	MyVariant var = i32(-5);
 	set_i32(var, -10);
 	print_var(var);
 

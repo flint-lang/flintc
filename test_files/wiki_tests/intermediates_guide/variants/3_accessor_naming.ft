@@ -4,7 +4,7 @@ variant MyVariant:
 	i32, f32, u64;
 
 def main():
-	MyVariant var = -10;
+	MyVariant var = i32(-10);
 	switch var:
 		i32(v): print($"holds i32 value of {v}\n");
 		f32(v): print($"holds f32 value of {v}\n");

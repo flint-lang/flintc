@@ -10,10 +10,10 @@ def print_var(MyVariant var):
 		u64(u): print($"holds u64 value of {u}\n");
 
 def main():
-	MyVariant var = -5;
+	MyVariant var = i32(-5);
 	print_var(var);
 
-	var = 3.4;
+	var = f32(3.4);
 	print_var(var);
 
 	var = u64(55);

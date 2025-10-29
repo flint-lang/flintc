@@ -10,7 +10,7 @@ variant MyVariant:
 	Tuple, Tuple(u64, f64), i32;
 
 def main():
-	MyVariant var = 10;
+	MyVariant var = i32(10);
 	switch var:
 		Tuple(t): print($"Is Tuple: ({t.x}, {t.y}, {t.z})\n");
 		MyVariant.Tuple(t): print($"Is MyVariant.Tuple: ({t.$0}, {t.$1})\n");

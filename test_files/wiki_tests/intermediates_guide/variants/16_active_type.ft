@@ -12,7 +12,7 @@ def main():
 	else:
 		print("hold different types\n");
 
-	var_1 = 5;
+	var_1 = i32(5);
 	if var_1.active_type == var_2.active_type:
 		print("hold the same type\n");
 	else:

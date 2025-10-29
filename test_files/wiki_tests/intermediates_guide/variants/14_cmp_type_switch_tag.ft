@@ -4,7 +4,7 @@ variant MyVar:
 	Int(i32), Float(f32), bool;
 
 def main():
-	MyVar var = 3.14;
+	MyVar var = f32(3.14);
 
 	switch var:
 		MyVar.Int(v):   print("holds Int value\n");

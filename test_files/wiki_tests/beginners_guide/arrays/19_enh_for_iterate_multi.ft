@@ -6,6 +6,6 @@ def main():
     for (index, elem) in plane:
         elem = i32(index);
 
-    for y := 0; y < 3; y++:
-        for x := 0; x < 3; x++:
+    for u32 y = 0; y < 3; y++:
+        for u32 x = 0; x < 3; x++:
             print($"plane[{x}, {y}] = {plane[x, y]}\n");

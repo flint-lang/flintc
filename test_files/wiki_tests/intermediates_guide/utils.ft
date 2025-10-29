@@ -24,10 +24,19 @@ def starts_with(str string, str check) -> bool:
 /// @param `expected_output` The expected output of the compiled program
 def test_file_ok(str file, str expected_output):
 	(exit_code, output) := system_command($"flintc --file {file}");
+	if exit_code != 0:
+		print($"UNEXPECTED_CMP: exit_code = {exit_code}\n");
 	assert(exit_code == 0);
+	if output != "":
+		print($"UNEXPECTED_CMP: output = '{output}'\n");
 	assert(output == "");
 	(exit_code, output) = system_command("./main");
+	if exit_code != 0:
+		print($"UNEXPECTED_EXE: exit_code = {exit_code}\n");
 	assert(exit_code == 0);
+	if output != expected_output:
+		print($"UNEXPECTED_EXE: output = '{output}'\n");
+		print($"EXPECTED_EXE: output = '{expected_output}'\n");
 	assert(output == expected_output);
 
 /// @brief Compiles a given file and expects compilation to succeed. The compiled program

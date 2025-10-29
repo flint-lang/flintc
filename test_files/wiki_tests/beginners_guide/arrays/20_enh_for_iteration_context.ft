@@ -4,7 +4,7 @@ def main():
     i32[] arr = i32[5](0);
     // First, initialize the array, as always
     for (idx, elem) in arr:
-        elem = idx * 2;
+        elem = i32(idx * 2);
 
     for ctx in arr:
         print($"{ctx.$0}: {ctx.$1}\n");

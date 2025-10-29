@@ -2,10 +2,10 @@ use Core.print
 
 def main():
     i32[] arr = i32[5](4);
-    for i := 0; i < 10; i++:
-        arr[i] = i * 2;
+    for u32 i = 0; i < 10; i++:
+        arr[i] = i32(i * 2);
         print($"Index: {i}, Value: {arr[i]}\n");
 
     print("\n");
-    for i := 0; i < 5; i++:
+    for u32 i = 0; i < 5; i++:
         print($"Index: {i}, Value: {arr[i]}\n");
