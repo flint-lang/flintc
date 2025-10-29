@@ -122,8 +122,8 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> scope, co
     }
     if (expr.value()->type->to_string() != return_type->to_string()) {
         // Check for implicit castability, if not implicitely castable, throw an error
-        std::optional<bool> castability = check_castability(return_type, expr.value()->type);
-        if (!castability.has_value() || !castability.value()) {
+        CastDirection castability = check_castability(return_type, expr.value()->type);
+        if (castability.kind != CastDirection::Kind::CAST_RHS_TO_LHS) {
             // Its either not implicitely castable or only castable in the direction return_type -> expr_type
             // but for the return expression to be implicitely castable we need the direction expr_type -> return_type
             THROW_BASIC_ERR(ERR_PARSING);
@@ -1037,10 +1037,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
             return std::nullopt;
         }
     } else if (dynamic_cast<const VariantType *>(switcher.value()->type.get())) {
-        const VariableNode *var_node = dynamic_cast<const VariableNode *>(switcher.value().get());
-        assert(var_node != nullptr);
-        const bool is_mutable = std::get<2>(scope->variables.find(var_node->name)->second);
-        if (!create_variant_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
+        if (const VariableNode *var_node = dynamic_cast<const VariableNode *>(switcher.value().get())) {
+            const bool is_mutable = std::get<2>(scope->variables.find(var_node->name)->second);
+            if (!create_variant_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
+                return std::nullopt;
+            }
+        } else {
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return std::nullopt;
         }
     } else if (const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(switcher.value()->type.get())) {
@@ -1056,15 +1059,52 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     if (is_statement) {
         return std::make_unique<SwitchStatement>(switcher.value(), s_branches);
     }
-    // Because it's a statement which contains the switch expression as it's rhs, we still need to parse everything to the left of the
+    // Because it's an expression which contains the switch expression as it's rhs, we still need to parse everything to the left of the
     // switch and pass the switch as the rhs expression to it.
     assert(!e_branches.empty());
-    // Check if all branch expressions share the same type, throw an error if they are not
-    std::shared_ptr<Type> expr_type = e_branches.front().expr->type;
+    // Check if all branch expressions share the same common type, throw an error if they do not. A common type for example would be when
+    // one branch is of type `i32`, the next of type `int` (comptime type) and the next of type `i64`, then the common type would be `i64`.
+    // A common type is definted to be a type to which all branches can be implicitely cast to or be equal to that type.
+    // The first type *is* the common type, and then we go through all types, if we find a type which does not match the common type we
+    // check if we can cast it to the common type. If we can not cast to it we simply assume it to be the next common type, but the old
+    // common type needs to be castable to the new type. If this conditions does not hold true we throw an error. Implicit casting follows
+    // the rules of transivity so if A is castable to B and B is castable to C then A is castable to C too, we can use this to our advantage
+    // here.
+    std::shared_ptr<Type> common_type = e_branches.front().expr->type;
     for (const auto &branch : e_branches) {
-        if (branch.expr->type != expr_type) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
+        if (branch.expr->type == common_type) {
+            continue;
+        }
+
+        CastDirection cast_dir = check_primitive_castability(common_type, branch.expr->type);
+        switch (cast_dir.kind) {
+            case CastDirection::Kind::CAST_LHS_TO_RHS:
+                // Common type casts to branch type - branch type is "wider"
+                common_type = branch.expr->type;
+                break;
+            case CastDirection::Kind::CAST_BIDIRECTIONAL: // Keep the common type since the rhs can cast to it too
+            case CastDirection::Kind::CAST_RHS_TO_LHS:
+                // Branch type casts to common type - keep common type
+                break;
+            case CastDirection::Kind::CAST_BOTH_TO_COMMON:
+                // Both cast to a third type (e.g., i32 + float → f32)
+                common_type = cast_dir.common_type;
+                break;
+            case CastDirection::Kind::NOT_CASTABLE:
+                // Not castable
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+        }
+    }
+    // Cast all branch expressions to the common type, only if the expression's type differs from the common type
+    for (auto &branch : e_branches) {
+        if (branch.expr->type != common_type) {
+            const std::string &branch_expr_type_str = branch.expr->type->to_string();
+            if (branch_expr_type_str == "int" || branch_expr_type_str == "float") {
+                branch.expr->type = common_type;
+                continue;
+            }
+            branch.expr = std::make_unique<TypeCastNode>(common_type, branch.expr);
         }
     }
     auto switch_expr = std::make_unique<SwitchExpression>(switcher.value(), e_branches);
@@ -1590,11 +1630,11 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     }
 
     // Get the type if it is not inferred and get the name of the declaration
-    std::shared_ptr<Type> type;
+    std::shared_ptr<Type> declared_type;
     std::string name;
     if (!is_inferred) {
         assert(lhs_tokens.first->token == TOK_TYPE);
-        type = lhs_tokens.first->type;
+        declared_type = lhs_tokens.first->type;
         assert(std::next(lhs_tokens.first)->token == TOK_IDENTIFIER);
         name = std::next(lhs_tokens.first)->lexme;
     } else {
@@ -1602,60 +1642,107 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         name = lhs_tokens.first->lexme;
     }
 
-    // Add the variable to the variable list
+    // Case 1: Declaration without RHS
     if (!has_rhs) {
         assert(!is_inferred);
-        assert(type != nullptr);
+        assert(declared_type != nullptr);
         std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
-        if (!scope->add_variable(name, type, scope->scope_id, is_mutable, false)) {
-            // Variable shadowing
-            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name,                            //
-                std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column, name //
-            );
+        if (!scope->add_variable(name, declared_type, scope->scope_id, is_mutable, false)) {
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column,
+                name);
             return std::nullopt;
         }
-        return DeclarationNode(type, name, expr);
+        return DeclarationNode(declared_type, name, expr);
     }
 
-    // If the type of the variable is inferred we need to create the expression with no expected type specified
+    // Case 2 & 3: Declaration with RHS - create expression if not provided
+    if (!rhs.has_value()) {
+        rhs = create_expression(scope, tokens_mut);
+        if (!rhs.has_value()) {
+            return std::nullopt;
+        }
+    }
+
+    // Check for invalid group types in inference
+    if (is_inferred && dynamic_cast<const GroupType *>(rhs.value()->type.get())) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Determine final type and handle conversions
+    std::shared_ptr<Type> final_type;
+
     if (is_inferred) {
-        std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
-        if (rhs.has_value()) {
-            expr = std::move(rhs.value());
+        // Resolve literals to default types for inferred declarations
+        const std::string type_str = rhs.value()->type->to_string();
+        if (type_str == "int") {
+            final_type = Type::get_primitive_type("i32");
+            rhs.value()->type = final_type;
+        } else if (type_str == "float") {
+            final_type = Type::get_primitive_type("f32");
+            rhs.value()->type = final_type;
+        } else if (type_str == "__flint_type_str_lit") {
+            final_type = Type::get_primitive_type("str");
+            rhs = std::make_unique<TypeCastNode>(final_type, rhs.value());
         } else {
-            expr = create_expression(scope, tokens_mut);
+            final_type = rhs.value()->type;
         }
-        if (!expr.has_value()) {
-            return std::nullopt;
+    } else {
+        // For explicit types, check compatibility and cast if needed
+        final_type = declared_type;
+
+        if (rhs.value()->type != final_type) {
+            CastDirection cast_dir = check_castability(final_type, rhs.value()->type);
+            switch (cast_dir.kind) {
+                default:
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens_mut, final_type, rhs.value()->type);
+                    return std::nullopt;
+                case CastDirection::Kind::CAST_BIDIRECTIONAL:
+                case CastDirection::Kind::CAST_RHS_TO_LHS:
+                    break;
+            }
+            const std::string expr_type_str = rhs.value()->type->to_string();
+            const bool is_literal = expr_type_str == "int" || expr_type_str == "float";
+            const OptionalType *target_opt_type = dynamic_cast<const OptionalType *>(final_type.get());
+            const VariantType *target_var_type = dynamic_cast<const VariantType *>(final_type.get());
+            const bool is_opt = target_opt_type != nullptr;
+            const bool is_var = target_var_type != nullptr;
+            if (is_literal) {
+                // Literal: just update type
+                assert(!is_var);
+                rhs.value()->type = is_opt ? target_opt_type->base_type : final_type;
+            }
+            if (!is_literal || is_opt || is_var) {
+                // Non-literal or target is an optional: insert cast node
+                rhs = std::make_unique<TypeCastNode>(final_type, rhs.value());
+            }
         }
-        if (dynamic_cast<const GroupType *>(expr.value()->type.get())) {
-            // The type of a group cannot be inferred
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        if (!scope->add_variable(name, expr.value()->type, scope->scope_id, is_mutable, false)) {
-            // Variable shadowing
-            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column, name);
-            return std::nullopt;
-        }
-        return DeclarationNode(expr.value()->type, name, expr);
     }
-    if (!scope->add_variable(name, type, scope->scope_id, is_mutable, false)) {
-        // Variable shadowing
-        THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name,                            //
-            std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column, name //
-        );
+
+    // Special handling for switch expressions
+    if (SwitchExpression *switch_expr = dynamic_cast<SwitchExpression *>(rhs.value().get())) {
+        for (auto &branch : switch_expr->branches) {
+            if (branch.expr->type == final_type) {
+                continue;
+            }
+
+            const std::string branch_type_str = branch.expr->type->to_string();
+            if (branch_type_str == "int" || branch_type_str == "float") {
+                branch.expr->type = final_type;
+            } else {
+                branch.expr = std::make_unique<TypeCastNode>(final_type, branch.expr);
+            }
+        }
+    }
+
+    // Add variable to scope
+    if (!scope->add_variable(name, final_type, scope->scope_id, is_mutable, false)) {
+        THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, is_inferred ? lhs_tokens.first->line : std::next(lhs_tokens.first)->line,
+            is_inferred ? lhs_tokens.first->column : std::next(lhs_tokens.first)->column, name);
         return std::nullopt;
     }
-    // When the type is known we pass it to the create_expression function so that it can check for the needed type
-    if (rhs.has_value()) {
-        return DeclarationNode(type, name, rhs);
-    }
-    auto expr = create_expression(scope, tokens_mut, type);
-    if (!expr.has_value()) {
-        return std::nullopt;
-    }
-    return DeclarationNode(type, name, expr);
+
+    return DeclarationNode(final_type, name, rhs);
 }
 
 std::optional<UnaryOpStatement> Parser::create_unary_op_statement(std::shared_ptr<Scope> scope, const token_slice &tokens) {
@@ -1720,16 +1807,18 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
 
     const auto &field_type = std::get<3>(field_access_base.value());
     if (field_type != expression.value()->type) {
-        const auto castability = check_castability(field_type, expression.value()->type);
-        if (!castability.has_value()) {
+        const CastDirection castability = check_castability(field_type, expression.value()->type);
+        if (castability.kind != CastDirection::Kind::CAST_RHS_TO_LHS) {
+            // Expression not castable to the field's type
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (!castability.value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
+        const std::string type_str = expression.value()->type->to_string();
+        if (type_str == "int" || type_str == "float") {
+            expression.value()->type = field_type;
+        } else {
+            expression = std::make_unique<TypeCastNode>(field_type, expression.value());
         }
-        expression = std::make_unique<TypeCastNode>(field_type, expression.value());
     }
 
     // WARNING: There could be a possible memory corruption here, as the `base_expr` unique pointer goes out of scope here. This warning can
@@ -1926,6 +2015,11 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
     auto indexing_expressions = create_group_expressions(scope, indexing_tokens);
     if (!indexing_expressions.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Every expression in the indexing expressions needs to be castable a `u64` type, if it's not of that type already we need to cast it
+    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+    if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
         return std::nullopt;
     }
     // Now the next token should be a = sign

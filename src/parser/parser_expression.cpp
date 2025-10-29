@@ -5,6 +5,7 @@
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
+#include "parser/ap_float.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -33,7 +34,119 @@
 #include <memory>
 #include <variant>
 
-std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type) {
+Parser::CastDirection Parser::check_primitive_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type) {
+    const std::string lhs_str = lhs_type->to_string();
+    const std::string rhs_str = rhs_type->to_string();
+    assert(lhs_str != rhs_str);
+
+    // Check if both sides are literals, cast int to float in that case
+    if (lhs_str == "int" && rhs_str == "float") {
+        // Cast lhs (int) to rhs (float)
+        return CastDirection::lhs_to_rhs();
+    } else if (lhs_str == "float" && rhs_str == "int") {
+        // Cast rhs (int) to lhs (float)
+        return CastDirection::rhs_to_lhs();
+    }
+
+    // Check if lhs can implicitly cast to rhs
+    bool lhs_to_rhs_allowed = false;
+    auto lhs_cast_it = primitive_implicit_casting_table.find(lhs_str);
+    if (lhs_cast_it != primitive_implicit_casting_table.end()) {
+        const auto &lhs_targets = lhs_cast_it->second;
+        auto it = std::find(lhs_targets.begin(), lhs_targets.end(), rhs_str);
+        if (it != lhs_targets.end()) {
+            lhs_to_rhs_allowed = true;
+        }
+    }
+
+    // Check if rhs can implicitly cast to lhs
+    bool rhs_to_lhs_allowed = false;
+    auto rhs_cast_it = primitive_implicit_casting_table.find(rhs_str);
+    if (rhs_cast_it != primitive_implicit_casting_table.end()) {
+        const auto &rhs_targets = rhs_cast_it->second;
+        auto it = std::find(rhs_targets.begin(), rhs_targets.end(), lhs_str);
+        if (it != rhs_targets.end()) {
+            rhs_to_lhs_allowed = true;
+        }
+    }
+
+    // If only one direction is allowed, choose that
+    if (lhs_to_rhs_allowed && !rhs_to_lhs_allowed) {
+        return CastDirection::lhs_to_rhs();
+    }
+    if (rhs_to_lhs_allowed && !lhs_to_rhs_allowed) {
+        return CastDirection::rhs_to_lhs();
+    }
+    // If both directions are allowed, it's castable both ways (for example u8 <-> bool8)
+    if (rhs_to_lhs_allowed && lhs_to_rhs_allowed) {
+        return CastDirection::bidirectional();
+    }
+    // If neither direction is allowed, types are incompatible
+    if (!lhs_to_rhs_allowed && !rhs_to_lhs_allowed) {
+        return CastDirection::not_castable();
+    }
+
+    // Special case: concrete type + float literal
+    // Example: i32 + 3.0 -> both should become f32
+    if (rhs_str == "float") {
+        // rhs is unresolved float literal, lhs is concrete
+        if (lhs_str == "f32" || lhs_str == "f64") {
+            return CastDirection::rhs_to_lhs();
+        }
+        const std::shared_ptr<Type> f32_ty = Type::get_primitive_type("f32");
+        return CastDirection::both_to_common(f32_ty);
+    }
+    if (lhs_str == "float") {
+        // lhs is unresolved float literal, rhs is concrete
+        if (rhs_str == "f32" || rhs_str == "f64") {
+            return CastDirection::lhs_to_rhs();
+        }
+        const std::shared_ptr<Type> f32_ty = Type::get_primitive_type("f32");
+        return CastDirection::both_to_common(f32_ty);
+    }
+
+    // Prefer concrete types over int literals
+    if (lhs_str == "int") {
+        return CastDirection::lhs_to_rhs(); // int literal adopts concrete type
+    }
+    if (rhs_str == "int") {
+        return CastDirection::rhs_to_lhs(); // int literal adopts concrete type
+    }
+
+    // If no side is a literal or compile-time type, prefer widening conversions
+    // Check if one is strictly wider than the other
+    static const std::unordered_map<std::string_view, int> type_size = {
+        {"bool", 1},
+        {"bool8", 8},
+        {"u8", 8},
+        {"i32", 32},
+        {"u32", 32},
+        {"i64", 64},
+        {"u64", 64},
+        {"f32", 32},
+        {"f64", 64},
+    };
+    auto lhs_size_it = type_size.find(lhs_str);
+    auto rhs_size_it = type_size.find(rhs_str);
+    if (lhs_size_it != type_size.end() && rhs_size_it != type_size.end()) {
+        int lhs_bits = lhs_size_it->second;
+        int rhs_bits = rhs_size_it->second;
+
+        if (lhs_bits < rhs_bits) {
+            // Cast smaller lhs to larger rhs
+            return CastDirection::lhs_to_rhs();
+        }
+        if (rhs_bits < lhs_bits) {
+            // Cast smaller rhs to larger lhs
+            return CastDirection::rhs_to_lhs();
+        }
+    }
+
+    // Default fallback - cast lhs to rhs (left-to-right bias)
+    return CastDirection::lhs_to_rhs();
+}
+
+Parser::CastDirection Parser::check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type) {
     const GroupType *lhs_group = dynamic_cast<const GroupType *>(lhs_type.get());
     const GroupType *rhs_group = dynamic_cast<const GroupType *>(rhs_type.get());
     if (lhs_group == nullptr && rhs_group == nullptr) {
@@ -42,14 +155,42 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
         const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get());
         const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs_type.get());
         if (lhs_mult != nullptr && rhs_mult == nullptr && lhs_mult->base_type == rhs_type) {
-            return true;
+            return CastDirection::rhs_to_lhs();
         } else if (lhs_mult == nullptr && rhs_mult != nullptr && lhs_type == rhs_mult->base_type) {
-            return false;
+            return CastDirection::lhs_to_rhs();
         }
         if (lhs_type->to_string() == "__flint_type_str_lit" && rhs_type->to_string() == "str") {
-            return false;
+            return CastDirection::lhs_to_rhs();
         } else if (lhs_type->to_string() == "str" && rhs_type->to_string() == "__flint_type_str_lit") {
-            return true;
+            return CastDirection::rhs_to_lhs();
+        }
+        // Check if one or both of the sides are variant types, the other side then needs to be one of the possible variant types
+        const VariantType *lhs_var = dynamic_cast<const VariantType *>(lhs_type.get());
+        const VariantType *rhs_var = dynamic_cast<const VariantType *>(rhs_type.get());
+        if (lhs_var != nullptr && rhs_var != nullptr) {
+            // Variants of different types cannot be cast to one another in any way
+            THROW_BASIC_ERR(ERR_PARSING);
+            return CastDirection::not_castable();
+        } else if (lhs_var != nullptr) {
+            const std::string lhs_type_str = lhs_type->to_string();
+            const std::string rhs_type_str = rhs_type->to_string();
+            for (const auto &[_, type] : lhs_var->get_possible_types()) {
+                const std::string type_str = type->to_string();
+                if (type == rhs_type) {
+                    return CastDirection::rhs_to_lhs();
+                }
+            }
+            return CastDirection::not_castable();
+        } else if (rhs_var != nullptr) {
+            const std::string lhs_type_str = lhs_type->to_string();
+            const std::string rhs_type_str = rhs_type->to_string();
+            for (const auto &[_, type] : rhs_var->get_possible_types()) {
+                const std::string type_str = type->to_string();
+                if (type == lhs_type) {
+                    return CastDirection::lhs_to_rhs();
+                }
+            }
+            return CastDirection::not_castable();
         }
         // Check one or both of the sides are optional types
         const OptionalType *lhs_opt = dynamic_cast<const OptionalType *>(lhs_type.get());
@@ -60,110 +201,162 @@ std::optional<bool> Parser::check_castability(const std::shared_ptr<Type> &lhs_t
             const std::string rhs_str = rhs_type->to_string();
             if (lhs_str == "void?" || rhs_str == "void?") {
                 // If rhs is void? then rhs -> lhs, otherwise lhs -> rhs
-                return rhs_str == "void?";
+                return rhs_str == "void?" ? CastDirection::rhs_to_lhs() : CastDirection::lhs_to_rhs();
             }
             // None of the sides is a optional literal, so we need to check if one of the sides is the same type as the optional's base type
-            if (lhs_opt != nullptr && lhs_opt->base_type == rhs_type) {
-                return true; // rhs -> lhs
-            } else if (rhs_opt != nullptr && rhs_opt->base_type == lhs_type) {
-                return false; // lhs -> rhs
-            } else {
-                // Completely different optional types
-                return std::nullopt;
-            }
-        }
-        // Check if one or both of the sides are variant types, the other side then needs to be one of the possible variant types
-        const VariantType *lhs_var = dynamic_cast<const VariantType *>(lhs_type.get());
-        const VariantType *rhs_var = dynamic_cast<const VariantType *>(rhs_type.get());
-        if (lhs_var != nullptr && rhs_var != nullptr) {
-            // Variants of different types cannot be cast to one another in any way
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        } else if (lhs_var != nullptr) {
-            for (const auto &[_, type] : lhs_var->get_possible_types()) {
-                if (type == rhs_type) {
-                    return true;
+            if (lhs_opt != nullptr) {
+                if (lhs_opt->base_type == rhs_type) {
+                    return CastDirection::rhs_to_lhs();
+                } else if ((rhs_str == "int" || rhs_str == "float")                                                           //
+                    && check_primitive_castability(lhs_opt->base_type, rhs_type).kind == CastDirection::Kind::CAST_RHS_TO_LHS //
+                ) {
+                    return CastDirection::rhs_to_lhs();
+                }
+                const CastDirection cast = check_castability(lhs_opt->base_type, rhs_type);
+                switch (cast.kind) {
+                    case CastDirection::Kind::CAST_BIDIRECTIONAL:
+                    case CastDirection::Kind::CAST_RHS_TO_LHS:
+                        return CastDirection::rhs_to_lhs();
+                    default:
+                        return CastDirection::not_castable();
+                }
+            } else if (rhs_opt != nullptr) {
+                if (rhs_opt->base_type == lhs_type) {
+                    return CastDirection::lhs_to_rhs();
+                } else if ((lhs_str == "int" || lhs_str == "float")                                                           //
+                    && check_primitive_castability(rhs_opt->base_type, lhs_type).kind == CastDirection::Kind::CAST_RHS_TO_LHS //
+                ) {
+                    return CastDirection::lhs_to_rhs();
+                }
+                const CastDirection cast = check_castability(rhs_opt->base_type, lhs_type);
+                switch (cast.kind) {
+                    case CastDirection::Kind::CAST_BIDIRECTIONAL:
+                    case CastDirection::Kind::CAST_LHS_TO_RHS:
+                        return CastDirection::lhs_to_rhs();
+                    default:
+                        break;
                 }
             }
-            return std::nullopt;
-        } else if (rhs_var != nullptr) {
-            for (const auto &[_, type] : rhs_var->get_possible_types()) {
-                if (type == lhs_type) {
-                    return false;
-                }
-            }
-            return std::nullopt;
         }
-        if (type_precedence.find(lhs_type->to_string()) == type_precedence.end() ||
-            type_precedence.find(rhs_type->to_string()) == type_precedence.end()) {
-            // Not castable, wrong arg types
-            return std::nullopt;
-        }
-        const unsigned int lhs_precedence = type_precedence.at(lhs_type->to_string());
-        const unsigned int rhs_precedence = type_precedence.at(rhs_type->to_string());
-        return lhs_precedence > rhs_precedence;
+        return check_primitive_castability(lhs_type, rhs_type);
     } else if (lhs_group == nullptr && rhs_group != nullptr) {
         // Left is no group, right is group
-        // Check if left is a multi-type, then the right is castable to the left
-        const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get());
-        if (lhs_mult == nullptr) {
-            return std::nullopt;
-        }
-        // The group must have the same size as the multi-type
-        if (lhs_mult->width != rhs_group->types.size()) {
-            return std::nullopt;
-        }
-        // All elements in the group must have the same type as the multi-type
-        for (size_t i = 0; i < lhs_mult->width; i++) {
-            if (lhs_mult->base_type != rhs_group->types[i]) {
-                return std::nullopt;
+        if (const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get())) {
+            // If left is a multi-type, then the right is castable to the left
+            // The group must have the same size as the multi-type
+            if (lhs_mult->width != rhs_group->types.size()) {
+                return CastDirection::not_castable();
             }
+            // All elements in the group must have the same type as the multi-type
+            for (size_t i = 0; i < lhs_mult->width; i++) {
+                if (lhs_mult->base_type != rhs_group->types[i]) {
+                    return CastDirection::not_castable();
+                }
+            }
+            return CastDirection::rhs_to_lhs();
+        } else if (const TupleType *lhs_tup = dynamic_cast<const TupleType *>(lhs_type.get())) {
+            // If left is a tuple type then the right is castable to the left
+            if (lhs_tup->types.size() != rhs_group->types.size()) {
+                return CastDirection::not_castable();
+            }
+            // All elements in the group must be castable or equal to the element of the tuple
+            for (size_t i = 0; i < lhs_tup->types.size(); i++) {
+                const std::shared_ptr<Type> lhs_elem_type = lhs_tup->types[i];
+                const std::shared_ptr<Type> rhs_elem_type = rhs_group->types[i];
+                if (lhs_elem_type == rhs_elem_type) {
+                    continue;
+                }
+                const std::string rhs_elem_type_str = rhs_elem_type->to_string();
+                const CastDirection elem_castability = check_castability(lhs_elem_type, rhs_elem_type);
+                switch (elem_castability.kind) {
+                    default:
+                        return CastDirection::not_castable();
+                    case CastDirection::Kind::CAST_RHS_TO_LHS:
+                        if (rhs_elem_type_str == "int" || rhs_elem_type_str == "float") {
+                            // We somehow need to change the type of the rhs expression directly, but that's not possible in this function
+                        } else {
+                            // We somehow need to wrap the rhs in a TypeCastNode, but this is not possible in this function
+                        }
+                }
+            }
+            return CastDirection::rhs_to_lhs();
+        } else {
+            return CastDirection::not_castable();
         }
-        return true;
     } else if (lhs_group != nullptr && rhs_group == nullptr) {
-        // Left is group, right is no group
-        // Check if right is a multi-type, then the left is castable to the right
-        const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs_type.get());
-        if (rhs_mult == nullptr) {
-            return std::nullopt;
+        // Left is group, right is no group, so we call the function itself and just swap the sides, this effectively executes the branch
+        // above, and then we just need to flip the result for the directional casts afterwards
+        CastDirection cast_dir = check_castability(rhs_type, lhs_type);
+        switch (cast_dir.kind) {
+            case CastDirection::Kind::CAST_LHS_TO_RHS:
+                cast_dir.kind = CastDirection::Kind::CAST_RHS_TO_LHS;
+                break;
+            case CastDirection::Kind::CAST_RHS_TO_LHS:
+                cast_dir.kind = CastDirection::Kind::CAST_LHS_TO_RHS;
+                break;
+            default:
+                break;
         }
-        // The group must have the same size as the multi-type
-        if (rhs_mult->width != lhs_group->types.size()) {
-            return std::nullopt;
-        }
-        // All elements in the group must have the same type as the multi-type
-        for (size_t i = 0; i < rhs_mult->width; i++) {
-            if (rhs_mult->base_type != lhs_group->types[i]) {
-                return std::nullopt;
-            }
-        }
-        return false;
+        return cast_dir;
     } else {
         // Both group
         // TODO
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-        return false;
+        return CastDirection::lhs_to_rhs();
     }
-    return true;
+    return CastDirection::rhs_to_lhs();
 }
 
 bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
     if (lhs->type == rhs->type) {
         return true;
     }
-    std::optional<bool> castability = check_castability(lhs->type, rhs->type);
-    if (!castability.has_value()) {
-        // Not castable
-        return false;
+    const CastDirection castability = check_castability(lhs->type, rhs->type);
+    switch (castability.kind) {
+        case CastDirection::Kind::NOT_CASTABLE:
+            return false;
+        case CastDirection::Kind::CAST_LHS_TO_RHS: {
+            const std::string lhs_type_str = lhs->type->to_string();
+            if (lhs_type_str == "int" || lhs_type_str == "float") {
+                // Just change the target type of the literal itself, marking it as "resolved"
+                lhs->type = rhs->type;
+            } else {
+                lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
+            }
+            return true;
+        }
+        case CastDirection::Kind::CAST_BIDIRECTIONAL: // If it's able to be cast both ways we just cast the rhs to the lhs
+        case CastDirection::Kind::CAST_RHS_TO_LHS: {
+            const std::string rhs_type_str = rhs->type->to_string();
+            if (rhs_type_str == "int" || rhs_type_str == "float") {
+                // Just change the target type of the literal itself, marking it as "resolved"
+                rhs->type = lhs->type;
+            } else {
+                rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
+            }
+            return true;
+        }
+        case CastDirection::Kind::CAST_BOTH_TO_COMMON: {
+            const std::string lhs_type_str = lhs->type->to_string();
+            const std::string rhs_type_str = rhs->type->to_string();
+            if (lhs_type_str == "int" || lhs_type_str == "float") {
+                // Just change the target type of the literal itself, marking it as "resolved"
+                lhs->type = castability.common_type;
+            } else {
+                lhs = std::make_unique<TypeCastNode>(castability.common_type, lhs);
+            }
+            if (rhs_type_str == "int" || rhs_type_str == "float") {
+                // Just change the target type of the literal itself, marking it as "resolved"
+                rhs->type = castability.common_type;
+            } else {
+                rhs = std::make_unique<TypeCastNode>(castability.common_type, rhs);
+            }
+            return true;
+        }
     }
-    if (castability.value()) {
-        // The right type needs to be cast to the left type
-        rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
-    } else {
-        // The left type needs to be cast to the right type
-        lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
-    }
-    return true;
+    // This should never be reached
+    assert(false);
+    return false;
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
@@ -171,16 +364,18 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
     const Token operation,                                                  //
     std::unique_ptr<ExpressionNode> &rhs                                    //
 ) {
-    // The lhs and rhs types must be the same to be folded
-    if (lhs->type != rhs->type) {
-        return std::nullopt;
-    }
     // Currently, only literals can be const folded
     const LiteralNode *lhs_ptr = dynamic_cast<const LiteralNode *>(lhs.get());
     const LiteralNode *rhs_ptr = dynamic_cast<const LiteralNode *>(rhs.get());
     if (lhs_ptr == nullptr || rhs_ptr == nullptr) {
         return std::nullopt;
     }
+    // The lhs and rhs types must be the same to be folded, or it must be literals, but only literals are supported for now, so this check
+    // is redundant
+    // if (lhs->type != rhs->type && !is_literal) {
+    //     return std::nullopt;
+    // }
+
     // Const folding can only be applied if the binary operator is an arithmetic operation
     if (!Matcher::token_match(operation, Matcher::operational_binop) && !Matcher::token_match(operation, Matcher::boolean_binop)) {
         return std::nullopt;
@@ -209,14 +404,36 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             assert(false);
             break;
         case TOK_PLUS:
-            if (std::holds_alternative<LitI64>(lhs->value)) {
-                const long new_lit = std::get<LitI64>(lhs->value).value + std::get<LitI64>(rhs->value).value;
-                LitValue lit_value = LitI64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
-            } else if (std::holds_alternative<LitF64>(lhs->value)) {
-                const double new_lit = std::get<LitF64>(lhs->value).value + std::get<LitF64>(rhs->value).value;
-                LitValue lit_value = LitF64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+            if (std::holds_alternative<LitInt>(lhs->value)) {
+                const APInt lhs_int = std::get<LitInt>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    rhs_float += lhs_int;
+                    LitValue lit_value = LitFloat{.value = rhs_float};
+                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    rhs_int += lhs_int;
+                    LitValue lit_value = LitInt{.value = rhs_int};
+                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
+                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    lhs_float += rhs_float;
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    lhs_float += rhs_int;
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                LitValue lit_value = LitFloat{.value = lhs_float};
+                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitStr>(lhs->value)) {
                 const std::string new_lit = std::get<LitStr>(lhs->value).value + std::get<LitStr>(rhs->value).value;
                 LitValue lit_value = LitStr{.value = new_lit};
@@ -228,14 +445,36 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             }
             break;
         case TOK_MINUS:
-            if (std::holds_alternative<LitI64>(lhs->value)) {
-                const long new_lit = std::get<LitI64>(lhs->value).value - std::get<LitI64>(rhs->value).value;
-                LitValue lit_value = LitI64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
-            } else if (std::holds_alternative<LitF64>(lhs->value)) {
-                const double new_lit = std::get<LitF64>(lhs->value).value - std::get<LitF64>(rhs->value).value;
-                LitValue lit_value = LitF64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+            if (std::holds_alternative<LitInt>(lhs->value)) {
+                const APInt lhs_int = std::get<LitInt>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    rhs_float -= lhs_int;
+                    LitValue lit_value = LitFloat{.value = rhs_float};
+                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    rhs_int -= lhs_int;
+                    LitValue lit_value = LitInt{.value = rhs_int};
+                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
+                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    lhs_float -= rhs_float;
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    lhs_float -= rhs_int;
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                LitValue lit_value = LitFloat{.value = lhs_float};
+                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value - std::get<LitU8>(rhs->value).value;
                 LitValue lit_value = LitU8{.value = new_lit};
@@ -243,14 +482,36 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             }
             break;
         case TOK_MULT:
-            if (std::holds_alternative<LitI64>(lhs->value)) {
-                const long new_lit = std::get<LitI64>(lhs->value).value * std::get<LitI64>(rhs->value).value;
-                LitValue lit_value = LitI64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
-            } else if (std::holds_alternative<LitF64>(lhs->value)) {
-                const double new_lit = std::get<LitF64>(lhs->value).value * std::get<LitF64>(rhs->value).value;
-                LitValue lit_value = LitF64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+            if (std::holds_alternative<LitInt>(lhs->value)) {
+                const APInt lhs_int = std::get<LitInt>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    rhs_float *= lhs_int;
+                    LitValue lit_value = LitFloat{.value = rhs_float};
+                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    rhs_int *= lhs_int;
+                    LitValue lit_value = LitInt{.value = rhs_int};
+                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
+                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    lhs_float *= rhs_float;
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    lhs_float *= rhs_int;
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                LitValue lit_value = LitFloat{.value = lhs_float};
+                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value * std::get<LitU8>(rhs->value).value;
                 LitValue lit_value = LitU8{.value = new_lit};
@@ -258,14 +519,37 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             }
             break;
         case TOK_DIV:
-            if (std::holds_alternative<LitI64>(lhs->value)) {
-                const long new_lit = std::get<LitI64>(lhs->value).value / std::get<LitI64>(rhs->value).value;
-                LitValue lit_value = LitI64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
-            } else if (std::holds_alternative<LitF64>(lhs->value)) {
-                const double new_lit = std::get<LitF64>(lhs->value).value / std::get<LitF64>(rhs->value).value;
-                LitValue lit_value = LitF64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+            if (std::holds_alternative<LitInt>(lhs->value)) {
+                APInt lhs_int = std::get<LitInt>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    APFloat lhs_float = APFloat(lhs_int);
+                    lhs_float /= rhs_float;
+                    LitValue lit_value = LitFloat{.value = lhs_float};
+                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    lhs_int /= rhs_int;
+                    LitValue lit_value = LitInt{.value = lhs_int};
+                    return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
+                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    lhs_float *= rhs_float;
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    lhs_float *= rhs_int;
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                LitValue lit_value = LitFloat{.value = lhs_float};
+                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value / std::get<LitU8>(rhs->value).value;
                 LitValue lit_value = LitU8{.value = new_lit};
@@ -273,14 +557,37 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
             }
             break;
         case TOK_POW:
-            if (std::holds_alternative<LitI64>(lhs->value)) {
-                const long new_lit = static_cast<long>(std::pow(std::get<LitI64>(lhs->value).value, std::get<LitI64>(rhs->value).value));
-                LitValue lit_value = LitI64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
-            } else if (std::holds_alternative<LitF64>(lhs->value)) {
-                const double new_lit = std::pow(std::get<LitF64>(lhs->value).value, std::get<LitF64>(rhs->value).value);
-                LitValue lit_value = LitF64{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+            if (std::holds_alternative<LitInt>(lhs->value)) {
+                APInt lhs_int = std::get<LitInt>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    APFloat lhs_float = APFloat(lhs_int);
+                    lhs_float ^= rhs_float;
+                    LitValue lit_value = LitFloat{.value = lhs_float};
+                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    lhs_int ^= rhs_int;
+                    LitValue lit_value = LitInt{.value = lhs_int};
+                    return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
+                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
+                if (std::holds_alternative<LitFloat>(rhs->value)) {
+                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
+                    lhs_float ^= rhs_float;
+                } else if (std::holds_alternative<LitInt>(rhs->value)) {
+                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
+                    lhs_float ^= rhs_int;
+                } else {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                LitValue lit_value = LitFloat{.value = lhs_float};
+                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = static_cast<char>(std::pow(std::get<LitU8>(lhs->value).value, std::get<LitU8>(rhs->value).value));
                 LitValue lit_value = LitU8{.value = new_lit};
@@ -400,43 +707,16 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 return LiteralNode(lit_val, opt_type.value());
             }
             case TOK_INT_VALUE: {
-                if (front_token == TOK_MINUS) {
-                    const long long lit_value = std::stoll(lexme) * -1;
-                    if (lit_value > static_cast<long long>(INT32_MAX) || lit_value < static_cast<long long>(INT32_MIN)) {
-                        LitValue lit_val = LitI64{.value = static_cast<long>(lit_value)};
-                        return LiteralNode(lit_val, Type::get_primitive_type("i64"));
-                    } else {
-                        LitValue lit_val = LitI32{.value = static_cast<int>(lit_value)};
-                        return LiteralNode(lit_val, Type::get_primitive_type("i32"));
-                    }
-                } else {
-                    const unsigned long long lit_value = std::stoll(lexme);
-                    if (lit_value > static_cast<unsigned long long>(UINT64_MAX)) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    } else if (lit_value > static_cast<unsigned long long>(INT64_MAX)) {
-                        LitValue lit_val = LitU64{.value = static_cast<unsigned long>(lit_value)};
-                        return LiteralNode(lit_val, Type::get_primitive_type("u64"));
-                    } else if (lit_value > static_cast<unsigned long long>(UINT32_MAX)) {
-                        LitValue lit_val = LitI64{.value = static_cast<long>(lit_value)};
-                        return LiteralNode(lit_val, Type::get_primitive_type("i64"));
-                    } else if (lit_value > static_cast<unsigned long long>(INT32_MAX)) {
-                        LitValue lit_val = LitU32{.value = static_cast<unsigned int>(lit_value)};
-                        return LiteralNode(lit_val, Type::get_primitive_type("u32"));
-                    } else {
-                        LitValue lit_val = LitI32{.value = static_cast<int>(lit_value)};
-                        return LiteralNode(lit_val, Type::get_primitive_type("i32"));
-                    }
-                }
+                APInt lit_int = APInt(lexme);
+                lit_int.is_negative = front_token == TOK_MINUS;
+                LitValue lit_val = LitInt{.value = lit_int};
+                return LiteralNode(lit_val, Type::get_type_from_str("int").value());
             }
             case TOK_FLINT_VALUE: {
-                if (front_token == TOK_MINUS) {
-                    LitValue lit_value = LitF32{.value = std::stof(lexme) * -1};
-                    return LiteralNode(lit_value, Type::get_primitive_type("f32"));
-                } else {
-                    LitValue lit_value = LitF32{.value = std::stof(lexme)};
-                    return LiteralNode(lit_value, Type::get_primitive_type("f32"));
-                }
+                APFloat lit_float = APFloat(lexme);
+                lit_float.is_negative = front_token == TOK_MINUS;
+                LitValue lit_val = LitFloat{.value = lit_float};
+                return LiteralNode(lit_val, Type::get_type_from_str("float").value());
             }
             case TOK_STR_VALUE: {
                 size_t pos = 0;
@@ -604,6 +884,12 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
         if (expr.value()->type->to_string() == "str") {
             interpol_content.emplace_back(std::move(expr.value()));
         } else {
+            const std::string type_str = expr.value()->type->to_string();
+            if (type_str == "int") {
+                expr.value()->type = Type::get_primitive_type("i32");
+            } else if (type_str == "float") {
+                expr.value()->type = Type::get_primitive_type("f32");
+            }
             interpol_content.emplace_back(std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expr.value()));
         }
 
@@ -709,18 +995,27 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(std::sha
     }
 
     // Check if the type of the expression is castable at all
-    if (primitive_casting_table.find(expression.value()->type->to_string()) == primitive_casting_table.end()) {
+    const std::string expr_type_str = expression.value()->type->to_string();
+    if (primitive_casting_table.find(expr_type_str) == primitive_casting_table.end()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const std::vector<std::string_view> &to_types = primitive_casting_table.at(expression.value()->type->to_string());
+    const std::vector<std::string_view> &to_types = primitive_casting_table.at(expr_type_str);
     if (std::find(to_types.begin(), to_types.end(), to_type_string) == to_types.end()) {
         // The given expression type cannot be cast to the wanted type
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
+    if (expr_type_str == "int" || expr_type_str == "float") {
+        expression.value()->type = to_type;
+        return expression;
+    }
 
-    return std::make_unique<TypeCastNode>(to_type, expression.value());
+    auto ret = std::make_unique<TypeCastNode>(to_type, expression.value());
+    ret->line = tokens.first->line;
+    ret->column = tokens.first->column;
+    ret->length = (tokens.first + expr_range.value().second + 1)->column - tokens.first->column;
+    return ret;
 }
 
 std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
@@ -778,14 +1073,19 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_p
 
     // Check if the types in the group are correct
     for (unsigned int i = 0; i < expressions.size(); i++) {
-        if (dynamic_cast<const GroupType *>(expressions[i]->type.get())) {
+        const std::string type_str = expressions[i]->type->to_string();
+        if (type_str == "__flint_type_str_lit") {
+            expressions[i] = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expressions[i]);
+        } else if (type_str == "int") {
+            expressions[i]->type = Type::get_primitive_type("i32");
+        } else if (type_str == "float") {
+            expressions[i]->type = Type::get_primitive_type("f32");
+        } else if (dynamic_cast<const GroupType *>(expressions[i]->type.get())) {
             // Nested groups are not allowed
             const auto match_range = match_ranges[i];
             token_slice expression_tokens = {tokens_mut.first + match_range.first, tokens_mut.first + match_range.second};
             THROW_ERR(ErrExprNestedGroup, ERR_PARSING, file_name, expression_tokens);
             return std::nullopt;
-        } else if (expressions[i]->type->to_string() == "__flint_type_str_lit") {
-            expressions[i] = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expressions[i]);
         }
     }
     return GroupExpressionNode(expressions);
@@ -793,15 +1093,16 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_p
 
 std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions( //
     std::shared_ptr<Scope> scope,                                                             //
-    token_slice &tokens                                                                       //
+    const token_slice &tokens                                                                 //
 ) {
+    token_slice tokens_mut = tokens;
     std::vector<std::unique_ptr<ExpressionNode>> expressions;
-    while (tokens.first != tokens.second) {
-        std::optional<uint2> next_expr_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
+    while (tokens_mut.first != tokens_mut.second) {
+        std::optional<uint2> next_expr_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_comma);
         if (!next_expr_range.has_value()) {
             // The last expression
-            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(scope, tokens);
-            tokens.first = tokens.second;
+            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(scope, tokens_mut);
+            tokens_mut.first = tokens_mut.second;
             if (!indexing_expression.has_value()) {
                 return std::nullopt;
             }
@@ -809,9 +1110,9 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
         } else {
             // Not the last expression
             std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression( //
-                scope, {tokens.first, tokens.first + next_expr_range.value().second - 1}            //
+                scope, {tokens_mut.first, tokens_mut.first + next_expr_range.value().second - 1}    //
             );
-            tokens.first += next_expr_range.value().second;
+            tokens_mut.first += next_expr_range.value().second;
             if (!indexing_expression.has_value()) {
                 return std::nullopt;
             }
@@ -851,47 +1152,60 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(s
             return std::nullopt;
         }
     }
+    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
     if (is_open_low && is_open_up) {
         // It's an open-begin and open-ended range, e.g. it's just '..' meaning "from begin to end"
         assert(!lhs_expr.has_value());
         assert(!rhs_expr.has_value());
-        const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
-        LitValue lhs_zero = LitU64{.value = 0};
+        LitValue lhs_zero = LitInt{.value = APInt("0")};
         lhs_expr = std::make_unique<LiteralNode>(lhs_zero, u64_ty);
-        LitValue rhs_zero = LitU64{.value = 0};
+        LitValue rhs_zero = LitInt{.value = APInt("0")};
         rhs_expr = std::make_unique<LiteralNode>(rhs_zero, u64_ty);
         return std::make_unique<RangeExpressionNode>(lhs_expr.value(), rhs_expr.value());
     } else if (is_open_low) {
         // Its a range expression which begins at 0, because '0..5' and '..5' are the same
         assert(!lhs_expr.has_value());
         assert(rhs_expr.has_value());
-        const std::shared_ptr<Type> i32_ty = Type::get_primitive_type("i32");
-        LitValue lhs_zero = LitI32{.value = 0};
-
-        lhs_expr = std::make_unique<LiteralNode>(lhs_zero, i32_ty);
-        if (rhs_expr.value()->type != i32_ty) {
-            lhs_expr = std::make_unique<TypeCastNode>(rhs_expr.value()->type, lhs_expr.value());
-        }
+        LitValue lhs_zero = LitInt{.value = APInt("0")};
+        lhs_expr = std::make_unique<LiteralNode>(lhs_zero, u64_ty);
     } else if (is_open_up) {
         // Its an open ended range expression
         assert(lhs_expr.has_value());
         assert(!rhs_expr.has_value());
-        const std::shared_ptr<Type> i32_ty = Type::get_primitive_type("i32");
-        LitValue rhs_zero = LitI32{.value = 0};
-        rhs_expr = std::make_unique<LiteralNode>(rhs_zero, i32_ty);
-        if (lhs_expr.value()->type != i32_ty) {
-            rhs_expr = std::make_unique<TypeCastNode>(lhs_expr.value()->type, rhs_expr.value());
+        LitValue rhs_zero = LitInt{.value = APInt("0")};
+        rhs_expr = std::make_unique<LiteralNode>(rhs_zero, u64_ty);
+    }
+    if (lhs_expr.value()->type != u64_ty) {
+        const CastDirection lhs_compatible = check_primitive_castability(lhs_expr.value()->type, u64_ty);
+        switch (lhs_compatible.kind) {
+            default:
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, lhs_tokens, u64_ty, lhs_expr.value()->type);
+                return std::nullopt;
+            case CastDirection::Kind::CAST_LHS_TO_RHS: {
+                const std::string type_str = lhs_expr.value()->type->to_string();
+                if (type_str == "int") {
+                    lhs_expr.value()->type = u64_ty;
+                } else {
+                    lhs_expr = std::make_unique<TypeCastNode>(u64_ty, lhs_expr.value());
+                }
+            }
         }
     }
-    if (lhs_expr.value()->type != rhs_expr.value()->type) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const std::string &type_str = lhs_expr.value()->type->to_string();
-    if (type_str != "i32" && type_str != "u32" && type_str != "i64" && type_str != "u64" && type_str != "u8") {
-        // Unsupported type in range expression
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+    if (rhs_expr.value()->type != u64_ty) {
+        const CastDirection rhs_compatible = check_primitive_castability(rhs_expr.value()->type, u64_ty);
+        switch (rhs_compatible.kind) {
+            default:
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, rhs_tokens, u64_ty, rhs_expr.value()->type);
+                return std::nullopt;
+            case CastDirection::Kind::CAST_LHS_TO_RHS: {
+                const std::string type_str = rhs_expr.value()->type->to_string();
+                if (type_str == "int") {
+                    rhs_expr.value()->type = u64_ty;
+                } else {
+                    rhs_expr = std::make_unique<TypeCastNode>(u64_ty, rhs_expr.value());
+                }
+            }
+        }
     }
     const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr.value().get());
     const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr.value().get());
@@ -899,42 +1213,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(s
         // Ensure that the range is correct (a range like '5..1' is not correct, it should be '1..5'. And because the upper bound is
         // exclusive a range like '1..1' is invalid too, since its one but exclusive to 1, so it's an empty range. Well maybe we will add
         // this eventually, but for now it's not allowed.
-        if (std::holds_alternative<LitI32>(lhs_lit->value)) {
-            const int lhs_lit_val = std::get<LitI32>(lhs_lit->value).value;
-            const int rhs_lit_val = std::get<LitI32>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-        } else if (std::holds_alternative<LitU32>(lhs_lit->value)) {
-            const unsigned int lhs_lit_val = std::get<LitU32>(lhs_lit->value).value;
-            const unsigned int rhs_lit_val = std::get<LitU32>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-        } else if (std::holds_alternative<LitI64>(lhs_lit->value)) {
-            const long lhs_lit_val = std::get<LitI64>(lhs_lit->value).value;
-            const long rhs_lit_val = std::get<LitI64>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-        } else if (std::holds_alternative<LitU64>(lhs_lit->value)) {
-            const unsigned long lhs_lit_val = std::get<LitU64>(lhs_lit->value).value;
-            const unsigned long rhs_lit_val = std::get<LitU64>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-        } else if (std::holds_alternative<LitU8>(lhs_lit->value)) {
-            const char lhs_lit_val = std::get<LitU8>(lhs_lit->value).value;
-            const char rhs_lit_val = std::get<LitU8>(rhs_lit->value).value;
-            if (lhs_lit_val >= rhs_lit_val && rhs_lit_val != 0) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-        } else {
+        if (!std::holds_alternative<LitInt>(lhs_lit->value) || !std::holds_alternative<LitInt>(rhs_lit->value)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const APInt lhs_val = std::get<LitInt>(lhs_lit->value).value;
+        const APInt rhs_val = std::get<LitInt>(rhs_lit->value).value;
+        if (lhs_val.is_negative || rhs_val.is_negative) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (lhs_val >= rhs_val && rhs_val.to_string() != "0") {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -993,6 +1282,23 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(std::shared
     if (!initializer.has_value()) {
         return std::nullopt;
     }
+    if (initializer.value()->type != element_type.value()) {
+        const CastDirection init_cast = check_primitive_castability(initializer.value()->type, element_type.value());
+        switch (init_cast.kind) {
+            case CastDirection::Kind::CAST_LHS_TO_RHS: {
+                const std::string type_str = initializer.value()->type->to_string();
+                if (type_str == "int" || type_str == "float") {
+                    initializer.value()->type = element_type.value();
+                } else {
+                    initializer = std::make_unique<TypeCastNode>(element_type.value(), initializer.value());
+                }
+                break;
+            }
+            default:
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, initializer_tokens, element_type.value(), initializer.value()->type);
+                return std::nullopt;
+        }
+    }
 
     // The first token in the tokens list should be a left bracket
     assert(tokens_mut.first->token == TOK_LEFT_BRACKET);
@@ -1004,6 +1310,11 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(std::shared
     auto length_expressions = create_group_expressions(scope, tokens_mut);
     if (!length_expressions.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Every expression in the indexing expressions needs to be castable a `u64` type, if it's not of that type already we need to cast it
+    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+    if (!ensure_castability_multiple(u64_ty, length_expressions.value(), tokens_mut)) {
         return std::nullopt;
     }
 
@@ -1165,6 +1476,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap(st
         }
         if (indexing_expressions.value().size() != dimensionality) {
             THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+        if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
             return std::nullopt;
         }
         std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(base_expr.value());
@@ -1397,7 +1712,10 @@ std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope
     // Now we can parse the indexing expression(s)
     std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(scope, indexing_tokens);
     if (!indexing_expressions.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+    if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
         return std::nullopt;
     }
     if (is_str_type) {
@@ -1657,7 +1975,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (!Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) || (range.has_value() && range.value().second == token_size)) {
             std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(scope, tokens_mut);
             if (!unary_op.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
@@ -1769,7 +2086,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (range.has_value() && range.value().first == 2 && range.value().second == token_size) {
             std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(scope, tokens_mut);
             if (!group_access.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
@@ -1778,14 +2094,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     if (Matcher::tokens_match(tokens_mut, Matcher::array_initializer)) {
         std::optional<ArrayInitializerNode> initializer = create_array_initializer(scope, tokens_mut);
         if (!initializer.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
     } else if (Matcher::tokens_match(tokens_mut, Matcher::array_access)) {
         std::optional<ArrayAccessNode> access = create_array_access(scope, tokens_mut);
         if (!access.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::make_unique<ArrayAccessNode>(std::move(access.value()));
@@ -1795,7 +2109,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator)) {
             std::optional<OptionalChainNode> chain = create_optional_chain(scope, tokens_mut);
             if (!chain.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return std::make_unique<OptionalChainNode>(std::move(chain.value()));
@@ -1807,7 +2120,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     ) {
         std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(scope, tokens_mut);
         if (!unwrap.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::move(unwrap.value());
@@ -1818,7 +2130,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     ) {
         std::optional<VariantExtractionNode> extraction = create_variant_extraction(scope, tokens_mut);
         if (!extraction.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::make_unique<VariantExtractionNode>(std::move(extraction.value()));
@@ -1829,7 +2140,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     ) {
         std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(scope, tokens_mut);
         if (!unwrap.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         return std::move(unwrap.value());
@@ -1923,8 +2233,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         return std::nullopt;
     }
 
-    // Check if all parameter types actually match the argument types
-    // If we came until here, the arg count definitely matches the parameter count
+    // Check if both sides of the binop match, if they don't then crash
     if (lhs.value()->type != rhs.value()->type) {
         // Check if the operator is a optional default, in this case we need to check whether the lhs is an optional and whether the rhs
         // is the base type of the optional, otherwise it is considered an error
@@ -1936,9 +2245,24 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             if (rhs.value()->type != lhs_opt->base_type) {
-                // The rhs of the ?? operator must be the base type of the lhs optional
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+                // The rhs of the ?? operator must be the same or implicitely castable to the base type of the optional
+                const std::string rhs_type_str = rhs.value()->type->to_string();
+                // Check if the expression is implicitely castable to the base type of the optional
+                const CastDirection castability = check_castability(lhs_opt->base_type, rhs.value()->type);
+                switch (castability.kind) {
+                    case CastDirection::Kind::CAST_BIDIRECTIONAL: // Allow casting from rhs to lhs if castable both ways
+                    case CastDirection::Kind::CAST_RHS_TO_LHS:
+                        if (rhs_type_str == "int" || rhs_type_str == "float") {
+                            // Set the type of the rhs expression literal directly
+                            rhs.value()->type = lhs_opt->base_type;
+                        }
+                        // Cast the expression to the target optional type
+                        rhs = std::make_unique<TypeCastNode>(lhs.value()->type, rhs.value());
+                        break;
+                    default:
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, lhs.value()->type, rhs.value()->type);
+                        return std::nullopt;
+                }
             }
             return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type);
         } else if (!check_castability(lhs.value(), rhs.value())) {
@@ -2029,8 +2353,23 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                 }
                 expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
             } else {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
+                const std::string expr_type_str = expression.value()->type->to_string();
+                // Check if the expression is implicitely castable to the base type of the optional
+                const CastDirection castability = check_castability(optional_type->base_type, expression.value()->type);
+                switch (castability.kind) {
+                    case CastDirection::Kind::CAST_BIDIRECTIONAL: // If castable both ways, allow implicit casting to the lhs type
+                    case CastDirection::Kind::CAST_RHS_TO_LHS:
+                        if (expr_type_str == "int" || expr_type_str == "float") {
+                            // Set the type of the rhs expression literal directly
+                            expression.value()->type = optional_type->base_type;
+                        }
+                        // Cast the expression to the target optional type
+                        expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                        break;
+                    default:
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                        return std::nullopt;
+                }
             }
         } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(expected_type.value().get())) {
             bool viable_type_found = false;
@@ -2050,7 +2389,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
         } else if (primitive_implicit_casting_table.find(expression.value()->type->to_string()) != primitive_implicit_casting_table.end()) {
             const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(expression.value()->type->to_string());
             if (std::find(to_types.begin(), to_types.end(), expected_type.value()->to_string()) != to_types.end()) {
-                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                const std::string from_type = expression.value()->type->to_string();
+                if (from_type == "int" || from_type == "float") {
+                    LiteralNode *lit_node = dynamic_cast<LiteralNode *>(expression.value().get());
+                    assert(lit_node != nullptr);
+                    lit_node->type = expected_type.value();
+                } else {
+                    expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                }
             } else {
                 THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
                 return std::nullopt;

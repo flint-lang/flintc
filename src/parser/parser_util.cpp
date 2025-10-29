@@ -445,10 +445,14 @@ Parser::create_call_or_initializer_base(         //
                             THROW_BASIC_ERR(ERR_PARSING);
                             return std::nullopt;
                         }
-                        arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
+                        if (arg_type_str == "int" || arg_type_str == "float") {
+                            arguments[i].first->type = field_type;
+                        } else {
+                            arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
+                        }
                     } else {
-                        std::optional<bool> castability = check_castability(field_type, arg_type);
-                        if (castability.has_value() && castability.value()) {
+                        const CastDirection castability = check_castability(field_type, arg_type);
+                        if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
                             arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
                         }
                     }
@@ -471,8 +475,8 @@ Parser::create_call_or_initializer_base(         //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                std::optional<bool> castability = check_castability(base_type, arg_type);
-                if (castability.has_value() && castability.value()) {
+                const CastDirection castability = check_castability(base_type, arg_type);
+                if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
                     arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
                 } else if (dynamic_cast<const PrimitiveType *>(arg_type.get())) {
                     const std::string &arg_type_str = arg_type->to_string();
@@ -485,7 +489,11 @@ Parser::create_call_or_initializer_base(         //
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
+                    if (arg_type_str == "int" || arg_type_str == "float") {
+                        arguments[i].first->type = base_type;
+                    } else {
+                        arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
+                    }
                 }
             }
             return std::make_tuple(tokens.first->type->to_string(), std::move(arguments), tokens.first->type, true, types{});
@@ -575,28 +583,41 @@ Parser::create_call_or_initializer_base(         //
     // It's not a builtin call, so we need to get the function's name, either from `fc_NAME` or from `NAME` directly
     // Let's try the `fc_NAME` first because internal functions are more likely than external function calls
     auto function = get_function_from_call("fc_" + function_name, argument_types);
-    if (!function.has_value()) {
+    if (function.empty()) {
         // Now we can try the `NAME` variation for external function calls
         function = get_function_from_call(function_name, argument_types);
-        if (!function.has_value()) {
+        if (function.empty()) {
             THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name, argument_types);
             return std::nullopt;
         }
     }
+    if (function.size() > 1) {
+        // Ambigue call to function, could be one of multiple called functions
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
     // Check if the function has an extern alias and if it has overwrite the name
-    if (!function.value().first->is_extern) {
+    if (!function.front().first->is_extern) {
         function_name = "fc_" + function_name;
     }
     // Check if the argument count does match the parameter count
-    const unsigned int param_count = function.value().first->parameters.size();
+    const unsigned int param_count = function.front().first->parameters.size();
     const unsigned int arg_count = arguments.size();
     // Argument counts are guaranteed to match the param count because if they would not, the `get_function_from_call` function would have
     // returned `std::nullopt`
     assert(param_count == arg_count);
-    // If we came until here, the argument types definitely match the function parameter types, otherwise no function would have been
-    // found Lastly, update the arguments of the call with the information of the function definition, if the arguments should be
-    // references Every non-primitive type is always a reference (except enum types, for now)
+    // If we came until here, the argument types definitely match the function parameter types, or they can be cast to them (in the literal
+    // case), otherwise no function would have been found
+    // Lastly, update the arguments of the call with the information of the function definition, if the arguments should be references Every
+    // non-primitive type is always a reference (except enum types, for now)
+    // We also check if the argument type is of type 'int' or 'float' and simply change it to the function parameter type directly
     for (size_t i = 0; i < arguments.size(); i++) {
+        const std::string arg_str = arguments[i].first->type->to_string();
+        if (arg_str == "int" || arg_str == "float") {
+            // Set the type of the argument to the expected parameter type, since we know it's compatible, otherwise the function would
+            // never been suggested as a possible function to call in the first place
+            arguments[i].first->type = std::get<0>(function.front().first->parameters[i]);
+        }
         if (dynamic_cast<const EnumType *>(arguments[i].first->type.get()) != nullptr) {
             arguments[i].second = false;
         } else {
@@ -633,7 +654,7 @@ Parser::create_call_or_initializer_base(         //
                 ++tok;
             }
             if (const VariableNode *variable_node = dynamic_cast<const VariableNode *>(arguments[i].first.get())) {
-                if (!std::get<2>(scope->variables.at(variable_node->name)) && std::get<2>(function.value().first->parameters[i])) {
+                if (!std::get<2>(scope->variables.at(variable_node->name)) && std::get<2>(function.front().first->parameters[i])) {
                     THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tok->line, tok->column, variable_node->name);
                     return std::nullopt;
                 }
@@ -641,8 +662,8 @@ Parser::create_call_or_initializer_base(         //
         }
     }
 
-    types return_types = function.value().first->return_types;
-    auto error_types = function.value().first->error_types;
+    types return_types = function.front().first->return_types;
+    auto error_types = function.front().first->error_types;
     if (return_types.empty()) {
         return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), false, error_types);
     } else if (return_types.size() > 1) {
@@ -1021,4 +1042,44 @@ Parser::create_grouped_access_base(   //
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return std::nullopt;
+}
+
+bool Parser::ensure_castability_multiple(                      //
+    const std::shared_ptr<Type> &to_type,                      //
+    std::vector<std::unique_ptr<ExpressionNode>> &expressions, //
+    const token_slice &tokens                                  //
+) {
+    // Every expression in the length expressions needs to be castable a `u64` type, if it's not of that type already we need to cast it
+    for (auto &expr : expressions) {
+        if (expr->type == to_type) {
+            continue;
+        }
+        const std::string type_str = expr->type->to_string();
+        if (type_str == "int" || type_str == "float") {
+            expr->type = to_type;
+            continue;
+        }
+        if (dynamic_cast<const RangeType *>(expr->type.get())) {
+            continue;
+        }
+        const CastDirection castability = check_primitive_castability(expr->type, to_type);
+        switch (castability.kind) {
+            default: {
+                const size_t n = expressions.size();
+                if (n > 1) {
+                    const std::vector<std::shared_ptr<Type>> types(n, to_type);
+                    const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(types);
+                    const std::shared_ptr<Type> expected_type;
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, group_type, expected_type);
+                    return false;
+                }
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, to_type, expr->type);
+                return false;
+            }
+            case CastDirection::Kind::CAST_LHS_TO_RHS:
+                expr = std::make_unique<TypeCastNode>(to_type, expr);
+                break;
+        }
+    }
+    return true;
 }

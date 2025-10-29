@@ -242,12 +242,13 @@ std::optional<std::tuple<std::string, overloads, std::optional<std::string>>> Pa
     return std::nullopt;
 }
 
-std::optional<std::pair<FunctionNode *, std::string>> Parser::get_function_from_call( //
-    const std::string &call_name,                                                     //
-    const std::vector<std::shared_ptr<Type>> &arg_types                               //
+std::vector<std::pair<FunctionNode *, std::string>> Parser::get_function_from_call( //
+    const std::string &call_name,                                                   //
+    const std::vector<std::shared_ptr<Type>> &arg_types                             //
 ) {
     std::lock_guard<std::mutex> lock(parsed_functions_mutex);
     std::vector<std::shared_ptr<Type>> fn_arg_types;
+    std::vector<std::pair<FunctionNode *, std::string>> found_functions;
     for (const auto &[fn, file_name] : parsed_functions) {
         if (fn->name != call_name) {
             continue;
@@ -255,17 +256,36 @@ std::optional<std::pair<FunctionNode *, std::string>> Parser::get_function_from_
         if (fn->parameters.size() != arg_types.size()) {
             continue;
         }
+        fn_arg_types.clear();
         fn_arg_types.reserve(fn->parameters.size());
         for (const auto &param : fn->parameters) {
             fn_arg_types.emplace_back(std::get<0>(param));
         }
-        if (fn_arg_types != arg_types) {
-            fn_arg_types.clear();
+        // Check if all parameters are of the type of the expected type, `int` and `float` comptime types can be used to call functions
+        // expecting integer and floating point types directly (calling 'some_function(5)' with the function's arg type being u64 for
+        // example)
+        bool is_ok = true;
+        for (size_t i = 0; i < arg_types.size(); i++) {
+            if (arg_types[i] == fn_arg_types[i]) {
+                continue;
+            }
+            if (arg_types[i] != fn_arg_types[i] && arg_types[i]->to_string() != "int" && arg_types[i]->to_string() != "float") {
+                is_ok = false;
+                break;
+            }
+            const CastDirection castability = check_primitive_castability(arg_types[i], fn_arg_types[i]);
+            if (castability.kind != CastDirection::Kind::CAST_LHS_TO_RHS) {
+                is_ok = false;
+                break;
+            }
+        }
+        if (!is_ok) {
+            // Continue if the function's don't match
             continue;
         }
-        return std::make_pair(fn, file_name);
+        found_functions.emplace_back(fn, file_name);
     }
-    return std::nullopt;
+    return found_functions;
 }
 
 token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_list &tokens) {

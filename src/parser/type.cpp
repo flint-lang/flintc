@@ -31,6 +31,8 @@ void Type::init_types() {
     add_type(std::make_shared<OptionalType>(void_type));
     std::shared_ptr<Type> u8_type = get_primitive_type("u8");
     get_primitive_type("anyerror");
+    get_primitive_type("int");
+    get_primitive_type("float");
 
     add_type(std::make_shared<MultiType>(bool_type, 8));
     add_type(std::make_shared<MultiType>(u8_type, 2));

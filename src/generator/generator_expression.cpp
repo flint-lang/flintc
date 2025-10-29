@@ -105,35 +105,96 @@ Generator::group_mapping Generator::Expression::generate_literal( //
     const unsigned int expr_depth,                                //
     const LiteralNode *literal_node                               //
 ) {
-    if (std::holds_alternative<LitU64>(literal_node->value)) {
-        return std::vector<llvm::Value *>{
-            llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), std::get<LitU64>(literal_node->value).value, false) //
-        };
+    if (std::holds_alternative<LitInt>(literal_node->value)) {
+        const APInt lit_int = std::get<LitInt>(literal_node->value).value;
+        const std::string lit_type = literal_node->type->to_string();
+        if (lit_type == "u8") {
+            const std::optional<unsigned char> lit_val = lit_int.to_uN<unsigned char>();
+            if (!lit_val.has_value()) {
+                // Could not convert the literal to an u8, maybe it's too big or negative?
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt8Ty(context), lit_val.value(), false)};
+        } else if (lit_type == "u32") {
+            const std::optional<unsigned int> lit_val = lit_int.to_uN<unsigned int>();
+            if (!lit_val.has_value()) {
+                // Could not convert the literal to an u32, maybe it's too big or negative?
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), lit_val.value(), false)};
+        } else if (lit_type == "u64") {
+            const std::optional<unsigned long> lit_val = lit_int.to_uN<unsigned long>();
+            if (!lit_val.has_value()) {
+                // Could not convert the literal to an u64, maybe it's too big or negative?
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), lit_val.value(), false)};
+        } else if (lit_type == "i32") {
+            const std::optional<int> lit_val = lit_int.to_iN<int>();
+            if (!lit_val.has_value()) {
+                // Could not convert the literal to an i32, maybe it's too big or too small?
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), lit_val.value(), true)};
+        } else if (lit_type == "i64") {
+            const std::optional<long> lit_val = lit_int.to_iN<long>();
+            if (!lit_val.has_value()) {
+                // Could not convert the literal to an i64, maybe it's too big or too small?
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), lit_val.value(), true) //
+            };
+        } else if (lit_type == "f32") {
+            const APFloat lit_float = APFloat(lit_int);
+            const double lit_val = lit_float.to_fN<double>();
+            return std::vector<llvm::Value *>{llvm::ConstantFP::get(llvm::Type::getFloatTy(context), lit_val)};
+        } else if (lit_type == "f64") {
+            const APFloat lit_float = APFloat(lit_int);
+            const double lit_val = lit_float.to_fN<double>();
+            return std::vector<llvm::Value *>{llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), lit_val)};
+        } else if (lit_type == "int") {
+            // Compile-time type of literal which was not resolved to be a different type
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        } else {
+            // Type that should not be possible
+            assert(false);
+            return std::nullopt;
+        }
     }
-    if (std::holds_alternative<LitI64>(literal_node->value)) {
-        return std::vector<llvm::Value *>{
-            llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), std::get<LitI64>(literal_node->value).value, true) //
-        };
-    }
-    if (std::holds_alternative<LitU32>(literal_node->value)) {
-        return std::vector<llvm::Value *>{
-            llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), std::get<LitU32>(literal_node->value).value, false) //
-        };
-    }
-    if (std::holds_alternative<LitI32>(literal_node->value)) {
-        return std::vector<llvm::Value *>{
-            llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), std::get<LitI32>(literal_node->value).value, true) //
-        };
-    }
-    if (std::holds_alternative<LitF64>(literal_node->value)) {
-        return std::vector<llvm::Value *>{
-            llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), std::get<LitF64>(literal_node->value).value) //
-        };
-    }
-    if (std::holds_alternative<LitF32>(literal_node->value)) {
-        return std::vector<llvm::Value *>{
-            llvm::ConstantFP::get(llvm::Type::getFloatTy(context), static_cast<double>(std::get<LitF32>(literal_node->value).value)) //
-        };
+    if (std::holds_alternative<LitFloat>(literal_node->value)) {
+        const APFloat lit_float = std::get<LitFloat>(literal_node->value).value;
+        const std::string lit_type = literal_node->type->to_string();
+        if (lit_type == "f32") {
+            const double lit_val = lit_float.to_fN<double>();
+            return std::vector<llvm::Value *>{llvm::ConstantFP::get(llvm::Type::getFloatTy(context), lit_val)};
+        } else if (lit_type == "f64") {
+            const double lit_val = lit_float.to_fN<double>();
+            return std::vector<llvm::Value *>{llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), lit_val)};
+        } else if (lit_type == "u8" || lit_type == "u32" || lit_type == "u64" || lit_type == "i32" || lit_type == "i64") {
+            // This can only happen when the float literal is cast to a different type, so when writing 'i32(3.3)'
+            // It is unclear whether this actually should be a compile-time error, since everything after the comma is stripped annyway
+            // TODO: Figure out whether this should be a compile-time error (with a message like "write integer literals directly ffs") or
+            // be valid Flint code
+            const APInt lit_int = lit_float.to_apint();
+            LitValue lit_value = LitInt{.value = lit_int};
+            const std::unique_ptr<LiteralNode> tmp_lit_node = std::make_unique<LiteralNode>(lit_value, literal_node->type, true);
+            return generate_literal(builder, ctx, garbage, expr_depth, tmp_lit_node.get());
+        } else if (lit_type == "float") {
+            // Compile-time type of literal which was not resolved to be a different type
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        } else {
+            // Type that should not be possible
+            assert(false);
+            return std::nullopt;
+        }
     }
     if (std::holds_alternative<LitStr>(literal_node->value)) {
         // Get the constant string value

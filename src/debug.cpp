@@ -256,18 +256,10 @@ namespace Debug {
             Local::print_header(indent_lvl, bits, "Lit ");
             std::cout << lit.type->to_string();
             std::cout << ": ";
-            if (std::holds_alternative<LitU64>(lit.value)) {
-                std::cout << std::get<LitU64>(lit.value).value;
-            } else if (std::holds_alternative<LitI64>(lit.value)) {
-                std::cout << std::get<LitI64>(lit.value).value;
-            } else if (std::holds_alternative<LitU32>(lit.value)) {
-                std::cout << std::get<LitU32>(lit.value).value;
-            } else if (std::holds_alternative<LitI32>(lit.value)) {
-                std::cout << std::get<LitI32>(lit.value).value;
-            } else if (std::holds_alternative<LitF64>(lit.value)) {
-                std::cout << std::get<LitF64>(lit.value).value;
-            } else if (std::holds_alternative<LitF32>(lit.value)) {
-                std::cout << std::get<LitF32>(lit.value).value;
+            if (std::holds_alternative<LitInt>(lit.value)) {
+                std::cout << std::get<LitInt>(lit.value).value.to_string();
+            } else if (std::holds_alternative<LitFloat>(lit.value)) {
+                std::cout << std::get<LitFloat>(lit.value).value.to_string();
             } else if (std::holds_alternative<LitBool>(lit.value)) {
                 std::cout << (std::get<LitBool>(lit.value).value ? "true" : "false");
             } else if (std::holds_alternative<LitU8>(lit.value)) {

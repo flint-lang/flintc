@@ -277,12 +277,14 @@ enum CFunction {
     FABS,
 };
 
-static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
+static const inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
     {"__flint_type_str_lit", {"str"}},
+    {"int", {"str", "u8", "u32", "u64", "i32", "i64", "f32", "f64"}},
     {"i32", {"str", "u8", "i64", "f32", "f64", "u32", "u64"}},
     {"i64", {"str", "u8", "i32", "f32", "f64", "u32", "u64"}},
     {"u32", {"str", "u8", "i32", "i64", "f32", "f64", "u64"}},
     {"u64", {"str", "u8", "i32", "i64", "f32", "f64", "u32"}},
+    {"float", {"str", "u8", "i32", "i64", "u32", "u64", "f32", "f64"}},
     {"f32", {"str", "i32", "i64", "f64", "u32", "u64"}},
     {"f64", {"str", "i32", "i64", "f32", "u32", "u64"}},
     {"u8", {"bool8", "str", "i32", "i64", "u32", "u64"}},
@@ -290,16 +292,18 @@ static inline std::unordered_map<std::string_view, std::vector<std::string_view>
     {"bool8", {"str", "u8"}},
 };
 
-static inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_implicit_casting_table = {
+static const inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_implicit_casting_table = {
     {"__flint_type_str_lit", {"str"}},
-    {"i32", {"str", "u8", "u32", "u64", "i64", "f32", "f64", "i32x2", "i32x3", "i32x4", "i32x8"}},
+    {"int", {"str", "u8", "u32", "u64", "i32", "i64", "f32", "f64"}},
+    {"i32", {"str", "i64", "f64", "i32x2", "i32x3", "i32x4", "i32x8"}},
     {"i64", {"str", "i64x2", "i64x3", "i64x4"}},
-    {"u32", {"str", "i32", "i64", "u64", "f32", "f64"}},
+    {"u32", {"str", "i64", "u64", "f32", "f64"}},
     {"u64", {"str"}},
+    {"float", {"str", "f32", "f64"}},
     {"f32", {"str", "f64", "f32x2", "f32x3", "f32x4", "f32x8"}},
     {"f64", {"str", "f64x2", "f64x3", "f64x4"}},
     {"bool", {"str"}},
-    {"u8", {"bool8", "str", "i32", "u32", "i64", "u64", "u8x2", "u8x3", "u8x4", "u8x8"}},
+    {"u8", {"str", "bool8", "u32", "i32", "f32", "u64", "i64", "f64", "u8x2", "u8x3", "u8x4", "u8x8"}},
     {"bool8", {"u8", "str"}},
     {"(u8, u8)", {"u8x2"}},
     {"(u8, u8, u8)", {"u8x3"}},
