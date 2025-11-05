@@ -159,9 +159,8 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         llvm::Type *_struct_type = get_type(module, type, false).first;
         assert(_struct_type->isStructTy());
         if (Allocation::get_type_size(module, _struct_type) > 16) {
-            // The 16 byte rule applies, but we will not support it for now
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return std::nullopt;
+            // The 16 byte rule applies, all values > 16 bytes are passed around as pointers
+            return _struct_type->getPointerTo();
         }
         // The struct will be packed into n smaller values which are all <= 8 bytes in size
         // It follows these rules:

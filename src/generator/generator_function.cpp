@@ -3,13 +3,26 @@
 
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *module, FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;
+    llvm::Type *sret_param_type = nullptr;
     const bool is_extern = function_node->is_extern;
     if (is_extern && function_node->return_types.empty()) {
         // If it's extern and empty it's a void return type
         return_types = llvm::Type::getVoidTy(context);
     } else if (function_node->return_types.size() == 1) {
         if (is_extern) {
-            return_types = IR::get_type(module, function_node->return_types.front(), true).first;
+            // Check if return type is > 16 bytes
+            llvm::Type *actual_return_type = IR::get_type(module, function_node->return_types.front(), false).first;
+            size_t return_size = Allocation::get_type_size(module, actual_return_type);
+
+            if (return_size > 16) {
+                // Return type becomes void
+                return_types = llvm::Type::getVoidTy(context);
+                // First parameter becomes sret pointer
+                sret_param_type = actual_return_type->getPointerTo();
+            } else {
+                // Existing logic for <= 16 bytes
+                return_types = IR::get_type(module, function_node->return_types.front(), true).first;
+            }
         } else {
             return_types = IR::add_and_or_get_type(module, function_node->return_types.front(), !is_extern, is_extern);
         }
@@ -24,6 +37,11 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
     // Get the parameter types
     std::vector<llvm::Type *> param_types_vec;
     if (is_extern) {
+        if (sret_param_type != nullptr) {
+            // Add the sret parameter as the first parameter
+            param_types_vec.emplace_back(sret_param_type);
+        }
+
         for (const auto &param : function_node->parameters) {
             llvm::Type *param_type = IR::get_type(module, std::get<0>(param), true).first;
             if (param_type->isStructTy()) {

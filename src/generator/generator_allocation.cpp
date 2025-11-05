@@ -214,9 +214,35 @@ bool Generator::Allocation::generate_call_allocations(                          
             return false;
         }
         function_return_type = func_decl_res.value()->getReturnType();
-        // Check if it's a call to an external function, if it is we need to stop right here, there will be no return value allocations for
-        // external calls
+        // Check if it's a call to an external function, if it is we need to check whether the call returns a value > 16 bytes, in that case
+        // we need to create an allocation for that return type specifically, to be used as the sret value when calling the function (passed
+        // to the function as an out parameter)
         if (!(call_node->function_name.size() > 3 && call_node->function_name.substr(0, 3) == "fc_")) {
+            if (call_node->type->to_string() == "void") {
+                // We don't need to check whether the return value is > 16 bytes since we dont return anything
+                return true;
+            }
+            llvm::Type *return_type = IR::get_type(parent->getParent(), call_node->type, false).first;
+            size_t return_size = get_type_size(parent->getParent(), return_type);
+            if (return_size <= 16) {
+                // The 16 byte rule does not apply here
+                return true;
+            }
+
+            // Needs sret allocation, so we use type-based naming so it's shared across calls
+            const std::string sret_alloca_name = "__flint_sret_" + call_node->type->to_string();
+
+            // Only allocate once per type per function
+            if (allocations.find(sret_alloca_name) == allocations.end()) {
+                generate_allocation(                                                                //
+                    builder,                                                                        //
+                    allocations,                                                                    //
+                    sret_alloca_name,                                                               //
+                    return_type,                                                                    //
+                    "__SRET_" + call_node->type->to_string(),                                       //
+                    "Shared sret allocation for return type '" + call_node->type->to_string() + "'" //
+                );
+            }
             return true;
         }
     }

@@ -1,11 +1,33 @@
 use Core.print
 
-def starts_with(str string, str check) -> bool:
-	if string.length < check.length:
-		return false;
-	return string[..check.length] == check;
+data MyData:
+	i32 x;
+	i32 y;
+	f32 speed;
+	bool is_something;
+	MyData(x, y, speed, is_something);
+
+extern def do_something(MyData md) -> MyData;
+
+data BigData:
+	i32 x;
+	i32 y;
+	i32 z;
+	f32 dx;
+	f32 dy;
+	f32 dz;
+	f32 speed;
+	BigData(x, y, z, dx, dy, dz, speed);
+
+extern def big_data_do(BigData bd) -> BigData;
 
 def main():
-	str big_str = "Hello there, we are groot";
-	str smol_str = "Hello there";
-	print($"starts_with = {starts_with(big_str, smol_str)}\n");
+	MyData md = MyData(1, 2, 3.0, false);
+	MyData md2 = do_something(md);
+	print($"md.(x, y, speed, is_something) = ({md.x}, {md.y}, {md.speed}, {md.is_something})\n");
+	print($"md2.(x, y, speed, is_something) = ({md2.x}, {md2.y}, {md2.speed}, {md2.is_something})\n");
+
+	BigData bd = BigData(1, 2, 3, 1.0, 2.0, 3.0, -5.0);
+	BigData bd2 = big_data_do(bd);
+	print($"bd.(x, y, z, dx, dy, dz, speed) = ({bd.x}, {bd.y}, {bd.z}, {bd.dx}, {bd.dy}, {bd.dz}, {bd.speed})\n");
+	print($"bd2.(x, y, z, dx, dy, dz, speed) = ({bd2.x}, {bd2.y}, {bd2.z}, {bd2.dx}, {bd2.dy}, {bd2.dz}, {bd2.speed})\n");

@@ -419,8 +419,9 @@ void Generator::Expression::convert_type_to_ext( //
         assert(_struct_type->isStructTy());
         size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
         if (struct_size > 16) {
-            // The 16-byte-rule applies. We have not implemented it yet
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            // For > 16 bytes, pass pointer directly
+            // The 'value' parameter should already be a pointer to the struct
+            args.emplace_back(value);
             return;
         }
         llvm::BasicBlock *current_block = builder.GetInsertBlock();
@@ -706,8 +707,8 @@ void Generator::Expression::convert_type_from_ext( //
         assert(_struct_type->isStructTy());
         size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
         if (struct_size > 16) {
-            // The 16-byte-rule applies. We have not implemented it yet
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            // For > 16 bytes, the value is already allocated by caller
+            // 'value' should already be the pointer to the result
             return;
         }
         llvm::BasicBlock *current_block = builder.GetInsertBlock();
@@ -979,7 +980,28 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     const CallNodeBase *call_node,                                    //
     std::vector<llvm::Value *> &args                                  //
 ) {
+    // Check if return type > 16 bytes, if it is then we need to pass a reference to the allocation of the sret value to the function
+    bool needs_sret = false;
+    llvm::Value *sret_alloc = nullptr;
+    size_t return_size = 0;
+    if (call_node->type->to_string() != "void") {
+        llvm::Type *return_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).first;
+        return_size = Allocation::get_type_size(ctx.parent->getParent(), return_type);
+
+        if (return_size > 16) {
+            needs_sret = true;
+            // Get the pre-allocated sret space
+            const std::string sret_alloca_name = "__flint_sret_" + call_node->type->to_string();
+            sret_alloc = ctx.allocations.at(sret_alloca_name);
+        }
+    }
+
+    // Convert all argument types to types for external usage
     std::vector<llvm::Value *> converted_args;
+    // If needs_sret, first argument is the sret pointer
+    if (needs_sret) {
+        converted_args.emplace_back(sret_alloc);
+    }
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
         const auto &arg = call_node->arguments[i];
         convert_type_to_ext(builder, ctx, arg.first->type, args[i], converted_args);
@@ -991,11 +1013,49 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
             llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "'")));
         return std::vector<llvm::Value *>{};
     }
+
+    if (needs_sret) {
+        // Create call with sret, the return type of the call should be void
+        llvm::CallInst *call = builder.CreateCall(result.first.value(), converted_args);
+        call->setMetadata("comment",
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "' (sret)")));
+
+        // Add sret attribute to first parameter (index 0)
+        llvm::Type *return_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).first;
+        call->addParamAttr(0, llvm::Attribute::get(context, llvm::Attribute::StructRet, return_type));
+        call->addParamAttr(0, llvm::Attribute::NoAlias);
+
+        // Add byval attributes for > 16 byte input parameters
+        size_t param_idx = 1;
+        for (const auto &arg : call_node->arguments) {
+            llvm::Type *arg_type = IR::get_type(ctx.parent->getParent(), arg.first->type, false).first;
+            size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
+            if (arg_size > 16) {
+                call->addParamAttr(param_idx, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
+            }
+            param_idx++;
+        }
+
+        // Result is in sret_alloc, need to copy to heap for the rest of Flint to understand the return value of the function
+        llvm::Value *result_ptr = builder.CreateCall(c_functions.at(MALLOC), {builder.getInt64(return_size)}, "result_ptr");
+        builder.CreateCall(c_functions.at(MEMCPY), {result_ptr, sret_alloc, builder.getInt64(return_size)});
+        return std::vector<llvm::Value *>{result_ptr};
+    }
+
+    // There is no sret needed, it's a normal call
     llvm::CallInst *call = builder.CreateCall(                                  //
         result.first.value(),                                                   //
         converted_args,                                                         //
         call_node->function_name + std::to_string(call_node->call_id) + "_call" //
     );
+    // Add byval attributes for > 16 byte input parameters
+    for (size_t i = 0; i < call_node->arguments.size(); i++) {
+        llvm::Type *arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).first;
+        size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
+        if (arg_size > 16) {
+            call->addParamAttr(i, llvm::Attribute::ByVal);
+        }
+    }
     call->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "'")));
     std::vector<llvm::Value *> return_value;
