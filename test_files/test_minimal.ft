@@ -7,7 +7,7 @@ data MyData:
 	bool is_something;
 	MyData(x, y, speed, is_something);
 
-extern def do_something(MyData md) -> MyData;
+extern def do_something(MyData* md) -> MyData;
 
 data BigData:
 	i32 x;
@@ -23,7 +23,7 @@ extern def big_data_do(BigData bd) -> BigData;
 
 def main():
 	MyData md = MyData(1, 2, 3.0, false);
-	MyData md2 = do_something(md);
+	MyData md2 = do_something(&md);
 	print($"md.(x, y, speed, is_something) = ({md.x}, {md.y}, {md.speed}, {md.is_something})\n");
 	print($"md2.(x, y, speed, is_something) = ({md2.x}, {md2.y}, {md2.speed}, {md2.is_something})\n");
 

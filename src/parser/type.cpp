@@ -8,6 +8,7 @@
 #include "parser/type/group_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
+#include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/unknown_type.hpp"
@@ -94,6 +95,10 @@ bool Type::resolve_type(std::shared_ptr<Type> &type) {
         }
     } else if (ArrayType *array_type = dynamic_cast<ArrayType *>(type.get())) {
         if (!resolve_type(array_type->type)) {
+            return false;
+        }
+    } else if (PointerType *pointer_type = dynamic_cast<PointerType *>(type.get())) {
+        if (!resolve_type(pointer_type->base_type)) {
             return false;
         }
     }
@@ -409,6 +414,20 @@ std::optional<std::shared_ptr<Type>> Type::create_type(const token_slice &tokens
             return std::nullopt;
         }
         return std::make_shared<OptionalType>(base_type.value());
+    } else if (std::prev(tokens_mut.second)->token == TOK_MULT) {
+        // It's a pointer type
+        if (tokens_mut.first == std::prev(tokens_mut.second)) {
+            // A single * without anything before it, this should not be possible
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        // Everything to the left of the * is the base type of the pointer
+        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)}, mutex_already_locked);
+        if (!base_type.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_shared<PointerType>(base_type.value());
     }
 
     // The type can not be parsed and does not exist yet

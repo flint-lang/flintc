@@ -535,9 +535,12 @@ class Matcher {
             one_of({token(TOK_TYPE), simple_type, token(TOK_DATA), token(TOK_VARIANT)}),                                 // Single base type
             optional(sequence({token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1)})),               // <..> Type group
             zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})), // [][,][,,] Arrays
-            optional(token(TOK_QUESTION))                                                                                // ? for optionals
-        }),                                                                                                              //
-        token(TOK_TYPE)                                                                                                  //
+            optional(one_of({
+                token(TOK_QUESTION), // ? for optionals
+                token(TOK_MULT)      // * for pointers
+            }))                      //
+        }),                          //
+        token(TOK_TYPE)              //
     });
 
     // Symbols
@@ -651,7 +654,9 @@ class Matcher {
         token(TOK_LESS_EQUAL), token(TOK_GREATER), token(TOK_GREATER_EQUAL)});
     static const inline PatternPtr boolean_binop = one_of({token(TOK_AND), token(TOK_OR)});
     static const inline PatternPtr binary_operator = one_of({operational_binop, relational_binop, boolean_binop});
-    static const inline PatternPtr unary_operator = one_of({token(TOK_INCREMENT), token(TOK_DECREMENT), token(TOK_NOT), token(TOK_MINUS)});
+    static const inline PatternPtr unary_operator = one_of({
+        token(TOK_INCREMENT), token(TOK_DECREMENT), token(TOK_NOT), token(TOK_MINUS), token(TOK_BIT_AND) //
+    });
     static const inline PatternPtr inbetween_operator = one_of({token(TOK_QUESTION), token(TOK_EXCLAMATION)});
     static const inline PatternPtr reference = sequence({
         token(TOK_IDENTIFIER), one_or_more(sequence({token(TOK_REFERENCE), token(TOK_IDENTIFIER)})) //

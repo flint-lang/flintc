@@ -699,8 +699,10 @@ class Parser {
     /// @param `tokens` The list of tokens representing the unary operation
     /// @return A optional value containing a tuple, where the first value is the operator token, the second value is the expression on
     /// which the unary operation is applied on and the third value is whether the unary operator is left to the expression
-    std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> create_unary_op_base(std::shared_ptr<Scope> scope,
-        const token_slice &tokens);
+    std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> create_unary_op_base( //
+        std::shared_ptr<Scope> scope,                                                             //
+        const token_slice &tokens                                                                 //
+    );
 
     /// @function `create_field_access_base`
     /// @brief Creates a tuple of all field access variables extracted from a field access

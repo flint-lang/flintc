@@ -24,6 +24,7 @@
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/optional_type.hpp"
+#include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -659,7 +660,25 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression(std::shared_
         }
         // Set the type of the unary op to the base type of the optional, as the unwrap will return the base type of it
         un_op.type = optional_type->base_type;
-        return un_op;
+    } else if (token == TOK_BIT_AND) {
+        // Reference of operator, the result will be a pointer type of the expression's type
+        if (!is_left) {
+            // The & operator is only allowed on the left of the expression
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        // Becaues any type could be / become a pointer type we don't really need to check the expression itself every type is able to be
+        // pointed to. The only thing we need to check for is to prevent double pointers, they don't make any sense in the context of Flint
+        // at least.
+        if (dynamic_cast<const PointerType *>(un_op.type.get())) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        std::shared_ptr<Type> ptr_type = std::make_shared<PointerType>(un_op.type);
+        if (!Type::add_type(ptr_type)) {
+            ptr_type = Type::get_type_from_str(ptr_type->to_string()).value();
+        }
+        un_op.type = ptr_type;
     }
     return un_op;
 }

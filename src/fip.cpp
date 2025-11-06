@@ -11,6 +11,7 @@ fip_master_state_t master_state;
 #include "error/error.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "profiler.hpp"
 
@@ -212,11 +213,16 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             }
         }
         return true;
-    } else {
-        // Handle pointer types or other complex types
+    } else if (const PointerType *pointer_type = dynamic_cast<const PointerType *>(src.get())) {
+        // A pointer type is essentially just the base type encoded but with a pointer type tag.
         dest->type = FIP_TYPE_PTR;
-        // TODO: Implement pointer type handling based on your type system
-        // For now, return false for unsupported types
+        dest->u.ptr.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
+        if (!convert_type(dest->u.ptr.base_type, pointer_type->base_type, is_mutable)) {
+            return false;
+        }
+        return true;
+    } else {
+        // Unsupported type, return false
         return false;
     }
 }
