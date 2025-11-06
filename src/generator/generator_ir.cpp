@@ -9,6 +9,7 @@
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
+#include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -632,6 +633,9 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             type_map[var_str] = variant_struct_type;
         }
         return {type_map.at(var_str), {false, true}};
+    } else if (const PointerType *pointer_type = dynamic_cast<const PointerType *>(type.get())) {
+        const auto pair = get_type(module, pointer_type->base_type);
+        return {pair.first->getPointerTo(), {false, false}};
     }
     // Pointer to non-supported type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);

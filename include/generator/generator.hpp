@@ -446,10 +446,11 @@ class Generator {
         /// @param `module` The module from which to get the type from
         /// @param `type` The type from which to get the llvm type from
         /// @param `is_extern` Whether the type is for an external function
-        /// @return `std::pair<llvm::Type *, std::pair<bool, bool>>` A pair containing a pointer to the correct llvm Type from the given
-        /// string and a pair of boolean values determining whether the given data type is:
-        ///     - A complex type (data, entity, tuple, etc)
-        ///     - Passed by reference (data, entity, tuple, optional, variant, etc)
+        /// @return `std::pair<llvm::Type *, std::pair<bool, bool>>` A pair containing:
+        ///     - a pointer to the correct llvm Type from the given string
+        ///     - a pair of boolean values determining whether the given type is:
+        ///         - A complex heap-allocated type (data, entity, etc)
+        ///         - Passed by reference (data, entity, tuple, optional, variant, etc)
         static std::pair<llvm::Type *, std::pair<bool, bool>> get_type( //
             llvm::Module *module,                                       //
             const std::shared_ptr<Type> &type,                          //

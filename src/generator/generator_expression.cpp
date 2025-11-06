@@ -15,6 +15,7 @@
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
+#include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -2966,14 +2967,15 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
     const UnaryOpExpression *unary_op                                         //
 ) {
     const ExpressionNode *expression = unary_op->operand.get();
-    std::vector<llvm::Value *> operand = generate_expression(builder, ctx, garbage, expr_depth + 1, expression).value();
+    const bool is_pointer = dynamic_cast<const PointerType *>(unary_op->type.get()) != nullptr;
+    std::vector<llvm::Value *> operand = generate_expression(builder, ctx, garbage, expr_depth + 1, expression, is_pointer).value();
     for (size_t i = 0; i < operand.size(); i++) {
         const std::string &expression_type = expression->type->to_string();
         switch (unary_op->operator_token) {
             default:
                 // Unknown unary operator
                 THROW_BASIC_ERR(ERR_GENERATING);
-                break;
+                return std::nullopt;
             case TOK_NOT:
                 // Not is only allowed to be placed at the left of the expression
                 if (!unary_op->is_left) {
@@ -3065,6 +3067,36 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                     operand.at(i) = builder.CreateFNeg(operand.at(i), "fneg");
                 }
                 break;
+            case TOK_BIT_AND: {
+                if (!unary_op->is_left) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                const PointerType *pointer_type = dynamic_cast<const PointerType *>(unary_op->type.get());
+                if (pointer_type == nullptr) {
+                    // Reference of operator (`&var`) not allowed on non-pointer types
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                const std::shared_ptr<Type> &base_type = pointer_type->base_type;
+                assert(base_type == expression->type);
+                // Check if the base type is a complex type and whether it needs to be passed by value or by reference
+                // If it needs to be passed by value normally, we first need to get the allocation of it, for now only VariableNodes are
+                // supported for non-complex types (like i32) but complex types (like data etc, which are passed by reference normally) can
+                // be used from any context here
+                //
+                // If it's a complex type, is allocated on the heap and a pointer is stored in the alloca, we need to load that pointer
+                // first, but this is already handled by the `generate_expression` function above, it loads the pointer and returns it
+                // as the operand. This means that we literally do not need to change the operands *at all* here lol
+                //
+                // If it's not a complex type, it's allocated directly on the stack and we simply need to pass in a pointer to the
+                // allocation here
+                //
+                // This means we do not need to check whether the base type is complex or not etc, the compiler internals help us here
+                // tremendously, in the `generate_expression` function we just pass in the `is_reference` argument to true when it's a
+                // pointer and it already handles everything we would ever want to be handled...nice
+                break;
+            }
         }
     }
     return operand;
