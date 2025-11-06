@@ -183,7 +183,7 @@ bool Lexer::scan_token() {
             add_token(TOK_BIT_NEG);
             break;
         case '&':
-            add_token(TOK_BIT_OR);
+            add_token(TOK_BIT_AND);
             break;
         case '_':
             if (is_alpha_num(peek_next())) {
