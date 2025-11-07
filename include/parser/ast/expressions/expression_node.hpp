@@ -79,7 +79,7 @@ class ExpressionNode : public ASTNode {
 #ifdef DEBUG_BUILD
         T *result = dynamic_cast<T *>(this);
         assert(result && "as<T>() type mismatch - check your switch case!");
-        return;
+        return result;
 #else
         return static_cast<T *>(this);
 #endif
