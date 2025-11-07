@@ -85,12 +85,56 @@ void Profiler::print_results(TimeUnit unit) {
     }
 }
 
+uint64_t Profiler::calibrate_profiler_overhead(size_t iterations) {
+    if (calibrating) {
+        return 0; // Prevent recursion
+    }
+    calibrating = true;
+
+    // Warm-up phase to stabilize CPU caches and branch predictor
+    for (size_t i = 0; i < 100; ++i) {
+        CumulativeProfiler calibration_profiler("__calibration__", true);
+    }
+
+    // Actual measurement phase - measure total time and divide by iterations
+    auto start = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < iterations; ++i) {
+        CumulativeProfiler calibration_profiler("__calibration__", true);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    calibrating = false;
+
+    // Calculate average overhead per profiler instance
+    uint64_t total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    uint64_t average = total_ns / iterations;
+
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Profiler overhead calibrated: " << average << " ns (average of " << iterations
+                  << " iterations)" << DEFAULT << std::endl;
+    }
+
+    return average;
+}
+
+uint64_t Profiler::get_profiler_overhead() {
+    if (profiler_overhead_ns == 0 && !calibrating) {
+        profiler_overhead_ns = calibrate_profiler_overhead();
+    }
+    return profiler_overhead_ns;
+}
+
 void Profiler::record_cumulative(const std::string &key, uint64_t exclusive_ns, uint64_t inclusive_ns) {
+    // Subtract profiler overhead (but don't go negative)
+    uint64_t overhead = get_profiler_overhead();
+    uint64_t corrected_exclusive = exclusive_ns > overhead ? exclusive_ns - overhead : 0;
+    uint64_t corrected_inclusive = inclusive_ns > overhead ? inclusive_ns - overhead : 0;
+
     auto &stats = cumulative_stats[key];
     stats.name = key;
     stats.call_count++;
-    stats.exclusive_time_ns += exclusive_ns;
-    stats.inclusive_time_ns += inclusive_ns;
+    stats.exclusive_time_ns += corrected_exclusive;
+    stats.inclusive_time_ns += corrected_inclusive;
 }
 
 void Profiler::print_cumulative_stats(const std::string &sort_by) {
@@ -155,5 +199,6 @@ void Profiler::print_cumulative_stats(const std::string &sort_by) {
 
     std::cout << std::string(132, '-') << "\n";
     std::cout << "Total Exclusive: " << format_with_separator(grand_total / 1000) << " µs across "
-              << format_with_separator(stats_vec.size()) << " unique keys\n\n";
+              << format_with_separator(stats_vec.size()) << " unique keys\n";
+    std::cout << "Note: Profiler overhead of " << profiler_overhead_ns << " ns has been subtracted from all measurements\n\n";
 }

@@ -105,6 +105,15 @@ class Profiler {
     /// @param inclusive_ns Inclusive duration in nanoseconds (including nested profilers)
     static void record_cumulative(const std::string &key, uint64_t exclusive_ns, uint64_t inclusive_ns);
 
+    /// @brief Calibrates the profiler by measuring its overhead
+    /// @param iterations Number of calibration iterations (default: 10000)
+    /// @return Average overhead in nanoseconds
+    static uint64_t calibrate_profiler_overhead(size_t iterations = 10000);
+
+    /// @brief Gets the current profiler overhead (calibrates if needed)
+    /// @return Profiler overhead in nanoseconds
+    static uint64_t get_profiler_overhead();
+
     /// @brief Prints cumulative statistics table
     /// @param sort_by How to sort results ("calls", "total", "average")
     static void print_cumulative_stats(const std::string &sort_by = "total");
@@ -217,6 +226,12 @@ class Profiler {
   private:
     /// @brief Map of cumulative statistics by key
     static inline std::unordered_map<std::string, CumulativeStats> cumulative_stats;
+
+    /// @brief Cached profiler overhead in nanoseconds (0 = not calibrated)
+    static inline uint64_t profiler_overhead_ns = 0;
+
+    /// @brief Flag to prevent infinite recursion during calibration
+    static inline bool calibrating = false;
 };
 
 /// @class ScopeProfiler
@@ -283,7 +298,25 @@ class CumulativeProfiler {
         key(std::move(key)),
         start(std::chrono::high_resolution_clock::now()),
         paused_duration_ns(0),
-        is_paused(false) {
+        is_paused(false),
+        is_calibration(false) {
+        // Pause the parent profiler if any
+        if (!cumulative_stack.empty()) {
+            cumulative_stack.top()->pause();
+        }
+        // Push ourselves onto the stack
+        cumulative_stack.push(this);
+    }
+
+    /// @brief Special constructor for calibration (doesn't record results)
+    /// @param key Identifier for this measurement
+    /// @param calibration_flag Must be true to use this constructor
+    explicit CumulativeProfiler(std::string key, bool calibration_flag) :
+        key(std::move(key)),
+        start(std::chrono::high_resolution_clock::now()),
+        paused_duration_ns(0),
+        is_paused(false),
+        is_calibration(calibration_flag) {
         // Pause the parent profiler if any
         if (!cumulative_stack.empty()) {
             cumulative_stack.top()->pause();
@@ -309,7 +342,10 @@ class CumulativeProfiler {
         auto inclusive_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
         auto exclusive_duration = inclusive_duration - paused_duration_ns;
 
-        Profiler::record_cumulative(key, exclusive_duration, inclusive_duration);
+        // Only record if this is not a calibration run
+        if (!is_calibration) {
+            Profiler::record_cumulative(key, exclusive_duration, inclusive_duration);
+        }
     }
 
     /// @brief Deleted copy constructor
@@ -347,6 +383,7 @@ class CumulativeProfiler {
     uint64_t paused_duration_ns; ///< Accumulated time spent paused (in nested profilers)
     TimePoint pause_start;       ///< Time when current pause started
     bool is_paused;              ///< Whether this profiler is currently paused
+    bool is_calibration;         ///< Whether this is a calibration profiler (doesn't record)
 
     /// @brief Thread-local stack of active cumulative profilers
     static thread_local std::stack<CumulativeProfiler *> cumulative_stack;
