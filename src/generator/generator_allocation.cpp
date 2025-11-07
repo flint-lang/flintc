@@ -17,95 +17,149 @@ bool Generator::Allocation::generate_allocations(                               
     std::unordered_map<std::string, llvm::Value *const> &allocations,               //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
 ) {
-    for (const auto &statement_node : scope->body) {
-        if (auto *call_node = dynamic_cast<CallNodeStatement *>(statement_node.get())) {
-            if (!generate_call_allocations(builder, parent, scope, allocations,     //
-                    imported_core_modules, dynamic_cast<CallNodeBase *>(call_node)) //
-            ) {
-                THROW_BASIC_ERR(ERR_GENERATING);
+    for (const auto &statement : scope->body) {
+        switch (statement->get_variation()) {
+            case StatementNode::Variation::UNKNOWN_VARIATION:
+                assert(false);
                 return false;
+            case StatementNode::Variation::ARRAY_ASSIGNMENT: {
+                const auto *node = statement->as<ArrayAssignmentNode>();
+                generate_array_indexing_allocation(builder, allocations, node->indexing_expressions);
+                break;
             }
-        } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement_node.get())) {
-            if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, while_node->condition.get())) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
+            case StatementNode::Variation::ASSIGNMENT: {
+                const auto *node = statement->as<AssignmentNode>();
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->expression.get())) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
             }
-            if (!generate_allocations(builder, parent, while_node->scope, allocations, imported_core_modules)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement_node.get())) {
-            if (!generate_if_allocations(builder, parent, allocations, imported_core_modules, if_node)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        } else if (const auto *for_loop_node = dynamic_cast<const ForLoopNode *>(statement_node.get())) {
-            if (!generate_expression_allocations(                                       //
-                    builder, parent, for_loop_node->definition_scope,                   //
-                    allocations, imported_core_modules, for_loop_node->condition.get()) //
-            ) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-            if (!generate_allocations(builder, parent, for_loop_node->definition_scope, allocations, imported_core_modules)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-            if (!generate_allocations(builder, parent, for_loop_node->body, allocations, imported_core_modules)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        } else if (const auto *enh_for_loop_node = dynamic_cast<const EnhForLoopNode *>(statement_node.get())) {
-            if (!generate_enh_for_allocations(builder, parent, allocations, imported_core_modules, enh_for_loop_node)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement_node.get())) {
-            if (!generate_declaration_allocations(builder, parent, scope, allocations, imported_core_modules, declaration_node)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        } else if (const auto *group_declaration_node = dynamic_cast<const GroupDeclarationNode *>(statement_node.get())) {
-            if (!generate_group_declaration_allocations(builder, parent, scope, allocations, //
-                    imported_core_modules, group_declaration_node)                           //
-            ) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement_node.get())) {
-            if (!generate_expression_allocations(builder, parent, scope, allocations, //
-                    imported_core_modules, assignment_node->expression.get())         //
-            ) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        } else if (const auto *group_assignment_node = dynamic_cast<const GroupAssignmentNode *>(statement_node.get())) {
-            if (!generate_expression_allocations(                                                                        //
-                    builder, parent, scope, allocations, imported_core_modules, group_assignment_node->expression.get()) //
-            ) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement_node.get())) {
-            if (return_node->return_value.has_value()) {
-                if (!generate_expression_allocations(                                                                        //
-                        builder, parent, scope, allocations, imported_core_modules, return_node->return_value.value().get()) //
+            case StatementNode::Variation::BREAK:
+                break;
+            case StatementNode::Variation::CALL: {
+                const auto *node = statement->as<CallNodeStatement>();
+                if (!generate_call_allocations(builder, parent, scope, allocations,     //
+                        imported_core_modules, static_cast<const CallNodeBase *>(node)) //
                 ) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
                 }
+                break;
             }
-        } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement_node.get())) {
-            if (!generate_allocations(builder, parent, catch_node->scope, allocations, imported_core_modules)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
+            case StatementNode::Variation::CATCH: {
+                const auto *node = statement->as<CatchNode>();
+                if (!generate_allocations(builder, parent, node->scope, allocations, imported_core_modules)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
             }
-        } else if (const auto *array_assignment = dynamic_cast<const ArrayAssignmentNode *>(statement_node.get())) {
-            generate_array_indexing_allocation(builder, allocations, array_assignment->indexing_expressions);
-        } else if (const auto *switch_statement = dynamic_cast<const SwitchStatement *>(statement_node.get())) {
-            if (!generate_switch_statement_allocations(builder, parent, scope, allocations, imported_core_modules, switch_statement)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
+            case StatementNode::Variation::CONTINUE:
+                break;
+            case StatementNode::Variation::DATA_FIELD_ASSIGNMENT:
+                break;
+            case StatementNode::Variation::DECLARATION: {
+                const auto *node = statement->as<DeclarationNode>();
+                if (!generate_declaration_allocations(builder, parent, scope, allocations, imported_core_modules, node)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::ENHANCED_FOR_LOOP: {
+                const auto *node = statement->as<EnhForLoopNode>();
+                if (!generate_enh_for_allocations(builder, parent, allocations, imported_core_modules, node)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::FOR_LOOP: {
+                const auto *node = statement->as<ForLoopNode>();
+                if (!generate_expression_allocations(                              //
+                        builder, parent, node->definition_scope,                   //
+                        allocations, imported_core_modules, node->condition.get()) //
+                ) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                if (!generate_allocations(builder, parent, node->definition_scope, allocations, imported_core_modules)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                if (!generate_allocations(builder, parent, node->body, allocations, imported_core_modules)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::GROUP_ASSIGNMENT: {
+                const auto *node = statement->as<GroupAssignmentNode>();
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->expression.get())) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::GROUP_DECLARATION: {
+                const auto *node = statement->as<GroupDeclarationNode>();
+                if (!generate_group_declaration_allocations(builder, parent, scope, allocations, imported_core_modules, node)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT:
+                break;
+            case StatementNode::Variation::IF: {
+                const auto *node = statement->as<IfNode>();
+                if (!generate_if_allocations(builder, parent, allocations, imported_core_modules, node)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::RETURN: {
+                const auto *node = statement->as<ReturnNode>();
+                if (!node->return_value.has_value()) {
+                    continue;
+                }
+                if (!generate_expression_allocations(                                                                 //
+                        builder, parent, scope, allocations, imported_core_modules, node->return_value.value().get()) //
+                ) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::STACKED_ASSIGNMENT:
+                break;
+            case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT:
+                break;
+            case StatementNode::Variation::SWITCH: {
+                const auto *node = statement->as<SwitchStatement>();
+                if (!generate_switch_statement_allocations(builder, parent, scope, allocations, imported_core_modules, node)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::THROW:
+                break;
+            case StatementNode::Variation::UNARY_OP:
+                break;
+            case StatementNode::Variation::WHILE: {
+                const auto *node = statement->as<WhileNode>();
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->condition.get())) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                if (!generate_allocations(builder, parent, node->scope, allocations, imported_core_modules)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
             }
         }
     }
@@ -517,58 +571,115 @@ bool Generator::Allocation::generate_expression_allocations(                    
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
     const ExpressionNode *expression                                                 //
 ) {
-    if (const auto *binary_op = dynamic_cast<const BinaryOpNode *>(expression)) {
-        if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, binary_op->left.get())) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
+    switch (expression->get_variation()) {
+        case ExpressionNode::Variation::UNKNOWN_VARIATION:
+            assert(false);
+            break;
+        case ExpressionNode::Variation::ARRAY_ACCESS: {
+            const auto *node = expression->as<ArrayAccessNode>();
+            generate_array_indexing_allocation(builder, allocations, node->indexing_expressions);
+            break;
         }
-        if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, binary_op->right.get())) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
+        case ExpressionNode::Variation::ARRAY_INITIALIZER: {
+            const auto *node = expression->as<ArrayInitializerNode>();
+            generate_array_indexing_allocation(builder, allocations, node->length_expressions);
+            break;
         }
-    } else if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expression)) {
-        if (!generate_call_allocations(builder, parent, scope, allocations, imported_core_modules, //
-                dynamic_cast<const CallNodeBase *>(call_node))                                     //
-        ) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
-    } else if (const auto *group_expression = dynamic_cast<const GroupExpressionNode *>(expression)) {
-        for (const auto &expr : group_expression->expressions) {
-            if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, expr.get())) {
+        case ExpressionNode::Variation::BINARY_OP: {
+            const auto *node = expression->as<BinaryOpNode>();
+            if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->left.get())) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
+            if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->right.get())) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            break;
         }
-    } else if (const auto *type_cast = dynamic_cast<const TypeCastNode *>(expression)) {
-        if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, type_cast->expr.get())) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
+        case ExpressionNode::Variation::CALL: {
+            const auto *node = expression->as<CallNodeExpression>();
+            if (!generate_call_allocations(builder, parent, scope, allocations, imported_core_modules, //
+                    dynamic_cast<const CallNodeBase *>(node))                                          //
+            ) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            break;
         }
-    } else if (const auto *unary_op = dynamic_cast<const UnaryOpExpression *>(expression)) {
-        if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, unary_op->operand.get())) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
-    } else if (const auto *interpol = dynamic_cast<const StringInterpolationNode *>(expression)) {
-        for (const auto &val : interpol->string_content) {
-            if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(val)) {
-                const ExpressionNode *expr = std::get<std::unique_ptr<ExpressionNode>>(val).get();
-                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, expr)) {
+        case ExpressionNode::Variation::DATA_ACCESS:
+            break;
+        case ExpressionNode::Variation::DEFAULT:
+            break;
+        case ExpressionNode::Variation::GROUP_EXPRESSION: {
+            const auto *node = expression->as<GroupExpressionNode>();
+            for (const auto &expr : node->expressions) {
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, expr.get())) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
                 }
             }
+            break;
         }
-    } else if (const auto *array_initializer = dynamic_cast<const ArrayInitializerNode *>(expression)) {
-        generate_array_indexing_allocation(builder, allocations, array_initializer->length_expressions);
-    } else if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expression)) {
-        generate_array_indexing_allocation(builder, allocations, array_access->indexing_expressions);
-    } else if (const auto *switch_expression = dynamic_cast<const SwitchExpression *>(expression)) {
-        if (!generate_switch_expression_allocations(builder, parent, scope, allocations, imported_core_modules, switch_expression)) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
+        case ExpressionNode::Variation::GROUPED_DATA_ACCESS:
+            break;
+        case ExpressionNode::Variation::INITIALIZER:
+            break;
+        case ExpressionNode::Variation::LITERAL:
+            break;
+        case ExpressionNode::Variation::OPTIONAL_CHAIN:
+            break;
+        case ExpressionNode::Variation::OPTIONAL_UNWRAP:
+            break;
+        case ExpressionNode::Variation::RANGE_EXPRESSION:
+            break;
+        case ExpressionNode::Variation::STRING_INTERPOLATION: {
+            const auto *node = expression->as<StringInterpolationNode>();
+            for (const auto &val : node->string_content) {
+                if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(val)) {
+                    const ExpressionNode *expr = std::get<std::unique_ptr<ExpressionNode>>(val).get();
+                    if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, expr)) {
+                        THROW_BASIC_ERR(ERR_GENERATING);
+                        return false;
+                    }
+                }
+            }
+            break;
         }
+        case ExpressionNode::Variation::SWITCH_EXPRESSION: {
+            const auto *node = expression->as<SwitchExpression>();
+            if (!generate_switch_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            break;
+        }
+        case ExpressionNode::Variation::SWITCH_MATCH:
+            break;
+        case ExpressionNode::Variation::TYPE_CAST: {
+            const auto *node = expression->as<TypeCastNode>();
+            if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->expr.get())) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            break;
+        }
+        case ExpressionNode::Variation::TYPE:
+            break;
+        case ExpressionNode::Variation::UNARY_OP: {
+            const auto *node = expression->as<UnaryOpExpression>();
+            if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->operand.get())) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            break;
+        }
+        case ExpressionNode::Variation::VARIABLE:
+            break;
+        case ExpressionNode::Variation::VARIANT_EXTRACTION:
+            break;
+        case ExpressionNode::Variation::VARIANT_UNWRAP:
+            break;
     }
     return true;
 }
