@@ -41,10 +41,12 @@
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
 #include "parser/type/pointer_type.hpp"
+#include "profiler.hpp"
 
 #include <cassert>
 
 bool Analyzer::analyze(const FileNode *file) {
+    PROFILE_SCOPE("analyze '" + file->file_name + "'");
     for (const auto &node : file->definitions) {
         Context ctx = Context{.is_extern = false};
         if (!analyze_definition(ctx, node.get())) {
