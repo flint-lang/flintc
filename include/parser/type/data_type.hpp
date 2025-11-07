@@ -10,6 +10,10 @@ class DataType : public Type {
     DataType(DataNode *const data_node) :
         data_node(data_node) {}
 
+    Variation get_variation() const override {
+        return Variation::DATA;
+    }
+
     std::string to_string() const override {
         return data_node->name;
     }

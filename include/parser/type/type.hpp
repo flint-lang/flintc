@@ -19,6 +19,55 @@ class Type {
   public:
     virtual ~Type() = default;
 
+    /// @enum `Variation`
+    /// @brief A enum describing which type variations exist
+    enum class Variation {
+        UNKNOWN_VARIATION,
+        ARRAY,
+        DATA,
+        ENUM,
+        ERROR_SET,
+        GROUP,
+        MULTI,
+        OPTIONAL,
+        POINTER,
+        PRIMITIVE,
+        RANGE,
+        TUPLE,
+        UNKNOWN,
+        VARIANT,
+    };
+
+    /// @function `get_variation`
+    /// @brief Function to return which variation this type is
+    ///
+    /// @return `Variation` The variation of this type
+    virtual Variation get_variation() const = 0;
+
+    /// @function `as`
+    /// @brief Casts this type to the requested type, but the requested type must be a child type of this class
+    template <typename T> std::enable_if_t<std::is_base_of_v<Type, T> && !std::is_same_v<Type, T>, const T *> inline as() const {
+#ifdef DEBUG_BUILD
+        T *result = dynamic_cast<T *>(const_cast<Type *>(this));
+        assert(result && "as<T>() type mismatch - check your switch case!");
+        return result;
+#else
+        return static_cast<const T *>(this);
+#endif
+    }
+
+    /// @function `as`
+    /// @brief Casts this type to the requested type, but the requested type must be a child type of this class
+    template <typename T> std::enable_if_t<std::is_base_of_v<Type, T> && !std::is_same_v<Type, T>, T *> inline as() {
+#ifdef DEBUG_BUILD
+        T *result = dynamic_cast<T *>(this);
+        assert(result && "as<T>() type mismatch - check your switch case!");
+        return;
+#else
+        return static_cast<T *>(this);
+#endif
+    }
+
     /// @function `to_string`
     /// @brief Returns the string representation of the type
     ///

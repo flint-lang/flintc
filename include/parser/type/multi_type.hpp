@@ -11,6 +11,10 @@ class MultiType : public Type {
         base_type(base_type),
         width(width) {}
 
+    Variation get_variation() const override {
+        return Variation::MULTI;
+    }
+
     std::string to_string() const override {
         const std::string base_type_str = base_type->to_string();
         if (base_type_str == "bool") {

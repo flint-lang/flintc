@@ -11,6 +11,10 @@ class OptionalType : public Type {
     OptionalType(const std::shared_ptr<Type> &base_type) :
         base_type(base_type) {}
 
+    Variation get_variation() const override {
+        return Variation::OPTIONAL;
+    }
+
     std::string to_string() const override {
         return base_type->to_string() + "?";
     }

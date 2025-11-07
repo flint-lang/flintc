@@ -10,6 +10,10 @@ class ErrorSetType : public Type {
     ErrorSetType(ErrorNode *const error_node) :
         error_node(error_node) {}
 
+    Variation get_variation() const override {
+        return Variation::ERROR_SET;
+    }
+
     std::string to_string() const override {
         return error_node->name;
     }

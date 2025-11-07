@@ -10,6 +10,10 @@ class EnumType : public Type {
     EnumType(EnumNode *const enum_node) :
         enum_node(enum_node) {}
 
+    Variation get_variation() const override {
+        return Variation::ENUM;
+    }
+
     std::string to_string() const override {
         return enum_node->name;
     }

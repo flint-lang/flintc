@@ -9,6 +9,10 @@ class PrimitiveType : public Type {
     PrimitiveType(const std::string &type_name) :
         type_name(type_name) {}
 
+    Variation get_variation() const override {
+        return Variation::PRIMITIVE;
+    }
+
     std::string to_string() const override {
         return type_name;
     }
