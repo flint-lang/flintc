@@ -2,11 +2,12 @@
 
 #include "globals.hpp"
 #include "lexer/lexer_utils.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/scope.hpp"
-#include "parser/ast/statements/break_node.hpp"
-#include "parser/ast/statements/continue_node.hpp"
+#include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "persistent_thread_pool.hpp"
 
@@ -196,7 +197,7 @@ namespace Debug {
             std::cout << "File \"" << file.file_name << "\"" << std::endl;
             unsigned int counter = 0;
 
-            for (const std::unique_ptr<DefinitionNode> &node : file.definitions) {
+            for (const std::unique_ptr<DefinitionNode> &def : file.definitions) {
                 // Create fresh TreeBits for each node
                 TreeBits bits;
 
@@ -207,28 +208,60 @@ namespace Debug {
                     bits.set(BRANCH, 0);
                 }
 
-                if (const auto *data_node = dynamic_cast<const DataNode *>(node.get())) {
-                    print_data(0, bits, *data_node);
-                } else if (const auto *entity_node = dynamic_cast<const EntityNode *>(node.get())) {
-                    print_entity(0, bits, *entity_node);
-                } else if (const auto *enum_node = dynamic_cast<const EnumNode *>(node.get())) {
-                    print_enum(0, bits, *enum_node);
-                } else if (const auto *error_node = dynamic_cast<const ErrorNode *>(node.get())) {
-                    print_error(0, bits, *error_node);
-                } else if (const auto *func_node = dynamic_cast<const FuncNode *>(node.get())) {
-                    print_func(0, bits, *func_node);
-                } else if (const auto *function_node = dynamic_cast<const FunctionNode *>(node.get())) {
-                    print_function(0, bits, *function_node);
-                } else if (const auto *import_node = dynamic_cast<const ImportNode *>(node.get())) {
-                    print_import(0, bits, *import_node);
-                } else if (const auto *link_node = dynamic_cast<const LinkNode *>(node.get())) {
-                    print_link(0, bits, *link_node);
-                } else if (const auto *variant_node = dynamic_cast<const VariantNode *>(node.get())) {
-                    print_variant(0, bits, *variant_node);
-                } else if (const auto *test_node = dynamic_cast<const TestNode *>(node.get())) {
-                    print_test(0, bits, *test_node);
-                } else {
-                    assert(false);
+                switch (def->get_variation()) {
+                    case DefinitionNode::Variation::UNKNOWN_VARIATION:
+                        assert(false);
+                        return;
+                    case DefinitionNode::Variation::DATA: {
+                        const auto *node = def->as<DataNode>();
+                        print_data(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::ENTITY: {
+                        const auto *node = def->as<EntityNode>();
+                        print_entity(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::ENUM: {
+                        const auto *node = def->as<EnumNode>();
+                        print_enum(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::ERROR: {
+                        const auto *node = def->as<ErrorNode>();
+                        print_error(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::FUNC: {
+                        const auto *node = def->as<FuncNode>();
+                        print_func(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::FUNCTION: {
+                        const auto *node = def->as<FunctionNode>();
+                        print_function(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::IMPORT: {
+                        const auto *node = def->as<ImportNode>();
+                        print_import(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::LINK: {
+                        const auto *node = def->as<LinkNode>();
+                        print_link(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::TEST: {
+                        const auto *node = def->as<TestNode>();
+                        print_test(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::VARIANT: {
+                        const auto *node = def->as<VariantNode>();
+                        print_variant(0, bits, *node);
+                        break;
+                    }
                 }
             }
             std::cout << std::endl;
@@ -635,52 +668,120 @@ namespace Debug {
         }
 
         void print_expression(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<ExpressionNode> &expr) {
-            if (const auto *variable_node = dynamic_cast<const VariableNode *>(expr.get())) {
-                print_variable(indent_lvl, bits, *variable_node);
-            } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpExpression *>(expr.get())) {
-                print_unary_op(indent_lvl, bits, *unary_op_node);
-            } else if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expr.get())) {
-                print_literal(indent_lvl, bits, *literal_node);
-            } else if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expr.get())) {
-                print_call(indent_lvl, bits, *dynamic_cast<const CallNodeBase *>(call_node));
-            } else if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expr.get())) {
-                print_binary_op(indent_lvl, bits, *binary_op_node);
-            } else if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expr.get())) {
-                print_type_cast(indent_lvl, bits, *type_cast_node);
-            } else if (const auto *type_node = dynamic_cast<const TypeNode *>(expr.get())) {
-                print_type_node(indent_lvl, bits, *type_node);
-            } else if (const auto *initializer = dynamic_cast<const InitializerNode *>(expr.get())) {
-                print_initializer(indent_lvl, bits, *initializer);
-            } else if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expr.get())) {
-                print_group_expression(indent_lvl, bits, *group_node);
-            } else if (const auto *range_node = dynamic_cast<const RangeExpressionNode *>(expr.get())) {
-                print_range_expression(indent_lvl, bits, *range_node);
-            } else if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expr.get())) {
-                print_data_access(indent_lvl, bits, *data_access);
-            } else if (const auto *grouped_access = dynamic_cast<const GroupedDataAccessNode *>(expr.get())) {
-                print_grouped_data_access(indent_lvl, bits, *grouped_access);
-            } else if (const auto *interpol = dynamic_cast<const StringInterpolationNode *>(expr.get())) {
-                print_string_interpolation(indent_lvl, bits, *interpol);
-            } else if (const auto *array_init = dynamic_cast<const ArrayInitializerNode *>(expr.get())) {
-                print_array_initializer(indent_lvl, bits, *array_init);
-            } else if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expr.get())) {
-                print_array_access(indent_lvl, bits, *array_access);
-            } else if (const auto *switch_expression = dynamic_cast<const SwitchExpression *>(expr.get())) {
-                print_switch_expression(indent_lvl, bits, *switch_expression);
-            } else if (const auto *default_node = dynamic_cast<const DefaultNode *>(expr.get())) {
-                print_default(indent_lvl, bits, *default_node);
-            } else if (const auto *switch_match = dynamic_cast<const SwitchMatchNode *>(expr.get())) {
-                print_switch_match(indent_lvl, bits, *switch_match);
-            } else if (const auto *chain_node = dynamic_cast<const OptionalChainNode *>(expr.get())) {
-                print_optional_chain(indent_lvl, bits, *chain_node);
-            } else if (const auto *unwrap_node = dynamic_cast<const OptionalUnwrapNode *>(expr.get())) {
-                print_optional_unwrap(indent_lvl, bits, *unwrap_node);
-            } else if (const auto *var_extract_node = dynamic_cast<const VariantExtractionNode *>(expr.get())) {
-                print_variant_extraction(indent_lvl, bits, *var_extract_node);
-            } else if (const auto *var_unwrap_node = dynamic_cast<const VariantUnwrapNode *>(expr.get())) {
-                print_variant_unwrap(indent_lvl, bits, *var_unwrap_node);
-            } else {
-                assert(false);
+            switch (expr->get_variation()) {
+                case ExpressionNode::Variation::UNKNOWN_VARIATION:
+                    assert(false);
+                    break;
+                case ExpressionNode::Variation::ARRAY_ACCESS: {
+                    const auto *node = expr->as<ArrayAccessNode>();
+                    print_array_access(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::ARRAY_INITIALIZER: {
+                    const auto *node = expr->as<ArrayInitializerNode>();
+                    print_array_initializer(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::BINARY_OP: {
+                    const auto *node = expr->as<BinaryOpNode>();
+                    print_binary_op(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::CALL: {
+                    const auto *node = expr->as<CallNodeExpression>();
+                    print_call(indent_lvl, bits, *static_cast<const CallNodeBase *>(node));
+                    break;
+                }
+                case ExpressionNode::Variation::DATA_ACCESS: {
+                    const auto *node = expr->as<DataAccessNode>();
+                    print_data_access(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::DEFAULT: {
+                    const auto *node = expr->as<DefaultNode>();
+                    print_default(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::GROUP_EXPRESSION: {
+                    const auto *node = expr->as<GroupExpressionNode>();
+                    print_group_expression(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
+                    const auto *node = expr->as<GroupedDataAccessNode>();
+                    print_grouped_data_access(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::INITIALIZER: {
+                    const auto *node = expr->as<InitializerNode>();
+                    print_initializer(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::LITERAL: {
+                    const auto *node = expr->as<LiteralNode>();
+                    print_literal(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::OPTIONAL_CHAIN: {
+                    const auto *node = expr->as<OptionalChainNode>();
+                    print_optional_chain(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::OPTIONAL_UNWRAP: {
+                    const auto *node = expr->as<OptionalUnwrapNode>();
+                    print_optional_unwrap(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::RANGE_EXPRESSION: {
+                    const auto *node = expr->as<RangeExpressionNode>();
+                    print_range_expression(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::STRING_INTERPOLATION: {
+                    const auto *node = expr->as<StringInterpolationNode>();
+                    print_string_interpolation(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::SWITCH_EXPRESSION: {
+                    const auto *node = expr->as<SwitchExpression>();
+                    print_switch_expression(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::SWITCH_MATCH: {
+                    const auto *node = expr->as<SwitchMatchNode>();
+                    print_switch_match(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::TYPE_CAST: {
+                    const auto *node = expr->as<TypeCastNode>();
+                    print_type_cast(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::TYPE: {
+                    const auto *node = expr->as<TypeNode>();
+                    print_type_node(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::UNARY_OP: {
+                    const auto *node = expr->as<UnaryOpExpression>();
+                    print_unary_op(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::VARIABLE: {
+                    const auto *node = expr->as<VariableNode>();
+                    print_variable(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::VARIANT_EXTRACTION: {
+                    const auto *node = expr->as<VariantExtractionNode>();
+                    print_variant_extraction(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::VARIANT_UNWRAP: {
+                    const auto *node = expr->as<VariantUnwrapNode>();
+                    print_variant_unwrap(indent_lvl, bits, *node);
+                    break;
+                }
             }
         }
 
@@ -1074,52 +1175,113 @@ namespace Debug {
         }
 
         void print_statement(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<StatementNode> &statement) {
-            if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
-                print_return(indent_lvl, bits, *return_node);
-            } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement.get())) {
-                print_if(indent_lvl, bits, *if_node);
-            } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement.get())) {
-                print_while(indent_lvl, bits, *while_node);
-            } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
-                print_for(indent_lvl, bits, *for_node);
-            } else if (const auto *enh_for_node = dynamic_cast<const EnhForLoopNode *>(statement.get())) {
-                print_enh_for(indent_lvl, bits, *enh_for_node);
-            } else if (const auto *group_assignment = dynamic_cast<const GroupAssignmentNode *>(statement.get())) {
-                print_group_assignment(indent_lvl, bits, *group_assignment);
-            } else if (const auto *assignment = dynamic_cast<const AssignmentNode *>(statement.get())) {
-                print_assignment(indent_lvl, bits, *assignment);
-            } else if (const auto *group_declaration = dynamic_cast<const GroupDeclarationNode *>(statement.get())) {
-                print_group_declaration(indent_lvl, bits, *group_declaration);
-            } else if (const auto *declaration = dynamic_cast<const DeclarationNode *>(statement.get())) {
-                print_declaration(indent_lvl, bits, *declaration);
-            } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement.get())) {
-                print_throw(indent_lvl, bits, *throw_node);
-            } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
-                print_catch(indent_lvl, bits, *catch_node);
-            } else if (const auto *call_node = dynamic_cast<const CallNodeBase *>(statement.get())) {
-                print_call(indent_lvl, bits, *call_node);
-            } else if (const auto *unary_op_node = dynamic_cast<const UnaryOpStatement *>(statement.get())) {
-                print_unary_op(indent_lvl, bits, *unary_op_node);
-            } else if (const auto *data_assignment = dynamic_cast<const DataFieldAssignmentNode *>(statement.get())) {
-                print_data_field_assignment(indent_lvl, bits, *data_assignment);
-            } else if (const auto *grouped_data_assignment = dynamic_cast<const GroupedDataFieldAssignmentNode *>(statement.get())) {
-                print_grouped_data_field_assignment(indent_lvl, bits, *grouped_data_assignment);
-            } else if (const auto *array_assignment = dynamic_cast<const ArrayAssignmentNode *>(statement.get())) {
-                print_array_assignment(indent_lvl, bits, *array_assignment);
-            } else if (const auto *stacked_assignment = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
-                print_stacked_assignment(indent_lvl, bits, *stacked_assignment);
-            } else if (const auto *stacked_grouped_assignment = dynamic_cast<const StackedGroupedAssignmentNode *>(statement.get())) {
-                print_stacked_grouped_assignment(indent_lvl, bits, *stacked_grouped_assignment);
-            } else if (const auto *switch_statement = dynamic_cast<const SwitchStatement *>(statement.get())) {
-                print_switch_statement(indent_lvl, bits, *switch_statement);
-            } else if (dynamic_cast<const BreakNode *>(statement.get())) {
-                Local::print_header(indent_lvl, bits, "Break ");
-                std::cout << std::endl;
-            } else if (dynamic_cast<const ContinueNode *>(statement.get())) {
-                Local::print_header(indent_lvl, bits, "Continue ");
-                std::cout << std::endl;
-            } else {
-                assert(false);
+            switch (statement->get_variation()) {
+                case StatementNode::Variation::UNKNOWN_VARIATION:
+                    assert(false);
+                    break;
+                case StatementNode::Variation::ARRAY_ASSIGNMENT: {
+                    const auto *node = statement->as<ArrayAssignmentNode>();
+                    print_array_assignment(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::ASSIGNMENT: {
+                    const auto *node = statement->as<AssignmentNode>();
+                    print_assignment(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::BREAK:
+                    Local::print_header(indent_lvl, bits, "Break ");
+                    std::cout << std::endl;
+                    break;
+                case StatementNode::Variation::CALL: {
+                    const auto *node = statement->as<CallNodeStatement>();
+                    print_call(indent_lvl, bits, *static_cast<const CallNodeBase *>(node));
+                    break;
+                }
+                case StatementNode::Variation::CATCH: {
+                    const auto *node = statement->as<CatchNode>();
+                    print_catch(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::CONTINUE:
+                    Local::print_header(indent_lvl, bits, "Continue ");
+                    std::cout << std::endl;
+                    break;
+                case StatementNode::Variation::DATA_FIELD_ASSIGNMENT: {
+                    const auto *node = statement->as<DataFieldAssignmentNode>();
+                    print_data_field_assignment(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::DECLARATION: {
+                    const auto *node = statement->as<DeclarationNode>();
+                    print_declaration(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::ENHANCED_FOR_LOOP: {
+                    const auto *node = statement->as<EnhForLoopNode>();
+                    print_enh_for(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::FOR_LOOP: {
+                    const auto *node = statement->as<ForLoopNode>();
+                    print_for(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::GROUP_ASSIGNMENT: {
+                    const auto *node = statement->as<GroupAssignmentNode>();
+                    print_group_assignment(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::GROUP_DECLARATION: {
+                    const auto *node = statement->as<GroupDeclarationNode>();
+                    print_group_declaration(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
+                    const auto *node = statement->as<GroupedDataFieldAssignmentNode>();
+                    print_grouped_data_field_assignment(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::IF: {
+                    const auto *node = statement->as<IfNode>();
+                    print_if(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::RETURN: {
+                    const auto *node = statement->as<ReturnNode>();
+                    print_return(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::STACKED_ASSIGNMENT: {
+                    const auto *node = statement->as<StackedAssignmentNode>();
+                    print_stacked_assignment(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {
+                    const auto *node = statement->as<StackedGroupedAssignmentNode>();
+                    print_stacked_grouped_assignment(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::SWITCH: {
+                    const auto *node = statement->as<SwitchStatement>();
+                    print_switch_statement(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::THROW: {
+                    const auto *node = statement->as<ThrowNode>();
+                    print_throw(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::UNARY_OP: {
+                    const auto *node = statement->as<UnaryOpStatement>();
+                    print_unary_op(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::WHILE: {
+                    const auto *node = statement->as<WhileNode>();
+                    print_while(indent_lvl, bits, *node);
+                    break;
+                }
             }
         }
 
