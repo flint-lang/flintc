@@ -16,4 +16,8 @@ class ContinueNode : public StatementNode {
     // move operations
     ContinueNode(ContinueNode &&) = default;
     ContinueNode &operator=(ContinueNode &&) = default;
+
+    Variation get_variation() const override {
+        return Variation::CONTINUE;
+    }
 };

@@ -9,6 +9,10 @@ class CallNodeStatement : public CallNodeBase, public StatementNode {
   public:
     using CallNodeBase::CallNodeBase;
 
+    Variation get_variation() const override {
+        return Variation::CALL;
+    }
+
     // deconstructor
     ~CallNodeStatement() override = default;
     // copy operations - deleted because of unique_ptr member

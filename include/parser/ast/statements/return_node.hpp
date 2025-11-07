@@ -13,6 +13,10 @@ class ReturnNode : public StatementNode {
     explicit ReturnNode(std::optional<std::unique_ptr<ExpressionNode>> &return_value) :
         return_value(std::move(return_value)) {}
 
+    Variation get_variation() const override {
+        return Variation::RETURN;
+    }
+
     // constructor
     ReturnNode() = default;
     // deconstructor

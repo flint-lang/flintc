@@ -15,6 +15,10 @@ class UnaryOpExpression : public UnaryOpBase, public ExpressionNode {
         ExpressionNode::type = UnaryOpBase::operand->type;
     }
 
+    Variation get_variation() const override {
+        return Variation::UNARY_OP;
+    }
+
     // deconstructor
     ~UnaryOpExpression() override = default;
     // copy operations - disabled due to unique_ptr member

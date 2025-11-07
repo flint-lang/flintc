@@ -23,6 +23,10 @@ class ForLoopNode : public StatementNode {
         looparound(std::move(looparound)),
         body(std::move(body)) {}
 
+    Variation get_variation() const override {
+        return Variation::FOR_LOOP;
+    }
+
     // constructor
     ForLoopNode() = default;
     // deconstructor

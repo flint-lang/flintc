@@ -13,6 +13,10 @@ class TypeCastNode : public ExpressionNode {
         this->type = type;
     }
 
+    Variation get_variation() const override {
+        return Variation::TYPE_CAST;
+    }
+
     /// @var `expr`
     /// @brief The expression of the type cast node
     std::unique_ptr<ExpressionNode> expr;

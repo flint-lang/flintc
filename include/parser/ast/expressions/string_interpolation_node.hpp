@@ -15,6 +15,10 @@ class StringInterpolationNode : public ExpressionNode {
         this->type = Type::get_primitive_type("str");
     }
 
+    Variation get_variation() const override {
+        return Variation::STRING_INTERPOLATION;
+    }
+
     /// @var `string_content`
     /// @brief A vector of expressions or direct string, forming the whole interpolation chain
     std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> string_content;

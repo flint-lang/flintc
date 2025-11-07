@@ -21,6 +21,10 @@ class CallNodeExpression : public CallNodeBase, public ExpressionNode {
         ExpressionNode::type = type;
     }
 
+    Variation get_variation() const override {
+        return Variation::CALL;
+    }
+
     // deconstructor
     ~CallNodeExpression() override = default;
     // copy operations - deleted because of unique_ptr member

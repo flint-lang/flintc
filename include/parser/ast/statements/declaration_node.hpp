@@ -17,6 +17,10 @@ class DeclarationNode : public StatementNode {
         name(name),
         initializer(std::move(initializer)) {}
 
+    Variation get_variation() const override {
+        return Variation::DECLARATION;
+    }
+
     // empty constructor
     DeclarationNode() = default;
     // destructor

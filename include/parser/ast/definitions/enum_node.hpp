@@ -1,13 +1,13 @@
 #pragma once
 
-#include "parser/ast/ast_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 
 #include <string>
 #include <vector>
 
 /// @class `EnumNode`
 /// @brief Represents enum type definitions
-class EnumNode : public ASTNode {
+class EnumNode : public DefinitionNode {
   public:
     explicit EnumNode(                         //
         const std::string &file_name,          //
@@ -17,9 +17,13 @@ class EnumNode : public ASTNode {
         const std::string &name,               //
         const std::vector<std::string> &values //
         ) :
-        ASTNode(file_name, line, column, length),
+        DefinitionNode(file_name, line, column, length),
         name(name),
         values(values) {}
+
+    Variation get_variation() const override {
+        return Variation::ENUM;
+    }
 
     /// @var `name`
     /// @brief The name of the enum

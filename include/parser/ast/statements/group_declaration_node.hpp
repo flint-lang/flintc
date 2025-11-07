@@ -19,6 +19,10 @@ class GroupDeclarationNode : public StatementNode {
         variables(variables),
         initializer(std::move(initializer)) {}
 
+    Variation get_variation() const override {
+        return Variation::GROUP_DECLARATION;
+    }
+
     // empty constructor
     GroupDeclarationNode() = default;
     // destructor

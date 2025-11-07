@@ -196,7 +196,7 @@ namespace Debug {
             std::cout << "File \"" << file.file_name << "\"" << std::endl;
             unsigned int counter = 0;
 
-            for (const std::unique_ptr<ASTNode> &node : file.definitions) {
+            for (const std::unique_ptr<DefinitionNode> &node : file.definitions) {
                 // Create fresh TreeBits for each node
                 TreeBits bits;
 

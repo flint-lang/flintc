@@ -16,4 +16,8 @@ class BreakNode : public StatementNode {
     // move operations
     BreakNode(BreakNode &&) = default;
     BreakNode &operator=(BreakNode &&) = default;
+
+    Variation get_variation() const override {
+        return Variation::BREAK;
+    }
 };

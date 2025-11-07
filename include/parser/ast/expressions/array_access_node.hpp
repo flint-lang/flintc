@@ -19,6 +19,10 @@ class ArrayAccessNode : public ExpressionNode {
         this->type = result_type;
     }
 
+    Variation get_variation() const override {
+        return Variation::ARRAY_ACCESS;
+    }
+
     /// @var `base_expr`
     /// @brief The base expression from which the array elements are accessed
     std::unique_ptr<ExpressionNode> base_expr;

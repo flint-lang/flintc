@@ -9,4 +9,8 @@ class DefaultNode : public ExpressionNode {
     DefaultNode(const std::shared_ptr<Type> &type) {
         this->type = type;
     }
+
+    Variation get_variation() const override {
+        return Variation::DEFAULT;
+    }
 };

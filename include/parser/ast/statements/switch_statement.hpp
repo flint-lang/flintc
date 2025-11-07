@@ -30,6 +30,10 @@ class SwitchStatement : public SwitchBase, public StatementNode {
         SwitchBase(switcher),
         branches(std::move(branches)) {}
 
+    Variation get_variation() const override {
+        return Variation::SWITCH;
+    }
+
     /// @var `branches`
     /// @brief All the possible switch branches
     std::vector<SSwitchBranch> branches;

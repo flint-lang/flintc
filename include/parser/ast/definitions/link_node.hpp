@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../ast_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 
 #include <string>
 #include <utility>
@@ -8,11 +8,23 @@
 
 /// LinkNode
 ///     Represents links within entities
-class LinkNode : public ASTNode {
+class LinkNode : public DefinitionNode {
   public:
-    explicit LinkNode(std::vector<std::string> &from, std::vector<std::string> &to) :
+    explicit LinkNode(                  //
+        const std::string &file_name,   //
+        const unsigned int line,        //
+        const unsigned int column,      //
+        const unsigned int length,      //
+        std::vector<std::string> &from, //
+        std::vector<std::string> &to    //
+        ) :
+        DefinitionNode(file_name, line, column, length),
         from(std::move(from)),
         to(std::move(to)) {}
+
+    Variation get_variation() const override {
+        return Variation::LINK;
+    }
 
   private:
     /// from

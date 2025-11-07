@@ -1,6 +1,6 @@
 #pragma once
 
-#include "parser/ast/ast_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 #include "parser/type/type.hpp"
 
 #include <string>
@@ -8,9 +8,8 @@
 
 /// @class `DataNode`
 /// @brief Represents data definitions
-class DataNode : public ASTNode {
+class DataNode : public DefinitionNode {
   public:
-    DataNode() = default;
     explicit DataNode(                                                           //
         const std::string &file_name,                                            //
         const unsigned int line,                                                 //
@@ -22,12 +21,16 @@ class DataNode : public ASTNode {
         const std::string &name,                                                 //
         const std::vector<std::pair<std::string, std::shared_ptr<Type>>> &fields //
         ) :
-        ASTNode(file_name, line, column, length),
+        DefinitionNode(file_name, line, column, length),
         is_shared(is_shared),
         is_immutable(is_immutable),
         is_aligned(is_aligned),
         name(name),
         fields(std::move(fields)) {}
+
+    Variation get_variation() const override {
+        return Variation::DATA;
+    }
 
     /// @var `is_shared`
     /// @brief Determines whether the data is shared between multiple entities

@@ -13,6 +13,10 @@ class ThrowNode : public StatementNode {
     explicit ThrowNode(std::unique_ptr<ExpressionNode> &throw_value) :
         throw_value(std::move(throw_value)) {}
 
+    Variation get_variation() const override {
+        return Variation::THROW;
+    }
+
     // constructor
     ThrowNode() = default;
     // deconstructor

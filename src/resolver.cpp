@@ -1,7 +1,6 @@
 #include "resolver/resolver.hpp"
 #include "error/error.hpp"
 #include "error/error_type.hpp"
-#include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/parser.hpp"
 #include "persistent_thread_pool.hpp"
@@ -263,7 +262,7 @@ std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode *file_node, 
     }
     std::vector<dependency> dependencies;
 
-    for (const std::unique_ptr<ASTNode> &node : file_node->definitions) {
+    for (const std::unique_ptr<DefinitionNode> &node : file_node->definitions) {
         if (const auto *import_node = dynamic_cast<const ImportNode *>(node.get())) {
             dependencies.emplace_back(create_dependency(*import_node, path));
         }

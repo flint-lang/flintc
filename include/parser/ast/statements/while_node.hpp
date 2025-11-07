@@ -15,6 +15,10 @@ class WhileNode : public StatementNode {
         condition(std::move(condition)),
         scope(std::move(scope)) {}
 
+    Variation get_variation() const override {
+        return Variation::WHILE;
+    }
+
     // constructor
     WhileNode() = default;
     // deconstructor

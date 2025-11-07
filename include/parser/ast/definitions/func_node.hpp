@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../ast_node.hpp"
 #include "function_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 
 #include <memory>
 #include <string>
@@ -10,16 +10,26 @@
 
 /// FuncNode
 ///     Represents func module definitions
-class FuncNode : public ASTNode {
+class FuncNode : public DefinitionNode {
   public:
-    explicit FuncNode(std::string &name, std::vector<std::pair<std::string, std::string>> &required_data,
-        std::vector<std::unique_ptr<FunctionNode>> functions) :
+    explicit FuncNode(                                                   //
+        const std::string &file_name,                                    //
+        const unsigned int line,                                         //
+        const unsigned int column,                                       //
+        const unsigned int length,                                       //
+        std::string &name,                                               //
+        std::vector<std::pair<std::string, std::string>> &required_data, //
+        std::vector<std::unique_ptr<FunctionNode>> functions             //
+        ) :
+        DefinitionNode(file_name, line, column, length),
         name(name),
         required_data(std::move(required_data)),
         functions(std::move(functions)) {}
 
-    // empty constructor
-    FuncNode() = default;
+    Variation get_variation() const override {
+        return Variation::FUNC;
+    }
+
     // destructor
     ~FuncNode() override = default;
     // copy operations - disabled due to unique_ptr member

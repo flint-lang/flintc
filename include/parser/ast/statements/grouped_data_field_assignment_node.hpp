@@ -26,6 +26,10 @@ class GroupedDataFieldAssignmentNode : public StatementNode {
         field_types(field_types),
         expression(std::move(expression)) {}
 
+    Variation get_variation() const override {
+        return Variation::GROUPED_DATA_FIELD_ASSIGNMENT;
+    }
+
     // constructor
     GroupedDataFieldAssignmentNode() = default;
     // deconstructor

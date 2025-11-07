@@ -23,6 +23,10 @@ class ArrayInitializerNode : public ExpressionNode {
         this->type = type;
     }
 
+    Variation get_variation() const override {
+        return Variation::ARRAY_INITIALIZER;
+    }
+
     /// @var `element_type`
     /// @brief The type of a single array element
     std::shared_ptr<Type> element_type;

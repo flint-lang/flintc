@@ -12,6 +12,10 @@ class SwitchMatchNode : public ExpressionNode {
         this->type = type;
     }
 
+    Variation get_variation() const override {
+        return Variation::SWITCH_MATCH;
+    }
+
     /// @var `name`
     /// @brief The name of the switch match variable. This name is one of:
     ///           - The variable through which an extracted optional is accessible

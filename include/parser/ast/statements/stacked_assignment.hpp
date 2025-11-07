@@ -24,6 +24,10 @@ class StackedAssignmentNode : public StatementNode {
         field_type(field_type),
         expression(std::move(expression)) {}
 
+    Variation get_variation() const override {
+        return Variation::STACKED_ASSIGNMENT;
+    }
+
     // constructor
     StackedAssignmentNode() = delete;
     // deconstructor

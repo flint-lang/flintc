@@ -51,6 +51,10 @@ class OptionalChainNode : public ExpressionNode {
         }
     }
 
+    Variation get_variation() const override {
+        return Variation::OPTIONAL_CHAIN;
+    }
+
     /// @var `base_expr`
     /// @brief The base expression which is accessed in the optional chain
     std::unique_ptr<ExpressionNode> base_expr;

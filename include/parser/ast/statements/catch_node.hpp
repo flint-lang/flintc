@@ -17,6 +17,10 @@ class CatchNode : public StatementNode {
         scope(std::move(scope)),
         call_node(call_node) {}
 
+    Variation get_variation() const override {
+        return Variation::CATCH;
+    }
+
     // constructor
     CatchNode() = default;
     // deconstructor

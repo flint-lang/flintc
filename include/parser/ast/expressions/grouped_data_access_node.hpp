@@ -28,6 +28,10 @@ class GroupedDataAccessNode : public ExpressionNode {
         }
     }
 
+    Variation get_variation() const override {
+        return Variation::GROUPED_DATA_ACCESS;
+    }
+
     /// @var `base_expr`
     /// @brief The base expression from which the fields are accessed
     std::unique_ptr<ExpressionNode> base_expr;

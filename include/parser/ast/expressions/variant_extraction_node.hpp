@@ -19,6 +19,10 @@ class VariantExtractionNode : public ExpressionNode {
         }
     }
 
+    Variation get_variation() const override {
+        return Variation::VARIANT_EXTRACTION;
+    }
+
     /// @var `base_expr`
     /// @brief The base expression which is accessed in the optional chain
     std::unique_ptr<ExpressionNode> base_expr;

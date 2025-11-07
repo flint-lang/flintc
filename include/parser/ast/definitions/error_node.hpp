@@ -1,6 +1,6 @@
 #pragma once
 
-#include "parser/ast/ast_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 #include "parser/type/type.hpp"
 
 #include <cstdint>
@@ -9,7 +9,7 @@
 
 /// @class `ErrorNode`
 /// @brief Represents error set definitions
-class ErrorNode : public ASTNode {
+class ErrorNode : public DefinitionNode {
   public:
     explicit ErrorNode(                                  //
         const std::string &file_name,                    //
@@ -21,12 +21,16 @@ class ErrorNode : public ASTNode {
         const std::vector<std::string> &values,          //
         const std::vector<std::string> &default_messages //
         ) :
-        ASTNode(file_name, line, column, length),
+        DefinitionNode(file_name, line, column, length),
         name(name),
         parent_error(parent_error),
         values(values),
         default_messages(default_messages) {
         error_id = Type::get_type_id_from_str(name);
+    }
+
+    Variation get_variation() const override {
+        return Variation::ERROR;
     }
 
     /// @function `get_parent_node`

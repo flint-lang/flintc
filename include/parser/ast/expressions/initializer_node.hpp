@@ -14,6 +14,10 @@ class InitializerNode : public ExpressionNode {
         this->type = type;
     }
 
+    Variation get_variation() const override {
+        return Variation::INITIALIZER;
+    }
+
     /// @var `args`
     /// @brief The arguments with which the initializer will be initialized
     std::vector<std::unique_ptr<ExpressionNode>> args;

@@ -494,7 +494,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     unsigned int mangle_id = 1;
     file_function_names[file.file_name] = {};
     // Declare all functions in the file at the top of the module
-    for (const std::unique_ptr<ASTNode> &node : file.definitions) {
+    for (const std::unique_ptr<DefinitionNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             // Create a forward declaration for the function only if it is not the main function!
             if (function_node->name != "_main") {
@@ -526,7 +526,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     file_function_mangle_ids[file.file_name] = function_mangle_ids;
 
     // Iterate through all AST Nodes in the file and generate them accordingly
-    for (const std::unique_ptr<ASTNode> &node : file.definitions) {
+    for (const std::unique_ptr<DefinitionNode> &node : file.definitions) {
         if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
             if (is_test && function_node->name == "_main") {
                 continue;

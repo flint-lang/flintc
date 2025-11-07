@@ -1,6 +1,6 @@
 #pragma once
 
-#include "parser/ast/ast_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/scope.hpp"
 
 #include <algorithm>
@@ -13,15 +13,24 @@
 
 /// @class `TestNode`
 /// @brief Represents function definitions
-class TestNode : public ASTNode {
+class TestNode : public DefinitionNode {
   public:
-    explicit TestNode(const std::string &file_name, const std::string &name, std::shared_ptr<Scope> &scope) :
-        file_name(file_name),
+    explicit TestNode(                //
+        const std::string &file_name, //
+        const unsigned int line,      //
+        const unsigned int column,    //
+        const unsigned int length,    //
+        const std::string &name,      //
+        std::shared_ptr<Scope> &scope //
+        ) :
+        DefinitionNode(file_name, line, column, length),
         name(name),
         scope(std::move(scope)) {}
 
-    // empty constructor
-    TestNode() = default;
+    Variation get_variation() const override {
+        return Variation::TEST;
+    }
+
     // deconstructor
     ~TestNode() override = default;
     // copy operations - disabled due to unique_ptr member
@@ -30,10 +39,6 @@ class TestNode : public ASTNode {
     // move operations
     TestNode(TestNode &&) = default;
     TestNode &operator=(TestNode &&) = default;
-
-    /// @var `file_name`
-    /// @brief The name of the file the test is contained in
-    std::string file_name;
 
     /// @var `name`
     /// @brief The name of the test

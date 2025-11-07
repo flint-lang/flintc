@@ -9,6 +9,10 @@ class UnaryOpStatement : public UnaryOpBase, public StatementNode {
   public:
     using UnaryOpBase::UnaryOpBase;
 
+    Variation get_variation() const override {
+        return Variation::UNARY_OP;
+    }
+
     // deconstructor
     ~UnaryOpStatement() override = default;
     // copy operations - disabled due to unique_ptr member

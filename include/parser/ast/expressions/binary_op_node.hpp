@@ -24,6 +24,10 @@ class BinaryOpNode : public ExpressionNode {
         this->type = type;
     }
 
+    Variation get_variation() const override {
+        return Variation::BINARY_OP;
+    }
+
     // empty constructor
     BinaryOpNode() = default;
     // deconstructor

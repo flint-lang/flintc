@@ -23,6 +23,10 @@ class ArrayAssignmentNode : public StatementNode {
         indexing_expressions(std::move(indexing_expressions)),
         expression(std::move(expression)) {}
 
+    Variation get_variation() const override {
+        return Variation::ARRAY_ASSIGNMENT;
+    }
+
     // constructor
     ArrayAssignmentNode() = default;
     // deconstructor

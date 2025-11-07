@@ -2,6 +2,7 @@
 
 #include "ast_node.hpp"
 #include "definitions/data_node.hpp"
+#include "definitions/definition_node.hpp"
 #include "definitions/entity_node.hpp"
 #include "definitions/enum_node.hpp"
 #include "definitions/error_node.hpp"
@@ -24,13 +25,13 @@ class FileNode : public ASTNode {
     explicit FileNode(const std::string &file_name) :
         file_name(file_name) {}
 
-    FileNode(std::vector<std::unique_ptr<ASTNode>> &definitions, std::string &file_name) :
+    FileNode(std::vector<std::unique_ptr<DefinitionNode>> &definitions, std::string &file_name) :
         definitions(std::move(definitions)),
         file_name(file_name) {}
 
     /// @var `definitions`
     /// @brief All top-level definitions (functions, data, entities, etc.)
-    std::vector<std::unique_ptr<ASTNode>> definitions;
+    std::vector<std::unique_ptr<DefinitionNode>> definitions;
 
     /// @var `file_name`
     /// @brief The name of the file

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../ast_node.hpp"
 #include "link_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 
 #include <memory>
 #include <string>
@@ -11,11 +11,22 @@
 /// EntityNode
 ///     Represents entities and their func / data relationships
 ///     Because an entity can either be monolithic or modular, there are two possibilities for the entity
-class EntityNode : public ASTNode {
+class EntityNode : public DefinitionNode {
   public:
-    explicit EntityNode(std::string &name, std::vector<std::string> &data_modules, std::vector<std::string> &func_modules,
-        std::vector<std::unique_ptr<LinkNode>> link_nodes, std::vector<std::pair<std::string, std::string>> &parent_entities,
-        std::vector<std::string> &constructor_order) :
+    EntityNode() = default;
+    explicit EntityNode(                                                   //
+        const std::string &file_name,                                      //
+        const unsigned int line,                                           //
+        const unsigned int column,                                         //
+        const unsigned int length,                                         //
+        std::string &name,                                                 //
+        std::vector<std::string> &data_modules,                            //
+        std::vector<std::string> &func_modules,                            //
+        std::vector<std::unique_ptr<LinkNode>> link_nodes,                 //
+        std::vector<std::pair<std::string, std::string>> &parent_entities, //
+        std::vector<std::string> &constructor_order                        //
+        ) :
+        DefinitionNode(file_name, line, column, length),
         name(name),
         data_modules(std::move(data_modules)),
         func_modules(std::move(func_modules)),
@@ -23,8 +34,10 @@ class EntityNode : public ASTNode {
         parent_entities(std::move(parent_entities)),
         constructor_order(std::move(constructor_order)) {}
 
-    // empty constructor
-    EntityNode() = default;
+    Variation get_variation() const override {
+        return Variation::ENTITY;
+    }
+
     // destructor
     ~EntityNode() override = default;
     // copy operations - disabled due to unique_ptr member

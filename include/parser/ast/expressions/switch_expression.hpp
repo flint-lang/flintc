@@ -41,6 +41,10 @@ class SwitchExpression : public SwitchBase, public ExpressionNode {
         this->type = this->branches.front().expr->type;
     }
 
+    Variation get_variation() const override {
+        return Variation::SWITCH_EXPRESSION;
+    }
+
     /// @var `branches`
     /// @brief All the possible switch branches
     std::vector<ESwitchBranch> branches;

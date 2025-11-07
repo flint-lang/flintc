@@ -81,6 +81,10 @@ class LiteralNode : public ExpressionNode {
         this->type = type;
     }
 
+    Variation get_variation() const override {
+        return Variation::LITERAL;
+    }
+
     /// @var `value`
     /// @brief The literal value
     LitValue value;

@@ -19,6 +19,10 @@ class GroupAssignmentNode : public StatementNode {
         assignees(assignees),
         expression(std::move(expression)) {}
 
+    Variation get_variation() const override {
+        return Variation::GROUP_ASSIGNMENT;
+    }
+
     // constructor
     GroupAssignmentNode() = default;
     // deconstructor

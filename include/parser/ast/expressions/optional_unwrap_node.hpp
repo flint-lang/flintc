@@ -16,6 +16,10 @@ class OptionalUnwrapNode : public ExpressionNode {
         }
     }
 
+    Variation get_variation() const override {
+        return Variation::OPTIONAL_UNWRAP;
+    }
+
     /// @var `base_expr`
     /// @brief The base expression from which to access one field's value
     std::unique_ptr<ExpressionNode> base_expr;

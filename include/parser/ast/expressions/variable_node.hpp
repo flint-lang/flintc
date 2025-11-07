@@ -13,6 +13,10 @@ class VariableNode : public ExpressionNode {
         this->type = type;
     }
 
+    Variation get_variation() const override {
+        return Variation::VARIABLE;
+    }
+
     /// @var `name`
     /// @brief Name of the variable
     std::string name;

@@ -25,6 +25,10 @@ class RangeExpressionNode : public ExpressionNode {
         }
     }
 
+    Variation get_variation() const override {
+        return Variation::RANGE_EXPRESSION;
+    }
+
     /// @var `lower_bound`
     /// @brief The lower bound of the range
     std::unique_ptr<ExpressionNode> lower_bound;

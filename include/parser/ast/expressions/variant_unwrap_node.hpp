@@ -11,6 +11,10 @@ class VariantUnwrapNode : public ExpressionNode {
         this->type = unwrap_type;
     }
 
+    Variation get_variation() const override {
+        return Variation::VARIANT_UNWRAP;
+    }
+
     /// @var `base_expr`
     /// @brief The base expression to unwrap
     std::unique_ptr<ExpressionNode> base_expr;

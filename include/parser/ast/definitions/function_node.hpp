@@ -1,6 +1,6 @@
 #pragma once
 
-#include "parser/ast/ast_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/type/type.hpp"
 
@@ -11,7 +11,7 @@
 
 /// @class `FunctionNode`
 /// @brief Represents function definitions
-class FunctionNode : public ASTNode {
+class FunctionNode : public DefinitionNode {
   public:
     explicit FunctionNode(                                                             //
         const std::string &file_name,                                                  //
@@ -26,7 +26,7 @@ class FunctionNode : public ASTNode {
         std::vector<std::shared_ptr<Type>> &error_types,                               //
         std::optional<std::shared_ptr<Scope>> &scope                                   //
         ) :
-        ASTNode(file_name, line, column, length),
+        DefinitionNode(file_name, line, column, length),
         is_aligned(is_aligned),
         is_const(is_const),
         name(std::move(name)),
@@ -34,6 +34,10 @@ class FunctionNode : public ASTNode {
         return_types(std::move(return_types)),
         error_types(std::move(error_types)),
         scope(std::move(scope)) {}
+
+    Variation get_variation() const override {
+        return Variation::FUNCTION;
+    }
 
     // empty constructor
     FunctionNode() = delete;

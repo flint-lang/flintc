@@ -1,6 +1,6 @@
 #pragma once
 
-#include "parser/ast/ast_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 #include "parser/type/type.hpp"
 
 #include <string>
@@ -9,7 +9,7 @@
 
 /// @class `VariantNode`
 /// @brief Represents the variant type definition
-class VariantNode : public ASTNode {
+class VariantNode : public DefinitionNode {
   public:
     explicit VariantNode(                                                                         //
         const std::string &file_name,                                                             //
@@ -19,9 +19,13 @@ class VariantNode : public ASTNode {
         const std::string &name,                                                                  //
         std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> &possible_types //
         ) :
-        ASTNode(file_name, line, column, length),
+        DefinitionNode(file_name, line, column, length),
         name(name),
         possible_types(std::move(possible_types)) {}
+
+    Variation get_variation() const override {
+        return Variation::VARIANT;
+    }
 
     /// @var `name`
     /// @brief The name of the variant type

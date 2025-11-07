@@ -390,7 +390,10 @@ LinkNode Parser::create_link(const token_slice &tokens) {
         }
     }
 
-    return LinkNode(from_references, to_references);
+    const unsigned int line = tokens.first->line;
+    const unsigned int column = tokens.first->column;
+    const unsigned int length = tokens.second->column - tokens.first->column;
+    return LinkNode(file_name, line, column, length, from_references, to_references);
 }
 
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {
@@ -629,7 +632,10 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     }
 
     // Dont parse the body yet, it will be parsed as part of the second pass of the parser
-    return TestNode(file_name, test_name, body_scope);
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    return TestNode(file_name, line, column, length, test_name, body_scope);
 }
 
 std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
@@ -683,5 +689,8 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
         alias = iterator->lexme;
     }
 
-    return ImportNode(import_path, alias);
+    const unsigned int line = tokens.first->line;
+    const unsigned int column = tokens.first->column;
+    const unsigned int length = tokens.second->column - tokens.first->column;
+    return ImportNode(file_name, line, column, length, import_path, alias);
 }

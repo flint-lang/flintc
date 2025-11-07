@@ -1,6 +1,6 @@
 #pragma once
 
-#include "parser/ast/ast_node.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 
 #include <optional>
 #include <string>
@@ -9,14 +9,23 @@
 
 /// @class `ImportNode`
 /// @brief Represents the use definitions
-class ImportNode : public ASTNode {
+class ImportNode : public DefinitionNode {
   public:
     explicit ImportNode(                                                                                        //
+        const std::string &file_name,                                                                           //
+        const unsigned int line,                                                                                //
+        const unsigned int column,                                                                              //
+        const unsigned int length,                                                                              //
         const std::variant<std::pair<std::optional<std::string>, std::string>, std::vector<std::string>> &path, //
         const std::optional<std::string> &alias                                                                 //
         ) :
+        DefinitionNode(file_name, line, column, length),
         path(path),
         alias(alias) {}
+
+    Variation get_variation() const override {
+        return Variation::IMPORT;
+    }
 
     /// @var `path`
     /// @brief A path is either

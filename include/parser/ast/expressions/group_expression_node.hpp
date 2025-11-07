@@ -26,6 +26,10 @@ class GroupExpressionNode : public ExpressionNode {
         }
     }
 
+    Variation get_variation() const override {
+        return Variation::GROUP_EXPRESSION;
+    }
+
     /// @var `expressions`
     /// @brief All the expressions part of the group expression
     std::vector<std::unique_ptr<ExpressionNode>> expressions;

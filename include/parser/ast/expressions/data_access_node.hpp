@@ -20,6 +20,10 @@ class DataAccessNode : public ExpressionNode {
         this->type = field_type;
     }
 
+    Variation get_variation() const override {
+        return Variation::DATA_ACCESS;
+    }
+
     /// @var `base_expr`
     /// @brief The base expression from which to access one field's value
     std::unique_ptr<ExpressionNode> base_expr;

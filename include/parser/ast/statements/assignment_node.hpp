@@ -22,6 +22,10 @@ class AssignmentNode : public StatementNode {
         expression(std::move(expression)),
         is_shorthand(is_shorthand) {}
 
+    Variation get_variation() const override {
+        return Variation::ASSIGNMENT;
+    }
+
     // constructor
     AssignmentNode() = default;
     // deconstructor

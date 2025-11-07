@@ -24,6 +24,10 @@ class EnhForLoopNode : public StatementNode {
         definition_scope(std::move(definition_scope)),
         body(std::move(body)) {}
 
+    Variation get_variation() const override {
+        return Variation::ENHANCED_FOR_LOOP;
+    }
+
     // constructor
     EnhForLoopNode() = default;
     // deconstructor

@@ -22,6 +22,10 @@ class IfNode : public StatementNode {
         then_scope(std::move(then_scope)),
         else_scope(std::move(else_scope)) {}
 
+    Variation get_variation() const override {
+        return Variation::IF;
+    }
+
     // constructor
     IfNode() = default;
     // deconstructor
