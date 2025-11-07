@@ -1,4 +1,5 @@
 #include "resolver/resolver.hpp"
+#include "analyzer/analyzer.hpp"
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "parser/ast/definitions/import_node.hpp"
@@ -197,7 +198,11 @@ bool Resolver::process_dependency_file(                               //
         Resolver::add_path(dep_file_path.filename().string(), dep_file_path.parent_path());
         std::optional<FileNode *> file = Parser::create(dep_file_path)->parse();
         if (!file.has_value()) {
-            std::cerr << "Error: File '" << dep_file_path.filename() << "' could not be parsed!";
+            std::cerr << "Error: File '" << dep_file_path.filename() << "' could not be parsed!" << std::endl;
+            return false;
+        }
+        if (!Analyzer::analyze(file.value())) {
+            std::cerr << "Error: File '" << dep_file_path.filename() << "' failed analyze step!" << std::endl;
             return false;
         }
         // Save the file name, as the file itself moves its ownership in the call below

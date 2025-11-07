@@ -1,1 +1,0 @@
-#include "checker/checker.hpp"

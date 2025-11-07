@@ -1,3 +1,4 @@
+#include "analyzer/analyzer.hpp"
 #include "cli_parser_main.hpp"
 #include "debug.hpp"
 #include "fip.hpp"
@@ -43,6 +44,11 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     std::optional<FileNode *> file = Parser::create(source_file_path)->parse();
     if (!file.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << source_file_path.filename() << DEFAULT
+                  << std::endl;
+        return std::nullopt;
+    }
+    if (!Analyzer::analyze(file.value())) {
+        std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << source_file_path.filename() << DEFAULT << "' failed analyze step!"
                   << std::endl;
         return std::nullopt;
     }
