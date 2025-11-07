@@ -1,5 +1,6 @@
 #pragma once
 
+#include "profiler.hpp"
 #include "token_pattern_matcher.hpp"
 
 #include <string>
@@ -24,6 +25,7 @@ class BalancedUntilMatcher : public TokenPatternMatcher {
         start_depth(start_depth) {}
 
     MatchResult match(const token_slice &tokens, size_t start_pos) const override {
+        PROFILE_CUMULATIVE("BalancedUntilMatcher::match");
         size_t pos = start_pos;
         size_t tokens_size = std::distance(tokens.first, tokens.second);
 

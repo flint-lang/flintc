@@ -1,8 +1,10 @@
 #pragma once
 
+#include "profiler.hpp"
 #include "token_pattern_matcher.hpp"
 
 #include <cstdint>
+#include <string>
 
 class RepetitionMatcher : public TokenPatternMatcher {
   private:
@@ -17,6 +19,7 @@ class RepetitionMatcher : public TokenPatternMatcher {
         max_matches(max_matches) {}
 
     MatchResult match(const token_slice &tokens, const size_t start_pos) const override {
+        PROFILE_CUMULATIVE("RepetitionMatcher::match");
         size_t current_pos = start_pos;
         size_t match_count = 0;
         size_t tokens_size = std::distance(tokens.first, tokens.second);

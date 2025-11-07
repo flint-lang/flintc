@@ -95,6 +95,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
         Profiler::end_task("ALL");
         if (PRINT_PROFILE_RESULTS) {
             Profiler::print_results(Profiler::TimeUnit::MICS);
+            Profiler::print_cumulative_stats("total");
         }
         exit(0);
     }
@@ -255,6 +256,7 @@ int main(int argc, char *argv[]) {
     Profiler::end_task("ALL");
     if (PRINT_PROFILE_RESULTS) {
         Profiler::print_results(Profiler::TimeUnit::MICS);
+        Profiler::print_cumulative_stats("total");
     }
     program.value()->dropAllReferences();
     program.value().reset();

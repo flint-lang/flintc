@@ -1,6 +1,9 @@
 #pragma once
 
+#include "profiler.hpp"
 #include "token_pattern_matcher.hpp"
+
+#include <string>
 
 class UntilMatcher : public TokenPatternMatcher {
   private:
@@ -11,6 +14,7 @@ class UntilMatcher : public TokenPatternMatcher {
         until_pattern(until_pattern) {}
 
     MatchResult match(const token_slice &tokens, size_t start_pos) const override {
+        PROFILE_CUMULATIVE("UntilMatcher::match");
         size_t pos = start_pos;
         size_t token_size = std::distance(tokens.first, tokens.second);
 

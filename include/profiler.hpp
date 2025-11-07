@@ -40,7 +40,27 @@ struct ProfileNode {
         end{} {}
 };
 
-class ScopeProfiler; ///< Forward declaration.
+/// @struct CumulativeStats
+/// @brief Stores cumulative statistics for a profiling key
+struct CumulativeStats {
+    std::string name;               ///< Name of the profiled section
+    size_t call_count = 0;          ///< Number of times this was called
+    uint64_t exclusive_time_ns = 0; ///< Exclusive time in nanoseconds (excluding nested profilers)
+    uint64_t inclusive_time_ns = 0; ///< Inclusive time in nanoseconds (including nested profilers)
+
+    /// @brief Calculate average exclusive time per call in nanoseconds
+    double average_exclusive_ns() const {
+        return call_count > 0 ? static_cast<double>(exclusive_time_ns) / call_count : 0.0;
+    }
+
+    /// @brief Calculate average inclusive time per call in nanoseconds
+    double average_inclusive_ns() const {
+        return call_count > 0 ? static_cast<double>(inclusive_time_ns) / call_count : 0.0;
+    }
+};
+
+class ScopeProfiler;      ///< Forward declaration.
+class CumulativeProfiler; ///< Forward declaration.
 
 /// @class Profiler
 /// @brief Provides static methods for task profiling.
@@ -78,6 +98,21 @@ class Profiler {
     /// @var `profiling_durations`
     /// @brief A map contiaining the profiling names and the node containing the actual durations
     static inline std::unordered_map<std::string, const ProfileNode *const> profiling_durations;
+
+    /// @brief Records a cumulative measurement
+    /// @param key Identifier for this measurement (same key = same stat entry)
+    /// @param exclusive_ns Exclusive duration in nanoseconds (excluding nested profilers)
+    /// @param inclusive_ns Inclusive duration in nanoseconds (including nested profilers)
+    static void record_cumulative(const std::string &key, uint64_t exclusive_ns, uint64_t inclusive_ns);
+
+    /// @brief Prints cumulative statistics table
+    /// @param sort_by How to sort results ("calls", "total", "average")
+    static void print_cumulative_stats(const std::string &sort_by = "total");
+
+    /// @brief Clears all cumulative statistics
+    static void clear_cumulative_stats() {
+        cumulative_stats.clear();
+    }
 
     /// @brief Formats a numeric value with a separator for readability.
     /// @tparam T Type of the value (e.g., integer, floating-point).
@@ -178,6 +213,10 @@ class Profiler {
 
     // Map for quick lookup when using manual start_task/end_task
     static std::map<std::string, std::shared_ptr<ProfileNode>> active_tasks;
+
+  private:
+    /// @brief Map of cumulative statistics by key
+    static inline std::unordered_map<std::string, CumulativeStats> cumulative_stats;
 };
 
 /// @class ScopeProfiler
@@ -234,6 +273,85 @@ class ScopeProfiler {
     std::shared_ptr<ProfileNode> node; ///< Node representing this profile in the tree.
 };
 
+/// @class CumulativeProfiler
+/// @brief RAII-based class for cumulative profiling with exclusive time tracking
+class CumulativeProfiler {
+  public:
+    /// @brief Constructs a `CumulativeProfiler` and starts timing
+    /// @param key Identifier for this measurement
+    explicit CumulativeProfiler(std::string key) :
+        key(std::move(key)),
+        start(std::chrono::high_resolution_clock::now()),
+        paused_duration_ns(0),
+        is_paused(false) {
+        // Pause the parent profiler if any
+        if (!cumulative_stack.empty()) {
+            cumulative_stack.top()->pause();
+        }
+        // Push ourselves onto the stack
+        cumulative_stack.push(this);
+    }
+
+    /// @brief Destructs the `CumulativeProfiler` and records the measurement
+    ~CumulativeProfiler() {
+        // Pop ourselves from the stack
+        if (!cumulative_stack.empty() && cumulative_stack.top() == this) {
+            cumulative_stack.pop();
+        }
+
+        // Resume the parent profiler if any
+        if (!cumulative_stack.empty()) {
+            cumulative_stack.top()->resume();
+        }
+
+        // Calculate exclusive time (total - paused) and inclusive time (total)
+        auto end = std::chrono::high_resolution_clock::now();
+        auto inclusive_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+        auto exclusive_duration = inclusive_duration - paused_duration_ns;
+
+        Profiler::record_cumulative(key, exclusive_duration, inclusive_duration);
+    }
+
+    /// @brief Deleted copy constructor
+    CumulativeProfiler(const CumulativeProfiler &) = delete;
+
+    /// @brief Deleted copy assignment operator
+    CumulativeProfiler &operator=(const CumulativeProfiler &) = delete;
+
+    /// @brief Default move constructor
+    CumulativeProfiler(CumulativeProfiler &&) = default;
+
+    /// @brief Deleted move assignment operator
+    CumulativeProfiler &operator=(CumulativeProfiler &&) = delete;
+
+  private:
+    /// @brief Pauses timing (called when a nested profiler starts)
+    void pause() {
+        if (!is_paused) {
+            pause_start = std::chrono::high_resolution_clock::now();
+            is_paused = true;
+        }
+    }
+
+    /// @brief Resumes timing (called when a nested profiler ends)
+    void resume() {
+        if (is_paused) {
+            auto pause_end = std::chrono::high_resolution_clock::now();
+            paused_duration_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(pause_end - pause_start).count();
+            is_paused = false;
+        }
+    }
+
+    std::string key;             ///< Identifier for this measurement
+    TimePoint start;             ///< Start time of the measurement
+    uint64_t paused_duration_ns; ///< Accumulated time spent paused (in nested profilers)
+    TimePoint pause_start;       ///< Time when current pause started
+    bool is_paused;              ///< Whether this profiler is currently paused
+
+    /// @brief Thread-local stack of active cumulative profilers
+    static thread_local std::stack<CumulativeProfiler *> cumulative_stack;
+};
+
 /// @def PROFILE_SCOPE(name)
 /// @brief Macro for creating a `ScopeProfiler` instance with a unique name.
 /// @param name Name of the task to profile.
@@ -242,6 +360,16 @@ class ScopeProfiler {
 #define PROFILE_SCOPE(name) ScopeProfiler CONCAT(sp_, __LINE__)(name)
 #else
 #define PROFILE_SCOPE(name) ((void)0)
+#endif
+
+/// @def PROFILE_CUMULATIVE(key)
+/// @brief Macro for cumulative profiling
+/// @param key Identifier for this measurement
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#ifdef DEBUG_BUILD
+#define PROFILE_CUMULATIVE(key) CumulativeProfiler CONCAT(cp_, __LINE__)(key)
+#else
+#define PROFILE_CUMULATIVE(key) ((void)0)
 #endif
 
 /// @def CONCAT(a, b)

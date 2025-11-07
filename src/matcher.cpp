@@ -1,5 +1,7 @@
 #include "matcher/matcher.hpp"
 
+#include "profiler.hpp"
+
 #include <cassert>
 #include <regex>
 
@@ -8,6 +10,7 @@ std::optional<uint2> Matcher::balanced_range_extraction( //
     const PatternPtr &inc_pattern,                       //
     const PatternPtr &dec_pattern                        //
 ) {
+    PROFILE_CUMULATIVE("Matcher::balanced_range_extraction");
     // Find all occurrences of increment and decrement patterns
     std::vector<uint2> inc_ranges = get_match_ranges(tokens, inc_pattern);
     std::vector<uint2> dec_ranges = get_match_ranges(tokens, dec_pattern);
@@ -60,6 +63,7 @@ std::vector<uint2> Matcher::balanced_range_extraction_vec( //
     const PatternPtr &inc_pattern,                         //
     const PatternPtr &dec_pattern                          //
 ) {
+    PROFILE_CUMULATIVE("Matcher::balanced_range_extraction_vec");
     std::vector<uint2> ranges;
 
     // Create a copy of tokens to modify during extraction
@@ -88,6 +92,7 @@ std::vector<uint2> Matcher::balanced_range_extraction_vec( //
 }
 
 std::vector<uint2> Matcher::balanced_ranges_vec(const std::string &src, const std::string &inc, const std::string &dec) {
+    PROFILE_CUMULATIVE("Matcher::balanced_ranges_vec");
     std::vector<uint2> result;
     std::regex inc_regex(inc), dec_regex(dec);
 
@@ -156,6 +161,7 @@ std::vector<uint2> Matcher::balanced_ranges_vec(const std::string &src, const st
 }
 
 bool Matcher::tokens_contain(const token_slice &tokens, const PatternPtr &pattern) {
+    PROFILE_CUMULATIVE("Matcher::tokens_contain");
     size_t tokens_size = std::distance(tokens.first, tokens.second);
     for (size_t i = 0; i < tokens_size; i++) {
         auto result = pattern->match(tokens, i);
@@ -167,21 +173,25 @@ bool Matcher::tokens_contain(const token_slice &tokens, const PatternPtr &patter
 }
 
 bool Matcher::tokens_match(const token_slice &tokens, const PatternPtr &pattern) {
+    PROFILE_CUMULATIVE("Matcher::tokens_match");
     size_t tokens_size = std::distance(tokens.first, tokens.second);
     auto result = pattern->match(tokens, 0);
     return result.has_value() && *result == tokens_size;
 }
 
 bool Matcher::token_match(const Token token, const PatternPtr &pattern) {
+    PROFILE_CUMULATIVE("Matcher::token_match");
     token_list match_list = {TokenContext{token, 0, 0, 0, ""}};
     return tokens_match({match_list.begin(), match_list.end()}, pattern);
 }
 
 bool Matcher::tokens_start_with(const token_slice &tokens, const PatternPtr &pattern) {
+    PROFILE_CUMULATIVE("Matcher::tokens_start_with");
     return pattern->match(tokens, 0).has_value();
 }
 
 bool Matcher::tokens_end_with(const token_slice &tokens, const PatternPtr &pattern) {
+    PROFILE_CUMULATIVE("Matcher::tokens_end_with");
     for (auto start = tokens.second - 1; start != tokens.first; --start) {
         auto match = pattern->match({start, tokens.second}, 0);
         if (match.has_value()) {
@@ -192,6 +202,7 @@ bool Matcher::tokens_end_with(const token_slice &tokens, const PatternPtr &patte
 }
 
 bool Matcher::tokens_contain_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
+    PROFILE_CUMULATIVE("Matcher::tokens_contain_in_range");
     size_t tokens_size = std::distance(tokens.first, tokens.second);
     assert(range.second <= tokens_size);
     assert(range.first <= range.second);
@@ -206,6 +217,7 @@ bool Matcher::tokens_contain_in_range(const token_slice &tokens, const PatternPt
 }
 
 std::optional<uint2> Matcher::get_tokens_line_range(const token_slice &tokens, unsigned int line) {
+    PROFILE_CUMULATIVE("Matcher::get_tokens_line_range");
     if (tokens.first == tokens.second) {
         return std::nullopt;
     }
@@ -232,6 +244,7 @@ std::optional<uint2> Matcher::get_tokens_line_range(const token_slice &tokens, u
 }
 
 std::vector<uint2> Matcher::get_match_ranges(const token_slice &tokens, const PatternPtr &pattern) {
+    PROFILE_CUMULATIVE("Matcher::get_match_ranges");
     std::vector<uint2> results;
     size_t tokens_size = std::distance(tokens.first, tokens.second);
 
@@ -245,6 +258,7 @@ std::vector<uint2> Matcher::get_match_ranges(const token_slice &tokens, const Pa
 }
 
 std::vector<uint2> Matcher::get_match_ranges_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
+    PROFILE_CUMULATIVE("Matcher::get_match_ranges_in_range");
     size_t tokens_size = std::distance(tokens.first, tokens.second);
     assert(range.second <= tokens_size);
     assert(range.first <= range.second);
@@ -261,6 +275,7 @@ std::vector<uint2> Matcher::get_match_ranges_in_range(const token_slice &tokens,
 }
 
 std::optional<uint2> Matcher::get_next_match_range(const token_slice &tokens, const PatternPtr &pattern) {
+    PROFILE_CUMULATIVE("Matcher::get_next_match_range");
     size_t tokens_size = std::distance(tokens.first, tokens.second);
     for (size_t i = 0; i < tokens_size; ++i) {
         auto match_end = pattern->match(tokens, i);
@@ -272,6 +287,7 @@ std::optional<uint2> Matcher::get_next_match_range(const token_slice &tokens, co
 }
 
 std::optional<unsigned int> Matcher::get_leading_indents(const token_slice &tokens, unsigned int line) {
+    PROFILE_CUMULATIVE("Matcher::get_leading_indents");
     unsigned int leading_indents = 0;
     int start_index = -1;
     size_t tokens_size = std::distance(tokens.first, tokens.second);
@@ -302,6 +318,7 @@ std::vector<uint2> Matcher::get_match_ranges_in_range_outside_group( //
     const PatternPtr &inc,                                           //
     const PatternPtr &dec                                            //
 ) {
+    PROFILE_CUMULATIVE("Matcher::get_match_ranges_in_range_outside_group");
     // No need for more expensive search if the tokens dont contain the signature at all
     if (!tokens_contain_in_range(tokens, pattern, range)) {
         return {};

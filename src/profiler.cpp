@@ -3,9 +3,13 @@
 #include "colors.hpp"
 #include "globals.hpp"
 
+#include <algorithm>
+#include <iomanip>
+
 std::vector<std::shared_ptr<ProfileNode>> Profiler::root_nodes;
 std::stack<std::shared_ptr<ProfileNode>> Profiler::profile_stack;
 std::map<std::string, std::shared_ptr<ProfileNode>> Profiler::active_tasks;
+thread_local std::stack<CumulativeProfiler *> CumulativeProfiler::cumulative_stack;
 
 ScopeProfiler Profiler::start_scope(const std::string &task_name) {
     ScopeProfiler scope_profiler(task_name);
@@ -79,4 +83,77 @@ void Profiler::print_results(TimeUnit unit) {
             print_results<std::chrono::seconds>("s");
             break;
     }
+}
+
+void Profiler::record_cumulative(const std::string &key, uint64_t exclusive_ns, uint64_t inclusive_ns) {
+    auto &stats = cumulative_stats[key];
+    stats.name = key;
+    stats.call_count++;
+    stats.exclusive_time_ns += exclusive_ns;
+    stats.inclusive_time_ns += inclusive_ns;
+}
+
+void Profiler::print_cumulative_stats(const std::string &sort_by) {
+    if (!DEBUG_MODE) {
+        return;
+    }
+
+    if (cumulative_stats.empty()) {
+        std::cout << "No cumulative profiling data available.\n";
+        return;
+    }
+
+    std::cout << YELLOW << "[Debug Info] Cumulative Profiling Statistics" << DEFAULT << std::endl;
+
+    // Convert to vector for sorting
+    std::vector<CumulativeStats> stats_vec;
+    stats_vec.reserve(cumulative_stats.size());
+    for (const auto &[_, stats] : cumulative_stats) {
+        stats_vec.push_back(stats);
+    }
+
+    // Sort based on criteria
+    if (sort_by == "calls") {
+        std::sort(stats_vec.begin(), stats_vec.end(), [](const auto &a, const auto &b) { return a.call_count > b.call_count; });
+    } else if (sort_by == "average") {
+        std::sort(stats_vec.begin(), stats_vec.end(),
+            [](const auto &a, const auto &b) { return a.average_exclusive_ns() > b.average_exclusive_ns(); });
+    } else { // "total" or default
+        std::sort(stats_vec.begin(), stats_vec.end(),
+            [](const auto &a, const auto &b) { return a.exclusive_time_ns > b.exclusive_time_ns; });
+    }
+
+    // Print header
+    std::cout << "\n";
+    std::cout << std::left << std::setw(40) << "Name" << std::right << std::setw(12) << "Calls" << std::setw(18) << "Exclusive (µs)"
+              << std::setw(18) << "Inclusive (µs)" << std::setw(16) << "Avg Excl (µs)" << std::setw(16) << "Avg Incl (µs)" << std::setw(12)
+              << "% of Total"
+              << "\n";
+    std::cout << std::string(132, '-') << "\n";
+
+    // Calculate total exclusive time for percentages
+    uint64_t grand_total = 0;
+    for (const auto &stat : stats_vec) {
+        grand_total += stat.exclusive_time_ns;
+    }
+
+    // Print each stat
+    for (const auto &stat : stats_vec) {
+        double exclusive_us = stat.exclusive_time_ns / 1000.0;
+        double inclusive_us = stat.inclusive_time_ns / 1000.0;
+        double avg_excl_us = stat.average_exclusive_ns() / 1000.0;
+        double avg_incl_us = stat.average_inclusive_ns() / 1000.0;
+        double percentage = grand_total > 0 ? (100.0 * stat.exclusive_time_ns / grand_total) : 0.0;
+
+        std::cout << std::left << std::setw(40) << stat.name << std::right << std::setw(12) << format_with_separator(stat.call_count)
+                  << std::setw(18) << std::fixed << std::setprecision(2) << exclusive_us << std::setw(18) << std::fixed
+                  << std::setprecision(2) << inclusive_us << std::setw(16) << std::fixed << std::setprecision(2) << avg_excl_us
+                  << std::setw(16) << std::fixed << std::setprecision(2) << avg_incl_us << std::setw(11) << std::fixed
+                  << std::setprecision(1) << percentage << "%"
+                  << "\n";
+    }
+
+    std::cout << std::string(132, '-') << "\n";
+    std::cout << "Total Exclusive: " << format_with_separator(grand_total / 1000) << " µs across "
+              << format_with_separator(stats_vec.size()) << " unique keys\n\n";
 }

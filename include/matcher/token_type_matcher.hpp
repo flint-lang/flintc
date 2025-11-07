@@ -1,6 +1,9 @@
 #pragma once
 
+#include "profiler.hpp"
 #include "token_pattern_matcher.hpp"
+
+#include <string>
 
 class TokenTypeMatcher : public TokenPatternMatcher {
   private:
@@ -11,6 +14,7 @@ class TokenTypeMatcher : public TokenPatternMatcher {
         token_type(tok) {}
 
     MatchResult match(const token_slice &tokens, size_t start_pos) const override {
+        PROFILE_CUMULATIVE("TokenTypeMatcher::match");
         size_t tokens_size = std::distance(tokens.first, tokens.second);
         if (start_pos >= tokens_size) {
             return std::nullopt;

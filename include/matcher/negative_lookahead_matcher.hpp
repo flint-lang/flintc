@@ -1,6 +1,9 @@
 #pragma once
 
+#include "profiler.hpp"
 #include "token_pattern_matcher.hpp"
+
+#include <string>
 
 class NegativeLookaheadMatcher : public TokenPatternMatcher {
   private:
@@ -11,6 +14,7 @@ class NegativeLookaheadMatcher : public TokenPatternMatcher {
         pattern(pattern) {}
 
     MatchResult match(const token_slice &tokens, size_t start_pos) const override {
+        PROFILE_CUMULATIVE("NegativeLookaheadMatcher::match");
         MatchResult result = pattern->match(tokens, start_pos);
         if (!result.has_value()) {
             return start_pos;

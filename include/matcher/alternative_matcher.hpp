@@ -1,5 +1,6 @@
 #pragma once
 
+#include "profiler.hpp"
 #include "token_pattern_matcher.hpp"
 #include <sstream>
 
@@ -12,6 +13,7 @@ class AlternativeMatcher : public TokenPatternMatcher {
         alternatives(std::move(alternatives)) {}
 
     MatchResult match(const token_slice &tokens, size_t start_pos) const override {
+        PROFILE_CUMULATIVE("AlternativeMatcher::match");
         for (const auto &alternative : alternatives) {
             MatchResult result = alternative->match(tokens, start_pos);
             if (result.has_value()) {

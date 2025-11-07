@@ -1,5 +1,6 @@
 #pragma once
 
+#include "profiler.hpp"
 #include "token_pattern_matcher.hpp"
 #include <sstream>
 
@@ -12,6 +13,7 @@ class SequenceMatcher : public TokenPatternMatcher {
         sequence(std::move(sequence)) {}
 
     MatchResult match(const token_slice &tokens, size_t start_pos) const override {
+        PROFILE_CUMULATIVE("SequenceMatcher::match");
         size_t current_pos = start_pos;
         for (const auto &pattern : sequence) {
             MatchResult result = pattern->match(tokens, current_pos);
