@@ -23,16 +23,19 @@ Parser *Parser::create(const std::filesystem::path &file) {
 }
 
 Parser *Parser::create(const std::filesystem::path &file, const std::string &file_content) {
+    PROFILE_CUMULATIVE("Parser::create");
     instances.emplace_back(Parser(file, file_content));
     return &instances.back();
 }
 
 bool Parser::file_exists_and_is_readable(const std::filesystem::path &file_path) {
+    PROFILE_CUMULATIVE("Parser::file_exists_and_is_readable");
     std::ifstream file(file_path.string());
     return file.is_open() && !file.fail();
 }
 
 std::string Parser::load_file(const std::filesystem::path &file_path) {
+    PROFILE_CUMULATIVE("Parser::load_file");
     std::ifstream file(file_path.string());
     if (!file) {
         throw std::runtime_error("Failed to load file " + file_path.string());
@@ -81,6 +84,7 @@ std::vector<std::pair<unsigned int, std::string_view>> Parser::get_source_code_l
 }
 
 bool Parser::resolve_all_unknown_types() {
+    PROFILE_CUMULATIVE("Parser::resolve_all_unknown_types");
     // First go through all the parameters of the function and resolve their type if they are of unknown type
     for (auto &parser : instances) {
         // Resolve the parameter types of all functions
@@ -122,6 +126,7 @@ bool Parser::resolve_all_unknown_types() {
 }
 
 std::vector<FunctionNode *> Parser::get_open_functions() {
+    PROFILE_CUMULATIVE("Parser::get_open_functions");
     std::vector<FunctionNode *> open_function_list;
     for (auto &open_function : open_functions_list) {
         open_function_list.emplace_back(std::get<0>(open_function));
@@ -134,6 +139,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
 
     // Define a task to process a single function
     auto process_function = [](Parser &parser, FunctionNode *function, std::vector<Line> &body) -> bool {
+        PROFILE_SCOPE("Process function '" + function->name + "'");
         // First, refine all the body lines
         collapse_types_in_lines(body, parser.file_node_ptr->tokens);
         if (DEBUG_MODE) {
@@ -289,12 +295,14 @@ std::vector<std::pair<FunctionNode *, std::string>> Parser::get_function_from_ca
 }
 
 token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_list &tokens) {
+    PROFILE_CUMULATIVE("Parser::extract_from_to");
     token_list extraction = clone_from_to(from, to, tokens);
     tokens.erase(tokens.begin() + from, tokens.begin() + to);
     return extraction;
 }
 
 token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token_list &tokens) {
+    PROFILE_CUMULATIVE("Parser::clone_from_to");
     assert(to >= from);
     assert(to <= tokens.size());
     token_list extraction;
@@ -307,6 +315,7 @@ token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token
 }
 
 token_list Parser::clone_from_slice(const token_slice &slice) {
+    PROFILE_CUMULATIVE("Parser::clone_from_slice");
     assert(slice.second - slice.first > 0);
     assert(slice.first != slice.second);
     token_list extraction;
@@ -316,6 +325,7 @@ token_list Parser::clone_from_slice(const token_slice &slice) {
 }
 
 std::optional<const Parser *> Parser::get_instance_from_filename(const std::string &file) {
+    PROFILE_CUMULATIVE("Parser::get_instance_from_filename");
     for (const auto &instance : instances) {
         if (instance.file_name == file) {
             return &instance;

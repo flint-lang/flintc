@@ -36,6 +36,7 @@
 #include <variant>
 
 Parser::CastDirection Parser::check_primitive_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type) {
+    PROFILE_CUMULATIVE("Parser::check_primitive_castability");
     const std::string lhs_str = lhs_type->to_string();
     const std::string rhs_str = rhs_type->to_string();
     assert(lhs_str != rhs_str);
@@ -148,6 +149,7 @@ Parser::CastDirection Parser::check_primitive_castability(const std::shared_ptr<
 }
 
 Parser::CastDirection Parser::check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type) {
+    PROFILE_CUMULATIVE("Parser::check_castability_type");
     const GroupType *lhs_group = dynamic_cast<const GroupType *>(lhs_type.get());
     const GroupType *rhs_group = dynamic_cast<const GroupType *>(rhs_type.get());
     if (lhs_group == nullptr && rhs_group == nullptr) {
@@ -309,6 +311,7 @@ Parser::CastDirection Parser::check_castability(const std::shared_ptr<Type> &lhs
 }
 
 bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
+    PROFILE_CUMULATIVE("Parser::check_castability_expr");
     if (lhs->type == rhs->type) {
         return true;
     }
@@ -365,6 +368,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
     const Token operation,                                                  //
     std::unique_ptr<ExpressionNode> &rhs                                    //
 ) {
+    PROFILE_CUMULATIVE("Parser::check_const_folding");
     // Currently, only literals can be const folded
     const LiteralNode *lhs_ptr = dynamic_cast<const LiteralNode *>(lhs.get());
     const LiteralNode *rhs_ptr = dynamic_cast<const LiteralNode *>(rhs.get());
@@ -399,6 +403,7 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
     const Token operation,                                        //
     const LiteralNode *rhs                                        //
 ) {
+    PROFILE_CUMULATIVE("Parser::add_literals");
     switch (operation) {
         default:
             // It should never come here, if it did something went wrong
@@ -614,6 +619,7 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
 }
 
 std::optional<VariableNode> Parser::create_variable(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_variable");
     std::optional<VariableNode> var = std::nullopt;
     for (auto tok = tokens.first; tok != tokens.second; tok++) {
         if (tok->token == TOK_IDENTIFIER) {
@@ -629,6 +635,7 @@ std::optional<VariableNode> Parser::create_variable(std::shared_ptr<Scope> scope
 }
 
 std::optional<UnaryOpExpression> Parser::create_unary_op_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_unary_op_expression");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
     auto unary_op_values = create_unary_op_base(scope, tokens_mut);
@@ -684,6 +691,7 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression(std::shared_
 }
 
 std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_literal");
     // Literals can have a size of at most 2 tokens
     if (get_slice_size(tokens) > 2) {
         return std::nullopt;
@@ -839,6 +847,8 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
     const std::string &interpol_string,                                     //
     const token_slice &tokens                                               //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_string_interpolation");
+    PROFILE_CUMULATIVE("Parser::create_string_interpolation");
     // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
     const auto &tok = std::prev(tokens.second);
     std::vector<uint2> ranges = Matcher::balanced_ranges_vec(interpol_string, "([^\\\\]|^)\\{", "[^\\\\]\\}");
@@ -930,6 +940,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     const token_slice &tokens,                                                 //
     const std::optional<std::string> &alias_base                               //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_call_expression");
+    PROFILE_CUMULATIVE("Parser::create_call_expression");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
     auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
@@ -953,6 +965,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
     const token_slice &tokens,                                             //
     const std::optional<std::string> &alias_base                           //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_initializer");
+    PROFILE_CUMULATIVE("Parser::create_initializer");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
     auto call_or_init_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
@@ -972,6 +986,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_type_cast");
     assert(tokens.first->token == TOK_TYPE);
     assert(std::next(tokens.first)->token == TOK_LEFT_PAREN);
     token_slice tokens_mut = tokens;
@@ -1038,6 +1053,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(std::sha
 }
 
 std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_group_expression");
     token_slice tokens_mut = tokens;
     // First, remove all trailing garbage from the expression tokens
     remove_trailing_garbage(tokens_mut);
@@ -1114,6 +1130,8 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
     std::shared_ptr<Scope> scope,                                                             //
     const token_slice &tokens                                                                 //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_group_expressions");
+    PROFILE_CUMULATIVE("Parser::create_group_expressions");
     token_slice tokens_mut = tokens;
     std::vector<std::unique_ptr<ExpressionNode>> expressions;
     while (tokens_mut.first != tokens_mut.second) {
@@ -1142,6 +1160,7 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_range_expression");
     // A range expression consists of an lhs and an rhs, for now the lhs and rhs "expressions" consist of one token each, being a literal
     // token, but range expressions will be able to consist of any expression as the lsh and rhs in the future, but this day is not today
     const std::vector<uint2> &ranges = Matcher::get_match_ranges_in_range_outside_group( //
@@ -1251,6 +1270,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(s
 }
 
 std::optional<DataAccessNode> Parser::create_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_data_access");
     token_slice tokens_mut = tokens;
     auto field_access_base = create_field_access_base(scope, tokens_mut);
     if (!field_access_base.has_value()) {
@@ -1266,6 +1286,7 @@ std::optional<DataAccessNode> Parser::create_data_access(std::shared_ptr<Scope> 
 }
 
 std::optional<ArrayInitializerNode> Parser::create_array_initializer(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_array_initializer");
     token_slice tokens_mut = tokens;
     std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction(  //
         tokens_mut, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //
@@ -1352,6 +1373,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer(std::shared
 }
 
 std::optional<OptionalChainNode> Parser::create_optional_chain(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_optional_chain");
     // First, we need to find the `?` token, everything left to that token is our base expression
     auto iterator = tokens.second - 1;
     while (iterator != tokens.first) {
@@ -1431,6 +1453,7 @@ std::optional<OptionalChainNode> Parser::create_optional_chain(std::shared_ptr<S
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_optional_unwrap");
     // We first need to get the last exclamation operator as our separator for the base expression
     auto iterator = tokens.second - 1;
     while (iterator != tokens.first) {
@@ -1535,6 +1558,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap(st
 }
 
 std::optional<VariantExtractionNode> Parser::create_variant_extraction(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_variant_extraction");
     token_list toks = clone_from_slice(tokens);
     // We first need to get the last question operator as our separator for the base expression
     auto iterator = tokens.second - 1;
@@ -1614,6 +1638,7 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction(std::shar
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_variant_unwrap");
     // We first need to get the last exclamation operator as our separator for the base expression
     auto iterator = tokens.second - 1;
     while (iterator != tokens.first) {
@@ -1692,6 +1717,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(std
 }
 
 std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_array_access");
     // The array access must end with a closing bracket token. Then, everything from that closing bracket to the left until an opening
     // bracket is considered the indexing expressions. Everything that comes before that initial opening bracket is considered the base
     // expression.
@@ -1773,6 +1799,7 @@ std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope
 }
 
 std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_grouped_data_access");
     token_slice tokens_mut = tokens;
     auto grouped_field_access_base = create_grouped_access_base(scope, tokens_mut);
     if (!grouped_field_access_base.has_value()) {
@@ -1789,6 +1816,7 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access(std::sha
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_stacked_expression");
     // Stacked expressions *end* with one of these patterns, if we match one of these patterns we can parse them
     if (Matcher::tokens_end_with(tokens, Matcher::data_access)) {
         std::optional<DataAccessNode> data_access = create_data_access(scope, tokens);
@@ -1812,6 +1840,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
         }
         return std::make_unique<ArrayAccessNode>(std::move(access.value()));
     } else {
+    PROFILE_CUMULATIVE("Parser::create_pivot_expression");
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
     }
@@ -2340,6 +2369,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 
     // Create the binary operator node
     if (Matcher::token_match(pivot_token, Matcher::relational_binop)) {
+    PROFILE_CUMULATIVE("Parser::create_expression");
         return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), Type::get_primitive_type("bool"));
     }
     return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs.value()->type);

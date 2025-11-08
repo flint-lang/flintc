@@ -147,7 +147,7 @@ void Profiler::print_cumulative_stats(const std::string &sort_by) {
         return;
     }
 
-    std::cout << YELLOW << "[Debug Info] Cumulative Profiling Statistics" << DEFAULT << std::endl;
+    std::cout << "\n" << YELLOW << "[Debug Info] Cumulative Profiling Statistics" << DEFAULT << std::endl;
 
     // Convert to vector for sorting
     std::vector<CumulativeStats> stats_vec;
@@ -168,7 +168,6 @@ void Profiler::print_cumulative_stats(const std::string &sort_by) {
     }
 
     // Print header
-    std::cout << "\n";
     std::cout << std::left << std::setw(40) << "Name" << std::right << std::setw(12) << "Calls" << std::setw(18) << "Exclusive (µs)"
               << std::setw(18) << "Inclusive (µs)" << std::setw(16) << "Avg Excl (µs)" << std::setw(16) << "Avg Incl (µs)" << std::setw(12)
               << "% of Total"

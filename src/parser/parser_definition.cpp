@@ -12,6 +12,7 @@
 #include <optional>
 
 std::optional<FunctionNode> Parser::create_function(const token_slice &definition) {
+    PROFILE_CUMULATIVE("Parser::create_function");
     std::string name;
     std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
     std::vector<std::shared_ptr<Type>> return_types;
@@ -223,6 +224,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
 }
 
 std::optional<FunctionNode> Parser::create_extern_function(const token_slice &definition) {
+    PROFILE_CUMULATIVE("Parser::create_extern_function");
     // First we check if the definition starts with `extern`, it should
     assert(definition.first->token == TOK_EXTERN);
     std::optional<FunctionNode> fn = create_function({definition.first + 1, definition.second});
@@ -246,6 +248,7 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
 }
 
 std::optional<DataNode> Parser::create_data(const token_slice &definition, const std::vector<Line> &body) {
+    PROFILE_CUMULATIVE("Parser::create_data");
     bool is_shared = false;
     bool is_immutable = false;
     bool is_aligned = false;
@@ -355,6 +358,7 @@ std::optional<FuncNode> Parser::create_func(        //
     [[maybe_unused]] const token_slice &definition, //
     [[maybe_unused]] const std::vector<Line> &body  //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_func");
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
@@ -363,17 +367,20 @@ Parser::create_entity_type Parser::create_entity(   //
     [[maybe_unused]] const token_slice &definition, //
     [[maybe_unused]] const std::vector<Line> &body  //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_entity");
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return {};
 }
 
 std::vector<std::unique_ptr<LinkNode>> Parser::create_links([[maybe_unused]] const std::vector<Line> &body) {
+    PROFILE_CUMULATIVE("Parser::create_links");
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     std::vector<std::unique_ptr<LinkNode>> links;
     return links;
 }
 
 LinkNode Parser::create_link(const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_link");
     std::vector<std::string> from_references;
     std::vector<std::string> to_references;
 
@@ -397,6 +404,7 @@ LinkNode Parser::create_link(const token_slice &tokens) {
 }
 
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {
+    PROFILE_CUMULATIVE("Parser::create_enum");
     std::string name;
     std::vector<std::string> values;
 
@@ -438,6 +446,7 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
 }
 
 std::optional<ErrorNode> Parser::create_error(const token_slice &definition, const std::vector<Line> &body) {
+    PROFILE_CUMULATIVE("Parser::create_error");
     std::string name;
     std::string parent_error = "anyerror";
     std::vector<std::string> error_types;
@@ -503,6 +512,7 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
 }
 
 std::optional<VariantNode> Parser::create_variant(const token_slice &definition, const std::vector<Line> &body) {
+    PROFILE_CUMULATIVE("Parser::create_variant");
     assert(definition.first->token == TOK_VARIANT);
     assert((definition.first + 1)->token == TOK_IDENTIFIER);
     assert((definition.first + 2)->token == TOK_COLON);
@@ -606,6 +616,7 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
 }
 
 std::optional<TestNode> Parser::create_test(const token_slice &definition) {
+    PROFILE_CUMULATIVE("Parser::create_test");
     std::string test_name;
     // Extract the name of the test
     auto it = definition.first;
@@ -639,6 +650,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
 }
 
 std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_import");
     std::variant<std::pair<std::optional<std::string>, std::string>, std::vector<std::string>> import_path;
     std::optional<std::string> alias;
 

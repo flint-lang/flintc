@@ -210,6 +210,8 @@ class CLIParserMain : public CLIParserBase {
                     return 1;
                 }
 #ifdef DEBUG_BUILD
+            } else if (arg == "--profile-cumulative") {
+                PRINT_CUMULATIVE_PROFILE_RESULTS = true;
             } else if (arg == "--no-token-stream") {
                 PRINT_TOK_STREAM = false;
             } else if (arg == "--no-dep-tree") {
@@ -314,7 +316,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout
             << "      --optional-crash            [Default] Prints a small message and crashes whenever a bad optional unwrap happens\n";
         std::cout << "      --optional-unsafe           Disables all \"has_value\"-checks for optionals when unwrapping\n";
-        std::cout << "                              HINT: All optionals which have 'none' stored on them are zero-initialized\n";
+        std::cout << "                                  HINT: All optionals which have 'none' stored on them are zero-initialized\n";
         std::cout << "\nVariant Options:\n";
         std::cout
             << "      --variant-crash             [Default] Prints a small message and crashes whenever a bad variant unwrap happens\n";
@@ -322,6 +324,8 @@ class CLIParserMain : public CLIParserBase {
         std::cout << std::endl;
 #ifdef DEBUG_BUILD
         std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";
+        std::cout
+            << "      --profile-cumulative        Enables the cumulaltive profiling output, by default only the profile tree view is shown\n";
         std::cout << "      --no-token-stream           Disables the debug printing of the lexed Token stream\n";
         std::cout << "      --no-dep-tree               Disables the debug printing of the dependency tree\n";
         std::cout << "      --no-ast                    Disables the debug printing of the parsed AST tree\n";
@@ -330,7 +334,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "      --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
         std::cout << "      --no-generation             Disables code generation entirely, the program exits after the parsing phase\n";
         std::cout << "      --no-binary                 Disables compilation of the LLVM modules to a final binary, exiting after IR gen\n";
-        std::cout << "                              HINT: Doesnt produce an executable";
+        std::cout << "                                  HINT: Doesnt produce an executable";
         std::cout << std::endl;
         std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
         std::cout << "      --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";

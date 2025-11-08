@@ -32,6 +32,7 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
     const token_slice &tokens,                                                   //
     const std::optional<std::string> &alias_base                                 //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_call_statement");
     token_slice tokens_mut = tokens;
     auto call_node_args = create_call_or_initializer_base(scope, tokens_mut, alias_base);
     if (!call_node_args.has_value()) {
@@ -50,6 +51,7 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
 }
 
 std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_throw");
     unsigned int throw_id = 0;
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_THROW) {
@@ -79,6 +81,7 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> scope, cons
 }
 
 std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_return");
     // Get the return type of the function
     std::shared_ptr<Type> return_type = scope->get_variable_type("__flint_return_type").value();
     unsigned int return_id = 0;
@@ -137,6 +140,7 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> scope, co
 
 std::optional<std::unique_ptr<IfNode>> Parser::create_if(std::shared_ptr<Scope> scope,
     std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain) {
+    PROFILE_CUMULATIVE("Parser::create_if");
     assert(!if_chain.empty());
     std::pair<token_slice, std::vector<Line>> this_if_pair = if_chain.front();
     if_chain.erase(if_chain.begin());
@@ -215,6 +219,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     const token_slice &definition,                                   //
     const std::vector<Line> &body                                    //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_while_loop");
     token_slice condition_tokens = definition;
     // Remove everything in front of the expression (\n, \t, else, if)
     for (auto it = condition_tokens.first; it != condition_tokens.second; ++it) {
@@ -254,6 +259,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     const token_slice &definition,                                   //
     const std::vector<Line> &body                                    //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_for_loop");
     std::optional<std::unique_ptr<StatementNode>> initializer;
     std::optional<std::unique_ptr<ExpressionNode>> condition;
     std::optional<std::unique_ptr<StatementNode>> looparound;
@@ -332,6 +338,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     const token_slice &definition,                                          //
     const std::vector<Line> &body                                           //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_enh_for_loop");
     token_slice definition_mut = definition;
     remove_trailing_garbage(definition_mut);
 
@@ -453,6 +460,7 @@ bool Parser::create_switch_branch_body(                              //
     const uint2 &match_range,                                        //
     const bool is_statement                                          //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_switch_branch_body");
     if (!is_statement) {
         // When it's a switch expression, no body will follow, ever. Only expressions are allowed to the right of the arrow, so we
         // can parse the rhs as an expression
@@ -518,6 +526,7 @@ bool Parser::create_switch_branches(            //
     const std::shared_ptr<Type> &switcher_type, //
     const bool is_statement                     //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_switch_branches");
     // Okay now parse the "body" of the switch statement. It's body follows a clear guideline, namely that everything to the left of the
     // `:` is considered an expression which has to be matched, and the type of the expression to the left needs to match the type of
     // the switcher expression. At least that's how i will handle it now. Also, only certain types of expressions are allowed at all for
@@ -566,6 +575,7 @@ bool Parser::create_switch_branches(            //
         if (!create_switch_branch_body(                                                                           //
                 scope, matches, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
         ) {
+    PROFILE_CUMULATIVE("Parser::create_enum_switch_branches");
             return false;
         }
     }
@@ -691,6 +701,7 @@ bool Parser::create_error_switch_branches(      //
     const ErrorNode *error_node,                //
     const bool is_statement                     //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_error_switch_branches");
     // First, we check for all the matches. All matches *must* be identifiers, where each identifier matches one value of the error set.
     // Each identifier can only be used once in the switch. If there exists a default branch (the else keyword) then it is not allowed that
     // all other error set values are matched, as the else branch would then effectively become unreachable.
@@ -776,6 +787,7 @@ bool Parser::create_error_switch_branches(      //
     }
     const unsigned int value_count = error_node->get_value_count();
     if (is_default_present ^ (matched_ids.size() != value_count)) {
+    PROFILE_CUMULATIVE("Parser::create_optional_switch_branches");
         // Either we have a default branch and all error values are matched
         // Or we don't have a default branch and not all error values are matched
         // Either way, we don't have a branch for every possible value of the error set, so that's an error
@@ -854,6 +866,7 @@ bool Parser::create_optional_switch_branches(   //
             }
             value_branch_parsed = true;
         } else {
+    PROFILE_CUMULATIVE("Parser::create_variant_switch_branches");
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
@@ -991,6 +1004,7 @@ bool Parser::create_variant_switch_branches(    //
         }
     }
     if (is_default_present ^ (branch_indices.size() != possible_types.size())) {
+    PROFILE_CUMULATIVE("Parser::create_switch_statement");
         // Either we have a default branch and all variant types are matched
         // Or we don't have a default branch and not all variant types are matched
         // Either way, we don't have a branch for every possible type of the variant, so that's an error
@@ -1110,6 +1124,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     auto switch_expr = std::make_unique<SwitchExpression>(switcher.value(), e_branches);
     // Now we need to parse the lhs of the switch *somehow*...
     token_slice lhs_tokens = {definition.first, switcher_tokens.first - 1};
+    PROFILE_CUMULATIVE("Parser::create_catch");
     assert(lhs_tokens.second->token == TOK_SWITCH);
     auto whole_statement = create_statement(scope, lhs_tokens, std::move(switch_expr));
     if (!whole_statement.has_value()) {
@@ -1202,6 +1217,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         const bool inserting_ok = body_scope->add_variable("__flint_value_err", switcher_type, body_scope->scope_id, false, false);
         assert(inserting_ok);
         if (!create_variant_switch_branches(body_scope, s_branches, e_branches, body, switcher_type, true, false)) {
+    PROFILE_CUMULATIVE("Parser::create_group_assignment");
             return std::nullopt;
         }
         std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>("__flint_value_err", switcher_type);
@@ -1263,6 +1279,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
     tokens_mut.first++;
     // The rest of the tokens now is the expression
     if (rhs.has_value()) {
+    PROFILE_CUMULATIVE("Parser::create_group_assignment_shorthand");
         return GroupAssignmentNode(assignees, rhs.value());
     }
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(scope, tokens_mut);
@@ -1372,6 +1389,7 @@ std::optional<AssignmentNode> Parser::create_assignment( //
     const token_slice &tokens,                           //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs  //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_assignment");
     token_list toks = clone_from_slice(tokens);
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_IDENTIFIER) {
@@ -1395,6 +1413,7 @@ std::optional<AssignmentNode> Parser::create_assignment( //
                 }
                 // Parse the expression with the expected type passed into it
                 token_slice expression_tokens = {it + 2, tokens.second};
+    PROFILE_CUMULATIVE("Parser::create_assignment_shorthand");
                 std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(scope, expression_tokens, expected_type);
                 if (!expression.has_value()) {
                     return std::nullopt;
@@ -1461,6 +1480,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
                 );
                 return AssignmentNode(expected_type, it_lexme, bin_op, true);
             } else {
+    PROFILE_CUMULATIVE("Parser::create_group_declaration");
                 return std::nullopt;
             }
         }
@@ -1593,6 +1613,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
     const std::vector<std::shared_ptr<Type>> &types = group_type->types;
     assert(variables.size() == types.size());
     for (unsigned int i = 0; i < variables.size(); i++) {
+    PROFILE_CUMULATIVE("Parser::create_declaration");
         variables.at(i).first = types.at(i);
         if (!scope->add_variable(variables.at(i).second, types.at(i), scope->scope_id, true, false)) {
             // Variable shadowing
@@ -1728,6 +1749,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
 
             const std::string branch_type_str = branch.expr->type->to_string();
             if (branch_type_str == "int" || branch_type_str == "float") {
+    PROFILE_CUMULATIVE("Parser::create_unary_op_statement");
                 branch.expr->type = final_type;
             } else {
                 branch.expr = std::make_unique<TypeCastNode>(final_type, branch.expr);
@@ -1746,6 +1768,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
 }
 
 std::optional<UnaryOpStatement> Parser::create_unary_op_statement(std::shared_ptr<Scope> scope, const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::create_data_field_assignment");
     auto unary_op_values = create_unary_op_base(scope, tokens);
     if (!unary_op_values.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -1815,6 +1838,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
         }
         const std::string type_str = expression.value()->type->to_string();
         if (type_str == "int" || type_str == "float") {
+    PROFILE_CUMULATIVE("Parser::create_grouped_data_field_assignment");
             expression.value()->type = field_type;
         } else {
             expression = std::make_unique<TypeCastNode>(field_type, expression.value());
@@ -1864,6 +1888,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     if (rhs.has_value()) {
         expression = std::move(rhs.value());
     } else {
+    PROFILE_CUMULATIVE("Parser::create_grouped_data_field_assignment_shorthand");
         expression = create_expression(scope, tokens_mut);
     }
     if (!expression.has_value()) {
@@ -1980,6 +2005,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
     const token_slice &tokens,                                      //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs             //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_array_assignment");
     token_slice tokens_mut = tokens;
     // Now the first token should be the array identifier
     assert(tokens_mut.first->token == TOK_IDENTIFIER);
@@ -2014,6 +2040,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
 
     auto indexing_expressions = create_group_expressions(scope, indexing_tokens);
     if (!indexing_expressions.has_value()) {
+    PROFILE_CUMULATIVE("Parser::create_stacked_statement");
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -2181,6 +2208,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
                         }
                     }
                     if (!field_found) {
+    PROFILE_CUMULATIVE("Parser::create_statement");
                         // Use of non-present field in data type
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
@@ -2314,6 +2342,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         tokens_mut.first += 2;
         statement_node = create_call_statement(scope, tokens_mut, alias_base);
     } else if (Matcher::tokens_contain(tokens, Matcher::function_call)) {
+    PROFILE_CUMULATIVE("Parser::create_scoped_statement");
         statement_node = create_call_statement(scope, tokens, std::nullopt);
     } else if (Matcher::tokens_contain(tokens, Matcher::unary_op_expr)) {
         std::optional<UnaryOpStatement> unary_op = create_unary_op_statement(scope, tokens);
@@ -2419,6 +2448,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     } else if (Matcher::tokens_contain(definition, Matcher::catch_statement) //
         || Matcher::tokens_contain(definition, Matcher::token(TOK_CATCH))    //
     ) {
+    PROFILE_CUMULATIVE("Parser::create_body");
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body.value(), statements);
         if (!catch_node.has_value()) {
             return std::nullopt;

@@ -14,9 +14,11 @@
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "profiler.hpp"
 #include <algorithm>
 
 bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::add_next_main_node");
     token_slice definition_tokens = get_definition_tokens(tokens);
     tokens.first = definition_tokens.second;
     if (std::prev(definition_tokens.second)->token == TOK_EOL) [[likely]] {
@@ -193,6 +195,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
 }
 
 bool Parser::create_core_module_types(FileNode &file_node, const std::string &core_lib_name) {
+    PROFILE_CUMULATIVE("Parser::create_core_module_types");
     std::lock_guard<std::mutex> lock_guard(core_module_added_error_sets_mutex);
     auto added = core_module_added_error_sets.find(core_lib_name);
     if (added == core_module_added_error_sets.end()) {
@@ -225,6 +228,7 @@ bool Parser::create_core_module_types(FileNode &file_node, const std::string &co
 }
 
 token_slice Parser::get_definition_tokens(const token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::get_definition_tokens");
     // Scan through all the tokens and first extract all tokens from this line
     int end_index = 0;
     unsigned int start_line = tokens.first->line;
@@ -239,6 +243,7 @@ token_slice Parser::get_definition_tokens(const token_slice &tokens) {
 }
 
 std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, token_slice &tokens) {
+    PROFILE_CUMULATIVE("Parser::get_body_lines");
     std::vector<Line> body_lines;
     auto current_line_start = tokens.first;
     unsigned int current_indent_lvl = 0;
@@ -291,6 +296,7 @@ std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, to
 }
 
 void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &source) {
+    PROFILE_CUMULATIVE("Parser::collapse_types_in_lines");
     for (auto line : lines) {
         token_list toks = clone_from_slice(line.tokens);
         for (auto it = line.tokens.first; it != line.tokens.second;) {
@@ -354,6 +360,7 @@ Parser::create_call_or_initializer_base(         //
     const token_slice &tokens,                   //
     const std::optional<std::string> &alias_base //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_call_or_initializer_base");
     using types = std::vector<std::shared_ptr<Type>>;
     assert(tokens.first->token == TOK_TYPE || tokens.first->token == TOK_IDENTIFIER);
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
@@ -680,6 +687,7 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     std::shared_ptr<Scope> scope,                                                                     //
     const token_slice &tokens                                                                         //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_unary_op_base");
     token_slice tokens_mut = tokens;
     remove_trailing_garbage(tokens_mut);
     // For an unary operator to work, the tokens now must have at least two tokens
@@ -729,6 +737,7 @@ Parser::create_field_access_base(     //
     const token_slice &tokens,        //
     const bool has_inbetween_operator //
 ) {
+    PROFILE_CUMULATIVE("Parser::creaet_field_access_base");
     // We actually start at the end of the tokens and first check if it's a named access or an unnamed access, like a tuple access and
     // then everything to the left of the `.` is considered the base expression on which we then access the field
     std::string field_name = "";
@@ -863,6 +872,7 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
     const MultiType *multi_type,                                                       //
     const std::string &field_name                                                      //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_multi_type_access");
     if (multi_type->width == 2) {
         // The fields are called x and y, but can be accessed via $N
         if (field_name == "x" || field_name == "s" || field_name == "i" || field_name == "u" || field_name == "$0") {
@@ -927,6 +937,7 @@ Parser::create_grouped_access_base(   //
     const token_slice &tokens,        //
     const bool has_inbetween_operator //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_grouped_access_base");
     // We start at the end of the token slice and move towards the front, and split the token slice in half to get the base expression
     // tokens and all tokens forming the grouped access `.(..)`
     assert((tokens.second - 1)->token == TOK_RIGHT_PAREN);
@@ -1049,6 +1060,7 @@ bool Parser::ensure_castability_multiple(                      //
     std::vector<std::unique_ptr<ExpressionNode>> &expressions, //
     const token_slice &tokens                                  //
 ) {
+    PROFILE_CUMULATIVE("Parser::ensure_castability_multiple");
     // Every expression in the length expressions needs to be castable a `u64` type, if it's not of that type already we need to cast it
     for (auto &expr : expressions) {
         if (expr->type == to_type) {

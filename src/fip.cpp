@@ -228,6 +228,8 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
 }
 
 bool FIP::resolve_function(FunctionNode *function) {
+    PROFILE_SCOPE("FIP resolve '" + function->name + "'");
+    PROFILE_CUMULATIVE("FIP::resolve_function");
     if (!is_active) {
         // Try to initialize the FIP if it's not running yet
         if (!init()) {
