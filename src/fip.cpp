@@ -162,68 +162,77 @@ void FIP::shutdown() {
 
 bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const bool is_mutable) {
     dest->is_mutable = is_mutable;
-    if (const PrimitiveType *prim_type = dynamic_cast<const PrimitiveType *>(src.get())) {
-        dest->type = FIP_TYPE_PRIMITIVE;
+    switch (src->get_variation()) {
+        default:
+            // Unsupported type, return false
+            return false;
+        case Type::Variation::PRIMITIVE: {
+            const auto *type = src->as<PrimitiveType>();
+            dest->type = FIP_TYPE_PRIMITIVE;
 
-        // Map primitive type string to enum
-        const std::string type_str = prim_type->to_string();
-        if (type_str == "u8") {
-            dest->u.prim = FIP_U8;
-        } else if (type_str == "u32") {
-            dest->u.prim = FIP_U32;
-        } else if (type_str == "u64") {
-            dest->u.prim = FIP_U64;
-        } else if (type_str == "i32") {
-            dest->u.prim = FIP_I32;
-        } else if (type_str == "i64") {
-            dest->u.prim = FIP_I64;
-        } else if (type_str == "f32") {
-            dest->u.prim = FIP_F32;
-        } else if (type_str == "f64") {
-            dest->u.prim = FIP_F64;
-        } else if (type_str == "bool") {
-            dest->u.prim = FIP_BOOL;
-        } else if (type_str == "str") {
-            dest->u.prim = FIP_STR;
-        } else {
-            // Unknown primitive type
-            return false;
-        }
-        return true;
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(src.get())) {
-        // A multi-type will be handled just as a struct type and nothing more
-        dest->type = FIP_TYPE_STRUCT;
-        dest->u.struct_t.field_count = static_cast<uint8_t>(multi_type->width);
-        dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * multi_type->width));
-        for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
-            if (!convert_type(&dest->u.struct_t.fields[i], multi_type->base_type, true)) {
+            // Map primitive type string to enum
+            const std::string type_str = type->to_string();
+            if (type_str == "u8") {
+                dest->u.prim = FIP_U8;
+            } else if (type_str == "u32") {
+                dest->u.prim = FIP_U32;
+            } else if (type_str == "u64") {
+                dest->u.prim = FIP_U64;
+            } else if (type_str == "i32") {
+                dest->u.prim = FIP_I32;
+            } else if (type_str == "i64") {
+                dest->u.prim = FIP_I64;
+            } else if (type_str == "f32") {
+                dest->u.prim = FIP_F32;
+            } else if (type_str == "f64") {
+                dest->u.prim = FIP_F64;
+            } else if (type_str == "bool") {
+                dest->u.prim = FIP_BOOL;
+            } else if (type_str == "str") {
+                dest->u.prim = FIP_STR;
+            } else {
+                // Unknown primitive type
                 return false;
             }
+            return true;
         }
-        return true;
-    } else if (const DataType *data_type = dynamic_cast<const DataType *>(src.get())) {
-        // A data-type is just a struct and will be handled as such
-        const DataNode *data_node = data_type->data_node;
-        dest->type = FIP_TYPE_STRUCT;
-        dest->u.struct_t.field_count = static_cast<uint8_t>(data_node->fields.size());
-        dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * data_node->fields.size()));
-        for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
-            if (!convert_type(&dest->u.struct_t.fields[i], data_node->fields.at(i).second, true)) {
+        case Type::Variation::MULTI: {
+            const auto *type = src->as<MultiType>();
+            // A multi-type will be handled just as a struct type and nothing more
+            dest->type = FIP_TYPE_STRUCT;
+            dest->u.struct_t.field_count = static_cast<uint8_t>(type->width);
+            dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * type->width));
+            for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
+                if (!convert_type(&dest->u.struct_t.fields[i], type->base_type, true)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        case Type::Variation::DATA: {
+            const auto *type = src->as<DataType>();
+            // A data-type is just a struct and will be handled as such
+            const DataNode *data_node = type->data_node;
+            dest->type = FIP_TYPE_STRUCT;
+            dest->u.struct_t.field_count = static_cast<uint8_t>(data_node->fields.size());
+            dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * data_node->fields.size()));
+            for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
+                if (!convert_type(&dest->u.struct_t.fields[i], data_node->fields.at(i).second, true)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        case Type::Variation::POINTER: {
+            const auto *type = src->as<PointerType>();
+            // A pointer type is essentially just the base type encoded but with a pointer type tag.
+            dest->type = FIP_TYPE_PTR;
+            dest->u.ptr.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
+            if (!convert_type(dest->u.ptr.base_type, type->base_type, is_mutable)) {
                 return false;
             }
+            return true;
         }
-        return true;
-    } else if (const PointerType *pointer_type = dynamic_cast<const PointerType *>(src.get())) {
-        // A pointer type is essentially just the base type encoded but with a pointer type tag.
-        dest->type = FIP_TYPE_PTR;
-        dest->u.ptr.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
-        if (!convert_type(dest->u.ptr.base_type, pointer_type->base_type, is_mutable)) {
-            return false;
-        }
-        return true;
-    } else {
-        // Unsupported type, return false
-        return false;
     }
 }
 
