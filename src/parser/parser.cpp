@@ -190,6 +190,7 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
 
     // Define a task to process a single test
     auto process_test = [](Parser &parser, TestNode *test, std::vector<Line> &body) -> bool {
+        PROFILE_SCOPE("Process test '" + test->name + "'");
         // First, refine all the body lines
         collapse_types_in_lines(body, parser.file_node_ptr->tokens);
         if (DEBUG_MODE) {
