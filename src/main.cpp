@@ -82,12 +82,23 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     }
     if (DEBUG_MODE) {
         const unsigned int token_count = Lexer::total_token_count;
-        const ProfileNode *const parse_node = Profiler::profiling_durations.at("Parsing the program");
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(parse_node->end - parse_node->start);
-        std::cout << YELLOW << "[Debug Info] Token parsing performance\n"
+        const uint64_t lexing_time_ns = Lexer::total_lexing_time_ns;
+        const uint64_t lexing_time_us = lexing_time_ns / 1000;
+
+        // Lexer performance
+        std::cout << YELLOW << "[Debug Info] Lexer performance\n"
                   << DEFAULT << "-- Total token count: " << token_count << "\n"
-                  << "-- Total parsing time: " << std::to_string(duration.count()) << " µs\n"
-                  << "-- Tokens per second parsing speed: " << ((token_count * 1000000) / duration.count()) << " Tok/s\n"
+                  << "-- Total lexing time: " << lexing_time_us << " µs\n"
+                  << "-- Tokens per second lexing speed: " << ((token_count * 1000000000ULL) / lexing_time_ns) << " Tok/s\n"
+                  << std::endl;
+
+        // Parser performance
+        const ProfileNode *const parse_node = Profiler::profiling_durations.at("Parsing the program");
+        auto parse_duration = std::chrono::duration_cast<std::chrono::microseconds>(parse_node->end - parse_node->start);
+        std::cout << YELLOW << "[Debug Info] Parser performance\n"
+                  << DEFAULT << "-- Total token count: " << token_count << "\n"
+                  << "-- Total parsing time: " << std::to_string(parse_duration.count()) << " µs\n"
+                  << "-- Tokens per second parsing speed: " << ((token_count * 1000000) / parse_duration.count()) << " Tok/s\n"
                   << std::endl;
     }
     if (DEBUG_MODE && NO_GENERATION) {

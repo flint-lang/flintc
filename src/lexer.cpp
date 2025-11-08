@@ -14,6 +14,7 @@
 #include <vector>
 
 token_list Lexer::scan() {
+    auto lexing_start = std::chrono::high_resolution_clock::now();
     tokens.clear();
 
     while (!is_at_end()) {
@@ -65,6 +66,11 @@ token_list Lexer::scan() {
 
     tokens.emplace_back(TOK_EOF, line, column, file_id, "EOF");
     total_token_count += tokens.size();
+
+    auto lexing_end = std::chrono::high_resolution_clock::now();
+    auto lexing_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(lexing_end - lexing_start).count();
+    total_lexing_time_ns += lexing_duration;
+
     return tokens;
 }
 

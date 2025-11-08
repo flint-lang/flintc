@@ -74,6 +74,10 @@ class Lexer {
     /// @brief This variable tracks how many tokens have been lexed across all files
     static inline std::atomic_uint total_token_count;
 
+    /// @var `total_lexing_time_ns`
+    /// @brief This variable tracks the total time spent lexing across all files (in nanoseconds)
+    static inline std::atomic_uint64_t total_lexing_time_ns;
+
   private:
     /// @var `tokens`
     /// @brief The list of all lexed tokens so far
