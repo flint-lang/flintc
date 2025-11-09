@@ -3,10 +3,7 @@
 #include "generator/generator.hpp"
 
 #include "lexer/lexer_utils.hpp"
-#include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/enum_type.hpp"
-#include "parser/type/error_set_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
@@ -25,12 +22,16 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
 ) {
     std::vector<std::shared_ptr<Type>> types;
     std::string types_str = is_return_type ? "ret." : "";
-    if (const GroupType *group_type = dynamic_cast<const GroupType *>(type.get())) {
+    const auto type_variation = type->get_variation();
+    if (type_variation == Type::Variation::GROUP) {
+        const auto *group_type = type->as<GroupType>();
         types = group_type->types;
-    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(type.get())) {
+    } else if (type_variation == Type::Variation::TUPLE) {
+        const auto *tuple_type = type->as<TupleType>();
         types_str = "tuple.";
         types = tuple_type->types;
-    } else if (const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
+    } else if (type_variation == Type::Variation::DATA) {
+        const auto *data_type = type->as<DataType>();
         if (!is_return_type) {
             types_str = "data." + data_type->data_node->name;
             for (auto &[_, field_type] : data_type->data_node->fields) {
@@ -133,8 +134,9 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
     file_function_mangle_ids[file_node.file_name] = {};
     file_function_names[file_node.file_name] = {};
     for (const std::unique_ptr<DefinitionNode> &node : file_node.definitions) {
-        if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
+        if (node->get_variation() == DefinitionNode::Variation::FUNCTION) {
             // Create a forward declaration for the function only if it is not the main function!
+            auto *function_node = node->as<FunctionNode>();
             if (function_node->name != "_main") {
                 llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
                 module->getOrInsertFunction(function_node->name, function_type);
@@ -149,7 +151,9 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     llvm::Module *module,                                   //
     const std::shared_ptr<Type> &type                       //
 ) {
-    if (const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
+    const auto type_variation = type->get_variation();
+    if (type_variation == Type::Variation::DATA) {
+        const auto *data_type = type->as<DataType>();
         // Check if the type already exists in the map and return it directly if it does
         const std::string type_str = "type.data." + data_type->to_string() + ".extern";
         if (type_map.find(type_str) != type_map.end()) {
@@ -338,7 +342,8 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         llvm::StructType *out_struct = llvm::StructType::create(context, types_vec, type_str, false);
         type_map[type_str] = out_struct;
         return out_struct;
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
+    } else if (type_variation == Type::Variation::MULTI) {
+        const auto *multi_type = type->as<MultiType>();
         // Let's first look at how each multi-type behaves, considereing the 16 byte rule as well
         // They follow the same rules as above, as multi-types are passed as structs into FIP functions
         // We now see how each multi-type looks
@@ -424,167 +429,52 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             return {ext_type.value(), {false, false}};
         }
     }
-    if (dynamic_cast<const ErrorSetType *>(type.get())) {
-        if (type_map.find("__flint_type_err") == type_map.end()) {
-            llvm::Type *str_type = get_type(module, Type::get_primitive_type("str")).first;
-            type_map["__flint_type_err"] = llvm::StructType::create( //
-                context,                                             //
-                {
-                    llvm::Type::getInt32Ty(context), // ErrType ID (0 for 'none')
-                    llvm::Type::getInt32Ty(context), // ErrValue
-                    str_type->getPointerTo()         // ErrMessage
-                },                                   //
-                "__flint_type_err",                  //
-                false                                // is not packed, it's padded
-            );
-        }
-        return {type_map.at("__flint_type_err"), {false, true}};
-    } else if (const PrimitiveType *primitive_type = dynamic_cast<const PrimitiveType *>(type.get())) {
-        if (primitive_type->type_name == "__flint_type_str_struct") {
-            // A string is a struct of type 'type { i64, [0 x i8] }'
+    switch (type->get_variation()) {
+        case Type::Variation::UNKNOWN_VARIATION:
+            break;
+        case Type::Variation::ARRAY: {
+            // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
             if (type_map.find("type.str") == type_map.end()) {
                 llvm::StructType *str_type = llvm::StructType::create( //
                     context,                                           //
                     {
-                        llvm::Type::getInt64Ty(context),                        // len of string
-                        llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
+                        llvm::Type::getInt64Ty(context),                        // the dimensionality
+                        llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data (the lenghts followed by the row-major array)
                     },                                                          //
                     "type.str",
                     false // is not packed, its padded
                 );
                 type_map["type.str"] = str_type;
             }
-            return {type_map.at("type.str"), {false, false}};
+            return {type_map.at("type.str")->getPointerTo(), {false, false}};
         }
-        if (primitive_type->type_name == "__flint_type_str_lit") {
-            return {llvm::Type::getInt8Ty(context)->getPointerTo(), {false, false}};
-        }
-        if (primitive_type->type_name == "anyerror") {
-            return {type_map.at("__flint_type_err"), {false, false}};
-        }
-        if (primitives.find(primitive_type->type_name) != primitives.end()) {
-            switch (primitives.at(primitive_type->type_name)) {
-                default:
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return {nullptr, {false, false}};
-                case TOK_I32:
-                case TOK_U32:
-                    return {llvm::Type::getInt32Ty(context), {false, false}};
-                case TOK_I64:
-                case TOK_U64:
-                    return {llvm::Type::getInt64Ty(context), {false, false}};
-                case TOK_F32:
-                    return {llvm::Type::getFloatTy(context), {false, false}};
-                case TOK_F64:
-                    return {llvm::Type::getDoubleTy(context), {false, false}};
-                case TOK_FLINT:
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return {nullptr, {false, false}};
-                case TOK_U8:
-                    return {llvm::Type::getInt8Ty(context), {false, false}};
-                case TOK_STR: {
-                    if (is_extern) {
-                        // If it's an extern call we pass in the c_str
-                        return {llvm::Type::getInt8Ty(context)->getPointerTo(), {false, false}};
-                    }
-                    // A string is a struct of type 'type { i64, [0 x i8] }'
-                    if (type_map.find("type.str") == type_map.end()) {
-                        llvm::StructType *str_type = llvm::StructType::create( //
-                            context,                                           //
-                            {
-                                llvm::Type::getInt64Ty(context),                        // len of string
-                                llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
-                            },                                                          //
-                            "type.str",
-                            false // is not packed, its padded
-                        );
-                        type_map["type.str"] = str_type;
-                    }
-                    return {type_map.at("type.str")->getPointerTo(), {false, false}};
+        case Type::Variation::DATA: {
+            const auto *data_type = type->as<DataType>();
+            // Check if its a known data type
+            const std::string type_str = "type.data." + data_type->data_node->name;
+            if (type_map.find(type_str) != type_map.end()) {
+                return {type_map.at(type_str), {true, true}};
+            }
+            // Create an opaque struct type and store it in the map before trying to resolve the field types to prevent circles
+            llvm::StructType *struct_type = llvm::StructType::create(context, type_str);
+            type_map[type_str] = struct_type;
+            // Now process the field types
+            std::vector<llvm::Type *> field_types;
+            for (auto field_it = data_type->data_node->fields.begin(); field_it != data_type->data_node->fields.end(); ++field_it) {
+                auto pair = get_type(module, field_it->second);
+                if (pair.second.first && field_it->second->get_variation() != Type::Variation::OPTIONAL) {
+                    field_types.emplace_back(pair.first->getPointerTo());
+                } else {
+                    field_types.emplace_back(pair.first);
                 }
-                case TOK_BOOL:
-                    return {llvm::Type::getInt1Ty(context), {false, false}};
-                case TOK_VOID:
-                    return {llvm::Type::getVoidTy(context), {false, false}};
             }
+            // Set the body of the struct now that we have all field types
+            struct_type->setBody(field_types, false); // false = not packed
+            return {struct_type, {true, true}};
         }
-    } else if (const DataType *data_type = dynamic_cast<const DataType *>(type.get())) {
-        // Check if its a known data type
-        const std::string type_str = "type.data." + data_type->data_node->name;
-        if (type_map.find(type_str) != type_map.end()) {
-            return {type_map.at(type_str), {true, true}};
-        }
-        // Create an opaque struct type and store it in the map before trying to resolve the field types to prevent circles
-        llvm::StructType *struct_type = llvm::StructType::create(context, type_str);
-        type_map[type_str] = struct_type;
-        // Now process the field types
-        std::vector<llvm::Type *> field_types;
-        for (auto field_it = data_type->data_node->fields.begin(); field_it != data_type->data_node->fields.end(); ++field_it) {
-            auto pair = get_type(module, field_it->second);
-            if (pair.second.first && !dynamic_cast<const OptionalType *>(field_it->second.get())) {
-                field_types.emplace_back(pair.first->getPointerTo());
-            } else {
-                field_types.emplace_back(pair.first);
-            }
-        }
-        // Set the body of the struct now that we have all field types
-        struct_type->setBody(field_types, false); // false = not packed
-        return {struct_type, {true, true}};
-    } else if (dynamic_cast<ArrayType *>(type.get())) {
-        // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
-        if (type_map.find("type.str") == type_map.end()) {
-            llvm::StructType *str_type = llvm::StructType::create( //
-                context,                                           //
-                {
-                    llvm::Type::getInt64Ty(context),                        // the dimensionality
-                    llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data (the lenghts followed by the row-major array)
-                },                                                          //
-                "type.str",
-                false // is not packed, its padded
-            );
-            type_map["type.str"] = str_type;
-        }
-        return {type_map.at("type.str")->getPointerTo(), {false, false}};
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
-        if (type->to_string() == "bool8") {
-            return {llvm::Type::getInt8Ty(context), {false, false}};
-        }
-        llvm::Type *element_type = get_type(module, multi_type->base_type).first;
-        llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
-        return {vector_type, {false, false}};
-    } else if (dynamic_cast<const EnumType *>(type.get())) {
-        return {llvm::Type::getInt32Ty(context), {false, false}};
-    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(type.get())) {
-        const std::string tuple_str = "type.tuple." + type->to_string();
-        std::vector<llvm::Type *> type_vector;
-        for (const auto &tup_type : tuple_type->types) {
-            auto pair = get_type(module, tup_type);
-            if (pair.second.first && !dynamic_cast<const OptionalType *>(tup_type.get())) {
-                pair.first = pair.first->getPointerTo();
-            }
-            type_vector.emplace_back(pair.first);
-        }
-        if (type_map.find(tuple_str) == type_map.end()) {
-            llvm::ArrayRef<llvm::Type *> type_array(type_vector);
-            llvm::StructType *llvm_tuple_type = llvm::StructType::create(context, type_array, tuple_str, false);
-            type_map[tuple_str] = llvm_tuple_type;
-        }
-        return {type_map.at(tuple_str), {false, true}};
-    } else if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(type.get())) {
-        const std::string opt_str = type->to_string();
-        if (type_map.find(opt_str) == type_map.end()) {
-            auto pair = get_type(module, optional_type->base_type);
-            if (pair.second.first) {
-                pair.first = pair.first->getPointerTo();
-            }
-            llvm::StructType *llvm_opt_type = llvm::StructType::create(                                  //
-                context, {llvm::Type::getInt1Ty(context), pair.first}, "type.optional." + opt_str, false //
-            );
-            type_map[opt_str] = llvm_opt_type;
-        }
-        return {type_map.at(opt_str), {false, true}};
-    } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(type.get())) {
-        if (variant_type->is_err_variant) {
+        case Type::Variation::ENUM:
+            return {llvm::Type::getInt32Ty(context), {false, false}};
+        case Type::Variation::ERROR_SET:
             if (type_map.find("__flint_type_err") == type_map.end()) {
                 llvm::Type *str_type = get_type(module, Type::get_primitive_type("str")).first;
                 type_map["__flint_type_err"] = llvm::StructType::create( //
@@ -599,43 +489,186 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 );
             }
             return {type_map.at("__flint_type_err"), {false, true}};
+        case Type::Variation::GROUP:
+            // TODO: Add this?
+            break;
+        case Type::Variation::MULTI: {
+            const auto *multi_type = type->as<MultiType>();
+            if (type->to_string() == "bool8") {
+                return {llvm::Type::getInt8Ty(context), {false, false}};
+            }
+            llvm::Type *element_type = get_type(module, multi_type->base_type).first;
+            llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+            return {vector_type, {false, false}};
         }
-        const std::string var_str = type->to_string();
-        // Check if its a known data type
-        if (type_map.find(var_str) == type_map.end()) {
-            unsigned int max_size = 0;
-            if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
-                const auto &possible_types = std::get<VariantNode *const>(variant_type->var_or_list)->possible_types;
-                for (const auto &[_, variation] : possible_types) {
-                    const unsigned int type_size = Allocation::get_type_size(module, get_type(module, variation).first);
-                    if (type_size > max_size) {
-                        max_size = type_size;
-                    }
+        case Type::Variation::OPTIONAL: {
+            const auto *optional_type = type->as<OptionalType>();
+            const std::string opt_str = type->to_string();
+            if (type_map.find(opt_str) == type_map.end()) {
+                auto pair = get_type(module, optional_type->base_type);
+                if (pair.second.first) {
+                    pair.first = pair.first->getPointerTo();
                 }
-            } else {
-                const auto &possible_types = std::get<std::vector<std::shared_ptr<Type>>>(variant_type->var_or_list);
-                for (const auto &variation : possible_types) {
-                    const unsigned int type_size = Allocation::get_type_size(module, get_type(module, variation).first);
-                    if (type_size > max_size) {
-                        max_size = type_size;
+                llvm::StructType *llvm_opt_type = llvm::StructType::create(                                  //
+                    context, {llvm::Type::getInt1Ty(context), pair.first}, "type.optional." + opt_str, false //
+                );
+                type_map[opt_str] = llvm_opt_type;
+            }
+            return {type_map.at(opt_str), {false, true}};
+        }
+        case Type::Variation::POINTER: {
+            const auto *pointer_type = type->as<PointerType>();
+            const auto pair = get_type(module, pointer_type->base_type);
+            return {pair.first->getPointerTo(), {false, false}};
+        }
+        case Type::Variation::PRIMITIVE: {
+            const auto *primitive_type = type->as<PrimitiveType>();
+            if (primitive_type->type_name == "__flint_type_str_struct") {
+                // A string is a struct of type 'type { i64, [0 x i8] }'
+                if (type_map.find("type.str") == type_map.end()) {
+                    llvm::StructType *str_type = llvm::StructType::create( //
+                        context,                                           //
+                        {
+                            llvm::Type::getInt64Ty(context),                        // len of string
+                            llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
+                        },                                                          //
+                        "type.str",
+                        false // is not packed, its padded
+                    );
+                    type_map["type.str"] = str_type;
+                }
+                return {type_map.at("type.str"), {false, false}};
+            }
+            if (primitive_type->type_name == "__flint_type_str_lit") {
+                return {llvm::Type::getInt8Ty(context)->getPointerTo(), {false, false}};
+            }
+            if (primitive_type->type_name == "anyerror") {
+                return {type_map.at("__flint_type_err"), {false, false}};
+            }
+            if (primitives.find(primitive_type->type_name) != primitives.end()) {
+                switch (primitives.at(primitive_type->type_name)) {
+                    default:
+                        THROW_BASIC_ERR(ERR_GENERATING);
+                        return {nullptr, {false, false}};
+                    case TOK_I32:
+                    case TOK_U32:
+                        return {llvm::Type::getInt32Ty(context), {false, false}};
+                    case TOK_I64:
+                    case TOK_U64:
+                        return {llvm::Type::getInt64Ty(context), {false, false}};
+                    case TOK_F32:
+                        return {llvm::Type::getFloatTy(context), {false, false}};
+                    case TOK_F64:
+                        return {llvm::Type::getDoubleTy(context), {false, false}};
+                    case TOK_FLINT:
+                        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                        return {nullptr, {false, false}};
+                    case TOK_U8:
+                        return {llvm::Type::getInt8Ty(context), {false, false}};
+                    case TOK_STR: {
+                        if (is_extern) {
+                            // If it's an extern call we pass in the c_str
+                            return {llvm::Type::getInt8Ty(context)->getPointerTo(), {false, false}};
+                        }
+                        // A string is a struct of type 'type { i64, [0 x i8] }'
+                        if (type_map.find("type.str") == type_map.end()) {
+                            llvm::StructType *str_type = llvm::StructType::create( //
+                                context,                                           //
+                                {
+                                    llvm::Type::getInt64Ty(context),                        // len of string
+                                    llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
+                                },                                                          //
+                                "type.str",
+                                false // is not packed, its padded
+                            );
+                            type_map["type.str"] = str_type;
+                        }
+                        return {type_map.at("type.str")->getPointerTo(), {false, false}};
                     }
+                    case TOK_BOOL:
+                        return {llvm::Type::getInt1Ty(context), {false, false}};
+                    case TOK_VOID:
+                        return {llvm::Type::getVoidTy(context), {false, false}};
                 }
             }
-            llvm::StructType *variant_struct_type = llvm::StructType::create( //
-                context,                                                      //
-                {
-                    llvm::Type::getInt8Ty(context),                                // The tag which type it is (starts at 1)
-                    llvm::ArrayType::get(llvm::Type::getInt8Ty(context), max_size) // The actual data array, being *N* bytes of data
-                },                                                                 //
-                "type.variant." + var_str,
-                false // is not packed, its padded
-            );
-            type_map[var_str] = variant_struct_type;
+            break;
         }
-        return {type_map.at(var_str), {false, true}};
-    } else if (const PointerType *pointer_type = dynamic_cast<const PointerType *>(type.get())) {
-        const auto pair = get_type(module, pointer_type->base_type);
-        return {pair.first->getPointerTo(), {false, false}};
+        case Type::Variation::RANGE:
+            // TODO: Add this?
+            break;
+        case Type::Variation::TUPLE: {
+            const auto *tuple_type = type->as<TupleType>();
+            const std::string tuple_str = "type.tuple." + type->to_string();
+            std::vector<llvm::Type *> type_vector;
+            for (const auto &tup_type : tuple_type->types) {
+                auto pair = get_type(module, tup_type);
+                if (pair.second.first && tup_type->get_variation() != Type::Variation::OPTIONAL) {
+                    pair.first = pair.first->getPointerTo();
+                }
+                type_vector.emplace_back(pair.first);
+            }
+            if (type_map.find(tuple_str) == type_map.end()) {
+                llvm::ArrayRef<llvm::Type *> type_array(type_vector);
+                llvm::StructType *llvm_tuple_type = llvm::StructType::create(context, type_array, tuple_str, false);
+                type_map[tuple_str] = llvm_tuple_type;
+            }
+            return {type_map.at(tuple_str), {false, true}};
+        }
+        case Type::Variation::UNKNOWN:
+            // TODO: Add this?
+            break;
+        case Type::Variation::VARIANT: {
+            const auto *variant_type = type->as<VariantType>();
+            if (variant_type->is_err_variant) {
+                if (type_map.find("__flint_type_err") == type_map.end()) {
+                    llvm::Type *str_type = get_type(module, Type::get_primitive_type("str")).first;
+                    type_map["__flint_type_err"] = llvm::StructType::create( //
+                        context,                                             //
+                        {
+                            llvm::Type::getInt32Ty(context), // ErrType ID (0 for 'none')
+                            llvm::Type::getInt32Ty(context), // ErrValue
+                            str_type->getPointerTo()         // ErrMessage
+                        },                                   //
+                        "__flint_type_err",                  //
+                        false                                // is not packed, it's padded
+                    );
+                }
+                return {type_map.at("__flint_type_err"), {false, true}};
+            }
+            const std::string var_str = type->to_string();
+            // Check if its a known data type
+            if (type_map.find(var_str) == type_map.end()) {
+                unsigned int max_size = 0;
+                if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
+                    const auto &possible_types = std::get<VariantNode *const>(variant_type->var_or_list)->possible_types;
+                    for (const auto &[_, variation] : possible_types) {
+                        const unsigned int type_size = Allocation::get_type_size(module, get_type(module, variation).first);
+                        if (type_size > max_size) {
+                            max_size = type_size;
+                        }
+                    }
+                } else {
+                    const auto &possible_types = std::get<std::vector<std::shared_ptr<Type>>>(variant_type->var_or_list);
+                    for (const auto &variation : possible_types) {
+                        const unsigned int type_size = Allocation::get_type_size(module, get_type(module, variation).first);
+                        if (type_size > max_size) {
+                            max_size = type_size;
+                        }
+                    }
+                }
+                llvm::StructType *variant_struct_type = llvm::StructType::create( //
+                    context,                                                      //
+                    {
+                        llvm::Type::getInt8Ty(context),                                // The tag which type it is (starts at 1)
+                        llvm::ArrayType::get(llvm::Type::getInt8Ty(context), max_size) // The actual data array, being *N* bytes of data
+                    },                                                                 //
+                    "type.variant." + var_str,
+                    false // is not packed, its padded
+                );
+                type_map[var_str] = variant_struct_type;
+            }
+            return {type_map.at(var_str), {false, true}};
+        }
     }
     // Pointer to non-supported type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
