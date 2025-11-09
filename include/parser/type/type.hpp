@@ -22,7 +22,6 @@ class Type {
     /// @enum `Variation`
     /// @brief A enum describing which type variations exist
     enum class Variation {
-        UNKNOWN_VARIATION,
         ARRAY,
         DATA,
         ENUM,

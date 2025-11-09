@@ -430,8 +430,6 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         }
     }
     switch (type->get_variation()) {
-        case Type::Variation::UNKNOWN_VARIATION:
-            break;
         case Type::Variation::ARRAY: {
             // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
             if (type_map.find("type.str") == type_map.end()) {

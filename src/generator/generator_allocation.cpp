@@ -19,9 +19,6 @@ bool Generator::Allocation::generate_allocations(                               
 ) {
     for (const auto &statement : scope->body) {
         switch (statement->get_variation()) {
-            case StatementNode::Variation::UNKNOWN_VARIATION:
-                assert(false);
-                return false;
             case StatementNode::Variation::ARRAY_ASSIGNMENT: {
                 const auto *node = statement->as<ArrayAssignmentNode>();
                 generate_array_indexing_allocation(builder, allocations, node->indexing_expressions);
@@ -572,9 +569,6 @@ bool Generator::Allocation::generate_expression_allocations(                    
     const ExpressionNode *expression                                                 //
 ) {
     switch (expression->get_variation()) {
-        case ExpressionNode::Variation::UNKNOWN_VARIATION:
-            assert(false);
-            break;
         case ExpressionNode::Variation::ARRAY_ACCESS: {
             const auto *node = expression->as<ArrayAccessNode>();
             generate_array_indexing_allocation(builder, allocations, node->indexing_expressions);

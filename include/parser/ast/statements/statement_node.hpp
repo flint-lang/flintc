@@ -24,7 +24,6 @@ class StatementNode : public ASTNode {
     /// @enum `Variation`
     /// @brief A enum describing which statement variations exist
     enum class Variation {
-        UNKNOWN_VARIATION,
         ARRAY_ASSIGNMENT,
         ASSIGNMENT,
         BREAK,

@@ -32,7 +32,6 @@ class DefinitionNode : public ASTNode {
     /// @enum `Variation`
     /// @brief A enum describing which definition variations exist
     enum class Variation {
-        UNKNOWN_VARIATION,
         DATA,
         ENTITY,
         ENUM,

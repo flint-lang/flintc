@@ -58,9 +58,6 @@ bool Analyzer::analyze(const FileNode *file) {
 
 bool Analyzer::analyze_definition(const Context &ctx, const DefinitionNode *definition) {
     switch (definition->get_variation()) {
-        case DefinitionNode::Variation::UNKNOWN_VARIATION:
-            assert(false && "Unknown definition node type");
-            return false;
         case DefinitionNode::Variation::DATA:
             break;
         case DefinitionNode::Variation::ENTITY:
@@ -110,9 +107,6 @@ bool Analyzer::analyze_scope(const Context &ctx, const Scope *scope) {
 
 bool Analyzer::analyze_statement(const Context &ctx, const StatementNode *statement) {
     switch (statement->get_variation()) {
-        case StatementNode::Variation::UNKNOWN_VARIATION:
-            assert(false && "Unknown statement node type");
-            return false;
         case StatementNode::Variation::ARRAY_ASSIGNMENT: {
             const auto *node = statement->as<ArrayAssignmentNode>();
             for (const auto &index_expr : node->indexing_expressions) {
@@ -328,9 +322,6 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
     }
 
     switch (expression->get_variation()) {
-        case ExpressionNode::Variation::UNKNOWN_VARIATION:
-            assert(false && "Unknown expression node type");
-            return false;
         case ExpressionNode::Variation::ARRAY_ACCESS: {
             const auto *node = expression->as<ArrayAccessNode>();
             if (!analyze_expression(ctx, node->base_expr.get())) {

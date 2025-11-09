@@ -29,7 +29,6 @@ class ExpressionNode : public ASTNode {
     /// @enum `Variation`
     /// @brief A enum describing which expression variations exist
     enum class Variation {
-        UNKNOWN_VARIATION,
         ARRAY_ACCESS,
         ARRAY_INITIALIZER,
         BINARY_OP,

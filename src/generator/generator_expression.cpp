@@ -34,9 +34,6 @@ Generator::group_mapping Generator::Expression::generate_expression( //
 ) {
     std::vector<llvm::Value *> group_map;
     switch (expression_node->get_variation()) {
-        case ExpressionNode::Variation::UNKNOWN_VARIATION:
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
         case ExpressionNode::Variation::ARRAY_ACCESS: {
             const auto *node = expression_node->as<ArrayAccessNode>();
             group_map.emplace_back(generate_array_access(builder, ctx, garbage, expr_depth, node));

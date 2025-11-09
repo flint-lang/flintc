@@ -210,9 +210,6 @@ namespace Debug {
                 }
 
                 switch (def->get_variation()) {
-                    case DefinitionNode::Variation::UNKNOWN_VARIATION:
-                        assert(false);
-                        return;
                     case DefinitionNode::Variation::DATA: {
                         const auto *node = def->as<DataNode>();
                         print_data(0, bits, *node);
@@ -670,9 +667,6 @@ namespace Debug {
 
         void print_expression(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<ExpressionNode> &expr) {
             switch (expr->get_variation()) {
-                case ExpressionNode::Variation::UNKNOWN_VARIATION:
-                    assert(false);
-                    break;
                 case ExpressionNode::Variation::ARRAY_ACCESS: {
                     const auto *node = expr->as<ArrayAccessNode>();
                     print_array_access(indent_lvl, bits, *node);
@@ -1177,9 +1171,6 @@ namespace Debug {
 
         void print_statement(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<StatementNode> &statement) {
             switch (statement->get_variation()) {
-                case StatementNode::Variation::UNKNOWN_VARIATION:
-                    assert(false);
-                    break;
                 case StatementNode::Variation::ARRAY_ASSIGNMENT: {
                     const auto *node = statement->as<ArrayAssignmentNode>();
                     print_array_assignment(indent_lvl, bits, *node);
