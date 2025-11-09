@@ -1,6 +1,7 @@
 #include "lsp_server.hpp"
 
 #include "lexer/builtins.hpp"
+#include "parser/ast/definitions/definition_node.hpp"
 #include "resolver/resolver.hpp"
 
 void LspServer::add_nodes_from_file_to_completions(  //
@@ -9,7 +10,7 @@ void LspServer::add_nodes_from_file_to_completions(  //
     std::vector<const ImportNode *> &imported_files, //
     const bool is_root_file                          //
 ) {
-    for (const std::unique_ptr<ASTNode> &node : file_node->definitions) {
+    for (const std::unique_ptr<DefinitionNode> &node : file_node->definitions) {
         if (const FunctionNode *function_node = dynamic_cast<const FunctionNode *>(node.get())) {
             if (function_node->name == "_main") {
                 continue;
