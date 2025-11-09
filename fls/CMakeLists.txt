@@ -34,6 +34,7 @@ set(LSP_SOURCES
     ../src/parser/parser_statement.cpp
     ../src/parser/parser_util.cpp
     ../src/parser/type.cpp
+    ../src/analyzer.cpp
     ../src/debug.cpp
     ../src/fip.cpp
     ../src/lexer.cpp
