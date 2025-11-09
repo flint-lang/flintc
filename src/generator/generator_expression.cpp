@@ -7,16 +7,15 @@
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/parser.hpp"
-#include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
-#include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
 
@@ -34,69 +33,106 @@ Generator::group_mapping Generator::Expression::generate_expression( //
     const bool is_reference                                          //
 ) {
     std::vector<llvm::Value *> group_map;
-    if (const auto *variable_node = dynamic_cast<const VariableNode *>(expression_node)) {
-        group_map.emplace_back(generate_variable(builder, ctx, variable_node, is_reference));
-        return group_map;
+    switch (expression_node->get_variation()) {
+        case ExpressionNode::Variation::UNKNOWN_VARIATION:
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        case ExpressionNode::Variation::ARRAY_ACCESS: {
+            const auto *node = expression_node->as<ArrayAccessNode>();
+            group_map.emplace_back(generate_array_access(builder, ctx, garbage, expr_depth, node));
+            return group_map;
+        }
+        case ExpressionNode::Variation::ARRAY_INITIALIZER: {
+            const auto *node = expression_node->as<ArrayInitializerNode>();
+            group_map.emplace_back(generate_array_initializer(builder, ctx, garbage, expr_depth, node));
+            return group_map;
+        }
+        case ExpressionNode::Variation::BINARY_OP: {
+            const auto *node = expression_node->as<BinaryOpNode>();
+            return generate_binary_op(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::CALL: {
+            const auto *node = expression_node->as<CallNodeExpression>();
+            return generate_call(builder, ctx, node);
+        }
+        case ExpressionNode::Variation::DATA_ACCESS: {
+            const auto *node = expression_node->as<DataAccessNode>();
+            return generate_data_access(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::DEFAULT: {
+            [[maybe_unused]] const auto *node = expression_node->as<DefaultNode>();
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET); // Somehow it was unused until now?
+            return std::nullopt;
+        }
+        case ExpressionNode::Variation::GROUP_EXPRESSION: {
+            const auto *node = expression_node->as<GroupExpressionNode>();
+            return generate_group_expression(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
+            const auto *node = expression_node->as<GroupedDataAccessNode>();
+            return generate_grouped_data_access(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::INITIALIZER: {
+            const auto *node = expression_node->as<InitializerNode>();
+            return generate_initializer(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::LITERAL: {
+            const auto *node = expression_node->as<LiteralNode>();
+            return generate_literal(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::OPTIONAL_CHAIN: {
+            const auto *node = expression_node->as<OptionalChainNode>();
+            return generate_optional_chain(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::OPTIONAL_UNWRAP: {
+            const auto *node = expression_node->as<OptionalUnwrapNode>();
+            return generate_optional_unwrap(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::RANGE_EXPRESSION: {
+            const auto *node = expression_node->as<RangeExpressionNode>();
+            return generate_range_expression(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::STRING_INTERPOLATION: {
+            const auto *node = expression_node->as<StringInterpolationNode>();
+            group_map.emplace_back(generate_string_interpolation(builder, ctx, garbage, expr_depth, node));
+            return group_map;
+        }
+        case ExpressionNode::Variation::SWITCH_EXPRESSION: {
+            const auto *node = expression_node->as<SwitchExpression>();
+            return generate_switch_expression(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::SWITCH_MATCH: {
+            [[maybe_unused]] const auto *node = expression_node->as<SwitchMatchNode>();
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET); // Somehow it was unused until now?
+            return std::nullopt;
+        }
+        case ExpressionNode::Variation::TYPE_CAST: {
+            const auto *node = expression_node->as<TypeCastNode>();
+            return generate_type_cast(builder, ctx, garbage, expr_depth, node, is_reference);
+        }
+        case ExpressionNode::Variation::TYPE: {
+            [[maybe_unused]] const auto *node = expression_node->as<TypeNode>();
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET); // Somehow it was unused until now?
+            return std::nullopt;
+        }
+        case ExpressionNode::Variation::UNARY_OP: {
+            const auto *node = expression_node->as<UnaryOpExpression>();
+            return generate_unary_op_expression(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::VARIABLE: {
+            const auto *node = expression_node->as<VariableNode>();
+            group_map.emplace_back(generate_variable(builder, ctx, node, is_reference));
+            return group_map;
+        }
+        case ExpressionNode::Variation::VARIANT_EXTRACTION: {
+            const auto *node = expression_node->as<VariantExtractionNode>();
+            return generate_variant_extraction(builder, ctx, node);
+        }
+        case ExpressionNode::Variation::VARIANT_UNWRAP: {
+            const auto *node = expression_node->as<VariantUnwrapNode>();
+            return generate_variant_unwrap(builder, ctx, node);
+        }
     }
-    if (const auto *unary_op_node = dynamic_cast<const UnaryOpExpression *>(expression_node)) {
-        return generate_unary_op_expression(builder, ctx, garbage, expr_depth, unary_op_node);
-    }
-    if (const auto *literal_node = dynamic_cast<const LiteralNode *>(expression_node)) {
-        return generate_literal(builder, ctx, garbage, expr_depth, literal_node);
-    }
-    if (const auto *interpol_node = dynamic_cast<const StringInterpolationNode *>(expression_node)) {
-        group_map.emplace_back(generate_string_interpolation(builder, ctx, garbage, expr_depth, interpol_node));
-        return group_map;
-    }
-    if (const auto *call_node = dynamic_cast<const CallNodeExpression *>(expression_node)) {
-        return generate_call(builder, ctx, call_node);
-    }
-    if (const auto *binary_op_node = dynamic_cast<const BinaryOpNode *>(expression_node)) {
-        return generate_binary_op(builder, ctx, garbage, expr_depth, binary_op_node);
-    }
-    if (const auto *type_cast_node = dynamic_cast<const TypeCastNode *>(expression_node)) {
-        return generate_type_cast(builder, ctx, garbage, expr_depth, type_cast_node, is_reference);
-    }
-    if (const auto *group_node = dynamic_cast<const GroupExpressionNode *>(expression_node)) {
-        return generate_group_expression(builder, ctx, garbage, expr_depth, group_node);
-    }
-    if (const auto *range_node = dynamic_cast<const RangeExpressionNode *>(expression_node)) {
-        return generate_range_expression(builder, ctx, garbage, expr_depth, range_node);
-    }
-    if (const auto *initializer = dynamic_cast<const InitializerNode *>(expression_node)) {
-        return generate_initializer(builder, ctx, garbage, expr_depth, initializer);
-    }
-    if (const auto *switch_expression = dynamic_cast<const SwitchExpression *>(expression_node)) {
-        return generate_switch_expression(builder, ctx, garbage, expr_depth, switch_expression);
-    }
-    if (const auto *data_access = dynamic_cast<const DataAccessNode *>(expression_node)) {
-        return generate_data_access(builder, ctx, garbage, expr_depth, data_access);
-    }
-    if (const auto *grouped_data_access = dynamic_cast<const GroupedDataAccessNode *>(expression_node)) {
-        return generate_grouped_data_access(builder, ctx, garbage, expr_depth, grouped_data_access);
-    }
-    if (const auto *optional_chain = dynamic_cast<const OptionalChainNode *>(expression_node)) {
-        return generate_optional_chain(builder, ctx, garbage, expr_depth, optional_chain);
-    }
-    if (const auto *optional_unwrap = dynamic_cast<const OptionalUnwrapNode *>(expression_node)) {
-        return generate_optional_unwrap(builder, ctx, garbage, expr_depth, optional_unwrap);
-    }
-    if (const auto *variant_extraction = dynamic_cast<const VariantExtractionNode *>(expression_node)) {
-        return generate_variant_extraction(builder, ctx, variant_extraction);
-    }
-    if (const auto *variant_unwrap = dynamic_cast<const VariantUnwrapNode *>(expression_node)) {
-        return generate_variant_unwrap(builder, ctx, variant_unwrap);
-    }
-    if (const auto *array_initializer = dynamic_cast<const ArrayInitializerNode *>(expression_node)) {
-        group_map.emplace_back(generate_array_initializer(builder, ctx, garbage, expr_depth, array_initializer));
-        return group_map;
-    }
-    if (const auto *array_access = dynamic_cast<const ArrayAccessNode *>(expression_node)) {
-        group_map.emplace_back(generate_array_access(builder, ctx, garbage, expr_depth, array_access));
-        return group_map;
-    }
-    THROW_BASIC_ERR(ERR_GENERATING);
-    return std::nullopt;
 }
 
 Generator::group_mapping Generator::Expression::generate_literal( //
@@ -213,8 +249,7 @@ Generator::group_mapping Generator::Expression::generate_literal( //
     }
     if (std::holds_alternative<LitEnum>(literal_node->value)) {
         const LitEnum &lit_enum = std::get<LitEnum>(literal_node->value);
-        const EnumType *enum_type = dynamic_cast<const EnumType *>(lit_enum.enum_type.get());
-        assert(enum_type != nullptr);
+        const EnumType *enum_type = lit_enum.enum_type->as<EnumType>();
         const auto &enum_values = enum_type->enum_node->values;
         std::vector<llvm::Value *> values;
         for (const auto &value : lit_enum.values) {
@@ -227,8 +262,7 @@ Generator::group_mapping Generator::Expression::generate_literal( //
     }
     if (std::holds_alternative<LitError>(literal_node->value)) {
         const LitError &lit_error = std::get<LitError>(literal_node->value);
-        const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(lit_error.error_type.get());
-        assert(error_type != nullptr);
+        const ErrorSetType *error_type = lit_error.error_type->as<ErrorSetType>();
         const auto err_value_msg_pair = error_type->error_node->get_id_msg_pair_of_value(lit_error.value);
         if (!err_value_msg_pair.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -264,8 +298,7 @@ Generator::group_mapping Generator::Expression::generate_literal( //
     }
     if (std::holds_alternative<LitVariantTag>(literal_node->value)) {
         const LitVariantTag &variant_tag = std::get<LitVariantTag>(literal_node->value);
-        const VariantType *variant_type = dynamic_cast<const VariantType *>(variant_tag.variant_type.get());
-        assert(variant_type != nullptr);
+        const VariantType *variant_type = variant_tag.variant_type->as<VariantType>();
         const std::optional<unsigned char> id = variant_type->get_idx_of_type(variant_tag.variation_type);
         assert(id.has_value());
         return std::vector<llvm::Value *>{builder.getInt8(id.value())};
@@ -292,11 +325,12 @@ llvm::Value *Generator::Expression::generate_variable( //
             // We return it directly if: It's a string, array, enum, immutable primitive type or data type
             if (ctx.scope->variables.find(arg.getName().str()) != ctx.scope->variables.end()) {
                 auto var = ctx.scope->variables.at(arg.getName().str());
+                const auto variation = variable_node->type->get_variation();
                 if ((primitives.find(std::get<0>(var)->to_string()) != primitives.end() && !std::get<2>(var)) // is immutable primitive
-                    || dynamic_cast<const ArrayType *>(variable_node->type.get())                             // is array type
+                    || variation == Type::Variation::ARRAY                                                    // is array type
                     || variable_node->type->to_string() == "str"                                              // is string type
-                    || dynamic_cast<const EnumType *>(variable_node->type.get())                              // is enum type
-                    || dynamic_cast<const DataType *>(variable_node->type.get())                              // is data type
+                    || variation == Type::Variation::ENUM                                                     // is enum type
+                    || variation == Type::Variation::DATA                                                     // is data type
                 ) {
                     return &arg;
                 }
@@ -316,7 +350,7 @@ llvm::Value *Generator::Expression::generate_variable( //
     // in all the cases where we want to return the pointer to the allocation directly instead of loading it, but this only holds true when
     // the parameter is not a tuple. Tuples are by-value by default but when passed in to a function they are passed by reference, so we
     // still need to load them even when it's a function parameter
-    if (std::get<3>(ctx.scope->variables.at(variable_node->name)) && !dynamic_cast<const TupleType *>(variable_node->type.get())) {
+    if (std::get<3>(ctx.scope->variables.at(variable_node->name)) && variable_node->type->get_variation() != Type::Variation::TUPLE) {
         return variable;
     }
 
@@ -375,7 +409,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
         str_value = res.value().front();
         // Skip collecting the garbage of the string interpolation if the only content of it is a string variable, this would lead to a
         // double free bug
-        if (std::next(it) == interpol_node->string_content.end() && dynamic_cast<const VariableNode *>(expr) != nullptr) {
+        if (std::next(it) == interpol_node->string_content.end() && expr->get_variation() == ExpressionNode::Variation::VARIABLE) {
             return str_value;
         }
     }
@@ -414,286 +448,305 @@ void Generator::Expression::convert_type_to_ext( //
     llvm::Value *const value,                    //
     std::vector<llvm::Value *> &args             //
 ) {
-    if (dynamic_cast<const DataType *>(type.get())) {
-        // get the LLVM struct type and its elements
-        llvm::Type *_struct_type = IR::get_type(ctx.parent->getParent(), type, false).first;
-        assert(_struct_type->isStructTy());
-        size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
-        if (struct_size > 16) {
-            // For > 16 bytes, pass pointer directly
-            // The 'value' parameter should already be a pointer to the struct
+    switch (type->get_variation()) {
+        default:
+            // No special handling needed
             args.emplace_back(value);
             return;
-        }
-        llvm::BasicBlock *current_block = builder.GetInsertBlock();
-        llvm::BasicBlock *convert_type_to_ext_block = llvm::BasicBlock::Create(context, "convert_type_to_ext", ctx.parent);
-        llvm::BasicBlock *convert_type_to_ext_merge_block = llvm::BasicBlock::Create(context, "convert_type_to_ext_merge", ctx.parent);
-        builder.SetInsertPoint(current_block);
-        builder.CreateBr(convert_type_to_ext_block);
-        builder.SetInsertPoint(convert_type_to_ext_block);
-
-        // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
-        // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
-        // the element within the output 8-byte pack, so we create two stacks because for data greater than 16 bytes the 16-byte-rule
-        // applies
-        // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
-        // sub-64-byte packed results like packing 5 u8 values into one i40.
-        llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
-        std::vector<llvm::Type *> elem_types = struct_type->elements();
-        std::array<std::stack<unsigned int>, 2> stacks;
-        unsigned int offset = 0;
-        unsigned int first_size = 0;
-
-        size_t elem_idx = 0;
-        for (; elem_idx < elem_types.size(); elem_idx++) {
-            size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
-            // We can only pack the element into the stack if there is enough space left
-            if (8 - offset < elem_size) {
-                break;
-            }
-            // If the current offset is 0 we can simply put in the element into the stack without further checks
-            if (offset == 0) {
-                stacks[0].push(0);
-                offset += elem_size;
-                first_size += elem_size;
-                continue;
-            }
-            // Now we simply need to check where in the 8 byte structure we need to put the elements in. We can do this by calculating the
-            // padding based on the type alignment, the alignment is just the elem_size in our case because we work with types <= 8 bytes in
-            // size.
-            // If the offset is divisible by the element size it does not need to be changed. If it is not divisible we need to clamp it to
-            // the next divisible offset value, so if current offset is 2 but element size is 4 the offset needs to be clamped to 4
-            uint8_t elem_offset = offset;
-            if (offset % elem_size != 0) {
-                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
-            }
-            if (elem_offset == 8) {
-                // This element does not fit into this stack, we need to put it into the next stack
-                break;
-            }
-            stacks[0].push(elem_offset);
-            offset = elem_offset + elem_size;
-            first_size = elem_offset + elem_size;
-        }
-        offset = 0;
-        for (; elem_idx < elem_types.size(); elem_idx++) {
-            size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
-            // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
-            // applied
-            assert(8 - offset >= elem_size);
-            // If the current offset is 0 we can simply put in the element into the stack without further checks
-            if (offset == 0) {
-                stacks[1].push(0);
-                offset += elem_size;
-                continue;
-            }
-            uint8_t elem_offset = offset;
-            if (offset % elem_size != 0) {
-                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
-            }
-            // This element does not fit into this stack, this should not happen since it's the last stack
-            assert(elem_offset != 8);
-            stacks[1].push(elem_offset);
-            offset = elem_offset + elem_size;
-        }
-        assert(elem_idx == elem_types.size());
-        elem_idx = 0;
-        // Now we reach the second phase, we have figured out where to put the elements in the respective chunks
-        if (stacks[1].empty()) {
-            // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
-            // we pack multiple u8 values into one, for them we can get even i40, i48 or i56 results
-            if (stacks[0].size() == first_size) {
-                llvm::Value *result = builder.getIntN(first_size * 8, 0);
-                for (; elem_idx < elem_types.size(); elem_idx++) {
-                    llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
-                    llvm::Value *elem = IR::aligned_load(builder, builder.getInt8Ty(), elem_ptr);
-                    // We now need to store the `elem` byte at the `elem_idx`th byte in the `result` integer. I think we can achieve this by
-                    // just extending the single byte to the integer type, then bit shifting the whole number for elem_idx elements and then
-                    // applying a bitwise or between the number to insert and the result itself
-                    // The elements are stored in the number from right to left. When we store the struct elements { u8(0), u8(1), u8(2) }
-                    // inside a `i24` for example we need to ensure the element 0 comes at the very right of the integer, so the first 8
-                    // bits. The middle is unambiguous and the second index needs to be located at the last 8 bytes. This means that the
-                    // amount we need to shift each value is exactly the position of the element in the struct. Element 0 does not need to
-                    // be shifted at all, element 1 by 1 and element 2 needs to be shifted by 2.
-                    llvm::Value *elem_big = builder.CreateZExt(elem, builder.getIntNTy(first_size * 8));
-                    if (elem_idx == 0) {
-                        result = elem_big;
-                        continue;
-                    }
-                    // Shift left by the element size - element index to shift it to the correct position
-                    llvm::Value *elem_shift = builder.CreateShl(elem_big, elem_idx * 8);
-                    // Bitwise and with the result to form the new result contianing the shifted element in it
-                    result = builder.CreateOr(result, elem_shift);
+        case Type::Variation::DATA:
+            convert_data_type_to_ext(builder, ctx, type, value, args);
+            return;
+        case Type::Variation::MULTI: {
+            const auto *multi_type = type->as<MultiType>();
+            // Multi-types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
+            // to the functions too. This means that the multi-type needs to be converted not into a struct but into a multiple of
+            // two-component vector types.
+            // A vector type of size 2 can be passed to the function directly and does not need to be converted at all
+            // A vector type of size 3 is split into a two-component vector type + a scalar value
+            // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
+            llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
+            const std::string base_type_str = multi_type->base_type->to_string();
+            if (base_type_str == "f64" || base_type_str == "i64") {
+                for (size_t i = 0; i < multi_type->width; i++) {
+                    args.emplace_back(builder.CreateExtractElement(value, builder.getInt64(i)));
                 }
-                args.emplace_back(result);
-                builder.CreateBr(convert_type_to_ext_merge_block);
-                builder.SetInsertPoint(convert_type_to_ext_merge_block);
+                return;
+            } else if (multi_type->width == 2) {
+                if (base_type_str == "i32") {
+                    // We need to pack the two i32s as one i64
+                    args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
+                } else {
+                    args.emplace_back(value);
+                }
+                return;
+            } else if (multi_type->width == 3) {
+                // Extract the first two elements as a vector type
+                llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
+                llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(0));
+                llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(1));
+                llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
+                vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
+                vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
+                if (base_type_str == "i32") {
+                    // Pack the two i32s as one i64
+                    args.emplace_back(builder.CreateBitCast(vec2, builder.getInt64Ty()));
+                } else {
+                    args.emplace_back(vec2);
+                }
+                // Extract the third value as a scalar element
+                llvm::Value *third = builder.CreateExtractElement(value, builder.getInt64(2));
+                args.emplace_back(third);
                 return;
             }
-        }
-        // Because we only need to fill two 8-byte containers we can resolve a few edge-cases upfront
-        elem_idx = 0;
-        const size_t stacks_0_size = stacks[0].size();
-        if (stacks[0].size() == 1) {
-            llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
-            llvm::Value *elem = IR::aligned_load(builder, elem_types.at(elem_idx), elem_ptr);
-            args.emplace_back(elem);
-            elem_idx++;
-        } else if (stacks[0].size() == 2) {
-            if (elem_types.front()->isFloatTy() && elem_types.at(1)->isFloatTy()) {
-                // We can create a single `<2 x float>` vector as the argument
-                llvm::Type *vec2_type = llvm::VectorType::get(elem_types.at(elem_idx), 2, false);
-                llvm::Value *result = IR::get_default_value_of_type(vec2_type);
-                llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
-                llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
-                result = builder.CreateInsertElement(result, elem_1, static_cast<size_t>(0));
-                elem_idx++;
-                llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
-                llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
-                result = builder.CreateInsertElement(result, elem_2, static_cast<size_t>(1));
-                args.emplace_back(result);
-                elem_idx++;
-            } else {
-                goto stack_0_generic;
-            }
-        } else {
-        stack_0_generic:
-            llvm::Value *result = builder.getInt64(0);
-            for (; elem_idx < stacks_0_size; elem_idx++) {
-                const size_t actual_elem_idx = stacks_0_size - elem_idx - 1;
-                llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
-                llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
-                if (elem->getType()->isFloatTy()) {
-                    elem = builder.CreateBitCast(elem, builder.getInt32Ty());
-                }
-                llvm::Value *elem_big = builder.CreateZExt(elem, builder.getInt64Ty());
-                if (actual_elem_idx == stacks_0_size - 1) {
-                    // Shift left by the amount in the stacks
-                    elem_big = builder.CreateShl(elem_big, stacks[0].top() * 8);
-                }
-                // Bitwise or with the result to form the new result contianing the shifted element in it
-                result = builder.CreateOr(result, elem_big);
-                stacks[0].pop();
-            }
-            result->setName("stack_0_result");
-            args.emplace_back(result);
-            assert(stacks[0].empty());
-        }
-        if (stacks[1].size() == 1) {
-            llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
-            llvm::Value *elem = IR::aligned_load(builder, elem_types.at(elem_idx), elem_ptr);
-            args.emplace_back(elem);
-            elem_idx++;
-        } else if (stacks[1].size() == 2) {
-            if (elem_types.at(stacks_0_size)->isFloatTy() && elem_types.at(stacks_0_size + 1)->isFloatTy()) {
-                // We can create a single `<2 x float>` vector as the argument
-                llvm::Type *vec2_type = llvm::VectorType::get(elem_types.at(elem_idx), 2, false);
-                llvm::Value *result = IR::get_default_value_of_type(vec2_type);
-                llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
-                llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
-                result = builder.CreateInsertElement(result, elem_1, static_cast<size_t>(0));
-                elem_idx++;
-                llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
-                llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
-                result = builder.CreateInsertElement(result, elem_2, static_cast<size_t>(1));
-                args.emplace_back(result);
-                elem_idx++;
-            } else {
-                goto stack_1_generic;
-            }
-        } else {
-        stack_1_generic:
-            llvm::Value *result = builder.getInt64(0);
-            const size_t stack_size = stacks[1].size();
-            for (; elem_idx < stacks_0_size + stack_size; elem_idx++) {
-                const size_t actual_elem_idx = stacks_0_size * 2 + stack_size - elem_idx - 1;
-                llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
-                llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
-                if (elem->getType()->isFloatTy()) {
-                    elem = builder.CreateBitCast(elem, builder.getInt32Ty());
-                }
-                llvm::Value *elem_big = builder.CreateZExt(elem, builder.getInt64Ty());
-                if (actual_elem_idx != stacks_0_size - 1) {
-                    // Shift left by the amount in the stacks
-                    elem_big = builder.CreateShl(elem_big, stacks[1].top() * 8);
-                }
-                // Bitwise or with the result to form the new result contianing the shifted element in it
-                result = builder.CreateOr(result, elem_big);
-                stacks[1].pop();
-            }
-            result->setName("stack_1_result");
-            args.emplace_back(result);
-            assert(stacks[1].empty());
-        }
-        assert(elem_idx == elem_types.size());
-        builder.CreateBr(convert_type_to_ext_merge_block);
-        builder.SetInsertPoint(convert_type_to_ext_merge_block);
-        return;
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
-        // Multi-types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
-        // to the functions too. This means that the multi-type needs to be converted not into a struct but into a multiple of
-        // two-component vector types.
-        // A vector type of size 2 can be passed to the function directly and does not need to be converted at all
-        // A vector type of size 3 is split into a two-component vector type + a scalar value
-        // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
-        llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
-        const std::string base_type_str = multi_type->base_type->to_string();
-        if (base_type_str == "f64" || base_type_str == "i64") {
-            for (size_t i = 0; i < multi_type->width; i++) {
-                args.emplace_back(builder.CreateExtractElement(value, builder.getInt64(i)));
-            }
-            return;
-        } else if (multi_type->width == 2) {
-            if (base_type_str == "i32") {
-                // We need to pack the two i32s as one i64
-                args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
-            } else {
-                args.emplace_back(value);
-            }
-            return;
-        } else if (multi_type->width == 3) {
-            // Extract the first two elements as a vector type
+            // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... multi-types in Flint, so we know all bigger than 3 are even
+            // numbers
             llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
-            llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(0));
-            llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(1));
-            llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
-            vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
-            vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
-            if (base_type_str == "i32") {
-                // Pack the two i32s as one i64
-                args.emplace_back(builder.CreateBitCast(vec2, builder.getInt64Ty()));
-            } else {
-                args.emplace_back(vec2);
+            for (size_t i = 0; i < multi_type->width; i += 2) {
+                llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(i));
+                llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(i + 1));
+                llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
+                vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
+                vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
+                if (base_type_str == "i32") {
+                    args.emplace_back(builder.CreateBitCast(vec2, builder.getInt64Ty()));
+                } else {
+                    args.emplace_back(vec2);
+                }
             }
-            // Extract the third value as a scalar element
-            llvm::Value *third = builder.CreateExtractElement(value, builder.getInt64(2));
-            args.emplace_back(third);
             return;
         }
-        // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... multi-types in Flint, so we know all bigger than 3 are even
-        // numbers
-        llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
-        for (size_t i = 0; i < multi_type->width; i += 2) {
-            llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(i));
-            llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(i + 1));
-            llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
-            vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
-            vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
-            if (base_type_str == "i32") {
-                args.emplace_back(builder.CreateBitCast(vec2, builder.getInt64Ty()));
-            } else {
-                args.emplace_back(vec2);
+        case Type::Variation::PRIMITIVE:
+            if (type->to_string() == "str") {
+                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+                args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
+                return;
             }
-        }
+            args.emplace_back(value);
+            break;
+    }
+}
+
+void Generator::Expression::convert_data_type_to_ext( //
+    llvm::IRBuilder<> &builder,                       //
+    GenerationContext &ctx,                           //
+    const std::shared_ptr<Type> &type,                //
+    llvm::Value *const value,                         //
+    std::vector<llvm::Value *> &args                  //
+) {
+    // get the LLVM struct type and its elements
+    llvm::Type *_struct_type = IR::get_type(ctx.parent->getParent(), type, false).first;
+    assert(_struct_type->isStructTy());
+    size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
+    if (struct_size > 16) {
+        // For > 16 bytes, pass pointer directly
+        // The 'value' parameter should already be a pointer to the struct
+        args.emplace_back(value);
         return;
-    } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
-        if (type->to_string() == "str") {
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
-            args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
+    }
+    llvm::BasicBlock *current_block = builder.GetInsertBlock();
+    llvm::BasicBlock *convert_type_to_ext_block = llvm::BasicBlock::Create(context, "convert_type_to_ext", ctx.parent);
+    llvm::BasicBlock *convert_type_to_ext_merge_block = llvm::BasicBlock::Create(context, "convert_type_to_ext_merge", ctx.parent);
+    builder.SetInsertPoint(current_block);
+    builder.CreateBr(convert_type_to_ext_block);
+    builder.SetInsertPoint(convert_type_to_ext_block);
+
+    // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
+    // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
+    // the element within the output 8-byte pack, so we create two stacks because for data greater than 16 bytes the 16-byte-rule
+    // applies
+    // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
+    // sub-64-byte packed results like packing 5 u8 values into one i40.
+    llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
+    std::vector<llvm::Type *> elem_types = struct_type->elements();
+    std::array<std::stack<unsigned int>, 2> stacks;
+    unsigned int offset = 0;
+    unsigned int first_size = 0;
+
+    size_t elem_idx = 0;
+    for (; elem_idx < elem_types.size(); elem_idx++) {
+        size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
+        // We can only pack the element into the stack if there is enough space left
+        if (8 - offset < elem_size) {
+            break;
+        }
+        // If the current offset is 0 we can simply put in the element into the stack without further checks
+        if (offset == 0) {
+            stacks[0].push(0);
+            offset += elem_size;
+            first_size += elem_size;
+            continue;
+        }
+        // Now we simply need to check where in the 8 byte structure we need to put the elements in. We can do this by calculating the
+        // padding based on the type alignment, the alignment is just the elem_size in our case because we work with types <= 8 bytes in
+        // size.
+        // If the offset is divisible by the element size it does not need to be changed. If it is not divisible we need to clamp it to
+        // the next divisible offset value, so if current offset is 2 but element size is 4 the offset needs to be clamped to 4
+        uint8_t elem_offset = offset;
+        if (offset % elem_size != 0) {
+            elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+        }
+        if (elem_offset == 8) {
+            // This element does not fit into this stack, we need to put it into the next stack
+            break;
+        }
+        stacks[0].push(elem_offset);
+        offset = elem_offset + elem_size;
+        first_size = elem_offset + elem_size;
+    }
+    offset = 0;
+    for (; elem_idx < elem_types.size(); elem_idx++) {
+        size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
+        // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
+        // applied
+        assert(8 - offset >= elem_size);
+        // If the current offset is 0 we can simply put in the element into the stack without further checks
+        if (offset == 0) {
+            stacks[1].push(0);
+            offset += elem_size;
+            continue;
+        }
+        uint8_t elem_offset = offset;
+        if (offset % elem_size != 0) {
+            elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+        }
+        // This element does not fit into this stack, this should not happen since it's the last stack
+        assert(elem_offset != 8);
+        stacks[1].push(elem_offset);
+        offset = elem_offset + elem_size;
+    }
+    assert(elem_idx == elem_types.size());
+    elem_idx = 0;
+    // Now we reach the second phase, we have figured out where to put the elements in the respective chunks
+    if (stacks[1].empty()) {
+        // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
+        // we pack multiple u8 values into one, for them we can get even i40, i48 or i56 results
+        if (stacks[0].size() == first_size) {
+            llvm::Value *result = builder.getIntN(first_size * 8, 0);
+            for (; elem_idx < elem_types.size(); elem_idx++) {
+                llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+                llvm::Value *elem = IR::aligned_load(builder, builder.getInt8Ty(), elem_ptr);
+                // We now need to store the `elem` byte at the `elem_idx`th byte in the `result` integer. I think we can achieve this by
+                // just extending the single byte to the integer type, then bit shifting the whole number for elem_idx elements and then
+                // applying a bitwise or between the number to insert and the result itself
+                // The elements are stored in the number from right to left. When we store the struct elements { u8(0), u8(1), u8(2) }
+                // inside a `i24` for example we need to ensure the element 0 comes at the very right of the integer, so the first 8
+                // bits. The middle is unambiguous and the second index needs to be located at the last 8 bytes. This means that the
+                // amount we need to shift each value is exactly the position of the element in the struct. Element 0 does not need to
+                // be shifted at all, element 1 by 1 and element 2 needs to be shifted by 2.
+                llvm::Value *elem_big = builder.CreateZExt(elem, builder.getIntNTy(first_size * 8));
+                if (elem_idx == 0) {
+                    result = elem_big;
+                    continue;
+                }
+                // Shift left by the element size - element index to shift it to the correct position
+                llvm::Value *elem_shift = builder.CreateShl(elem_big, elem_idx * 8);
+                // Bitwise and with the result to form the new result contianing the shifted element in it
+                result = builder.CreateOr(result, elem_shift);
+            }
+            args.emplace_back(result);
+            builder.CreateBr(convert_type_to_ext_merge_block);
+            builder.SetInsertPoint(convert_type_to_ext_merge_block);
             return;
         }
     }
-    args.emplace_back(value);
+    // Because we only need to fill two 8-byte containers we can resolve a few edge-cases upfront
+    elem_idx = 0;
+    const size_t stacks_0_size = stacks[0].size();
+    if (stacks[0].size() == 1) {
+        llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+        llvm::Value *elem = IR::aligned_load(builder, elem_types.at(elem_idx), elem_ptr);
+        args.emplace_back(elem);
+        elem_idx++;
+    } else if (stacks[0].size() == 2) {
+        if (elem_types.front()->isFloatTy() && elem_types.at(1)->isFloatTy()) {
+            // We can create a single `<2 x float>` vector as the argument
+            llvm::Type *vec2_type = llvm::VectorType::get(elem_types.at(elem_idx), 2, false);
+            llvm::Value *result = IR::get_default_value_of_type(vec2_type);
+            llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
+            result = builder.CreateInsertElement(result, elem_1, static_cast<size_t>(0));
+            elem_idx++;
+            llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
+            result = builder.CreateInsertElement(result, elem_2, static_cast<size_t>(1));
+            args.emplace_back(result);
+            elem_idx++;
+        } else {
+            goto stack_0_generic;
+        }
+    } else {
+    stack_0_generic:
+        llvm::Value *result = builder.getInt64(0);
+        for (; elem_idx < stacks_0_size; elem_idx++) {
+            const size_t actual_elem_idx = stacks_0_size - elem_idx - 1;
+            llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
+            llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
+            if (elem->getType()->isFloatTy()) {
+                elem = builder.CreateBitCast(elem, builder.getInt32Ty());
+            }
+            llvm::Value *elem_big = builder.CreateZExt(elem, builder.getInt64Ty());
+            if (actual_elem_idx == stacks_0_size - 1) {
+                // Shift left by the amount in the stacks
+                elem_big = builder.CreateShl(elem_big, stacks[0].top() * 8);
+            }
+            // Bitwise or with the result to form the new result contianing the shifted element in it
+            result = builder.CreateOr(result, elem_big);
+            stacks[0].pop();
+        }
+        result->setName("stack_0_result");
+        args.emplace_back(result);
+        assert(stacks[0].empty());
+    }
+    if (stacks[1].size() == 1) {
+        llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+        llvm::Value *elem = IR::aligned_load(builder, elem_types.at(elem_idx), elem_ptr);
+        args.emplace_back(elem);
+        elem_idx++;
+    } else if (stacks[1].size() == 2) {
+        if (elem_types.at(stacks_0_size)->isFloatTy() && elem_types.at(stacks_0_size + 1)->isFloatTy()) {
+            // We can create a single `<2 x float>` vector as the argument
+            llvm::Type *vec2_type = llvm::VectorType::get(elem_types.at(elem_idx), 2, false);
+            llvm::Value *result = IR::get_default_value_of_type(vec2_type);
+            llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
+            result = builder.CreateInsertElement(result, elem_1, static_cast<size_t>(0));
+            elem_idx++;
+            llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
+            result = builder.CreateInsertElement(result, elem_2, static_cast<size_t>(1));
+            args.emplace_back(result);
+            elem_idx++;
+        } else {
+            goto stack_1_generic;
+        }
+    } else {
+    stack_1_generic:
+        llvm::Value *result = builder.getInt64(0);
+        const size_t stack_size = stacks[1].size();
+        for (; elem_idx < stacks_0_size + stack_size; elem_idx++) {
+            const size_t actual_elem_idx = stacks_0_size * 2 + stack_size - elem_idx - 1;
+            llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
+            llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
+            if (elem->getType()->isFloatTy()) {
+                elem = builder.CreateBitCast(elem, builder.getInt32Ty());
+            }
+            llvm::Value *elem_big = builder.CreateZExt(elem, builder.getInt64Ty());
+            if (actual_elem_idx != stacks_0_size - 1) {
+                // Shift left by the amount in the stacks
+                elem_big = builder.CreateShl(elem_big, stacks[1].top() * 8);
+            }
+            // Bitwise or with the result to form the new result contianing the shifted element in it
+            result = builder.CreateOr(result, elem_big);
+            stacks[1].pop();
+        }
+        result->setName("stack_1_result");
+        args.emplace_back(result);
+        assert(stacks[1].empty());
+    }
+    assert(elem_idx == elem_types.size());
+    builder.CreateBr(convert_type_to_ext_merge_block);
+    builder.SetInsertPoint(convert_type_to_ext_merge_block);
+    return;
 }
 
 void Generator::Expression::convert_type_from_ext( //
@@ -702,277 +755,293 @@ void Generator::Expression::convert_type_from_ext( //
     const std::shared_ptr<Type> &type,             //
     llvm::Value *&value                            //
 ) {
-    if (dynamic_cast<const DataType *>(type.get())) {
-        // get the LLVM struct type and its elements
-        llvm::Type *_struct_type = IR::get_type(ctx.parent->getParent(), type, false).first;
-        assert(_struct_type->isStructTy());
-        size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
-        if (struct_size > 16) {
-            // For > 16 bytes, the value is already allocated by caller
-            // 'value' should already be the pointer to the result
+    switch (type->get_variation()) {
+        default:
             return;
-        }
-        llvm::BasicBlock *current_block = builder.GetInsertBlock();
-        llvm::BasicBlock *convert_type_from_ext_block = llvm::BasicBlock::Create(context, "convert_type_from_ext", ctx.parent);
-        llvm::BasicBlock *convert_type_from_ext_merge_block = llvm::BasicBlock::Create(context, "convert_type_from_ext_merge", ctx.parent);
-        builder.SetInsertPoint(current_block);
-        builder.CreateBr(convert_type_from_ext_block);
-        builder.SetInsertPoint(convert_type_from_ext_block);
-        llvm::Value *result_ptr = builder.CreateCall(c_functions.at(MALLOC), {builder.getInt64(struct_size)}, "result_ptr");
-
-        // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
-        // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
-        // the element within the output 8-byte pack, so we create two stacks because for data greater than 16 bytes the 16-byte-rule
-        // applies
-        // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
-        // sub-64-byte packed results like packing 5 u8 values into one i40.
-        llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
-        std::vector<llvm::Type *> elem_types = struct_type->elements();
-        std::array<std::stack<unsigned int>, 2> stacks;
-        unsigned int offset = 0;
-        unsigned int first_size = 0;
-
-        size_t elem_idx = 0;
-        for (; elem_idx < elem_types.size(); elem_idx++) {
-            size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
-            // We can only pack the element into the stack if there is enough space left
-            if (8 - offset < elem_size) {
-                break;
-            }
-            // If the current offset is 0 we can simply put in the element into the stack without further checks
-            if (offset == 0) {
-                stacks[0].push(0);
-                offset += elem_size;
-                first_size += elem_size;
-                continue;
-            }
-            // Now we simply need to check where in the 8 byte structure we need to put the elements in. We can do this by calculating the
-            // padding based on the type alignment, the alignment is just the elem_size in our case because we work with types <= 8 bytes in
-            // size.
-            // If the offset is divisible by the element size it does not need to be changed. If it is not divisible we need to clamp it to
-            // the next divisible offset value, so if current offset is 2 but element size is 4 the offset needs to be clamped to 4
-            uint8_t elem_offset = offset;
-            if (offset % elem_size != 0) {
-                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
-            }
-            if (elem_offset == 8) {
-                // This element does not fit into this stack, we need to put it into the next stack
-                break;
-            }
-            stacks[0].push(elem_offset);
-            offset = elem_offset + elem_size;
-            first_size = elem_offset + elem_size;
-        }
-        offset = 0;
-        for (; elem_idx < elem_types.size(); elem_idx++) {
-            size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
-            // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
-            // applied
-            assert(8 - offset >= elem_size);
-            // If the current offset is 0 we can simply put in the element into the stack without further checks
-            if (offset == 0) {
-                stacks[1].push(0);
-                offset += elem_size;
-                continue;
-            }
-            uint8_t elem_offset = offset;
-            if (offset % elem_size != 0) {
-                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
-            }
-            // This element does not fit into this stack, this should not happen since it's the last stack
-            assert(elem_offset != 8);
-            stacks[1].push(elem_offset);
-            offset = elem_offset + elem_size;
-        }
-        assert(elem_idx == elem_types.size());
-        elem_idx = 0;
-        // Now we reach the second phase, we have figured out where to put the elements in the respective chunks
-        if (stacks[1].empty()) {
-            // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
-            // we pack multiple u8 values into one, for them we can get even i40, i48 or i56 results
-            if (stacks[0].size() == first_size) {
-                for (; elem_idx < elem_types.size(); elem_idx++) {
-                    // Shift right by the element index to shift it to the beginning position
-                    llvm::Value *elem_shift = builder.CreateLShr(value, elem_idx * 8);
-                    // Now we truncate the result to get the single element which we can store in the output structure
-                    llvm::Value *elem = builder.CreateTrunc(elem_shift, builder.getInt8Ty());
-                    llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, result_ptr, elem_idx);
-                    IR::aligned_store(builder, elem, elem_ptr);
+        case Type::Variation::DATA:
+            convert_data_type_from_ext(builder, ctx, type, value);
+            return;
+        case Type::Variation::MULTI: {
+            const auto *multi_type = type->as<MultiType>();
+            llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
+            llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+            llvm::VectorType *vec2_i32 = llvm::VectorType::get(builder.getInt32Ty(), 2, false);
+            const std::string base_type_str = multi_type->base_type->to_string();
+            if (base_type_str == "f64" || base_type_str == "i64") {
+                llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+                for (size_t i = 0; i < multi_type->width; i++) {
+                    llvm::Value *elem_i = builder.CreateExtractValue(value, i);
+                    result_vec = builder.CreateInsertElement(result_vec, elem_i, builder.getInt64(i));
                 }
-                value = result_ptr;
-                builder.CreateBr(convert_type_from_ext_merge_block);
-                builder.SetInsertPoint(convert_type_from_ext_merge_block);
-                return;
-            }
-        }
-        // Because we only need to fill two 8-byte containers we can resolve a few edge-cases upfront
-        elem_idx = 0;
-        const size_t stacks_0_size = stacks[0].size();
-        if (stacks[0].size() == 1) {
-            llvm::Value *elem = builder.CreateExtractValue(value, 0);
-            llvm::Value *res_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
-            IR::aligned_store(builder, elem, res_ptr);
-            elem_idx++;
-        } else if (stacks[0].size() == 2) {
-            if (elem_types.front()->isFloatTy() && elem_types.at(1)->isFloatTy()) {
-                // We can create a single `<2 x float>` vector as the argument
-                llvm::Value *vec_val = builder.CreateExtractValue(value, 0);
-
-                llvm::Value *elem_1 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
-                llvm::Value *elem_1_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
-                IR::aligned_store(builder, elem_1, elem_1_ptr);
-                elem_idx++;
-
-                llvm::Value *elem_2 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
-                llvm::Value *elem_2_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
-                IR::aligned_store(builder, elem_2, elem_2_ptr);
-                elem_idx++;
-            } else {
-                goto stack_0_generic;
-            }
-        } else {
-        stack_0_generic:
-            llvm::Value *res = builder.CreateExtractValue(value, 0);
-            for (; elem_idx < stacks_0_size; elem_idx++) {
-                const size_t actual_elem_idx = stacks_0_size - elem_idx - 1;
-                // Shift right by the amount in the stack
-                llvm::Value *elem_big = builder.CreateLShr(res, stacks[0].top() * 8);
-                llvm::Value *elem_smol = nullptr;
-                if (elem_types.at(actual_elem_idx)->isFloatTy()) {
-                    elem_smol = builder.CreateTrunc(elem_big, builder.getInt32Ty());
-                    elem_smol = builder.CreateBitCast(elem_smol, builder.getFloatTy());
+                value = result_vec;
+            } else if (multi_type->width == 2) {
+                if (base_type_str == "i32") {
+                    value = builder.CreateBitCast(value, vec2_i32);
                 } else {
-                    elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
+                    // vec2 is returned as <2 x T> directly for floats - no conversion needed
+                    return;
                 }
-                // Bitwise or with the result to form the new result contianing the shifted element in it
-                llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
-                IR::aligned_store(builder, elem_smol, elem_ptr);
-                stacks[0].pop();
-            }
-            assert(stacks[0].empty());
-        }
-        if (stacks[1].size() == 1) {
-            llvm::Value *elem = builder.CreateExtractValue(value, 1);
-            llvm::Value *res_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
-            IR::aligned_store(builder, elem, res_ptr);
-            elem_idx++;
-        } else if (stacks[1].size() == 2) {
-            if (elem_types.at(stacks_0_size)->isFloatTy() && elem_types.at(stacks_0_size + 1)->isFloatTy()) {
-                // We can create a single `<2 x float>` vector as the argument
-                llvm::Value *vec_val = builder.CreateExtractValue(value, 1);
+            } else if (multi_type->width == 3) {
+                // vec3 is returned as { <2 x T>, T } struct from extern calls
+                assert(value->getType()->isStructTy());
 
-                llvm::Value *elem_1 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
-                llvm::Value *elem_1_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
-                IR::aligned_store(builder, elem_1, elem_1_ptr);
-                elem_idx++;
+                // Extract the <2 x T> part
+                llvm::Value *vec2_part = builder.CreateExtractValue(value, 0, "vec2_part");
+                llvm::Value *scalar_part = builder.CreateExtractValue(value, 1, "scalar_part");
 
-                llvm::Value *elem_2 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
-                llvm::Value *elem_2_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
-                IR::aligned_store(builder, elem_2, elem_2_ptr);
-                elem_idx++;
-            } else {
-                goto stack_1_generic;
-            }
-        } else {
-        stack_1_generic:
-            llvm::Value *res = builder.CreateExtractValue(value, 1);
-            const size_t stack_size = stacks[1].size();
-            for (; elem_idx < stacks_0_size + stack_size; elem_idx++) {
-                const size_t actual_elem_idx = stacks_0_size * 2 + stack_size - elem_idx - 1;
-                // Shift right by the amount in the stack
-                llvm::Value *elem_big = builder.CreateLShr(res, stacks[1].top() * 8);
-                llvm::Value *elem_smol = nullptr;
-                if (elem_types.at(actual_elem_idx)->isFloatTy()) {
-                    elem_smol = builder.CreateTrunc(elem_big, builder.getInt32Ty());
-                    elem_smol = builder.CreateBitCast(elem_smol, builder.getFloatTy());
-                } else {
-                    elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
-                }
-                // Bitwise or with the result to form the new result contianing the shifted element in it
-                llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
-                IR::aligned_store(builder, elem_smol, elem_ptr);
-                stacks[1].pop();
-            }
-            assert(stacks[1].empty());
-        }
-        assert(elem_idx == elem_types.size());
-        value = result_ptr;
-        builder.CreateBr(convert_type_from_ext_merge_block);
-        builder.SetInsertPoint(convert_type_from_ext_merge_block);
-        return;
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type.get())) {
-        llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
-        llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
-        llvm::VectorType *vec2_i32 = llvm::VectorType::get(builder.getInt32Ty(), 2, false);
-        const std::string base_type_str = multi_type->base_type->to_string();
-        if (base_type_str == "f64" || base_type_str == "i64") {
-            llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
-            for (size_t i = 0; i < multi_type->width; i++) {
-                llvm::Value *elem_i = builder.CreateExtractValue(value, i);
-                result_vec = builder.CreateInsertElement(result_vec, elem_i, builder.getInt64(i));
-            }
-            value = result_vec;
-        } else if (multi_type->width == 2) {
-            if (base_type_str == "i32") {
-                value = builder.CreateBitCast(value, vec2_i32);
-            } else {
-                // vec2 is returned as <2 x T> directly for floats - no conversion needed
-                return;
-            }
-        } else if (multi_type->width == 3) {
-            // vec3 is returned as { <2 x T>, T } struct from extern calls
-            assert(value->getType()->isStructTy());
-
-            // Extract the <2 x T> part
-            llvm::Value *vec2_part = builder.CreateExtractValue(value, 0, "vec2_part");
-            llvm::Value *scalar_part = builder.CreateExtractValue(value, 1, "scalar_part");
-
-            // Reconstruct <3 x T> vector
-            llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
-
-            // The first element of the struct is `i64` not a vector so we need to cast it first
-            if (base_type_str == "i32") {
-                vec2_part = builder.CreateBitCast(vec2_part, vec2_i32);
-            }
-
-            // Extract elements from vec2 and insert into result
-            llvm::Value *elem0 = builder.CreateExtractElement(vec2_part, builder.getInt64(0));
-            llvm::Value *elem1 = builder.CreateExtractElement(vec2_part, builder.getInt64(1));
-
-            result_vec = builder.CreateInsertElement(result_vec, elem0, builder.getInt64(0));
-            result_vec = builder.CreateInsertElement(result_vec, elem1, builder.getInt64(1));
-            result_vec = builder.CreateInsertElement(result_vec, scalar_part, builder.getInt64(2));
-
-            value = result_vec;
-        } else {
-            // vecN (N > 3) is returned as { <2 x T>, <2 x T>, ... } struct from extern calls
-            assert(value->getType()->isStructTy());
-            llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
-            size_t element_index = 0;
-
-            // Extract each <2 x T> chunk and rebuild the original vector
-            for (size_t chunk = 0; chunk < (multi_type->width + 1) / 2; chunk++) {
-                llvm::Value *chunk_vec = builder.CreateExtractValue(value, chunk, "chunk_vec");
+                // Reconstruct <3 x T> vector
+                llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
 
                 // The first element of the struct is `i64` not a vector so we need to cast it first
                 if (base_type_str == "i32") {
-                    chunk_vec = builder.CreateBitCast(chunk_vec, vec2_i32);
+                    vec2_part = builder.CreateBitCast(vec2_part, vec2_i32);
                 }
 
-                // Extract elements from this chunk
-                for (size_t i = 0; i < 2 && element_index < multi_type->width; i++, element_index++) {
-                    llvm::Value *elem = builder.CreateExtractElement(chunk_vec, builder.getInt64(i));
-                    result_vec = builder.CreateInsertElement(result_vec, elem, builder.getInt64(element_index));
+                // Extract elements from vec2 and insert into result
+                llvm::Value *elem0 = builder.CreateExtractElement(vec2_part, builder.getInt64(0));
+                llvm::Value *elem1 = builder.CreateExtractElement(vec2_part, builder.getInt64(1));
+
+                result_vec = builder.CreateInsertElement(result_vec, elem0, builder.getInt64(0));
+                result_vec = builder.CreateInsertElement(result_vec, elem1, builder.getInt64(1));
+                result_vec = builder.CreateInsertElement(result_vec, scalar_part, builder.getInt64(2));
+
+                value = result_vec;
+            } else {
+                // vecN (N > 3) is returned as { <2 x T>, <2 x T>, ... } struct from extern calls
+                assert(value->getType()->isStructTy());
+                llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+                size_t element_index = 0;
+
+                // Extract each <2 x T> chunk and rebuild the original vector
+                for (size_t chunk = 0; chunk < (multi_type->width + 1) / 2; chunk++) {
+                    llvm::Value *chunk_vec = builder.CreateExtractValue(value, chunk, "chunk_vec");
+
+                    // The first element of the struct is `i64` not a vector so we need to cast it first
+                    if (base_type_str == "i32") {
+                        chunk_vec = builder.CreateBitCast(chunk_vec, vec2_i32);
+                    }
+
+                    // Extract elements from this chunk
+                    for (size_t i = 0; i < 2 && element_index < multi_type->width; i++, element_index++) {
+                        llvm::Value *elem = builder.CreateExtractElement(chunk_vec, builder.getInt64(i));
+                        result_vec = builder.CreateInsertElement(result_vec, elem, builder.getInt64(element_index));
+                    }
                 }
+                value = result_vec;
             }
-            value = result_vec;
         }
-    } else if (dynamic_cast<const PrimitiveType *>(type.get())) {
-        if (type->to_string() == "str") {
-            llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), value, "str_len");
-            value = builder.CreateCall(Module::String::string_manip_functions.at("init_str"), {value, str_len}, "str");
+        case Type::Variation::PRIMITIVE:
+            if (type->to_string() == "str") {
+                llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), value, "str_len");
+                value = builder.CreateCall(Module::String::string_manip_functions.at("init_str"), {value, str_len}, "str");
+            }
+            break;
+    }
+}
+
+void Generator::Expression::convert_data_type_from_ext( //
+    llvm::IRBuilder<> &builder,                         //
+    GenerationContext &ctx,                             //
+    const std::shared_ptr<Type> &type,                  //
+    llvm::Value *&value                                 //
+) {
+    // get the LLVM struct type and its elements
+    llvm::Type *_struct_type = IR::get_type(ctx.parent->getParent(), type, false).first;
+    assert(_struct_type->isStructTy());
+    size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
+    if (struct_size > 16) {
+        // For > 16 bytes, the value is already allocated by caller
+        // 'value' should already be the pointer to the result
+        return;
+    }
+    llvm::BasicBlock *current_block = builder.GetInsertBlock();
+    llvm::BasicBlock *convert_type_from_ext_block = llvm::BasicBlock::Create(context, "convert_type_from_ext", ctx.parent);
+    llvm::BasicBlock *convert_type_from_ext_merge_block = llvm::BasicBlock::Create(context, "convert_type_from_ext_merge", ctx.parent);
+    builder.SetInsertPoint(current_block);
+    builder.CreateBr(convert_type_from_ext_block);
+    builder.SetInsertPoint(convert_type_from_ext_block);
+    llvm::Value *result_ptr = builder.CreateCall(c_functions.at(MALLOC), {builder.getInt64(struct_size)}, "result_ptr");
+
+    // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
+    // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
+    // the element within the output 8-byte pack, so we create two stacks because for data greater than 16 bytes the 16-byte-rule
+    // applies
+    // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
+    // sub-64-byte packed results like packing 5 u8 values into one i40.
+    llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
+    std::vector<llvm::Type *> elem_types = struct_type->elements();
+    std::array<std::stack<unsigned int>, 2> stacks;
+    unsigned int offset = 0;
+    unsigned int first_size = 0;
+
+    size_t elem_idx = 0;
+    for (; elem_idx < elem_types.size(); elem_idx++) {
+        size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
+        // We can only pack the element into the stack if there is enough space left
+        if (8 - offset < elem_size) {
+            break;
+        }
+        // If the current offset is 0 we can simply put in the element into the stack without further checks
+        if (offset == 0) {
+            stacks[0].push(0);
+            offset += elem_size;
+            first_size += elem_size;
+            continue;
+        }
+        // Now we simply need to check where in the 8 byte structure we need to put the elements in. We can do this by calculating the
+        // padding based on the type alignment, the alignment is just the elem_size in our case because we work with types <= 8 bytes in
+        // size.
+        // If the offset is divisible by the element size it does not need to be changed. If it is not divisible we need to clamp it to
+        // the next divisible offset value, so if current offset is 2 but element size is 4 the offset needs to be clamped to 4
+        uint8_t elem_offset = offset;
+        if (offset % elem_size != 0) {
+            elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+        }
+        if (elem_offset == 8) {
+            // This element does not fit into this stack, we need to put it into the next stack
+            break;
+        }
+        stacks[0].push(elem_offset);
+        offset = elem_offset + elem_size;
+        first_size = elem_offset + elem_size;
+    }
+    offset = 0;
+    for (; elem_idx < elem_types.size(); elem_idx++) {
+        size_t elem_size = Allocation::get_type_size(ctx.parent->getParent(), elem_types.at(elem_idx));
+        // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
+        // applied
+        assert(8 - offset >= elem_size);
+        // If the current offset is 0 we can simply put in the element into the stack without further checks
+        if (offset == 0) {
+            stacks[1].push(0);
+            offset += elem_size;
+            continue;
+        }
+        uint8_t elem_offset = offset;
+        if (offset % elem_size != 0) {
+            elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+        }
+        // This element does not fit into this stack, this should not happen since it's the last stack
+        assert(elem_offset != 8);
+        stacks[1].push(elem_offset);
+        offset = elem_offset + elem_size;
+    }
+    assert(elem_idx == elem_types.size());
+    elem_idx = 0;
+    // Now we reach the second phase, we have figured out where to put the elements in the respective chunks
+    if (stacks[1].empty()) {
+        // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
+        // we pack multiple u8 values into one, for them we can get even i40, i48 or i56 results
+        if (stacks[0].size() == first_size) {
+            for (; elem_idx < elem_types.size(); elem_idx++) {
+                // Shift right by the element index to shift it to the beginning position
+                llvm::Value *elem_shift = builder.CreateLShr(value, elem_idx * 8);
+                // Now we truncate the result to get the single element which we can store in the output structure
+                llvm::Value *elem = builder.CreateTrunc(elem_shift, builder.getInt8Ty());
+                llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, result_ptr, elem_idx);
+                IR::aligned_store(builder, elem, elem_ptr);
+            }
+            value = result_ptr;
+            builder.CreateBr(convert_type_from_ext_merge_block);
+            builder.SetInsertPoint(convert_type_from_ext_merge_block);
+            return;
         }
     }
+    // Because we only need to fill two 8-byte containers we can resolve a few edge-cases upfront
+    elem_idx = 0;
+    const size_t stacks_0_size = stacks[0].size();
+    if (stacks[0].size() == 1) {
+        llvm::Value *elem = builder.CreateExtractValue(value, 0);
+        llvm::Value *res_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+        IR::aligned_store(builder, elem, res_ptr);
+        elem_idx++;
+    } else if (stacks[0].size() == 2) {
+        if (elem_types.front()->isFloatTy() && elem_types.at(1)->isFloatTy()) {
+            // We can create a single `<2 x float>` vector as the argument
+            llvm::Value *vec_val = builder.CreateExtractValue(value, 0);
+
+            llvm::Value *elem_1 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
+            llvm::Value *elem_1_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            IR::aligned_store(builder, elem_1, elem_1_ptr);
+            elem_idx++;
+
+            llvm::Value *elem_2 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
+            llvm::Value *elem_2_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            IR::aligned_store(builder, elem_2, elem_2_ptr);
+            elem_idx++;
+        } else {
+            goto stack_0_generic;
+        }
+    } else {
+    stack_0_generic:
+        llvm::Value *res = builder.CreateExtractValue(value, 0);
+        for (; elem_idx < stacks_0_size; elem_idx++) {
+            const size_t actual_elem_idx = stacks_0_size - elem_idx - 1;
+            // Shift right by the amount in the stack
+            llvm::Value *elem_big = builder.CreateLShr(res, stacks[0].top() * 8);
+            llvm::Value *elem_smol = nullptr;
+            if (elem_types.at(actual_elem_idx)->isFloatTy()) {
+                elem_smol = builder.CreateTrunc(elem_big, builder.getInt32Ty());
+                elem_smol = builder.CreateBitCast(elem_smol, builder.getFloatTy());
+            } else {
+                elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
+            }
+            // Bitwise or with the result to form the new result contianing the shifted element in it
+            llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
+            IR::aligned_store(builder, elem_smol, elem_ptr);
+            stacks[0].pop();
+        }
+        assert(stacks[0].empty());
+    }
+    if (stacks[1].size() == 1) {
+        llvm::Value *elem = builder.CreateExtractValue(value, 1);
+        llvm::Value *res_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+        IR::aligned_store(builder, elem, res_ptr);
+        elem_idx++;
+    } else if (stacks[1].size() == 2) {
+        if (elem_types.at(stacks_0_size)->isFloatTy() && elem_types.at(stacks_0_size + 1)->isFloatTy()) {
+            // We can create a single `<2 x float>` vector as the argument
+            llvm::Value *vec_val = builder.CreateExtractValue(value, 1);
+
+            llvm::Value *elem_1 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
+            llvm::Value *elem_1_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            IR::aligned_store(builder, elem_1, elem_1_ptr);
+            elem_idx++;
+
+            llvm::Value *elem_2 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
+            llvm::Value *elem_2_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            IR::aligned_store(builder, elem_2, elem_2_ptr);
+            elem_idx++;
+        } else {
+            goto stack_1_generic;
+        }
+    } else {
+    stack_1_generic:
+        llvm::Value *res = builder.CreateExtractValue(value, 1);
+        const size_t stack_size = stacks[1].size();
+        for (; elem_idx < stacks_0_size + stack_size; elem_idx++) {
+            const size_t actual_elem_idx = stacks_0_size * 2 + stack_size - elem_idx - 1;
+            // Shift right by the amount in the stack
+            llvm::Value *elem_big = builder.CreateLShr(res, stacks[1].top() * 8);
+            llvm::Value *elem_smol = nullptr;
+            if (elem_types.at(actual_elem_idx)->isFloatTy()) {
+                elem_smol = builder.CreateTrunc(elem_big, builder.getInt32Ty());
+                elem_smol = builder.CreateBitCast(elem_smol, builder.getFloatTy());
+            } else {
+                elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
+            }
+            // Bitwise or with the result to form the new result contianing the shifted element in it
+            llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
+            IR::aligned_store(builder, elem_smol, elem_ptr);
+            stacks[1].pop();
+        }
+        assert(stacks[1].empty());
+    }
+    assert(elem_idx == elem_types.size());
+    value = result_ptr;
+    builder.CreateBr(convert_type_from_ext_merge_block);
+    builder.SetInsertPoint(convert_type_from_ext_merge_block);
+    return;
 }
 
 Generator::group_mapping Generator::Expression::generate_extern_call( //
@@ -1060,18 +1129,24 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     call->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "'")));
     std::vector<llvm::Value *> return_value;
-    if (const GroupType *group_type = dynamic_cast<const GroupType *>(call_node->type.get())) {
-        // We have multiple returns and need to extract them all and put into the return value vector
-        for (unsigned int i = 0; i < group_type->types.size(); i++) {
-            llvm::Value *ret_val = builder.CreateExtractValue(call, {i});
-            convert_type_from_ext(builder, ctx, group_type->types.at(i), ret_val);
+    switch (call_node->type->get_variation()) {
+        default: {
+            // We have a single return value and can return that directly, but we need to check it's type still
+            llvm::Value *ret_val = call;
+            convert_type_from_ext(builder, ctx, call_node->type, ret_val);
             return_value.emplace_back(ret_val);
+            break;
         }
-    } else {
-        // We have a single return value and can return that directly, but we need to check it's type still
-        llvm::Value *ret_val = call;
-        convert_type_from_ext(builder, ctx, call_node->type, ret_val);
-        return_value.emplace_back(ret_val);
+        case Type::Variation::GROUP: {
+            const auto *group_type = call_node->type->as<GroupType>();
+            // We have multiple returns and need to extract them all and put into the return value vector
+            for (unsigned int i = 0; i < group_type->types.size(); i++) {
+                llvm::Value *ret_val = builder.CreateExtractValue(call, {i});
+                convert_type_from_ext(builder, ctx, group_type->types.at(i), ret_val);
+                return_value.emplace_back(ret_val);
+            }
+            break;
+        }
     }
     return return_value;
 }
@@ -1090,7 +1165,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
         // to the actual data of the variable, not a pointer to its allocation. So, in this case we are not allowed to pass in any variable
         // as "reference" because then a double pointer is passed to the function where a single pointer is expected This behaviour should
         // only effect array types, as data and strings are handled differently
-        bool is_reference = arg.second && dynamic_cast<const ArrayType *>(arg.first->type.get()) == nullptr;
+        bool is_reference = arg.second && arg.first->type->get_variation() != Type::Variation::ARRAY;
         group_mapping expression = generate_expression(builder, ctx, garbage, 0, arg.first.get(), is_reference);
         if (!expression.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -1483,95 +1558,106 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
     const unsigned int expr_depth,                                    //
     const InitializerNode *initializer                                //
 ) {
-    // Check if its a data initializer
-    if (dynamic_cast<const DataType *>(initializer->type.get())) {
-        // Allocate space for the data
-        llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
-        llvm::Value *data_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), struct_type));
-        llvm::Value *data_ptr = builder.CreateCall(                                                   //
-            c_functions.at(MALLOC), {data_size}, "initializer.data." + initializer->type->to_string() //
-        );
+    switch (initializer->type->get_variation()) {
+        default:
+            // Unsupported initializer type
+            return std::nullopt;
+        case Type::Variation::DATA: {
+            // Allocate space for the data
+            llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+            llvm::Value *data_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), struct_type));
+            llvm::Value *data_ptr = builder.CreateCall(                                                   //
+                c_functions.at(MALLOC), {data_size}, "initializer.data." + initializer->type->to_string() //
+            );
 
-        for (unsigned int i = 0; i < initializer->args.size(); i++) {
-            auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
-            if (!expr_result.has_value()) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
+            for (unsigned int i = 0; i < initializer->args.size(); i++) {
+                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
+                if (!expr_result.has_value()) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                // For initializers, we need pure single-value types
+                if (expr_result.value().size() > 1) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                llvm::Value *expr_val = expr_result.value().front();
+                llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
+
+                // We need to check whether the given initializer value is a complex type in of itself, if it is we need to allocate space
+                // for it and store it there
+                const std::shared_ptr<Type> &elem_type = initializer->args.at(i)->type;
+                switch (elem_type->get_variation()) {
+                    default:
+                        IR::aligned_store(builder, expr_val, field_ptr);
+                        break;
+                    case Type::Variation::DATA: {
+                        // For data types, allocate memory and copy the data over
+                        llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
+                        llvm::Value *field_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
+                        llvm::Value *field_alloca = builder.CreateCall(                                        //
+                            c_functions.at(MALLOC), {field_size}, "initializer_" + std::to_string(i) + "_data" //
+                        );
+                        // Copy the field value to the allocated memory
+                        builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, field_size});
+
+                        // Store the pointer to the complex data in the parent structure
+                        IR::aligned_store(builder, field_alloca, field_ptr);
+                        break;
+                    }
+                    case Type::Variation::ARRAY: {
+                        // For arrays we first need to find out how large the source array is
+                        const auto *array_type = elem_type->as<ArrayType>();
+                        llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
+                        auto arr_elem_type = IR::get_type(ctx.parent->getParent(), array_type->type);
+                        llvm::Value *struct_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
+                        llvm::Value *dimensionality_ptr = builder.CreateStructGEP(field_type, field_ptr, 0, "dimensionality_ptr");
+                        llvm::Value *dimensionality = IR::aligned_load(builder, builder.getInt32Ty(), dimensionality_ptr, "dimensionality");
+                        llvm::Value *dim_lengths_size = builder.CreateMul(dimensionality, builder.getInt64(8), "dim_lengths_size");
+                        llvm::Function *get_arr_len_fn = Module::Array::array_manip_functions.at("get_arr_len");
+                        llvm::Value *array_len_count = builder.CreateCall(get_arr_len_fn, {expr_val}, "array_len_count");
+                        llvm::Value *arr_elem_size = builder.getInt64(                                                               //
+                            arr_elem_type.second.first ? 8 : Allocation::get_type_size(ctx.parent->getParent(), arr_elem_type.first) //
+                        );
+                        llvm::Value *array_len_bytes = builder.CreateMul(array_len_count, arr_elem_size, "array_len_bytes");
+                        llvm::Value *array_size = builder.CreateAdd(struct_size, dim_lengths_size);
+                        array_size = builder.CreateAdd(array_size, array_len_bytes);
+
+                        llvm::Value *field_alloca = builder.CreateCall(                                        //
+                            c_functions.at(MALLOC), {array_size}, "initializer_" + std::to_string(i) + "_data" //
+                        );
+                        // Copy the array to the allocated memory
+                        builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, array_size});
+
+                        // Store the pointer to the array in the parent structure
+                        IR::aligned_store(builder, field_alloca, field_ptr);
+                        break;
+                    }
+                }
             }
-            // For initializers, we need pure single-value types
-            if (expr_result.value().size() > 1) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
-            }
-            llvm::Value *expr_val = expr_result.value().front();
-            llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
-
-            // We need to check whether the given initializer value is a complex type in of itself, if it is we need to allocate space for
-            // it and store it there
-            const std::shared_ptr<Type> &elem_type = initializer->args.at(i)->type;
-            if (dynamic_cast<const DataType *>(elem_type.get())) {
-                // For data types, allocate memory and copy the data over
-                llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
-                llvm::Value *field_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
-                llvm::Value *field_alloca = builder.CreateCall(                                        //
-                    c_functions.at(MALLOC), {field_size}, "initializer_" + std::to_string(i) + "_data" //
-                );
-                // Copy the field value to the allocated memory
-                builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, field_size});
-
-                // Store the pointer to the complex data in the parent structure
-                IR::aligned_store(builder, field_alloca, field_ptr);
-            } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(elem_type.get())) {
-                // For arrays we first need to find out how large the source array is
-                llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
-                auto arr_elem_type = IR::get_type(ctx.parent->getParent(), array_type->type);
-                llvm::Value *struct_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
-                llvm::Value *dimensionality_ptr = builder.CreateStructGEP(field_type, field_ptr, 0, "dimensionality_ptr");
-                llvm::Value *dimensionality = IR::aligned_load(builder, builder.getInt32Ty(), dimensionality_ptr, "dimensionality");
-                llvm::Value *dim_lengths_size = builder.CreateMul(dimensionality, builder.getInt64(8), "dim_lengths_size");
-                llvm::Function *get_arr_len_fn = Module::Array::array_manip_functions.at("get_arr_len");
-                llvm::Value *array_len_count = builder.CreateCall(get_arr_len_fn, {expr_val}, "array_len_count");
-                llvm::Value *arr_elem_size = builder.getInt64(                                                               //
-                    arr_elem_type.second.first ? 8 : Allocation::get_type_size(ctx.parent->getParent(), arr_elem_type.first) //
-                );
-                llvm::Value *array_len_bytes = builder.CreateMul(array_len_count, arr_elem_size, "array_len_bytes");
-                llvm::Value *array_size = builder.CreateAdd(struct_size, dim_lengths_size);
-                array_size = builder.CreateAdd(array_size, array_len_bytes);
-
-                llvm::Value *field_alloca = builder.CreateCall(                                        //
-                    c_functions.at(MALLOC), {array_size}, "initializer_" + std::to_string(i) + "_data" //
-                );
-                // Copy the array to the allocated memory
-                builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, array_size});
-
-                // Store the pointer to the array in the parent structure
-                IR::aligned_store(builder, field_alloca, field_ptr);
-            } else {
-                IR::aligned_store(builder, expr_val, field_ptr);
-            }
+            return std::vector<llvm::Value *>{data_ptr};
         }
-        return std::vector<llvm::Value *>{data_ptr};
-    } else if (dynamic_cast<const MultiType *>(initializer->type.get())) {
-        // Create an "empty" vector of the multi-type
-        llvm::Type *vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
-        llvm::Value *initialized_value = IR::get_default_value_of_type(vector_type);
-        for (unsigned int i = 0; i < initializer->args.size(); i++) {
-            auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
-            if (!expr_result.has_value()) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
+        case Type::Variation::MULTI: {
+            // Create an "empty" vector of the multi-type
+            llvm::Type *vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+            llvm::Value *initialized_value = IR::get_default_value_of_type(vector_type);
+            for (unsigned int i = 0; i < initializer->args.size(); i++) {
+                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
+                if (!expr_result.has_value()) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                // For initializers, we need pure single-value types
+                if (expr_result.value().size() > 1) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                llvm::Value *expr_val = expr_result.value().front();
+                initialized_value = builder.CreateInsertElement(initialized_value, expr_val, i, "mutt_init_elem_" + std::to_string(i));
             }
-            // For initializers, we need pure single-value types
-            if (expr_result.value().size() > 1) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
-            }
-            llvm::Value *expr_val = expr_result.value().front();
-            initialized_value = builder.CreateInsertElement(initialized_value, expr_val, i, "mutt_init_elem_" + std::to_string(i));
+            return std::vector<llvm::Value *>{initialized_value};
         }
-        return std::vector<llvm::Value *>{initialized_value};
     }
-    return std::nullopt;
 }
 
 Generator::group_mapping Generator::Expression::generate_optional_switch_expression( //
@@ -1582,12 +1668,12 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
     const SwitchExpression *switch_expression,                                       //
     llvm::Value *switch_value                                                        //
 ) {
-    auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_expression->switcher.get());
-    if (switcher_var_node == nullptr) {
+    if (switch_expression->switcher->get_variation() != ExpressionNode::Variation::VARIABLE) {
         // Switching on non-variables is not supported yet
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
     }
+    const auto *switcher_var_node = switch_expression->switcher->as<VariableNode>();
     const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
@@ -1615,7 +1701,7 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
         const auto &branch = switch_expression->branches[i];
 
         // Check if it's the default branch (represented by "else")
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1630,8 +1716,8 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
         // Generate the branch expression in its block
         builder.SetInsertPoint(branch_blocks[i]);
 
-        const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
-        if (match_node != nullptr) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_MATCH) {
+            const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
             const std::string var_str = "s" + std::to_string(branch.scope->scope_id) + "::" + match_node->name;
             llvm::Value *real_value_reference = builder.CreateStructGEP(opt_struct_type, var_alloca, 1, "value_reference");
             ctx.allocations.emplace(var_str, real_value_reference);
@@ -1706,12 +1792,12 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
     std::vector<std::pair<llvm::Value *, llvm::BasicBlock *>> phi_values;
     phi_values.reserve(switch_expression->branches.size());
 
-    auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_expression->switcher.get());
-    if (switcher_var_node == nullptr) {
+    if (switch_expression->switcher->get_variation() != ExpressionNode::Variation::VARIABLE) {
         // Switching on non-variables is not supported yet
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
     }
+    const auto *switcher_var_node = switch_expression->switcher->as<VariableNode>();
     const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     llvm::StructType *variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
@@ -1726,7 +1812,7 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         const auto &branch = switch_expression->branches[i];
 
         // Check if it's the default branch (represented by "else")
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1740,8 +1826,7 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
 
         // Generate the branch expression in its block
         builder.SetInsertPoint(branch_blocks[i]);
-        const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
-        assert(match_node != nullptr);
+        const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
 
         // Add a reference to the 'value' of the variant to the block the switch expression takes place in
         const std::string var_str = "s" + std::to_string(branch.scope->scope_id) + "::" + match_node->name;
@@ -1794,13 +1879,12 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
     for (size_t i = 0; i < switch_expression->branches.size(); i++) {
         const auto &branch = switch_expression->branches[i];
         // Skip the default node
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
             continue;
         }
 
         // Generate the case value
-        const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
-        assert(match_node != nullptr);
+        const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
         switch_inst->addCase(builder.getInt8(match_node->id), branch_blocks[i]);
     }
 
@@ -1836,11 +1920,13 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
     }
     llvm::Value *switch_value = switch_value_mapping.value().front();
 
-    if (dynamic_cast<const OptionalType *>(switch_expression->switcher->type.get())) {
-        return generate_optional_switch_expression(builder, ctx, garbage, expr_depth, switch_expression, switch_value);
-    }
-    if (dynamic_cast<const VariantType *>(switch_expression->switcher->type.get())) {
-        return generate_variant_switch_expression(builder, ctx, garbage, expr_depth, switch_expression, switch_value);
+    switch (switch_expression->switcher->type->get_variation()) {
+        case Type::Variation::OPTIONAL:
+            return generate_optional_switch_expression(builder, ctx, garbage, expr_depth, switch_expression, switch_value);
+        case Type::Variation::VARIANT:
+            return generate_variant_switch_expression(builder, ctx, garbage, expr_depth, switch_expression, switch_value);
+        default:
+            break;
     }
 
     // Get the current block
@@ -1862,7 +1948,7 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
         const auto &branch = switch_expression->branches[i];
 
         // Check if it's the default branch (represented by "_")
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1900,7 +1986,7 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
 
     // Create the switch instruction
     llvm::SwitchInst *switch_inst = nullptr;
-    if (dynamic_cast<const ErrorSetType *>(switch_expression->switcher->type.get())) {
+    if (switch_expression->switcher->type->get_variation() == Type::Variation::ERROR_SET) {
         switch_value = builder.CreateExtractValue(switch_value, {1}, "error_value");
     }
     if (default_block == nullptr) {
@@ -1925,17 +2011,17 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
     for (size_t i = 0; i < switch_expression->branches.size(); i++) {
         const auto &branch = switch_expression->branches[i];
         // Skip the default node
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
             continue;
         }
 
         // Generate the case value
         for (const auto &match : branch.matches) {
-            if (const LiteralNode *literal_node = dynamic_cast<const LiteralNode *>(match.get())) {
+            if (match->get_variation() == ExpressionNode::Variation::LITERAL) {
+                const auto *literal_node = match->as<LiteralNode>();
                 if (std::holds_alternative<LitError>(literal_node->value)) {
                     const LitError &lit_err = std::get<LitError>(literal_node->value);
-                    const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(lit_err.error_type.get());
-                    assert(error_type != nullptr);
+                    const auto *error_type = lit_err.error_type->as<ErrorSetType>();
                     const auto pair = error_type->error_node->get_id_msg_pair_of_value(lit_err.value);
                     assert(pair.has_value());
                     switch_inst->addCase(builder.getInt32(pair.value().first), branch_blocks[i]);
@@ -2023,7 +2109,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
                 "Create an array of type " + initializer->element_type->to_string() + "[" +
                     std::string(length_expressions.size() - 1, ',') + "]")));
     llvm::Value *initializer_expression = nullptr;
-    if (dynamic_cast<const DefaultNode *>(initializer->initializer_value.get())) {
+    if (initializer->initializer_value->get_variation() == ExpressionNode::Variation::DEFAULT) {
         initializer_expression = IR::get_default_value_of_type(builder, ctx.parent->getParent(), initializer->element_type);
     } else {
         group_mapping initializer_mapping = generate_expression(builder, ctx, garbage, expr_depth, initializer->initializer_value.get());
@@ -2052,7 +2138,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
             {created_array, str_len, initializer_expression}          //
         );
         fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
-    } else if (dynamic_cast<const PrimitiveType *>(initializer->element_type.get())) {
+    } else if (initializer->element_type->get_variation() == Type::Variation::PRIMITIVE) {
         llvm::Type *from_type = IR::get_type(ctx.parent->getParent(), initializer->element_type).first;
         llvm::Value *value_container = IR::generate_bitwidth_change(                     //
             builder,                                                                     //
@@ -2066,8 +2152,8 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
             {created_array, builder.getInt64(element_size_in_bytes), value_container} //
         );
         fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
-    } else if (dynamic_cast<const MultiType *>(initializer->element_type.get())) {
-        // TODO
+    } else if (initializer->element_type->get_variation() == Type::Variation::MULTI) {
+        // TODO:
     }
     return created_array;
 }
@@ -2095,7 +2181,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
     const std::unique_ptr<ExpressionNode> &base_expr,                        //
     const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
 ) {
-    const bool is_slice = dynamic_cast<const ArrayType *>(result_type.get()) != nullptr || result_type->to_string() == "str";
+    const bool is_slice = result_type->get_variation() == Type::Variation::ARRAY || result_type->to_string() == "str";
     // First, generate the index expressions
     std::vector<std::array<llvm::Value *, 2>> index_expressions;
     for (auto &index_expression : indexing_expressions) {
@@ -2108,14 +2194,15 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
-        if (dynamic_cast<const GroupType *>(index_expression->type.get())) {
+        if (index_expression->type->get_variation() == Type::Variation::GROUP) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         }
         std::array<llvm::Value *, 2> index_expr;
         std::shared_ptr<Type> from_type = index_expression->type;
         std::shared_ptr<Type> to_type = Type::get_primitive_type("u64");
-        if (const RangeType *range_type = dynamic_cast<const RangeType *>(index_expression->type.get())) {
+        if (index_expression->type->get_variation() == Type::Variation::RANGE) {
+            const auto *range_type = index_expression->type->as<RangeType>();
             from_type = range_type->bound_type;
             index_expr = {index.value().front(), index.value().at(1)};
         } else {
@@ -2173,7 +2260,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             );
             continue;
         }
-        const bool is_range = dynamic_cast<const RangeType *>(indexing_expressions.at(i)->type.get()) != nullptr;
+        const bool is_range = indexing_expressions.at(i)->type->get_variation() == Type::Variation::RANGE;
         for (size_t j = 0; j < 1 + static_cast<size_t>(is_range); j++) {
             llvm::Value *index_ptr = builder.CreateGEP(                                                                            //
                 builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + j), "idx_" + std::to_string(i * 2 + j) + "_ptr" //
@@ -2196,7 +2283,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
     }
     llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), result_type).first;
     if (is_slice) {
-        element_type = IR::get_type(ctx.parent->getParent(), dynamic_cast<const ArrayType *>(result_type.get())->type).first;
+        element_type = IR::get_type(ctx.parent->getParent(), result_type->as<ArrayType>()->type).first;
     }
     size_t element_size_in_bytes = Allocation::get_type_size(ctx.parent->getParent(), element_type);
     if (result_type->to_string() == "str") {
@@ -2205,24 +2292,30 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                    //
         );
         return IR::aligned_load(builder, element_type, result, "str_value");
-    } else if (dynamic_cast<const PrimitiveType *>(result_type.get())) {
-        llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
-            {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
-        );
-        return IR::generate_bitwidth_change(builder, result, 64, element_type->getPrimitiveSizeInBits(), element_type);
-    } else if (dynamic_cast<const MultiType *>(result_type.get())) {
-        // TODO
-        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-        return nullptr;
-    } else if (dynamic_cast<const ArrayType *>(result_type.get())) {
-        // This is a slicing operation
-        llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"), //
-            {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                       //
-        );
-        return result;
     }
-    THROW_BASIC_ERR(ERR_GENERATING);
-    return nullptr;
+    switch (result_type->get_variation()) {
+        default:
+            // Non-supported type for array access
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        case Type::Variation::PRIMITIVE: {
+            llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
+                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
+            );
+            return IR::generate_bitwidth_change(builder, result, 64, element_type->getPrimitiveSizeInBits(), element_type);
+        }
+        case Type::Variation::MULTI:
+            // TODO:
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return nullptr;
+        case Type::Variation::ARRAY: {
+            // This is a slicing operation
+            llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"), //
+                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                       //
+            );
+            return result;
+        }
+    }
 }
 
 llvm::Value *Generator::Expression::get_bool8_element_at(llvm::IRBuilder<> &builder, llvm::Value *b8_val, unsigned int elem_idx) {
@@ -2284,42 +2377,54 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         std::vector<llvm::Value *> values;
         values.emplace_back(length);
         return values;
-    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(data_access->base_expr->type.get())) {
-        if (data_access->field_name != "length") {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
+    }
+
+    switch (data_access->base_expr->type->get_variation()) {
+        default:
+            break;
+        case Type::Variation::ARRAY: {
+            const auto *array_type = data_access->base_expr->type->as<ArrayType>();
+            if (data_access->field_name != "length") {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 1, "length_ptr");
+            std::vector<llvm::Value *> length_values;
+            for (size_t i = 0; i < array_type->dimensionality; i++) {
+                llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
+                llvm::Value *length_value =
+                    IR::aligned_load(builder, builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i));
+                length_values.emplace_back(length_value);
+            }
+            return length_values;
         }
-        llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
-        llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 1, "length_ptr");
-        std::vector<llvm::Value *> length_values;
-        for (size_t i = 0; i < array_type->dimensionality; i++) {
-            llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
-            llvm::Value *length_value =
-                IR::aligned_load(builder, builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i));
-            length_values.emplace_back(length_value);
+        case Type::Variation::MULTI: {
+            const auto *multi_type = data_access->base_expr->type->as<MultiType>();
+            std::vector<llvm::Value *> values;
+            if (multi_type->base_type->to_string() == "bool") {
+                // Special case for accessing an "element" on a bool8 type
+                values.emplace_back(get_bool8_element_at(builder, expr_val, data_access->field_id));
+            } else {
+                values.emplace_back(builder.CreateExtractElement(expr_val, data_access->field_id));
+            }
+            return values;
         }
-        return length_values;
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(data_access->base_expr->type.get())) {
-        std::vector<llvm::Value *> values;
-        if (multi_type->base_type->to_string() == "bool") {
-            // Special case for accessing an "element" on a bool8 type
-            values.emplace_back(get_bool8_element_at(builder, expr_val, data_access->field_id));
-        } else {
-            values.emplace_back(builder.CreateExtractElement(expr_val, data_access->field_id));
+        case Type::Variation::ERROR_SET: {
+            std::vector<llvm::Value *> values;
+            values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "err_field_val"));
+            return values;
         }
-        return values;
-    } else if (dynamic_cast<const ErrorSetType *>(data_access->base_expr->type.get())) {
-        std::vector<llvm::Value *> values;
-        values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "err_field_val"));
-        return values;
-    } else if (dynamic_cast<const TupleType *>(data_access->base_expr->type.get())) {
-        std::vector<llvm::Value *> values;
-        values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "tuple_field_val"));
-        return values;
-    } else if (dynamic_cast<const VariantType *>(data_access->base_expr->type.get())) {
-        std::vector<llvm::Value *> values;
-        values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "variant_field_val"));
-        return values;
+        case Type::Variation::TUPLE: {
+            std::vector<llvm::Value *> values;
+            values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "tuple_field_val"));
+            return values;
+        }
+        case Type::Variation::VARIANT: {
+            std::vector<llvm::Value *> values;
+            values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "variant_field_val"));
+            return values;
+        }
     }
     if (!expr_val) {
         std::cerr << "ERROR: expr_val is null" << std::endl;
@@ -2357,8 +2462,7 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
         return std::nullopt;
     }
     llvm::Value *expr = base_expr.value().front();
-    const GroupType *group_type = dynamic_cast<const GroupType *>(grouped_data_access->type.get());
-    assert(group_type != nullptr);
+    const auto *group_type = grouped_data_access->type->as<GroupType>();
 
     std::vector<llvm::Value *> return_values;
     return_values.reserve(group_type->types.size());
@@ -2433,13 +2537,11 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
     result_value = builder.CreateInsertValue(result_value, builder.getInt1(true), {0});
     if (std::holds_alternative<ChainFieldAccess>(chain->operation)) {
         const ChainFieldAccess &access = std::get<ChainFieldAccess>(chain->operation);
-        const OptionalType *base_expr_type = dynamic_cast<const OptionalType *>(chain->base_expr->type.get());
-        assert(base_expr_type != nullptr);
+        const auto *base_expr_type = chain->base_expr->type->as<OptionalType>();
         llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), base_expr_type->base_type).first;
         llvm::Type *field_type = nullptr;
         if (chain->is_toplevel_chain_node) {
-            const OptionalType *optional_result_type = dynamic_cast<const OptionalType *>(chain->type.get());
-            assert(optional_result_type != nullptr);
+            const auto *optional_result_type = chain->type->as<OptionalType>();
             field_type = IR::get_type(ctx.parent->getParent(), optional_result_type->base_type).first;
         } else {
             field_type = IR::get_type(ctx.parent->getParent(), chain->type).first;
@@ -2450,10 +2552,8 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
         result_value = builder.CreateInsertValue(result_value, opt_value, {1}, "filled_result");
     } else if (std::holds_alternative<ChainArrayAccess>(chain->operation)) {
         const ChainArrayAccess &access = std::get<ChainArrayAccess>(chain->operation);
-        const OptionalType *base_expr_type = dynamic_cast<const OptionalType *>(chain->base_expr->type.get());
-        assert(base_expr_type != nullptr);
-        const ArrayType *base_array_type = dynamic_cast<const ArrayType *>(base_expr_type->base_type.get());
-        assert(base_array_type != nullptr);
+        const auto *base_expr_type = chain->base_expr->type->as<OptionalType>();
+        const auto *base_array_type = base_expr_type->base_type->as<ArrayType>();
         llvm::Value *opt_value = generate_array_access(                                                                              //
             builder, ctx, garbage, expr_depth, base_expr_value, base_array_type->type, chain->base_expr, access.indexing_expressions //
         );
@@ -2495,8 +2595,7 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
     const unsigned int expr_depth,                                        //
     const OptionalUnwrapNode *unwrap                                      //
 ) {
-    const OptionalType *opt_type = dynamic_cast<const OptionalType *>(unwrap->base_expr->type.get());
-    assert(opt_type != nullptr);
+    assert(unwrap->base_expr->type->get_variation() == Type::Variation::OPTIONAL);
     auto base_expressions = generate_expression(builder, ctx, garbage, expr_depth + 1, unwrap->base_expr.get());
     if (!base_expressions.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -2541,14 +2640,11 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
     GenerationContext &ctx,                                                  //
     const VariantExtractionNode *extraction                                  //
 ) {
-    const VariantType *var_type = dynamic_cast<const VariantType *>(extraction->base_expr->type.get());
-    assert(var_type != nullptr);
-    const VariableNode *variable_node = dynamic_cast<const VariableNode *>(extraction->base_expr.get());
-    assert(variable_node != nullptr);
+    const auto *var_type = extraction->base_expr->type->as<VariantType>();
+    const auto *variable_node = extraction->base_expr->as<VariableNode>();
     const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(variable_node->name));
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
-    const OptionalType *result_type_ptr = dynamic_cast<const OptionalType *>(extraction->type.get());
-    assert(result_type_ptr != nullptr);
+    const auto *result_type_ptr = extraction->type->as<OptionalType>();
     const std::shared_ptr<Type> &extract_type_ptr = result_type_ptr->base_type;
     llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), extract_type_ptr).first;
     llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), extraction->base_expr->type).first;
@@ -2599,10 +2695,8 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     GenerationContext &ctx,                                              //
     const VariantUnwrapNode *unwrap                                      //
 ) {
-    const VariantType *var_type = dynamic_cast<const VariantType *>(unwrap->base_expr->type.get());
-    assert(var_type != nullptr);
-    const VariableNode *variable_node = dynamic_cast<const VariableNode *>(unwrap->base_expr.get());
-    assert(variable_node != nullptr);
+    const auto *var_type = unwrap->base_expr->type->as<VariantType>();
+    const auto *variable_node = unwrap->base_expr->as<VariableNode>();
     const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(variable_node->name));
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
     llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), unwrap->type).first;
@@ -2655,7 +2749,7 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
     // If the base expression is a `TypeNode` and the type cast result is a variant the actual "value" of the type cast is dependant on the
     // variant type, this means that this is a special case which needs special handling
     const VariantType *variant_type = dynamic_cast<const VariantType *>(type_cast_node->type.get());
-    const bool is_type_node = dynamic_cast<const TypeNode *>(type_cast_node->expr.get()) != nullptr;
+    const bool is_type_node = type_cast_node->expr->get_variation() == ExpressionNode::Variation::TYPE;
     if (variant_type != nullptr && is_type_node) {
         const std::shared_ptr<Type> &type = type_cast_node->expr->type;
         const auto id = variant_type->get_idx_of_type(type);
@@ -2672,81 +2766,96 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
     }
     std::vector<llvm::Value *> expr = expr_res.value();
     std::shared_ptr<Type> to_type;
-    if (const GroupType *group_type = dynamic_cast<const GroupType *>(type_cast_node->type.get())) {
-        const std::vector<std::shared_ptr<Type>> &types = group_type->types;
-        if (types.size() > 1) {
-            if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type_cast_node->expr->type.get())) {
-                assert(expr.size() == 1);
-                llvm::Value *mult_expr = expr.front();
-                expr.clear();
-                for (size_t i = 0; i < multi_type->width; i++) {
-                    expr.emplace_back(builder.CreateExtractElement(mult_expr, i, "mult_group_" + std::to_string(i)));
+    switch (type_cast_node->type->get_variation()) {
+        default:
+            to_type = type_cast_node->type;
+            break;
+        case Type::Variation::GROUP: {
+            const auto *group_type = type_cast_node->type->as<GroupType>();
+            const std::vector<std::shared_ptr<Type>> &types = group_type->types;
+            if (types.size() > 1) {
+                switch (type_cast_node->expr->type->get_variation()) {
+                    default:
+                        THROW_BASIC_ERR(ERR_GENERATING);
+                        return std::nullopt;
+                    case Type::Variation::MULTI: {
+                        const auto *multi_type = type_cast_node->expr->type->as<MultiType>();
+                        assert(expr.size() == 1);
+                        llvm::Value *mult_expr = expr.front();
+                        expr.clear();
+                        for (size_t i = 0; i < multi_type->width; i++) {
+                            expr.emplace_back(builder.CreateExtractElement(mult_expr, i, "mult_group_" + std::to_string(i)));
+                        }
+                        return expr;
+                    }
+                    case Type::Variation::TUPLE: {
+                        const auto *tuple_type = type_cast_node->expr->type->as<TupleType>();
+                        assert(expr.size() == 1);
+                        llvm::Value *tuple_expr = expr.front();
+                        expr.clear();
+                        for (size_t i = 0; i < tuple_type->types.size(); i++) {
+                            expr.emplace_back(builder.CreateExtractValue(tuple_expr, i, "tuple_group_" + std::to_string(i)));
+                        }
+                        return expr;
+                    }
                 }
-                return expr;
-            } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(type_cast_node->expr->type.get())) {
+            }
+            to_type = types.front();
+            break;
+        }
+        case Type::Variation::MULTI: {
+            const auto *multi_type = type_cast_node->type->as<MultiType>();
+            if (type_cast_node->type->to_string() == "bool8") {
+                assert(type_cast_node->expr->type->to_string() == "u8");
                 assert(expr.size() == 1);
-                llvm::Value *tuple_expr = expr.front();
-                expr.clear();
-                for (size_t i = 0; i < tuple_type->types.size(); i++) {
-                    expr.emplace_back(builder.CreateExtractValue(tuple_expr, i, "tuple_group_" + std::to_string(i)));
+                std::vector<llvm::Value *> result;
+                result.emplace_back(expr.at(0));
+                return result;
+            }
+            // The expression now must be a group type, so the `expr` size must be the multi-type width
+            if (expr.size() != multi_type->width) {
+                // If the sizes dont match, the rhs must have size 1 and its type must match the element type of the multi-type
+                if (expr.size() == 1 && type_cast_node->expr->type == multi_type->base_type) {
+                    // We now can create a single value extension for the vector
+                    expr[0] = builder.CreateVectorSplat(multi_type->width, expr[0], "vec_ext");
+                    return expr;
                 }
-                return expr;
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
+            llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+
+            // Create and undefined vector to insert elements into
+            llvm::Value *vec = llvm::UndefValue::get(vector_type);
+
+            // "Store" all the values inside the vector which will be stored in the alloca in the `generate_declaration` function
+            for (unsigned int i = 0; i < expr.size(); i++) {
+                vec = builder.CreateInsertElement(vec, expr[i], builder.getInt32(i), "vec_insert");
+            }
+            std::vector<llvm::Value *> result;
+            result.emplace_back(vec);
+            return result;
+        }
+        case Type::Variation::TUPLE: {
+            const auto *tuple_type = type_cast_node->type->as<TupleType>();
+            if (type_cast_node->expr->type->get_variation() == Type::Variation::GROUP) {
+                const auto *expr_group_type = type_cast_node->expr->type->as<GroupType>();
+                // Type-checking should have been happened in the parser, so we can assert that the types match
+                assert(tuple_type->types.size() == expr_group_type->types.size());
+                llvm::Type *tup_type = IR::get_type(ctx.parent->getParent(), type_cast_node->type).first;
+                llvm::Value *result = IR::get_default_value_of_type(tup_type);
+                for (unsigned int i = 0; i < expr_group_type->types.size(); i++) {
+                    assert(expr_group_type->types[i] == tuple_type->types[i]);
+                    result = builder.CreateInsertValue(result, expr[i], {i});
+                }
+                return std::vector<llvm::Value *>{result};
             } else {
+                // Only groups can be cast to tuples
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
         }
-        to_type = types.front();
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(type_cast_node->type.get())) {
-        if (type_cast_node->type->to_string() == "bool8") {
-            assert(type_cast_node->expr->type->to_string() == "u8");
-            assert(expr.size() == 1);
-            std::vector<llvm::Value *> result;
-            result.emplace_back(expr.at(0));
-            return result;
-        }
-        // The expression now must be a group type, so the `expr` size must be the multi-type width
-        if (expr.size() != multi_type->width) {
-            // If the sizes dont match, the rhs must have size 1 and its type must match the element type of the multi-type
-            if (expr.size() == 1 && type_cast_node->expr->type == multi_type->base_type) {
-                // We now can create a single value extension for the vector
-                expr[0] = builder.CreateVectorSplat(multi_type->width, expr[0], "vec_ext");
-                return expr;
-            }
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
-        llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
-
-        // Create and undefined vector to insert elements into
-        llvm::Value *vec = llvm::UndefValue::get(vector_type);
-
-        // "Store" all the values inside the vector which will be stored in the alloca in the `generate_declaration` function
-        for (unsigned int i = 0; i < expr.size(); i++) {
-            vec = builder.CreateInsertElement(vec, expr[i], builder.getInt32(i), "vec_insert");
-        }
-        std::vector<llvm::Value *> result;
-        result.emplace_back(vec);
-        return result;
-    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(type_cast_node->type.get())) {
-        if (const GroupType *expr_group_type = dynamic_cast<const GroupType *>(type_cast_node->expr->type.get())) {
-            // Type-checking should have been happened in the parser, so we can assert that the types match
-            assert(tuple_type->types.size() == expr_group_type->types.size());
-            llvm::Type *tup_type = IR::get_type(ctx.parent->getParent(), type_cast_node->type).first;
-            llvm::Value *result = IR::get_default_value_of_type(tup_type);
-            for (unsigned int i = 0; i < expr_group_type->types.size(); i++) {
-                assert(expr_group_type->types[i] == tuple_type->types[i]);
-                result = builder.CreateInsertValue(result, expr[i], {i});
-            }
-            return std::vector<llvm::Value *>{result};
-        } else {
-            // Only groups can be cast to tuples
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-    } else {
-        to_type = type_cast_node->type;
     }
     if (to_type->to_string() == "str" && type_cast_node->expr->type->to_string() == "__flint_type_str_lit") {
         assert(expr.size() == 1);
@@ -2777,7 +2886,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), {expr}, "lit_len");
         // Call the `init_str` function
         return builder.CreateCall(init_str_fn, {expr, str_len}, "str_init");
-    } else if (dynamic_cast<const MultiType *>(from_type.get())) {
+    } else if (from_type->get_variation() == Type::Variation::MULTI) {
         if (from_type_str == "bool8") {
             if (to_type_str == "str") {
                 return builder.CreateCall(Module::TypeCast::typecast_functions.at("bool8_to_str"), {expr}, "b8_to_str_val");
@@ -2909,50 +3018,62 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         // The 'none' literal
         return IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
     }
-    if (const OptionalType *to_opt_type = dynamic_cast<const OptionalType *>(to_type.get())) {
-        if (from_type != to_opt_type->base_type) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
-        }
-        // "casting" the actual value of the optional and storing it in the optional struct value itself, but the storing part is done
-        // in the assignment / declaration generation
-        return expr;
-    } else if (const VariantType *to_var_type = dynamic_cast<const VariantType *>(to_type.get())) {
-        if (to_var_type->get_idx_of_type(from_type).has_value()) {
-            // It's allowed to "cast" the type to the variant
+    switch (to_type->get_variation()) {
+        default:
+            // Jump to the error prinitng of below for non-castable types
+            break;
+        case Type::Variation::OPTIONAL: {
+            const auto *to_opt_type = to_type->as<OptionalType>();
+            if (from_type != to_opt_type->base_type) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return nullptr;
+            }
+            // "casting" the actual value of the optional and storing it in the optional struct value itself, but the storing part is done
+            // in the assignment / declaration generation
             return expr;
         }
-    } else if (const EnumType *from_enum_type = dynamic_cast<const EnumType *>(from_type.get())) {
-        // Enum types are only allowed to be cast to strings or to integers
-        if (to_type_str == "i32" || to_type_str == "u32") {
-            // Enums are i32 values internally annyway, so we actually do not need any casting in this case
-            return expr;
-        } else if (to_type_str == "i64") {
-            return builder.CreateSExt(expr, builder.getInt64Ty(), "enum_cast_i64");
-        } else if (to_type_str == "u64") {
-            return builder.CreateZExt(expr, builder.getInt64Ty(), "enum_cast_u64");
-        } else if (to_type_str == "u8") {
-            return builder.CreateTrunc(expr, builder.getInt8Ty(), "num_cast_u8");
+        case Type::Variation::VARIANT: {
+            const auto *to_var_type = to_type->as<VariantType>();
+            if (to_var_type->get_idx_of_type(from_type).has_value()) {
+                // It's allowed to "cast" the type to the variant
+                return expr;
+            }
+            break;
         }
-        assert(to_type_str == "str");
-        llvm::GlobalVariable *name_array = enum_name_arrays_map.at(from_enum_type->enum_node->name);
-        llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {expr}, "name_str_ptr");
-        llvm::Type *i8_ptr_type = builder.getInt8Ty()->getPointerTo();
-        llvm::Value *name_str = IR::aligned_load(builder, i8_ptr_type, name_str_ptr, "name_str");
-        llvm::Value *name_len = builder.CreateCall(c_functions.at(STRLEN), {name_str}, "name_len");
-        llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
-        llvm::Value *cast_value = builder.CreateCall(init_str_fn, {name_str, name_len}, "cast_enum");
-        return cast_value;
-    } else if (dynamic_cast<const ErrorSetType *>(from_type.get())) {
-        if (to_type_str == "anyerror") {
-            // Every error is an anyerror and we don't need to change the `type_id` value of the error
+        case Type::Variation::ENUM: {
+            const auto *from_enum_type = to_type->as<EnumType>();
+            // Enum types are only allowed to be cast to strings or to integers
+            if (to_type_str == "i32" || to_type_str == "u32") {
+                // Enums are i32 values internally annyway, so we actually do not need any casting in this case
+                return expr;
+            } else if (to_type_str == "i64") {
+                return builder.CreateSExt(expr, builder.getInt64Ty(), "enum_cast_i64");
+            } else if (to_type_str == "u64") {
+                return builder.CreateZExt(expr, builder.getInt64Ty(), "enum_cast_u64");
+            } else if (to_type_str == "u8") {
+                return builder.CreateTrunc(expr, builder.getInt8Ty(), "num_cast_u8");
+            }
+            assert(to_type_str == "str");
+            llvm::GlobalVariable *name_array = enum_name_arrays_map.at(from_enum_type->enum_node->name);
+            llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {expr}, "name_str_ptr");
+            llvm::Type *i8_ptr_type = builder.getInt8Ty()->getPointerTo();
+            llvm::Value *name_str = IR::aligned_load(builder, i8_ptr_type, name_str_ptr, "name_str");
+            llvm::Value *name_len = builder.CreateCall(c_functions.at(STRLEN), {name_str}, "name_len");
+            llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+            llvm::Value *cast_value = builder.CreateCall(init_str_fn, {name_str, name_len}, "cast_enum");
+            return cast_value;
+        }
+        case Type::Variation::ERROR_SET: {
+            const auto *to_error_type = to_type->as<ErrorSetType>();
+            if (to_type_str == "anyerror") {
+                // Every error is an anyerror and we don't need to change the `type_id` value of the error
+                return expr;
+            }
+            // We simply need to change the `type_id` value field of the error
+            unsigned int new_type_id = Type::get_type_id_from_str(to_error_type->error_node->name);
+            expr = builder.CreateInsertValue(expr, builder.getInt32(new_type_id), {0}, "cast_type_id");
             return expr;
         }
-        // We simply need to change the `type_id` value field of the error
-        const ErrorSetType *to_error_type = dynamic_cast<const ErrorSetType *>(to_type.get());
-        unsigned int new_type_id = Type::get_type_id_from_str(to_error_type->error_node->name);
-        expr = builder.CreateInsertValue(expr, builder.getInt32(new_type_id), {0}, "cast_type_id");
-        return expr;
     }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);
@@ -2967,7 +3088,7 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
     const UnaryOpExpression *unary_op                                         //
 ) {
     const ExpressionNode *expression = unary_op->operand.get();
-    const bool is_pointer = dynamic_cast<const PointerType *>(unary_op->type.get()) != nullptr;
+    const bool is_pointer = unary_op->type->get_variation() == Type::Variation::POINTER;
     std::vector<llvm::Value *> operand = generate_expression(builder, ctx, garbage, expr_depth + 1, expression, is_pointer).value();
     for (size_t i = 0; i < operand.size(); i++) {
         const std::string &expression_type = expression->type->to_string();
@@ -3072,12 +3193,12 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
-                const PointerType *pointer_type = dynamic_cast<const PointerType *>(unary_op->type.get());
-                if (pointer_type == nullptr) {
+                if (unary_op->type->get_variation() != Type::Variation::POINTER) {
                     // Reference of operator (`&var`) not allowed on non-pointer types
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                const auto *pointer_type = unary_op->type->as<PointerType>();
                 const std::shared_ptr<Type> &base_type = pointer_type->base_type;
                 assert(base_type == expression->type);
                 // Check if the base type is a complex type and whether it needs to be passed by value or by reference
@@ -3109,16 +3230,14 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
     const unsigned int expr_depth,                                  //
     const BinaryOpNode *bin_op_node                                 //
 ) {
-    const VariantType *lhs_variant = dynamic_cast<const VariantType *>(bin_op_node->left->type.get());
-    const bool lhs_is_reference = lhs_variant != nullptr;
+    const bool lhs_is_reference = bin_op_node->left->type->get_variation() == Type::Variation::VARIANT;
     auto lhs_maybe = generate_expression(builder, ctx, garbage, expr_depth + 1, bin_op_node->left.get(), lhs_is_reference);
     if (!lhs_maybe.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return std::nullopt;
     }
     std::vector<llvm::Value *> lhs = lhs_maybe.value();
-    const VariantType *rhs_variant = dynamic_cast<const VariantType *>(bin_op_node->right->type.get());
-    const bool rhs_is_reference = rhs_variant != nullptr;
+    const bool rhs_is_reference = bin_op_node->right->type->get_variation() == Type::Variation::VARIANT;
     auto rhs_maybe = generate_expression(builder, ctx, garbage, expr_depth + 1, bin_op_node->right.get(), rhs_is_reference);
     if (!rhs_maybe.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -3135,9 +3254,11 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
     }
     std::vector<llvm::Value *> return_value;
 
-    const MultiType *lhs_mult = dynamic_cast<const MultiType *>(bin_op_node->left->type.get());
-    const MultiType *rhs_mult = dynamic_cast<const MultiType *>(bin_op_node->right->type.get());
-    if (lhs_mult != nullptr && rhs_mult != nullptr) {
+    const bool is_lhs_mult = bin_op_node->left->type->get_variation() == Type::Variation::MULTI;
+    const bool is_rhs_mult = bin_op_node->right->type->get_variation() == Type::Variation::MULTI;
+    if (is_lhs_mult && is_rhs_mult) {
+        const auto *lhs_mult = bin_op_node->left->type->as<MultiType>();
+        const auto *rhs_mult = bin_op_node->right->type->as<MultiType>();
         if (lhs_mult->base_type != rhs_mult->base_type) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
@@ -3455,48 +3576,66 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 return std::nullopt;
             } else if (type_str == "str") {
                 return Logical::generate_string_cmp_eq(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
-            } else if (dynamic_cast<const EnumType *>(bin_op_node->left->type.get()) &&
-                dynamic_cast<const EnumType *>(bin_op_node->right->type.get())) {
-                return builder.CreateICmpEQ(lhs, rhs, "enumeq");
-            } else if (dynamic_cast<const OptionalType *>(bin_op_node->left->type.get()) && //
-                dynamic_cast<const OptionalType *>(bin_op_node->right->type.get())          //
-            ) {
-                return generate_optional_cmp(builder, ctx, garbage, expr_depth, lhs, bin_op_node->left, rhs, bin_op_node->right, true);
-            } else if (dynamic_cast<const VariantType *>(bin_op_node->left->type.get()) && //
-                dynamic_cast<const VariantType *>(bin_op_node->right->type.get())          //
-            ) {
-                llvm::Type *variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).first;
-                if (const TypeCastNode *lhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left)) {
-                    if (dynamic_cast<const TypeNode *>(lhs_cast->expr.get())) {
-                        // The lhs is the "type" value of the comparison and the rhs is the actual variant
-                        llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
-                        rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
-                        return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
+            }
+            switch (bin_op_node->left->type->get_variation()) {
+                default:
+                    break;
+                case Type::Variation::ENUM: {
+                    if (bin_op_node->right->type->get_variation() == Type::Variation::ENUM) {
+                        return builder.CreateICmpEQ(lhs, rhs, "enumeq");
                     }
-                } else if (const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right)) {
-                    if (dynamic_cast<const TypeNode *>(rhs_cast->expr.get())) {
-                        // The rhs is the "type" value of the comparison and the lhs is the actual variant
-                        llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
-                        lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
-                        return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
-                    }
-                } else if (const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->left)) {
-                    if (std::holds_alternative<LitVariantTag>(lhs_lit->value)) {
-                        // The lhs is the "type" value of the comparison and the rhs is the actual variant
-                        llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
-                        rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
-                        return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
-                    }
-                } else if (const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->right)) {
-                    if (std::holds_alternative<LitVariantTag>(rhs_lit->value)) {
-                        // The rhs is the "type" value of the comparison and the lhs is the actual variant
-                        llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
-                        lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
-                        return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
-                    }
+                    break;
                 }
-                // Both sides are "real" variant types
-                return generate_variant_cmp(builder, ctx, lhs, bin_op_node->left, rhs, bin_op_node->right, true);
+                case Type::Variation::OPTIONAL: {
+                    if (bin_op_node->right->type->get_variation() == Type::Variation::OPTIONAL) {
+                        return generate_optional_cmp(builder, ctx, garbage, expr_depth, lhs, bin_op_node->left, rhs, bin_op_node->right,
+                            true);
+                    }
+                    break;
+                }
+                case Type::Variation::VARIANT: {
+                    if (bin_op_node->right->type->get_variation() != Type::Variation::VARIANT) {
+                        break;
+                    }
+                    llvm::Type *variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).first;
+                    const auto left_variation = bin_op_node->left->get_variation();
+                    const auto right_variation = bin_op_node->right->get_variation();
+                    if (left_variation == ExpressionNode::Variation::TYPE_CAST) {
+                        const auto *lhs_cast = bin_op_node->left->as<TypeCastNode>();
+                        if (lhs_cast->expr->get_variation() == ExpressionNode::Variation::TYPE) {
+                            // The lhs is the "type" value of the comparison and the rhs is the actual variant
+                            llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
+                            rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
+                            return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
+                        }
+                    } else if (right_variation == ExpressionNode::Variation::TYPE_CAST) {
+                        const auto *rhs_cast = bin_op_node->right->as<TypeCastNode>();
+                        if (rhs_cast->expr->get_variation() == ExpressionNode::Variation::TYPE) {
+                            // The rhs is the "type" value of the comparison and the lhs is the actual variant
+                            llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
+                            lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
+                            return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
+                        }
+                    } else if (left_variation == ExpressionNode::Variation::LITERAL) {
+                        const auto *lhs_lit = bin_op_node->left->as<LiteralNode>();
+                        if (std::holds_alternative<LitVariantTag>(lhs_lit->value)) {
+                            // The lhs is the "type" value of the comparison and the rhs is the actual variant
+                            llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
+                            rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
+                            return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
+                        }
+                    } else if (right_variation == ExpressionNode::Variation::LITERAL) {
+                        const auto *rhs_lit = bin_op_node->right->as<LiteralNode>();
+                        if (std::holds_alternative<LitVariantTag>(rhs_lit->value)) {
+                            // The rhs is the "type" value of the comparison and the lhs is the actual variant
+                            llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
+                            lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
+                            return builder.CreateICmpEQ(lhs, rhs, "var_holds_type");
+                        }
+                    }
+                    // Both sides are "real" variant types
+                    return generate_variant_cmp(builder, ctx, lhs, bin_op_node->left, rhs, bin_op_node->right, true);
+                }
             }
             break;
         case TOK_NOT_EQUAL:
@@ -3513,48 +3652,66 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 return std::nullopt;
             } else if (type_str == "str") {
                 return Logical::generate_string_cmp_neq(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
-            } else if (dynamic_cast<const EnumType *>(bin_op_node->left->type.get()) &&
-                dynamic_cast<const EnumType *>(bin_op_node->right->type.get())) {
-                return builder.CreateICmpNE(lhs, rhs, "enumneq");
-            } else if (dynamic_cast<const OptionalType *>(bin_op_node->left->type.get()) && //
-                dynamic_cast<const OptionalType *>(bin_op_node->right->type.get())          //
-            ) {
-                return generate_optional_cmp(builder, ctx, garbage, expr_depth, lhs, bin_op_node->left, rhs, bin_op_node->right, false);
-            } else if (dynamic_cast<const VariantType *>(bin_op_node->left->type.get()) && //
-                dynamic_cast<const VariantType *>(bin_op_node->right->type.get())          //
-            ) {
-                llvm::Type *variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).first;
-                if (const TypeCastNode *lhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->left)) {
-                    if (dynamic_cast<const TypeNode *>(lhs_cast->expr.get())) {
-                        // The lhs is the "type" value of the comparison and the rhs is the actual variant
-                        llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
-                        rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
-                        return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
+            }
+            switch (bin_op_node->left->type->get_variation()) {
+                default:
+                    break;
+                case Type::Variation::ENUM: {
+                    if (bin_op_node->right->type->get_variation() != Type::Variation::ENUM) {
+                        break;
                     }
-                } else if (const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(bin_op_node->right)) {
-                    if (dynamic_cast<const TypeNode *>(rhs_cast->expr.get())) {
-                        // The rhs is the "type" value of the comparison and the lhs is the actual variant
-                        llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
-                        lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
-                        return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
-                    }
-                } else if (const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->left)) {
-                    if (std::holds_alternative<LitVariantTag>(lhs_lit->value)) {
-                        // The lhs is the "type" value of the comparison and the rhs is the actual variant
-                        llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
-                        rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
-                        return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
-                    }
-                } else if (const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(bin_op_node->right)) {
-                    if (std::holds_alternative<LitVariantTag>(rhs_lit->value)) {
-                        // The rhs is the "type" value of the comparison and the lhs is the actual variant
-                        llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
-                        lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
-                        return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
-                    }
+                    return builder.CreateICmpNE(lhs, rhs, "enumneq");
                 }
-                // Both sides are "real" variant types
-                return generate_variant_cmp(builder, ctx, lhs, bin_op_node->left, rhs, bin_op_node->right, false);
+                case Type::Variation::OPTIONAL: {
+                    if (bin_op_node->right->type->get_variation() != Type::Variation::OPTIONAL) {
+                        break;
+                    }
+                    return generate_optional_cmp(builder, ctx, garbage, expr_depth, lhs, bin_op_node->left, rhs, bin_op_node->right, false);
+                }
+                case Type::Variation::VARIANT: {
+                    if (bin_op_node->right->type->get_variation() != Type::Variation::VARIANT) {
+                        break;
+                    }
+                    llvm::Type *variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).first;
+                    const auto left_variation = bin_op_node->left->get_variation();
+                    const auto right_variation = bin_op_node->right->get_variation();
+                    if (left_variation == ExpressionNode::Variation::TYPE_CAST) {
+                        const auto *lhs_cast = bin_op_node->left->as<TypeCastNode>();
+                        if (lhs_cast->expr->get_variation() == ExpressionNode::Variation::TYPE) {
+                            // The lhs is the "type" value of the comparison and the rhs is the actual variant
+                            llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
+                            rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
+                            return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
+                        }
+                    } else if (right_variation == ExpressionNode::Variation::TYPE_CAST) {
+                        const auto *rhs_cast = bin_op_node->right->as<TypeCastNode>();
+                        if (rhs_cast->expr->get_variation() == ExpressionNode::Variation::TYPE) {
+                            // The rhs is the "type" value of the comparison and the lhs is the actual variant
+                            llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
+                            lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
+                            return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
+                        }
+                    } else if (left_variation == ExpressionNode::Variation::LITERAL) {
+                        const auto *lhs_lit = bin_op_node->left->as<LiteralNode>();
+                        if (std::holds_alternative<LitVariantTag>(lhs_lit->value)) {
+                            // The lhs is the "type" value of the comparison and the rhs is the actual variant
+                            llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, rhs, 0, "active_type_ptr");
+                            rhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
+                            return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
+                        }
+                    } else if (right_variation == ExpressionNode::Variation::LITERAL) {
+                        const auto *rhs_lit = bin_op_node->right->as<LiteralNode>();
+                        if (std::holds_alternative<LitVariantTag>(rhs_lit->value)) {
+                            // The rhs is the "type" value of the comparison and the lhs is the actual variant
+                            llvm::Value *active_type_ptr = builder.CreateStructGEP(variant_type, lhs, 0, "active_type_ptr");
+                            lhs = IR::aligned_load(builder, builder.getInt8Ty(), active_type_ptr, "active_type");
+                            return builder.CreateICmpNE(lhs, rhs, "var_holds_not_type");
+                        }
+                    }
+                    // Both sides are "real" variant types
+                    return generate_variant_cmp(builder, ctx, lhs, bin_op_node->left, rhs, bin_op_node->right, false);
+                    break;
+                }
             }
             break;
         case TOK_OPT_DEFAULT: {
@@ -3604,7 +3761,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     }
     // First, we check if one of the sides is a TypeCast Node, and if one side is a TypeCast we can check if the base type
     // is of type `void?`, indicating that we check if one side is the 'none' literal.
-    if (const TypeCastNode *lhs_type_cast = dynamic_cast<const TypeCastNode *>(lhs_expr)) {
+    if (lhs_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
+        const auto *lhs_type_cast = lhs_expr->as<TypeCastNode>();
         if (lhs_type_cast->expr->type->to_string() == "void?") {
             // We can just extract the first bit of the rhs and return it's (negated) value directly
             if (lhs->getType()->isPointerTy()) {
@@ -3620,7 +3778,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
             }
         }
     }
-    if (const TypeCastNode *rhs_type_cast = dynamic_cast<const TypeCastNode *>(rhs_expr)) {
+    if (rhs_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
+        const auto *rhs_type_cast = rhs_expr->as<TypeCastNode>();
         if (rhs_type_cast->expr->type->to_string() == "void?") {
             // We can just extract the first bit of the rhs and return it's (negated) value directly
             if (lhs->getType()->isPointerTy()) {
@@ -3673,7 +3832,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     builder.SetInsertPoint(both_value_block);
     llvm::Value *lhs_value = builder.CreateExtractValue(lhs, {1}, "lhs_value");
     llvm::Value *rhs_value = builder.CreateExtractValue(rhs, {1}, "rhs_value");
-    const OptionalType *lhs_opt_type = dynamic_cast<const OptionalType *>(lhs_expr->type.get());
+    const auto *lhs_opt_type = lhs_expr->type->as<OptionalType>();
     const std::string base_type_str = lhs_opt_type->base_type->to_string();
     const FakeBinaryOpNode bin_op = {
         eq ? TOK_EQUAL_EQUAL : TOK_NOT_EQUAL, // The operation
@@ -3710,9 +3869,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
     const bool eq                                                         //
 ) {
     // Ge the variant type of the comparison
-    const VariantType *variant_type = dynamic_cast<const VariantType *>(lhs_expr->type.get());
-    assert(variant_type != nullptr);
-    assert(dynamic_cast<const VariantType *>(rhs_expr->type.get()) != nullptr);
+    const auto *variant_type = lhs_expr->type->as<VariantType>();
+    assert(rhs_expr->type->get_variation() == Type::Variation::VARIANT);
     const auto &possible_types = variant_type->get_possible_types();
     // First we create all the basic blocks we need
     llvm::BasicBlock *inserter = builder.GetInsertBlock();
