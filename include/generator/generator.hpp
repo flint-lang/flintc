@@ -109,7 +109,7 @@ class Generator {
     /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated file module, nullopt if code generation failed
     static std::optional<std::unique_ptr<llvm::Module>> generate_file_ir( //
         const std::shared_ptr<DepNode> &dep_node,                         //
-        const FileNode &file,                                             //
+        FileNode &file,                                                   //
         const bool is_test                                                //
     );
 
