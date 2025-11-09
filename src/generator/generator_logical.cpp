@@ -29,10 +29,12 @@ llvm::Value *Generator::Logical::generate_string_cmp_lt( //
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
-    if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
+    if (lhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *lhs_lit = lhs_expr->as<LiteralNode>();
         lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_lt");
     }
-    if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
+    if (rhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *rhs_lit = rhs_expr->as<LiteralNode>();
         rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_lt");
     }
 
@@ -56,10 +58,12 @@ llvm::Value *Generator::Logical::generate_string_cmp_gt( //
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
-    if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
+    if (lhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *lhs_lit = lhs_expr->as<LiteralNode>();
         lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_gt");
     }
-    if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
+    if (rhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *rhs_lit = rhs_expr->as<LiteralNode>();
         rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_gt");
     }
 
@@ -83,10 +87,12 @@ llvm::Value *Generator::Logical::generate_string_cmp_le( //
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
-    if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
+    if (lhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *lhs_lit = lhs_expr->as<LiteralNode>();
         lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_le");
     }
-    if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
+    if (rhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *rhs_lit = rhs_expr->as<LiteralNode>();
         rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_le");
     }
 
@@ -110,10 +116,12 @@ llvm::Value *Generator::Logical::generate_string_cmp_ge( //
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
-    if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
+    if (lhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *lhs_lit = lhs_expr->as<LiteralNode>();
         lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_ge");
     }
-    if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
+    if (rhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *rhs_lit = rhs_expr->as<LiteralNode>();
         rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_ge");
     }
 
@@ -137,10 +145,12 @@ llvm::Value *Generator::Logical::generate_string_cmp_eq( //
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
-    if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
+    if (lhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *lhs_lit = lhs_expr->as<LiteralNode>();
         lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_eq");
     }
-    if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
+    if (rhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *rhs_lit = rhs_expr->as<LiteralNode>();
         rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_eq");
     }
 
@@ -164,10 +174,12 @@ llvm::Value *Generator::Logical::generate_string_cmp_neq( //
     // First, make sure that both sides are actual 'str*' variables. If the lhs or rhs is a literal, we first call 'init_str'
     llvm::Value *lhs_val = lhs;
     llvm::Value *rhs_val = rhs;
-    if (const auto *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr)) {
+    if (lhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *lhs_lit = lhs_expr->as<LiteralNode>();
         lhs_val = builder.CreateCall(init_str_fn, {lhs, builder.getInt64(std::get<LitStr>(lhs_lit->value).value.length())}, "lhs_str_neq");
     }
-    if (const auto *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr)) {
+    if (rhs_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *rhs_lit = rhs_expr->as<LiteralNode>();
         rhs_val = builder.CreateCall(init_str_fn, {rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())}, "rhs_str_neq");
     }
 

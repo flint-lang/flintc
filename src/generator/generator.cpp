@@ -3,7 +3,6 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "globals.hpp"
-#include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/error_set_type.hpp"
@@ -371,7 +370,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             }
 
             // Generate the IR code from the given FileNode
-            const FileNode *file = Resolver::get_file_from_name(shared_tip->file_name);
+            FileNode *file = Resolver::get_file_from_name(shared_tip->file_name);
             std::optional<std::unique_ptr<llvm::Module>> file_module = generate_file_ir(shared_tip, *file, is_test);
             if (!file_module.has_value()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -452,7 +451,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
 
 std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     const std::shared_ptr<DepNode> &dep_node,                             //
-    const FileNode &file,                                                 //
+    FileNode &file,                                                       //
     const bool is_test                                                    //
 ) {
     PROFILE_SCOPE("Generate IR for '" + file.file_name + "'");
@@ -495,7 +494,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     file_function_names[file.file_name] = {};
     // Declare all functions in the file at the top of the module
     for (const std::unique_ptr<DefinitionNode> &node : file.definitions) {
-        if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
+        if (node->get_variation() == DefinitionNode::Variation::FUNCTION) {
+            auto *function_node = node->as<FunctionNode>();
             // Create a forward declaration for the function only if it is not the main function!
             if (function_node->name != "_main") {
                 llvm::FunctionType *function_type = Function::generate_function_type(module.get(), function_node);
@@ -526,76 +526,88 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     file_function_mangle_ids[file.file_name] = function_mangle_ids;
 
     // Iterate through all AST Nodes in the file and generate them accordingly
-    for (const std::unique_ptr<DefinitionNode> &node : file.definitions) {
-        if (auto *function_node = dynamic_cast<FunctionNode *>(node.get())) {
-            if (is_test && function_node->name == "_main") {
-                continue;
-            }
-            if (!Function::generate_function(module.get(), function_node, file.imported_core_modules)) {
-                return std::nullopt;
-            }
-            // No return statement found despite the signature requires return OR
-            // Rerutn statement found but the signature has no return type defined (basically a simple xnor between the two booleans)
+    for (std::unique_ptr<DefinitionNode> &node : file.definitions) {
+        switch (node->get_variation()) {
+            default:
+                break;
+            case DefinitionNode::Variation::FUNCTION: {
+                auto *function_node = node->as<FunctionNode>();
+                if (is_test && function_node->name == "_main") {
+                    continue;
+                }
+                if (!Function::generate_function(module.get(), function_node, file.imported_core_modules)) {
+                    return std::nullopt;
+                }
+                // No return statement found despite the signature requires return OR
+                // Rerutn statement found but the signature has no return type defined (basically a simple xnor between the two booleans)
 
-            // TODO: Because i _always_ have a return type (the error return), this does no longer work, as there can be a return type of
-            // the function despite the function node not having any return types declared. This error check will be commented out for now
-            // because of this reason.
-            // if ((function_has_return(function_definition) ^ function_node->return_types.empty()) == 0) {
-            //     throw_err(ERR_GENERATING);
-            // }
-        } else if (auto *test_node = dynamic_cast<TestNode *>(node.get())) {
-            if (!is_test) {
-                continue;
+                // TODO: Because i _always_ have a return type (the error return), this does no longer work, as there can be a return type
+                // of the function despite the function node not having any return types declared. This error check will be commented out
+                // for now because of this reason. if ((function_has_return(function_definition) ^ function_node->return_types.empty()) ==
+                // 0) {
+                //     throw_err(ERR_GENERATING);
+                // }
+                break;
             }
-            std::optional<llvm::Function *> test_function = Function::generate_test_function( //
-                module.get(), test_node, file.imported_core_modules                           //
-            );
-            if (!test_function.has_value()) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
+            case DefinitionNode::Variation::TEST: {
+                const auto *test_node = node->as<TestNode>();
+                if (!is_test) {
+                    continue;
+                }
+                std::optional<llvm::Function *> test_function = Function::generate_test_function( //
+                    module.get(), test_node, file.imported_core_modules                           //
+                );
+                if (!test_function.has_value()) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                if (tests.count(test_node->file_name) == 0) {
+                    tests[test_node->file_name].emplace_back(test_node->name, test_function.value()->getName().str());
+                } else {
+                    tests.at(test_node->file_name).emplace_back(test_node->name, test_function.value()->getName().str());
+                }
+                break;
             }
-            if (tests.count(test_node->file_name) == 0) {
-                tests[test_node->file_name].emplace_back(test_node->name, test_function.value()->getName().str());
-            } else {
-                tests.at(test_node->file_name).emplace_back(test_node->name, test_function.value()->getName().str());
-            }
-        } else if (auto *enum_node = dynamic_cast<EnumNode *>(node.get())) {
-            // Generate the type name array for later typecast lookups
-            // Create individual string constants
-            if (enum_name_arrays_map.find(enum_node->name) != enum_name_arrays_map.end()) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
-            }
-            std::vector<llvm::Constant *> string_pointers;
-            llvm::Type *const i8_ptr_type = llvm::Type::getInt8Ty(context)->getPointerTo();
+            case DefinitionNode::Variation::ENUM: {
+                const auto *enum_node = node->as<EnumNode>();
+                // Generate the type name array for later typecast lookups
+                // Create individual string constants
+                if (enum_name_arrays_map.find(enum_node->name) != enum_name_arrays_map.end()) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                std::vector<llvm::Constant *> string_pointers;
+                llvm::Type *const i8_ptr_type = llvm::Type::getInt8Ty(context)->getPointerTo();
 
-            for (size_t i = 0; i < enum_node->values.size(); ++i) {
-                // Create the string constant data
-                llvm::Constant *string_data = llvm::ConstantDataArray::getString(context, enum_node->values[i], true);
+                for (size_t i = 0; i < enum_node->values.size(); ++i) {
+                    // Create the string constant data
+                    llvm::Constant *string_data = llvm::ConstantDataArray::getString(context, enum_node->values[i], true);
 
-                // Create a global variable to hold the string
-                llvm::GlobalVariable *string_global = new llvm::GlobalVariable(                             //
-                    *module, string_data->getType(), true, llvm::GlobalValue::ExternalLinkage, string_data, //
-                    "enum." + enum_node->name + ".name." + std::to_string(i)                                //
+                    // Create a global variable to hold the string
+                    llvm::GlobalVariable *string_global = new llvm::GlobalVariable(                             //
+                        *module, string_data->getType(), true, llvm::GlobalValue::ExternalLinkage, string_data, //
+                        "enum." + enum_node->name + ".name." + std::to_string(i)                                //
+                    );
+
+                    // Get pointer to the string data (cast to i8*)
+                    llvm::Constant *string_ptr = llvm::ConstantExpr::getBitCast(string_global, i8_ptr_type);
+                    string_pointers.push_back(string_ptr);
+                }
+
+                // Create the array type and global array
+                llvm::ArrayType *array_type = llvm::ArrayType::get(i8_ptr_type, enum_node->values.size());
+                llvm::Constant *string_array = llvm::ConstantArray::get(array_type, string_pointers);
+                llvm::GlobalVariable *global_string_array = new llvm::GlobalVariable(                                                 //
+                    *module, array_type, true, llvm::GlobalValue::ExternalLinkage, string_array, "enum." + enum_node->name + ".names" //
                 );
 
-                // Get pointer to the string data (cast to i8*)
-                llvm::Constant *string_ptr = llvm::ConstantExpr::getBitCast(string_global, i8_ptr_type);
-                string_pointers.push_back(string_ptr);
-            }
-
-            // Create the array type and global array
-            llvm::ArrayType *array_type = llvm::ArrayType::get(i8_ptr_type, enum_node->values.size());
-            llvm::Constant *string_array = llvm::ConstantArray::get(array_type, string_pointers);
-            llvm::GlobalVariable *global_string_array = new llvm::GlobalVariable(                                                 //
-                *module, array_type, true, llvm::GlobalValue::ExternalLinkage, string_array, "enum." + enum_node->name + ".names" //
-            );
-
-            // Optional Windows compatibility settings
+                // Optional Windows compatibility settings
 #ifdef __WIN32__
-            global_string_array->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
+                global_string_array->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
 #endif
-            enum_name_arrays_map[enum_node->name] = global_string_array;
+                enum_name_arrays_map[enum_node->name] = global_string_array;
+                break;
+            }
         }
     }
 
