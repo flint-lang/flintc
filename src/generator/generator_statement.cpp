@@ -3,11 +3,9 @@
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 
-#include "parser/ast/expressions/default_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
-#include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
-#include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
@@ -15,6 +13,7 @@
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
+#include "parser/type/type.hpp"
 #include "parser/type/variant_type.hpp"
 
 #include <llvm/IR/Instructions.h>
@@ -26,55 +25,91 @@ bool Generator::Statement::generate_statement(      //
     GenerationContext &ctx,                         //
     const std::unique_ptr<StatementNode> &statement //
 ) {
-    if (const auto *call_node = dynamic_cast<const CallNodeStatement *>(statement.get())) {
-        group_mapping gm = Expression::generate_call(builder, ctx, dynamic_cast<const CallNodeBase *>(call_node));
-        return gm.has_value();
-    } else if (const auto *return_node = dynamic_cast<const ReturnNode *>(statement.get())) {
-        return generate_return_statement(builder, ctx, return_node);
-    } else if (const auto *if_node = dynamic_cast<const IfNode *>(statement.get())) {
-        std::vector<llvm::BasicBlock *> blocks;
-        return generate_if_statement(builder, ctx, blocks, 0, if_node);
-    } else if (const auto *while_node = dynamic_cast<const WhileNode *>(statement.get())) {
-        return generate_while_loop(builder, ctx, while_node);
-    } else if (const auto *for_node = dynamic_cast<const ForLoopNode *>(statement.get())) {
-        return generate_for_loop(builder, ctx, for_node);
-    } else if (const auto *enh_for_node = dynamic_cast<const EnhForLoopNode *>(statement.get())) {
-        return generate_enh_for_loop(builder, ctx, enh_for_node);
-    } else if (const auto *group_assignment_node = dynamic_cast<const GroupAssignmentNode *>(statement.get())) {
-        return generate_group_assignment(builder, ctx, group_assignment_node);
-    } else if (const auto *assignment_node = dynamic_cast<const AssignmentNode *>(statement.get())) {
-        return generate_assignment(builder, ctx, assignment_node);
-    } else if (const auto *group_declaration_node = dynamic_cast<const GroupDeclarationNode *>(statement.get())) {
-        return generate_group_declaration(builder, ctx, group_declaration_node);
-    } else if (const auto *declaration_node = dynamic_cast<const DeclarationNode *>(statement.get())) {
-        return generate_declaration(builder, ctx, declaration_node);
-    } else if (const auto *throw_node = dynamic_cast<const ThrowNode *>(statement.get())) {
-        return generate_throw_statement(builder, ctx, throw_node);
-    } else if (const auto *catch_node = dynamic_cast<const CatchNode *>(statement.get())) {
-        return generate_catch_statement(builder, ctx, catch_node);
-    } else if (const auto *unary_node = dynamic_cast<const UnaryOpStatement *>(statement.get())) {
-        return generate_unary_op_statement(builder, ctx, unary_node);
-    } else if (const auto *field_assignment_node = dynamic_cast<const DataFieldAssignmentNode *>(statement.get())) {
-        return generate_data_field_assignment(builder, ctx, field_assignment_node);
-    } else if (const auto *grouped_assignment_node = dynamic_cast<const GroupedDataFieldAssignmentNode *>(statement.get())) {
-        return generate_grouped_data_field_assignment(builder, ctx, grouped_assignment_node);
-    } else if (const auto *array_assignment_node = dynamic_cast<const ArrayAssignmentNode *>(statement.get())) {
-        return generate_array_assignment(builder, ctx, array_assignment_node);
-    } else if (const auto *stacked_assignment_node = dynamic_cast<const StackedAssignmentNode *>(statement.get())) {
-        return generate_stacked_assignment(builder, ctx, stacked_assignment_node);
-    } else if (const auto *stacked_grouped_assignment_node = dynamic_cast<const StackedGroupedAssignmentNode *>(statement.get())) {
-        return generate_stacked_grouped_assignment(builder, ctx, stacked_grouped_assignment_node);
-    } else if (const auto *switch_statement = dynamic_cast<const SwitchStatement *>(statement.get())) {
-        return generate_switch_statement(builder, ctx, switch_statement);
-    } else if (dynamic_cast<const BreakNode *>(statement.get())) {
-        builder.CreateBr(last_loop_merge_blocks.back());
-        return true;
-    } else if (dynamic_cast<const ContinueNode *>(statement.get())) {
-        builder.CreateBr(last_looparound_blocks.back());
-        return true;
-    } else {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
+    switch (statement->get_variation()) {
+        case StatementNode::Variation::ARRAY_ASSIGNMENT: {
+            const auto *node = statement->as<ArrayAssignmentNode>();
+            return generate_array_assignment(builder, ctx, node);
+        }
+        case StatementNode::Variation::ASSIGNMENT: {
+            const auto *node = statement->as<AssignmentNode>();
+            return generate_assignment(builder, ctx, node);
+        }
+        case StatementNode::Variation::BREAK:
+            builder.CreateBr(last_loop_merge_blocks.back());
+            return true;
+        case StatementNode::Variation::CALL: {
+            const auto *node = statement->as<CallNodeStatement>();
+            group_mapping gm = Expression::generate_call(builder, ctx, static_cast<const CallNodeBase *>(node));
+            return gm.has_value();
+        }
+        case StatementNode::Variation::CATCH: {
+            const auto *node = statement->as<CatchNode>();
+            return generate_catch_statement(builder, ctx, node);
+        }
+        case StatementNode::Variation::CONTINUE:
+            builder.CreateBr(last_looparound_blocks.back());
+            return true;
+        case StatementNode::Variation::DATA_FIELD_ASSIGNMENT: {
+            const auto *node = statement->as<DataFieldAssignmentNode>();
+            return generate_data_field_assignment(builder, ctx, node);
+        }
+        case StatementNode::Variation::DECLARATION: {
+            const auto *node = statement->as<DeclarationNode>();
+            return generate_declaration(builder, ctx, node);
+        }
+        case StatementNode::Variation::ENHANCED_FOR_LOOP: {
+            const auto *node = statement->as<EnhForLoopNode>();
+            return generate_enh_for_loop(builder, ctx, node);
+        }
+        case StatementNode::Variation::FOR_LOOP: {
+            const auto *node = statement->as<ForLoopNode>();
+            return generate_for_loop(builder, ctx, node);
+        }
+        case StatementNode::Variation::GROUP_ASSIGNMENT: {
+            const auto *node = statement->as<GroupAssignmentNode>();
+            return generate_group_assignment(builder, ctx, node);
+        }
+        case StatementNode::Variation::GROUP_DECLARATION: {
+            const auto *node = statement->as<GroupDeclarationNode>();
+            return generate_group_declaration(builder, ctx, node);
+        }
+        case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
+            const auto *node = statement->as<GroupedDataFieldAssignmentNode>();
+            return generate_grouped_data_field_assignment(builder, ctx, node);
+        }
+        case StatementNode::Variation::IF: {
+            const auto *node = statement->as<IfNode>();
+            std::vector<llvm::BasicBlock *> blocks;
+            return generate_if_statement(builder, ctx, blocks, 0, node);
+        }
+        case StatementNode::Variation::RETURN: {
+            const auto *node = statement->as<ReturnNode>();
+            return generate_return_statement(builder, ctx, node);
+        }
+        case StatementNode::Variation::STACKED_ASSIGNMENT: {
+            const auto *node = statement->as<StackedAssignmentNode>();
+            return generate_stacked_assignment(builder, ctx, node);
+        }
+        case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {
+            const auto *node = statement->as<StackedGroupedAssignmentNode>();
+            return generate_stacked_grouped_assignment(builder, ctx, node);
+        }
+        case StatementNode::Variation::SWITCH: {
+            const auto *node = statement->as<SwitchStatement>();
+            return generate_switch_statement(builder, ctx, node);
+        }
+        case StatementNode::Variation::THROW: {
+            const auto *node = statement->as<ThrowNode>();
+            return generate_throw_statement(builder, ctx, node);
+        }
+        case StatementNode::Variation::UNARY_OP: {
+            const auto *node = statement->as<UnaryOpStatement>();
+            return generate_unary_op_statement(builder, ctx, node);
+        }
+        case StatementNode::Variation::WHILE: {
+            const auto *node = statement->as<WhileNode>();
+            return generate_while_loop(builder, ctx, node);
+        }
     }
 }
 
@@ -96,7 +131,9 @@ bool Generator::Statement::clear_garbage(                                       
             if (DEBUG_MODE) {
                 std::cout << "  -- Type '" << type->to_string() << "' val addr: " << llvm_val << "\n";
             }
-            if (const auto primitive_type = dynamic_cast<const PrimitiveType *>(type.get())) {
+            const auto type_variation = type->get_variation();
+            if (type_variation == Type::Variation::PRIMITIVE) {
+                const auto *primitive_type = type->as<PrimitiveType>();
                 if (primitive_type->type_name == "str") {
                     llvm::Function *free_fn = c_functions.at(FREE);
                     llvm::CallInst *free_call = builder.CreateCall(free_fn, {llvm_val});
@@ -107,7 +144,8 @@ bool Generator::Statement::clear_garbage(                                       
                     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                     return false;
                 }
-            } else if (const auto array_type = dynamic_cast<const ArrayType *>(type.get())) {
+            } else if (type_variation == Type::Variation::ARRAY) {
+                const auto *array_type = type->as<ArrayType>();
                 // For now, we dont allow jagged arrays. If we would add jagged arrays we would need a recursive tip-to-root freeing system
                 // here, but for now we keep it simple
                 llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {llvm_val});
@@ -135,9 +173,10 @@ bool Generator::Statement::generate_body(llvm::IRBuilder<> &builder, GenerationC
         return false;
     }
 
-    // Only generate end of scope if the last statement was not a return statement
-    if (ctx.scope->parent_scope != nullptr && !dynamic_cast<const ReturnNode *>(ctx.scope->body.back().get()) &&
-        !dynamic_cast<const ThrowNode *>(ctx.scope->body.back().get())) {
+    // Only generate end of scope if the last statement was not a return or throw statement
+    const auto last_variation = ctx.scope->body.back()->get_variation();
+    if (ctx.scope->parent_scope != nullptr && last_variation != StatementNode::Variation::RETURN &&
+        last_variation != StatementNode::Variation::THROW) {
         success &= generate_end_of_scope(builder, ctx);
     }
     return success;
@@ -159,35 +198,75 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         }
         // Check if the variable is of type str
         std::shared_ptr<Type> var_type = std::get<0>(var_info);
-        if (const auto primitive_type = dynamic_cast<const PrimitiveType *>(var_type.get())) {
-            if (primitive_type->type_name != "str") {
-                continue;
+        switch (var_type->get_variation()) {
+            case Type::Variation::ARRAY: {
+                const auto *array_type = var_type->as<ArrayType>();
+                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+                llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+                llvm::Value *arr_ptr = IR::aligned_load(builder, arr_type->getPointerTo(), alloca, var_name + "_cleanup");
+                if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
             }
-            // Get the allocation of the variable
-            const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
-            llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
-            llvm::Value *str_ptr = IR::aligned_load(builder, str_type->getPointerTo(), alloca, var_name + "_cleanup");
-            builder.CreateCall(c_functions.at(FREE), {str_ptr});
-        } else if (ArrayType *array_type = dynamic_cast<ArrayType *>(var_type.get())) {
-            const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
-            llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-            llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
-            llvm::Value *arr_ptr = IR::aligned_load(builder, arr_type->getPointerTo(), alloca, var_name + "_cleanup");
-            if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
+            case Type::Variation::DATA: {
+                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+                llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), var_type).first;
+                if (!generate_data_cleanup(builder, ctx, base_type, alloca, var_type)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
             }
-        } else if (dynamic_cast<DataType *>(var_type.get())) {
-            const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
-            llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-            llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), var_type).first;
-            if (!generate_data_cleanup(builder, ctx, base_type, alloca, var_type)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
+            case Type::Variation::ENUM:
+                break;
+            case Type::Variation::ERROR_SET: {
+                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+                llvm::StructType *error_type = type_map.at("__flint_type_err");
+                llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
+                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
+                llvm::Value *err_message = IR::aligned_load(builder, str_type, err_message_ptr, "err_message");
+                llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {err_message});
+                free_call->setMetadata("comment",
+                    llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from error '" + var_name + "'")));
+                break;
             }
-        } else if (const auto variant_type = dynamic_cast<const VariantType *>(var_type.get())) {
-            if (variant_type->is_err_variant) {
+            case Type::Variation::GROUP:
+                break;
+            case Type::Variation::MULTI:
+                break;
+            case Type::Variation::OPTIONAL:
+                break;
+            case Type::Variation::POINTER:
+                break;
+            case Type::Variation::PRIMITIVE: {
+                const auto *primitive_type = var_type->as<PrimitiveType>();
+                if (primitive_type->type_name != "str") {
+                    continue;
+                }
+                // Get the allocation of the variable
+                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+                llvm::Value *str_ptr = IR::aligned_load(builder, str_type->getPointerTo(), alloca, var_name + "_cleanup");
+                builder.CreateCall(c_functions.at(FREE), {str_ptr});
+                break;
+            }
+            case Type::Variation::RANGE:
+                break;
+            case Type::Variation::TUPLE:
+                break;
+            case Type::Variation::UNKNOWN:
+                break;
+            case Type::Variation::VARIANT: {
+                const auto *variant_type = var_type->as<VariantType>();
+                if (!variant_type->is_err_variant) {
+                    break;
+                }
                 const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
                 llvm::StructType *error_type = type_map.at("__flint_type_err");
@@ -197,17 +276,8 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                 llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {err_message});
                 free_call->setMetadata("comment",
                     llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from variant '" + var_name + "'")));
+                break;
             }
-        } else if (dynamic_cast<const ErrorSetType *>(var_type.get())) {
-            const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
-            llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-            llvm::StructType *error_type = type_map.at("__flint_type_err");
-            llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
-            llvm::Value *err_message = IR::aligned_load(builder, str_type, err_message_ptr, "err_message");
-            llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {err_message});
-            free_call->setMetadata("comment",
-                llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from error '" + var_name + "'")));
         }
     }
     return true;
@@ -217,9 +287,9 @@ bool Generator::Statement::generate_array_cleanup(llvm::IRBuilder<> &builder, ll
     // Now get the complexity of the array
     size_t complexity = 0;
     while (true) {
-        if (ArrayType *element_array_type = dynamic_cast<ArrayType *>(array_type->type.get())) {
+        if (array_type->type->get_variation() == Type::Variation::ARRAY) {
             complexity++;
-            array_type = element_array_type;
+            array_type = array_type->type->as<ArrayType>();
             continue;
         } else if (array_type->type->to_string() == "str") {
             complexity++;
@@ -238,19 +308,21 @@ bool Generator::Statement::generate_data_cleanup( //
     const std::shared_ptr<Type> &data_type        //
 ) {
     size_t field_id = 0;
-    const DataNode *data_node = dynamic_cast<const DataType *>(data_type.get())->data_node;
+    const DataNode *data_node = data_type->as<DataType>()->data_node;
     auto type = IR::get_type(ctx.parent->getParent(), data_type);
     llvm::Value *data_ptr = IR::aligned_load(builder, type.first->getPointerTo(), alloca, "data." + data_type->to_string() + ".ptr");
     for (const auto &field : data_node->fields) {
         const std::shared_ptr<Type> &field_type = std::get<1>(field);
-        if (dynamic_cast<const DataType *>(field_type.get())) {
+        const auto field_variation = field_type->get_variation();
+        if (field_variation == Type::Variation::DATA) {
             llvm::Type *new_base_type = IR::get_type(ctx.parent->getParent(), field_type).first;
             llvm::Value *field_ptr = builder.CreateStructGEP(base_type, data_ptr, field_id);
             if (!generate_data_cleanup(builder, ctx, new_base_type, field_ptr, field_type)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;
             }
-        } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(field_type.get())) {
+        } else if (field_variation == Type::Variation::ARRAY) {
+            const auto *array_type = field_type->as<ArrayType>();
             llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
             llvm::Value *field_ptr = builder.CreateStructGEP(base_type, data_ptr, field_id);
             llvm::Value *arr_ptr = IR::aligned_load(builder, arr_type->getPointerTo(), field_ptr);
@@ -362,10 +434,11 @@ bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, 
 
     // Go through all of the return types and check if there is a string value under them, create an empty string for those
     std::vector<std::shared_ptr<Type>> return_types;
-    if (const GroupType *group_type = dynamic_cast<const GroupType *>(throw_node->throw_value->type.get())) {
-        return_types = group_type->types;
+    const std::shared_ptr<Type> &throw_type = throw_node->throw_value->type;
+    if (throw_type->get_variation() == Type::Variation::GROUP) {
+        return_types = throw_type->as<GroupType>()->types;
     } else {
-        return_types.emplace_back(throw_node->throw_value->type);
+        return_types.emplace_back(throw_type);
     }
 
     // Properly "create" return values of complex types
@@ -728,13 +801,12 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         return false;
     }
     llvm::Value *iterable_expr = iterable.value().front();
-    const ArrayType *array_type = dynamic_cast<const ArrayType *>(for_node->iterable->type.get());
-    const bool is_array = array_type != nullptr;
     llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Value *length = nullptr;
     llvm::Value *value_ptr = nullptr;
     llvm::Type *element_type = nullptr;
-    if (is_array) {
+    if (for_node->iterable->type->get_variation() == Type::Variation::ARRAY) {
+        const auto *array_type = for_node->iterable->type->as<ArrayType>();
         llvm::Value *dim_ptr = builder.CreateStructGEP(str_type, iterable_expr, 0, "dim_ptr");
         llvm::Value *dimensionality = IR::aligned_load(builder, builder.getInt64Ty(), dim_ptr, "dimensionality");
         llvm::AllocaInst *length_alloca = builder.CreateAlloca(builder.getInt64Ty(), 0, nullptr, "length_alloca");
@@ -874,7 +946,7 @@ bool Generator::Statement::generate_optional_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Check if it's the default branch
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -886,14 +958,14 @@ bool Generator::Statement::generate_optional_switch_statement( //
             branch_blocks.push_back(llvm::BasicBlock::Create(context, "branch_" + std::to_string(i), ctx.parent));
         }
         builder.SetInsertPoint(branch_blocks[i]);
-        const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
-        if (match_node != nullptr) {
-            auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_statement->switcher.get());
-            if (switcher_var_node == nullptr) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_MATCH) {
+            const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
+            if (switch_statement->switcher->get_variation() != ExpressionNode::Variation::VARIABLE) {
                 // Switching on non-variables is not supported yet
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return false;
             }
+            const auto *switcher_var_node = switch_statement->switcher->as<VariableNode>();
             const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
             const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
             llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
@@ -920,12 +992,12 @@ bool Generator::Statement::generate_optional_switch_statement( //
     builder.SetInsertPoint(pred_block);
 
     // Because it's a switch on an optional we can have a simple conditional branch here instead of the switch
-    auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_statement->switcher.get());
-    if (switcher_var_node == nullptr) {
+    if (switch_statement->switcher->get_variation() != ExpressionNode::Variation::VARIABLE) {
         // Switching on non-variables is not supported yet
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return false;
     }
+    const auto *switcher_var_node = switch_statement->switcher->as<VariableNode>();
     const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
@@ -958,17 +1030,16 @@ bool Generator::Statement::generate_variant_switch_statement( //
     llvm::BasicBlock *default_block = nullptr;
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge");
 
-    auto switcher_var_node = dynamic_cast<const VariableNode *>(switch_statement->switcher.get());
-    if (switcher_var_node == nullptr) {
+    if (switch_statement->switcher->get_variation() != ExpressionNode::Variation::VARIABLE) {
         // Switching on non-variables is not supported yet
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return false;
     }
+    const auto *switcher_var_node = switch_statement->switcher->as<VariableNode>();
     const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     // The switcher variable must be a variant type
-    const VariantType *variant_type = dynamic_cast<const VariantType *>(switch_statement->switcher->type.get());
-    assert(variant_type != nullptr);
+    const auto *variant_type = switch_statement->switcher->type->as<VariantType>();
     llvm::StructType *variant_struct_type;
     if (variant_type->is_err_variant) {
         variant_struct_type = type_map.at("__flint_type_err");
@@ -983,7 +1054,7 @@ bool Generator::Statement::generate_variant_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Check if it's the default branch, if it is this is the last branch to generate
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -997,9 +1068,7 @@ bool Generator::Statement::generate_variant_switch_statement( //
         }
         builder.SetInsertPoint(branch_blocks[i]);
 
-        const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
-        assert(match_node != nullptr);
-
+        const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
         const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name;
         llvm::Value *real_value_reference = nullptr;
         if (variant_type->is_err_variant) {
@@ -1042,11 +1111,9 @@ bool Generator::Statement::generate_variant_switch_statement( //
         if (branch_blocks[i] == default_block) {
             continue;
         }
-        const SwitchMatchNode *match_node = dynamic_cast<const SwitchMatchNode *>(branch.matches.front().get());
-        assert(match_node != nullptr);
+        const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
         if (variant_type->is_err_variant) {
-            const ErrorSetType *err_set_type = dynamic_cast<const ErrorSetType *>(match_node->type.get());
-            assert(err_set_type != nullptr);
+            const auto *err_set_type = match_node->type->as<ErrorSetType>();
             switch_inst->addCase(builder.getInt32(err_set_type->error_node->error_id), branch_blocks[i]);
         } else {
             switch_inst->addCase(builder.getInt8(match_node->id), branch_blocks[i]);
@@ -1075,10 +1142,11 @@ bool Generator::Statement::generate_switch_statement( //
     }
 
     // Generate the switch branches specially if we switch on various types
-    if (dynamic_cast<const OptionalType *>(switch_statement->switcher->type.get())) {
+    const auto switcher_type_variation = switch_statement->switcher->type->get_variation();
+    if (switcher_type_variation == Type::Variation::OPTIONAL) {
         return generate_optional_switch_statement(builder, ctx, switch_statement, switch_value);
     }
-    if (dynamic_cast<const VariantType *>(switch_statement->switcher->type.get())) {
+    if (switcher_type_variation == Type::Variation::VARIANT) {
         return generate_variant_switch_statement(builder, ctx, switch_statement, switch_value);
     }
 
@@ -1095,7 +1163,7 @@ bool Generator::Statement::generate_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Check if it's the default branch
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1122,7 +1190,7 @@ bool Generator::Statement::generate_switch_statement( //
 
     // Create the switch instruction. Branch to the default block, if one exists, when no default block exists we jump to the merge
     // block
-    if (dynamic_cast<const ErrorSetType *>(switch_statement->switcher->type.get())) {
+    if (switch_statement->switcher->type->get_variation() == Type::Variation::ERROR_SET) {
         switch_value = builder.CreateExtractValue(switch_value, {1}, "error_value");
     }
     llvm::SwitchInst *switch_inst = nullptr;
@@ -1136,17 +1204,17 @@ bool Generator::Statement::generate_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Skip the default node, this block is not targetted directly by any switch expression
-        if (dynamic_cast<const DefaultNode *>(branch.matches.front().get())) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
             continue;
         }
 
         // Generate the case values
         for (auto &match : branch.matches) {
-            if (const LiteralNode *literal_node = dynamic_cast<const LiteralNode *>(match.get())) {
+            if (match->get_variation() == ExpressionNode::Variation::LITERAL) {
+                const auto *literal_node = match->as<LiteralNode>();
                 if (std::holds_alternative<LitError>(literal_node->value)) {
                     const LitError &lit_err = std::get<LitError>(literal_node->value);
-                    const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(lit_err.error_type.get());
-                    assert(error_type != nullptr);
+                    const auto *error_type = lit_err.error_type->as<ErrorSetType>();
                     const auto pair = error_type->error_node->get_id_msg_pair_of_value(lit_err.value);
                     assert(pair.has_value());
                     switch_inst->addCase(builder.getInt32(pair.value().first), branch_blocks[i]);
@@ -1254,8 +1322,7 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     } else {
         // Generate the implicit switch on the error value
         assert(catch_node->scope->body.size() == 1);
-        const SwitchStatement *switch_statement = dynamic_cast<const SwitchStatement *>(catch_node->scope->body.front().get());
-        assert(switch_statement != nullptr);
+        const auto *switch_statement = catch_node->scope->body.front()->as<SwitchStatement>();
         // Add the error variable to the list of allocations (temporarily)
         err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::__flint_value_err";
         ctx.allocations.insert({err_alloca_name, ctx.allocations.at(err_ret_name)});
@@ -1328,7 +1395,7 @@ bool Generator::Statement::generate_declaration( //
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
         Expression::garbage_type garbage;
-        const bool is_reference = dynamic_cast<const OptionalType *>(declaration_node->type.get()) != nullptr;
+        const bool is_reference = declaration_node->type->get_variation() == Type::Variation::OPTIONAL;
         auto expr_val = Expression::generate_expression(                                        //
             builder, ctx, garbage, 0, declaration_node->initializer.value().get(), is_reference //
         );
@@ -1344,23 +1411,31 @@ bool Generator::Statement::generate_declaration( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
-        const auto *typecast_node = dynamic_cast<const TypeCastNode *>(declaration_node->initializer.value().get());
-        const auto *tuple_type = dynamic_cast<const TupleType *>(declaration_node->type.get());
-        if (tuple_type != nullptr) {
-            assert(expr_val.value().size() == 1);
-            IR::aligned_store(builder, expr_val.value().front(), alloca);
-            return true;
-        } else if (dynamic_cast<const OptionalType *>(declaration_node->type.get()) != nullptr && //
-            (typecast_node == nullptr || typecast_node->expr->type->to_string() != "void?")       //
-        ) {
-            // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
-            // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
-            // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead
-            // to a double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just
-            // checking whether the LLVM type of the expression's type matches our expected optional type
-            llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
-            const bool types_match = expr_val.value().front()->getType() == var_type;
-            if (!types_match) {
+        switch (declaration_node->type->get_variation()) {
+            default:
+                break;
+            case Type::Variation::TUPLE: {
+                assert(expr_val.value().size() == 1);
+                IR::aligned_store(builder, expr_val.value().front(), alloca);
+                return true;
+            }
+            case Type::Variation::OPTIONAL: {
+                if (declaration_node->initializer.value()->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
+                    const auto *typecast_node = declaration_node->initializer.value()->as<TypeCastNode>();
+                    if (typecast_node->expr->type->to_string() == "void?") {
+                        break;
+                    }
+                }
+                // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
+                // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
+                // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead
+                // to a double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just
+                // checking whether the LLVM type of the expression's type matches our expected optional type
+                llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
+                const bool types_match = expr_val.value().front()->getType() == var_type;
+                if (types_match) {
+                    break;
+                }
                 // Get the pointer to the i1 element of the optional variable and set it to 1
                 llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, alloca, 0, declaration_node->name + "_has_value_ptr");
                 llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt1(1), var_has_value_ptr);
@@ -1374,11 +1449,15 @@ bool Generator::Statement::generate_declaration( //
                         llvm::MDString::get(context, "Store result of expr in var '" + declaration_node->name + "'")));
                 return true;
             }
-        } else if (const VariantType *var_type = dynamic_cast<const VariantType *>(declaration_node->type.get())) {
-            // We first check of which type the rhs really is. If it's a typecast, then we know it's one of the "inner" variations of
-            // the variant, if it's a variant directly then we can store the variant in the variable as is. This means we dont need to
-            // do anything if the typecast is a nullptr
-            if (typecast_node != nullptr) {
+            case Type::Variation::VARIANT: {
+                const auto *var_type = declaration_node->type->as<VariantType>();
+                // We first check of which type the rhs really is. If it's a typecast, then we know it's one of the "inner" variations of
+                // the variant, if it's a variant directly then we can store the variant in the variable as is. This means we dont need to
+                // do anything if the typecast is a nullptr
+                if (declaration_node->initializer.value()->get_variation() != ExpressionNode::Variation::TYPE_CAST) {
+                    break;
+                }
+                const auto *typecast_node = declaration_node->initializer.value()->as<TypeCastNode>();
                 // First, we need to get the ID of the type within the variant
                 std::optional<unsigned int> index = var_type->get_idx_of_type(typecast_node->expr->type);
                 if (!index.has_value()) {
@@ -1424,7 +1503,7 @@ bool Generator::Statement::generate_declaration( //
 
 bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, GenerationContext &ctx, const AssignmentNode *assignment_node) {
     Expression::garbage_type garbage;
-    const bool is_reference = dynamic_cast<const OptionalType *>(assignment_node->type.get()) != nullptr;
+    const bool is_reference = assignment_node->type->get_variation() == Type::Variation::OPTIONAL;
     auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get(), is_reference);
     if (!expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
@@ -1451,24 +1530,25 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
     llvm::Value *const lhs = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
     // If its a group type we have to handle it differently than when its a single value
-    if (const GroupType *group_type = dynamic_cast<const GroupType *>(assignment_node->expression->type.get())) {
-        if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(assignment_node->type.get())) {
-            if (group_type->types != tuple_type->types) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-            llvm::StructType *tuple_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), assignment_node->type, false);
-            for (size_t i = 0; i < tuple_type->types.size(); i++) {
-                llvm::Value *element_ptr = builder.CreateStructGEP(tuple_struct_type, lhs, i, "tuple_elem_" + std::to_string(i));
-                IR::aligned_store(builder, expr.value()[i], element_ptr);
-            }
-            return true;
-        } else {
+    if (assignment_node->expression->type->get_variation() == Type::Variation::GROUP) {
+        const auto *group_type = assignment_node->expression->type->as<GroupType>();
+        if (assignment_node->type->get_variation() != Type::Variation::TUPLE) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
-    } else if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(variable_type.get())) {
-        const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
+        const auto *tuple_type = assignment_node->type->as<TupleType>();
+        if (group_type->types != tuple_type->types) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        llvm::StructType *tuple_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), assignment_node->type, false);
+        for (size_t i = 0; i < tuple_type->types.size(); i++) {
+            llvm::Value *element_ptr = builder.CreateStructGEP(tuple_struct_type, lhs, i, "tuple_elem_" + std::to_string(i));
+            IR::aligned_store(builder, expr.value()[i], element_ptr);
+        }
+        return true;
+    } else if (variable_type->get_variation() == Type::Variation::OPTIONAL) {
+        const auto *optional_type = variable_type->as<OptionalType>();
         llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), variable_type, false);
         if (optional_type->base_type->to_string() == "str") {
             llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
@@ -1482,6 +1562,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         // double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just checking
         // whether the LLVM type of the expression's type matches our expected optional type
         const bool types_match = expr.value().front()->getType() == var_type;
+        const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
         if (!types_match && (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?")) {
             // Get the pointer to the i1 element of the optional variable and set it to 1
             llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, lhs, 0, assignment_node->name + "_has_value_ptr");
@@ -1511,12 +1592,13 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
             return true;
         }
-    } else if (const VariantType *var_type = dynamic_cast<const VariantType *>(assignment_node->type.get())) {
+    } else if (assignment_node->type->get_variation() == Type::Variation::VARIANT) {
+        const auto *var_type = assignment_node->type->as<VariantType>();
         // We first check of which type the rhs really is. If it's a typecast, then we know it's one of the "inner" variations of the
         // variant, if it's a variant directly then we can store the variant in the variable as is. This means we dont need to do
         // anything if the typecast is a nullptr
-        const TypeCastNode *typecast_node = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
-        if (typecast_node != nullptr) {
+        if (assignment_node->expression->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
+            const auto *typecast_node = assignment_node->expression->as<TypeCastNode>();
             // First, we need to get the ID of the type within the variant
             std::optional<unsigned int> index = var_type->get_idx_of_type(typecast_node->expr->type);
             if (!index.has_value()) {
@@ -1596,7 +1678,7 @@ bool Generator::Statement::generate_data_field_assignment( //
 ) {
     // Just save the result of the expression in the field of the data
     Expression::garbage_type garbage;
-    const bool is_reference = dynamic_cast<const OptionalType *>(data_field_assignment->field_type.get()) != nullptr;
+    const bool is_reference = data_field_assignment->field_type->get_variation() == Type::Variation::OPTIONAL;
     group_mapping expression = Expression::generate_expression(                         //
         builder, ctx, garbage, 0, data_field_assignment->expression.get(), is_reference //
     );
@@ -1656,15 +1738,16 @@ bool Generator::Statement::generate_data_field_assignment( //
 
     // Get the type of the field we're assigning to
     const DataType *struct_data_type = dynamic_cast<const DataType *>(data_field_assignment->data_type.get());
-    if (struct_data_type && data_field_assignment->field_id < struct_data_type->data_node->fields.size()) {
+    if (struct_data_type != nullptr && data_field_assignment->field_id < struct_data_type->data_node->fields.size()) {
         // Get the field type from the struct definition
         auto field_it = struct_data_type->data_node->fields.begin();
         std::advance(field_it, data_field_assignment->field_id);
         const std::shared_ptr<Type> &field_type = field_it->second;
 
         // Check if the field is an optional type
-        if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(field_type.get())) {
-            const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(data_field_assignment->expression.get());
+        if (field_type->get_variation() == Type::Variation::OPTIONAL) {
+            const auto *optional_type = field_type->as<OptionalType>();
+            const TypeCastNode *rhs_cast = data_field_assignment->expression->as<TypeCastNode>();
             llvm::StructType *field_optional_type = IR::add_and_or_get_type(ctx.parent->getParent(), field_type, false);
 
             // Handle special cases (like str cleanup)
@@ -1948,11 +2031,11 @@ bool Generator::Statement::generate_stacked_grouped_assignment( //
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    const GroupType *expr_type = dynamic_cast<const GroupType *>(stacked_assignment->expression->type.get());
-    if (expr_type == nullptr) {
+    if (stacked_assignment->expression->type->get_variation() != Type::Variation::GROUP) {
         THROW_BASIC_ERR(ERR_PARSING);
         return false;
     }
+    const auto *expr_group_type = stacked_assignment->expression->type->as<GroupType>();
     // Now we can create the "base expression" which then gets accessed
     group_mapping base_expr_res = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->base_expression.get());
     if (!clear_garbage(builder, garbage)) {
@@ -1972,9 +2055,9 @@ bool Generator::Statement::generate_stacked_grouped_assignment( //
     for (size_t i = 0; i < expression_result.value().size(); i++) {
         llvm::Value *expression = expression_result.value().at(i);
 
-        if (expr_type->types.at(i) != stacked_assignment->field_types.at(i)) {
-            expression = Expression::generate_type_cast(                                                //
-                builder, ctx, expression, expr_type->types.at(i), stacked_assignment->field_types.at(i) //
+        if (expr_group_type->types.at(i) != stacked_assignment->field_types.at(i)) {
+            expression = Expression::generate_type_cast(                                                      //
+                builder, ctx, expression, expr_group_type->types.at(i), stacked_assignment->field_types.at(i) //
             );
         }
         if (stacked_assignment->field_types.at(i)->to_string() == "bool8") {
@@ -2000,12 +2083,12 @@ bool Generator::Statement::generate_unary_op_statement( //
     GenerationContext &ctx,                             //
     const UnaryOpStatement *unary_op                    //
 ) {
-    const VariableNode *var_node = dynamic_cast<const VariableNode *>(unary_op->operand.get());
-    if (var_node == nullptr) {
+    if (unary_op->operand->get_variation() != ExpressionNode::Variation::VARIABLE) {
         // Expression is not a variable
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
+    const auto *var_node = unary_op->operand->as<VariableNode>();
     const unsigned int scope_id = std::get<1>(ctx.scope->variables.at(var_node->name));
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
     llvm::Value *const alloca = ctx.allocations.at(var_name);
@@ -2018,7 +2101,7 @@ bool Generator::Statement::generate_unary_op_statement( //
     var_value->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + var_node->name + "'")));
     llvm::Value *operation_result = nullptr;
 
-    if (dynamic_cast<const GroupType *>(var_node->type.get())) {
+    if (var_node->type->get_variation() == Type::Variation::GROUP) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
