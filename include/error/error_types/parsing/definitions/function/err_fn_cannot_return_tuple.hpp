@@ -21,8 +21,7 @@ class ErrFnCannotReturnTuple : public BaseError {
         std::ostringstream oss;
         oss << BaseError::to_string() << "├─ Functions cannot return a tuple type directly\n";
         oss << "└─ If you want to return multiple values, change the return type to '" << CYAN << "(";
-        const TupleType *tuple_type = dynamic_cast<const TupleType *>(return_type.get());
-        assert(tuple_type != nullptr);
+        const auto *tuple_type = return_type->as<TupleType>();
         for (auto it = tuple_type->types.begin(); it != tuple_type->types.end(); ++it) {
             if (it != tuple_type->types.begin()) {
                 oss << ", ";

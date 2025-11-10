@@ -9,8 +9,7 @@ std::optional<const ErrorNode *> ErrorNode::get_parent_node() const {
     }
     std::optional<std::shared_ptr<Type>> parent_type = Type::get_type_from_str(parent_error);
     assert(parent_type.has_value());
-    const ErrorSetType *parent_set_type = dynamic_cast<const ErrorSetType *>(parent_type.value().get());
-    assert(parent_set_type != nullptr);
+    const auto *parent_set_type = parent_type.value()->as<ErrorSetType>();
     return parent_set_type->error_node;
 }
 

@@ -21,7 +21,7 @@ class ErrExprTupleAccessOOB : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        const TupleType *tuple_type_ptr = dynamic_cast<const TupleType *>(tuple_type.get());
+        const auto *tuple_type_ptr = tuple_type->as<TupleType>();
         oss << BaseError::to_string() << "├─ Out of bounds access on tuple type '" << YELLOW << tuple_type->to_string() << DEFAULT << "'\n";
         oss << "└─ The tuples last element is '" << CYAN << "$" << std::to_string(tuple_type_ptr->types.size() - 1) << DEFAULT << "'";
         return oss.str();
@@ -30,7 +30,7 @@ class ErrExprTupleAccessOOB : public BaseError {
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        const TupleType *tuple_type_ptr = dynamic_cast<const TupleType *>(tuple_type.get());
+        const auto *tuple_type_ptr = tuple_type->as<TupleType>();
         d.message = "Out of bounds access on tuple type, tuple has " + std::to_string(tuple_type_ptr->types.size()) + " elements";
         return d;
     }

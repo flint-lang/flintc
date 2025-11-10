@@ -268,7 +268,8 @@ std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode *file_node, 
     std::vector<dependency> dependencies;
 
     for (const std::unique_ptr<DefinitionNode> &node : file_node->definitions) {
-        if (const auto *import_node = dynamic_cast<const ImportNode *>(node.get())) {
+        if (node->get_variation() == DefinitionNode::Variation::IMPORT) {
+            const auto *import_node = node->as<ImportNode>();
             dependencies.emplace_back(create_dependency(*import_node, path));
         }
     }

@@ -1103,22 +1103,22 @@ llvm::Value *Generator::Module::String::generate_string_declaration( //
         return builder.CreateCall(create_str_fn, {zero}, "empty_str");
     }
 
-    // If there is a rhs, we first check if its a literal node or not. If its a literal string the declaration looks differently than if
-    // its a variable
-    if (const LiteralNode *literal = dynamic_cast<const LiteralNode *>(rhs_expr.value())) {
-        // Get the `init_str` function
-        llvm::Function *init_str_fn = string_manip_functions.at("init_str");
-
-        // Get the length of the literal
-        const size_t len = std::get<LitStr>(literal->value).value.length();
-        llvm::Value *len_val = llvm::ConstantInt::get(builder.getInt64Ty(), len);
-
-        // Call the `init_str` function
-        return builder.CreateCall(init_str_fn, {rhs, len_val}, "str_init");
-    } else {
+    // If there is a rhs, we first check if its a literal node or not.
+    if (rhs_expr.value()->get_variation() != ExpressionNode::Variation::LITERAL) {
         // Just return the rhs, as this is a declaration the lhs definitely doesnt have a value saved on it
         return rhs;
     }
+    const auto *literal = rhs_expr.value()->as<LiteralNode>();
+    // If its a literal string the declaration looks differently than if its a variable
+    // Get the `init_str` function
+    llvm::Function *init_str_fn = string_manip_functions.at("init_str");
+
+    // Get the length of the literal
+    const size_t len = std::get<LitStr>(literal->value).value.length();
+    llvm::Value *len_val = llvm::ConstantInt::get(builder.getInt64Ty(), len);
+
+    // Call the `init_str` function
+    return builder.CreateCall(init_str_fn, {rhs, len_val}, "str_init");
 }
 
 void Generator::Module::String::generate_string_assignment( //
@@ -1129,7 +1129,8 @@ void Generator::Module::String::generate_string_assignment( //
 ) {
     // If the rhs is a string literal we need to do different code than if it is a string variable. The expression contains a pointer to
     // the str in memory if its a variable, otherwise it will contain a pointer to the chars (char*).
-    if (const LiteralNode *lit = dynamic_cast<const LiteralNode *>(expression_node)) {
+    if (expression_node->get_variation() == ExpressionNode::Variation::LITERAL) {
+        const auto *lit = expression_node->as<LiteralNode>();
         // Get the `assign_lit` function
         llvm::Function *assign_lit_fn = string_manip_functions.at("assign_lit");
 
@@ -1167,11 +1168,11 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
         // Both sides are variables
         if (is_append) {
             llvm::Function *append_str_fn = string_manip_functions.at("append_str");
-            const VariableNode *str_var = dynamic_cast<const VariableNode *>(lhs_expr);
-            if (str_var == nullptr) {
+            if (lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
+            const auto *str_var = lhs_expr->as<VariableNode>();
             const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(str_var->name));
             llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + str_var->name);
             builder.CreateCall(append_str_fn, {variable_alloca, rhs});
@@ -1179,20 +1180,20 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
         } else {
             llvm::Function *add_str_str_fn = string_manip_functions.at("add_str_str");
             llvm::Value *addition_result = builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
-            const VariableNode *lhs_var = dynamic_cast<const VariableNode *>(lhs_expr);
-            const VariableNode *rhs_var = dynamic_cast<const VariableNode *>(rhs_expr);
+            const bool is_lhs_var = lhs_expr->get_variation() == ExpressionNode::Variation::VARIABLE;
+            const bool is_rhs_var = rhs_expr->get_variation() == ExpressionNode::Variation::VARIABLE;
             if (garbage.count(expr_depth) == 0) {
-                if (lhs_var == nullptr) {
+                if (is_lhs_var) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
                 }
-                if (rhs_var == nullptr) {
+                if (is_rhs_var) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), rhs);
                 }
             } else {
-                if (lhs_var == nullptr) {
+                if (is_lhs_var) {
                     garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), lhs);
                 }
-                if (rhs_var == nullptr) {
+                if (is_rhs_var) {
                     garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), rhs);
                 }
             }
@@ -1200,13 +1201,13 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
         }
     } else if (lhs_lit == nullptr && rhs_lit != nullptr) {
         // Only rhs is literal
-        const VariableNode *lhs_var = dynamic_cast<const VariableNode *>(lhs_expr);
         if (is_append) {
             llvm::Function *append_lit_fn = string_manip_functions.at("append_lit");
-            if (lhs_var == nullptr) {
+            if (lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
+            const auto *lhs_var = lhs_expr->as<VariableNode>();
             const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(lhs_var->name));
             llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + lhs_var->name);
             builder.CreateCall(append_lit_fn, {variable_alloca, rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())});
@@ -1218,7 +1219,7 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
                 std::get<LitStr>(rhs_lit->value).value.length() //
             );
             llvm::Value *addition_result = builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
-            if (lhs_var == nullptr) {
+            if (lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
                 if (garbage.count(expr_depth) == 0) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
                 } else {
@@ -1235,7 +1236,7 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
             std::get<LitStr>(lhs_lit->value).value.length() //
         );
         llvm::Value *addition_result = builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
-        if (dynamic_cast<const VariableNode *>(rhs_expr) == nullptr) {
+        if (rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
             if (garbage.count(expr_depth) == 0) {
                 garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), rhs);
             } else {

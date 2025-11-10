@@ -102,7 +102,8 @@ bool Parser::resolve_all_unknown_types() {
             }
         }
         for (auto &definition : parser.file_node_ptr->definitions) {
-            if (VariantNode *variant_node = dynamic_cast<VariantNode *>(definition.get())) {
+            if (definition->get_variation() == DefinitionNode::Variation::VARIANT) {
+                auto *variant_node = definition->as<VariantNode>();
                 for (auto &type : variant_node->possible_types) {
                     if (!Type::resolve_type(type.second)) {
                         return false;

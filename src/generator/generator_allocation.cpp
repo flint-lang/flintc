@@ -544,7 +544,7 @@ void Generator::Allocation::generate_array_indexing_allocation(              //
 ) {
     size_t idx_size = indexing_expressions.size();
     for (const auto &idx_expr : indexing_expressions) {
-        if (dynamic_cast<const RangeExpressionNode *>(idx_expr.get())) {
+        if (idx_expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
             idx_size *= 2;
             break;
         }
@@ -594,7 +594,7 @@ bool Generator::Allocation::generate_expression_allocations(                    
         case ExpressionNode::Variation::CALL: {
             const auto *node = expression->as<CallNodeExpression>();
             if (!generate_call_allocations(builder, parent, scope, allocations, imported_core_modules, //
-                    dynamic_cast<const CallNodeBase *>(node))                                          //
+                    static_cast<const CallNodeBase *>(node))                                           //
             ) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;

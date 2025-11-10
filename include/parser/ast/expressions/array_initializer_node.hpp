@@ -17,8 +17,7 @@ class ArrayInitializerNode : public ExpressionNode {
         ) :
         length_expressions(std::move(length_expressions)),
         initializer_value(std::move(initializer_value)) {
-        const ArrayType *arr_type = dynamic_cast<const ArrayType *>(type.get());
-        assert(arr_type != nullptr);
+        const auto *arr_type = type->as<ArrayType>();
         element_type = arr_type->type;
         this->type = type;
     }

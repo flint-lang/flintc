@@ -314,7 +314,7 @@ bool Analyzer::analyze_statement(const Context &ctx, const StatementNode *statem
 
 bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expression) {
     // Check if the type is a pointer type and if we are not in a context which allows pointer types
-    if (dynamic_cast<const PointerType *>(expression->type.get())) {
+    if (expression->type->get_variation() == Type::Variation::POINTER) {
         if (!ctx.is_extern) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;

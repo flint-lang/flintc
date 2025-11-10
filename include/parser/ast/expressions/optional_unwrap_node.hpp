@@ -9,7 +9,8 @@ class OptionalUnwrapNode : public ExpressionNode {
   public:
     OptionalUnwrapNode(std::unique_ptr<ExpressionNode> &base_expr) :
         base_expr(std::move(base_expr)) {
-        if (const OptionalType *base_type = dynamic_cast<const OptionalType *>(this->base_expr->type.get())) {
+        if (this->base_expr->type->get_variation() == Type::Variation::OPTIONAL) {
+            const auto *base_type = this->base_expr->type->as<OptionalType>();
             this->type = base_type->base_type;
         } else {
             this->type = this->base_expr->type;

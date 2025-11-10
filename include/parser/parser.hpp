@@ -593,12 +593,15 @@ class Parser {
                     const auto &path_pair = std::get<std::pair<std::optional<std::string>, std::string>>(import->path);
                     const FileNode *file_node = Resolver::file_map.at(path_pair.second);
                     for (const auto &definition : file_node->definitions) {
-                        if (const DataNode *data_node = dynamic_cast<const DataNode *>(definition.get())) {
+                        const auto definition_variation = definition->get_variation();
+                        if (definition_variation == DefinitionNode::Variation::DATA) {
+                            const auto *data_node = definition->as<DataNode>();
                             if (data_node->name == type_name) {
                                 tokens.first += 2;
                                 return true;
                             }
-                        } else if (const EnumNode *enum_node = dynamic_cast<const EnumNode *>(definition.get())) {
+                        } else if (definition_variation == DefinitionNode::Variation::ENUM) {
+                            const auto *enum_node = definition->as<EnumNode>();
                             if (enum_node->name == type_name) {
                                 tokens.first += 2;
                                 return true;
