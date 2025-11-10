@@ -1180,20 +1180,20 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
         } else {
             llvm::Function *add_str_str_fn = string_manip_functions.at("add_str_str");
             llvm::Value *addition_result = builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
-            const bool is_lhs_var = lhs_expr->get_variation() == ExpressionNode::Variation::VARIABLE;
-            const bool is_rhs_var = rhs_expr->get_variation() == ExpressionNode::Variation::VARIABLE;
+            const bool is_lhs_not_var = lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE;
+            const bool is_rhs_not_var = rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE;
             if (garbage.count(expr_depth) == 0) {
-                if (is_lhs_var) {
+                if (is_lhs_not_var) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
                 }
-                if (is_rhs_var) {
+                if (is_rhs_not_var) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), rhs);
                 }
             } else {
-                if (is_lhs_var) {
+                if (is_lhs_not_var) {
                     garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), lhs);
                 }
-                if (is_rhs_var) {
+                if (is_rhs_not_var) {
                     garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), rhs);
                 }
             }
