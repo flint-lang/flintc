@@ -10,46 +10,63 @@ void LspServer::add_nodes_from_file_to_completions(  //
     std::vector<const ImportNode *> &imported_files, //
     const bool is_root_file                          //
 ) {
-    for (const std::unique_ptr<DefinitionNode> &node : file_node->definitions) {
-        if (const FunctionNode *function_node = dynamic_cast<const FunctionNode *>(node.get())) {
-            if (function_node->name == "_main") {
-                continue;
+    for (const std::unique_ptr<DefinitionNode> &definition : file_node->definitions) {
+        switch (definition->get_variation()) {
+            case DefinitionNode::Variation::DATA: {
+                const auto *node = definition->as<DataNode>();
+                completions.emplace_back(node->name, CompletionItemKind::Class, "The '" + node->name + "' data type", node->name, false);
+                break;
             }
-            // Remove the 'fc_' prefix from the function names if it's an internal function. If it's extenal the function name can be used
-            // as is
-            std::string fn_name = function_node->is_extern //
-                ? std::string(function_node->name)         //
-                : std::string(function_node->name.substr(3));
-            completions.emplace_back(fn_name, CompletionItemKind::Function, "The '" + fn_name + "' function", fn_name, false);
-        } else if (const ImportNode *import_node = dynamic_cast<const ImportNode *>(node.get())) {
-            if (!is_root_file) {
-                // Only add imports if it's the root node we are in
-                continue;
+            case DefinitionNode::Variation::ENTITY:
+                // Entities are not supported yet
+                break;
+            case DefinitionNode::Variation::ENUM: {
+                const auto *node = definition->as<EnumNode>();
+                completions.emplace_back(node->name, CompletionItemKind::Class, "The '" + node->name + "' enum type", node->name, false);
+                break;
             }
-            // Only add "real" file imports to the list of imported files, skip library imports like 'use Core.xxx'
-            if (std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(import_node->path)) {
-                imported_files.emplace_back(import_node);
+            case DefinitionNode::Variation::ERROR: {
+                const auto *node = definition->as<ErrorNode>();
+                completions.emplace_back(node->name, CompletionItemKind::Class, "The '" + node->name + "' error type", node->name, false);
+                break;
             }
-        } else if (const DataNode *data_node = dynamic_cast<const DataNode *>(node.get())) {
-            // Add the data type to the completions list
-            completions.emplace_back(                                                                                         //
-                data_node->name, CompletionItemKind::Class, "The '" + data_node->name + "' data type", data_node->name, false //
-            );
-        } else if (const EnumNode *enum_node = dynamic_cast<const EnumNode *>(node.get())) {
-            // Add the enum type to the completions list
-            completions.emplace_back(                                                                                         //
-                enum_node->name, CompletionItemKind::Class, "The '" + enum_node->name + "' enum type", enum_node->name, false //
-            );
-        } else if (const VariantNode *variant_node = dynamic_cast<const VariantNode *>(node.get())) {
-            // Add the variant type to the completions list
-            completions.emplace_back(                                                                                                     //
-                variant_node->name, CompletionItemKind::Class, "The '" + variant_node->name + "' variant type", variant_node->name, false //
-            );
-        } else if (const ErrorNode *error_node = dynamic_cast<const ErrorNode *>(node.get())) {
-            // Add the error type to the completions list
-            completions.emplace_back(                                                                                             //
-                error_node->name, CompletionItemKind::Class, "The '" + error_node->name + "' error type", error_node->name, false //
-            );
+            case DefinitionNode::Variation::FUNC:
+                // Func modules are not supported yet
+                break;
+            case DefinitionNode::Variation::FUNCTION: {
+                const auto *node = definition->as<FunctionNode>();
+                if (node->name == "_main") {
+                    continue;
+                }
+                // Remove the 'fc_' prefix from the function names if it's an internal function. If it's extenal the function name can be
+                // used as is
+                std::string fn_name = node->is_extern ? std::string(node->name) : std::string(node->name.substr(3));
+                completions.emplace_back(fn_name, CompletionItemKind::Function, "The '" + fn_name + "' function", fn_name, false);
+                break;
+            }
+            case DefinitionNode::Variation::IMPORT: {
+                const auto *node = definition->as<ImportNode>();
+                if (!is_root_file) {
+                    // Only add imports if it's the root node we are in
+                    continue;
+                }
+                // Only add "real" file imports to the list of imported files, skip library imports like 'use Core.xxx'
+                if (std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(node->path)) {
+                    imported_files.emplace_back(node);
+                }
+                break;
+            }
+            case DefinitionNode::Variation::LINK:
+                // Links are not supported yet
+                break;
+            case DefinitionNode::Variation::TEST:
+                // Tests don't need any completions since they cannot be referenced
+                break;
+            case DefinitionNode::Variation::VARIANT: {
+                const auto *node = definition->as<VariantNode>();
+                completions.emplace_back(node->name, CompletionItemKind::Class, "The '" + node->name + "' variant type", node->name, false);
+                break;
+            }
         }
     }
 }

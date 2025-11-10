@@ -300,39 +300,49 @@ std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_p
     if (type.has_value()) {
         log_info("[DEFINITION] is type");
         // The identifier is a type, so we can now check which type it is and then get where it was defined at
-        if (const DataType *data_type = dynamic_cast<const DataType *>(type.value().get())) {
-            return std::make_tuple(                                //
-                data_type->data_node->file_name,                   //
-                static_cast<int>(data_type->data_node->line - 1),  //
-                static_cast<int>(data_type->data_node->column - 1) //
-            );
-        } else if (const EnumType *enum_type = dynamic_cast<const EnumType *>(type.value().get())) {
-            return std::make_tuple(                                //
-                enum_type->enum_node->file_name,                   //
-                static_cast<int>(enum_type->enum_node->line - 1),  //
-                static_cast<int>(enum_type->enum_node->column - 1) //
-            );
-        } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(type.value().get())) {
-            if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
-                const VariantNode *const variant_node = std::get<VariantNode *const>(variant_type->var_or_list);
-                return std::make_tuple(                        //
-                    variant_node->file_name,                   //
-                    static_cast<int>(variant_node->line - 1),  //
-                    static_cast<int>(variant_node->column - 1) //
+        switch (type.value()->get_variation()) {
+            default:
+                // All other types are not defined at the definition level directly
+                return std::nullopt;
+            case Type::Variation::DATA: {
+                const auto *data_type = type.value()->as<DataType>();
+                return std::make_tuple(                                //
+                    data_type->data_node->file_name,                   //
+                    static_cast<int>(data_type->data_node->line - 1),  //
+                    static_cast<int>(data_type->data_node->column - 1) //
                 );
             }
-        } else if (const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(type.value().get())) {
-            if (error_type->error_node->file_name == "__flint_CORE_ERR") {
-                // This is an error defined inside a core module
-                return std::nullopt;
+            case Type::Variation::ENUM: {
+                const auto *enum_type = type.value()->as<EnumType>();
+                return std::make_tuple(                                //
+                    enum_type->enum_node->file_name,                   //
+                    static_cast<int>(enum_type->enum_node->line - 1),  //
+                    static_cast<int>(enum_type->enum_node->column - 1) //
+                );
             }
-            return std::make_tuple(                                  //
-                error_type->error_node->file_name,                   //
-                static_cast<int>(error_type->error_node->line - 1),  //
-                static_cast<int>(error_type->error_node->column - 1) //
-            );
-        } else {
-            return std::nullopt;
+            case Type::Variation::ERROR_SET: {
+                const auto *error_type = type.value()->as<ErrorSetType>();
+                if (error_type->error_node->file_name == "__flint_CORE_ERR") {
+                    // This is an error defined inside a core module
+                    return std::nullopt;
+                }
+                return std::make_tuple(                                  //
+                    error_type->error_node->file_name,                   //
+                    static_cast<int>(error_type->error_node->line - 1),  //
+                    static_cast<int>(error_type->error_node->column - 1) //
+                );
+            }
+            case Type::Variation::VARIANT: {
+                const auto *variant_type = type.value()->as<VariantType>();
+                if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
+                    const VariantNode *const variant_node = std::get<VariantNode *const>(variant_type->var_or_list);
+                    return std::make_tuple(                        //
+                        variant_node->file_name,                   //
+                        static_cast<int>(variant_node->line - 1),  //
+                        static_cast<int>(variant_node->column - 1) //
+                    );
+                }
+            }
         }
     }
 
