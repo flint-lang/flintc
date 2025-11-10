@@ -63,43 +63,68 @@ void Type::clear_types() {
 }
 
 bool Type::resolve_type(std::shared_ptr<Type> &type) {
-    if (UnknownType *unknown_type = dynamic_cast<UnknownType *>(type.get())) {
-        // Get the "real" type from the parameter type
-        auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
-        if (!type_maybe.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
-        type = type_maybe.value();
-    } else if (VariantType *variant_type = dynamic_cast<VariantType *>(type.get())) {
-        for (auto &[_, var_type] : variant_type->get_possible_types()) {
-            if (!resolve_type(var_type)) {
+    switch (type->get_variation()) {
+        default:
+            // No need to resolve the other types since they cannot contain unknown types
+            break;
+        case Type::Variation::ARRAY: {
+            auto *array_type = type->as<ArrayType>();
+            if (!resolve_type(array_type->type)) {
                 return false;
             }
+            break;
         }
-    } else if (TupleType *tuple_type = dynamic_cast<TupleType *>(type.get())) {
-        for (auto &elem_type : tuple_type->types) {
-            if (!resolve_type(elem_type)) {
+        case Type::Variation::GROUP: {
+            auto *group_type = type->as<GroupType>();
+            for (auto &elem_type : group_type->types) {
+                if (!resolve_type(elem_type)) {
+                    return false;
+                }
+            }
+            break;
+        }
+        case Type::Variation::OPTIONAL: {
+            auto *optional_type = type->as<OptionalType>();
+            if (!resolve_type(optional_type->base_type)) {
                 return false;
             }
+            break;
         }
-    } else if (OptionalType *optional_type = dynamic_cast<OptionalType *>(type.get())) {
-        if (!resolve_type(optional_type->base_type)) {
-            return false;
-        }
-    } else if (GroupType *group_type = dynamic_cast<GroupType *>(type.get())) {
-        for (auto &elem_type : group_type->types) {
-            if (!resolve_type(elem_type)) {
+        case Type::Variation::POINTER: {
+            auto *pointer_type = type->as<PointerType>();
+            if (!resolve_type(pointer_type->base_type)) {
                 return false;
             }
+            break;
         }
-    } else if (ArrayType *array_type = dynamic_cast<ArrayType *>(type.get())) {
-        if (!resolve_type(array_type->type)) {
-            return false;
+        case Type::Variation::TUPLE: {
+            auto *tuple_type = type->as<TupleType>();
+            for (auto &elem_type : tuple_type->types) {
+                if (!resolve_type(elem_type)) {
+                    return false;
+                }
+            }
+            break;
         }
-    } else if (PointerType *pointer_type = dynamic_cast<PointerType *>(type.get())) {
-        if (!resolve_type(pointer_type->base_type)) {
-            return false;
+        case Type::Variation::UNKNOWN: {
+            const auto *unknown_type = type->as<UnknownType>();
+            // Get the "real" type from the parameter type
+            auto type_maybe = Type::get_type_from_str(unknown_type->type_str);
+            if (!type_maybe.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            type = type_maybe.value();
+            break;
+        }
+        case Type::Variation::VARIANT: {
+            const auto *variant_type = type->as<VariantType>();
+            for (auto &[_, var_type] : variant_type->get_possible_types()) {
+                if (!resolve_type(var_type)) {
+                    return false;
+                }
+            }
+            break;
         }
     }
     return true;
@@ -142,7 +167,7 @@ std::optional<std::shared_ptr<Type>> Type::get_type(const token_slice &tokens, c
     if (!created_type.has_value()) {
         return std::nullopt;
     }
-    if (dynamic_cast<const UnknownType *>(created_type.value().get())) {
+    if (created_type.value()->get_variation() == Type::Variation::UNKNOWN) {
         unknown_types[type_str] = created_type.value();
         return unknown_types.at(type_str);
     }
