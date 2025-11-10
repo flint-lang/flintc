@@ -1840,7 +1840,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
         }
         return std::make_unique<ArrayAccessNode>(std::move(access.value()));
     } else {
-    PROFILE_CUMULATIVE("Parser::create_pivot_expression");
+        PROFILE_CUMULATIVE("Parser::create_pivot_expression");
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
     }
@@ -2369,7 +2369,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 
     // Create the binary operator node
     if (Matcher::token_match(pivot_token, Matcher::relational_binop)) {
-    PROFILE_CUMULATIVE("Parser::create_expression");
+        PROFILE_CUMULATIVE("Parser::create_expression");
         return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), Type::get_primitive_type("bool"));
     }
     return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs.value()->type);
