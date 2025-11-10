@@ -11,7 +11,6 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/multi_type.hpp"
-#include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "profiler.hpp"
@@ -425,88 +424,92 @@ Parser::create_call_or_initializer_base(         //
 
     // Check if it's an initializer
     if (tokens.first->token == TOK_TYPE) {
-        if (const DataType *data_type = dynamic_cast<const DataType *>(tokens.first->type.get())) {
-            DataNode *const data_node = data_type->data_node;
-            auto &fields = data_node->fields;
-            // Now check if the initializer arguments are equal to the expected initializer fields
-            if (fields.size() != arguments.size()) {
-                THROW_BASIC_ERR(ERR_PARSING);
+        switch (tokens.first->type->get_variation()) {
+            default:
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
-            }
-            for (size_t i = 0; i < arguments.size(); i++) {
-                std::shared_ptr<Type> arg_type = arguments[i].first->type;
-                if (dynamic_cast<const GroupType *>(arg_type.get())) {
+            case Type::Variation::DATA: {
+                const DataNode *data_node = tokens.first->type->as<DataType>()->data_node;
+                auto &fields = data_node->fields;
+                // Now check if the initializer arguments are equal to the expected initializer fields
+                if (fields.size() != arguments.size()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                const auto &field_type = std::get<1>(fields.at(i));
-                if (field_type != arg_type) {
-                    if (dynamic_cast<const PrimitiveType *>(arg_type.get())) {
+                for (size_t i = 0; i < arguments.size(); i++) {
+                    std::shared_ptr<Type> arg_type = arguments[i].first->type;
+                    if (arg_type->get_variation() == Type::Variation::GROUP) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    const auto &field_type = std::get<1>(fields.at(i));
+                    if (field_type != arg_type) {
+                        if (arg_type->get_variation() == Type::Variation::PRIMITIVE) {
+                            const std::string &arg_type_str = arg_type->to_string();
+                            if (primitive_implicit_casting_table.find(arg_type_str) == primitive_implicit_casting_table.end()) {
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return std::nullopt;
+                            }
+                            const auto &to_types = primitive_implicit_casting_table.at(arg_type_str);
+                            if (std::find(to_types.begin(), to_types.end(), field_type->to_string()) == to_types.end()) {
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return std::nullopt;
+                            }
+                            if (arg_type_str == "int" || arg_type_str == "float") {
+                                arguments[i].first->type = field_type;
+                            } else {
+                                arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
+                            }
+                        } else {
+                            const CastDirection castability = check_castability(field_type, arg_type);
+                            if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
+                                arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
+                            }
+                        }
+                    }
+                }
+                return std::make_tuple(data_node->name, std::move(arguments), tokens.first->type, true, types{});
+            }
+            case Type::Variation::MULTI: {
+                const auto *multi_type = tokens.first->type->as<MultiType>();
+                const std::shared_ptr<Type> base_type = multi_type->base_type;
+                const unsigned int width = multi_type->width;
+                if (arguments.size() != width) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                for (size_t i = 0; i < arguments.size(); i++) {
+                    std::shared_ptr<Type> &arg_type = arguments[i].first->type;
+                    if (arg_type == base_type) {
+                        continue;
+                    }
+                    if (arg_type->get_variation() == Type::Variation::GROUP) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    const CastDirection castability = check_castability(base_type, arg_type);
+                    if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
+                        arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
+                    } else if (arg_type->get_variation() == Type::Variation::PRIMITIVE) {
                         const std::string &arg_type_str = arg_type->to_string();
                         if (primitive_implicit_casting_table.find(arg_type_str) == primitive_implicit_casting_table.end()) {
                             THROW_BASIC_ERR(ERR_PARSING);
                             return std::nullopt;
                         }
                         const auto &to_types = primitive_implicit_casting_table.at(arg_type_str);
-                        if (std::find(to_types.begin(), to_types.end(), field_type->to_string()) == to_types.end()) {
+                        if (std::find(to_types.begin(), to_types.end(), base_type->to_string()) == to_types.end()) {
                             THROW_BASIC_ERR(ERR_PARSING);
                             return std::nullopt;
                         }
                         if (arg_type_str == "int" || arg_type_str == "float") {
-                            arguments[i].first->type = field_type;
+                            arguments[i].first->type = base_type;
                         } else {
-                            arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
-                        }
-                    } else {
-                        const CastDirection castability = check_castability(field_type, arg_type);
-                        if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
-                            arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
+                            arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
                         }
                     }
                 }
+                return std::make_tuple(tokens.first->type->to_string(), std::move(arguments), tokens.first->type, true, types{});
             }
-            return std::make_tuple(data_node->name, std::move(arguments), tokens.first->type, true, types{});
-        } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(tokens.first->type.get())) {
-            const std::shared_ptr<Type> base_type = multi_type->base_type;
-            const unsigned int width = multi_type->width;
-            if (arguments.size() != width) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            for (size_t i = 0; i < arguments.size(); i++) {
-                std::shared_ptr<Type> &arg_type = arguments[i].first->type;
-                if (arg_type == base_type) {
-                    continue;
-                }
-                if (dynamic_cast<const GroupType *>(arg_type.get())) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                const CastDirection castability = check_castability(base_type, arg_type);
-                if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
-                    arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
-                } else if (dynamic_cast<const PrimitiveType *>(arg_type.get())) {
-                    const std::string &arg_type_str = arg_type->to_string();
-                    if (primitive_implicit_casting_table.find(arg_type_str) == primitive_implicit_casting_table.end()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    const auto &to_types = primitive_implicit_casting_table.at(arg_type_str);
-                    if (std::find(to_types.begin(), to_types.end(), base_type->to_string()) == to_types.end()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    if (arg_type_str == "int" || arg_type_str == "float") {
-                        arguments[i].first->type = base_type;
-                    } else {
-                        arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
-                    }
-                }
-            }
-            return std::make_tuple(tokens.first->type->to_string(), std::move(arguments), tokens.first->type, true, types{});
-        } else {
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return std::nullopt;
         }
     }
 
@@ -529,7 +532,8 @@ Parser::create_call_or_initializer_base(         //
     if (builtin_function.has_value() && (std::get<2>(builtin_function.value()) == alias_base)) {
         if (function_name == "print" && argument_types.size() == 1 && argument_types.front()->to_string() == "str") {
             // Check if the string is a typecast of a string literal, if yes its a special print call
-            if (TypeCastNode *type_cast = dynamic_cast<TypeCastNode *>(arguments.front().first.get())) {
+            if (arguments.front().first->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
+                auto *type_cast = arguments.front().first->as<TypeCastNode>();
                 if (type_cast->expr->type->to_string() == "__flint_type_str_lit") {
                     arguments.front().first = std::move(type_cast->expr);
                     argument_types.front() = arguments.front().first->type;
@@ -625,7 +629,7 @@ Parser::create_call_or_initializer_base(         //
             // never been suggested as a possible function to call in the first place
             arguments[i].first->type = std::get<0>(function.front().first->parameters[i]);
         }
-        if (dynamic_cast<const EnumType *>(arguments[i].first->type.get()) != nullptr) {
+        if (arguments[i].first->type->get_variation() == Type::Variation::ENUM) {
             arguments[i].second = false;
         } else {
             arguments[i].second = primitives.find(arguments[i].first->type->to_string()) == primitives.end();
@@ -660,7 +664,8 @@ Parser::create_call_or_initializer_base(         //
                 }
                 ++tok;
             }
-            if (const VariableNode *variable_node = dynamic_cast<const VariableNode *>(arguments[i].first.get())) {
+            if (arguments[i].first->get_variation() == ExpressionNode::Variation::VARIABLE) {
+                const auto *variable_node = arguments[i].first->as<VariableNode>();
                 if (!std::get<2>(scope->variables.at(variable_node->name)) && std::get<2>(function.front().first->parameters[i])) {
                     THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tok->line, tok->column, variable_node->name);
                     return std::nullopt;
@@ -780,8 +785,7 @@ Parser::create_field_access_base(     //
     }
     std::shared_ptr<Type> base_type = base_expr.value()->type;
     if (has_inbetween_operator) {
-        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_type.get());
-        assert(optional_type != nullptr);
+        const auto *optional_type = base_type->as<OptionalType>();
         base_type = optional_type->base_type;
     }
 
@@ -792,77 +796,86 @@ Parser::create_field_access_base(     //
             return std::nullopt;
         }
         return std::make_tuple(std::move(base_expr.value()), "length", 0, Type::get_primitive_type("u64"));
-    } else if (const ArrayType *array_type = dynamic_cast<const ArrayType *>(base_type.get())) {
-        if (field_name != "length") {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        if (array_type->dimensionality > 1) {
-            std::shared_ptr<Type> u64_type = Type::get_primitive_type("u64");
-            std::vector<std::shared_ptr<Type>> length_types;
-            for (size_t i = 0; i < array_type->dimensionality; i++) {
-                length_types.emplace_back(u64_type);
+    }
+    switch (base_type->get_variation()) {
+        default:
+            break;
+        case Type::Variation::ARRAY: {
+            const auto *array_type = base_type->as<ArrayType>();
+            if (field_name != "length") {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
             }
-            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(length_types);
-            if (!Type::add_type(group_type)) {
-                group_type = Type::get_type_from_str(group_type->to_string()).value();
+            if (array_type->dimensionality > 1) {
+                std::shared_ptr<Type> u64_type = Type::get_primitive_type("u64");
+                std::vector<std::shared_ptr<Type>> length_types;
+                for (size_t i = 0; i < array_type->dimensionality; i++) {
+                    length_types.emplace_back(u64_type);
+                }
+                std::shared_ptr<Type> group_type = std::make_shared<GroupType>(length_types);
+                if (!Type::add_type(group_type)) {
+                    group_type = Type::get_type_from_str(group_type->to_string()).value();
+                }
+                return std::make_tuple(std::move(base_expr.value()), "length", 1, group_type);
             }
-            return std::make_tuple(std::move(base_expr.value()), "length", 1, group_type);
+            return std::make_tuple(std::move(base_expr.value()), "length", 1, Type::get_primitive_type("u64"));
         }
-        return std::make_tuple(std::move(base_expr.value()), "length", 1, Type::get_primitive_type("u64"));
-    } else if (const MultiType *multi_type = dynamic_cast<const MultiType *>(base_type.get())) {
-        if (field_name == "") {
-            field_name = "$" + std::to_string(field_id);
-        }
-        auto access = create_multi_type_access(multi_type, field_name);
-        if (!access.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        return std::make_tuple(           //
-            std::move(base_expr.value()), // Base Expression
-            std::get<0>(access.value()),  // Name of the accessed field
-            std::get<1>(access.value()),  // ID of the accessed field
-            multi_type->base_type         // Type of the accessed field
-        );
-    } else if (const DataType *data_type = dynamic_cast<const DataType *>(base_type.get())) {
-        // Its a data type
-        const DataNode *data_node = data_type->data_node;
-
-        // Now we can check if the given field name exists in the data type
-        field_id = 0;
-        for (const auto &field : data_node->fields) {
-            if (std::get<0>(field) == field_name) {
-                break;
+        case Type::Variation::DATA: {
+            const DataNode *data_node = base_type->as<DataType>()->data_node;
+            // Check if the given field name exists in the data type
+            field_id = 0;
+            for (const auto &field : data_node->fields) {
+                if (std::get<0>(field) == field_name) {
+                    break;
+                }
+                field_id++;
             }
-            field_id++;
+            if (data_node->fields.size() == field_id) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields.at(field_id));
+            return std::make_tuple(std::move(base_expr.value()), field_name, field_id, field_type);
         }
-        if (data_node->fields.size() == field_id) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
+        case Type::Variation::ERROR_SET:
+            if (field_name == "type_id") {
+                return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u32"));
+            } else if (field_name == "value_id") {
+                return std::make_tuple(std::move(base_expr.value()), field_name, 1, Type::get_primitive_type("u32"));
+            } else if (field_name == "message") {
+                return std::make_tuple(std::move(base_expr.value()), field_name, 2, Type::get_primitive_type("str"));
+            }
+        case Type::Variation::MULTI: {
+            const auto *multi_type = base_type->as<MultiType>();
+            if (field_name == "") {
+                field_name = "$" + std::to_string(field_id);
+            }
+            auto access = create_multi_type_access(multi_type, field_name);
+            if (!access.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            return std::make_tuple(           //
+                std::move(base_expr.value()), // Base Expression
+                std::get<0>(access.value()),  // Name of the accessed field
+                std::get<1>(access.value()),  // ID of the accessed field
+                multi_type->base_type         // Type of the accessed field
+            );
         }
-        const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields.at(field_id));
-        return std::make_tuple(std::move(base_expr.value()), field_name, field_id, field_type);
-    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(base_type.get())) {
-        if (field_id >= tuple_type->types.size()) {
-            auto it = base_expr_tokens.second + 1; // 'it' now is the $ symbol
-            THROW_ERR(ErrExprTupleAccessOOB, ERR_PARSING, file_name, it->line, it->column, "$" + std::to_string(field_id), base_type);
-            return std::nullopt;
+        case Type::Variation::TUPLE: {
+            const auto *tuple_type = base_type->as<TupleType>();
+            if (field_id >= tuple_type->types.size()) {
+                auto it = base_expr_tokens.second + 1; // 'it' now is the $ symbol
+                THROW_ERR(ErrExprTupleAccessOOB, ERR_PARSING, file_name, it->line, it->column, "$" + std::to_string(field_id), base_type);
+                return std::nullopt;
+            }
+            const std::shared_ptr<Type> field_type = tuple_type->types.at(field_id);
+            return std::make_tuple(std::move(base_expr.value()), std::nullopt, field_id, field_type);
         }
-        const std::shared_ptr<Type> field_type = tuple_type->types.at(field_id);
-        return std::make_tuple(std::move(base_expr.value()), std::nullopt, field_id, field_type);
-    } else if (dynamic_cast<const ErrorSetType *>(base_type.get()) || base_type->to_string() == "anyerror") {
-        if (field_name == "type_id") {
-            return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u32"));
-        } else if (field_name == "value_id") {
-            return std::make_tuple(std::move(base_expr.value()), field_name, 1, Type::get_primitive_type("u32"));
-        } else if (field_name == "message") {
-            return std::make_tuple(std::move(base_expr.value()), field_name, 2, Type::get_primitive_type("str"));
-        }
-    } else if (dynamic_cast<const VariantType *>(base_type.get())) {
-        if (field_name == "active_type") {
-            return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u8"));
-        }
+        case Type::Variation::VARIANT:
+            if (field_name == "active_type") {
+                return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u8"));
+            }
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return std::nullopt;
@@ -978,8 +991,7 @@ Parser::create_grouped_access_base(   //
     }
     std::shared_ptr<Type> base_type = base_expr.value()->type;
     if (has_inbetween_operator) {
-        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_type.get());
-        assert(optional_type != nullptr);
+        const auto *optional_type = base_type->as<OptionalType>();
         base_type = optional_type->base_type;
     }
 
@@ -1001,55 +1013,60 @@ Parser::create_grouped_access_base(   //
         return std::nullopt;
     }
 
-    // First, look if its a multi-type
-    if (const MultiType *multi_type = dynamic_cast<const MultiType *>(base_type.get())) {
-        std::vector<std::string> access_field_names;
-        std::vector<std::shared_ptr<Type>> field_types;
-        std::vector<unsigned int> field_ids;
-        for (const auto &field_name : field_names) {
-            auto access = create_multi_type_access(multi_type, field_name);
-            if (!access.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+    switch (base_type->get_variation()) {
+        default:
+            break;
+        case Type::Variation::DATA: {
+            const DataNode *data_node = base_type->as<DataType>()->data_node;
+            // Get the field types and field ids from the data node
+            std::vector<std::shared_ptr<Type>> field_types;
+            field_types.resize(field_names.size());
+            std::vector<unsigned int> field_ids;
+            field_ids.resize(field_names.size());
+            size_t field_id = 0;
+            for (const auto &field : data_node->fields) {
+                const auto field_names_it = std::find(field_names.begin(), field_names.end(), std::get<0>(field));
+                if (field_names_it != field_names.end()) {
+                    const size_t group_id = std::distance(field_names.begin(), field_names_it);
+                    field_types[group_id] = std::get<1>(field);
+                    field_ids[group_id] = field_id;
+                }
+                field_id++;
             }
-            access_field_names.emplace_back(std::get<0>(access.value()));
-            field_types.emplace_back(multi_type->base_type);
-            field_ids.emplace_back(std::get<1>(access.value()));
+            return std::make_tuple(std::move(base_expr.value()), field_names, field_ids, field_types);
         }
-        return std::make_tuple(std::move(base_expr.value()), access_field_names, field_ids, field_types);
-    } else if (const DataType *data_type = dynamic_cast<const DataType *>(base_type.get())) {
-        // It should be a data type
-        const DataNode *data_node = data_type->data_node;
-
-        // Next, get the field types and field ids from the data node
-        std::vector<std::shared_ptr<Type>> field_types;
-        field_types.resize(field_names.size());
-        std::vector<unsigned int> field_ids;
-        field_ids.resize(field_names.size());
-        size_t field_id = 0;
-        for (const auto &field : data_node->fields) {
-            const auto field_names_it = std::find(field_names.begin(), field_names.end(), std::get<0>(field));
-            if (field_names_it != field_names.end()) {
-                const size_t group_id = std::distance(field_names.begin(), field_names_it);
-                field_types[group_id] = std::get<1>(field);
-                field_ids[group_id] = field_id;
+        case Type::Variation::MULTI: {
+            const auto *multi_type = base_type->as<MultiType>();
+            std::vector<std::string> access_field_names;
+            std::vector<std::shared_ptr<Type>> field_types;
+            std::vector<unsigned int> field_ids;
+            for (const auto &field_name : field_names) {
+                auto access = create_multi_type_access(multi_type, field_name);
+                if (!access.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                access_field_names.emplace_back(std::get<0>(access.value()));
+                field_types.emplace_back(multi_type->base_type);
+                field_ids.emplace_back(std::get<1>(access.value()));
             }
-            field_id++;
+            return std::make_tuple(std::move(base_expr.value()), access_field_names, field_ids, field_types);
         }
-        return std::make_tuple(std::move(base_expr.value()), field_names, field_ids, field_types);
-    } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(base_type.get())) {
-        std::vector<std::shared_ptr<Type>> field_types;
-        std::vector<unsigned int> field_ids;
-        for (size_t i = 0; i < field_names.size(); i++) {
-            size_t field_id = std::stoul(field_names.at(i).substr(1, field_names.at(i).length() - 1));
-            if (field_id >= tuple_type->types.size()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+        case Type::Variation::TUPLE: {
+            const auto *tuple_type = base_type->as<TupleType>();
+            std::vector<std::shared_ptr<Type>> field_types;
+            std::vector<unsigned int> field_ids;
+            for (size_t i = 0; i < field_names.size(); i++) {
+                size_t field_id = std::stoul(field_names.at(i).substr(1, field_names.at(i).length() - 1));
+                if (field_id >= tuple_type->types.size()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                field_types.emplace_back(tuple_type->types.at(field_id));
+                field_ids.emplace_back(field_id);
             }
-            field_types.emplace_back(tuple_type->types.at(field_id));
-            field_ids.emplace_back(field_id);
+            return std::make_tuple(std::move(base_expr.value()), field_names, field_ids, field_types);
         }
-        return std::make_tuple(std::move(base_expr.value()), field_names, field_ids, field_types);
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return std::nullopt;
@@ -1071,7 +1088,7 @@ bool Parser::ensure_castability_multiple(                      //
             expr->type = to_type;
             continue;
         }
-        if (dynamic_cast<const RangeType *>(expr->type.get())) {
+        if (expr->type->get_variation() == Type::Variation::RANGE) {
             continue;
         }
         const CastDirection castability = check_primitive_castability(expr->type, to_type);
