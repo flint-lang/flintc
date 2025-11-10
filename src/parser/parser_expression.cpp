@@ -25,7 +25,6 @@
 #include "parser/type/group_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
-#include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
 
@@ -244,47 +243,53 @@ Parser::CastDirection Parser::check_castability(const std::shared_ptr<Type> &lhs
         return check_primitive_castability(lhs_type, rhs_type);
     } else if (lhs_group == nullptr && rhs_group != nullptr) {
         // Left is no group, right is group
-        if (const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get())) {
-            // If left is a multi-type, then the right is castable to the left
-            // The group must have the same size as the multi-type
-            if (lhs_mult->width != rhs_group->types.size()) {
+        switch (lhs_type->get_variation()) {
+            default:
                 return CastDirection::not_castable();
-            }
-            // All elements in the group must have the same type as the multi-type
-            for (size_t i = 0; i < lhs_mult->width; i++) {
-                if (lhs_mult->base_type != rhs_group->types[i]) {
+            case Type::Variation::MULTI: {
+                const auto *lhs_mult = lhs_type->as<MultiType>();
+                // If left is a multi-type, then the right is castable to the left
+                // The group must have the same size as the multi-type
+                if (lhs_mult->width != rhs_group->types.size()) {
                     return CastDirection::not_castable();
                 }
-            }
-            return CastDirection::rhs_to_lhs();
-        } else if (const TupleType *lhs_tup = dynamic_cast<const TupleType *>(lhs_type.get())) {
-            // If left is a tuple type then the right is castable to the left
-            if (lhs_tup->types.size() != rhs_group->types.size()) {
-                return CastDirection::not_castable();
-            }
-            // All elements in the group must be castable or equal to the element of the tuple
-            for (size_t i = 0; i < lhs_tup->types.size(); i++) {
-                const std::shared_ptr<Type> lhs_elem_type = lhs_tup->types[i];
-                const std::shared_ptr<Type> rhs_elem_type = rhs_group->types[i];
-                if (lhs_elem_type == rhs_elem_type) {
-                    continue;
-                }
-                const std::string rhs_elem_type_str = rhs_elem_type->to_string();
-                const CastDirection elem_castability = check_castability(lhs_elem_type, rhs_elem_type);
-                switch (elem_castability.kind) {
-                    default:
+                // All elements in the group must have the same type as the multi-type
+                for (size_t i = 0; i < lhs_mult->width; i++) {
+                    if (lhs_mult->base_type != rhs_group->types[i]) {
                         return CastDirection::not_castable();
-                    case CastDirection::Kind::CAST_RHS_TO_LHS:
-                        if (rhs_elem_type_str == "int" || rhs_elem_type_str == "float") {
-                            // We somehow need to change the type of the rhs expression directly, but that's not possible in this function
-                        } else {
-                            // We somehow need to wrap the rhs in a TypeCastNode, but this is not possible in this function
-                        }
+                    }
                 }
+                return CastDirection::rhs_to_lhs();
             }
-            return CastDirection::rhs_to_lhs();
-        } else {
-            return CastDirection::not_castable();
+            case Type::Variation::TUPLE: {
+                const auto *lhs_tup = lhs_type->as<TupleType>();
+                // If left is a tuple type then the right is castable to the left
+                if (lhs_tup->types.size() != rhs_group->types.size()) {
+                    return CastDirection::not_castable();
+                }
+                // All elements in the group must be castable or equal to the element of the tuple
+                for (size_t i = 0; i < lhs_tup->types.size(); i++) {
+                    const std::shared_ptr<Type> lhs_elem_type = lhs_tup->types[i];
+                    const std::shared_ptr<Type> rhs_elem_type = rhs_group->types[i];
+                    if (lhs_elem_type == rhs_elem_type) {
+                        continue;
+                    }
+                    const std::string rhs_elem_type_str = rhs_elem_type->to_string();
+                    const CastDirection elem_castability = check_castability(lhs_elem_type, rhs_elem_type);
+                    switch (elem_castability.kind) {
+                        default:
+                            return CastDirection::not_castable();
+                        case CastDirection::Kind::CAST_RHS_TO_LHS:
+                            if (rhs_elem_type_str == "int" || rhs_elem_type_str == "float") {
+                                // TODO: We somehow need to change the type of the rhs expression directly, but that's not possible in this
+                                // function
+                            } else {
+                                // TODO: We somehow need to wrap the rhs in a TypeCastNode, but this is not possible in this function
+                            }
+                    }
+                }
+                return CastDirection::rhs_to_lhs();
+            }
         }
     } else if (lhs_group != nullptr && rhs_group == nullptr) {
         // Left is group, right is no group, so we call the function itself and just swap the sides, this effectively executes the branch
@@ -370,9 +375,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
 ) {
     PROFILE_CUMULATIVE("Parser::check_const_folding");
     // Currently, only literals can be const folded
-    const LiteralNode *lhs_ptr = dynamic_cast<const LiteralNode *>(lhs.get());
-    const LiteralNode *rhs_ptr = dynamic_cast<const LiteralNode *>(rhs.get());
-    if (lhs_ptr == nullptr || rhs_ptr == nullptr) {
+    const bool is_lhs_not_lit = lhs->get_variation() != ExpressionNode::Variation::LITERAL;
+    const bool is_rhs_not_lit = rhs->get_variation() != ExpressionNode::Variation::LITERAL;
+    if (is_lhs_not_lit || is_rhs_not_lit) {
         return std::nullopt;
     }
     // The lhs and rhs types must be the same to be folded, or it must be literals, but only literals are supported for now, so this check
@@ -387,7 +392,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
     }
 
     // Add the two literals together
-    std::optional<std::unique_ptr<LiteralNode>> result = add_literals(lhs_ptr, operation, rhs_ptr);
+    const auto *lhs_lit = lhs->as<LiteralNode>();
+    const auto *rhs_lit = rhs->as<LiteralNode>();
+    std::optional<std::unique_ptr<LiteralNode>> result = add_literals(lhs_lit, operation, rhs_lit);
     if (!result.has_value()) {
         return std::nullopt;
     }
@@ -653,14 +660,13 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression(std::shared_
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(un_op.type.get());
-        if (optional_type == nullptr) {
+        if (un_op.type->get_variation() != Type::Variation::OPTIONAL) {
             // The post ! operator is only allowed on optional values
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const VariableNode *var_node = dynamic_cast<const VariableNode *>(un_op.operand.get());
-        if (var_node == nullptr) {
+        const auto *optional_type = un_op.type->as<OptionalType>();
+        if (un_op.operand->get_variation() != ExpressionNode::Variation::VARIABLE) {
             // Optional unwrapping is only allowed on variables for now
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return std::nullopt;
@@ -677,7 +683,7 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression(std::shared_
         // Becaues any type could be / become a pointer type we don't really need to check the expression itself every type is able to be
         // pointed to. The only thing we need to check for is to prevent double pointers, they don't make any sense in the context of Flint
         // at least.
-        if (dynamic_cast<const PointerType *>(un_op.type.get())) {
+        if (un_op.type->get_variation() == Type::Variation::POINTER) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -1019,7 +1025,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(std::sha
     }
 
     // Enums are allowed to be cast to strings and to integers
-    if (dynamic_cast<const EnumType *>(expression.value()->type.get())) {
+    if (expression.value()->type->get_variation() == Type::Variation::ENUM) {
         if (to_type_string == "str") {
             return std::make_unique<TypeCastNode>(to_type, expression.value());
         } else if (to_type_string == "i32" || to_type_string == "u32" || to_type_string == "i64" || to_type_string == "u64" ||
@@ -1115,7 +1121,7 @@ std::optional<GroupExpressionNode> Parser::create_group_expression(std::shared_p
             expressions[i]->type = Type::get_primitive_type("i32");
         } else if (type_str == "float") {
             expressions[i]->type = Type::get_primitive_type("f32");
-        } else if (dynamic_cast<const GroupType *>(expressions[i]->type.get())) {
+        } else if (expressions[i]->type->get_variation() == Type::Variation::GROUP) {
             // Nested groups are not allowed
             const auto match_range = match_ranges[i];
             token_slice expression_tokens = {tokens_mut.first + match_range.first, tokens_mut.first + match_range.second};
@@ -1245,9 +1251,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(s
             }
         }
     }
-    const LiteralNode *lhs_lit = dynamic_cast<const LiteralNode *>(lhs_expr.value().get());
-    const LiteralNode *rhs_lit = dynamic_cast<const LiteralNode *>(rhs_expr.value().get());
-    if (lhs_lit != nullptr && rhs_lit != nullptr) {
+    const bool is_lhs_lit = lhs_expr.value()->get_variation() == ExpressionNode::Variation::LITERAL;
+    const bool is_rhs_lit = rhs_expr.value()->get_variation() == ExpressionNode::Variation::LITERAL;
+    if (is_lhs_lit && is_rhs_lit) {
+        const auto *lhs_lit = lhs_expr.value()->as<LiteralNode>();
+        const auto *rhs_lit = rhs_expr.value()->as<LiteralNode>();
         // Ensure that the range is correct (a range like '5..1' is not correct, it should be '1..5'. And because the upper bound is
         // exclusive a range like '1..1' is invalid too, since its one but exclusive to 1, so it's an empty range. Well maybe we will add
         // this eventually, but for now it's not allowed.
@@ -1401,13 +1409,14 @@ std::optional<OptionalChainNode> Parser::create_optional_chain(std::shared_ptr<S
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_expr.value()->type.get());
-        if (optional_type == nullptr) {
+        if (base_expr.value()->type->get_variation() != Type::Variation::OPTIONAL) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        const auto *optional_type = base_expr.value()->type->as<OptionalType>();
         unsigned int dimensionality = 1;
-        if (const ArrayType *base_array_type = dynamic_cast<const ArrayType *>(optional_type->base_type.get())) {
+        if (optional_type->base_type->get_variation() == Type::Variation::ARRAY) {
+            const auto *base_array_type = optional_type->base_type->as<ArrayType>();
             result_type = base_array_type->type;
             dimensionality = base_array_type->dimensionality;
         } else if (optional_type->base_type->to_string() != "str") {
@@ -1472,7 +1481,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap(st
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (!dynamic_cast<const OptionalType *>(base_expr.value()->type.get())) {
+        if (base_expr.value()->type->get_variation() != Type::Variation::OPTIONAL) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -1488,14 +1497,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap(st
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const OptionalType *optional_type = dynamic_cast<const OptionalType *>(base_expr.value()->type.get());
-        if (optional_type == nullptr) {
+        if (base_expr.value()->type->get_variation() != Type::Variation::OPTIONAL) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        const auto *optional_type = base_expr.value()->type->as<OptionalType>();
         unsigned int dimensionality = 1;
         std::shared_ptr<Type> result_type;
-        if (const ArrayType *base_array_type = dynamic_cast<const ArrayType *>(optional_type->base_type.get())) {
+        if (optional_type->base_type->get_variation() == Type::Variation::ARRAY) {
+            const auto *base_array_type = optional_type->base_type->as<ArrayType>();
             result_type = base_array_type->type;
             dimensionality = base_array_type->dimensionality;
         } else if (optional_type->base_type->to_string() != "str") {
@@ -1587,9 +1597,11 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction(std::shar
     }
     iterator = end_it;
     std::shared_ptr<Type> unwrap_type;
-    if (dynamic_cast<const TypeNode *>(type_expr.value().get())) {
+    const auto type_expr_variation = type_expr.value()->get_variation();
+    if (type_expr_variation == ExpressionNode::Variation::TYPE) {
         unwrap_type = type_expr.value()->type;
-    } else if (const LiteralNode *literal_node = dynamic_cast<const LiteralNode *>(type_expr.value().get())) {
+    } else if (type_expr_variation == ExpressionNode::Variation::LITERAL) {
+        const auto *literal_node = type_expr.value()->as<LiteralNode>();
         if (!std::holds_alternative<LitVariantTag>(literal_node->value)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -1606,17 +1618,17 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction(std::shar
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const VariantType *variant_type = dynamic_cast<const VariantType *>(base_expr.value()->type.get());
-        if (variant_type == nullptr) {
+        if (base_expr.value()->type->get_variation() != Type::Variation::VARIANT) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        const auto *variant_type = base_expr.value()->type->as<VariantType>();
         if (!variant_type->get_idx_of_type(unwrap_type).has_value()) {
             // Type not part of the variant
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (!dynamic_cast<const VariableNode *>(base_expr.value().get())) {
+        if (base_expr.value()->get_variation() != ExpressionNode::Variation::VARIABLE) {
             // Extracting from non-variable expressions is not supported yet
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -1666,9 +1678,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(std
     }
     iterator = end_it;
     std::shared_ptr<Type> unwrap_type;
-    if (dynamic_cast<const TypeNode *>(type_expr.value().get())) {
+    const auto type_expr_variation = type_expr.value()->get_variation();
+    if (type_expr_variation == ExpressionNode::Variation::TYPE) {
         unwrap_type = type_expr.value()->type;
-    } else if (const LiteralNode *literal_node = dynamic_cast<const LiteralNode *>(type_expr.value().get())) {
+    } else if (type_expr_variation == ExpressionNode::Variation::LITERAL) {
+        const auto *literal_node = type_expr.value()->as<LiteralNode>();
         if (!std::holds_alternative<LitVariantTag>(literal_node->value)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -1685,17 +1699,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(std
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const VariantType *variant_type = dynamic_cast<const VariantType *>(base_expr.value()->type.get());
-        if (variant_type == nullptr) {
+        if (base_expr.value()->type->get_variation() != Type::Variation::VARIANT) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        const auto *variant_type = base_expr.value()->type->as<VariantType>();
         if (!variant_type->get_idx_of_type(unwrap_type).has_value()) {
             // Type not part of the variant
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (!dynamic_cast<const VariableNode *>(base_expr.value().get())) {
+        if (base_expr.value()->get_variation() != ExpressionNode::Variation::VARIABLE) {
             // Unwrapping non-variable expressions is not supported yet
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -1748,9 +1762,9 @@ std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const ArrayType *array_type = dynamic_cast<const ArrayType *>(base_expr.value()->type.get());
+    const bool is_array_type = base_expr.value()->type->get_variation() == Type::Variation::ARRAY;
     const bool is_str_type = base_expr.value()->type->to_string() == "str";
-    if (array_type == nullptr && !is_str_type) {
+    if (!is_array_type && !is_str_type) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -1768,13 +1782,15 @@ std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (dynamic_cast<const RangeExpressionNode *>(indexing_expressions.value().front().get())) {
+        if (indexing_expressions.value().front()->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
             return ArrayAccessNode(base_expr.value(), Type::get_primitive_type("str"), indexing_expressions.value());
         } else {
             return ArrayAccessNode(base_expr.value(), Type::get_primitive_type("u8"), indexing_expressions.value());
         }
     }
     // The indexing expression size must match the array dimensionality
+    assert(is_array_type);
+    const auto *array_type = base_expr.value()->type->as<ArrayType>();
     if (indexing_expressions.value().size() != array_type->dimensionality) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -1783,7 +1799,7 @@ std::optional<ArrayAccessNode> Parser::create_array_access(std::shared_ptr<Scope
     // indexing expression is not a range expression. For range expressions the dimensionality actually stays the same
     unsigned int dimensionality = array_type->dimensionality;
     for (const auto &indexing_expression : indexing_expressions.value()) {
-        if (!dynamic_cast<const RangeExpressionNode *>(indexing_expression.get())) {
+        if (indexing_expression->get_variation() != ExpressionNode::Variation::RANGE_EXPRESSION) {
             dimensionality--;
         }
     }
@@ -1918,7 +1934,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             // located on the right of the call still
             if (tokens_mut.first->token == TOK_TYPE) {
                 // It's some form of "alias" on a base type
-                if (const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(tokens_mut.first->type.get())) {
+                if (tokens_mut.first->type->get_variation() == Type::Variation::ERROR_SET) {
+                    const auto *error_type = tokens_mut.first->type->as<ErrorSetType>();
                     // It's an error literal with a message added to it
                     assert((tokens_mut.first + 1)->token == TOK_DOT);
                     assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
@@ -2000,7 +2017,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return initializer;
-        } else if (dynamic_cast<const MultiType *>(tokens_mut.first->type.get()) && tokens_mut.first->type->to_string() != "bool8") {
+        } else if (tokens_mut.first->type->get_variation() == Type::Variation::MULTI && tokens_mut.first->type->to_string() != "bool8") {
             // It's an explicit initializer of an multi-type
             std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(scope, tokens_mut, std::nullopt);
             if (!initializer.has_value()) {
@@ -2032,54 +2049,58 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
             assert(tokens_mut.first->token == TOK_TYPE);
             const std::shared_ptr<Type> type = tokens_mut.first->type;
-            const EnumType *enum_type = dynamic_cast<const EnumType *>(type.get());
-            if (enum_type != nullptr) {
-                assert((tokens_mut.first + 1)->token == TOK_DOT);
-                assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
-                const std::string value((tokens_mut.first + 2)->lexme);
-                const auto &values = enum_type->enum_node->values;
-                if (std::find(values.begin(), values.end(), value) == values.end()) {
-                    // Unsupported enum value
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                LitValue lit_value = LitEnum{.enum_type = type, .values = std::vector<std::string>{value}};
-                return std::make_unique<LiteralNode>(lit_value, type);
-            }
-            const ErrorSetType *error_type = dynamic_cast<const ErrorSetType *>(type.get());
-            if (error_type != nullptr) {
-                assert((tokens_mut.first + 1)->token == TOK_DOT);
-                assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
-                const std::string value((tokens_mut.first + 2)->lexme);
-                const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
-                if (!pair.has_value()) {
-                    // Unsupported error value
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                LitValue lit_value = LitError{.error_type = type, .value = value, .message = std::nullopt};
-                return std::make_unique<LiteralNode>(lit_value, type);
-            }
-            const VariantType *variant_type = dynamic_cast<const VariantType *>(type.get());
-            if (variant_type != nullptr) {
-                assert((tokens_mut.first + 1)->token == TOK_DOT);
-                const auto tag_it = tokens_mut.first + 2;
-                assert(tag_it->token == TOK_IDENTIFIER || tag_it->token == TOK_TYPE);
-                const std::string tag = (tag_it->token == TOK_IDENTIFIER) ? std::string(tag_it->lexme) : tag_it->type->to_string();
-                const auto &possible_types = variant_type->get_possible_types();
-                std::optional<std::shared_ptr<Type>> variation_type;
-                for (const auto &[possible_tag, var_type] : possible_types) {
-                    if (possible_tag.has_value() && possible_tag.value() == tag) {
-                        variation_type = var_type;
-                        break;
+            switch (type->get_variation()) {
+                default:
+                    break;
+                case Type::Variation::ENUM: {
+                    const auto *enum_type = type->as<EnumType>();
+                    assert((tokens_mut.first + 1)->token == TOK_DOT);
+                    assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                    const std::string value((tokens_mut.first + 2)->lexme);
+                    const auto &values = enum_type->enum_node->values;
+                    if (std::find(values.begin(), values.end(), value) == values.end()) {
+                        // Unsupported enum value
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
                     }
+                    LitValue lit_value = LitEnum{.enum_type = type, .values = std::vector<std::string>{value}};
+                    return std::make_unique<LiteralNode>(lit_value, type);
                 }
-                if (!variation_type.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
+                case Type::Variation::ERROR_SET: {
+                    const auto *error_type = type->as<ErrorSetType>();
+                    assert((tokens_mut.first + 1)->token == TOK_DOT);
+                    assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                    const std::string value((tokens_mut.first + 2)->lexme);
+                    const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
+                    if (!pair.has_value()) {
+                        // Unsupported error value
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    LitValue lit_value = LitError{.error_type = type, .value = value, .message = std::nullopt};
+                    return std::make_unique<LiteralNode>(lit_value, type);
                 }
-                LitValue lit_value = LitVariantTag{.variant_type = type, .variation_type = variation_type.value()};
-                return std::make_unique<LiteralNode>(lit_value, type);
+                case Type::Variation::VARIANT: {
+                    const auto *variant_type = type->as<VariantType>();
+                    assert((tokens_mut.first + 1)->token == TOK_DOT);
+                    const auto tag_it = tokens_mut.first + 2;
+                    assert(tag_it->token == TOK_IDENTIFIER || tag_it->token == TOK_TYPE);
+                    const std::string tag = (tag_it->token == TOK_IDENTIFIER) ? std::string(tag_it->lexme) : tag_it->type->to_string();
+                    const auto &possible_types = variant_type->get_possible_types();
+                    std::optional<std::shared_ptr<Type>> variation_type;
+                    for (const auto &[possible_tag, var_type] : possible_types) {
+                        if (possible_tag.has_value() && possible_tag.value() == tag) {
+                            variation_type = var_type;
+                            break;
+                        }
+                    }
+                    if (!variation_type.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    LitValue lit_value = LitVariantTag{.variant_type = type, .variation_type = variation_type.value()};
+                    return std::make_unique<LiteralNode>(lit_value, type);
+                }
             }
         }
     }
@@ -2097,38 +2118,38 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             const std::shared_ptr<Type> &type = tokens_mut.first->type;
             // Its a grouped enum access, like `EnumType.(VAL1, VAL2, VAL3)`
             // All other types other than enums are not supported yet
-            if (const EnumType *enum_type = dynamic_cast<const EnumType *>(tokens_mut.first->type.get())) {
-                auto tok_it = tokens_mut.first + 1;
-                assert(tok_it->token == TOK_DOT);
-                tok_it++;
-                assert(tok_it->token == TOK_LEFT_PAREN);
-                tok_it++;
-                const auto &enum_values = enum_type->enum_node->values;
-                std::vector<std::string> values;
-                while (tok_it->token != TOK_RIGHT_PAREN) {
-                    if (tok_it->token == TOK_COMMA) {
-                        ++tok_it;
-                        continue;
-                    } else if (tok_it->token != TOK_IDENTIFIER) {
-                        // Unexpected Token, expected an identifier
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    const std::string value(tok_it->lexme);
-                    if (std::find(enum_values.begin(), enum_values.end(), value) == enum_values.end()) {
-                        // Unsupported enum value
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    values.emplace_back(value);
-                    ++tok_it;
-                }
-                LitValue lit_value = LitEnum{.enum_type = type, .values = values};
-                return std::make_unique<LiteralNode>(lit_value, type);
-            } else {
+            if (tokens_mut.first->type->get_variation() != Type::Variation::ENUM) {
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             }
+            const auto *enum_type = tokens_mut.first->type->as<EnumType>();
+            auto tok_it = tokens_mut.first + 1;
+            assert(tok_it->token == TOK_DOT);
+            tok_it++;
+            assert(tok_it->token == TOK_LEFT_PAREN);
+            tok_it++;
+            const auto &enum_values = enum_type->enum_node->values;
+            std::vector<std::string> values;
+            while (tok_it->token != TOK_RIGHT_PAREN) {
+                if (tok_it->token == TOK_COMMA) {
+                    ++tok_it;
+                    continue;
+                } else if (tok_it->token != TOK_IDENTIFIER) {
+                    // Unexpected Token, expected an identifier
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                const std::string value(tok_it->lexme);
+                if (std::find(enum_values.begin(), enum_values.end(), value) == enum_values.end()) {
+                    // Unsupported enum value
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                values.emplace_back(value);
+                ++tok_it;
+            }
+            LitValue lit_value = LitEnum{.enum_type = type, .values = values};
+            return std::make_unique<LiteralNode>(lit_value, type);
         }
         auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
         if (range.has_value() && range.value().first == 2 && range.value().second == token_size) {
@@ -2286,12 +2307,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         // Check if the operator is a optional default, in this case we need to check whether the lhs is an optional and whether the rhs
         // is the base type of the optional, otherwise it is considered an error
         if (pivot_token == TOK_OPT_DEFAULT) {
-            const OptionalType *lhs_opt = dynamic_cast<const OptionalType *>(lhs.value()->type.get());
-            if (lhs_opt == nullptr) {
+            if (lhs.value()->type->get_variation() != Type::Variation::OPTIONAL) {
                 // ?? operator not possible on non-optional type
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
+            const auto *lhs_opt = lhs.value()->type->as<OptionalType>();
             if (rhs.value()->type != lhs_opt->base_type) {
                 // The rhs of the ?? operator must be the same or implicitely castable to the base type of the optional
                 const std::string rhs_type_str = rhs.value()->type->to_string();
@@ -2319,22 +2340,27 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             bool is_castable = true;
             const std::shared_ptr<Type> &lhs_type = lhs.value()->type;
             const std::shared_ptr<Type> &rhs_type = rhs.value()->type;
-            const GroupType *lhs_group_type = dynamic_cast<const GroupType *>(lhs_type.get());
-            const GroupType *rhs_group_type = dynamic_cast<const GroupType *>(rhs_type.get());
-            const EnumType *lhs_enum_type = dynamic_cast<const EnumType *>(lhs_type.get());
-            const EnumType *rhs_enum_type = dynamic_cast<const EnumType *>(rhs_type.get());
-            const PrimitiveType *lhs_prim_type = dynamic_cast<const PrimitiveType *>(lhs_type.get());
-            const PrimitiveType *rhs_prim_type = dynamic_cast<const PrimitiveType *>(rhs_type.get());
-            if (lhs_group_type != nullptr && (rhs_enum_type != nullptr || rhs_prim_type != nullptr)) {
+
+            const auto lhs_variation = lhs_type->get_variation();
+            const auto rhs_variation = rhs_type->get_variation();
+
+            const bool lhs_is_group = lhs_variation == Type::Variation::GROUP;
+            const bool rhs_is_group = rhs_variation == Type::Variation::GROUP;
+            const bool lhs_is_comparable = lhs_variation == Type::Variation::ENUM || lhs_variation == Type::Variation::PRIMITIVE;
+            const bool rhs_is_comparable = rhs_variation == Type::Variation::ENUM || rhs_variation == Type::Variation::PRIMITIVE;
+
+            if (lhs_is_group && rhs_is_comparable) {
                 // All elements of the lhs group must match the rhs type, otherwise it's not a homogenous group
+                const GroupType *lhs_group_type = lhs_type->as<GroupType>();
                 for (const auto &type : lhs_group_type->types) {
                     if (type != rhs_type) {
                         is_castable = false;
                         break;
                     }
                 }
-            } else if (rhs_group_type != nullptr && (lhs_enum_type != nullptr || lhs_prim_type != nullptr)) {
+            } else if (rhs_is_group && lhs_is_comparable) {
                 // All elements of the rhs group must match the lhs type, otherwise it's not a homogenous group
+                const GroupType *rhs_group_type = rhs_type->as<GroupType>();
                 for (const auto &type : rhs_group_type->types) {
                     if (type != lhs_type) {
                         is_castable = false;
@@ -2392,107 +2418,124 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
 
     // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
     if (expected_type.has_value() && expected_type.value() != expression.value()->type) {
-        if (const OptionalType *optional_type = dynamic_cast<const OptionalType *>(expected_type.value().get())) {
-            if (expression.value()->type == optional_type->base_type) {
-                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
-            } else if (const OptionalType *expression_type = dynamic_cast<const OptionalType *>(expression.value()->type.get())) {
-                if (expression_type->base_type != Type::get_primitive_type("void")) {
+        switch (expected_type.value()->get_variation()) {
+            default: {
+                if (primitive_implicit_casting_table.find(expression.value()->type->to_string()) !=
+                    primitive_implicit_casting_table.end()) {
+                    const std::vector<std::string_view> &to_types =
+                        primitive_implicit_casting_table.at(expression.value()->type->to_string());
+                    if (std::find(to_types.begin(), to_types.end(), expected_type.value()->to_string()) == to_types.end()) {
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                        return std::nullopt;
+                    }
+                    const std::string from_type = expression.value()->type->to_string();
+                    if (from_type == "int" || from_type == "float") {
+                        auto *lit_node = expression.value()->as<LiteralNode>();
+                        lit_node->type = expected_type.value();
+                    } else {
+                        expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                    }
+                } else if (expected_type.value()->to_string() == "anyerror") {
+                    // Every error set type is castable to the anyerror type
+                    if (expression.value()->type->get_variation() != Type::Variation::ERROR_SET) {
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                        return std::nullopt;
+                    }
+                    expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                } else {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    return std::nullopt;
+                }
+                break;
+            }
+            case Type::Variation::ERROR_SET: {
+                const auto *target_error_type = expected_type.value()->as<ErrorSetType>();
+                if (expression.value()->type->get_variation() != Type::Variation::ERROR_SET) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    return std::nullopt;
+                }
+                const auto *expr_error_type = expression.value()->type->as<ErrorSetType>();
+                // The expr error set type needs to be a superset of the target error type to be castable to it, this means that the
+                // expression type "extends" the target type
+                std::optional<const ErrorNode *> parent_node = target_error_type->error_node;
+                bool is_castable = false;
+                while (parent_node.has_value()) {
+                    if (parent_node.value() == expr_error_type->error_node) {
+                        is_castable = true;
+                        break;
+                    }
+                    parent_node = parent_node.value()->get_parent_node();
+                }
+                if (!is_castable) {
                     THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
                 expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
-            } else {
-                const std::string expr_type_str = expression.value()->type->to_string();
-                // Check if the expression is implicitely castable to the base type of the optional
-                const CastDirection castability = check_castability(optional_type->base_type, expression.value()->type);
-                switch (castability.kind) {
-                    case CastDirection::Kind::CAST_BIDIRECTIONAL: // If castable both ways, allow implicit casting to the lhs type
-                    case CastDirection::Kind::CAST_RHS_TO_LHS:
-                        if (expr_type_str == "int" || expr_type_str == "float") {
-                            // Set the type of the rhs expression literal directly
-                            expression.value()->type = optional_type->base_type;
-                        }
-                        // Cast the expression to the target optional type
-                        expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
-                        break;
-                    default:
+            }
+            case Type::Variation::OPTIONAL: {
+                const auto *optional_type = expected_type.value()->as<OptionalType>();
+                if (expression.value()->type == optional_type->base_type) {
+                    expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                } else if (expression.value()->type->get_variation() == Type::Variation::OPTIONAL) {
+                    const auto *expression_type = expression.value()->type->as<OptionalType>();
+                    if (expression_type->base_type != Type::get_primitive_type("void")) {
                         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
                         return std::nullopt;
-                }
-            }
-        } else if (const VariantType *variant_type = dynamic_cast<const VariantType *>(expected_type.value().get())) {
-            bool viable_type_found = false;
-            for (const auto &[_, variation] : variant_type->get_possible_types()) {
-                const std::string var_str = variation->to_string();
-                const std::string expr_str = expression.value()->type->to_string();
-                if (variation == expression.value()->type) {
+                    }
                     expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
-                    viable_type_found = true;
-                    break;
-                }
-            }
-            if (!viable_type_found) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
-            }
-        } else if (primitive_implicit_casting_table.find(expression.value()->type->to_string()) != primitive_implicit_casting_table.end()) {
-            const std::vector<std::string_view> &to_types = primitive_implicit_casting_table.at(expression.value()->type->to_string());
-            if (std::find(to_types.begin(), to_types.end(), expected_type.value()->to_string()) != to_types.end()) {
-                const std::string from_type = expression.value()->type->to_string();
-                if (from_type == "int" || from_type == "float") {
-                    LiteralNode *lit_node = dynamic_cast<LiteralNode *>(expression.value().get());
-                    assert(lit_node != nullptr);
-                    lit_node->type = expected_type.value();
                 } else {
-                    expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                    const std::string expr_type_str = expression.value()->type->to_string();
+                    // Check if the expression is implicitely castable to the base type of the optional
+                    const CastDirection castability = check_castability(optional_type->base_type, expression.value()->type);
+                    switch (castability.kind) {
+                        case CastDirection::Kind::CAST_BIDIRECTIONAL: // If castable both ways, allow implicit casting to the lhs type
+                        case CastDirection::Kind::CAST_RHS_TO_LHS:
+                            if (expr_type_str == "int" || expr_type_str == "float") {
+                                // Set the type of the rhs expression literal directly
+                                expression.value()->type = optional_type->base_type;
+                            }
+                            // Cast the expression to the target optional type
+                            expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                            break;
+                        default:
+                            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                            return std::nullopt;
+                    }
                 }
-            } else {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
+                break;
             }
-        } else if (const TupleType *tuple_type = dynamic_cast<const TupleType *>(expected_type.value().get())) {
-            const GroupType *group_type = dynamic_cast<const GroupType *>(expression.value()->type.get());
-            if (group_type == nullptr) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
-            }
-            if (tuple_type->types != group_type->types) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
-            }
-            expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
-        } else if (const ErrorSetType *target_error_type = dynamic_cast<const ErrorSetType *>(expected_type.value().get())) {
-            const ErrorSetType *expr_error_type = dynamic_cast<const ErrorSetType *>(expression.value()->type.get());
-            if (expr_error_type == nullptr) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
-            }
-            // The expr error set type needs to be a superset of the target error type to be castable to it, this means that the expression
-            // type "extends" the target type
-            std::optional<const ErrorNode *> parent_node = target_error_type->error_node;
-            bool is_castable = false;
-            while (parent_node.has_value()) {
-                if (parent_node.value() == expr_error_type->error_node) {
-                    is_castable = true;
-                    break;
+            case Type::Variation::TUPLE: {
+                const auto *tuple_type = expected_type.value()->as<TupleType>();
+                if (expression.value()->type->get_variation() != Type::Variation::GROUP) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    return std::nullopt;
                 }
-                parent_node = parent_node.value()->get_parent_node();
+                const auto *group_type = expression.value()->type->as<GroupType>();
+                if (tuple_type->types != group_type->types) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    return std::nullopt;
+                }
+                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                break;
             }
-            if (!is_castable) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
+            case Type::Variation::VARIANT: {
+                const auto *variant_type = expected_type.value()->as<VariantType>();
+                bool viable_type_found = false;
+                for (const auto &[_, variation] : variant_type->get_possible_types()) {
+                    const std::string var_str = variation->to_string();
+                    const std::string expr_str = expression.value()->type->to_string();
+                    if (variation == expression.value()->type) {
+                        expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                        viable_type_found = true;
+                        break;
+                    }
+                }
+                if (!viable_type_found) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    return std::nullopt;
+                }
+                break;
             }
-            expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
-        } else if (expected_type.value()->to_string() == "anyerror") {
-            // Every error set type is castable to the anyerror type
-            if (!dynamic_cast<const ErrorSetType *>(expression.value()->type.get())) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                return std::nullopt;
-            }
-            expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
-        } else {
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-            return std::nullopt;
         }
     }
 
