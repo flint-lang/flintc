@@ -1,0 +1,9 @@
+use Core.print
+
+extern def do_something(data<i32, i32, f32, bool> d) -> (i32, i32, f32, bool);
+
+def main():
+    data<i32, i32, f32, bool> d = (10, 10, 3.2, false);
+    print($"d.($0, $1, $2, $3) = ({d.$0}, {d.$1}, {d.$2}, {d.$3})\n");
+    d = do_something(d);
+    print($"d.($0, $1, $2, $3) = ({d.$0}, {d.$1}, {d.$2}, {d.$3})\n");

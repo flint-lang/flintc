@@ -36,7 +36,12 @@ test "6_name_doesnt_matter":
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Generation Error at main.ft:18:1\n└──┬┤E0000│\n18 │ extern def do_something(SomeData md) -> SomeData;\n┌──┴─┘\n├─ Defined extern function 'do_something' twice\n└─ It was first defined at main.ft:17:1\n");
 
-test "7_multi_types":
-	str path = "wiki_tests/beginners_guide/interop/7_multi_types";
+test "7_tuples":
+	str path = "wiki_tests/beginners_guide/interop/7_tuples";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "d.($0, $1, $2, $3) = (10, 10, 3.2, false)\nd.($0, $1, $2, $3) = (12, 15, 1.6, true)\n");
+
+test "8_multi_types":
+	str path = "wiki_tests/beginners_guide/interop/8_multi_types";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = (13.7, 69.100006, 40.48)\n");
