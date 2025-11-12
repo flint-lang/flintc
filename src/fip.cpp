@@ -223,6 +223,19 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             }
             return true;
         }
+        case Type::Variation::TUPLE: {
+            const auto *type = src->as<TupleType>();
+            // A tuple-type is just a struct under the hood annyway
+            dest->type = FIP_TYPE_STRUCT;
+            dest->u.struct_t.field_count = static_cast<uint8_t>(type->types.size());
+            dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * type->types.size()));
+            for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
+                if (!convert_type(&dest->u.struct_t.fields[i], type->types.at(i), true)) {
+                    return false;
+                }
+            }
+            return true;
+        }
         case Type::Variation::POINTER: {
             const auto *type = src->as<PointerType>();
             // A pointer type is essentially just the base type encoded but with a pointer type tag.
@@ -288,16 +301,22 @@ bool FIP::resolve_function(FunctionNode *function) {
     }
     fip_print(0, FIP_INFO, "Trying to resolve function: '%s'", fn_str.c_str());
 
+    std::shared_ptr<Type> ret_type;
     if (!function->return_types.empty()) {
-        const uint8_t rets_len = static_cast<uint8_t>(function->return_types.size());
-        msg.u.sym_req.sig.fn.rets_len = rets_len;
-        msg.u.sym_req.sig.fn.rets = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * rets_len));
-        for (uint8_t i = 0; i < rets_len; i++) {
-            if (!convert_type(&msg.u.sym_req.sig.fn.rets[i], function->return_types.at(i), true)) {
-                const std::string type_str = function->return_types.at(i)->to_string();
-                fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
-                return false;
+        if (function->return_types.size() > 1) {
+            ret_type = std::make_shared<TupleType>(function->return_types);
+            if (!Type::add_type(ret_type)) {
+                ret_type = Type::get_type_from_str(ret_type->to_string()).value();
             }
+        } else {
+            ret_type = function->return_types.front();
+        }
+        msg.u.sym_req.sig.fn.rets_len = 1; // We *always* have only one return type, being either the value directly or a struct
+        msg.u.sym_req.sig.fn.rets = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
+        if (!convert_type(&msg.u.sym_req.sig.fn.rets[0], ret_type, true)) {
+            const std::string type_str = ret_type->to_string();
+            fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
+            return false;
         }
     }
 

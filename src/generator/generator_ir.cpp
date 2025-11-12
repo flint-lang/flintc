@@ -152,12 +152,39 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     const std::shared_ptr<Type> &type                       //
 ) {
     const auto type_variation = type->get_variation();
-    if (type_variation == Type::Variation::DATA) {
-        const auto *data_type = type->as<DataType>();
-        // Check if the type already exists in the map and return it directly if it does
-        const std::string type_str = "type.data." + data_type->to_string() + ".extern";
-        if (type_map.find(type_str) != type_map.end()) {
-            return type_map[type_str];
+    if (type_variation == Type::Variation::DATA || type_variation == Type::Variation::TUPLE || type_variation == Type::Variation::GROUP) {
+        std::string type_str;
+        switch (type_variation) {
+            default:
+                assert(false);
+                return std::nullopt;
+            case Type::Variation::DATA: {
+                const auto *data_type = type->as<DataType>();
+                // Check if the type already exists in the map and return it directly if it does
+                type_str = "type.data." + data_type->to_string() + ".extern";
+                if (type_map.find(type_str) != type_map.end()) {
+                    return type_map[type_str];
+                }
+                break;
+            }
+            case Type::Variation::TUPLE: {
+                const auto *tuple_type = type->as<TupleType>();
+                // Check if the type already exists in the map and return it directly if it does
+                type_str = "type.tuple." + tuple_type->to_string() + ".extern";
+                if (type_map.find(type_str) != type_map.end()) {
+                    return type_map[type_str];
+                }
+                break;
+            }
+            case Type::Variation::GROUP: {
+                const auto *group_type = type->as<GroupType>();
+                // Check if the type already exists in the map and return it directly if it does
+                type_str = "type.group." + group_type->to_string() + ".extern";
+                if (type_map.find(type_str) != type_map.end()) {
+                    return type_map[type_str];
+                }
+                break;
+            }
         }
         // First we need to check the total size of the data structure. If it's bigger than 16 bytes the 16-byte-rule applies (we pass in
         // the struct by reference or we need to pass in a pointer to the returned struct as first argument)
@@ -487,9 +514,24 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 );
             }
             return {type_map.at("__flint_type_err"), {false, true}};
-        case Type::Variation::GROUP:
-            // TODO: Add this?
-            break;
+        case Type::Variation::GROUP: {
+            const auto *group_type = type->as<GroupType>();
+            const std::string type_str = "type.tuple." + type->to_string();
+            std::vector<llvm::Type *> type_vector;
+            for (const auto &tup_type : group_type->types) {
+                auto pair = get_type(module, tup_type);
+                if (pair.second.first && tup_type->get_variation() != Type::Variation::OPTIONAL) {
+                    pair.first = pair.first->getPointerTo();
+                }
+                type_vector.emplace_back(pair.first);
+            }
+            if (type_map.find(type_str) == type_map.end()) {
+                llvm::ArrayRef<llvm::Type *> type_array(type_vector);
+                llvm::StructType *llvm_tuple_type = llvm::StructType::create(context, type_array, type_str, false);
+                type_map[type_str] = llvm_tuple_type;
+            }
+            return {type_map.at(type_str), {false, true}};
+        }
         case Type::Variation::MULTI: {
             const auto *multi_type = type->as<MultiType>();
             if (type->to_string() == "bool8") {

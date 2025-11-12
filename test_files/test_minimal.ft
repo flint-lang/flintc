@@ -1,43 +1,9 @@
 use Core.print
 
-data MyData:
-	i32 x;
-	i32 y;
-	f32 speed;
-	bool is_something;
-	MyData(x, y, speed, is_something);
-
-extern def do_something(MyData* md) -> MyData;
-
-extern def do_something_2(MyData md) -> MyData;
-
-data BigData:
-	i32 x;
-	i32 y;
-	i32 z;
-	f32 dx;
-	f32 dy;
-	f32 dz;
-	f32 speed;
-	BigData(x, y, z, dx, dy, dz, speed);
-
-extern def big_data_do(BigData bd) -> BigData;
-
-extern def inc_x(mut i32* x);
+extern def do_something(data<i32, i32, f32, bool> d) -> (i32, i32, f32, bool);
 
 def main():
-	MyData md = MyData(1, 2, 3.0, false);
-	MyData md2 = do_something(&md);
-	MyData md3 = do_something_2(md);
-	print($"md.(x, y, speed, is_something) = ({md.x}, {md.y}, {md.speed}, {md.is_something})\n");
-	print($"md2.(x, y, speed, is_something) = ({md2.x}, {md2.y}, {md2.speed}, {md2.is_something})\n");
-	print($"md3.(x, y, speed, is_something) = ({md3.x}, {md3.y}, {md3.speed}, {md3.is_something})\n");
-
-	BigData bd = BigData(1, 2, 3, 1.0, 2.0, 3.0, -5.0);
-	BigData bd2 = big_data_do(bd);
-	print($"bd.(x, y, z, dx, dy, dz, speed) = ({bd.x}, {bd.y}, {bd.z}, {bd.dx}, {bd.dy}, {bd.dz}, {bd.speed})\n");
-	print($"bd2.(x, y, z, dx, dy, dz, speed) = ({bd2.x}, {bd2.y}, {bd2.z}, {bd2.dx}, {bd2.dy}, {bd2.dz}, {bd2.speed})\n");
-
-	i32 x = 10;
-	inc_x(&x);
-	print($"x = {x}\n");
+    data<i32, i32, f32, bool> d = (10, 10, 3.2, false);
+    print($"d.($0, $1, $2, $3) = ({d.$0}, {d.$1}, {d.$2}, {d.$3})\n");
+    d = do_something(d);
+    print($"d.($0, $1, $2, $3) = ({d.$0}, {d.$1}, {d.$2}, {d.$3})\n");

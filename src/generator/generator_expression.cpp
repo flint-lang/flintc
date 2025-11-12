@@ -450,6 +450,10 @@ void Generator::Expression::convert_type_to_ext( //
             // No special handling needed
             args.emplace_back(value);
             return;
+        case Type::Variation::TUPLE:
+            [[fallthrough]];
+        case Type::Variation::GROUP:
+            [[fallthrough]];
         case Type::Variation::DATA:
             convert_data_type_to_ext(builder, ctx, type, value, args);
             return;
@@ -755,6 +759,10 @@ void Generator::Expression::convert_type_from_ext( //
     switch (type->get_variation()) {
         default:
             return;
+        case Type::Variation::TUPLE:
+            [[fallthrough]];
+        case Type::Variation::GROUP:
+            [[fallthrough]];
         case Type::Variation::DATA:
             convert_data_type_from_ext(builder, ctx, type, value);
             return;
@@ -1136,13 +1144,17 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         }
         case Type::Variation::GROUP: {
             const auto *group_type = call_node->type->as<GroupType>();
-            // We have multiple returns and need to extract them all and put into the return value vector
+            llvm::Value *ret_val = call;
+            convert_type_from_ext(builder, ctx, call_node->type, ret_val);
+
+            // Now ret_val is a pointer to the internal struct representation
+            // Extract individual elements from the struct
+            llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).first;
             for (unsigned int i = 0; i < group_type->types.size(); i++) {
-                llvm::Value *ret_val = builder.CreateExtractValue(call, {i});
-                convert_type_from_ext(builder, ctx, group_type->types.at(i), ret_val);
-                return_value.emplace_back(ret_val);
+                llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, ret_val, i);
+                llvm::Value *elem = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), group_type->types[i]).first, elem_ptr);
+                return_value.emplace_back(elem);
             }
-            break;
         }
     }
     return return_value;

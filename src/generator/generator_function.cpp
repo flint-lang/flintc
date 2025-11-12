@@ -8,30 +8,37 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
     if (is_extern && function_node->return_types.empty()) {
         // If it's extern and empty it's a void return type
         return_types = llvm::Type::getVoidTy(context);
-    } else if (function_node->return_types.size() == 1) {
-        if (is_extern) {
-            // Check if return type is > 16 bytes
-            llvm::Type *actual_return_type = IR::get_type(module, function_node->return_types.front(), false).first;
-            size_t return_size = Allocation::get_type_size(module, actual_return_type);
-
-            if (return_size > 16) {
-                // Return type becomes void
-                return_types = llvm::Type::getVoidTy(context);
-                // First parameter becomes sret pointer
-                sret_param_type = actual_return_type->getPointerTo();
-            } else {
-                // Existing logic for <= 16 bytes
-                return_types = IR::get_type(module, function_node->return_types.front(), true).first;
+    } else if (is_extern) {
+        std::shared_ptr<Type> ret_type = function_node->return_types.front();
+        if (function_node->return_types.size() > 1) {
+            ret_type = std::make_shared<GroupType>(function_node->return_types);
+            if (!Type::add_type(ret_type)) {
+                ret_type = Type::get_type_from_str(ret_type->to_string()).value();
             }
+        }
+        // Check if return type is > 16 bytes
+        llvm::Type *actual_return_type = IR::get_type(module, ret_type, false).first;
+        size_t return_size = Allocation::get_type_size(module, actual_return_type);
+
+        if (return_size > 16) {
+            // Return type becomes void
+            return_types = llvm::Type::getVoidTy(context);
+            // First parameter becomes sret pointer
+            sret_param_type = actual_return_type->getPointerTo();
         } else {
-            return_types = IR::add_and_or_get_type(module, function_node->return_types.front(), !is_extern, is_extern);
+            // Existing logic for <= 16 bytes
+            return_types = IR::get_type(module, ret_type, true).first;
         }
     } else {
-        std::shared_ptr<Type> group_type = std::make_shared<GroupType>(function_node->return_types);
-        if (!Type::add_type(group_type)) {
-            group_type = Type::get_type_from_str(group_type->to_string()).value();
+        if (function_node->return_types.size() == 1) {
+            return_types = IR::add_and_or_get_type(module, function_node->return_types.front(), !is_extern, is_extern);
+        } else {
+            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(function_node->return_types);
+            if (!Type::add_type(group_type)) {
+                group_type = Type::get_type_from_str(group_type->to_string()).value();
+            }
+            return_types = IR::add_and_or_get_type(module, group_type, !is_extern, is_extern);
         }
-        return_types = IR::add_and_or_get_type(module, group_type, !is_extern, is_extern);
     }
 
     // Get the parameter types
