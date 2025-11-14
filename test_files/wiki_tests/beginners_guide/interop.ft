@@ -45,3 +45,18 @@ test "8_multi_types":
 	str path = "wiki_tests/beginners_guide/interop/8_multi_types";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = (13.7, 69.100006, 40.48)\n");
+
+test "9_variable_pointer":
+	str path = "wiki_tests/beginners_guide/interop/9_variable_pointer";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "x = 15\n");
+
+test "10_ptr_in_definition":
+	str path = "wiki_tests/beginners_guide/interop/10_ptr_in_definition";
+	str file = "main.ft";
+	test_file_fail_in(path, file, "Analyzing Error at main.ft:3:13\n└─┬┤E0000│\n3 │ def add(mut i32* lhs, i32 rhs):\n┌─┴─────────────┘\n├─ Pointer types are not allowed in non-extern functions\n└─ A pointer type 'T*' can only be used when defining or calling 'extern' functions\n");
+
+test "11_ptr_in_body":
+	str path = "wiki_tests/beginners_guide/interop/11_ptr_in_body";
+	str file = "main.ft";
+	test_file_fail_in(path, file, "Analyzing Error at main.ft:4:14\n└─┬┤E0000│\n3 │ def add(i32 lhs, i32 rhs):\n4 │ »   i32* a = &lhs;\n┌─┴──────────────┘\n├─ Pointer types are not allowed in non-extern contexts\n└─ A pointer type 'T*' can only be used when defining or calling 'extern' functions\n");

@@ -1,0 +1,9 @@
+use Core.print
+
+extern def add(mut i32* lhs, mut i32 rhs);
+
+def main():
+    i32 x = 5;
+    i32 y = 10;
+    add(&x, y);
+    print($"x = {x}\n");

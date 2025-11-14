@@ -1,0 +1,11 @@
+use Core.print
+
+def add(i32 lhs, i32 rhs):
+    i32* a = &lhs;
+    a = &rhs;
+
+def main():
+    i32 x = 5;
+    i32 y = 10;
+    add(x, y);
+    print($"x = {x}\n");
