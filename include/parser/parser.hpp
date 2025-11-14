@@ -36,6 +36,7 @@
 #include "ast/statements/unary_op_statement.hpp"
 #include "ast/statements/while_node.hpp"
 
+#include "analyzer/analyzer.hpp"
 #include "ast/expressions/array_access_node.hpp"
 #include "ast/expressions/array_initializer_node.hpp"
 #include "ast/expressions/data_access_node.hpp"
@@ -70,6 +71,18 @@
 /// @note This class cannot be initialized and all functions within this class are static
 class Parser {
   public:
+    /// @struct `Context`
+    /// @brief The context of the parsing
+    struct Context {
+        /// @var `level`
+        /// @brief The context level the parser is currently at
+        ContextLevel level;
+    };
+
+    /// @var `_ctx_`
+    /// @brief The default context for parsing, globally constructed at compile-time to reduce LoC wastage of context creation
+    static constexpr Context _ctx_{.level = ContextLevel::INTERNAL};
+
     /// @function `create`
     /// @brief Creates a new instance of the Parser. The parser itself owns all instances of the parser
     static Parser *create(const std::filesystem::path &file);
@@ -676,6 +689,7 @@ class Parser {
     ///
     /// @details This function is part of the `Util` class, as both call statements as well as call expressions use this function
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope the call happens in
     /// @param `tokens` The tokens which will be interpreted as call
     /// @param `alias_base` The alias base of the call, if there is any
@@ -693,23 +707,31 @@ class Parser {
         bool,                                                          // is initializer (true) or call (false)
         std::vector<std::shared_ptr<Type>>                             // error_types
         >>
-    create_call_or_initializer_base(std::shared_ptr<Scope> scope, const token_slice &tokens, const std::optional<std::string> &alias_base);
+    create_call_or_initializer_base(                 //
+        const Context &ctx,                          //
+        std::shared_ptr<Scope> &scope,               //
+        const token_slice &tokens,                   //
+        const std::optional<std::string> &alias_base //
+    );
 
     /// @function `create_unary_op_base`
     /// @brief Creates a UnaryOpBase from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the unary operation is defined
     /// @param `tokens` The list of tokens representing the unary operation
     /// @return A optional value containing a tuple, where the first value is the operator token, the second value is the expression on
     /// which the unary operation is applied on and the third value is whether the unary operator is left to the expression
     std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> create_unary_op_base( //
-        std::shared_ptr<Scope> scope,                                                             //
+        const Context &ctx,                                                                       //
+        std::shared_ptr<Scope> &scope,                                                            //
         const token_slice &tokens                                                                 //
     );
 
     /// @function `create_field_access_base`
     /// @brief Creates a tuple of all field access variables extracted from a field access
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the field access is defined
     /// @param `tokens` The list of tokens representing the field access
     /// @param `has_inbetween_operator` Whether the field access has an in-between operator like a `?` for example
@@ -720,7 +742,8 @@ class Parser {
     ///     - fourth value is the type of the field
     std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
     create_field_access_base(                     //
-        std::shared_ptr<Scope> scope,             //
+        const Context &ctx,                       //
+        std::shared_ptr<Scope> &scope,            //
         const token_slice &tokens,                //
         const bool has_inbetween_operator = false //
     );
@@ -740,6 +763,7 @@ class Parser {
     /// @function `create_grouped_access_base`
     /// @brief Creates a tuple for all group access variables extracted from a grouped variable access
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the grouped access is defined
     /// @param `tokens` The list of tokens representing the grouped access
     /// @param `has_inbetween_operator` Whether the grouped field access has an in-between operator like a `?` for example
@@ -751,7 +775,8 @@ class Parser {
     std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::vector<std::string>, std::vector<unsigned int>,
         std::vector<std::shared_ptr<Type>>>>
     create_grouped_access_base(                   //
-        std::shared_ptr<Scope> scope,             //
+        const Context &ctx,                       //
+        std::shared_ptr<Scope> &scope,            //
         const token_slice &tokens,                //
         const bool has_inbetween_operator = false //
     );
@@ -839,15 +864,20 @@ class Parser {
     /// @param `scope` The scope in which the variable is defined
     /// @param `tokens` The list of tokens representing the variable
     /// @return `std::optional<VariableNode>` An optional VariableNode if creation is successful, nullopt otherwise
-    std::optional<VariableNode> create_variable(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<VariableNode> create_variable(std::shared_ptr<Scope> &scope, const token_slice &tokens);
 
     /// @function `create_unary_op_expression`
     /// @brief Creates a UnaryOpExpression from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the unary operation is defined
     /// @param `tokens` The list of tokens representing the unary operation
     /// @return `std::optional<UnaryOpExpression>` An optional UnaryOpExpression if creation is successful, nullopt otherwise
-    std::optional<UnaryOpExpression> create_unary_op_expression(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<UnaryOpExpression> create_unary_op_expression( //
+        const Context &ctx,                                      //
+        std::shared_ptr<Scope> &scope,                           //
+        const token_slice &tokens                                //
+    );
 
     /// @function `create_literal`
     /// @brief Creates a LiteralNode from the given tokens
@@ -859,12 +889,14 @@ class Parser {
     /// @functon `create_string_interpolation`
     /// @brief Creates a StringInterpolationNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope the string interpolation takes place in
     /// @param `interpol_string` The string from which the interpolation is created
     /// @param `tokens` The tokens which contain the string interpolation (needed for correct error output)
     /// @retun `std::optional<StringInterpolationNode>` An optional StringInterpolationNode if creation was successful, nullopt otherwise
     std::optional<StringInterpolationNode> create_string_interpolation( //
-        std::shared_ptr<Scope> scope,                                   //
+        const Context &ctx,                                             //
+        std::shared_ptr<Scope> &scope,                                  //
         const std::string &interpol_string,                             //
         const token_slice &tokens                                       //
     );
@@ -872,11 +904,13 @@ class Parser {
     /// @function `create_call_expression`
     /// @brief Creates a CallNodeExpression from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the call expression is defined
     /// @param `tokens` The list of tokens representing the call expression
     /// @return `std::optional<std::unique_ptr<CallNodeExpression>>` A unique pointer to the created CallNodeExpression
     std::optional<std::unique_ptr<ExpressionNode>> create_call_expression( //
-        std::shared_ptr<Scope> scope,                                      //
+        const Context &ctx,                                                //
+        std::shared_ptr<Scope> &scope,                                     //
         const token_slice &tokens,                                         //
         const std::optional<std::string> &alias_base                       //
     );
@@ -884,11 +918,13 @@ class Parser {
     /// @function `create_initializer`
     /// @brief Creates a InitializerNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the initializer is defined
     /// @param `tokens` The list of tokens representing the initializer
     /// @return `std::optional<std::unique_ptr<InitializerNode>>` A unique pointer to the created InitializerNod3
     std::optional<std::unique_ptr<ExpressionNode>> create_initializer( //
-        std::shared_ptr<Scope> scope,                                  //
+        const Context &ctx,                                            //
+        std::shared_ptr<Scope> &scope,                                 //
         const token_slice &tokens,                                     //
         const std::optional<std::string> &alias_base                   //
     );
@@ -896,123 +932,187 @@ class Parser {
     /// @function `create_type_cast`
     /// @brief Creates a TypeCastNode from the given tokens, if the expression already is the wanted type it returns the expression directly
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the type cast is defined
     /// @param `tokens` The list of tokens representing the type cast
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An ExpressionNode if creation is successful, nullopt otherwise
-    std::optional<std::unique_ptr<ExpressionNode>> create_type_cast(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> create_type_cast( //
+        const Context &ctx,                                          //
+        std::shared_ptr<Scope> &scope,                               //
+        const token_slice &tokens                                    //
+    );
 
     /// @function `create_group_expression`
     /// @brief Creates a GroupExpressionNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the grouped expression is defined
     /// @param `tokens` The list of tokens representing the type cast
     /// @return `std::optional<GroupExpressionNode>` An optional grouped expression, nullopt if its creation failed
-    std::optional<GroupExpressionNode> create_group_expression(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<GroupExpressionNode> create_group_expression( //
+        const Context &ctx,                                     //
+        std::shared_ptr<Scope> &scope,                          //
+        const token_slice &tokens                               //
+    );
 
     /// @function `create_group_expressions`
     /// @brief Creates a bunch of comma-separated group expressions
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the expressions are defined
     /// @param `tokens` The list of tokens representing all expressions separated by commas
     /// @return `std::optional<std::vector<std::unique_ptr<ExpressionNode>>>` The list of expressions in the group
     std::optional<std::vector<std::unique_ptr<ExpressionNode>>> create_group_expressions( //
-        std::shared_ptr<Scope> scope,                                                     //
+        const Context &ctx,                                                               //
+        std::shared_ptr<Scope> &scope,                                                    //
         const token_slice &tokens                                                         //
     );
 
     /// @function `create_range_expression`
     /// @brief Creates a range expression from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the range expression is defined in
     /// @param `tokens` The list of tokens representing the range expression
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional range expression, nullopt if its creation failed
-    std::optional<std::unique_ptr<ExpressionNode>> create_range_expression(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> create_range_expression( //
+        const Context &ctx,                                                 //
+        std::shared_ptr<Scope> &scope,                                      //
+        const token_slice &tokens                                           //
+    );
 
     /// @function `create_data_access`
     /// @brief Creates a DataAccessNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the data access is defined
     /// @param `tokens` The list of tokens representing the data access
     /// @return `std::optional<DataAccessNode>` An optional data access node, nullopt if its creation failed
-    std::optional<DataAccessNode> create_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<DataAccessNode> create_data_access( //
+        const Context &ctx,                           //
+        std::shared_ptr<Scope> &scope,                //
+        const token_slice &tokens                     //
+    );
 
     /// @function `create_grouped_data_access`
     /// @brief Creates a GroupedDataAccessNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the data access is defined
     /// @param `tokens` The list of tokens representing the data access
     /// @return `std::optional<GroupedDataAccessNode>` A grouped data access node, nullopt if its creation failed
-    std::optional<GroupedDataAccessNode> create_grouped_data_access(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<GroupedDataAccessNode> create_grouped_data_access( //
+        const Context &ctx,                                          //
+        std::shared_ptr<Scope> &scope,                               //
+        const token_slice &tokens                                    //
+    );
 
     /// @function `create_array_initializer`
     /// @brief Creates an ArrayInitializerNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the array initializer is defined
     /// @param `tokens` The list of tokens representing the array initializer
     /// @return `std::optional<ArrayInitializerNode>` An array initializer node, nullopt if its creation failed
-    std::optional<ArrayInitializerNode> create_array_initializer(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<ArrayInitializerNode> create_array_initializer( //
+        const Context &ctx,                                       //
+        std::shared_ptr<Scope> &scope,                            //
+        const token_slice &tokens                                 //
+    );
 
     /// @function `create_array_access`
     /// @brief Creates an ArrayAccessNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the array initializer is defined
     /// @param `tokens` The list of tokens representing the array access
     /// @return `std::optional<ArrayAccessNode>` An array access node, nullopt if its creation failed
-    std::optional<ArrayAccessNode> create_array_access(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<ArrayAccessNode> create_array_access( //
+        const Context &ctx,                             //
+        std::shared_ptr<Scope> &scope,                  //
+        const token_slice &tokens                       //
+    );
 
     /// @function `create_optional_chain`
     /// @brief Creates an OptionalChainNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the optional chain is defined
     /// @param `tokens` The list of tokens representing the optional chain
     /// @return `std::optional<OptionalChainNode>` An optional chain, nullopt if its creation failed
-    std::optional<OptionalChainNode> create_optional_chain(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<OptionalChainNode> create_optional_chain( //
+        const Context &ctx,                                 //
+        std::shared_ptr<Scope> &scope,                      //
+        const token_slice &tokens                           //
+    );
 
     /// @function `create_optional_unwrap`
     /// @brief Creates an OptionalUnwrapNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the optional unwrap is defined
     /// @param `tokens` The list of tokens representing the optional unwrap
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The expression containing the optional unwrap, nullopt if creation failed
-    std::optional<std::unique_ptr<ExpressionNode>> create_optional_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> create_optional_unwrap( //
+        const Context &ctx,                                                //
+        std::shared_ptr<Scope> &scope,                                     //
+        const token_slice &tokens                                          //
+    );
 
     /// @function `create_variant_extraction`
     /// @brief Creates an VariantExtractionNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the variant extraction is defined
     /// @param `tokens` The list of tokens representing the variant extraction
     /// @return `std::optional<VariantExtractionNode>` A variant extraction, nullopt if its creation failed
-    std::optional<VariantExtractionNode> create_variant_extraction(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<VariantExtractionNode> create_variant_extraction( //
+        const Context &ctx,                                         //
+        std::shared_ptr<Scope> &scope,                              //
+        const token_slice &tokens                                   //
+    );
 
     /// @function `create_variant_unwrap`
     /// @brief Creates a VariantUnwrapNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the variant unwrap is defined
     /// @param `tokens` The list of tokens representing the variant unwrap
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The expression containing the variant unwrap, nullopt if creation failed
-    std::optional<std::unique_ptr<ExpressionNode>> create_variant_unwrap(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> create_variant_unwrap( //
+        const Context &ctx,                                               //
+        std::shared_ptr<Scope> &scope,                                    //
+        const token_slice &tokens                                         //
+    );
 
     /// @function `create_stacked_expression`
     /// @brief Creates a stacked expression from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the scoped expression is defined
     /// @param `tokens` The list of tokens representing the scoped expression
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The stacked expression, nullopt if its creation failed
     ///
     /// @details Stacked expressions are unwrapped from the right to the left: `instance.field.field.field` becomes
     /// `(instance.field.field).field` and then it becomes `((instance.field).field).field`, so they are evalueated balanced from the right
-    std::optional<std::unique_ptr<ExpressionNode>> create_stacked_expression(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> create_stacked_expression( //
+        const Context &ctx,                                                   //
+        std::shared_ptr<Scope> &scope,                                        //
+        const token_slice &tokens                                             //
+    );
 
     /// @function `create_pivot_expression`
     /// @brief Creates a expression based on token precedences, where the token with the highest precedence is the "pivot point" of the
     /// epxression creation
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the expression is defined
     /// @param `tokens` The list of tokens representing the expression
     /// @param `expected_type` The expected type of the expression. Needed for the cration of default nodes
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional unique pointer to the created ExpressionNode
     std::optional<std::unique_ptr<ExpressionNode>> create_pivot_expression(      //
-        std::shared_ptr<Scope> scope,                                            //
+        const Context &ctx,                                                      //
+        std::shared_ptr<Scope> &scope,                                           //
         const token_slice &tokens,                                               //
         const std::optional<std::shared_ptr<Type>> &expected_type = std::nullopt //
     );
@@ -1020,12 +1120,14 @@ class Parser {
     /// @function `create_expression`
     /// @brief Creates an ExpressionNode from the given tokens
     ///
+    /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the expression is defined
     /// @param `tokens` The list of tokens representing the expression
     /// @param `expected_type` The expected type of the expression. If possible, applies implicit type conversion to get this type
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional unique pointer to the created ExpressionNode
     std::optional<std::unique_ptr<ExpressionNode>> create_expression(            //
-        std::shared_ptr<Scope> scope,                                            //
+        const Context &ctx,                                                      //
+        std::shared_ptr<Scope> &scope,                                           //
         const token_slice &tokens,                                               //
         const std::optional<std::shared_ptr<Type>> &expected_type = std::nullopt //
     );
@@ -1047,7 +1149,7 @@ class Parser {
     /// @param `alias_base` The alias base of the call, if any
     /// @return `std::optional<std::unique_ptr<CallNodeStatement>>` A unique pointer to the created CallNodeStatement
     std::optional<std::unique_ptr<CallNodeStatement>> create_call_statement( //
-        std::shared_ptr<Scope> scope,                                        //
+        std::shared_ptr<Scope> &scope,                                       //
         const token_slice &tokens,                                           //
         const std::optional<std::string> &alias_base                         //
     );
@@ -1058,7 +1160,7 @@ class Parser {
     /// @param `scope` The scope in which the throw statement is defined
     /// @param `tokens` The list of tokens representing the throw statement
     /// @return `std::optional<ThrowNode>` An optional ThrowNode if creation is successful, nullopt otherwise
-    std::optional<ThrowNode> create_throw(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<ThrowNode> create_throw(std::shared_ptr<Scope> &scope, const token_slice &tokens);
 
     /// @function `create_return`
     /// @brief Creates a ReturnNode from the given list of tokens
@@ -1066,7 +1168,7 @@ class Parser {
     /// @param `scope` The scope in which the return statement is defined
     /// @param `tokens` The list of tokens representing the return statement
     /// @return `std::optional<ReturnNode>` An optional ReturnNode if creation is successful, nullopt otherwise
-    std::optional<ReturnNode> create_return(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<ReturnNode> create_return(std::shared_ptr<Scope> &scope, const token_slice &tokens);
 
     /// @function `create_if`
     /// @brief Creates an IfNode from the given if chain
@@ -1074,7 +1176,7 @@ class Parser {
     /// @param `scope` The scope in which the if statement is defined
     /// @param `if_chain` The list of token pairs representing the if statement chain
     /// @return `std::optional<std::unique_ptr<IfNode>>` An optional unique pointer to the created IfNode
-    std::optional<std::unique_ptr<IfNode>> create_if(std::shared_ptr<Scope> scope,
+    std::optional<std::unique_ptr<IfNode>> create_if(std::shared_ptr<Scope> &scope,
         std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain);
 
     /// @function `create_while_loop`
@@ -1084,7 +1186,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the while loop definition
     /// @param `body` The list of tokens representing the while loop body
     /// @return `std::optional<std::unique_ptr<WhileNode>>` An optional unique pointer to the created WhileNode
-    std::optional<std::unique_ptr<WhileNode>> create_while_loop(std::shared_ptr<Scope> scope, const token_slice &definition,
+    std::optional<std::unique_ptr<WhileNode>> create_while_loop(std::shared_ptr<Scope> &scope, const token_slice &definition,
         const std::vector<Line> &body);
 
     /// @function `create_for_loop`
@@ -1094,7 +1196,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the for loop definition
     /// @param `body` The list of tokens representing the for loop body
     /// @return `std::optional<std::unique_ptr<ForLoopNode>>` An optional unique pointer to the created ForLoopNode
-    std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(std::shared_ptr<Scope> scope, const token_slice &definition,
+    std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(std::shared_ptr<Scope> &scope, const token_slice &definition,
         const std::vector<Line> &body);
 
     /// @function `create_enh_for_loop`
@@ -1105,7 +1207,7 @@ class Parser {
     /// @param `body` The list of tokens representing the enhanced for loop body
     /// @return `std::optional<std::unique_ptr<EnhForLoopNode>>` An optional unique pointer to the created enhanced ForLoopNode
     std::optional<std::unique_ptr<EnhForLoopNode>> create_enh_for_loop( //
-        std::shared_ptr<Scope> scope,                                   //
+        std::shared_ptr<Scope> &scope,                                  //
         const token_slice &definition,                                  //
         const std::vector<Line> &body                                   //
     );
@@ -1127,7 +1229,7 @@ class Parser {
     /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_switch_branch_body(                                      //
-        std::shared_ptr<Scope> scope,                                    //
+        std::shared_ptr<Scope> &scope,                                   //
         std::vector<std::unique_ptr<ExpressionNode>> &match_expressions, //
         std::vector<SSwitchBranch> &s_branches,                          //
         std::vector<ESwitchBranch> &e_branches,                          //
@@ -1152,7 +1254,7 @@ class Parser {
     /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_switch_branches(                    //
-        std::shared_ptr<Scope> scope,               //
+        std::shared_ptr<Scope> &scope,              //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1176,7 +1278,7 @@ class Parser {
     /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_enum_switch_branches(               //
-        std::shared_ptr<Scope> scope,               //
+        std::shared_ptr<Scope> &scope,              //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1201,7 +1303,7 @@ class Parser {
     /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_error_switch_branches(              //
-        std::shared_ptr<Scope> scope,               //
+        std::shared_ptr<Scope> &scope,              //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1226,7 +1328,7 @@ class Parser {
     /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_optional_switch_branches(           //
-        std::shared_ptr<Scope> scope,               //
+        std::shared_ptr<Scope> &scope,              //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1251,7 +1353,7 @@ class Parser {
     /// @attention The `s_branches` vector will be modified and filled with the branches of the switch statement
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_variant_switch_branches(            //
-        std::shared_ptr<Scope> scope,               //
+        std::shared_ptr<Scope> &scope,              //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1268,7 +1370,7 @@ class Parser {
     /// @param `body` The list of lines representing the switch statements entire body
     /// @return `std::optional<std::unique_ptr<StatementNode>>` An optional unique pointer to the created statement
     std::optional<std::unique_ptr<StatementNode>> create_switch_statement( //
-        std::shared_ptr<Scope> scope,                                      //
+        std::shared_ptr<Scope> &scope,                                     //
         const token_slice &definition,                                     //
         const std::vector<Line> &body                                      //
     );
@@ -1287,7 +1389,7 @@ class Parser {
     /// @note All other statements to the left of the catch statement are added to the statements list before parsing and adding the
     /// catch node itself. This is why the reference to the statements list has to be provided.
     std::optional<std::unique_ptr<CatchNode>> create_catch(     //
-        std::shared_ptr<Scope> scope,                           //
+        std::shared_ptr<Scope> &scope,                          //
         const token_slice &definition,                          //
         const std::vector<Line> &body,                          //
         std::vector<std::unique_ptr<StatementNode>> &statements //
@@ -1301,7 +1403,7 @@ class Parser {
     /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<std::unique_ptr<GroupAssignmentNode>>` An optional unique pointer to the created GroupAssignmentNode
     std::optional<GroupAssignmentNode> create_group_assignment( //
-        std::shared_ptr<Scope> scope,                           //
+        std::shared_ptr<Scope> &scope,                          //
         const token_slice &tokens,                              //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs     //
     );
@@ -1314,7 +1416,7 @@ class Parser {
     /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<std::unique_ptr<GroupAssignmentNode>>` An optional unique pointer to the created GroupAssignmentNode
     std::optional<GroupAssignmentNode> create_group_assignment_shorthand( //
-        std::shared_ptr<Scope> scope,                                     //
+        std::shared_ptr<Scope> &scope,                                    //
         const token_slice &tokens,                                        //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs               //
     );
@@ -1327,7 +1429,7 @@ class Parser {
     /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<std::unique_ptr<AssignmentNode>>` An optional unique pointer to the created AssignmentNode
     std::optional<AssignmentNode> create_assignment(        //
-        std::shared_ptr<Scope> scope,                       //
+        std::shared_ptr<Scope> &scope,                      //
         const token_slice &tokens,                          //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs //
     );
@@ -1340,7 +1442,7 @@ class Parser {
     /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<AssignmentNode>` The created AssignmentNode, nullopt if creation failed
     std::optional<AssignmentNode> create_assignment_shorthand( //
-        std::shared_ptr<Scope> scope,                          //
+        std::shared_ptr<Scope> &scope,                         //
         const token_slice &tokens,                             //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs    //
     );
@@ -1355,7 +1457,7 @@ class Parser {
     ///
     /// @note A group declaration is _always_ inferred and cannot be not inferred
     std::optional<GroupDeclarationNode> create_group_declaration( //
-        std::shared_ptr<Scope> scope,                             //
+        std::shared_ptr<Scope> &scope,                            //
         const token_slice &tokens,                                //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs       //
     );
@@ -1370,7 +1472,7 @@ class Parser {
     /// @param `rhs` The rhs of the declaration, which possibly is already parsed
     /// @return `std::optional<DeclarationNode>` An optional DeclarationNode, if creation was sucessfull
     std::optional<DeclarationNode> create_declaration(      //
-        std::shared_ptr<Scope> scope,                       //
+        std::shared_ptr<Scope> &scope,                      //
         const token_slice &tokens,                          //
         const bool is_inferred,                             //
         const bool has_rhs,                                 //
@@ -1383,7 +1485,7 @@ class Parser {
     /// @param `scope` The scope in which the unary operation is defined
     /// @param `tokens` The list of tokens representing the unary operation
     /// @return `std::optional<UnaryOpStatement>` An optional UnaryOpStatement if creation is successful, nullopt otherwise
-    std::optional<UnaryOpStatement> create_unary_op_statement(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<UnaryOpStatement> create_unary_op_statement(std::shared_ptr<Scope> &scope, const token_slice &tokens);
 
     /// @function `create_data_field_assignment`
     /// @brief Creates a DataFieldAssignmentNode from the given tokens
@@ -1393,7 +1495,7 @@ class Parser {
     /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<DataFieldAssignmentNode>` The created DataFieldAssignmentNode, nullopt if its creation failed
     std::optional<DataFieldAssignmentNode> create_data_field_assignment( //
-        std::shared_ptr<Scope> scope,                                    //
+        std::shared_ptr<Scope> &scope,                                   //
         const token_slice &tokens,                                       //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs              //
     );
@@ -1406,7 +1508,7 @@ class Parser {
     /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<GroupedDataFieldAssignmentNode>` The created GroupedDataFieldAssignmentNode, nullopt if its creation failed
     std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment( //
-        std::shared_ptr<Scope> scope,                                                   //
+        std::shared_ptr<Scope> &scope,                                                  //
         const token_slice &tokens,                                                      //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs                             //
     );
@@ -1419,7 +1521,7 @@ class Parser {
     /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<GroupedDataFieldAssignmentNode>` The created GroupedDataFieldAssignmentNode, nullopt if its creation failed
     std::optional<GroupedDataFieldAssignmentNode> create_grouped_data_field_assignment_shorthand( //
-        std::shared_ptr<Scope> scope,                                                             //
+        std::shared_ptr<Scope> &scope,                                                            //
         const token_slice &tokens,                                                                //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs                                       //
     );
@@ -1432,7 +1534,7 @@ class Parser {
     /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<ArrayAssignmentNode>` The created ArrayAssignmentNode, nullopt if its creation failed
     std::optional<ArrayAssignmentNode> create_array_assignment( //
-        std::shared_ptr<Scope> scope,                           //
+        std::shared_ptr<Scope> &scope,                          //
         const token_slice &tokens,                              //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs     //
     );
@@ -1443,7 +1545,7 @@ class Parser {
     /// @param `scope` The scope in which the stacked statement is defined
     /// @param `tokens` The list of tokens representing the stacked statement
     /// @return `std::optional<std::unique_ptr<StatementNode>>` The created stacked statement
-    std::optional<std::unique_ptr<StatementNode>> create_stacked_statement(std::shared_ptr<Scope> scope, const token_slice &tokens);
+    std::optional<std::unique_ptr<StatementNode>> create_stacked_statement(std::shared_ptr<Scope> &scope, const token_slice &tokens);
 
     /// @function `create_statement`
     /// @brief Creates a StatementNode from the given list of tokens
@@ -1456,7 +1558,7 @@ class Parser {
     /// @note This function dispatches to other functions to create specific statement nodes based on the signatures. It also handles
     /// parsing errors and returns nullopt if the statement cannot be parsed.
     std::optional<std::unique_ptr<StatementNode>> create_statement(       //
-        std::shared_ptr<Scope> scope,                                     //
+        std::shared_ptr<Scope> &scope,                                    //
         const token_slice &tokens,                                        //
         std::optional<std::unique_ptr<ExpressionNode>> rhs = std::nullopt //
     );
@@ -1475,7 +1577,7 @@ class Parser {
     /// @note If the scoped statement is a catch statement, all other statements left of it are added to the statements list before
     /// parsing and adding the catch node itself. This is why the reference to the statements list has to be provided.
     std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
-        std::shared_ptr<Scope> scope,                                      //
+        std::shared_ptr<Scope> &scope,                                     //
         std::vector<Line>::const_iterator &line_it,                        //
         const std::vector<Line> &body,                                     //
         std::vector<std::unique_ptr<StatementNode>> &statements            //
@@ -1487,7 +1589,7 @@ class Parser {
     /// @param `scope` The scope of the body to generate. All generated body statements will be added to this scope
     /// @param `body` The token list containing all the body tokens
     /// @return `std::optional<std::vectro<std::unique_ptr<StatementNode>>>` The list of StatementNodes parsed from the body tokens.
-    std::optional<std::vector<std::unique_ptr<StatementNode>>> create_body(std::shared_ptr<Scope> scope, const std::vector<Line> &body);
+    std::optional<std::vector<std::unique_ptr<StatementNode>>> create_body(std::shared_ptr<Scope> &scope, const std::vector<Line> &body);
 
     /**************************************************************************************************************************************
      * @region `Statement` END

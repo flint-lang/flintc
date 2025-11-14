@@ -48,7 +48,7 @@
 Analyzer::Result Analyzer::analyze_file(const FileNode *file) {
     PROFILE_SCOPE("analyze '" + file->file_name + "'");
     Context ctx = Context{
-        .is_extern = false,
+        .level = ContextLevel::INTERNAL,
         .file_name = file->file_name,
         .line = 1,
         .column = 1,
@@ -95,7 +95,7 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
         case DefinitionNode::Variation::FUNCTION: {
             const auto *node = definition->as<FunctionNode>();
             Context local_ctx = ctx;
-            local_ctx.is_extern = node->is_extern;
+            local_ctx.level = node->is_extern ? ContextLevel::EXTERNAL : ContextLevel::INTERNAL;
             local_ctx.column = node->name.length() + 3;
             // Analyze all parameter types
             for (const auto &param : node->parameters) {
@@ -209,7 +209,11 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
             const auto *node = statement->as<CallNodeStatement>();
             for (const auto &arg : node->arguments) {
                 Context local_ctx = ctx;
-                local_ctx.is_extern = !(node->function_name.size() > 3 && node->function_name.substr(0, 3) != "fc_");
+                if (node->function_name.size() > 3 && node->function_name.substr(0, 3) != "fc_") {
+                    local_ctx.level = ContextLevel::INTERNAL;
+                } else {
+                    local_ctx.level = ContextLevel::EXTERNAL;
+                }
                 result = analyze_expression(local_ctx, arg.first.get());
                 if (result != Result::OK) {
                     goto fail;
@@ -483,7 +487,11 @@ Analyzer::Result Analyzer::analyze_expression(const Context &ctx, const Expressi
         case ExpressionNode::Variation::CALL: {
             const auto *node = expression->as<CallNodeExpression>();
             Context local_ctx = ctx;
-            local_ctx.is_extern = !(node->function_name.size() > 3 && node->function_name.substr(0, 3) != "fc_");
+            if (node->function_name.size() > 3 && node->function_name.substr(0, 3) != "fc_") {
+                local_ctx.level = ContextLevel::INTERNAL;
+            } else {
+                local_ctx.level = ContextLevel::EXTERNAL;
+            }
             for (const auto &arg : node->arguments) {
                 result = analyze_expression(ctx, arg.first.get());
                 if (result != Result::OK) {
@@ -679,7 +687,7 @@ Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_pt
         }
         case Type::Variation::POINTER: {
             // const auto *pointer_type = type_to_analyze->as<PointerType>();
-            if (!ctx.is_extern) {
+            if (ctx.level == ContextLevel::INTERNAL) {
                 return Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT;
             }
             break;

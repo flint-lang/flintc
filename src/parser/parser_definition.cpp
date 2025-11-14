@@ -230,7 +230,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
 
     // Analyze whether all parameter types and return types are allowed in the context
     Analyzer::Context ctx{
-        .is_extern = is_extern,
+        .level = is_extern ? ContextLevel::EXTERNAL : ContextLevel::INTERNAL,
         .file_name = file_name,
         .line = line,
         .column = column,

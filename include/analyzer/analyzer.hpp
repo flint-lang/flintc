@@ -6,6 +6,14 @@
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 
+/// @enum `ContextLevel`
+/// @brief Provides context for the current analyzation / parsing level, whether it's internal, external or unknown
+enum class ContextLevel {
+    INTERNAL,
+    EXTERNAL,
+    UNKNOWN,
+};
+
 /// @class `Analyzer`
 /// @brief This class is responsible for semantic analysis of the AST, including type checking,
 /// scope validation, and semantic constraint verification.
@@ -25,9 +33,9 @@ class Analyzer {
     /// @class `Context`
     /// @brief All the context needed for the analyzation stage, it's passed down each function
     struct Context {
-        /// @var `is_extern`
-        /// @brief Whether the analyzation stage is inside an extern context, in extern calls or definitions
-        bool is_extern;
+        /// @var `level`
+        /// @brief The context level the analyzation stage is currently at
+        ContextLevel level;
 
         /// @var `file_name`
         /// @brief The file name which is being analyzed

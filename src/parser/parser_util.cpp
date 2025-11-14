@@ -1,3 +1,4 @@
+#include "analyzer/analyzer.hpp"
 #include "lexer/builtins.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
@@ -355,7 +356,8 @@ std::optional<std::tuple<                                          //
     std::vector<std::shared_ptr<Type>>                             // error types
     >>
 Parser::create_call_or_initializer_base(         //
-    std::shared_ptr<Scope> scope,                //
+    const Context &ctx,                          //
+    std::shared_ptr<Scope> &scope,               //
     const token_slice &tokens,                   //
     const std::optional<std::string> &alias_base //
 ) {
@@ -382,6 +384,8 @@ Parser::create_call_or_initializer_base(         //
         const auto match_ranges = Matcher::get_match_ranges_in_range_outside_group(                                               //
             tokens, Matcher::token(TOK_COMMA), arg_range.value(), Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
         );
+        Context local_ctx = ctx;
+        local_ctx.level = ContextLevel::UNKNOWN;
         if (!match_ranges.empty()) {
             for (auto match = match_ranges.begin();; ++match) {
                 token_slice argument_tokens;
@@ -392,7 +396,7 @@ Parser::create_call_or_initializer_base(         //
                 } else {
                     argument_tokens = {tokens.first + (match - 1)->second, tokens.first + match->first};
                 }
-                auto expression = create_expression(scope, argument_tokens);
+                auto expression = create_expression(local_ctx, scope, argument_tokens);
                 if (!expression.has_value()) {
                     return std::nullopt;
                 }
@@ -403,7 +407,7 @@ Parser::create_call_or_initializer_base(         //
             }
         } else {
             token_slice argument_tokens = {tokens.first + arg_range.value().first, tokens.first + arg_range.value().second};
-            auto expression = create_expression(scope, argument_tokens);
+            auto expression = create_expression(local_ctx, scope, argument_tokens);
             if (!expression.has_value()) {
                 return std::nullopt;
             }
@@ -689,7 +693,8 @@ Parser::create_call_or_initializer_base(         //
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base( //
-    std::shared_ptr<Scope> scope,                                                                     //
+    const Context &ctx,                                                                               //
+    std::shared_ptr<Scope> &scope,                                                                    //
     const token_slice &tokens                                                                         //
 ) {
     PROFILE_CUMULATIVE("Parser::create_unary_op_base");
@@ -728,7 +733,7 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     Token operator_token = operator_tokens.first->token;
 
     // All other tokens now are the expression
-    auto expression = create_expression(scope, tokens_mut);
+    auto expression = create_expression(ctx, scope, tokens_mut);
     if (!expression.has_value()) {
         return std::nullopt;
     }
@@ -738,7 +743,8 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
 
 std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
 Parser::create_field_access_base(     //
-    std::shared_ptr<Scope> scope,     //
+    const Context &ctx,               //
+    std::shared_ptr<Scope> &scope,    //
     const token_slice &tokens,        //
     const bool has_inbetween_operator //
 ) {
@@ -778,7 +784,7 @@ Parser::create_field_access_base(     //
     }
 
     // Now everything left in the `base_expr_tokens` is our base expression, so we can parse it accordingly
-    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(scope, base_expr_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
     if (!base_expr.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -946,7 +952,8 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
 std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::vector<std::string>, std::vector<unsigned int>,
     std::vector<std::shared_ptr<Type>>>>
 Parser::create_grouped_access_base(   //
-    std::shared_ptr<Scope> scope,     //
+    const Context &ctx,               //
+    std::shared_ptr<Scope> &scope,    //
     const token_slice &tokens,        //
     const bool has_inbetween_operator //
 ) {
@@ -984,7 +991,7 @@ Parser::create_grouped_access_base(   //
 
     // Okay we now can parse the base expression beforehand, to be able to check it's type and decide whether a grouped access is
     // allowed at all
-    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(scope, base_expr_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
     if (!base_expr.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
