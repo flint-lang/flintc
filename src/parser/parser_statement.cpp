@@ -1,3 +1,4 @@
+#include "analyzer/analyzer.hpp"
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
@@ -2408,6 +2409,24 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     statement_node.value()->line = tokens.first->line;
     statement_node.value()->line = tokens.first->column;
     statement_node.value()->length = tokens.second->column - tokens.first->column;
+    Analyzer::Context ctx{
+        // TODO: Actually check if it's an extern context
+        .is_extern = false,
+        .file_name = file_name,
+        .line = statement_node.value()->line,
+        .column = statement_node.value()->column,
+        .length = statement_node.value()->length,
+    };
+    Analyzer::Result result = Analyzer::analyze_statement(ctx, statement_node.value().get());
+    switch (result) {
+        case Analyzer::Result::OK:
+            break;
+        case Analyzer::Result::ERR_HANDLED:
+            return std::nullopt;
+        case Analyzer::Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
+            THROW_BASIC_ERR(ERR_ANALYZING);
+            return std::nullopt;
+    }
     return statement_node;
 }
 
