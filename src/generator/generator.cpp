@@ -373,7 +373,6 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             FileNode *file = Resolver::get_file_from_name(shared_tip->file_name);
             std::optional<std::unique_ptr<llvm::Module>> file_module = generate_file_ir(shared_tip, *file, is_test);
             if (!file_module.has_value()) {
-                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
 

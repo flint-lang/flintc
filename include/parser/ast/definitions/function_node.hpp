@@ -20,6 +20,7 @@ class FunctionNode : public DefinitionNode {
         const unsigned int length,                                                     //
         bool is_aligned,                                                               //
         bool is_const,                                                                 //
+        bool is_extern,                                                                //
         std::string name,                                                              //
         std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> &parameters, //
         std::vector<std::shared_ptr<Type>> &return_types,                              //
@@ -29,6 +30,7 @@ class FunctionNode : public DefinitionNode {
         DefinitionNode(file_name, line, column, length),
         is_aligned(is_aligned),
         is_const(is_const),
+        is_extern(is_extern),
         name(std::move(name)),
         parameters(std::move(parameters)),
         return_types(std::move(return_types)),
@@ -60,7 +62,7 @@ class FunctionNode : public DefinitionNode {
 
     /// @var `is_extern`
     /// @brief Whether the function is defined externally in FIP
-    bool is_extern{false};
+    bool is_extern;
 
     /// @var `name`
     /// @brief The name of the function

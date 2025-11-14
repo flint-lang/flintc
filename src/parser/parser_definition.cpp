@@ -1,3 +1,4 @@
+#include "analyzer/analyzer.hpp"
 #include "error/error_type.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
@@ -18,6 +19,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     std::vector<std::shared_ptr<Type>> return_types;
     bool is_aligned = false;
     bool is_const = false;
+    bool is_extern = false;
 
     auto tok_it = definition.first;
     // Parse everything before the parameters
@@ -27,6 +29,9 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
         }
         if (tok_it->token == TOK_CONST) {
             is_const = true;
+        }
+        if (tok_it->token == TOK_EXTERN) {
+            is_extern = true;
         }
         if (tok_it->token == TOK_DEF) {
             name = std::next(tok_it)->lexme;
@@ -214,13 +219,46 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             return std::nullopt;
         }
     }
-
     // Dont parse the body yet, it will be parsed in the second pass of the parser
-    return FunctionNode(                                                              //
-        file_name, definition.first->line, definition.first->column,                  //
-        definition.second->column - definition.first->column,                         //
-        is_aligned, is_const, name, parameters, return_types, error_types, body_scope //
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    FunctionNode function_node(                                                                  //
+        file_name, line, column, length,                                                         //
+        is_aligned, is_const, is_extern, name, parameters, return_types, error_types, body_scope //
     );
+
+    // Analyze whether all parameter types and return types are allowed in the context
+    Analyzer::Context ctx{
+        .is_extern = is_extern,
+        .file_name = file_name,
+        .line = line,
+        .column = column,
+        .length = length,
+    };
+    for (const auto &ret : return_types) {
+        switch (Analyzer::analyze_type(ctx, ret)) {
+            case Analyzer::Result::OK:
+                break;
+            case Analyzer::Result::ERR_HANDLED:
+                return std::nullopt;
+            case Analyzer::Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
+                THROW_ERR(ErrPtrNotAllowedInInternalFunction, ERR_ANALYZING, &function_node);
+                return std::nullopt;
+        }
+    }
+    for (const auto &param : parameters) {
+        switch (Analyzer::analyze_type(ctx, std::get<0>(param))) {
+            case Analyzer::Result::OK:
+                break;
+            case Analyzer::Result::ERR_HANDLED:
+                return std::nullopt;
+            case Analyzer::Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
+                THROW_ERR(ErrPtrNotAllowedInInternalFunction, ERR_ANALYZING, &function_node);
+                return std::nullopt;
+        }
+    }
+    return std::move(function_node);
 }
 
 std::optional<FunctionNode> Parser::create_extern_function(const token_slice &definition) {
