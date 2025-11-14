@@ -40,26 +40,50 @@
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
-#include "parser/type/pointer_type.hpp"
+#include "parser/type/variant_type.hpp"
 #include "profiler.hpp"
 
 #include <cassert>
 
-bool Analyzer::analyze(const FileNode *file) {
+Analyzer::Result Analyzer::analyze_file(const FileNode *file) {
     PROFILE_SCOPE("analyze '" + file->file_name + "'");
+    Context ctx = Context{
+        .is_extern = false,
+        .file_name = file->file_name,
+        .line = 1,
+        .column = 1,
+        .length = 0,
+    };
+    Result result = Result::OK;
     for (const auto &node : file->definitions) {
-        Context ctx = Context{.is_extern = false};
-        if (!analyze_definition(ctx, node.get())) {
-            return false;
+        ctx.line = node->line;
+        ctx.column = node->column;
+        ctx.length = node->length;
+        result = analyze_definition(ctx, node.get());
+        if (result != Result::OK) {
+            break;
         }
     }
-    return true;
+    return result;
 }
 
-bool Analyzer::analyze_definition(const Context &ctx, const DefinitionNode *definition) {
+Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const DefinitionNode *definition) {
+    Result result = Result::OK;
     switch (definition->get_variation()) {
-        case DefinitionNode::Variation::DATA:
+        case DefinitionNode::Variation::DATA: {
+            const auto *node = definition->as<DataNode>();
+            for (size_t i = 0; i < node->fields.size(); i++) {
+                const auto &field = node->fields.at(i);
+                Context local_ctx = ctx;
+                local_ctx.line = ctx.line + i + 1;
+                local_ctx.column = 4;
+                result = analyze_type(local_ctx, field.second);
+                if (result != Result::OK) {
+                    break;
+                }
+            }
             break;
+        }
         case DefinitionNode::Variation::ENTITY:
             break;
         case DefinitionNode::Variation::ENUM:
@@ -70,11 +94,52 @@ bool Analyzer::analyze_definition(const Context &ctx, const DefinitionNode *defi
             break;
         case DefinitionNode::Variation::FUNCTION: {
             const auto *node = definition->as<FunctionNode>();
+            Context local_ctx = ctx;
+            local_ctx.is_extern = node->is_extern;
+            local_ctx.column = node->name.length() + 3;
+            // Analyze all parameter types
+            for (const auto &param : node->parameters) {
+                if (std::get<2>(param)) {
+                    local_ctx.column += 4; // Skip 'mut '
+                }
+                result = analyze_type(local_ctx, std::get<0>(param));
+                switch (result) {
+                    case Result::OK:
+                        break;
+                    case Result::ERR_HANDLED:
+                        assert(false);
+                    case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
+                        THROW_ERR(                                                                //
+                            ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING,          //
+                            std::get<0>(param), node->file_name, local_ctx.line, local_ctx.column //
+                        );
+                        return Result::ERR_HANDLED;
+                }
+                local_ctx.column += std::get<0>(param)->to_string().length(); // Skip type
+                local_ctx.column += std::get<1>(param).length();              // Skip identifier
+                local_ctx.column += 2;                                        // Skip ', '
+            }
+            // Analyze all return types
+            // local_ctx.column += ;
+            for (const auto &ret : node->return_types) {
+                result = analyze_type(local_ctx, ret);
+                switch (result) {
+                    case Result::OK:
+                        break;
+                    case Result::ERR_HANDLED:
+                        assert(false);
+                    case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
+                        THROW_ERR(                                                       //
+                            ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING, //
+                            ret, node->file_name, local_ctx.line, local_ctx.column       //
+                        );
+                        return Result::ERR_HANDLED;
+                }
+            }
             if (node->scope.has_value()) {
-                Context local_ctx = ctx;
-                local_ctx.is_extern = node->is_extern;
-                if (!analyze_scope(local_ctx, node->scope.value().get())) {
-                    return false;
+                result = analyze_scope(local_ctx, node->scope.value().get());
+                if (result != Result::OK) {
+                    return result;
                 }
             }
             break;
@@ -85,44 +150,56 @@ bool Analyzer::analyze_definition(const Context &ctx, const DefinitionNode *defi
             break;
         case DefinitionNode::Variation::TEST: {
             const auto *node = definition->as<TestNode>();
-            if (!analyze_scope(ctx, node->scope.get())) {
-                return false;
+            result = analyze_scope(ctx, node->scope.get());
+            break;
+        }
+        case DefinitionNode::Variation::VARIANT: {
+            const auto *node = definition->as<VariantNode>();
+            for (const auto &type : node->possible_types) {
+                result = analyze_type(ctx, type.second);
+                if (result != Result::OK) {
+                    break;
+                }
             }
             break;
         }
-        case DefinitionNode::Variation::VARIANT:
-            break;
     }
-    return true;
+    return result;
 }
 
-bool Analyzer::analyze_scope(const Context &ctx, const Scope *scope) {
+Analyzer::Result Analyzer::analyze_scope(const Context &ctx, const Scope *scope) {
+    Result result = Result::OK;
     for (const auto &statement : scope->body) {
-        if (!analyze_statement(ctx, statement.get())) {
-            return false;
+        result = analyze_statement(ctx, statement.get());
+        if (result != Result::OK) {
+            break;
         }
     }
-    return true;
+    return result;
 }
 
-bool Analyzer::analyze_statement(const Context &ctx, const StatementNode *statement) {
+Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const StatementNode *statement) {
+    Result result = Result::OK;
     switch (statement->get_variation()) {
         case StatementNode::Variation::ARRAY_ASSIGNMENT: {
             const auto *node = statement->as<ArrayAssignmentNode>();
             for (const auto &index_expr : node->indexing_expressions) {
-                if (!analyze_expression(ctx, index_expr.get())) {
-                    return false;
+                result = analyze_expression(ctx, index_expr.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
-            if (!analyze_expression(ctx, node->expression.get())) {
-                return false;
+            result = analyze_expression(ctx, node->expression.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::ASSIGNMENT: {
             const auto *node = statement->as<AssignmentNode>();
-            if (!analyze_expression(ctx, node->expression.get())) {
-                return false;
+            result = analyze_expression(ctx, node->expression.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
@@ -133,21 +210,24 @@ bool Analyzer::analyze_statement(const Context &ctx, const StatementNode *statem
             for (const auto &arg : node->arguments) {
                 Context local_ctx = ctx;
                 local_ctx.is_extern = !(node->function_name.size() > 3 && node->function_name.substr(0, 3) != "fc_");
-                if (!analyze_expression(local_ctx, arg.first.get())) {
-                    return false;
+                result = analyze_expression(local_ctx, arg.first.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
             break;
         }
         case StatementNode::Variation::CATCH: {
             const auto *node = statement->as<CatchNode>();
-            if (!analyze_scope(ctx, node->scope.get())) {
-                return false;
+            result = analyze_scope(ctx, node->scope.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             // Analyze the call node inside catch
             for (const auto &arg : node->call_node->arguments) {
-                if (!analyze_expression(ctx, arg.first.get())) {
-                    return false;
+                result = analyze_expression(ctx, arg.first.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
             break;
@@ -156,83 +236,98 @@ bool Analyzer::analyze_statement(const Context &ctx, const StatementNode *statem
             break;
         case StatementNode::Variation::DATA_FIELD_ASSIGNMENT: {
             const auto *node = statement->as<DataFieldAssignmentNode>();
-            if (!analyze_expression(ctx, node->expression.get())) {
-                return false;
+            result = analyze_expression(ctx, node->expression.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::DECLARATION: {
             const auto *node = statement->as<DeclarationNode>();
             if (node->initializer.has_value()) {
-                if (!analyze_expression(ctx, node->initializer.value().get())) {
-                    return false;
+                result = analyze_expression(ctx, node->initializer.value().get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
             break;
         }
         case StatementNode::Variation::ENHANCED_FOR_LOOP: {
             const auto *node = statement->as<EnhForLoopNode>();
-            if (!analyze_expression(ctx, node->iterable.get())) {
-                return false;
+            result = analyze_expression(ctx, node->iterable.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_scope(ctx, node->body.get())) {
-                return false;
+            result = analyze_scope(ctx, node->body.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::FOR_LOOP: {
             const auto *node = statement->as<ForLoopNode>();
-            if (!analyze_scope(ctx, node->definition_scope.get())) {
-                return false;
+            result = analyze_scope(ctx, node->definition_scope.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_expression(ctx, node->condition.get())) {
-                return false;
+            result = analyze_expression(ctx, node->condition.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_statement(ctx, node->looparound.get())) {
-                return false;
+            result = analyze_statement(ctx, node->looparound.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_scope(ctx, node->body.get())) {
-                return false;
+            result = analyze_scope(ctx, node->body.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::GROUP_ASSIGNMENT: {
             const auto *node = statement->as<GroupAssignmentNode>();
-            if (!analyze_expression(ctx, node->expression.get())) {
-                return false;
+            result = analyze_expression(ctx, node->expression.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::GROUP_DECLARATION: {
             const auto *node = statement->as<GroupDeclarationNode>();
-            if (!analyze_expression(ctx, node->initializer.get())) {
-                return false;
+            result = analyze_expression(ctx, node->initializer.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
             const auto *node = statement->as<GroupedDataFieldAssignmentNode>();
-            if (!analyze_expression(ctx, node->expression.get())) {
-                return false;
+            result = analyze_expression(ctx, node->expression.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::IF: {
             const auto *node = statement->as<IfNode>();
-            if (!analyze_expression(ctx, node->condition.get())) {
-                return false;
+            result = analyze_expression(ctx, node->condition.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_scope(ctx, node->then_scope.get())) {
-                return false;
+            result = analyze_scope(ctx, node->then_scope.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             if (node->else_scope.has_value()) {
                 if (std::holds_alternative<std::shared_ptr<Scope>>(node->else_scope.value())) {
-                    if (!analyze_scope(ctx, std::get<std::shared_ptr<Scope>>(node->else_scope.value()).get())) {
-                        return false;
+                    result = analyze_scope(ctx, std::get<std::shared_ptr<Scope>>(node->else_scope.value()).get());
+                    if (result != Result::OK) {
+                        goto fail;
                     }
                 } else {
-                    if (!analyze_statement(ctx, std::get<std::unique_ptr<IfNode>>(node->else_scope.value()).get())) {
-                        return false;
+                    result = analyze_statement(ctx, std::get<std::unique_ptr<IfNode>>(node->else_scope.value()).get());
+                    if (result != Result::OK) {
+                        goto fail;
                     }
                 }
             }
@@ -241,95 +336,120 @@ bool Analyzer::analyze_statement(const Context &ctx, const StatementNode *statem
         case StatementNode::Variation::RETURN: {
             const auto *node = statement->as<ReturnNode>();
             if (node->return_value.has_value()) {
-                if (!analyze_expression(ctx, node->return_value.value().get())) {
-                    return false;
+                result = analyze_expression(ctx, node->return_value.value().get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
             break;
         }
         case StatementNode::Variation::STACKED_ASSIGNMENT: {
             const auto *node = statement->as<StackedAssignmentNode>();
-            if (!analyze_expression(ctx, node->base_expression.get())) {
-                return false;
+            result = analyze_expression(ctx, node->base_expression.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_expression(ctx, node->expression.get())) {
-                return false;
+            result = analyze_expression(ctx, node->expression.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {
             const auto *node = statement->as<StackedGroupedAssignmentNode>();
-            if (!analyze_expression(ctx, node->base_expression.get())) {
-                return false;
+            result = analyze_expression(ctx, node->base_expression.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_expression(ctx, node->expression.get())) {
-                return false;
+            result = analyze_expression(ctx, node->expression.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::SWITCH: {
             const auto *node = statement->as<SwitchStatement>();
-            if (!analyze_expression(ctx, node->switcher.get())) {
-                return false;
+            result = analyze_expression(ctx, node->switcher.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             for (const auto &branch : node->branches) {
                 for (const auto &match : branch.matches) {
-                    if (!analyze_expression(ctx, match.get())) {
-                        return false;
+                    result = analyze_expression(ctx, match.get());
+                    if (result != Result::OK) {
+                        goto fail;
                     }
                 }
-                if (!analyze_scope(ctx, branch.body.get())) {
-                    return false;
+                result = analyze_scope(ctx, branch.body.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
             break;
         }
         case StatementNode::Variation::THROW: {
             const auto *node = statement->as<ThrowNode>();
-            if (!analyze_expression(ctx, node->throw_value.get())) {
-                return false;
+            result = analyze_expression(ctx, node->throw_value.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::UNARY_OP: {
             const auto *node = statement->as<UnaryOpStatement>();
-            if (!analyze_expression(ctx, node->operand.get())) {
-                return false;
+            result = analyze_expression(ctx, node->operand.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case StatementNode::Variation::WHILE: {
             const auto *node = statement->as<WhileNode>();
-            if (!analyze_expression(ctx, node->condition.get())) {
-                return false;
+            result = analyze_expression(ctx, node->condition.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_scope(ctx, node->scope.get())) {
-                return false;
+            result = analyze_scope(ctx, node->scope.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
     }
-    return true;
+    return result;
+fail:
+    // Check error and print if it's one of the errors we care about
+    switch (result) {
+        case Result::OK:
+            [[fallthrough]];
+        case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
+            // Should be unreachable code
+            assert(false);
+        case Result::ERR_HANDLED:
+            // No further printing needed
+            break;
+    }
+    return result;
 }
 
-bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expression) {
+Analyzer::Result Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expression) {
     // Check if the type is a pointer type and if we are not in a context which allows pointer types
-    if (expression->type->get_variation() == Type::Variation::POINTER) {
-        if (!ctx.is_extern) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
+    Result result = analyze_type(ctx, expression->type);
+    if (result != Result::OK) {
+        goto fail;
     }
 
     switch (expression->get_variation()) {
         case ExpressionNode::Variation::ARRAY_ACCESS: {
             const auto *node = expression->as<ArrayAccessNode>();
-            if (!analyze_expression(ctx, node->base_expr.get())) {
-                return false;
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             for (const auto &index_expr : node->indexing_expressions) {
-                if (!analyze_expression(ctx, index_expr.get())) {
-                    return false;
+                result = analyze_expression(ctx, index_expr.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
             break;
@@ -337,22 +457,26 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
         case ExpressionNode::Variation::ARRAY_INITIALIZER: {
             const auto *node = expression->as<ArrayInitializerNode>();
             for (const auto &length_expr : node->length_expressions) {
-                if (!analyze_expression(ctx, length_expr.get())) {
-                    return false;
+                result = analyze_expression(ctx, length_expr.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
-            if (!analyze_expression(ctx, node->initializer_value.get())) {
-                return false;
+            result = analyze_expression(ctx, node->initializer_value.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case ExpressionNode::Variation::BINARY_OP: {
             const auto *node = expression->as<BinaryOpNode>();
-            if (!analyze_expression(ctx, node->left.get())) {
-                return false;
+            result = analyze_expression(ctx, node->left.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_expression(ctx, node->right.get())) {
-                return false;
+            result = analyze_expression(ctx, node->right.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
@@ -361,16 +485,18 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
             Context local_ctx = ctx;
             local_ctx.is_extern = !(node->function_name.size() > 3 && node->function_name.substr(0, 3) != "fc_");
             for (const auto &arg : node->arguments) {
-                if (!analyze_expression(ctx, arg.first.get())) {
-                    return false;
+                result = analyze_expression(ctx, arg.first.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
             break;
         }
         case ExpressionNode::Variation::DATA_ACCESS: {
             const auto *node = expression->as<DataAccessNode>();
-            if (!analyze_expression(ctx, node->base_expr.get())) {
-                return false;
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
@@ -379,24 +505,27 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
             const auto *node = expression->as<GroupExpressionNode>();
             for (const auto &expr : node->expressions) {
-                if (!analyze_expression(ctx, expr.get())) {
-                    return false;
+                result = analyze_expression(ctx, expr.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
             break;
         }
         case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
             const auto *node = expression->as<GroupedDataAccessNode>();
-            if (!analyze_expression(ctx, node->base_expr.get())) {
-                return false;
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case ExpressionNode::Variation::INITIALIZER: {
             const auto *node = expression->as<InitializerNode>();
             for (const auto &arg : node->args) {
-                if (!analyze_expression(ctx, arg.get())) {
-                    return false;
+                result = analyze_expression(ctx, arg.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
             }
             break;
@@ -405,25 +534,29 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
             break;
         case ExpressionNode::Variation::OPTIONAL_CHAIN: {
             const auto *node = expression->as<OptionalChainNode>();
-            if (!analyze_expression(ctx, node->base_expr.get())) {
-                return false;
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case ExpressionNode::Variation::OPTIONAL_UNWRAP: {
             const auto *node = expression->as<OptionalUnwrapNode>();
-            if (!analyze_expression(ctx, node->base_expr.get())) {
-                return false;
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case ExpressionNode::Variation::RANGE_EXPRESSION: {
             const auto *node = expression->as<RangeExpressionNode>();
-            if (!analyze_expression(ctx, node->lower_bound.get())) {
-                return false;
+            result = analyze_expression(ctx, node->lower_bound.get());
+            if (result != Result::OK) {
+                goto fail;
             }
-            if (!analyze_expression(ctx, node->upper_bound.get())) {
-                return false;
+            result = analyze_expression(ctx, node->upper_bound.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
@@ -431,8 +564,9 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
             const auto *node = expression->as<StringInterpolationNode>();
             for (const auto &content : node->string_content) {
                 if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(content)) {
-                    if (!analyze_expression(ctx, std::get<std::unique_ptr<ExpressionNode>>(content).get())) {
-                        return false;
+                    result = analyze_expression(ctx, std::get<std::unique_ptr<ExpressionNode>>(content).get());
+                    if (result != Result::OK) {
+                        goto fail;
                     }
                 }
             }
@@ -440,16 +574,19 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
         }
         case ExpressionNode::Variation::SWITCH_EXPRESSION: {
             const auto *node = expression->as<SwitchExpression>();
-            if (!analyze_expression(ctx, node->switcher.get())) {
-                return false;
+            result = analyze_expression(ctx, node->switcher.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             for (const auto &branch : node->branches) {
-                if (!analyze_expression(ctx, branch.expr.get())) {
-                    return false;
+                result = analyze_expression(ctx, branch.expr.get());
+                if (result != Result::OK) {
+                    goto fail;
                 }
                 for (const auto &match : branch.matches) {
-                    if (!analyze_expression(ctx, match.get())) {
-                        return false;
+                    result = analyze_expression(ctx, match.get());
+                    if (result != Result::OK) {
+                        goto fail;
                     }
                 }
             }
@@ -459,8 +596,9 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
             break;
         case ExpressionNode::Variation::TYPE_CAST: {
             const auto *node = expression->as<TypeCastNode>();
-            if (!analyze_expression(ctx, node->expr.get())) {
-                return false;
+            result = analyze_expression(ctx, node->expr.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
@@ -468,8 +606,9 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
             break;
         case ExpressionNode::Variation::UNARY_OP: {
             const auto *node = expression->as<UnaryOpExpression>();
-            if (!analyze_expression(ctx, node->operand.get())) {
-                return false;
+            result = analyze_expression(ctx, node->operand.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
@@ -477,18 +616,107 @@ bool Analyzer::analyze_expression(const Context &ctx, const ExpressionNode *expr
             break;
         case ExpressionNode::Variation::VARIANT_EXTRACTION: {
             const auto *node = expression->as<VariantExtractionNode>();
-            if (!analyze_expression(ctx, node->base_expr.get())) {
-                return false;
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
         case ExpressionNode::Variation::VARIANT_UNWRAP: {
             const auto *node = expression->as<VariantUnwrapNode>();
-            if (!analyze_expression(ctx, node->base_expr.get())) {
-                return false;
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
             }
             break;
         }
     }
-    return true;
+    return result;
+fail:
+    switch (result) {
+        case Result::OK:
+            [[fallthrough]];
+        case Result::ERR_HANDLED:
+            // Those cases should not be possible at this stage
+            assert(false);
+            __builtin_unreachable();
+        case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
+            THROW_ERR(ErrPtrNotAllowedInNonExternContext, ERR_ANALYZING, expression);
+            return Result::ERR_HANDLED;
+    }
+}
+
+Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_ptr<Type> &type_to_analyze) {
+    Result result = Result::OK;
+    switch (type_to_analyze->get_variation()) {
+        case Type::Variation::ARRAY: {
+            const auto *array_type = type_to_analyze->as<ArrayType>();
+            result = analyze_type(ctx, array_type->type);
+            break;
+        }
+        case Type::Variation::DATA:
+            break;
+        case Type::Variation::ENUM:
+            break;
+        case Type::Variation::ERROR_SET:
+            break;
+        case Type::Variation::GROUP: {
+            const auto *group_type = type_to_analyze->as<GroupType>();
+            for (const auto &type : group_type->types) {
+                result = analyze_type(ctx, type);
+                if (result != Result::OK) {
+                    break;
+                }
+            }
+            break;
+        }
+        case Type::Variation::MULTI:
+            break;
+        case Type::Variation::OPTIONAL: {
+            const auto *optional_type = type_to_analyze->as<OptionalType>();
+            result = analyze_type(ctx, optional_type->base_type);
+            break;
+        }
+        case Type::Variation::POINTER: {
+            // const auto *pointer_type = type_to_analyze->as<PointerType>();
+            if (!ctx.is_extern) {
+                return Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT;
+            }
+            break;
+        }
+        case Type::Variation::PRIMITIVE:
+            break;
+        case Type::Variation::RANGE:
+            break;
+        case Type::Variation::TUPLE: {
+            const auto *tuple_type = type_to_analyze->as<TupleType>();
+            for (const auto &type : tuple_type->types) {
+                result = analyze_type(ctx, type);
+                if (result != Result::OK) {
+                    break;
+                }
+            }
+            break;
+        }
+        case Type::Variation::UNKNOWN:
+            break;
+        case Type::Variation::VARIANT: {
+            const auto *variant_type = type_to_analyze->as<VariantType>();
+            if (variant_type->is_err_variant) {
+                break;
+            }
+            if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
+                break;
+            }
+            const auto &types = std::get<std::vector<std::shared_ptr<Type>>>(variant_type->var_or_list);
+            for (const auto &type : types) {
+                result = analyze_type(ctx, type);
+                if (result != Result::OK) {
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    return result;
 }

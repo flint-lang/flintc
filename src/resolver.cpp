@@ -201,9 +201,15 @@ bool Resolver::process_dependency_file(                               //
             std::cerr << "Error: File '" << dep_file_path.filename() << "' could not be parsed!" << std::endl;
             return false;
         }
-        if (!Analyzer::analyze(file.value())) {
-            std::cerr << "Error: File '" << dep_file_path.filename() << "' failed analyze step!" << std::endl;
-            return false;
+        switch (Analyzer::analyze_file(file.value())) {
+            case Analyzer::Result::OK:
+                break;
+            case Analyzer::Result::ERR_HANDLED:
+                std::cerr << "Error: File '" << dep_file_path.filename() << "' failed analyze step!" << std::endl;
+                return false;
+            default:
+                std::cerr << "Error: File '" << dep_file_path.filename() << "' failed analyze step for unknown reason!" << std::endl;
+                return false;
         }
         // Save the file name, as the file itself moves its ownership in the call below
         std::string parsed_file_name = file.value()->file_name;

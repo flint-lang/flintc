@@ -47,10 +47,17 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
                   << std::endl;
         return std::nullopt;
     }
-    if (!Analyzer::analyze(file.value())) {
-        std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << source_file_path.filename() << DEFAULT << "' failed analyze step!"
-                  << std::endl;
-        return std::nullopt;
+    switch (Analyzer::analyze_file(file.value())) {
+        case Analyzer::Result::OK:
+            break;
+        case Analyzer::Result::ERR_HANDLED:
+            std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << source_file_path.filename() << DEFAULT
+                      << "' failed analyze step!" << std::endl;
+            return std::nullopt;
+        default:
+            std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << source_file_path.filename() << DEFAULT
+                      << "' failed analyze step for unknown reason!" << std::endl;
+            return std::nullopt;
     }
     auto dep_graph = Resolver::create_dependency_graph(file.value(), source_file_path.parent_path(), parse_parallel);
     if (!dep_graph.has_value()) {
