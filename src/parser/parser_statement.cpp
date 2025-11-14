@@ -2401,7 +2401,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-
+    if (!statement_node.has_value()) {
+        return std::nullopt;
+    }
+    statement_node.value()->file_name = file_name;
+    statement_node.value()->line = tokens.first->line;
+    statement_node.value()->line = tokens.first->column;
+    statement_node.value()->length = tokens.second->column - tokens.first->column;
     return statement_node;
 }
 

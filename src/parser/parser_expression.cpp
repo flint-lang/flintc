@@ -2539,5 +2539,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
         }
     }
 
+    expression.value()->file_name = file_name;
+    expression.value()->line = tokens.first->line;
+    expression.value()->column = tokens.first->column;
+    expression.value()->length = tokens.second->column - tokens.first->column;
     return expression;
 }
