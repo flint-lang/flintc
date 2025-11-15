@@ -87,17 +87,17 @@ Or if this one-liner scares you you can still [download](https://github.com/flin
 PowerShell -NoProfile -ExecutionPolicy Bypass -File .\flint_installer.ps1
 ```
 
-The installer will always download the latest Flint release directly and add a wrapper command for it to always point at the correct latest compiler version. You can then use the compiler using
+The installer will always download the latest Flint release directly and adds it to th path variable for you. You can then use the compiler using
 
 ```ps1
-flintc.cmd --help
+flintc --help
 ```
 
-directly in any PowerShell. Note that the `flintc.cmd` command is only available in PowerShell, not in the command prompt.
+directly in any PowerShell or Command Prompt from any directory.
 
 ## Building
 
-Building is easy. You obviously first need to clone this repository. There exists a single `build.sh` script in the `scripts` directory, with many cli options to choose from. Choose what you whish to do and the script will do it for you. You must be in the root directory of the `flintc` repository for the build script to work properly.
+Building is easy. You obviously first need to clone this repository. There exists a single `build.sh` script in the `scripts` directory, with many cli options to choose from. Execute `./scripts/build.sh --help` to list all possible commands. Choose what you whish to do and the script will do it for you. You must be in the root directory of the `flintc` repository for the build script to work properly.
 
 You *need* to compile the linux build at least once, the build script relies on the built `llvm-config` executable built from the LLVM source. So, execute the build script like so:
 
@@ -105,6 +105,6 @@ You *need* to compile the linux build at least once, the build script relies on 
 ./scripts/build.sh -l
 ```
 
-before compiling for windows using `./scripts/build.sh -w`, otherwise the Windows compilation will fail. After the initial compilation for Linux you can mix and match all possible commands of the build.sh script, it will work just fine.
+before compiling for windows using `./scripts/build.sh -w`, otherwise the Windows compilation will fail. After the initial compilation for Linux you can mix and match all possible commands of the build.sh script, it will work just fine (I always do `-lwsDRtf` to build the `R`elease and `D`ebug builds for `l`inux and `w`indws, link them `s`taticaly, run all `t`ests and build the `f`ls too.)
 
-After compiling the compiler you need `base-devel` (Arch) or `build-essential` (Ubuntu) in order for the Flint compiler to be able to compile any program. It needs the `crt1.o`, `crti.o` and `crtn.o` files available to it.
+After compiling the compiler you need `base-devel` (Arch) or `build-essential` (Ubuntu) pavkages installed in order for the Flint compiler to be able to compile any program. This is because it needs the `crt1.o`, `crti.o` and `crtn.o` files available in your lib path.
