@@ -173,7 +173,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
         }
         this_if_pair.first.second--;
     }
-    if (!has_else || has_if) {
+    if (has_else && !has_if) {
         assert(false);
         return std::nullopt;
     }
