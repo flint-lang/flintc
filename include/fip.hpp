@@ -14,7 +14,10 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
 #pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #include "fip.h"
+#undef ERROR
+#undef OPTIONAL
 #pragma GCC diagnostic pop
 
 #ifdef __cplusplus
