@@ -173,7 +173,10 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
         }
         this_if_pair.first.second--;
     }
-    assert(!has_else || has_if);
+    if (!has_else || has_if) {
+        assert(false);
+        return std::nullopt;
+    }
 
     // Create the if statements condition and body statements
     std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression( //
@@ -1243,8 +1246,10 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         if (!Type::add_type(switcher_type)) {
             switcher_type = Type::get_type_from_str(switcher_type->to_string()).value();
         }
-        const bool inserting_ok = body_scope->add_variable("__flint_value_err", switcher_type, body_scope->scope_id, false, false);
-        assert(inserting_ok);
+        if (!body_scope->add_variable("__flint_value_err", switcher_type, body_scope->scope_id, false, false)) {
+            assert(false);
+            return std::nullopt;
+        }
         if (!create_variant_switch_branches(body_scope, s_branches, e_branches, body, switcher_type, true, false)) {
             PROFILE_CUMULATIVE("Parser::create_group_assignment");
             return std::nullopt;
@@ -2201,10 +2206,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                return std::make_unique<StackedGroupedAssignmentNode>(base_expr.value(), field_names, field_ids, field_types,
-                    rhs_expr.value());
+                return std::make_unique<StackedGroupedAssignmentNode>(                       //
+                    base_expr.value(), field_names, field_ids, field_types, rhs_expr.value() //
+                );
             } else {
                 assert(false);
+                return std::nullopt;
             }
         }
         case Type::Variation::MULTI: {
@@ -2257,6 +2264,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
                 );
             } else {
                 assert(false);
+                return std::nullopt;
             }
         }
         case Type::Variation::TUPLE: {

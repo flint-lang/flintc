@@ -130,6 +130,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
             return generate_variant_unwrap(builder, ctx, node);
         }
     }
+    __builtin_unreachable();
 }
 
 Generator::group_mapping Generator::Expression::generate_literal( //
@@ -834,6 +835,7 @@ void Generator::Expression::convert_type_from_ext( //
                 }
                 value = result_vec;
             }
+            break;
         }
         case Type::Variation::PRIMITIVE:
             if (type->to_string() == "str") {
@@ -2847,10 +2849,10 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
             return result;
         }
         case Type::Variation::TUPLE: {
-            const auto *tuple_type = type_cast_node->type->as<TupleType>();
             if (type_cast_node->expr->type->get_variation() == Type::Variation::GROUP) {
                 const auto *expr_group_type = type_cast_node->expr->type->as<GroupType>();
                 // Type-checking should have been happened in the parser, so we can assert that the types match
+                [[maybe_unused]] const auto *tuple_type = type_cast_node->type->as<TupleType>();
                 assert(tuple_type->types.size() == expr_group_type->types.size());
                 llvm::Type *tup_type = IR::get_type(ctx.parent->getParent(), type_cast_node->type).first;
                 llvm::Value *result = IR::get_default_value_of_type(tup_type);
@@ -3208,7 +3210,7 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                     return std::nullopt;
                 }
                 const auto *pointer_type = unary_op->type->as<PointerType>();
-                const std::shared_ptr<Type> &base_type = pointer_type->base_type;
+                [[maybe_unused]] const std::shared_ptr<Type> &base_type = pointer_type->base_type;
                 assert(base_type == expression->type);
                 // Check if the base type is a complex type and whether it needs to be passed by value or by reference
                 // If it needs to be passed by value normally, we first need to get the allocation of it, for now only VariableNodes are
@@ -3874,7 +3876,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
     llvm::Value *lhs,                                                     //
     const ExpressionNode *lhs_expr,                                       //
     llvm::Value *rhs,                                                     //
-    const ExpressionNode *rhs_expr,                                       //
+    [[maybe_unused]] const ExpressionNode *rhs_expr,                      //
     const bool eq                                                         //
 ) {
     // Ge the variant type of the comparison

@@ -616,8 +616,8 @@ Parser::create_call_or_initializer_base(         //
         function_name = "fc_" + function_name;
     }
     // Check if the argument count does match the parameter count
-    const unsigned int param_count = function.front().first->parameters.size();
-    const unsigned int arg_count = arguments.size();
+    [[maybe_unused]] const unsigned int param_count = function.front().first->parameters.size();
+    [[maybe_unused]] const unsigned int arg_count = arguments.size();
     // Argument counts are guaranteed to match the param count because if they would not, the `get_function_from_call` function would have
     // returned `std::nullopt`
     assert(param_count == arg_count);
@@ -851,6 +851,7 @@ Parser::create_field_access_base(     //
             } else if (field_name == "message") {
                 return std::make_tuple(std::move(base_expr.value()), field_name, 2, Type::get_primitive_type("str"));
             }
+            break;
         case Type::Variation::MULTI: {
             const auto *multi_type = base_type->as<MultiType>();
             if (field_name == "") {
@@ -882,6 +883,7 @@ Parser::create_field_access_base(     //
             if (field_name == "active_type") {
                 return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u8"));
             }
+            break;
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return std::nullopt;

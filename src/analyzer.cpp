@@ -652,6 +652,7 @@ fail:
             THROW_ERR(ErrPtrNotAllowedInNonExternContext, ERR_ANALYZING, expression);
             return Result::ERR_HANDLED;
     }
+    __builtin_unreachable();
 }
 
 Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_ptr<Type> &type_to_analyze) {

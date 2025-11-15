@@ -258,7 +258,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                 return std::nullopt;
         }
     }
-    return std::move(function_node);
+    return function_node;
 }
 
 std::optional<FunctionNode> Parser::create_extern_function(const token_slice &definition) {

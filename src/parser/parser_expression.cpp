@@ -2531,6 +2531,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     return std::nullopt;
                 }
                 expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                break;
             }
             case Type::Variation::OPTIONAL: {
                 const auto *optional_type = expected_type.value()->as<OptionalType>();

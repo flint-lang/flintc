@@ -111,6 +111,7 @@ bool Generator::Statement::generate_statement(      //
             return generate_while_loop(builder, ctx, node);
         }
     }
+    __builtin_unreachable();
 }
 
 bool Generator::Statement::clear_garbage(                                                                        //

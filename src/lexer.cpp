@@ -232,7 +232,7 @@ bool Lexer::scan_token() {
                         std::string hex_digits = source.substr(current, 2);
                         try {
                             std::stoi(hex_digits, nullptr, 16);
-                        } catch (std::invalid_argument) {
+                        } catch (std::invalid_argument &) {
                             THROW_BASIC_ERR(ERR_LEXING);
                             return false;
                         }
