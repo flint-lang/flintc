@@ -258,6 +258,7 @@ fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
         // 4. Fetch json-mini
         const fetch_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "fetch" });
         fetch_json_mini_step.setCwd(b.path("vendor/sources/json-mini"));
+        fetch_json_mini_step.step.dependOn(&reset_json_mini_cmd.step);
 
         // 5. Pull json-mini
         const pull_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "pull" });
