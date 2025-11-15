@@ -16,6 +16,12 @@ pub fn build(b: *std.Build) !void {
         b.fmt("LLVM version to use. Default: {s}", .{DEFAULT_LLVM_VERSION}),
     ) orelse DEFAULT_LLVM_VERSION;
 
+    const rebuild_llvm = b.option(
+        bool,
+        "rebuild-llvm",
+        "Force rebuild LLVM",
+    ) orelse false;
+
     std.fs.cwd().access("vendor", .{}) catch {
         try std.fs.cwd().makeDir("vendor");
     };
@@ -47,6 +53,7 @@ pub fn build(b: *std.Build) !void {
             else => return error.TargetNeedsToBeLinuxOrWindows,
         },
         &build_zlib.step,
+        rebuild_llvm,
     );
     build_llvm.step.dependOn(&update_llvm.step);
 
@@ -356,7 +363,7 @@ fn buildZlib(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
     return install_zlib;
 }
 
-fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build.Step) !*std.Build.Step.Run {
+fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build.Step, force_rebuild: bool) !*std.Build.Step.Run {
     const build_name: []const u8 = switch (target) {
         .linux => "linux",
         .windows => "mingw",
@@ -375,7 +382,9 @@ fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
 
     if (std.fs.cwd().openDir(install_dir, .{})) |_| {
         // LLVM is already built, no need to build it again
-        return try makeEmptyStep(b);
+        if (!force_rebuild) {
+            return try makeEmptyStep(b);
+        }
     } else |_| {}
 
     std.debug.print("-- Building LLVM for {s}\n", .{build_name});
