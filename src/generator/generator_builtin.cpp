@@ -744,15 +744,28 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     // Go through all files for all tests
     for (const auto &[file_name, test_list] : tests) {
         // Print which file we are currently at
-        llvm::Value *success_fmt = IR::generate_const_string(module, " -> \"%s\" \033[32m✓ passed\033[0m\n");
-        llvm::Value *fail_fmt = IR::generate_const_string(module, " -> \"%s\" \033[31m✗ failed\033[0m\n");
+        llvm::Value *success_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[32m✓ passed\033[0m\n");
+        llvm::Value *success_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[32m✓ passed\033[0m\n");
+        llvm::Value *fail_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[31m✗ failed\033[0m\n");
+        llvm::Value *fail_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[31m✗ failed\033[0m\n");
         llvm::Value *file_name_value = IR::generate_const_string(module, "\n" + file_name + ":\n");
         builder->CreateCall(c_functions.at(PRINTF), //
             {file_name_value}                       //
         );
 
+        // Find out the longest test name, to be able to align the passed / failed outputs
+        unsigned int longest_name = 0;
+        for (const auto &[test_name, _] : test_list) {
+            if (test_name.length() > longest_name) {
+                longest_name = test_name.length();
+            }
+        }
+
         // Run all tests and print whether they succeeded
+        size_t index = 0;
         for (const auto &[test_name, test_function_name] : test_list) {
+            llvm::Value *success_fmt = index + 1 < test_list.size() ? success_fmt_middle : success_fmt_end;
+            llvm::Value *fail_fmt = index + 1 < test_list.size() ? fail_fmt_middle : fail_fmt_end;
             llvm::BasicBlock *current_block = builder->GetInsertBlock();
             llvm::BasicBlock *succeed_block = llvm::BasicBlock::Create(context, "test_success", main_function);
             llvm::BasicBlock *fail_block = llvm::BasicBlock::Create(context, "test_fail", main_function);
@@ -789,14 +802,14 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             builder->CreateCondBr(comparison, succeed_block, fail_block);
 
             builder->SetInsertPoint(succeed_block);
-            builder->CreateCall(c_functions.at(PRINTF), //
-                {success_fmt, test_name_value}          //
+            builder->CreateCall(c_functions.at(PRINTF),                         //
+                {success_fmt, builder->getInt32(longest_name), test_name_value} //
             );
             builder->CreateBr(merge_block);
 
             builder->SetInsertPoint(fail_block);
-            builder->CreateCall(c_functions.at(PRINTF), //
-                {fail_fmt, test_name_value}             //
+            builder->CreateCall(c_functions.at(PRINTF),                      //
+                {fail_fmt, builder->getInt32(longest_name), test_name_value} //
             );
             // Increment the fail counter only if the test has failed
             llvm::LoadInst *counter_value = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), counter, "counter_val");
@@ -807,6 +820,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             builder->CreateBr(merge_block);
 
             builder->SetInsertPoint(merge_block);
+            index++;
         }
     }
 
