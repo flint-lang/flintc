@@ -273,7 +273,7 @@ std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode *file_node, 
     }
     std::vector<dependency> dependencies;
 
-    for (const std::unique_ptr<DefinitionNode> &node : file_node->definitions) {
+    for (const std::unique_ptr<DefinitionNode> &node : file_node->file_namespace->public_symbols.definitions) {
         if (node->get_variation() == DefinitionNode::Variation::IMPORT) {
             const auto *import_node = node->as<ImportNode>();
             dependencies.emplace_back(create_dependency(*import_node, path));

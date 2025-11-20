@@ -605,7 +605,7 @@ class Parser {
                 ) {
                     const auto &path_pair = std::get<std::pair<std::optional<std::string>, std::string>>(import->path);
                     const FileNode *file_node = Resolver::file_map.at(path_pair.second);
-                    for (const auto &definition : file_node->definitions) {
+                    for (const auto &definition : file_node->file_namespace->public_symbols.definitions) {
                         const auto definition_variation = definition->get_variation();
                         if (definition_variation == DefinitionNode::Variation::DATA) {
                             const auto *data_node = definition->as<DataNode>();

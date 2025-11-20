@@ -492,7 +492,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     unsigned int mangle_id = 1;
     file_function_names[file.file_name] = {};
     // Declare all functions in the file at the top of the module
-    for (const std::unique_ptr<DefinitionNode> &node : file.definitions) {
+    for (const std::unique_ptr<DefinitionNode> &node : file.file_namespace->public_symbols.definitions) {
         if (node->get_variation() == DefinitionNode::Variation::FUNCTION) {
             auto *function_node = node->as<FunctionNode>();
             // Create a forward declaration for the function only if it is not the main function!
@@ -525,7 +525,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     file_function_mangle_ids[file.file_name] = function_mangle_ids;
 
     // Iterate through all AST Nodes in the file and generate them accordingly
-    for (std::unique_ptr<DefinitionNode> &node : file.definitions) {
+    for (std::unique_ptr<DefinitionNode> &node : file.file_namespace->public_symbols.definitions) {
         switch (node->get_variation()) {
             default:
                 break;

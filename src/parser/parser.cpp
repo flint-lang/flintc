@@ -47,7 +47,7 @@ std::string Parser::load_file(const std::filesystem::path &file_path) {
 
 std::optional<FileNode *> Parser::parse() {
     PROFILE_SCOPE("Parse file '" + file_name + "'");
-    file_node_ptr = std::make_unique<FileNode>(file_name);
+    file_node_ptr = std::make_unique<FileNode>(file);
     Lexer lexer(file_name, *source_code.get());
     file_node_ptr->tokens = lexer.scan();
     if (file_node_ptr->tokens.empty()) {
@@ -101,7 +101,7 @@ bool Parser::resolve_all_unknown_types() {
                 }
             }
         }
-        for (auto &definition : parser.file_node_ptr->definitions) {
+        for (auto &definition : parser.file_node_ptr->file_namespace->public_symbols.definitions) {
             if (definition->get_variation() == DefinitionNode::Variation::VARIANT) {
                 auto *variant_node = definition->as<VariantNode>();
                 for (auto &type : variant_node->possible_types) {

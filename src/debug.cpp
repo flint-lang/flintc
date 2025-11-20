@@ -198,12 +198,12 @@ namespace Debug {
             std::cout << "File \"" << file.file_name << "\"" << std::endl;
             unsigned int counter = 0;
 
-            for (const std::unique_ptr<DefinitionNode> &def : file.definitions) {
+            for (const std::unique_ptr<DefinitionNode> &def : file.file_namespace->public_symbols.definitions) {
                 // Create fresh TreeBits for each node
                 TreeBits bits;
 
                 // Set the first bit whether this is the
-                if (++counter == file.definitions.size()) {
+                if (++counter == file.file_namespace->public_symbols.definitions.size()) {
                     bits.set(SINGLE, 0);
                 } else {
                     bits.set(BRANCH, 0);

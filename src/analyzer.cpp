@@ -55,7 +55,7 @@ Analyzer::Result Analyzer::analyze_file(const FileNode *file) {
         .length = 0,
     };
     Result result = Result::OK;
-    for (const auto &node : file->definitions) {
+    for (const auto &node : file->file_namespace->public_symbols.definitions) {
         ctx.line = node->line;
         ctx.column = node->column;
         ctx.length = node->length;

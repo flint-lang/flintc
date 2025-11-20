@@ -9,12 +9,10 @@
 #include "debug.hpp"
 #include "error/error.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/enum_type.hpp"
-#include "parser/type/error_set_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/tuple_type.hpp"
-#include "parser/type/variant_type.hpp"
 #include "profiler.hpp"
+
 #include <algorithm>
 
 bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
@@ -62,8 +60,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             if (import_vec.size() == 2 && import_vec.front() == "Core") {
                 // Check for imported core modules
                 const std::string &module_str = import_vec.back();
-                if (module_str != "print" && module_str != "read" && module_str != "assert" && module_str != "filesystem" &&
-                    module_str != "env" && module_str != "system" && module_str != "math") {
+                if (core_module_functions.find(module_str) == core_module_functions.end()) {
                     const auto &tok = definition_tokens.first + 3;
                     THROW_ERR(ErrDefUnexpectedCoreModule, ERR_PARSING, file_name, tok->line, tok->column, module_str);
                     return false;
@@ -118,18 +115,11 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!data_node.has_value()) {
             return false;
         }
-        DataNode *added_data = file_node.add_data(data_node.value());
-        add_parsed_data(added_data, file_name);
-        if (!Type::add_type(std::make_shared<DataType>(added_data))) {
-            auto it = definition_tokens.first;
-            while (it->token != TOK_DATA) {
-                ++it;
-            }
-            // Skip the `data` token so that `it` now points at the name of the data node
-            ++it;
-            THROW_ERR(ErrDefDataRedefinition, ERR_PARSING, file_name, it->line, it->column, added_data->name);
+        std::optional<DataNode *> added_data = file_node.add_data(data_node.value());
+        if (!added_data.has_value()) {
             return false;
         }
+        add_parsed_data(added_data.value(), file_name);
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_lines);
         if (!func_node.has_value()) {
@@ -150,34 +140,19 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!enum_node.has_value()) {
             return false;
         }
-        EnumNode *added_enum = file_node.add_enum(enum_node.value());
-        if (!Type::add_type(std::make_shared<EnumType>(added_enum))) {
-            // Enum redifinition
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
+        return file_node.add_enum(enum_node.value());
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::error_definition)) {
         std::optional<ErrorNode> error_node = create_error(definition_tokens, body_lines);
         if (!error_node.has_value()) {
             return false;
         }
-        ErrorNode *added_error = file_node.add_error(error_node.value());
-        if (!Type::add_type(std::make_shared<ErrorSetType>(added_error))) {
-            // Error Set redefinition or naming collision
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
+        return file_node.add_error(error_node.value());
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::variant_definition)) {
         std::optional<VariantNode> variant_node = create_variant(definition_tokens, body_lines);
         if (!variant_node.has_value()) {
             return false;
         }
-        std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> added_variant = file_node.add_variant(variant_node.value());
-        if (!Type::add_type(std::make_shared<VariantType>(added_variant, false))) {
-            // Varaint type redefinition
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
+        return file_node.add_variant(variant_node.value());
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::test_definition)) {
         std::optional<TestNode> test_node = create_test(definition_tokens);
         if (!test_node.has_value()) {
@@ -217,9 +192,7 @@ bool Parser::create_core_module_types(FileNode &file_node, const std::string &co
             default_messages.emplace_back(error_message);
         }
         ErrorNode error("__flint_CORE_ERR", 1, 1, 1, error_type_name, parent_error, error_values, default_messages);
-        ErrorNode *error_node = file_node.add_error(error);
-        if (!Type::add_type(std::make_shared<ErrorSetType>(error_node))) {
-            THROW_BASIC_ERR(ERR_PARSING);
+        if (!file_node.add_error(error)) {
             return false;
         }
     }

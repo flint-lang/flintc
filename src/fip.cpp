@@ -17,6 +17,16 @@ fip_master_state_t master_state;
 
 #include <iostream>
 
+std::array<char, 8> FIP::string_to_hash(const std::string &input) {
+    char hash[8];
+    fip_create_hash(hash, input.data());
+    std::array<char, 8> hash_arr;
+    for (size_t i = 0; i < 8; i++) {
+        hash_arr[i] = hash[i];
+    }
+    return hash_arr;
+}
+
 std::filesystem::path FIP::get_fip_path() {
 #ifdef __WIN32__
     const char *local_appdata = std::getenv("LOCALAPPDATA");

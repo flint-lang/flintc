@@ -133,7 +133,7 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
     unsigned int mangle_id = 1;
     file_function_mangle_ids[file_node.file_name] = {};
     file_function_names[file_node.file_name] = {};
-    for (const std::unique_ptr<DefinitionNode> &node : file_node.definitions) {
+    for (const std::unique_ptr<DefinitionNode> &node : file_node.file_namespace->public_symbols.definitions) {
         if (node->get_variation() == DefinitionNode::Variation::FUNCTION) {
             // Create a forward declaration for the function only if it is not the main function!
             auto *function_node = node->as<FunctionNode>();
