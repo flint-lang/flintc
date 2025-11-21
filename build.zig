@@ -399,13 +399,18 @@ fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
         b.fmt("-DCMAKE_INSTALL_PREFIX={s}", .{install_dir}),
         "-DCMAKE_BUILD_TYPE=Release",
         b.fmt("-DCMAKE_C_COMPILER={s}", .{switch (target) {
-            .linux => if (builtin.os.tag == .linux) "clang" else "x86_64-w64-mingw32-gcc",
-            .windows => if (builtin.os.tag == .linux) "x86_64-w64-mingw32-gcc" else "x86_64-w64-mingw32-gcc",
+            .linux => "zig;cc",
+            .windows => "zig;cc", // Just use zig cc, CMake handles the rest
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
         b.fmt("-DCMAKE_CXX_COMPILER={s}", .{switch (target) {
-            .linux => if (builtin.os.tag == .linux) "clang++" else "x86_64-w64-mingw32-g++",
-            .windows => if (builtin.os.tag == .linux) "x86_64-w64-mingw32-g++" else "x86_64-w64-mingw32-g++",
+            .linux => "zig;c++",
+            .windows => "zig;c++", // Just use zig c++, CMake handles the rest
+            else => return error.TargetNeedsToBeLinuxOrWindows,
+        }}),
+        b.fmt("-DCMAKE_ASM_COMPILER={s}", .{switch (target) {
+            .linux => "zig;cc",
+            .windows => "zig;cc", // Just use zig cc, CMake handles the rest
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
         b.fmt("-DCMAKE_SYSTEM_NAME={s}", .{switch (target) {
@@ -413,12 +418,11 @@ fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
             .windows => "Windows",
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
-        "-DLLVM_ENABLE_RUNTIMES=libunwind;libcxx;libcxxabi",
+        "-DLLVM_ENABLE_RUNTIMES=libcxx;libcxxabi",
         "-DLLVM_ENABLE_PIC=ON",
         // Static library settings
         "-DLIBCXX_ENABLE_SHARED=OFF",
         "-DLIBCXXABI_ENABLE_SHARED=OFF",
-        "-DLIBUNWIND_ENABLE_SHARED=OFF",
         // Runtime configuration
         "-DLIBCXX_CXX_ABI=libcxxabi",
         "-DLIBCXXABI_USE_LLVM_UNWINDER=OFF",
@@ -442,13 +446,18 @@ fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
         b.fmt("-DCMAKE_INSTALL_PREFIX={s}", .{install_dir}),
         "-DCMAKE_BUILD_TYPE=Release",
         b.fmt("-DCMAKE_C_COMPILER={s}", .{switch (target) {
-            .linux => if (builtin.os.tag == .linux) "clang" else "x86_64-w64-mingw32-gcc",
-            .windows => if (builtin.os.tag == .linux) "x86_64-w64-mingw32-gcc" else "x86_64-w64-mingw32-gcc",
+            .linux => "zig;cc",
+            .windows => "zig;cc", // Just use zig cc, CMake handles the rest
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
         b.fmt("-DCMAKE_CXX_COMPILER={s}", .{switch (target) {
-            .linux => if (builtin.os.tag == .linux) "clang++" else "x86_64-w64-mingw32-g++",
-            .windows => if (builtin.os.tag == .linux) "x86_64-w64-mingw32-g++" else "x86_64-w64-mingw32-g++",
+            .linux => "zig;c++",
+            .windows => "zig;c++", // Just use zig c++, CMake handles the rest
+            else => return error.TargetNeedsToBeLinuxOrWindows,
+        }}),
+        b.fmt("-DCMAKE_ASM_COMPILER={s}", .{switch (target) {
+            .linux => "zig;cc",
+            .windows => "zig;cc", // Just use zig cc, CMake handles the rest
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
         b.fmt("-DCMAKE_SYSTEM_NAME={s}", .{switch (target) {
@@ -457,10 +466,10 @@ fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
         // Force use of our libc++
-        "-DCMAKE_CXX_FLAGS=-stdlib=libc++",
-        b.fmt("-DCMAKE_EXE_LINKER_FLAGS=-L{s}/lib -stdlib=libc++ -lc++abi -lunwind", .{install_dir}),
+        // "-DCMAKE_CXX_FLAGS=-stdlib=libc++",
+        b.fmt("-DCMAKE_EXE_LINKER_FLAGS=-L{s}/lib -stdlib=libc++ -lc++abi", .{install_dir}),
         // Minimal LLVM config for static builds
-        "-DLLVM_ENABLE_PROJECTS=lld",
+        "-DLLVM_ENABLE_PROJECTS=lld;clang",
         "-DLLVM_ENABLE_RTTI=ON",
         "-DLLVM_ENABLE_EH=ON",
         "-DLLVM_BUILD_STATIC=ON",
@@ -480,6 +489,36 @@ fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
         "-DZLIB_USE_STATIC_LIBS=ON",
         "-DLLVM_ENABLE_ZSTD=OFF",
         "-DLLVM_ENABLE_LIBXML2=OFF",
+        "-DCMAKE_LINK_DEPENDS_USE_LINKER=OFF",
+        //
+        "-DCLANG_BUILD_TOOLS=OFF",
+        "-DCLANG_INCLUDE_TESTS=OFF",
+        "-DCLANG_INCLUDE_DOCS=OFF",
+        "-DCLANG_BUILD_EXAMPLES=OFF",
+        "-DCLANG_ENABLE_ARCMT=OFF",
+        "-DCLANG_ENABLE_STATIC_ANALYZER=OFF",
+        "-DCLANG_ENABLE_OBJC_REWRITER=OFF",
+        "-DCLANG_PLUGIN_SUPPORT=OFF",
+        "-DCLANG_TOOL_C_INDEX_TEST_BUILD=OFF",
+        "-DCLANG_BUILD_CLANG_CPP_LIB=OFF", // Does not exist
+        "-DLIBCLANG_BUILD_STATIC=ON",
+        "-DCLANG_ENABLE_BOOTSTRAP=OFF", // Does not exist
+        // "-DLLVM_BUILD_TOOLS=OFF",
+        // "-DLLVM_INSTALL_TOOLCHAIN_ONLY=ON",
+        "-DLLVM_TOOL_CLANG_SHLIB_BUILD=OFF", // Does not exist
+        "-DCLANG_TOOL_CLANG_SHLIB_BUILD=OFF",
+        //
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DLLVM_BUILD_LLVM_DYLIB=OFF",
+        "-DLLVM_LINK_LLVM_DYLIB=OFF",
+        "-DCLANG_LINK_CLANG_DYLIB=OFF",
+        "-DCMAKE_AR=/usr/bin/ar",
+        "-DCMAKE_RANLIB=/usr/bin/ranlib",
+        "-DCROSS_TOOLCHAIN_FLAGS_NATIVE=-DCMAKE_C_COMPILER=cc;-DCMAKE_CXX_COMPILER=c++;-DCMAKE_AR=/usr/bin/ar;-DCMAKE_RANLIB=/usr/bin/ranlib",
+        //
+        "-DCMAKE_VERBOSE_MAKEFILE=ON", // Increased build log verbosity
+        "-DLLVM_PARALLEL_COMPILE_JOBS=4",
+        "-DLLVM_PARALLEL_LINK_JOBS=2",
         switch (target) {
             .linux => b.fmt("-DZLIB_LIBRARY={s}/lib/libz.a", .{zlib_library_path}),
             .windows => b.fmt("-DZLIB_LIBRARY={s}/lib/libz.a", .{zlib_library_path}),
@@ -493,7 +532,7 @@ fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
     });
     setup_main.step.dependOn(&install_runtime.step);
     // Build main LLVM
-    const build_main = b.addSystemCommand(&[_][]const u8{ "cmake", "--build", llvm_build_dir, b.fmt("-j{d}", .{try std.Thread.getCpuCount() - 1}) });
+    const build_main = b.addSystemCommand(&[_][]const u8{ "cmake", "--build", llvm_build_dir, b.fmt("-j{d}", .{try std.Thread.getCpuCount() - 6}) });
     build_main.step.dependOn(&setup_main.step);
     // Install main LLVM
     const install_main = b.addSystemCommand(&[_][]const u8{ "cmake", "--install", llvm_build_dir });
