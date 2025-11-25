@@ -149,6 +149,9 @@ Parser::CastDirection Parser::check_primitive_castability(const std::shared_ptr<
 
 Parser::CastDirection Parser::check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type) {
     PROFILE_CUMULATIVE("Parser::check_castability_type");
+    if (lhs_type->equals(rhs_type)) {
+        return CastDirection::same_type();
+    }
     const GroupType *lhs_group = dynamic_cast<const GroupType *>(lhs_type.get());
     const GroupType *rhs_group = dynamic_cast<const GroupType *>(rhs_type.get());
     if (lhs_group == nullptr && rhs_group == nullptr) {
@@ -216,6 +219,8 @@ Parser::CastDirection Parser::check_castability(const std::shared_ptr<Type> &lhs
                 }
                 const CastDirection cast = check_castability(lhs_opt->base_type, rhs_type);
                 switch (cast.kind) {
+                    case CastDirection::Kind::SAME_TYPE:
+                        return CastDirection::same_type();
                     case CastDirection::Kind::CAST_BIDIRECTIONAL:
                     case CastDirection::Kind::CAST_RHS_TO_LHS:
                         return CastDirection::rhs_to_lhs();
@@ -232,6 +237,8 @@ Parser::CastDirection Parser::check_castability(const std::shared_ptr<Type> &lhs
                 }
                 const CastDirection cast = check_castability(rhs_opt->base_type, lhs_type);
                 switch (cast.kind) {
+                    case CastDirection::Kind::SAME_TYPE:
+                        return CastDirection::same_type();
                     case CastDirection::Kind::CAST_BIDIRECTIONAL:
                     case CastDirection::Kind::CAST_LHS_TO_RHS:
                         return CastDirection::lhs_to_rhs();
@@ -279,6 +286,8 @@ Parser::CastDirection Parser::check_castability(const std::shared_ptr<Type> &lhs
                     switch (elem_castability.kind) {
                         default:
                             return CastDirection::not_castable();
+                        case CastDirection::Kind::SAME_TYPE:
+                            return CastDirection::same_type();
                         case CastDirection::Kind::CAST_RHS_TO_LHS:
                             if (rhs_elem_type_str == "int" || rhs_elem_type_str == "float") {
                                 // TODO: We somehow need to change the type of the rhs expression directly, but that's not possible in this
@@ -324,6 +333,8 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
     switch (castability.kind) {
         case CastDirection::Kind::NOT_CASTABLE:
             return false;
+        case CastDirection::Kind::SAME_TYPE:
+            return true;
         case CastDirection::Kind::CAST_LHS_TO_RHS: {
             const std::string lhs_type_str = lhs->type->to_string();
             if (lhs_type_str == "int" || lhs_type_str == "float") {
@@ -380,11 +391,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
     if (is_lhs_not_lit || is_rhs_not_lit) {
         return std::nullopt;
     }
-    // The lhs and rhs types must be the same to be folded, or it must be literals, but only literals are supported for now, so this check
-    // is redundant
-    // if (lhs->type != rhs->type && !is_literal) {
-    //     return std::nullopt;
-    // }
 
     // Const folding can only be applied if the binary operator is an arithmetic operation
     if (!Matcher::token_match(operation, Matcher::operational_binop) && !Matcher::token_match(operation, Matcher::boolean_binop)) {
@@ -632,7 +638,7 @@ std::optional<VariableNode> Parser::create_variable(std::shared_ptr<Scope> &scop
         if (tok->token == TOK_IDENTIFIER) {
             const std::string name(tok->lexme);
             if (scope->variables.find(name) == scope->variables.end()) {
-                THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, tok->line, tok->column, name);
+                THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
                 return std::nullopt;
             }
             return VariableNode(name, std::get<0>(scope->variables.at(name)));
@@ -692,8 +698,8 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
             return std::nullopt;
         }
         std::shared_ptr<Type> ptr_type = std::make_shared<PointerType>(un_op.type);
-        if (!Type::add_type(ptr_type)) {
-            ptr_type = Type::get_type_from_str(ptr_type->to_string()).value();
+        if (!file_node_ptr->file_namespace->add_type(ptr_type)) {
+            ptr_type = file_node_ptr->file_namespace->get_type_from_str(ptr_type->to_string()).value();
         }
         un_op.type = ptr_type;
     }
@@ -738,7 +744,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 break;
             case TOK_NONE: {
                 std::shared_ptr<Type> void_type = Type::get_primitive_type("void");
-                std::optional<std::shared_ptr<Type>> opt_type = Type::get_type_from_str("void?");
+                std::optional<std::shared_ptr<Type>> opt_type = file_node_ptr->file_namespace->get_type_from_str("void?");
                 assert(opt_type.has_value());
                 LitValue lit_val = LitOptional{};
                 return LiteralNode(lit_val, opt_type.value());
@@ -747,13 +753,13 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 APInt lit_int = APInt(lexme);
                 lit_int.is_negative = front_token == TOK_MINUS;
                 LitValue lit_val = LitInt{.value = lit_int};
-                return LiteralNode(lit_val, Type::get_type_from_str("int").value());
+                return LiteralNode(lit_val, file_node_ptr->file_namespace->get_type_from_str("int").value());
             }
             case TOK_FLINT_VALUE: {
                 APFloat lit_float = APFloat(lexme);
                 lit_float.is_negative = front_token == TOK_MINUS;
                 LitValue lit_val = LitFloat{.value = lit_float};
-                return LiteralNode(lit_val, Type::get_type_from_str("float").value());
+                return LiteralNode(lit_val, file_node_ptr->file_namespace->get_type_from_str("float").value());
             }
             case TOK_STR_VALUE: {
                 size_t pos = 0;
@@ -900,7 +906,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
         size_t expr_start = it->first + 1;               // Position after {
         size_t expr_length = it->second - it->first - 1; // Length between { and }
         const std::string expr_str = interpol_string.substr(expr_start, expr_length);
-        Lexer lexer("__flint_string_interpolation", expr_str);
+        Lexer lexer("", expr_str);
         token_list expr_tokens = lexer.scan();
         if (expr_tokens.empty()) {
             return std::nullopt;
@@ -954,16 +960,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     PROFILE_CUMULATIVE("Parser::create_call_expression");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
-    auto call_or_init_node_args = create_call_or_initializer_base(ctx, scope, tokens_mut, alias_base);
-    if (!call_or_init_node_args.has_value()) {
+    auto ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias_base);
+    if (!ret.has_value()) {
         return std::nullopt;
     }
-    assert(!std::get<3>(call_or_init_node_args.value()));
+    assert(!ret->is_initializer);
     std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
-        std::get<0>(call_or_init_node_args.value()),                                      // name
-        std::get<1>(call_or_init_node_args.value()),                                      // args
-        std::get<4>(call_or_init_node_args.value()),                                      // can_throw
-        std::get<2>(call_or_init_node_args.value())                                       // type
+        ret->function,                                                                    //
+        ret->args,                                                                        //
+        ret->function->error_types,                                                       //
+        ret->type                                                                         //
     );
     call_node->scope_id = scope->scope_id;
     last_parsed_call = call_node.get();
@@ -979,20 +985,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
     PROFILE_CUMULATIVE("Parser::create_initializer");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
-    auto call_or_init_node_args = create_call_or_initializer_base(ctx, scope, tokens_mut, alias_base);
-    if (!call_or_init_node_args.has_value()) {
+    auto ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias_base);
+    if (!ret.has_value()) {
         return std::nullopt;
     }
-    assert(std::get<3>(call_or_init_node_args.value()));
+    assert(ret->is_initializer);
     std::vector<std::unique_ptr<ExpressionNode>> args;
-    for (auto &arg : std::get<1>(call_or_init_node_args.value())) {
+    for (auto &arg : ret->args) {
         args.emplace_back(std::move(arg.first));
     }
-    std::unique_ptr<InitializerNode> initializer_node = std::make_unique<InitializerNode>( //
-        std::get<2>(call_or_init_node_args.value()),                                       // type
-        args                                                                               // args
-    );
-    return initializer_node;
+    return std::make_unique<InitializerNode>(ret->type, args);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
@@ -1137,11 +1139,11 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
             // Nested groups are not allowed
             const auto match_range = match_ranges[i];
             token_slice expression_tokens = {tokens_mut.first + match_range.first, tokens_mut.first + match_range.second};
-            THROW_ERR(ErrExprNestedGroup, ERR_PARSING, file_name, expression_tokens);
+            THROW_ERR(ErrExprNestedGroup, ERR_PARSING, file_hash, expression_tokens);
             return std::nullopt;
         }
     }
-    return GroupExpressionNode(expressions);
+    return GroupExpressionNode(file_hash, expressions);
 }
 
 std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions( //
@@ -1221,7 +1223,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         lhs_expr = std::make_unique<LiteralNode>(lhs_zero, u64_ty);
         LitValue rhs_zero = LitInt{.value = APInt("0")};
         rhs_expr = std::make_unique<LiteralNode>(rhs_zero, u64_ty);
-        return std::make_unique<RangeExpressionNode>(lhs_expr.value(), rhs_expr.value());
+        return std::make_unique<RangeExpressionNode>(file_hash, lhs_expr.value(), rhs_expr.value());
     } else if (is_open_low) {
         // Its a range expression which begins at 0, because '0..5' and '..5' are the same
         assert(!lhs_expr.has_value());
@@ -1239,8 +1241,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         const CastDirection lhs_compatible = check_primitive_castability(lhs_expr.value()->type, u64_ty);
         switch (lhs_compatible.kind) {
             default:
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, lhs_tokens, u64_ty, lhs_expr.value()->type);
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, lhs_tokens, u64_ty, lhs_expr.value()->type);
                 return std::nullopt;
+            case CastDirection::Kind::SAME_TYPE:
+                break;
             case CastDirection::Kind::CAST_LHS_TO_RHS: {
                 const std::string type_str = lhs_expr.value()->type->to_string();
                 if (type_str == "int") {
@@ -1255,8 +1259,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         const CastDirection rhs_compatible = check_primitive_castability(rhs_expr.value()->type, u64_ty);
         switch (rhs_compatible.kind) {
             default:
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, rhs_tokens, u64_ty, rhs_expr.value()->type);
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, rhs_tokens, u64_ty, rhs_expr.value()->type);
                 return std::nullopt;
+            case CastDirection::Kind::SAME_TYPE:
+                break;
             case CastDirection::Kind::CAST_LHS_TO_RHS: {
                 const std::string type_str = rhs_expr.value()->type->to_string();
                 if (type_str == "int") {
@@ -1290,7 +1296,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
             return std::nullopt;
         }
     }
-    return std::make_unique<RangeExpressionNode>(lhs_expr.value(), rhs_expr.value());
+    return std::make_unique<RangeExpressionNode>(file_hash, lhs_expr.value(), rhs_expr.value());
 }
 
 std::optional<DataAccessNode> Parser::create_data_access( //
@@ -1327,6 +1333,7 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access( //
     }
 
     return GroupedDataAccessNode(                       //
+        file_hash,                                      //
         std::get<0>(grouped_field_access_base.value()), // base_expr
         std::get<1>(grouped_field_access_base.value()), // field_names
         std::get<2>(grouped_field_access_base.value()), // field_ids
@@ -1355,7 +1362,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    std::optional<std::shared_ptr<Type>> element_type = Type::get_type(type_tokens);
+    std::optional<std::shared_ptr<Type>> element_type = file_node_ptr->file_namespace->get_type(type_tokens);
     if (!element_type.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -1378,6 +1385,11 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
     if (initializer.value()->type != element_type.value()) {
         const CastDirection init_cast = check_primitive_castability(initializer.value()->type, element_type.value());
         switch (init_cast.kind) {
+            default:
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, initializer_tokens, element_type.value(), initializer.value()->type);
+                return std::nullopt;
+            case CastDirection::Kind::SAME_TYPE:
+                break;
             case CastDirection::Kind::CAST_LHS_TO_RHS: {
                 const std::string type_str = initializer.value()->type->to_string();
                 if (type_str == "int" || type_str == "float") {
@@ -1387,9 +1399,6 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
                 }
                 break;
             }
-            default:
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, initializer_tokens, element_type.value(), initializer.value()->type);
-                return std::nullopt;
         }
     }
 
@@ -1412,11 +1421,11 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
     }
 
     std::string actual_type_str = element_type.value()->to_string() + "[" + std::string(length_expressions.value().size() - 1, ',') + "]";
-    std::optional<std::shared_ptr<Type>> actual_array_type = Type::get_type_from_str(actual_type_str);
+    std::optional<std::shared_ptr<Type>> actual_array_type = file_node_ptr->file_namespace->get_type_from_str(actual_type_str);
     if (!actual_array_type.has_value()) {
         // This type does not yet exist, so we need to create it
         actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value());
-        Type::add_type(actual_array_type.value());
+        file_node_ptr->file_namespace->add_type(actual_array_type.value());
     }
     return ArrayInitializerNode(    //
         actual_array_type.value(),  //
@@ -1508,8 +1517,8 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
         return ArrayAccessNode(base_expr.value(), array_type->type, indexing_expressions.value());
     } else {
         std::shared_ptr<Type> new_arr_type = std::make_shared<ArrayType>(dimensionality, array_type->type);
-        if (!Type::add_type(new_arr_type)) {
-            new_arr_type = Type::get_type_from_str(new_arr_type->to_string()).value();
+        if (!file_node_ptr->file_namespace->add_type(new_arr_type)) {
+            new_arr_type = file_node_ptr->file_namespace->get_type_from_str(new_arr_type->to_string()).value();
         }
         return ArrayAccessNode(base_expr.value(), new_arr_type, indexing_expressions.value());
     }
@@ -1583,7 +1592,7 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
             return std::nullopt;
         }
         operation = ChainArrayAccess{std::move(indexing_expressions.value())};
-        return OptionalChainNode(base_expr.value(), true, operation, result_type);
+        return OptionalChainNode(file_hash, base_expr.value(), true, operation, result_type);
     } else if (iterator->token == TOK_DOT) {
         // It's a field access
         auto field_access_base = create_field_access_base(ctx, scope, tokens, true);
@@ -1596,7 +1605,7 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
         operation = ChainFieldAccess{field_name, field_id};
         result_type = std::get<3>(field_access_base.value());
         auto &base_expr = std::get<0>(field_access_base.value());
-        return OptionalChainNode(base_expr, true, operation, result_type);
+        return OptionalChainNode(file_hash, base_expr, true, operation, result_type);
     }
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
@@ -1695,7 +1704,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
         auto &field_names = std::get<1>(grouped_access_base.value());
         auto &field_ids = std::get<2>(grouped_access_base.value());
         auto &field_types = std::get<3>(grouped_access_base.value());
-        return std::make_unique<GroupedDataAccessNode>(opt_unwrap, field_names, field_ids, field_types);
+        return std::make_unique<GroupedDataAccessNode>(file_hash, opt_unwrap, field_names, field_ids, field_types);
     } else if (iterator->token == TOK_DOT) {
         // It's a field access
         auto field_access_base = create_field_access_base(ctx, scope, tokens, true);
@@ -1784,7 +1793,7 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return VariantExtractionNode(base_expr.value(), unwrap_type);
+        return VariantExtractionNode(file_hash, base_expr.value(), unwrap_type);
     }
     // Skip the `)`
     ++iterator;
@@ -2007,7 +2016,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::nullopt;
                     }
                     token_slice message_tokens = {tokens_mut.first + 4, tokens_mut.first + range.value().second - 1};
-                    auto message = create_expression(ctx, scope, message_tokens, Type::get_type_from_str("str"));
+                    auto message = create_expression(ctx, scope, message_tokens, file_node_ptr->file_namespace->get_type_from_str("str"));
                     if (!message.has_value()) {
                         return std::nullopt;
                     }
@@ -2378,6 +2387,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 // Check if the expression is implicitely castable to the base type of the optional
                 const CastDirection castability = check_castability(lhs_opt->base_type, rhs.value()->type);
                 switch (castability.kind) {
+                    default:
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, lhs.value()->type, rhs.value()->type);
+                        return std::nullopt;
+                    case CastDirection::Kind::SAME_TYPE:
+                        break;
                     case CastDirection::Kind::CAST_BIDIRECTIONAL: // Allow casting from rhs to lhs if castable both ways
                     case CastDirection::Kind::CAST_RHS_TO_LHS:
                         if (rhs_type_str == "int" || rhs_type_str == "float") {
@@ -2387,9 +2401,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         // Cast the expression to the target optional type
                         rhs = std::make_unique<TypeCastNode>(lhs.value()->type, rhs.value());
                         break;
-                    default:
-                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, lhs.value()->type, rhs.value()->type);
-                        return std::nullopt;
                 }
             }
             return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type);
@@ -2430,7 +2441,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 is_castable = false;
             }
             if (!is_castable) {
-                THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_name,                           //
+                THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_hash,                           //
                     lhs_tokens, rhs_tokens, pivot_token, lhs_type->to_string(), rhs_type->to_string() //
                 );
                 return std::nullopt;
@@ -2485,7 +2496,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     const std::vector<std::string_view> &to_types =
                         primitive_implicit_casting_table.at(expression.value()->type->to_string());
                     if (std::find(to_types.begin(), to_types.end(), expected_type.value()->to_string()) == to_types.end()) {
-                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                         return std::nullopt;
                     }
                     const std::string from_type = expression.value()->type->to_string();
@@ -2498,12 +2509,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                 } else if (expected_type.value()->to_string() == "anyerror") {
                     // Every error set type is castable to the anyerror type
                     if (expression.value()->type->get_variation() != Type::Variation::ERROR_SET) {
-                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                         return std::nullopt;
                     }
                     expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
                 } else {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
                 break;
@@ -2511,7 +2522,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
             case Type::Variation::ERROR_SET: {
                 const auto *target_error_type = expected_type.value()->as<ErrorSetType>();
                 if (expression.value()->type->get_variation() != Type::Variation::ERROR_SET) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
                 const auto *expr_error_type = expression.value()->type->as<ErrorSetType>();
@@ -2527,7 +2538,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     parent_node = parent_node.value()->get_parent_node();
                 }
                 if (!is_castable) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
                 expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
@@ -2540,7 +2551,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                 } else if (expression.value()->type->get_variation() == Type::Variation::OPTIONAL) {
                     const auto *expression_type = expression.value()->type->as<OptionalType>();
                     if (expression_type->base_type != Type::get_primitive_type("void")) {
-                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                         return std::nullopt;
                     }
                     expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
@@ -2549,6 +2560,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     // Check if the expression is implicitely castable to the base type of the optional
                     const CastDirection castability = check_castability(optional_type->base_type, expression.value()->type);
                     switch (castability.kind) {
+                        default:
+                            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
+                            return std::nullopt;
+                        case CastDirection::Kind::SAME_TYPE:
+                            break;
                         case CastDirection::Kind::CAST_BIDIRECTIONAL: // If castable both ways, allow implicit casting to the lhs type
                         case CastDirection::Kind::CAST_RHS_TO_LHS:
                             if (expr_type_str == "int" || expr_type_str == "float") {
@@ -2558,9 +2574,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                             // Cast the expression to the target optional type
                             expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
                             break;
-                        default:
-                            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
-                            return std::nullopt;
                     }
                 }
                 break;
@@ -2568,12 +2581,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
             case Type::Variation::TUPLE: {
                 const auto *tuple_type = expected_type.value()->as<TupleType>();
                 if (expression.value()->type->get_variation() != Type::Variation::GROUP) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
                 const auto *group_type = expression.value()->type->as<GroupType>();
                 if (tuple_type->types != group_type->types) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
                 expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
@@ -2592,7 +2605,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     }
                 }
                 if (!viable_type_found) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, expected_type.value(), expression.value()->type);
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
                 break;
@@ -2600,7 +2613,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
         }
     }
 
-    expression.value()->file_name = file_name;
+    expression.value()->file_hash = file_hash;
     expression.value()->line = tokens.first->line;
     expression.value()->column = tokens.first->column;
     expression.value()->length = tokens.second->column - tokens.first->column;

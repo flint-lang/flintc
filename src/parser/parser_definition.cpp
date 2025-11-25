@@ -42,15 +42,14 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     // Check if the name is reserved
     if (name == "_main") {
         token_slice err_tokens = {std::prev(tok_it), definition.second};
-        THROW_ERR(ErrFnReservedName, ERR_PARSING, file_name, err_tokens, name);
+        THROW_ERR(ErrFnReservedName, ERR_PARSING, file_hash, err_tokens, name);
         return std::nullopt;
     } else if (name == "main" && main_function_parsed) {
         // Redefinition of the main function
         token_slice err_tokens = {std::prev(tok_it), definition.second};
-        THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_name, err_tokens);
+        THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_hash, err_tokens);
         return std::nullopt;
     }
-    name = "fc_" + name;
     // Skip the left paren
     tok_it++;
     const auto arg_start_it = tok_it;
@@ -80,7 +79,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                     is_mutable = true;
                     type_tokens.first++;
                 }
-                const auto param_type = Type::get_type(type_tokens);
+                const auto param_type = file_node_ptr->file_namespace->get_type(type_tokens);
                 if (!param_type.has_value()) {
                     return std::nullopt;
                 }
@@ -107,12 +106,12 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             assert(type_range.has_value());
             assert(type_range.value().first == 0);
             token_slice type_tokens = {tok_it, tok_it + type_range.value().second};
-            const auto return_type = Type::get_type(type_tokens);
+            const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens);
             if (!return_type.has_value()) {
                 return std::nullopt;
             }
             if (return_type.value()->get_variation() == Type::Variation::TUPLE) {
-                THROW_ERR(ErrFnCannotReturnTuple, ERR_PARSING, file_name, type_tokens, return_type.value());
+                THROW_ERR(ErrFnCannotReturnTuple, ERR_PARSING, file_hash, type_tokens, return_type.value());
                 return std::nullopt;
             }
             return_types.emplace_back(return_type.value());
@@ -126,7 +125,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                 if (std::next(tok_it)->token == TOK_COMMA || std::next(tok_it)->token == TOK_RIGHT_PAREN) {
                     // The type is everything from the last param begin
                     token_slice type_tokens = {last_type_begin, tok_it + 1};
-                    const auto return_type = Type::get_type(type_tokens);
+                    const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens);
                     if (!return_type.has_value()) {
                         return std::nullopt;
                     }
@@ -147,7 +146,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     if (tok_it->token == TOK_LEFT_BRACE) {
         tok_it++;
         while (tok_it->token != TOK_RIGHT_BRACE) {
-            std::optional<std::shared_ptr<Type>> err_type = Type::get_type(token_slice{tok_it, tok_it + 1});
+            std::optional<std::shared_ptr<Type>> err_type = file_node_ptr->file_namespace->get_type(token_slice{tok_it, tok_it + 1});
             if (!err_type.has_value()) {
                 return std::nullopt;
             }
@@ -160,12 +159,12 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     }
 
     // If its the main function, change its name
-    if (name == "fc_main") {
+    if (name == "main") {
         name = "_main";
         if (error_types.size() > 1) {
             // The main function cannot throw user-defined errors, it can only throw errors of type "anyerror"
             const token_slice err_tokens = {brace_start_it, std::prev(definition.second)};
-            THROW_ERR(ErrFnMainErrSet, ERR_PARSING, file_name, err_tokens);
+            THROW_ERR(ErrFnMainErrSet, ERR_PARSING, file_hash, err_tokens);
             return std::nullopt;
         }
 
@@ -174,22 +173,23 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
         if (parameters.size() > 1) {
             // Too many parameters for the main function
             const token_slice err_tokens = {arg_start_it, arg_end_it};
-            THROW_ERR(ErrFnMainTooManyArgs, ERR_PARSING, file_name, err_tokens);
+            THROW_ERR(ErrFnMainTooManyArgs, ERR_PARSING, file_hash, err_tokens);
             return std::nullopt;
         } else if (parameters.size() == 1 && std::get<0>(parameters.front())->to_string() != "str[]") {
             // Wrong main argument type
             const token_slice err_tokens = {arg_start_it, arg_end_it};
-            THROW_ERR(ErrFnMainWrongArgType, ERR_PARSING, file_name, err_tokens, std::get<0>(parameters.front()));
+            THROW_ERR(ErrFnMainWrongArgType, ERR_PARSING, file_hash, err_tokens, std::get<0>(parameters.front()));
             return std::nullopt;
         }
 
         // The main funcition is not allowed to return anything
         if (!return_types.empty()) {
             const token_slice err_tokens = {ret_start_it, std::prev(definition.second)};
-            THROW_ERR(ErrFnMainNoReturns, ERR_PARSING, file_name, err_tokens);
+            THROW_ERR(ErrFnMainNoReturns, ERR_PARSING, file_hash, err_tokens);
             return std::nullopt;
         }
         main_function_parsed = true;
+        main_file_hash = file_hash;
     }
 
     // Create the body scope
@@ -197,10 +197,8 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     std::shared_ptr<Type> return_type = nullptr;
     if (return_types.size() > 1) {
         return_type = std::make_shared<GroupType>(return_types);
-        if (Type::get_type_from_str(return_type->to_string()).has_value()) {
-            return_type = Type::get_type_from_str(return_type->to_string()).value();
-        } else {
-            Type::add_type(return_type);
+        if (!file_node_ptr->file_namespace->add_type(return_type)) {
+            return_type = file_node_ptr->file_namespace->get_type_from_str(return_type->to_string()).value();
         }
     } else if (return_types.empty()) {
         return_type = Type::get_primitive_type("void");
@@ -215,7 +213,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
                 std::get<1>(param), std::get<0>(param), body_scope.value()->scope_id, std::get<2>(param), true) //
         ) {
             // Variable already exists in the func definition list
-            THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_name, 0, 0, std::get<1>(param));
+            THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_hash, 0, 0, std::get<1>(param));
             return std::nullopt;
         }
     }
@@ -223,9 +221,14 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    FunctionNode function_node(                                                                  //
-        file_name, line, column, length,                                                         //
-        is_aligned, is_const, is_extern, name, parameters, return_types, error_types, body_scope //
+    std::optional<size_t> mid = std::nullopt;
+    if (name != "_main" && !is_extern) {
+        mid = next_mangle_id;
+        next_mangle_id++;
+    }
+    FunctionNode function_node(                                                                              //
+        file_hash, line, column, length,                                                                     //
+        is_aligned, is_const, is_extern, false, name, parameters, return_types, error_types, body_scope, mid //
     );
 
     // Analyze whether all parameter types and return types are allowed in the context
@@ -265,7 +268,7 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
     PROFILE_CUMULATIVE("Parser::create_extern_function");
     // First we check if the definition starts with `extern`, it should
     assert(definition.first->token == TOK_EXTERN);
-    std::optional<FunctionNode> fn = create_function({definition.first + 1, definition.second});
+    std::optional<FunctionNode> fn = create_function(definition);
     if (!fn.has_value()) {
         return std::nullopt;
     }
@@ -275,8 +278,6 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
     fn.value().length = definition.second->column - definition.first->column;
     // "Delete" the scope of the function, it is not needed for declarations
     fn.value().scope = std::nullopt;
-    // Remove the `fc_` prefix for external functions, only internal functions have the prefix
-    fn.value().name = fn.value().name.substr(3);
     // Now check whether the FIP provides the searched for function in any of it's modules
     if (!FIP::resolve_function(&fn.value())) {
         THROW_ERR(ErrExternFnNotFound, ERR_PARSING, &fn.value());
@@ -318,7 +319,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 // It's the initializer
                 if (token_it->lexme != name) {
                     THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,                              //
-                        file_name, token_it->line, token_it->column, name, std::string(token_it->lexme) //
+                        file_hash, token_it->line, token_it->column, name, std::string(token_it->lexme) //
                     );
                     return std::nullopt;
                 }
@@ -356,7 +357,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 }
                 assert(range.value().first == 0);
                 const token_slice type_tokens = {token_it, token_it + range.value().second};
-                std::optional<std::shared_ptr<Type>> field_type = Type::get_type(type_tokens);
+                std::optional<std::shared_ptr<Type>> field_type = file_node_ptr->file_namespace->get_type(type_tokens);
                 if (!field_type.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -370,7 +371,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 }
                 if (fields.find(token_it_lexme) != fields.end()) {
                     // Field name duplication
-                    THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_name, token_it->line, token_it->column, token_it_lexme);
+                    THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_hash, token_it->line, token_it->column, token_it_lexme);
                     return std::nullopt;
                 }
                 fields[token_it_lexme] = field_type.value();
@@ -389,7 +390,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return DataNode(file_name, line, column, length, is_shared, is_immutable, is_aligned, name, ordered_fields);
+    return DataNode(file_hash, line, column, length, is_shared, is_immutable, is_aligned, name, ordered_fields);
 }
 
 std::optional<FuncNode> Parser::create_func(        //
@@ -407,7 +408,15 @@ Parser::create_entity_type Parser::create_entity(   //
 ) {
     PROFILE_CUMULATIVE("Parser::create_entity");
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-    return {};
+    std::vector<std::string> data_modules;
+    std::vector<std::string> func_modules;
+    std::vector<std::unique_ptr<LinkNode>> link_nodes;
+    std::vector<std::pair<std::string, std::string>> parent_entities;
+    std::vector<std::string> constructor_order;
+    return {
+        EntityNode(Hash(std::string("")), 0, 0, 0, "", data_modules, func_modules, link_nodes, parent_entities, constructor_order),
+        std::nullopt,
+    };
 }
 
 std::vector<std::unique_ptr<LinkNode>> Parser::create_links([[maybe_unused]] const std::vector<Line> &body) {
@@ -438,7 +447,7 @@ LinkNode Parser::create_link(const token_slice &tokens) {
     const unsigned int line = tokens.first->line;
     const unsigned int column = tokens.first->column;
     const unsigned int length = tokens.second->column - tokens.first->column;
-    return LinkNode(file_name, line, column, length, from_references, to_references);
+    return LinkNode(file_hash, line, column, length, from_references, to_references);
 }
 
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {
@@ -460,7 +469,7 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
             } else if ((body_it + 1)->token == TOK_SEMICOLON) {
                 if ((body_it + 2)->token != TOK_EOL) {
                     // There are more values following in the same line, so the ; is actually a wrong token and should be a , instead
-                    THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,                                           //
+                    THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_hash,                                           //
                         (body_it + 1)->line, (body_it + 1)->column, std::vector<Token>{TOK_COMMA}, (body_it + 1)->token //
                     );
                     return std::nullopt;
@@ -469,7 +478,7 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
                 break;
             } else {
                 const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};
-                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,                      //
+                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_hash,                      //
                     (body_it + 1)->line, (body_it + 1)->column, expected, (body_it + 1)->token //
                 );
                 return std::nullopt;
@@ -480,7 +489,7 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return EnumNode(file_name, line, column, length, name, values);
+    return EnumNode(file_hash, line, column, length, name, values);
 }
 
 std::optional<ErrorNode> Parser::create_error(const token_slice &definition, const std::vector<Line> &body) {
@@ -498,7 +507,7 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
                 parent_error = (def_it + 1)->lexme;
                 break;
             }
-            THROW_ERR(ErrDefErrOnlyOneParent, ERR_PARSING, file_name, definition);
+            THROW_ERR(ErrDefErrOnlyOneParent, ERR_PARSING, file_hash, definition);
             return std::nullopt;
         }
     }
@@ -527,7 +536,7 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
             } else if ((body_it + 1)->token == TOK_SEMICOLON) {
                 if ((body_it + 2)->token != TOK_EOL) {
                     // There are more values following in the same line, so the ; is actually a wrong token and should be a , instead
-                    THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,                                           //
+                    THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_hash,                                           //
                         (body_it + 1)->line, (body_it + 1)->column, std::vector<Token>{TOK_COMMA}, (body_it + 1)->token //
                     );
                     return std::nullopt;
@@ -535,7 +544,7 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
                 error_types.emplace_back(body_it->lexme);
                 break;
             } else {
-                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_name,                                                          //
+                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, file_hash,                                                          //
                     (body_it + 1)->line, (body_it + 1)->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON}, (body_it + 1)->token //
                 );
                 return std::nullopt;
@@ -546,7 +555,7 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return ErrorNode(file_name, line, column, length, name, parent_error, error_types, default_messages);
+    return ErrorNode(file_hash, line, column, length, name, parent_error, error_types, default_messages);
 }
 
 std::optional<VariantNode> Parser::create_variant(const token_slice &definition, const std::vector<Line> &body) {
@@ -598,7 +607,7 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
                 assert(type_range.value().first == 0);
                 type_tokens.second = body_it + type_range.value().second;
                 token_list toks = clone_from_slice(type_tokens);
-                const std::optional<std::shared_ptr<Type>> type = Type::get_type(type_tokens);
+                const std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
                 if (!type.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -613,8 +622,8 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
             body_it++;
             if (types.size() > 1) {
                 std::shared_ptr<Type> tuple_type = std::make_shared<TupleType>(types);
-                if (!Type::add_type(tuple_type)) {
-                    tuple_type = Type::get_type_from_str(tuple_type->to_string()).value();
+                if (!file_node_ptr->file_namespace->add_type(tuple_type)) {
+                    tuple_type = file_node_ptr->file_namespace->get_type_from_str(tuple_type->to_string()).value();
                 }
                 possible_types.emplace_back(tag, tuple_type);
             } else {
@@ -633,7 +642,7 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
             // Now we can adjust the type token's end with our range and get the type and add it to the list
             assert(type_range.value().first == 0);
             type_tokens.second = body_it + type_range.value().second;
-            const std::optional<std::shared_ptr<Type>> type = Type::get_type(type_tokens);
+            const std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
             if (!type.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -650,7 +659,7 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return VariantNode(file_name, line, column, length, name, possible_types);
+    return VariantNode(file_hash, line, column, length, name, possible_types);
 }
 
 std::optional<TestNode> Parser::create_test(const token_slice &definition) {
@@ -676,7 +685,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
 
     // Check if this test already exists within this file
     if (!TestNode::check_test_name(file_name, test_name)) {
-        THROW_ERR(ErrTestRedefinition, ERR_PARSING, file_name, it->line, it->column, test_name);
+        THROW_ERR(ErrTestRedefinition, ERR_PARSING, file_hash, it->line, it->column, test_name);
         return std::nullopt;
     }
 
@@ -684,12 +693,12 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return TestNode(file_name, line, column, length, test_name, body_scope);
+    return TestNode(file_hash, line, column, length, test_name, body_scope);
 }
 
 std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
     PROFILE_CUMULATIVE("Parser::create_import");
-    std::variant<std::pair<std::optional<std::string>, std::string>, std::vector<std::string>> import_path;
+    std::variant<Hash, std::vector<std::string>> import_path;
     std::optional<std::string> alias;
 
     auto iterator = tokens.first;
@@ -698,12 +707,12 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
             if (iterator->token == TOK_STR_VALUE) {
                 const size_t path_separator = iterator->lexme.find_last_of('/');
                 if (path_separator == std::string::npos) {
-                    import_path = std::make_pair(std::nullopt, std::string(iterator->lexme));
+                    import_path = Hash(file_hash.path.parent_path() / iterator->lexme);
                 } else {
-                    import_path = std::make_pair(                               //
-                        std::string(iterator->lexme.substr(0, path_separator)), //
-                        std::string(iterator->lexme.substr(path_separator + 1)) //
-                    );
+                    const std::string lhs = std::string(iterator->lexme.substr(0, path_separator));
+                    const std::string filename = std::string(iterator->lexme.substr(path_separator + 1));
+                    const std::filesystem::path file_path = file_hash.path.parent_path() / lhs / filename;
+                    import_path = Hash(file_path);
                 }
                 ++iterator;
                 break;
@@ -742,5 +751,5 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
     const unsigned int line = tokens.first->line;
     const unsigned int column = tokens.first->column;
     const unsigned int length = tokens.second->column - tokens.first->column;
-    return ImportNode(file_name, line, column, length, import_path, alias);
+    return ImportNode(file_hash, line, column, length, import_path, alias);
 }

@@ -8,10 +8,10 @@ class ErrFnMainNoReturns : public BaseError {
   public:
     ErrFnMainNoReturns(             //
         const ErrorType error_type, //
-        const std::string &file,    //
+        const Hash &file_hash,      //
         const token_slice &tokens   //
         ) :
-        BaseError(error_type, file, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column) {}
+        BaseError(error_type, file_hash, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column) {}
 
     [[nodiscard]]
     std::string to_string() const override {

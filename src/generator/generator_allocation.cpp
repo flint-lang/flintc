@@ -219,7 +219,7 @@ bool Generator::Allocation::generate_call_allocations(                          
     }
     llvm::Type *function_return_type = nullptr;
     // Check if the call targets any builtin functions
-    auto builtin_function = Parser::get_builtin_function(call_node->function_name, imported_core_modules);
+    auto builtin_function = Parser::get_builtin_function(call_node->function->name, imported_core_modules);
     if (builtin_function.has_value()) {
         // We only need to create an allocation of the call if it can return an error
         auto &overload = std::get<1>(builtin_function.value()).front();
@@ -233,7 +233,7 @@ bool Generator::Allocation::generate_call_allocations(                          
                 }
                 bool all_match = true;
                 for (size_t i = 0; i < args.size(); i++) {
-                    if (call_node->arguments[i].first->type->to_string() != args[i]) {
+                    if (call_node->arguments[i].first->type->to_string() != args[i].first) {
                         all_match = false;
                         break;
                     }
@@ -268,7 +268,7 @@ bool Generator::Allocation::generate_call_allocations(                          
         // Check if it's a call to an external function, if it is we need to check whether the call returns a value > 16 bytes, in that case
         // we need to create an allocation for that return type specifically, to be used as the sret value when calling the function (passed
         // to the function as an out parameter)
-        if (!(call_node->function_name.size() > 3 && call_node->function_name.substr(0, 3) == "fc_")) {
+        if (call_node->function->is_extern) {
             if (call_node->type->to_string() == "void") {
                 // We don't need to check whether the return value is > 16 bytes since we dont return anything
                 return true;
@@ -300,19 +300,19 @@ bool Generator::Allocation::generate_call_allocations(                          
 
     // Temporary allocation for the entire return struct
     const std::string ret_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
-    generate_allocation(builder, allocations, ret_alloca_name,                                                               //
-        function_return_type,                                                                                                //
-        call_node->function_name + "_" + std::to_string(call_node->call_id) + "__RET",                                       //
-        "Create alloc of struct for called function '" + call_node->function_name + "', called by '" + ret_alloca_name + "'" //
+    generate_allocation(builder, allocations, ret_alloca_name,                                                                //
+        function_return_type,                                                                                                 //
+        call_node->function->name + "_" + std::to_string(call_node->call_id) + "__RET",                                       //
+        "Create alloc of struct for called function '" + call_node->function->name + "', called by '" + ret_alloca_name + "'" //
     );
 
     // Create the error return value allocation
     llvm::StructType *error_type = type_map.at("__flint_type_err");
     const std::string err_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
-    generate_allocation(builder, allocations, err_alloca_name,                         //
-        error_type,                                                                    //
-        call_node->function_name + "_" + std::to_string(call_node->call_id) + "__ERR", //
-        "Create alloc of err ret var '" + err_alloca_name + "'"                        //
+    generate_allocation(builder, allocations, err_alloca_name,                          //
+        error_type,                                                                     //
+        call_node->function->name + "_" + std::to_string(call_node->call_id) + "__ERR", //
+        "Create alloc of err ret var '" + err_alloca_name + "'"                         //
     );
     return true;
 }

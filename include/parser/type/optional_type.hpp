@@ -15,6 +15,14 @@ class OptionalType : public Type {
         return Variation::OPTIONAL;
     }
 
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::OPTIONAL) {
+            return false;
+        }
+        const OptionalType *const other_type = other->as<OptionalType>();
+        return base_type->equals(other_type->base_type);
+    }
+
     std::string to_string() const override {
         return base_type->to_string() + "?";
     }

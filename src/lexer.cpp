@@ -243,7 +243,7 @@ bool Lexer::scan_token() {
                 }
             }
             if (peek_next() != '\'') {
-                THROW_ERR(ErrLitCharLongerThanSingleCharacter, ERR_LEXING, file, line, column,
+                THROW_ERR(ErrLitCharLongerThanSingleCharacter, ERR_LEXING, file_hash, line, column,
                     std::string(1, peek()) + std::string(1, peek_next()));
                 return false;
             }
@@ -297,7 +297,7 @@ bool Lexer::scan_token() {
                         column_diff = 0;
                     }
                     if (is_at_end()) {
-                        THROW_ERR(ErrCommentUnterminatedMultiline, ERR_LEXING, file, line, comment_start_column);
+                        THROW_ERR(ErrCommentUnterminatedMultiline, ERR_LEXING, file_hash, line, comment_start_column);
                         return false;
                     }
                     advance();
@@ -370,7 +370,7 @@ bool Lexer::scan_token() {
                     return false;
                 }
             } else {
-                THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file, line, column, std::string(1, character));
+                THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file_hash, line, column, std::string(1, character));
                 return false;
             }
             break;
@@ -390,7 +390,7 @@ bool Lexer::identifier() {
     std::string identifier_str(identifier);
     // Check if the name starts with __flint_ as these names are not permitted for user-defined functions
     if (identifier.length() > 8 && identifier.substr(0, 8) == "__flint_") {
-        THROW_ERR(ErrInvalidIdentifier, ERR_LEXING, file, line, column, identifier_str);
+        THROW_ERR(ErrInvalidIdentifier, ERR_LEXING, file_hash, line, column, identifier_str);
         return false;
     }
     if (primitives.count(identifier) > 0) {
@@ -418,7 +418,7 @@ bool Lexer::number() {
         // Get to '.'
         advance(false);
         if (!is_digit(peek_next())) {
-            THROW_ERR(ErrUnexpectedTokenNumber, ERR_LEXING, file, line, column + column_diff + 1, peek_next());
+            THROW_ERR(ErrUnexpectedTokenNumber, ERR_LEXING, file_hash, line, column + column_diff + 1, peek_next());
             return false;
         }
 
@@ -466,7 +466,7 @@ void Lexer::str() {
     }
 
     if (is_at_end()) {
-        THROW_ERR(ErrLitUnterminatedString, ERR_LEXING, file, line, column);
+        THROW_ERR(ErrLitUnterminatedString, ERR_LEXING, file_hash, line, column);
         return;
     }
 

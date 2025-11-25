@@ -81,11 +81,11 @@ class LspServer {
     /// @param `file_path` The file path
     /// @param `line` The line number (0-based)
     /// @param `character` The character number (0-based)
-    /// @return `std::optional<std::tuple<std::string, int, int>>` File path and position if found
-    static std::optional<std::tuple<std::string, int, int>> find_definition_at_position( //
-        const std::string &file_path,                                                    //
-        int line,                                                                        //
-        int character                                                                    //
+    /// @return `std::optional<std::tuple<Hash, int, int>>` File hash and position if found
+    static std::optional<std::tuple<Hash, int, int>> find_definition_at_position( //
+        const std::string &file_path,                                             //
+        int line,                                                                 //
+        int character                                                             //
     );
 
     /// @function `publish_diagnostics`
@@ -94,17 +94,17 @@ class LspServer {
     /// @param `file_uri` The URI of the file
     static void publish_diagnostics(const std::string &file_uri);
 
-    /// @function `add_nodes_from_file_to_completions`
-    /// @brief Adds all the nodes of the given file to the completions list
+    /// @function `add_nodes_from_namespace_to_completions`
+    /// @brief Adds all the nodes of the given namespace to the completions list
     ///
-    /// @brief `file_node` The file node from which to add all definitions to the list of possible completions
+    /// @brief `file_namespace` The namespace from which to add all definitions to the list of possible completions
     /// @brief `completions` The list of completions to which to add the definitions
     /// @brief `imported_files` The list of all imported files of this file node
     /// @brief `is_root_file` Whether the given file is the root file. If it's the root file then all nodes of all imported files are added
     /// to the completions as well, if it's not the root file then all imported file's definitions will not be added as Flint has a strict
     /// inclusion depth of 1, always
-    static void add_nodes_from_file_to_completions(      //
-        const FileNode *file_node,                       //
+    static void add_nodes_from_namespace_to_completions( //
+        const Namespace *file_namespace,                 //
         std::vector<CompletionItem> &completions,        //
         std::vector<const ImportNode *> &imported_files, //
         const bool is_root_file                          //

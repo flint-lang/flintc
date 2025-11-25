@@ -5,7 +5,7 @@
 class ErrExternCompilationFailed : public BaseError {
   public:
     ErrExternCompilationFailed(const ErrorType error_type) :
-        BaseError(error_type, "", 0, 0, 0) {}
+        BaseError(error_type, Hash(std::string("")), 0, 0, 0) {}
 
     [[nodiscard]]
     std::string to_string() const override {

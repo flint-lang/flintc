@@ -18,7 +18,10 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     std::vector<std::shared_ptr<Type>> return_types;
     std::optional<std::shared_ptr<Scope>> scope;
     auto error_types = std::vector<std::shared_ptr<Type>>{Type::get_type_from_str("anyerror").value()};
-    FunctionNode function_node = FunctionNode("main", 1, 1, 10, false, false, false, "_main", parameters, return_types, error_types, scope);
+    FunctionNode function_node = FunctionNode(                              //
+        Parser::main_file_hash, 1, 1, 10, false, false, false, false,       //
+        "_main", parameters, return_types, error_types, scope, std::nullopt //
+    );
 
     // Create the declaration of the custom main function
     llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(module, Type::get_primitive_type("i32"));
@@ -742,13 +745,14 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     );
 
     // Go through all files for all tests
-    for (const auto &[file_name, test_list] : tests) {
+    for (const auto &[file_hash, test_list] : tests) {
         // Print which file we are currently at
         llvm::Value *success_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[32m✓ passed\033[0m\n");
         llvm::Value *success_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[32m✓ passed\033[0m\n");
         llvm::Value *fail_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[31m✗ failed\033[0m\n");
         llvm::Value *fail_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[31m✗ failed\033[0m\n");
-        llvm::Value *file_name_value = IR::generate_const_string(module, "\n" + file_name + ":\n");
+        const std::string file_path = std::filesystem::relative(file_hash.path, std::filesystem::current_path()).string();
+        llvm::Value *file_name_value = IR::generate_const_string(module, "\n" + file_path + ":\n");
         builder->CreateCall(c_functions.at(PRINTF), //
             {file_name_value}                       //
         );

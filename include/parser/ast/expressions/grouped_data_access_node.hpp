@@ -2,6 +2,7 @@
 
 #include "expression_node.hpp"
 #include "parser/type/group_type.hpp"
+#include "resolver/resolver.hpp"
 
 #include <string>
 
@@ -10,21 +11,24 @@
 class GroupedDataAccessNode : public ExpressionNode {
   public:
     GroupedDataAccessNode(                                    //
+        const Hash &hash,                                     //
         std::unique_ptr<ExpressionNode> &base_expr,           //
         const std::vector<std::string> &field_names,          //
         const std::vector<unsigned int> &field_ids,           //
         const std::vector<std::shared_ptr<Type>> &field_types //
         ) :
+        ExpressionNode(hash),
         base_expr(std::move(base_expr)),
         field_names(field_names),
         field_ids(field_ids) {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(field_types);
-        if (Type::add_type(group_type)) {
+        Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
+        if (file_namespace->add_type(group_type)) {
             this->type = group_type;
         } else {
             // The type was already present, so we set the type of the group expression to the already present type to minimize type
             // duplication
-            this->type = Type::get_type_from_str(group_type->to_string()).value();
+            this->type = file_namespace->get_type_from_str(group_type->to_string()).value();
         }
     }
 

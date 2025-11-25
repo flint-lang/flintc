@@ -2,6 +2,7 @@
 
 #include "expression_node.hpp"
 #include "parser/type/optional_type.hpp"
+#include "resolver/resolver.hpp"
 
 #include <variant>
 
@@ -33,18 +34,21 @@ using ChainOperation = std::variant<ChainFieldAccess, ChainArrayAccess>;
 class OptionalChainNode : public ExpressionNode {
   public:
     OptionalChainNode(                              //
+        const Hash &hash,                           //
         std::unique_ptr<ExpressionNode> &base_expr, //
         const bool is_toplevel_chain_node,          //
         ChainOperation &operation,                  //
         const std::shared_ptr<Type> &result_type    //
         ) :
+        ExpressionNode(hash),
         base_expr(std::move(base_expr)),
         is_toplevel_chain_node(is_toplevel_chain_node),
         operation(std::move(operation)) {
         if (is_toplevel_chain_node) {
             this->type = std::make_shared<OptionalType>(result_type);
-            if (!Type::add_type(this->type)) {
-                this->type = Type::get_type_from_str(this->type->to_string()).value();
+            Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
+            if (!file_namespace->add_type(this->type)) {
+                this->type = file_namespace->get_type_from_str(this->type->to_string()).value();
             }
         } else {
             this->type = result_type;

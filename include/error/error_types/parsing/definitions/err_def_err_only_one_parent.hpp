@@ -5,10 +5,10 @@
 
 class ErrDefErrOnlyOneParent : public BaseError {
   public:
-    ErrDefErrOnlyOneParent(const ErrorType error_type, const std::string &file, const token_slice &tokens) :
+    ErrDefErrOnlyOneParent(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
         BaseError(                                                   //
             error_type,                                              //
-            file,                                                    //
+            file_hash,                                               //
             tokens.first->line,                                      //
             (tokens.first + 3)->column,                              //
             (tokens.second - 2)->column - (tokens.first + 3)->column //

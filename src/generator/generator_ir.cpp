@@ -130,19 +130,22 @@ llvm::MDNode *Generator::IR::generate_weights(unsigned int true_weight, unsigned
 }
 
 void Generator::IR::generate_forward_declarations(llvm::Module *module, const FileNode &file_node) {
-    unsigned int mangle_id = 1;
-    file_function_mangle_ids[file_node.file_name] = {};
     file_function_names[file_node.file_name] = {};
     for (const std::unique_ptr<DefinitionNode> &node : file_node.file_namespace->public_symbols.definitions) {
         if (node->get_variation() == DefinitionNode::Variation::FUNCTION) {
             // Create a forward declaration for the function only if it is not the main function!
             auto *function_node = node->as<FunctionNode>();
-            if (function_node->name != "_main") {
-                llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
-                module->getOrInsertFunction(function_node->name, function_type);
-                file_function_mangle_ids.at(file_node.file_name).emplace(function_node->name, mangle_id++);
-                file_function_names.at(file_node.file_name).emplace_back(function_node->name);
+            if (function_node->name == "_main") {
+                continue;
             }
+            llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
+            std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
+            if (function_node->mangle_id.has_value()) {
+                assert(!function_node->is_extern);
+                function_name += "." + std::to_string(function_node->mangle_id.value());
+            }
+            module->getOrInsertFunction(function_name, function_type);
+            file_function_names.at(file_node.file_name).emplace_back(function_name);
         }
     }
 }

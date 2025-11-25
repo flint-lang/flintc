@@ -7,12 +7,12 @@ class ErrTestRedefinition : public BaseError {
   public:
     ErrTestRedefinition(             //
         const ErrorType error_type,  //
-        const std::string &file,     //
-        unsigned int line,           //
-        unsigned int column,         //
+        const Hash &file_hash,       //
+        const unsigned int line,     //
+        const unsigned int column,   //
         const std::string &test_name //
         ) :
-        BaseError(error_type, file, line, column, test_name.size() + 2),
+        BaseError(error_type, file_hash, line, column, test_name.size() + 2),
         test_name(test_name) {}
 
     [[nodiscard]]

@@ -7,12 +7,12 @@ class ErrDefDataDuplicateFieldName : public BaseError {
   public:
     ErrDefDataDuplicateFieldName(          //
         const ErrorType error_type,        //
-        const std::string &file,           //
+        const Hash &file_hash,             //
         const unsigned int line,           //
         const unsigned int column,         //
         const std::string &duplicate_field //
         ) :
-        BaseError(error_type, file, line, column, duplicate_field.size()),
+        BaseError(error_type, file_hash, line, column, duplicate_field.size()),
         duplicate_field(duplicate_field) {}
 
     [[nodiscard]]

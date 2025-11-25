@@ -3,6 +3,7 @@
 #include "error/diagnostics.hpp"
 #include "error/error_type.hpp"
 #include "lexer/token.hpp"
+#include "parser/hash.hpp"
 #include "parser/type/type.hpp"
 #include "types.hpp"
 
@@ -34,9 +35,9 @@ class BaseError {
     [[nodiscard]] static std::string get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens);
 
   protected:
-    BaseError(const ErrorType error_type, std::string file, int line, int column, int length = 1) :
+    BaseError(const ErrorType error_type, const Hash &hash, const int line, const int column, const int length = 1) :
         error_type(error_type),
-        file(std::move(file)),
+        hash(hash),
         line(line),
         column(column),
         length(length) {}
@@ -45,9 +46,9 @@ class BaseError {
     /// @brief The error type of the error, e.g. where it came from
     ErrorType error_type;
 
-    /// @var `file`
-    /// @brief The file the error occured
-    std::string file;
+    /// @var `hash`
+    /// @brief The hash of file the error occured at
+    Hash hash;
 
     /// @var `line`
     /// @brief The line the error occured

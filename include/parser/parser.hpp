@@ -83,8 +83,15 @@ class Parser {
     /// @brief The default context for parsing, globally constructed at compile-time to reduce LoC wastage of context creation
     static constexpr Context _ctx_{.level = ContextLevel::INTERNAL};
 
+    /// @function `init_core_modules`
+    /// @brief Initializes all the namespaces of the Core modules to prepare them to be imported
+    static void init_core_modules();
+
     /// @function `create`
     /// @brief Creates a new instance of the Parser. The parser itself owns all instances of the parser
+    ///
+    /// @param `file` The path to the file to create the parser instance from
+    /// @return `Parser *` A pointer to the created parser instance
     static Parser *create(const std::filesystem::path &file);
 
     /// @function `create`
@@ -92,6 +99,7 @@ class Parser {
     ///
     /// @param `file` The path to the file, for storage reasons
     /// @param `file_content` The already loaded content of the file
+    /// @return `Parser *` A pointer to the created parser instance
     static Parser *create(const std::filesystem::path &file, const std::string &file_content);
 
     /// @function `parse`
@@ -109,6 +117,13 @@ class Parser {
     ///
     /// @return `std::vector<std::string_view>` The source code lines
     std::vector<std::pair<unsigned int, std::string_view>> get_source_code_lines() const;
+
+    /// @function `resolve_all_imports`
+    /// @brief Resolves all imports and puts all public symbols of imported files into the private symbol list of the file's namespace. This
+    /// also checks for multiple definitions of the same symbol in multiple imported files and prints that it has defined at multiple places
+    ///
+    /// @return `bool` Whether everything went as expected
+    static bool resolve_all_imports();
 
     /// @function `resolve_all_unknown_types`
     /// @brief Resolves all unknown types to point to real types
@@ -147,25 +162,7 @@ class Parser {
         main_function_has_args = false;
         TestNode::clear_test_names();
 
-        // Clear which error types have been added
-        {
-            std::lock_guard<std::mutex> lock(core_module_added_error_sets_mutex);
-            for (const auto &[name, flag] : core_module_added_error_sets) {
-                if (name != "math") {
-                    core_module_added_error_sets.at(name) = false;
-                }
-            }
-        }
-
         // Clear all the other static containers that hold pointers to parser data
-        {
-            std::lock_guard<std::mutex> lock(parsed_data_mutex);
-            parsed_data.clear();
-        }
-        {
-            std::lock_guard<std::mutex> lock(parsed_functions_mutex);
-            parsed_functions.clear();
-        }
         {
             std::lock_guard<std::mutex> lock(parsed_tests_mutex);
             parsed_tests.clear();
@@ -194,33 +191,25 @@ class Parser {
     /// @brief Determines whether the main function has been parsed already. Atomic for thread-safe access
     static inline std::atomic_bool main_function_parsed{false};
 
-    /// @var `parsed_data`
-    /// @brief Stores all the data nodes that have been parsed
-    ///
-    /// @details The key is the file in which the data definitions are defined in, and the value is a list of all data nodes in that file
-    static inline std::unordered_map<std::string, std::vector<DataNode *>> parsed_data;
-
-    /// @var `parsed_data_mutex`
-    /// @brief A mutex for the `parsed_data` variable, which is used to provide thread-safe access to the map
-    static inline std::mutex parsed_data_mutex;
+    /// @var `main_file_hash`
+    /// @brief The hash of the file contianing the main function
+    static inline Hash main_file_hash{std::string("")};
 
     /// @var `open_functions_list`
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser
     std::vector<std::pair<FunctionNode *, std::vector<Line>>> open_functions_list{};
 
-    /// @var `parsed_functions`
-    /// @brief Stores all the functions that have been parsed
-    ///
-    /// @details This list exists to keep track of all parsed function nodes
-    static inline std::vector<std::pair<FunctionNode *, std::string>> parsed_functions;
-
-    /// @var `parsed_functions_mutex`
-    /// @brief A mutex for the `parsed_functions` variable, which is used to provide thread-safe access to the list
-    static inline std::mutex parsed_functions_mutex;
-
     /// @var `file_node_ptr`
     /// @brief The file node this parser is currently parsing
     std::unique_ptr<FileNode> file_node_ptr;
+
+    /// @var `core_namespaces`
+    /// @brief A map mapping the names of each core module to it's namespace containing all definitions of that namespace
+    static inline std::unordered_map<std::string, std::unique_ptr<Namespace>> core_namespaces;
+
+    /// @var `instances`
+    /// @brief All Parser instances which are present. Used by the two-pass parsing system
+    static inline std::vector<Parser> instances;
 
     /// @function `extract_from_to`
     /// @brief Extracts the tokens from a given index up to the given index from the given tokens list
@@ -253,18 +242,19 @@ class Parser {
     /// @return `token_list` The real cloned vector from the slice
     static token_list clone_from_slice(const token_slice &slice);
 
-    /// @function `get_instance_from_filename`
-    /// @brief Returns the instance of the given file name or nullopt if no instance with that name exists
+    /// @function `get_instance_from_hash`
+    /// @brief Returns the instance of the given file hash or nullopt if no instance with that hash exists
     ///
-    /// @param `file` The file name to search the correct instance for
+    /// @param `hash` The hash of the file to search the correct instance for
     /// @return `std::optional<const Parser &>` A reference to the parser instance
-    static std::optional<const Parser *> get_instance_from_filename(const std::string &file);
+    static std::optional<const Parser *> get_instance_from_hash(const Hash &hash);
 
   private:
     // The constructor is private because only the Parser (the instances list) contains the actual Parser
     explicit Parser(const std::filesystem::path &file) :
         file(file),
-        file_name(file.filename().string()) {
+        file_name(file.filename().string()),
+        file_hash(Hash(std::filesystem::absolute(file))) {
         if (!file_exists_and_is_readable(file)) {
             throw std::runtime_error("The passed file '" + file.string() + "' could not be opened!");
         }
@@ -273,11 +263,8 @@ class Parser {
     explicit Parser(const std::filesystem::path &file, const std::string &file_content) :
         source_code(std::make_unique<std::string>(file_content)),
         file(file),
-        file_name(file.filename().string()) {}
-
-    /// @var `instances`
-    /// @brief All Parser instances which are present. Used by the two-pass parsing system
-    static inline std::vector<Parser> instances;
+        file_name(file.filename().string()),
+        file_hash(Hash(std::filesystem::absolute(file))) {}
 
     /// @var `token_precedence`
     /// @brief
@@ -344,6 +331,7 @@ class Parser {
         /// @brief The kind of the cast direction, determining the direction in which to cast
         enum class Kind {
             NOT_CASTABLE,        // Types are incpomatible
+            SAME_TYPE,           // The two types are actually the exact same type, just present inside different shared pointer containers
             CAST_LHS_TO_RHS,     // Cast left operand to right's type
             CAST_RHS_TO_LHS,     // Cast right operand to left's type
             CAST_BOTH_TO_COMMON, // Cast both operands to the common type below
@@ -363,6 +351,10 @@ class Parser {
 
         static CastDirection not_castable() {
             return {Kind::NOT_CASTABLE, nullptr};
+        }
+
+        static CastDirection same_type() {
+            return {Kind::SAME_TYPE, nullptr};
         }
 
         static CastDirection lhs_to_rhs() {
@@ -396,21 +388,6 @@ class Parser {
     /// @brief A mutex for the `parsed_tests` varible, which is used to provide thread-safe access to the list
     static inline std::mutex parsed_tests_mutex;
 
-    /// @var `core_module_added_error_sets_mutex`
-    /// @brief A mutex for the `core_module_added_error_sets` map
-    static inline std::mutex core_module_added_error_sets_mutex;
-
-    /// @var `core_module_added_error_sets`
-    /// @brief Map to tell which error set types of which core modules have been added so far
-    static inline std::unordered_map<std::string_view, bool> core_module_added_error_sets = {
-        {"read", false},
-        {"assert", false},
-        {"filesystem", false},
-        {"env", false},
-        {"system", false},
-        {"math", true},
-    };
-
     /// @var `open_tests_list`
     /// @brief The lsit of all open tests, which will be parsed in the second phase of the parser
     std::vector<std::pair<TestNode *, std::vector<Line>>> open_tests_list{};
@@ -439,6 +416,15 @@ class Parser {
     /// @brief The name of the file to be parsed
     const std::string file_name;
 
+    /// @var `file_hash`
+    /// @brief The hash of the file to be parsed
+    const Hash file_hash;
+
+    /// @var `next_mangle_id`
+    /// @brief The next mangle id for the next function definition to be found in the current file being parsed, this simplifies the code
+    /// generation phase a lot
+    size_t next_mangle_id{0};
+
     /// @function `file_exists_and_is_readable`
     /// @brief Checks if the given file does exist and is readable
     ///
@@ -452,16 +438,6 @@ class Parser {
     /// @param `path` The path to the file
     /// @return `std::string` The loaded file
     static std::string load_file(const std::filesystem::path &path);
-
-    /// @function `add_parsed_function`
-    /// @brief Adds a given function combined with the file it is contained in
-    ///
-    /// @param `function_node` The function which was parsed
-    /// @param `file_name` The name of the file the function was parsed in
-    static inline void add_parsed_function(FunctionNode *function_node, std::string file_name) {
-        std::lock_guard<std::mutex> lock(parsed_functions_mutex);
-        parsed_functions.emplace_back(function_node, file_name);
-    }
 
     /// @function `add_parsed_test`
     /// @brief Adds a given test combined with the file it is contained in
@@ -478,10 +454,10 @@ class Parser {
     ///
     /// @param `data_node` The data node which was parsed
     /// @param `file_name` The name of the file the data node is contained in
-    static inline void add_parsed_data(DataNode *data_node, std::string file_name) {
-        std::lock_guard<std::mutex> lock(parsed_data_mutex);
-        parsed_data[file_name].emplace_back(data_node);
-    }
+    // static inline void add_parsed_data(DataNode *data_node, std::string file_name) {
+    //     std::lock_guard<std::mutex> lock(parsed_data_mutex);
+    //     parsed_data[file_name].emplace_back(data_node);
+    // }
 
     /// @function `get_function_from_call`
     /// @brief Looks through all parsed functions for a match for the given function call
@@ -493,9 +469,9 @@ class Parser {
     /// explicit casting for example)
     ///
     /// @attention Asserts that the parameter `call_node` is not a nullptr
-    static std::vector<std::pair<FunctionNode *, std::string>> get_function_from_call( //
-        const std::string &call_name,                                                  //
-        const std::vector<std::shared_ptr<Type>> &arg_types                            //
+    std::vector<std::pair<FunctionNode *, std::string>> get_function_from_call( //
+        const std::string &call_name,                                           //
+        const std::vector<std::shared_ptr<Type>> &arg_types                     //
     );
 
     /// @function `add_open_function`
@@ -595,17 +571,17 @@ class Parser {
             const std::string alias(tokens.first->lexme);
             // Check if this file even has the given alias
             if (aliases.find(alias) == aliases.end()) {
-                THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, alias);
+                THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, alias);
                 return false;
             }
             const std::string type_name((tokens.first + 2)->lexme);
             for (const auto &import : imported_files) {
-                if (import->alias.has_value() && import->alias.value() == alias &&                           //
-                    std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(import->path) //
+                if (import->alias.has_value() && import->alias.value() == alias && //
+                    std::holds_alternative<Hash>(import->path)                     //
                 ) {
-                    const auto &path_pair = std::get<std::pair<std::optional<std::string>, std::string>>(import->path);
-                    const FileNode *file_node = Resolver::file_map.at(path_pair.second);
-                    for (const auto &definition : file_node->file_namespace->public_symbols.definitions) {
+                    const auto &import_hash = std::get<Hash>(import->path);
+                    const Namespace *file_namespace = Resolver::namespace_map.at(file_hash);
+                    for (const auto &definition : file_namespace->public_symbols.definitions) {
                         const auto definition_variation = definition->get_variation();
                         if (definition_variation == DefinitionNode::Variation::DATA) {
                             const auto *data_node = definition->as<DataNode>();
@@ -622,9 +598,9 @@ class Parser {
                         }
                     }
                     // The given type definition should have been in this file import from the alias, but it has not been found here
-                    THROW_ERR(                                                                         //
-                        ErrDefNotFoundInAliasedFile, ERR_PARSING, file_name, (tokens.first + 2)->line, //
-                        (tokens.first + 2)->column, alias, path_pair.second, type_name                 //
+                    THROW_ERR(                                                                             //
+                        ErrDefNotFoundInAliasedFile, ERR_PARSING, file_hash, (tokens.first + 2)->line,     //
+                        (tokens.first + 2)->column, alias, import_hash.path.filename().string(), type_name //
                     );
                     return false;
                 }
@@ -650,14 +626,6 @@ class Parser {
     /// @return `bool` Whether the next main node was added correctly. Returns false if there was an error
     bool add_next_main_node(FileNode &file_node, token_slice &tokens);
 
-    /// @function `create_core_module_types`
-    /// @brief Creates all the types a given core module provides and adds them to the given file node
-    ///
-    /// @param `file_node` The file node to which the types are added to
-    /// @param `core_lib_name` The name of the core library to create the types from
-    /// @return `bool` Whether the creation of the builtin library types was successful
-    bool create_core_module_types(FileNode &file_node, const std::string &core_lib_name);
-
     /// @function `get_definition_tokens`
     /// @brief Extracts all the tokens which are part of the definition
     ///
@@ -682,7 +650,28 @@ class Parser {
     ///
     /// @param `lines` The lines to refine
     /// @param `source` A reference to the source token vector directly to enable direct modification
-    static void collapse_types_in_lines(std::vector<Line> &lines, token_list &source);
+    void collapse_types_in_lines(std::vector<Line> &lines, token_list &source);
+
+    /// @struct `CreateCallOrInitializerBaseRet`
+    /// @brief The return type of the `create_call_or_initializer_base` function. It's return type got very complex and that's why this
+    /// struct was needed, to make it just much easier to use the returned value instead of a big ass tuple
+    struct CreateCallOrInitializerBaseRet {
+        /// @var `args`
+        /// @brief The arguments with which the initializer or call are "called" + whether the argument is expected to be a reference
+        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> args;
+
+        /// @var `type`
+        /// @brief The call's return type or the intializer's type
+        std::shared_ptr<Type> type;
+
+        /// @var `is_initializer`
+        /// @brief Whether it's an initializer or a call
+        bool is_initializer;
+
+        /// @var `function`
+        /// @brief A pointer to the function the call targets. If it's an initializer then this value is a nullptr
+        FunctionNode *function{nullptr};
+    };
 
     /// @function `create_call_or_initializer_base`
     /// @brief Creates the base node for all calls or initializers
@@ -693,25 +682,12 @@ class Parser {
     /// @param `scope` The scope the call happens in
     /// @param `tokens` The tokens which will be interpreted as call
     /// @param `alias_base` The alias base of the call, if there is any
-    /// @return A optional value containing a tuple, where:
-    ///     - the first value is the function or initializers name
-    ///     - the second value is a list of all expressions (the argument expression) of the call / initializier and if the arg is expected
-    ///     to be a reference
-    ///     - the third value is the call's return type, or the initializers type
-    ///     - the forth value is: true if the expression is a Data initializer, false if an entity initializer, nullopt if its a call
-    ///     - the fifth value contains all possible error types of this function call. If this list is empty the function can't throw
-    std::optional<std::tuple<                                          //
-        std::string,                                                   // name
-        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, // args
-        std::shared_ptr<Type>,                                         // type
-        bool,                                                          // is initializer (true) or call (false)
-        std::vector<std::shared_ptr<Type>>                             // error_types
-        >>
-    create_call_or_initializer_base(                 //
-        const Context &ctx,                          //
-        std::shared_ptr<Scope> &scope,               //
-        const token_slice &tokens,                   //
-        const std::optional<std::string> &alias_base //
+    /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
+    std::optional<CreateCallOrInitializerBaseRet> create_call_or_initializer_base( //
+        const Context &ctx,                                                        //
+        std::shared_ptr<Scope> &scope,                                             //
+        const token_slice &tokens,                                                 //
+        const std::optional<std::string> &alias_base                               //
     );
 
     /// @function `create_unary_op_base`

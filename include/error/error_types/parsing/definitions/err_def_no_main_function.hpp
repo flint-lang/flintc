@@ -4,8 +4,8 @@
 
 class ErrDefNoMainFunction : public BaseError {
   public:
-    ErrDefNoMainFunction(const ErrorType error_type, const std::string &file) :
-        BaseError(error_type, file, 1, 1) {}
+    ErrDefNoMainFunction(const ErrorType error_type, const Hash &file_hash) :
+        BaseError(error_type, file_hash, 1, 1) {}
 
     [[nodiscard]]
     std::string to_string() const override {

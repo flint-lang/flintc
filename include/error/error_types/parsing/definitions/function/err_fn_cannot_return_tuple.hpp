@@ -9,11 +9,11 @@ class ErrFnCannotReturnTuple : public BaseError {
   public:
     ErrFnCannotReturnTuple(                      //
         const ErrorType error_type,              //
-        const std::string &file,                 //
+        const Hash &file_hash,                   //
         const token_slice &tokens,               //
         const std::shared_ptr<Type> &return_type //
         ) :
-        BaseError(error_type, file, tokens.first->line, tokens.first->column, return_type->to_string().size()),
+        BaseError(error_type, file_hash, tokens.first->line, tokens.first->column, return_type->to_string().size()),
         return_type(return_type) {}
 
     [[nodiscard]]

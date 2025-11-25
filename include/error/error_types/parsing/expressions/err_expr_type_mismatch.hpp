@@ -11,12 +11,12 @@ class ErrExprTypeMismatch : public BaseError {
   public:
     ErrExprTypeMismatch(                       //
         const ErrorType error_type,            //
-        const std::string &file,               //
+        const Hash &file_hash,                 //
         const token_slice &tokens,             //
         const std::shared_ptr<Type> &expected, //
         const std::shared_ptr<Type> &type      //
         ) :
-        BaseError(error_type, file, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column),
+        BaseError(error_type, file_hash, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column),
         expected(expected),
         type(type) {}
 

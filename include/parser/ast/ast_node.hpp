@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include "parser/hash.hpp"
 
 /// @class `ASTNode`
 /// @brief Base class for all AST nodes.
@@ -8,8 +8,8 @@ class ASTNode {
   protected:
     // private constructor
     ASTNode() = default;
-    ASTNode(const std::string &file_name, const unsigned int line, const unsigned int column, const unsigned int length) :
-        file_name(file_name),
+    ASTNode(const Hash &file_hash, const unsigned int line, const unsigned int column, const unsigned int length) :
+        file_hash(file_hash),
         line(line),
         column(column),
         length(length) {}
@@ -24,9 +24,9 @@ class ASTNode {
     ASTNode(ASTNode &&) = default;
     ASTNode &operator=(ASTNode &&) = default;
 
-    /// @var `file_name`
-    /// @brief The name of the file this AST Node is defined in
-    std::string file_name;
+    /// @var `file_hash`
+    /// @brief The hash of the file this AST Node is defined in
+    Hash file_hash;
 
     /// @var `line`
     /// @brief The line in the file this AST node starts at

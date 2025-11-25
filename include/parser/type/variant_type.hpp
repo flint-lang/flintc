@@ -18,6 +18,39 @@ class VariantType : public Type {
         return Variation::VARIANT;
     }
 
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::VARIANT) {
+            return false;
+        }
+        const VariantType *const other_type = other->as<VariantType>();
+        if (is_err_variant != other_type->is_err_variant) {
+            return false;
+        }
+        if (std::holds_alternative<VariantNode *const>(var_or_list)) {
+            if (!std::holds_alternative<VariantNode *const>(other_type->var_or_list)) {
+                return false;
+            }
+            VariantNode *const this_var = std::get<VariantNode *const>(var_or_list);
+            VariantNode *const other_var = std::get<VariantNode *const>(other_type->var_or_list);
+            return this_var == other_var;
+        } else {
+            if (std::holds_alternative<VariantNode *const>(other_type->var_or_list)) {
+                return false;
+            }
+            auto &this_list = std::get<std::vector<std::shared_ptr<Type>>>(var_or_list);
+            auto &other_list = std::get<std::vector<std::shared_ptr<Type>>>(other_type->var_or_list);
+            if (this_list.size() != other_list.size()) {
+                return false;
+            }
+            for (size_t i = 0; i < this_list.size(); i++) {
+                if (!this_list.at(i)->equals(other_list.at(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
     std::string to_string() const override {
         if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(var_or_list)) {
             auto &types = std::get<std::vector<std::shared_ptr<Type>>>(var_or_list);

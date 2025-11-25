@@ -16,14 +16,14 @@
 class TestNode : public DefinitionNode {
   public:
     explicit TestNode(                //
-        const std::string &file_name, //
+        const Hash &file_hash,        //
         const unsigned int line,      //
         const unsigned int column,    //
         const unsigned int length,    //
         const std::string &name,      //
         std::shared_ptr<Scope> &scope //
         ) :
-        DefinitionNode(file_name, line, column, length),
+        DefinitionNode(file_hash, line, column, length),
         name(name),
         scope(std::move(scope)) {}
 

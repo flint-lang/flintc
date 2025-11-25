@@ -9,12 +9,15 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
     oss << BaseError::to_string();
     // Check if there exists any function with that name and that argument's
     {
-        std::lock_guard<std::mutex> lock_guard((Parser::parsed_functions_mutex));
-        const auto &parsed_functions = Parser::parsed_functions;
-        std::vector<std::pair<const FunctionNode *, std::string>> possible_functions;
-        for (const auto &[parsed_function, file] : parsed_functions) {
-            if (parsed_function->name == function_name && parsed_function->parameters.size() == arg_types.size()) {
-                possible_functions.emplace_back(parsed_function, file);
+        Namespace *file_namespace = Resolver::get_namespace_from_hash(hash);
+        std::vector<const FunctionNode *> possible_functions;
+        for (const auto &definition : file_namespace->public_symbols.definitions) {
+            if (definition->get_variation() != DefinitionNode::Variation::FUNCTION) {
+                continue;
+            }
+            const FunctionNode *function_node = definition->as<FunctionNode>();
+            if (function_node->name == function_name && function_node->parameters.size() == arg_types.size()) {
+                possible_functions.push_back(function_node);
             }
         }
         if (!possible_functions.empty()) {
@@ -34,8 +37,8 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
                     oss << "    └─ ";
                 }
                 oss << CYAN << function_name << "(";
-                for (auto arg_it = fn_it->first->parameters.begin(); arg_it != fn_it->first->parameters.end(); ++arg_it) {
-                    if (arg_it != fn_it->first->parameters.begin()) {
+                for (auto arg_it = (*fn_it)->parameters.begin(); arg_it != (*fn_it)->parameters.end(); ++arg_it) {
+                    if (arg_it != (*fn_it)->parameters.begin()) {
                         oss << ", ";
                     }
                     if (std::get<2>(*arg_it)) {
@@ -44,7 +47,7 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
                     oss << std::get<0>(*arg_it)->to_string() << " ";
                     oss << std::get<1>(*arg_it);
                 }
-                oss << ")" << DEFAULT << " from file '" << YELLOW << fn_it->second << DEFAULT << "'";
+                oss << ")" << DEFAULT << " from file '" << YELLOW << (*fn_it)->file_hash.path.filename().string() << DEFAULT << "'";
                 if ((fn_it + 1) != possible_functions.end()) {
                     oss << "\n";
                 }
@@ -59,8 +62,8 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
             if (fn_name == function_name) {
                 for (const auto &overload : overloads) {
                     std::vector<std::shared_ptr<Type>> fn_args;
-                    for (const auto &arg_type_name : std::get<0>(overload)) {
-                        fn_args.emplace_back(Type::get_primitive_type(std::string(arg_type_name)));
+                    for (const auto &[arg_type, arg_name] : std::get<0>(overload)) {
+                        fn_args.emplace_back(Type::get_primitive_type(std::string(arg_type)));
                     }
                     found_functions.emplace_back(fn_args, module_name);
                 }
@@ -68,7 +71,7 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
         }
     }
     if (!found_functions.empty()) {
-        const std::optional<const Parser *> parser = Parser::get_instance_from_filename(file_name);
+        const std::optional<const Parser *> parser = Parser::get_instance_from_hash(hash);
         assert(parser.has_value());
         const auto &imported_core_modules = parser.value()->file_node_ptr->imported_core_modules;
         oss << "├─ Call of undefined function '" << YELLOW << function_name << "(";

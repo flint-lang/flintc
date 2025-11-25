@@ -5,9 +5,14 @@
 
 class ErrAliasNotFound : public BaseError {
   public:
-    ErrAliasNotFound(const ErrorType error_type, const std::string &file, unsigned int line, unsigned int column,
-        const std::string &alias) :
-        BaseError(error_type, file, line, column),
+    ErrAliasNotFound(               //
+        const ErrorType error_type, //
+        const Hash &file_hash,      //
+        const unsigned int line,    //
+        const unsigned int column,  //
+        const std::string &alias    //
+        ) :
+        BaseError(error_type, file_hash, line, column),
         alias(alias) {}
 
     [[nodiscard]]

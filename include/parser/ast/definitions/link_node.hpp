@@ -11,14 +11,14 @@
 class LinkNode : public DefinitionNode {
   public:
     explicit LinkNode(                  //
-        const std::string &file_name,   //
+        const Hash &file_hash,          //
         const unsigned int line,        //
         const unsigned int column,      //
         const unsigned int length,      //
         std::vector<std::string> &from, //
         std::vector<std::string> &to    //
         ) :
-        DefinitionNode(file_name, line, column, length),
+        DefinitionNode(file_hash, line, column, length),
         from(std::move(from)),
         to(std::move(to)) {}
 

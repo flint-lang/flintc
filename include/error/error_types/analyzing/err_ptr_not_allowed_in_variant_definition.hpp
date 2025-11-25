@@ -6,7 +6,7 @@
 class ErrPtrNotAllowedInVariantDefinition : public BaseError {
   public:
     ErrPtrNotAllowedInVariantDefinition(const ErrorType error_type, const VariantNode *node) :
-        BaseError(error_type, node->file_name, node->line, node->column, node->length) {}
+        BaseError(error_type, node->file_hash, node->line, node->column, node->length) {}
 
     [[nodiscard]]
     std::string to_string() const override {

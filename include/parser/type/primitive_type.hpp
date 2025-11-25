@@ -13,6 +13,14 @@ class PrimitiveType : public Type {
         return Variation::PRIMITIVE;
     }
 
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::PRIMITIVE) {
+            return false;
+        }
+        const PrimitiveType *const other_type = other->as<PrimitiveType>();
+        return type_name == other_type->type_name;
+    }
+
     std::string to_string() const override {
         return type_name;
     }

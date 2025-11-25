@@ -4,7 +4,6 @@
 #include "parser/type/type.hpp"
 
 #include <memory>
-#include <string>
 #include <vector>
 
 /// @class `CallNodeBase`
@@ -12,12 +11,12 @@
 class CallNodeBase {
   public:
     CallNodeBase(                                                                //
-        std::string function_name,                                               //
+        FunctionNode *function,                                                  //
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments, //
         const std::vector<std::shared_ptr<Type>> &error_types,                   //
         const std::shared_ptr<Type> &type                                        //
         ) :
-        function_name(std::move(function_name)),
+        function(function),
         arguments(std::move(arguments)),
         error_types(error_types),
         type(type) {}
@@ -31,9 +30,9 @@ class CallNodeBase {
     CallNodeBase(CallNodeBase &&) = default;
     CallNodeBase &operator=(CallNodeBase &&) = delete;
 
-    /// @var `function_name`
-    /// @brief The name of the function being called
-    std::string function_name;
+    /// @var `function`
+    /// @brief The function being called
+    FunctionNode *function;
 
     /// @var `arguments`
     /// @brief The list of arguments of the function call and whether each argument is a reference or not

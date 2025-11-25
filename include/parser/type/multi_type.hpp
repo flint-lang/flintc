@@ -15,6 +15,17 @@ class MultiType : public Type {
         return Variation::MULTI;
     }
 
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::MULTI) {
+            return false;
+        }
+        const MultiType *const other_type = other->as<MultiType>();
+        if (width != other_type->width) {
+            return false;
+        }
+        return base_type->equals(other_type->base_type);
+    }
+
     std::string to_string() const override {
         const std::string base_type_str = base_type->to_string();
         if (base_type_str == "bool") {

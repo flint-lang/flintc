@@ -62,7 +62,11 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
 
     Profiler::start_task("ALL");
     Type::init_types();
-    Resolver::add_path(file_path.filename().string(), file_path.parent_path());
+    static bool core_modules_initialized = false;
+    if (!core_modules_initialized) {
+        Parser::init_core_modules();
+        core_modules_initialized = true;
+    }
     std::optional<FileNode *> file;
     if (file_content.has_value()) {
         file = Parser::create(file_path, file_content.value())->parse();
@@ -70,11 +74,12 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
         file = Parser::create(file_path)->parse();
     }
     if (!file.has_value()) {
-        std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << file_path.filename() << DEFAULT << std::endl;
+        std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << file_path.filename().string() << DEFAULT
+                  << std::endl;
         parser_cleanup();
         return std::nullopt;
     }
-    auto dep_graph = Resolver::create_dependency_graph(file.value(), file_path.parent_path(), parse_parallel);
+    auto dep_graph = Resolver::create_dependency_graph(file.value(), parse_parallel);
     Parser::resolve_all_unknown_types();
     bool parsed_successful = Parser::parse_all_open_functions(parse_parallel);
     if (!parsed_successful) {
@@ -219,11 +224,10 @@ void LspServer::send_definition_response(const std::string &content) {
              << R"(,
   "result": )";
 
-    if (definition.has_value() && std::get<0>(definition.value()) != "") {
+    if (definition.has_value() && !std::get<0>(definition.value()).empty()) {
         // Convert file path back to URI
-        const std::string file_name = std::get<0>(definition.value());
-        const std::filesystem::path target_path = Resolver::get_path(file_name) / file_name;
-        const std::string def_uri = "file://" + target_path.string();
+        const Hash &file_hash = std::get<0>(definition.value());
+        const std::string def_uri = "file://" + file_hash.path.string();
         response << R"({
     "uri": ")" << def_uri
                  << R"(",
@@ -243,10 +247,10 @@ void LspServer::send_definition_response(const std::string &content) {
     send_lsp_response(response.str());
 }
 
-std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_position( //
-    const std::string &file_path,                                                        //
-    int line,                                                                            //
-    int character                                                                        //
+std::optional<std::tuple<Hash, int, int>> LspServer::find_definition_at_position( //
+    const std::string &file_path,                                                 //
+    int line,                                                                     //
+    int character                                                                 //
 ) {
     if (line == -1) {
         log_info("DEFINITION: LINE -1");
@@ -275,7 +279,8 @@ std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_p
     // and if that does not work then we can see if a function of that identifier exists.
     std::filesystem::path source_file_path(file_path);
     log_info("[DEFINITION] file_name = " + source_file_path.filename().string());
-    const auto &lines = Parser::get_instance_from_filename(source_file_path.filename().string()).value()->get_source_code_lines();
+    const Parser *parser = Parser::get_instance_from_hash(Hash(source_file_path)).value();
+    const auto &lines = parser->get_source_code_lines();
     log_info("[DEFINITION] lines.size() = " + std::to_string(lines.size()));
     log_info("[DEFINITION] line = " + std::to_string(line));
     const auto &[indent_lvl, line_slice] = lines.at(line);
@@ -296,7 +301,8 @@ std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_p
     // Now that we have the identifier we can actually directly check if any type of that identifier already exists
     const std::string identifier_str(identifier);
     log_info("[DEFINITION] identifier: '" + identifier_str + "'");
-    std::optional<std::shared_ptr<Type>> type = Type::get_type_from_str(identifier_str);
+    const Namespace *file_namespace = parser->file_node_ptr->file_namespace.get();
+    std::optional<std::shared_ptr<Type>> type = file_namespace->get_type_from_str(identifier_str);
     if (type.has_value()) {
         log_info("[DEFINITION] is type");
         // The identifier is a type, so we can now check which type it is and then get where it was defined at
@@ -307,7 +313,7 @@ std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_p
             case Type::Variation::DATA: {
                 const auto *data_type = type.value()->as<DataType>();
                 return std::make_tuple(                                //
-                    data_type->data_node->file_name,                   //
+                    data_type->data_node->file_hash,                   //
                     static_cast<int>(data_type->data_node->line - 1),  //
                     static_cast<int>(data_type->data_node->column - 1) //
                 );
@@ -315,19 +321,19 @@ std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_p
             case Type::Variation::ENUM: {
                 const auto *enum_type = type.value()->as<EnumType>();
                 return std::make_tuple(                                //
-                    enum_type->enum_node->file_name,                   //
+                    enum_type->enum_node->file_hash,                   //
                     static_cast<int>(enum_type->enum_node->line - 1),  //
                     static_cast<int>(enum_type->enum_node->column - 1) //
                 );
             }
             case Type::Variation::ERROR_SET: {
                 const auto *error_type = type.value()->as<ErrorSetType>();
-                if (error_type->error_node->file_name == "__flint_CORE_ERR") {
+                if (error_type->error_node->file_hash.empty()) {
                     // This is an error defined inside a core module
                     return std::nullopt;
                 }
                 return std::make_tuple(                                  //
-                    error_type->error_node->file_name,                   //
+                    error_type->error_node->file_hash,                   //
                     static_cast<int>(error_type->error_node->line - 1),  //
                     static_cast<int>(error_type->error_node->column - 1) //
                 );
@@ -337,7 +343,7 @@ std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_p
                 if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
                     const VariantNode *const variant_node = std::get<VariantNode *const>(variant_type->var_or_list);
                     return std::make_tuple(                        //
-                        variant_node->file_name,                   //
+                        variant_node->file_hash,                   //
                         static_cast<int>(variant_node->line - 1),  //
                         static_cast<int>(variant_node->column - 1) //
                     );
@@ -349,12 +355,11 @@ std::optional<std::tuple<std::string, int, int>> LspServer::find_definition_at_p
     // It's not a type, so it can only be a function otherwise
     {
         log_info("[DEFINITION] is function");
-        std::lock_guard<std::mutex> lock(Parser::parsed_functions_mutex);
-        for (const auto &[fn, file_name] : Parser::parsed_functions) {
-            if (fn->name == "fc_" + identifier_str) {
-                return std::make_tuple(file_name, fn->line - 1, fn->column - 1);
-            }
-        }
+        // for (const auto &[fn, _] : Parser::parsed_functions) {
+        //     if (!fn->is_extern) {
+        //         return std::make_tuple(fn->file_hash, fn->line - 1, fn->column - 1);
+        //     }
+        // }
     }
 
     // It's not resolvable for now if it's not a function either

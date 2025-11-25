@@ -4,7 +4,6 @@
 #include "error/error_type.hpp"
 #include "globals.hpp"
 #include "parser/ast/definitions/function_node.hpp"
-#include "parser/parser.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
@@ -38,25 +37,11 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
-#include <mutex>
 #include <regex>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <variant>
-
-void Generator::get_data_nodes() {
-    std::lock_guard<std::mutex> lock(Parser::parsed_data_mutex);
-    for (const auto &file : Parser::parsed_data) {
-        for (const auto *data : file.second) {
-            if (data_nodes.find(data->name) != data_nodes.end()) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                exit(1);
-            }
-            data_nodes.emplace(data->name, data);
-        }
-    }
-}
 
 std::filesystem::path Generator::get_flintc_cache_path() {
 #ifdef __WIN32__
@@ -257,9 +242,6 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     auto module = std::make_unique<llvm::Module>(program_name, context);
     main_module[0] = module.get();
 
-    // First, get all the data definitions from the parser
-    get_data_nodes();
-
     // Generate all the c functions
     Builtin::generate_c_functions(module.get());
 
@@ -350,7 +332,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
                 for (const auto &dependant : shared_tip->root->dependencies) {
                     if (std::holds_alternative<std::shared_ptr<DepNode>>(dependant)) {
                         std::shared_ptr<DepNode> shared_dep = std::get<std::shared_ptr<DepNode>>(dependant);
-                        if (!Resolver::generated_files_contain(shared_dep->file_name) //
+                        if (!Resolver::generated_files_contain(shared_dep->file_hash) //
                             && std::find(tips_names.begin(), tips_names.end(), shared_dep->file_name) == tips_names.end()) {
                             dependants_compiled = false;
                         }
@@ -365,19 +347,20 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             }
 
             // Check if this file has already been generated. If so, skip it
-            if (Resolver::generated_files_contain(shared_tip->file_name)) {
+            if (Resolver::generated_files_contain(shared_tip->file_hash)) {
                 continue;
             }
 
             // Generate the IR code from the given FileNode
-            FileNode *file = Resolver::get_file_from_name(shared_tip->file_name);
+            Namespace *file_namespace = Resolver::get_namespace_from_hash(shared_tip->file_hash);
+            FileNode *file = file_namespace->file_node;
             std::optional<std::unique_ptr<llvm::Module>> file_module = generate_file_ir(shared_tip, *file, is_test);
             if (!file_module.has_value()) {
                 return std::nullopt;
             }
 
             // Store that this file is now finished with its generation
-            Resolver::file_generation_finished(shared_tip->file_name);
+            Resolver::file_generation_finished(shared_tip->file_hash);
 
             if (DEBUG_MODE) {
                 if (!verify_module(file_module.value().get())) {
@@ -405,8 +388,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     for (const auto &[file_name, unresolved_calls] : file_unresolved_functions) {
         for (const auto &[fn_name, calls] : unresolved_calls) {
             for (llvm::CallInst *call : calls) {
-                std::string mangle_id_string = std::to_string(file_function_mangle_ids[file_name][fn_name]);
-                llvm::Function *actual_function = module->getFunction(fn_name + "." + mangle_id_string);
+                // std::string mangle_id_string = std::to_string(file_function_mangle_ids[file_name][fn_name]);
+                // llvm::Function *actual_function = module->getFunction(fn_name + "." + mangle_id_string);
+                llvm::Function *actual_function = module->getFunction(fn_name);
                 if (actual_function == nullptr) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -485,11 +469,12 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     for (const auto &dep : dep_node->dependencies) {
         if (std::holds_alternative<std::weak_ptr<DepNode>>(dep)) {
             std::weak_ptr<DepNode> weak_dep = std::get<std::weak_ptr<DepNode>>(dep);
-            IR::generate_forward_declarations(module.get(), *Resolver::get_file_from_name(weak_dep.lock()->file_name));
+            Namespace *file_namespace = Resolver::get_namespace_from_hash(weak_dep.lock()->file_hash);
+            IR::generate_forward_declarations(module.get(), *file_namespace->file_node);
         }
     }
 
-    unsigned int mangle_id = 1;
+    // unsigned int mangle_id = 1;
     file_function_names[file.file_name] = {};
     // Declare all functions in the file at the top of the module
     for (const std::unique_ptr<DefinitionNode> &node : file.file_namespace->public_symbols.definitions) {
@@ -498,7 +483,12 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             // Create a forward declaration for the function only if it is not the main function!
             if (function_node->name != "_main") {
                 llvm::FunctionType *function_type = Function::generate_function_type(module.get(), function_node);
-                module->getOrInsertFunction(function_node->name, function_type);
+                std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
+                if (function_node->mangle_id.has_value()) {
+                    assert(!function_node->is_extern);
+                    function_name += "." + std::to_string(function_node->mangle_id.value());
+                }
+                module->getOrInsertFunction(function_name, function_type);
                 if (function_node->is_extern) {
                     if (extern_functions.find(function_node->name) != extern_functions.end()) {
                         // The extern definition is only allowed to be written once in the project
@@ -506,10 +496,12 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
                         return std::nullopt;
                     }
                     extern_functions.emplace(function_node->name, function_node);
+                    file_function_names.at(file.file_name).emplace_back(function_node->name);
                 } else {
-                    function_mangle_ids[function_node->name] = mangle_id++;
+                    const std::string fn_name = function_node->file_hash.to_string() + "." + function_node->name;
+                    // function_mangle_ids[function_name] = mangle_id++;
+                    file_function_names.at(file.file_name).emplace_back(fn_name);
                 }
-                file_function_names.at(file.file_name).emplace_back(function_node->name);
             }
         }
     }
@@ -522,7 +514,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     }
     function_names = file_function_names.at(file.file_name);
     // Store the mangle ids of this file within the file_function_mangle_ids
-    file_function_mangle_ids[file.file_name] = function_mangle_ids;
+    // file_function_mangle_ids[file.file_name] = function_mangle_ids;
 
     // Iterate through all AST Nodes in the file and generate them accordingly
     for (std::unique_ptr<DefinitionNode> &node : file.file_namespace->public_symbols.definitions) {
@@ -560,10 +552,10 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
-                if (tests.count(test_node->file_name) == 0) {
-                    tests[test_node->file_name].emplace_back(test_node->name, test_function.value()->getName().str());
+                if (tests.count(test_node->file_hash) == 0) {
+                    tests[test_node->file_hash].emplace_back(test_node->name, test_function.value()->getName().str());
                 } else {
-                    tests.at(test_node->file_name).emplace_back(test_node->name, test_function.value()->getName().str());
+                    tests.at(test_node->file_hash).emplace_back(test_node->name, test_function.value()->getName().str());
                 }
                 break;
             }
@@ -620,17 +612,53 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     // Function calls to functions in outside modules already have the correct call, they dont need to be resolved here
     for (const auto &[fn_name, calls] : unresolved_functions) {
         for (llvm::CallInst *call : calls) {
-            const std::string actual_function_name = fn_name + "." + std::to_string(function_mangle_ids[fn_name]);
+            // const std::string actual_function_name = fn_name + "." + std::to_string(function_mangle_ids[fn_name]);
+            const std::string actual_function_name = fn_name;
             llvm::Function *actual_function = module->getFunction(actual_function_name);
             if (actual_function == nullptr) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
+                // Existing basic info
+                std::cout << "Function '" << actual_function_name << "' could not be found\n";
+                std::cout << "Functions known to the '" << module->getName().str() << "' module:" << std::endl;
+                for (const auto &fn : module->functions()) {
+                    std::cout << "  " << fn.getName().str() << std::endl;
+                }
+
+                // Extra diagnostics: show the components used to build the lookup name
+                // std::cout << "Debug: fn_name = '" << fn_name << "'" << std::endl;
+                // const auto mangle_it = function_mangle_ids.find(fn_name);
+                // if (mangle_it != function_mangle_ids.end()) {
+                //     std::cout << "Debug: function_mangle_ids[\"" << fn_name << "\"] = " << mangle_it->second << std::endl;
+                // } else {
+                //     std::cout << "Debug: function_mangle_ids has no entry for '" << fn_name << "'\n";
+                // }
+
+                // Check whether an unmangled or differently-mangled symbol exists
+                llvm::Function *maybe_unmangled = module->getFunction(fn_name);
+                std::cout << "Debug: module->getFunction(\"" << fn_name << "\") returned "
+                          << (maybe_unmangled ? maybe_unmangled->getName().str() : "nullptr") << std::endl;
+
+                // Dump the module IR into a string and print it to cerr (so it is visible regardless of stdout buffering)
+                std::string module_ir;
+                llvm::raw_string_ostream rso(module_ir);
+                module->print(rso, nullptr);
+                rso.flush();
+                std::cerr << "----- Module IR begin -----\n" << module_ir << "\n----- Module IR end -----\n";
+
+                // Also write the IR to a file for easier offline inspection
+                std::error_code ec;
+                llvm::raw_fd_ostream ofs("broken_module.ll", ec, llvm::sys::fs::OF_Text);
+                if (!ec) {
+                    module->print(ofs, nullptr);
+                    std::cerr << "Wrote module IR to broken_module.ll\n";
+                } else {
+                    std::cerr << "Failed to write broken_module.ll: " << ec.message() << "\n";
+                }
             }
             call->getCalledOperandUse().set(actual_function);
         }
     }
     unresolved_functions.clear();
-    function_mangle_ids.clear();
+    // function_mangle_ids.clear();
     function_names.clear();
 
     return module;

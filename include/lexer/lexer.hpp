@@ -12,15 +12,18 @@
 /// @brief This class is responsible for lexing a character stream and outputting a token stream
 class Lexer {
   public:
-    explicit Lexer(const std::string &file_name, const std::string &file_content) :
+    explicit Lexer(const std::filesystem::path &file_path, const std::string &file_content) :
         source(file_content),
-        file(file_name) {
-        std::lock_guard<std::mutex> lock_guard(Resolver::file_map_mutex);
-        auto it = std::find(Resolver::file_ids.begin(), Resolver::file_ids.end(), file_name);
-        if (file_name == "__flint_string_interpolation") {
+        file_hash(Hash(file_path.empty() ? file_path : std::filesystem::absolute(file_path))) {
+        if (file_hash.empty()) {
             file_id = UINT32_MAX;
+            return;
+        }
+        auto it = std::find(Resolver::file_ids.begin(), Resolver::file_ids.end(), file_hash);
+        if (it == Resolver::file_ids.end()) {
+            Resolver::file_ids.push_back(file_hash);
+            file_id = Resolver::file_ids.size() - 1;
         } else {
-            assert(it != Resolver::file_ids.end());
             file_id = static_cast<unsigned int>(std::distance(Resolver::file_ids.begin(), it));
         }
     }
@@ -87,9 +90,9 @@ class Lexer {
     /// @brief The source file's content which will be lexed to a token stream
     const std::string &source;
 
-    /// @var `file`
-    /// @brief The name of the source file which is currently being tokenized
-    std::string file;
+    /// @var `file_hash`
+    /// @brief The hash of the source file which is currently being tokenized
+    Hash file_hash;
 
     /// @var `file_id`
     /// @brief The ID of the source file which is currently being tokenized

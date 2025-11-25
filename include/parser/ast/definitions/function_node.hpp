@@ -2,6 +2,7 @@
 
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/scope.hpp"
+#include "parser/hash.hpp"
 #include "parser/type/type.hpp"
 
 #include <memory>
@@ -14,28 +15,32 @@
 class FunctionNode : public DefinitionNode {
   public:
     explicit FunctionNode(                                                             //
-        const std::string &file_name,                                                  //
+        const Hash &file_hash,                                                         //
         const unsigned int line,                                                       //
         const unsigned int column,                                                     //
         const unsigned int length,                                                     //
-        bool is_aligned,                                                               //
-        bool is_const,                                                                 //
-        bool is_extern,                                                                //
-        std::string name,                                                              //
+        const bool is_aligned,                                                         //
+        const bool is_const,                                                           //
+        const bool is_extern,                                                          //
+        const bool is_core,                                                            //
+        const std::string &name,                                                       //
         std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> &parameters, //
         std::vector<std::shared_ptr<Type>> &return_types,                              //
         std::vector<std::shared_ptr<Type>> &error_types,                               //
-        std::optional<std::shared_ptr<Scope>> &scope                                   //
+        std::optional<std::shared_ptr<Scope>> &scope,                                  //
+        const std::optional<size_t> &mangle_id                                         //
         ) :
-        DefinitionNode(file_name, line, column, length),
+        DefinitionNode(file_hash, line, column, length),
         is_aligned(is_aligned),
         is_const(is_const),
         is_extern(is_extern),
-        name(std::move(name)),
+        is_core(is_core),
+        name(name),
         parameters(std::move(parameters)),
         return_types(std::move(return_types)),
         error_types(std::move(error_types)),
-        scope(std::move(scope)) {}
+        scope(std::move(scope)),
+        mangle_id(mangle_id) {}
 
     Variation get_variation() const override {
         return Variation::FUNCTION;
@@ -64,6 +69,10 @@ class FunctionNode : public DefinitionNode {
     /// @brief Whether the function is defined externally in FIP
     bool is_extern;
 
+    /// @var `is_core`
+    /// @brief Whether the function originated from a Core module
+    bool is_core;
+
     /// @var `name`
     /// @brief The name of the function
     std::string name;
@@ -83,4 +92,8 @@ class FunctionNode : public DefinitionNode {
     /// @var `scope`
     /// @brief The scope of the function containing all statements or nullopt if the function is just a definition
     std::optional<std::shared_ptr<Scope>> scope;
+
+    /// @var `mangle_id`
+    /// @brief The mangle id of this function, or other said the Nth function defined in the file
+    std::optional<size_t> mangle_id;
 };

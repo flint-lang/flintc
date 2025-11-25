@@ -12,14 +12,14 @@
 class VariantNode : public DefinitionNode {
   public:
     explicit VariantNode(                                                                         //
-        const std::string &file_name,                                                             //
+        const Hash &file_hash,                                                                    //
         const unsigned int line,                                                                  //
         const unsigned int column,                                                                //
         const unsigned int length,                                                                //
         const std::string &name,                                                                  //
         std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> &possible_types //
         ) :
-        DefinitionNode(file_name, line, column, length),
+        DefinitionNode(file_hash, line, column, length),
         name(name),
         possible_types(std::move(possible_types)) {}
 

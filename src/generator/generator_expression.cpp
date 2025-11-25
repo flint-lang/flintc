@@ -1087,7 +1087,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     if (call_node->type->to_string() == "void") {
         llvm::CallInst *call = builder.CreateCall(result.first.value(), converted_args);
         call->setMetadata("comment",
-            llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "'")));
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function->name + "'")));
         return std::vector<llvm::Value *>{};
     }
 
@@ -1095,7 +1095,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         // Create call with sret, the return type of the call should be void
         llvm::CallInst *call = builder.CreateCall(result.first.value(), converted_args);
         call->setMetadata("comment",
-            llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "' (sret)")));
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function->name + "' (sret)")));
 
         // Add sret attribute to first parameter (index 0)
         llvm::Type *return_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).first;
@@ -1120,10 +1120,10 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     }
 
     // There is no sret needed, it's a normal call
-    llvm::CallInst *call = builder.CreateCall(                                  //
-        result.first.value(),                                                   //
-        converted_args,                                                         //
-        call_node->function_name + std::to_string(call_node->call_id) + "_call" //
+    llvm::CallInst *call = builder.CreateCall(                                   //
+        result.first.value(),                                                    //
+        converted_args,                                                          //
+        call_node->function->name + std::to_string(call_node->call_id) + "_call" //
     );
     // Add byval attributes for > 16 byte input parameters
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
@@ -1134,7 +1134,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         }
     }
     call->setMetadata("comment",
-        llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function_name + "'")));
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function->name + "'")));
     std::vector<llvm::Value *> return_value;
     switch (call_node->type->get_variation()) {
         default: {
@@ -1167,6 +1167,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
     GenerationContext &ctx,                                    //
     const CallNodeBase *call_node                              //
 ) {
+    const std::string &function_name = call_node->function->name;
     // Get the arguments
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
@@ -1194,13 +1195,13 @@ Generator::group_mapping Generator::Expression::generate_call( //
     enum class FunctionOrigin { INTERN, EXTERN, BUILTIN };
     FunctionOrigin function_origin = FunctionOrigin::INTERN;
     // First check which core modules have been imported
-    auto builtin_function = Parser::get_builtin_function(call_node->function_name, ctx.imported_core_modules);
+    auto builtin_function = Parser::get_builtin_function(call_node->function->name, ctx.imported_core_modules);
     if (builtin_function.has_value()) {
         std::vector<llvm::Value *> return_value;
         const std::string &module_name = std::get<0>(builtin_function.value());
-        if (module_name == "print" && call_node->function_name == "print" && call_node->arguments.size() == 1 && //
-            Module::Print::print_functions.find(call_node->arguments.front().first->type->to_string()) !=        //
-                Module::Print::print_functions.end()                                                             //
+        if (module_name == "print" && function_name == "print" && call_node->arguments.size() == 1 &&     //
+            Module::Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != //
+                Module::Print::print_functions.end()                                                      //
         ) {
             // Call the builtin function 'print'
             const std::string type_str = call_node->arguments.front().first->type->to_string();
@@ -1209,8 +1210,8 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 return std::nullopt;
             }
             return return_value;
-        } else if (module_name == "read" && call_node->arguments.size() == 0 &&                               //
-            Module::Read::read_functions.find(call_node->function_name) != Module::Read::read_functions.end() //
+        } else if (module_name == "read" && call_node->arguments.size() == 0 &&                    //
+            Module::Read::read_functions.find(function_name) != Module::Read::read_functions.end() //
         ) {
             if (std::get<1>(builtin_function.value()).size() > 1) {
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1218,67 +1219,67 @@ Generator::group_mapping Generator::Expression::generate_call( //
             }
             if (!std::get<2>(std::get<1>(builtin_function.value()).front()).empty()) {
                 // Function returns error
-                func_decl = Module::Read::read_functions.at(call_node->function_name);
+                func_decl = Module::Read::read_functions.at(function_name);
                 function_origin = FunctionOrigin::BUILTIN;
             } else {
                 // Function does not return error
-                func_decl = Module::Read::read_functions.at(call_node->function_name);
+                func_decl = Module::Read::read_functions.at(function_name);
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
         } else if (module_name == "assert" && call_node->arguments.size() == 1 &&
-            Module::Assert::assert_functions.find(call_node->function_name) != Module::Assert::assert_functions.end()) {
-            func_decl = Module::Assert::assert_functions.at(call_node->function_name);
+            Module::Assert::assert_functions.find(function_name) != Module::Assert::assert_functions.end()) {
+            func_decl = Module::Assert::assert_functions.at(function_name);
             function_origin = FunctionOrigin::BUILTIN;
         } else if (module_name == "filesystem" &&
-            Module::FileSystem::fs_functions.find(call_node->function_name) != Module::FileSystem::fs_functions.end()) {
+            Module::FileSystem::fs_functions.find(function_name) != Module::FileSystem::fs_functions.end()) {
             if (std::get<1>(builtin_function.value()).size() > 1) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             if (!std::get<2>(std::get<1>(builtin_function.value()).front()).empty()) {
                 // Function returns error
-                func_decl = Module::FileSystem::fs_functions.at(call_node->function_name);
+                func_decl = Module::FileSystem::fs_functions.at(function_name);
                 function_origin = FunctionOrigin::BUILTIN;
             } else {
                 // Function does not return error
-                func_decl = Module::FileSystem::fs_functions.at(call_node->function_name);
+                func_decl = Module::FileSystem::fs_functions.at(function_name);
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
-        } else if (module_name == "env" && Module::Env::env_functions.find(call_node->function_name) != Module::Env::env_functions.end()) {
+        } else if (module_name == "env" && Module::Env::env_functions.find(function_name) != Module::Env::env_functions.end()) {
             if (std::get<1>(builtin_function.value()).size() > 1) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             if (!std::get<2>(std::get<1>(builtin_function.value()).front()).empty()) {
                 // Function returns error
-                func_decl = Module::Env::env_functions.at(call_node->function_name);
+                func_decl = Module::Env::env_functions.at(function_name);
                 function_origin = FunctionOrigin::BUILTIN;
             } else {
                 // Function does not return error
-                func_decl = Module::Env::env_functions.at(call_node->function_name);
+                func_decl = Module::Env::env_functions.at(function_name);
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
         } else if (module_name == "system" &&
-            Module::System::system_functions.find(call_node->function_name) != Module::System::system_functions.end()) {
+            Module::System::system_functions.find(function_name) != Module::System::system_functions.end()) {
             if (std::get<1>(builtin_function.value()).size() > 1) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             if (!std::get<2>(std::get<1>(builtin_function.value()).front()).empty()) {
                 // Function returns error
-                func_decl = Module::System::system_functions.at(call_node->function_name);
+                func_decl = Module::System::system_functions.at(function_name);
                 function_origin = FunctionOrigin::BUILTIN;
             } else {
                 // Function does not return error
-                func_decl = Module::System::system_functions.at(call_node->function_name);
+                func_decl = Module::System::system_functions.at(function_name);
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
         } else if (module_name == "math") {
-            std::string fn_name = call_node->function_name;
+            std::string fn_name = function_name;
             bool fn_found = Module::Math::math_functions.find(fn_name) != Module::System::system_functions.end();
             if (!fn_found && !call_node->arguments.empty()) {
                 fn_name = fn_name + "_" + call_node->arguments.front().first->type->to_string();
@@ -1296,7 +1297,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
                         }
                         bool args_match = true;
                         for (size_t i = 0; i < arg_types.size(); i++) {
-                            if (call_node->arguments.at(i).first->type->to_string() != arg_types.at(i)) {
+                            if (call_node->arguments.at(i).first->type->to_string() != arg_types.at(i).first) {
                                 args_match = false;
                                 break;
                             }
@@ -1328,7 +1329,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-    } else if (!(call_node->function_name.size() > 3 && call_node->function_name.substr(0, 3) == "fc_")) {
+    } else if (call_node->function->is_extern) {
         return generate_extern_call(builder, ctx, call_node, args);
     } else {
         // Get the function definition from any module
@@ -1342,13 +1343,12 @@ Generator::group_mapping Generator::Expression::generate_call( //
     }
 
     // Create the call instruction using the original declaration
-    llvm::CallInst *call = builder.CreateCall(                                  //
-        func_decl,                                                              //
-        args,                                                                   //
-        call_node->function_name + std::to_string(call_node->call_id) + "_call" //
+    llvm::CallInst *call = builder.CreateCall(                       //
+        func_decl,                                                   //
+        args,                                                        //
+        function_name + std::to_string(call_node->call_id) + "_call" //
     );
-    call->setMetadata("comment",
-        llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + call_node->function_name + "'")));
+    call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + function_name + "'")));
 
     // Store results immideately after call
     const std::string call_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::ret";
@@ -1360,17 +1360,17 @@ Generator::group_mapping Generator::Expression::generate_call( //
 
     // Extract and store error value
     llvm::StructType *return_type = static_cast<llvm::StructType *>(IR::add_and_or_get_type(ctx.parent->getParent(), call_node->type));
-    llvm::Value *err_ptr = builder.CreateStructGEP(                                //
-        return_type,                                                               //
-        res_var,                                                                   //
-        0,                                                                         //
-        call_node->function_name + std::to_string(call_node->call_id) + "_err_ptr" //
+    llvm::Value *err_ptr = builder.CreateStructGEP(                     //
+        return_type,                                                    //
+        res_var,                                                        //
+        0,                                                              //
+        function_name + std::to_string(call_node->call_id) + "_err_ptr" //
     );
     llvm::StructType *error_type = type_map.at("__flint_type_err");
-    llvm::Value *err_val = IR::aligned_load(builder,                               //
-        error_type,                                                                //
-        err_ptr,                                                                   //
-        call_node->function_name + std::to_string(call_node->call_id) + "_err_val" //
+    llvm::Value *err_val = IR::aligned_load(builder,                    //
+        error_type,                                                     //
+        err_ptr,                                                        //
+        function_name + std::to_string(call_node->call_id) + "_err_val" //
     );
     llvm::Value *err_var = ctx.allocations.at(call_err_name);
     IR::aligned_store(builder, err_val, err_var);
@@ -1382,26 +1382,27 @@ Generator::group_mapping Generator::Expression::generate_call( //
 
     // Add the call instruction to the list of unresolved functions only if it was a module-intern call
     if (function_origin == FunctionOrigin::INTERN) {
-        if (unresolved_functions.find(call_node->function_name) == unresolved_functions.end()) {
-            unresolved_functions[call_node->function_name] = {call};
+        const std::string &target_name = call_node->function->file_hash.to_string() + "." + function_name;
+        if (unresolved_functions.find(target_name) == unresolved_functions.end()) {
+            unresolved_functions[target_name] = {call};
         } else {
-            unresolved_functions[call_node->function_name].push_back(call);
+            unresolved_functions[target_name].push_back(call);
         }
     } else if (function_origin == FunctionOrigin::EXTERN) {
+        const std::string &target_name = call_node->function->file_hash.to_string() + "." + function_name;
         for (const auto &[file_name, function_list] : file_function_names) {
-            if (std::find(function_list.begin(), function_list.end(), call_node->function_name) != function_list.end()) {
+            if (std::find(function_list.begin(), function_list.end(), function_name) != function_list.end()) {
                 // Check if any unresolved function call from a function of that file even exists, if not create the first one
                 if (file_unresolved_functions.find(file_name) == file_unresolved_functions.end()) {
-                    file_unresolved_functions[file_name][call_node->function_name] = {call};
+                    file_unresolved_functions[file_name][function_name] = {call};
                     break;
                 }
                 // Check if this function the call references has been referenced before. If not, create a new entry to the map
                 // otherwise just add the call
-                if (file_unresolved_functions.at(file_name).find(call_node->function_name) ==
-                    file_unresolved_functions.at(file_name).end()) {
-                    file_unresolved_functions.at(file_name)[call_node->function_name] = {call};
+                if (file_unresolved_functions.at(file_name).find(function_name) == file_unresolved_functions.at(file_name).end()) {
+                    file_unresolved_functions.at(file_name)[function_name] = {call};
                 } else {
-                    file_unresolved_functions.at(file_name).at(call_node->function_name).push_back(call);
+                    file_unresolved_functions.at(file_name).at(function_name).push_back(call);
                 }
                 break;
             }
@@ -1411,16 +1412,16 @@ Generator::group_mapping Generator::Expression::generate_call( //
     // Extract all the return values from the call (everything except the error return)
     std::vector<llvm::Value *> return_value;
     for (unsigned int i = 1; i < return_type->getNumElements(); i++) {
-        llvm::Value *elem_ptr = builder.CreateStructGEP(                                                                 //
-            return_type,                                                                                                 //
-            res_var,                                                                                                     //
-            i,                                                                                                           //
-            call_node->function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value_ptr" //
+        llvm::Value *elem_ptr = builder.CreateStructGEP(                                                      //
+            return_type,                                                                                      //
+            res_var,                                                                                          //
+            i,                                                                                                //
+            function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value_ptr" //
         );
-        llvm::LoadInst *elem_value = IR::aligned_load(builder,                                                       //
-            return_type->getElementType(i),                                                                          //
-            elem_ptr,                                                                                                //
-            call_node->function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
+        llvm::LoadInst *elem_value = IR::aligned_load(builder,                                            //
+            return_type->getElementType(i),                                                               //
+            elem_ptr,                                                                                     //
+            function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
         );
         return_value.emplace_back(elem_value);
     }
@@ -1439,30 +1440,30 @@ void Generator::Expression::generate_rethrow( //
 ) {
     const std::string err_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
     llvm::Value *const err_var = ctx.allocations.at(err_ret_name);
+    const std::string function_name = call_node->function->name;
 
     // Load error value
     llvm::StructType *error_type = type_map.at("__flint_type_err");
-    llvm::LoadInst *err_val = IR::aligned_load(builder,                              //
-        error_type,                                                                  //
-        err_var,                                                                     //
-        call_node->function_name + "_" + std::to_string(call_node->call_id) + "_val" //
+    llvm::LoadInst *err_val = IR::aligned_load(builder,                   //
+        error_type,                                                       //
+        err_var,                                                          //
+        function_name + "_" + std::to_string(call_node->call_id) + "_val" //
     );
     err_val->setMetadata("comment",
         llvm::MDNode::get(context,
-            llvm::MDString::get(context,
-                "Load err val of call '" + call_node->function_name + "::" + std::to_string(call_node->call_id) + "'")));
+            llvm::MDString::get(context, "Load err val of call '" + function_name + "::" + std::to_string(call_node->call_id) + "'")));
 
     // Create basic block for the catch block
     llvm::BasicBlock *current_block = builder.GetInsertBlock();
-    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                           //
-        context,                                                                        //
-        call_node->function_name + "_" + std::to_string(call_node->call_id) + "_catch", //
-        ctx.parent                                                                      //
+    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                //
+        context,                                                             //
+        function_name + "_" + std::to_string(call_node->call_id) + "_catch", //
+        ctx.parent                                                           //
     );
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                           //
-        context,                                                                        //
-        call_node->function_name + "_" + std::to_string(call_node->call_id) + "_merge", //
-        ctx.parent                                                                      //
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                //
+        context,                                                             //
+        function_name + "_" + std::to_string(call_node->call_id) + "_merge", //
+        ctx.parent                                                           //
     );
     builder.SetInsertPoint(current_block);
 
@@ -1480,7 +1481,7 @@ void Generator::Expression::generate_rethrow( //
         ->setMetadata("comment",
             llvm::MDNode::get(context,
                 llvm::MDString::get(context,
-                    "Branch to '" + catch_block->getName().str() + "' if '" + call_node->function_name + "' returned error")));
+                    "Branch to '" + catch_block->getName().str() + "' if '" + function_name + "' returned error")));
 
     // Generate the body of the catch block, it only contains re-throwing the error
     builder.SetInsertPoint(catch_block);

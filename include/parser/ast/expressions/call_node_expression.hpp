@@ -4,7 +4,6 @@
 #include "parser/ast/call_node_base.hpp"
 
 #include <memory>
-#include <string>
 #include <vector>
 
 /// @class `CallNodeExpression`
@@ -12,12 +11,12 @@
 class CallNodeExpression : public CallNodeBase, public ExpressionNode {
   public:
     explicit CallNodeExpression(                                                  //
-        std::string &function_name,                                               //
+        FunctionNode *function,                                                   //
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
         const std::vector<std::shared_ptr<Type>> &error_types,                    //
         const std::shared_ptr<Type> &type                                         //
         ) :
-        CallNodeBase(function_name, std::move(arguments), error_types, type) {
+        CallNodeBase(function, std::move(arguments), error_types, type) {
         ExpressionNode::type = type;
     }
 

@@ -5,9 +5,16 @@
 
 class ErrDefNotFoundInAliasedFile : public BaseError {
   public:
-    ErrDefNotFoundInAliasedFile(const ErrorType error_type, const std::string &file, unsigned int line, unsigned int column,
-        const std::string &alias, const std::string &aliased_file_name, const std::string &definition) :
-        BaseError(error_type, file, line, column),
+    ErrDefNotFoundInAliasedFile(              //
+        const ErrorType error_type,           //
+        const Hash &file_hash,                //
+        const unsigned int line,              //
+        const unsigned int column,            //
+        const std::string &alias,             //
+        const std::string &aliased_file_name, //
+        const std::string &definition         //
+        ) :
+        BaseError(error_type, file_hash, line, column),
         alias(alias),
         aliased_file_name(aliased_file_name),
         definition(definition) {}

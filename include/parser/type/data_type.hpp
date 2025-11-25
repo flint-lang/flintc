@@ -14,6 +14,14 @@ class DataType : public Type {
         return Variation::DATA;
     }
 
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::DATA) {
+            return false;
+        }
+        const DataType *const other_type = other->as<DataType>();
+        return data_node == other_type->data_node;
+    }
+
     std::string to_string() const override {
         return data_node->name;
     }

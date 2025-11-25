@@ -1,0 +1,89 @@
+#pragma once
+
+#include "fip.hpp"
+
+#include <array>
+#include <cstring>
+#include <filesystem>
+
+/// @class `Hash`
+/// @brief A small wrapper class around the `array<char, 8>` hash type, to make it copy-constructible to be used as the key of a map
+///
+/// The hash is pretty useful overall, but for now it simply encodes an absolute file path into a 8-byte hash which only contains the
+/// characters (a-z, A-Z, 1-9) making it 61 characters in total, meaning the hash could map to 61^8 ~ 2^48 possible absolute paths
+struct Hash {
+  public:
+    Hash() = default;
+
+    explicit Hash(const std::string &hash_string) :
+        path(""),
+        value(string_to_hash(hash_string)) {}
+
+    explicit Hash(const std::filesystem::path &file_path) :
+        path(file_path.empty() ? file_path : std::filesystem::absolute(file_path)),
+        value(string_to_hash(path.string())) {}
+
+    /// @var `path`
+    /// @brief The path this hash was used to be generated from
+    std::filesystem::path path;
+
+    /// @var `value`
+    /// @brief The hash value
+    std::array<char, 8> value{'0'};
+
+    /// @function `string_to_hash`
+    /// @brief Uses the `fip_create_hash` function implementation to create a 8-character hash from any given string input. The character
+    /// hash only has 61 possible characters and roughly a variation of a 48 bit integer.
+    ///
+    /// @param `input` The string to hash to a small 8-byte string
+    /// @return `std::array<char, 8>` The hash consisting of 8 characters from 61 possible characters (A-Z, a-z, 1-9)
+    static std::array<char, 8> string_to_hash(const std::string &input) {
+        char hash[8];
+        fip_create_hash(hash, input.data());
+        std::array<char, 8> hash_arr;
+        for (size_t i = 0; i < 8; i++) {
+            hash_arr[i] = hash[i];
+        }
+        return hash_arr;
+    }
+
+    /// @function `empty`
+    /// @brief Whether the hash is "empty", e.g. it was not initialized or default-initialized
+    ///
+    /// @return `bool` Whether the hash is "empty"
+    bool empty() const {
+        return value[0] == '0';
+    }
+
+    /// @function `to_string`
+    /// @brief Returns the 8 characters as a string (I know, inefficient, who cares)
+    ///
+    /// @return `std::string` The converted string
+    std::string to_string() const {
+        std::string string(8, '0');
+        for (size_t i = 0; i < 8; i++) {
+            string[i] = value[i];
+        }
+        return string;
+    }
+
+    // copy operators
+    Hash(const Hash &) = default;
+    Hash &operator=(const Hash &) = default;
+    // move operators
+    Hash(Hash &&) = default;
+    Hash &operator=(Hash &&) = default;
+
+    friend bool operator==(const Hash &a, const Hash &b) noexcept {
+        return a.value == b.value;
+    }
+    friend struct std::hash<Hash>;
+};
+
+template <> struct std::hash<Hash> {
+    std::size_t operator()(const Hash &h) const noexcept {
+        uint64_t v;
+        std::memcpy(&v, h.value.data(), 8);
+        return std::hash<uint64_t>{}(v);
+    }
+};

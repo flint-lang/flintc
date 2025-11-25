@@ -17,16 +17,6 @@ fip_master_state_t master_state;
 
 #include <iostream>
 
-std::array<char, 8> FIP::string_to_hash(const std::string &input) {
-    char hash[8];
-    fip_create_hash(hash, input.data());
-    std::array<char, 8> hash_arr;
-    for (size_t i = 0; i < 8; i++) {
-        hash_arr[i] = hash[i];
-    }
-    return hash_arr;
-}
-
 std::filesystem::path FIP::get_fip_path() {
 #ifdef __WIN32__
     const char *local_appdata = std::getenv("LOCALAPPDATA");
@@ -271,7 +261,7 @@ bool FIP::resolve_function(FunctionNode *function) {
         if (!is_active) {
             // We need an error here specifically because we try to resolve an external function without the FIP running, which is not
             // possible. This could happen because no module is active, for example
-            THROW_ERR(ErrExternWithoutFip, ERR_PARSING, function->file_name, function->line, function->column, function->length);
+            THROW_ERR(ErrExternWithoutFip, ERR_PARSING, function->file_hash, function->line, function->column, function->length);
             return false;
         }
     }
@@ -315,8 +305,9 @@ bool FIP::resolve_function(FunctionNode *function) {
     if (!function->return_types.empty()) {
         if (function->return_types.size() > 1) {
             ret_type = std::make_shared<TupleType>(function->return_types);
-            if (!Type::add_type(ret_type)) {
-                ret_type = Type::get_type_from_str(ret_type->to_string()).value();
+            Namespace *file_namespace = Resolver::get_namespace_from_hash(function->file_hash);
+            if (!file_namespace->add_type(ret_type)) {
+                ret_type = file_namespace->get_type_from_str(ret_type->to_string()).value();
             }
         } else {
             ret_type = function->return_types.front();

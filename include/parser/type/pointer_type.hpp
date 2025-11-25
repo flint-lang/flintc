@@ -15,6 +15,14 @@ class PointerType : public Type {
         return Variation::POINTER;
     }
 
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::POINTER) {
+            return false;
+        }
+        const PointerType *const other_type = other->as<PointerType>();
+        return base_type->equals(other_type->base_type);
+    }
+
     std::string to_string() const override {
         return base_type->to_string() + "*";
     }

@@ -1,5 +1,7 @@
 #include "parser/ast/definitions/error_node.hpp"
+#include "parser/ast/namespace.hpp"
 #include "parser/type/error_set_type.hpp"
+#include "resolver/resolver.hpp"
 
 #include <algorithm>
 
@@ -7,7 +9,8 @@ std::optional<const ErrorNode *> ErrorNode::get_parent_node() const {
     if (parent_error == "anyerror") {
         return std::nullopt;
     }
-    std::optional<std::shared_ptr<Type>> parent_type = Type::get_type_from_str(parent_error);
+    Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
+    std::optional<std::shared_ptr<Type>> parent_type = file_namespace->get_type_from_str(parent_error);
     assert(parent_type.has_value());
     const auto *parent_set_type = parent_type.value()->as<ErrorSetType>();
     return parent_set_type->error_node;

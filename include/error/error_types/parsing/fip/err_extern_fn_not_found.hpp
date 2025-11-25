@@ -9,7 +9,7 @@ class ErrExternFnNotFound : public BaseError {
         const ErrorType error_type,    //
         const FunctionNode *missing_fn //
         ) :
-        BaseError(error_type, missing_fn->file_name, missing_fn->line, missing_fn->column, missing_fn->length) {}
+        BaseError(error_type, missing_fn->file_hash, missing_fn->line, missing_fn->column, missing_fn->length) {}
 
     [[nodiscard]]
     std::string to_string() const override {

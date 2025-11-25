@@ -14,6 +14,14 @@ class EnumType : public Type {
         return Variation::ENUM;
     }
 
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::ENUM) {
+            return false;
+        }
+        const EnumType *const other_type = other->as<EnumType>();
+        return enum_node == other_type->enum_node;
+    }
+
     std::string to_string() const override {
         return enum_node->name;
     }

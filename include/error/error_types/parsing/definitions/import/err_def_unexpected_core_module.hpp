@@ -8,12 +8,12 @@ class ErrDefUnexpectedCoreModule : public BaseError {
   public:
     ErrDefUnexpectedCoreModule(             //
         const ErrorType error_type,         //
-        const std::string &file,            //
-        unsigned int line,                  //
-        unsigned int column,                //
+        const Hash &file_hash,              //
+        const unsigned int line,            //
+        const unsigned int column,          //
         const std::string &core_module_name //
         ) :
-        BaseError(error_type, file, line, column, core_module_name.size()),
+        BaseError(error_type, file_hash, line, column, core_module_name.size()),
         core_module_name(core_module_name) {}
 
     [[nodiscard]]

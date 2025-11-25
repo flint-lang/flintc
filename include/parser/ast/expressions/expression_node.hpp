@@ -12,9 +12,12 @@ class ExpressionNode : public ASTNode {
     // constructor
     ExpressionNode() = default;
 
+    explicit ExpressionNode(const Hash &hash) :
+        ASTNode(hash, 0, 0, 0) {}
+
   public:
     // deconstructor
-    ~ExpressionNode() override = default;
+    virtual ~ExpressionNode() override = default;
     // copy operations - deleted because of unique_ptr member
     ExpressionNode(const ExpressionNode &) = delete;
     ExpressionNode &operator=(const ExpressionNode &) = delete;

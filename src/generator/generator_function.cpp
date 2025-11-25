@@ -12,8 +12,9 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
         std::shared_ptr<Type> ret_type = function_node->return_types.front();
         if (function_node->return_types.size() > 1) {
             ret_type = std::make_shared<GroupType>(function_node->return_types);
-            if (!Type::add_type(ret_type)) {
-                ret_type = Type::get_type_from_str(ret_type->to_string()).value();
+            Namespace *file_namespace = Resolver::get_namespace_from_hash(function_node->file_hash);
+            if (!file_namespace->add_type(ret_type)) {
+                ret_type = file_namespace->get_type_from_str(ret_type->to_string()).value();
             }
         }
         // Check if return type is > 16 bytes
@@ -34,8 +35,9 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
             return_types = IR::add_and_or_get_type(module, function_node->return_types.front(), !is_extern, is_extern);
         } else {
             std::shared_ptr<Type> group_type = std::make_shared<GroupType>(function_node->return_types);
-            if (!Type::add_type(group_type)) {
-                group_type = Type::get_type_from_str(group_type->to_string()).value();
+            Namespace *file_namespace = Resolver::get_namespace_from_hash(function_node->file_hash);
+            if (!file_namespace->add_type(group_type)) {
+                group_type = file_namespace->get_type_from_str(group_type->to_string()).value();
             }
             return_types = IR::add_and_or_get_type(module, group_type, !is_extern, is_extern);
         }
@@ -95,8 +97,23 @@ bool Generator::Function::generate_function(                                    
     }
     llvm::FunctionType *function_type = generate_function_type(module, function_node);
 
-    // Creating the function itself
-    llvm::Function *function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, function_node->name, module);
+    // Creating the function itself only if it's the main function. All other functions should have been forward-declared already so we
+    // should be able to just get them from the module itself
+    llvm::Function *function = nullptr;
+    if (function_node->name == "_main") {
+        function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, "_main", module);
+    } else {
+        std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
+        if (function_node->mangle_id.has_value()) {
+            assert(!function_node->is_extern);
+            function_name += "." + std::to_string(function_node->mangle_id.value());
+        }
+        function = module->getFunction(function_name);
+        if (function == nullptr) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+    }
 
     if (!function_node->scope.has_value()) {
         // It's only a declaration, not an implementation
@@ -197,32 +214,32 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
     llvm::Function *parent,                                                                    //
     const CallNodeBase *call_node                                                              //
 ) {
-    llvm::Function *func_decl = parent->getParent()->getFunction(call_node->function_name);
+    std::string function_name = call_node->function->name;
+    if (!call_node->function->is_extern) {
+        function_name = call_node->function->file_hash.to_string() + "." + function_name;
+    }
+    if (call_node->function->mangle_id.has_value()) {
+        assert(!call_node->function->is_extern);
+        function_name += "." + std::to_string(call_node->function->mangle_id.value());
+    }
+    llvm::Function *func_decl = parent->getParent()->getFunction(function_name);
     if (func_decl != nullptr) {
-        if (std::find(function_names.begin(), function_names.end(), call_node->function_name) == function_names.end()) {
+        if (std::find(function_names.begin(), function_names.end(), function_name) == function_names.end()) {
             // Function is defined in another module
             return {func_decl, true};
         }
         // Function is defined in the current module
         return {func_decl, false};
     }
-    // Get the mangle id by looking for the function's name
-    std::optional<unsigned int> call_mangle_id = std::nullopt;
-    for (const auto &file_mangle_map : file_function_mangle_ids) {
-        for (const auto &[function_name, mangle_id] : file_mangle_map.second) {
-            if (function_name == call_node->function_name) {
-                call_mangle_id = mangle_id;
-            }
-        }
-    }
 
-    if (call_mangle_id.has_value() && call_node->function_name.size() > 3 && call_node->function_name.substr(0, 3) == "fc_") {
+    if (call_node->function->mangle_id.has_value()) {
+        assert(!call_node->function->is_extern);
         // Function has mangle id, for example a function call from another module
         // Externally defined functions are not mangled, this is why we do not need mangling at all for them
-        func_decl = main_module[0]->getFunction(call_node->function_name + "." + std::to_string(call_mangle_id.value()));
+        func_decl = main_module[0]->getFunction(function_name);
     } else {
-        // Function has no mangle id, for example a builtin function
-        func_decl = main_module[0]->getFunction(call_node->function_name);
+        // Function has no mangle id, for example a builtin function or external functions
+        func_decl = main_module[0]->getFunction(call_node->function->name);
     }
 
     if (func_decl == nullptr) {

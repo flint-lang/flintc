@@ -14,6 +14,14 @@ class ErrorSetType : public Type {
         return Variation::ERROR_SET;
     }
 
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::ERROR_SET) {
+            return false;
+        }
+        const ErrorSetType *const other_type = other->as<ErrorSetType>();
+        return error_node == other_type->error_node;
+    }
+
     std::string to_string() const override {
         return error_node->name;
     }

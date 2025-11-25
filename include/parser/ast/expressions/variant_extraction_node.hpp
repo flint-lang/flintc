@@ -2,20 +2,24 @@
 
 #include "expression_node.hpp"
 #include "parser/type/optional_type.hpp"
+#include "resolver/resolver.hpp"
 
 /// @class `VariantExtractionNode`
 /// @brief Represents variant extractions
 class VariantExtractionNode : public ExpressionNode {
   public:
     VariantExtractionNode(                          //
+        const Hash &hash,                           //
         std::unique_ptr<ExpressionNode> &base_expr, //
         const std::shared_ptr<Type> &extracted_type //
         ) :
+        ExpressionNode(hash),
         base_expr(std::move(base_expr)),
         extracted_type(extracted_type) {
         this->type = std::make_shared<OptionalType>(extracted_type);
-        if (!Type::add_type(this->type)) {
-            this->type = Type::get_type_from_str(this->type->to_string()).value();
+        Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
+        if (!file_namespace->add_type(this->type)) {
+            this->type = file_namespace->get_type_from_str(this->type->to_string()).value();
         }
     }
 

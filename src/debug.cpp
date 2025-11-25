@@ -9,6 +9,7 @@
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
+#include "parser/parser.hpp"
 #include "persistent_thread_pool.hpp"
 
 bool PRINT_TOK_STREAM = true;
@@ -182,9 +183,8 @@ namespace Debug {
         } // namespace Local
 
         void print_all_files() {
-            std::lock_guard<std::mutex> lock(Resolver::file_map_mutex);
-            for (const auto &file_pair : Resolver::file_map) {
-                print_file(*file_pair.second);
+            for (const auto &parser : Parser::instances) {
+                print_file(*parser.file_node_ptr.get());
             }
         }
 
@@ -385,7 +385,7 @@ namespace Debug {
                 }
                 std::cout << "] ";
             }
-            std::cout << call.function_name << "(";
+            std::cout << call.function->name << "(";
             for (auto it = call.arguments.begin(); it != call.arguments.end(); ++it) {
                 if (it != call.arguments.begin()) {
                     std::cout << ", ";
@@ -934,7 +934,7 @@ namespace Debug {
         void print_catch(unsigned int indent_lvl, TreeBits &bits, const CatchNode &catch_node) {
             Local::print_header(indent_lvl, bits, "Catch ");
             std::cout << "catch call '";
-            std::cout << catch_node.call_node->function_name;
+            std::cout << catch_node.call_node->function->name;
             std::cout << "'";
             if (catch_node.var_name.has_value()) {
                 std::cout << " in var '";
@@ -1432,13 +1432,10 @@ namespace Debug {
         void print_import(unsigned int indent_lvl, TreeBits &bits, const ImportNode &import) {
             Local::print_header(indent_lvl, bits, "Import ");
 
-            if (std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(import.path)) {
-                const auto &path_pair = std::get<std::pair<std::optional<std::string>, std::string>>(import.path);
-                std::cout << "\"";
-                if (path_pair.first.has_value()) {
-                    std::cout << path_pair.first.value() << "/";
-                }
-                std::cout << path_pair.second << ".ft\"";
+            if (std::holds_alternative<Hash>(import.path)) {
+                const auto &file_hash = import.file_hash;
+                const auto &import_hash = std::get<Hash>(import.path);
+                std::cout << "\"" << std::filesystem::relative(import_hash.path, file_hash.path.parent_path()).string() << "\"";
             } else if (std::holds_alternative<std::vector<std::string>>(import.path)) {
                 std::vector<std::string> path_vector = std::get<std::vector<std::string>>(import.path);
                 auto iterator = path_vector.begin();
@@ -1486,7 +1483,8 @@ namespace Debug {
 
         void print_test(unsigned int indent_lvl, TreeBits &bits, const TestNode &test) {
             Local::print_header(indent_lvl, bits, "Test ");
-            std::cout << test.file_name << " : \"" << test.name << "\" [s" << test.scope->scope_id << "]" << std::endl;
+            const std::string &file_name = test.file_hash.path.filename().string();
+            std::cout << file_name << " : \"" << test.name << "\" [s" << test.scope->scope_id << "]" << std::endl;
             print_body(indent_lvl + 1, bits, test.scope->body);
         }
     } // namespace AST

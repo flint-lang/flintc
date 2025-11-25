@@ -1,5 +1,7 @@
 #include "generator/generator.hpp"
 
+static const std::string hash = Hash(std::string("print")).to_string();
+
 void Generator::Module::Print::generate_print_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_print_function(builder, module, only_declarations, "i32", "%d");
     generate_print_function(builder, module, only_declarations, "i64", "%ld");
@@ -30,7 +32,7 @@ void Generator::Module::Print::generate_print_function( //
     llvm::Function *print_function = llvm::Function::Create( //
         print_type,                                          //
         llvm::Function::ExternalLinkage,                     //
-        "__flint_print_" + type,                             //
+        hash + ".print_" + type,                             //
         module                                               //
     );
     print_functions[type] = print_function;
@@ -77,10 +79,11 @@ void Generator::Module::Print::generate_print_str_lit_function(llvm::IRBuilder<>
         false                                                         // No vaargs
     );
     // Create the print_str_lit function
+    const std::string function_name = hash + ".print_str_lit";
     llvm::Function *print_str_lit_function = llvm::Function::Create( //
         print_str_lit_type,                                          //
         llvm::Function::ExternalLinkage,                             //
-        "__flint_print_str_lit",                                     //
+        function_name,                                               //
         module                                                       //
     );
     print_functions["__flint_type_str_lit"] = print_str_lit_function;
@@ -121,7 +124,7 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
     llvm::Function *print_str_function = llvm::Function::Create( //
         print_str_type,                                          //
         llvm::Function::ExternalLinkage,                         //
-        "__flint_print_str",                                     //
+        hash + ".print_str",                                     //
         module                                                   //
     );
     print_functions["str"] = print_str_function;
@@ -169,7 +172,7 @@ void Generator::Module::Print::generate_print_bool_function(llvm::IRBuilder<> *b
     llvm::Function *print_function = llvm::Function::Create( //
         print_type,                                          //
         llvm::Function::ExternalLinkage,                     //
-        "__flint_print_bool",                                //
+        hash + ".print_bool",                                //
         module                                               //
     );
     print_functions["bool"] = print_function;

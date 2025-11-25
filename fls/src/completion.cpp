@@ -4,13 +4,13 @@
 #include "parser/ast/definitions/definition_node.hpp"
 #include "resolver/resolver.hpp"
 
-void LspServer::add_nodes_from_file_to_completions(  //
-    const FileNode *file_node,                       //
-    std::vector<CompletionItem> &completions,        //
-    std::vector<const ImportNode *> &imported_files, //
-    const bool is_root_file                          //
+void LspServer::add_nodes_from_namespace_to_completions( //
+    const Namespace *file_namespace,                     //
+    std::vector<CompletionItem> &completions,            //
+    std::vector<const ImportNode *> &imported_files,     //
+    const bool is_root_file                              //
 ) {
-    for (const std::unique_ptr<DefinitionNode> &definition : file_node->definitions) {
+    for (const std::unique_ptr<DefinitionNode> &definition : file_namespace->public_symbols.definitions) {
         switch (definition->get_variation()) {
             case DefinitionNode::Variation::DATA: {
                 const auto *node = definition->as<DataNode>();
@@ -38,10 +38,7 @@ void LspServer::add_nodes_from_file_to_completions(  //
                 if (node->name == "_main") {
                     continue;
                 }
-                // Remove the 'fc_' prefix from the function names if it's an internal function. If it's extenal the function name can be
-                // used as is
-                std::string fn_name = node->is_extern ? std::string(node->name) : std::string(node->name.substr(3));
-                completions.emplace_back(fn_name, CompletionItemKind::Function, "The '" + fn_name + "' function", fn_name, false);
+                completions.emplace_back(node->name, CompletionItemKind::Function, "The '" + node->name + "' function", node->name, false);
                 break;
             }
             case DefinitionNode::Variation::IMPORT: {
@@ -51,7 +48,7 @@ void LspServer::add_nodes_from_file_to_completions(  //
                     continue;
                 }
                 // Only add "real" file imports to the list of imported files, skip library imports like 'use Core.xxx'
-                if (std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(node->path)) {
+                if (std::holds_alternative<Hash>(node->path)) {
                     imported_files.emplace_back(node);
                 }
                 break;
@@ -85,16 +82,15 @@ void LspServer::try_parse_and_add_completions( //
 
     // Add all the definitions to the completions and collect all imported file nodes
     std::vector<const ImportNode *> imported_files;
-    add_nodes_from_file_to_completions(file.value(), completions, imported_files, true);
+    add_nodes_from_namespace_to_completions(file.value()->file_namespace.get(), completions, imported_files, true);
 
     // Add all the definitions from the files directly imported in this file
     for (const auto &imported_file : imported_files) {
-        const auto &path_pair = std::get<std::pair<std::optional<std::string>, std::string>>(imported_file->path);
-        std::optional<FileNode *> file_node = Resolver::get_file_from_name(path_pair.second);
-        if (!file_node.has_value()) {
+        std::optional<Namespace *> file_namespace = Resolver::get_namespace_from_hash(imported_file->file_hash);
+        if (!file_namespace.has_value()) {
             continue;
         }
-        add_nodes_from_file_to_completions(file_node.value(), completions, imported_files, false);
+        add_nodes_from_namespace_to_completions(file_namespace.value(), completions, imported_files, false);
     }
 
     // Add all function definitions for all core modules imported in this file

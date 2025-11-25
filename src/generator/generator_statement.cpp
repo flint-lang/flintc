@@ -1258,15 +1258,15 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     // Load the error value
     llvm::Type *const error_type = type_map.at("__flint_type_err");
     llvm::Value *err_val_ptr = builder.CreateStructGEP(error_type, err_var, 0, "err_val_ptr");
-    llvm::LoadInst *err_val = IR::aligned_load(builder,                              //
-        llvm::Type::getInt32Ty(context),                                             //
-        err_val_ptr,                                                                 //
-        call_node->function_name + "_" + std::to_string(call_node->call_id) + "_err" //
+    llvm::LoadInst *err_val = IR::aligned_load(builder,                               //
+        llvm::Type::getInt32Ty(context),                                              //
+        err_val_ptr,                                                                  //
+        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_err" //
     );
     err_val->setMetadata("comment",
         llvm::MDNode::get(context,
             llvm::MDString::get(context,
-                "Load err val of call '" + call_node->function_name + "::" + std::to_string(call_node->call_id) + "'")));
+                "Load err val of call '" + call_node->function->name + "::" + std::to_string(call_node->call_id) + "'")));
 
     llvm::BasicBlock *last_block = &ctx.parent->back();
     llvm::BasicBlock *first_block = &ctx.parent->front();
@@ -1277,17 +1277,17 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     bool will_insert_after = current_block == last_block || current_block != first_block;
     llvm::BasicBlock *insert_before = will_insert_after ? (current_block->getNextNode()) : current_block;
 
-    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                           //
-        context,                                                                        //
-        call_node->function_name + "_" + std::to_string(call_node->call_id) + "_catch", //
-        ctx.parent,                                                                     //
-        insert_before                                                                   //
+    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                            //
+        context,                                                                         //
+        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_catch", //
+        ctx.parent,                                                                      //
+        insert_before                                                                    //
     );
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                           //
-        context,                                                                        //
-        call_node->function_name + "_" + std::to_string(call_node->call_id) + "_merge", //
-        nullptr,                                                                        //
-        insert_before                                                                   //
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                            //
+        context,                                                                         //
+        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_merge", //
+        nullptr,                                                                         //
+        insert_before                                                                    //
     );
     builder.SetInsertPoint(current_block);
 
@@ -1304,7 +1304,7 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
         ->setMetadata("comment",
             llvm::MDNode::get(context,
                 llvm::MDString::get(context,
-                    "Branch to '" + catch_block->getName().str() + "' if '" + call_node->function_name + "' returned error")));
+                    "Branch to '" + catch_block->getName().str() + "' if '" + call_node->function->name + "' returned error")));
 
     const std::shared_ptr<Scope> current_scope = ctx.scope;
     ctx.scope = catch_node->scope;

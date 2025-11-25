@@ -247,7 +247,7 @@ class Generator {
     /// - **Key** `std::string` - Name of the file the call targets
     /// - **Value** `std::unordered_map<std::string, std::vector<llvm::CallInst *>>` -
     ///         The map of all unresolved function calls towards this file
-    /// - - **Key** `std::string` - Name of the called function
+    /// - - **Key** `std::string` - Name of the called function (including the namespace hash before it like `Asdfb9s5.fn_name`)
     /// - - **Value** `std::vector<llvm::CallInst *>` - The list of all calls targeting this function
     ///
     /// @note This map is static and persists throughout the module's lifecyle
@@ -261,11 +261,11 @@ class Generator {
     /// to be forward-declared within the generated module, thus _every_ function inside the module does have a mangle ID
     ///
     /// @details
-    /// - **Key** `std::string` - Name of the function
+    /// - **Key** `std::string` - Name of the function (including the namespace hash before it like `Asdfb9s5.fn_name`)
     /// - **Value** `unsigned int` - Manlge ID of the function
     ///
     /// @note This map is being cleared at the end of every file module generation pass
-    static inline std::unordered_map<std::string, unsigned int> function_mangle_ids;
+    // static inline std::unordered_map<std::string, unsigned int> function_mangle_ids;
 
     /// @var `file_function_mangle_ids`
     /// @brief Stores all mangle ids for all functions from all files
@@ -278,7 +278,7 @@ class Generator {
     /// - **Value** `std::unordered_map<std::string, unsigned int>` - The function mangle id map containing all ids of all functions
     ///
     /// @attention This map is never cleared so it is considered unsafe generating multiple programs within one lifetime of the program
-    static inline std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> file_function_mangle_ids;
+    // static inline std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> file_function_mangle_ids;
 
     /// @var `function_names`
     /// @brief A vector of all function names within the current file
@@ -327,14 +327,9 @@ class Generator {
     static inline std::array<llvm::Module *, 1> main_module;
 
     /// @var `tests`
-    /// @brief A list of all generated test functions across all files together with the file names, and the name of the test and the exact
+    /// @brief A list of all generated test functions across all files together with the file hashes, and the name of the test and the exact
     /// name of the function, because a `llvm::Function *` type would become invalid after combining multiple llvm modules
-    static inline std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> tests;
-
-    /// @var `data_nodes`
-    /// @brief A list of all available data nodes across all parsed files. If a file has access to a given set of data is determined in the
-    /// parsing steps, so we can assume that all usages of data types are valid when generating the IR code.
-    static inline std::unordered_map<std::string, const DataNode *const> data_nodes;
+    static inline std::unordered_map<Hash, std::vector<std::pair<std::string, std::string>>> tests;
 
     /// @var `last_looparound_blocks`
     /// @brief The last basic blocks to loop back to, its a list to not need to update them for nested loops
@@ -366,10 +361,6 @@ class Generator {
     /// calling extern functions defined in a different included file (file A has a `extern ...` and file B uses file A, this enables that
     /// file B can call the extern-defined functions defined in file A)
     static inline std::unordered_map<std::string, FunctionNode *> extern_functions;
-
-    /// @function `get_data_nodes`
-    /// @brief This function collects all data nodes from the parser and puts them into the `data_nodes` map in the generator
-    static void get_data_nodes();
 
     /// @class `IR`
     /// @brief The class which is responsible for the utility functions for the IR generation

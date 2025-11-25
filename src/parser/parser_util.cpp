@@ -35,7 +35,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
 
     if (Matcher::tokens_contain(definition_tokens, Matcher::use_statement)) {
         if (definition_indentation > 0) {
-            THROW_ERR(ErrUseStatementNotAtTopLevel, ERR_PARSING, file_name, definition_tokens);
+            THROW_ERR(ErrUseStatementNotAtTopLevel, ERR_PARSING, file_hash, definition_tokens);
             return false;
         }
         std::optional<ImportNode> import_node = create_import(definition_tokens);
@@ -62,11 +62,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                 const std::string &module_str = import_vec.back();
                 if (core_module_functions.find(module_str) == core_module_functions.end()) {
                     const auto &tok = definition_tokens.first + 3;
-                    THROW_ERR(ErrDefUnexpectedCoreModule, ERR_PARSING, file_name, tok->line, tok->column, module_str);
-                    return false;
-                }
-                if (!create_core_module_types(file_node, module_str)) {
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(ErrDefUnexpectedCoreModule, ERR_PARSING, file_hash, tok->line, tok->column, module_str);
                     return false;
                 }
             }
@@ -79,9 +75,9 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (added_import.value()->alias.has_value()) {
             aliases[added_import.value()->alias.value()] = added_import.value();
         }
-        if (std::holds_alternative<std::pair<std::optional<std::string>, std::string>>(added_import.value()->path) || //
-            (std::get<std::vector<std::string>>(added_import.value()->path).size() != 2 &&                            //
-                std::get<std::vector<std::string>>(added_import.value()->path).front() != "Core")                     //
+        if (std::holds_alternative<Hash>(added_import.value()->path) ||                           //
+            (std::get<std::vector<std::string>>(added_import.value()->path).size() != 2 &&        //
+                std::get<std::vector<std::string>>(added_import.value()->path).front() != "Core") //
         ) {
             imported_files.emplace_back(added_import.value());
         }
@@ -91,8 +87,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!function_node.has_value()) {
             return false;
         }
-        FunctionNode *added_function = file_node.add_function(function_node.value());
-        add_parsed_function(added_function, file_name);
+        file_node.add_function(function_node.value());
         return true;
     }
 
@@ -109,7 +104,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
         FunctionNode *added_function = file_node.add_function(function_node.value());
         add_open_function({added_function, body_lines});
-        add_parsed_function(added_function, file_name);
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::data_definition)) {
         std::optional<DataNode> data_node = create_data(definition_tokens, body_lines);
         if (!data_node.has_value()) {
@@ -119,7 +113,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!added_data.has_value()) {
             return false;
         }
-        add_parsed_data(added_data.value(), file_name);
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
         std::optional<FuncNode> func_node = create_func(definition_tokens, body_lines);
         if (!func_node.has_value()) {
@@ -163,40 +156,9 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         add_parsed_test(added_test, file_name);
     } else {
         Debug::print_token_context_vector(definition_tokens, file_name);
-        THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_name, definition_tokens);
+        THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_hash, definition_tokens);
         return false;
     }
-    return true;
-}
-
-bool Parser::create_core_module_types(FileNode &file_node, const std::string &core_lib_name) {
-    PROFILE_CUMULATIVE("Parser::create_core_module_types");
-    std::lock_guard<std::mutex> lock_guard(core_module_added_error_sets_mutex);
-    auto added = core_module_added_error_sets.find(core_lib_name);
-    if (added == core_module_added_error_sets.end()) {
-        return true;
-    }
-    if (added->second) {
-        // Prevent duplicate addition of the types
-        return true;
-    }
-    auto error_sets = core_module_error_sets.find(core_lib_name);
-    assert(error_sets != core_module_error_sets.end());
-    for (const auto &error_set : error_sets->second) {
-        const std::string error_type_name(std::get<0>(error_set));
-        const std::string parent_error(std::get<1>(error_set));
-        std::vector<std::string> error_values;
-        std::vector<std::string> default_messages;
-        for (const auto &[error_value, error_message] : std::get<2>(error_set)) {
-            error_values.emplace_back(error_value);
-            default_messages.emplace_back(error_message);
-        }
-        ErrorNode error("__flint_CORE_ERR", 1, 1, 1, error_type_name, parent_error, error_values, default_messages);
-        if (!file_node.add_error(error)) {
-            return false;
-        }
-    }
-    core_module_added_error_sets.at(core_lib_name) = true;
     return true;
 }
 
@@ -261,7 +223,7 @@ std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, to
     }
 
     if (body_lines.empty()) {
-        THROW_ERR(ErrMissingBody, ERR_PARSING, file_name, tokens);
+        THROW_ERR(ErrMissingBody, ERR_PARSING, file_hash, tokens);
         std::exit(EXIT_FAILURE);
     }
 
@@ -296,17 +258,20 @@ void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &sourc
                     if (it->token != TOK_TYPE) {
                         // Types of size 1 always need to be an identifier if they are not already a type (primitives)
                         assert(it->token == TOK_IDENTIFIER);
-                        std::optional<std::shared_ptr<Type>> type = Type::get_type_from_str(std::string(it->lexme));
+                        std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type_from_str( //
+                            std::string(it->lexme)                                                                    //
+                        );
                         if (type.has_value()) {
                             *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
                         }
                     }
-                } else if (it->token != TOK_IDENTIFIER || Type::get_type_from_str(std::string(it->lexme)).has_value()) {
+                } else if (it->token != TOK_IDENTIFIER ||
+                    file_node_ptr->file_namespace->get_type_from_str(std::string(it->lexme)).has_value()) {
                     // If its a bigger type and it starts with an identifier, the identifier itself must be a known type already. If the
                     // identifier is not a known type, this is an edge case like `i < 5 and x > 2` where `i<5 and x>` is interpreted as
                     // `T<..>`. So, `T` must be a known type in this case, otherwise the whole thing is no type. *or* it has to be a
                     // keyword, like `data` or `variant`. But when it's a keywords it's no identifier annyway.
-                    std::optional<std::shared_ptr<Type>> type = Type::get_type(token_slice{it, it + type_range.value().second});
+                    auto type = file_node_ptr->file_namespace->get_type(token_slice{it, it + type_range.value().second});
                     if (!type.has_value()) {
                         std::exit(EXIT_FAILURE);
                     }
@@ -321,18 +286,11 @@ void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &sourc
     }
 }
 
-std::optional<std::tuple<                                          //
-    std::string,                                                   // name
-    std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>>, // args
-    std::shared_ptr<Type>,                                         // type
-    bool,                                                          // is initializer (true) or call (false)
-    std::vector<std::shared_ptr<Type>>                             // error types
-    >>
-Parser::create_call_or_initializer_base(         //
-    const Context &ctx,                          //
-    std::shared_ptr<Scope> &scope,               //
-    const token_slice &tokens,                   //
-    const std::optional<std::string> &alias_base //
+std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_initializer_base( //
+    const Context &ctx,                                                                        //
+    std::shared_ptr<Scope> &scope,                                                             //
+    const token_slice &tokens,                                                                 //
+    const std::optional<std::string> &alias_base                                               //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_or_initializer_base");
     using types = std::vector<std::shared_ptr<Type>>;
@@ -402,9 +360,12 @@ Parser::create_call_or_initializer_base(         //
     // Check if it's an initializer
     if (tokens.first->token == TOK_TYPE) {
         switch (tokens.first->type->get_variation()) {
-            default:
+            default: {
+                [[maybe_unused]] const Type::Variation variation = tokens.first->type->get_variation();
+                [[maybe_unused]] const std::string type_str = tokens.first->type->to_string();
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
+            }
             case Type::Variation::DATA: {
                 const DataNode *data_node = tokens.first->type->as<DataType>()->data_node;
                 auto &fields = data_node->fields;
@@ -445,7 +406,12 @@ Parser::create_call_or_initializer_base(         //
                         }
                     }
                 }
-                return std::make_tuple(data_node->name, std::move(arguments), tokens.first->type, true, types{});
+                return CreateCallOrInitializerBaseRet{
+                    .args = std::move(arguments),
+                    .type = tokens.first->type,
+                    .is_initializer = true,
+                    .function = nullptr,
+                };
             }
             case Type::Variation::MULTI: {
                 const auto *multi_type = tokens.first->type->as<MultiType>();
@@ -465,7 +431,9 @@ Parser::create_call_or_initializer_base(         //
                         return std::nullopt;
                     }
                     const CastDirection castability = check_castability(base_type, arg_type);
-                    if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
+                    if (castability.kind == CastDirection::Kind::SAME_TYPE) {
+                        continue;
+                    } else if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
                         arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
                     } else if (arg_type->get_variation() == Type::Variation::PRIMITIVE) {
                         const std::string &arg_type_str = arg_type->to_string();
@@ -485,7 +453,12 @@ Parser::create_call_or_initializer_base(         //
                         }
                     }
                 }
-                return std::make_tuple(tokens.first->type->to_string(), std::move(arguments), tokens.first->type, true, types{});
+                return CreateCallOrInitializerBaseRet{
+                    .args = std::move(arguments),
+                    .type = tokens.first->type,
+                    .is_initializer = true,
+                    .function = nullptr,
+                };
             }
         }
     }
@@ -514,7 +487,19 @@ Parser::create_call_or_initializer_base(         //
                 if (type_cast->expr->type->to_string() == "__flint_type_str_lit") {
                     arguments.front().first = std::move(type_cast->expr);
                     argument_types.front() = arguments.front().first->type;
-                    return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), false, types{});
+                    const std::string &module_name = std::get<0>(builtin_function.value());
+                    std::optional<FunctionNode *> function = file_node_ptr->file_namespace->find_core_function( //
+                        module_name, function_name, argument_types                                              //
+                    );
+                    if (!function.has_value()) {
+                        return std::nullopt;
+                    }
+                    return CreateCallOrInitializerBaseRet{
+                        .args = std::move(arguments),
+                        .type = Type::get_primitive_type("void"),
+                        .is_initializer = false,
+                        .function = function.value(),
+                    };
                 }
             }
         }
@@ -523,14 +508,24 @@ Parser::create_call_or_initializer_base(         //
         // Check if any overloaded function exists
         std::optional<std::tuple<types, types, types>> found_function;
 
-        for (const auto &[param_types_str, return_types_str, error_types_str] : function_overloads) {
-            if (arguments.size() != param_types_str.size()) {
+        for (const auto &[param_pairs, return_types_str, error_types_str] : function_overloads) {
+            if (arguments.size() != param_pairs.size()) {
                 continue;
             }
-            types param_types(param_types_str.size());
-            std::transform(param_types_str.begin(), param_types_str.end(), param_types.begin(), Type::str_to_type);
+            types param_types(param_pairs.size());
+            for (size_t i = 0; i < param_pairs.size(); i++) {
+                const std::string param_type_str(param_pairs.at(i).first);
+                const auto &param_type = file_node_ptr->file_namespace->get_type_from_str(param_type_str);
+                assert(param_type.has_value());
+                param_types[i] = param_type.value();
+            }
             types return_types(return_types_str.size());
-            std::transform(return_types_str.begin(), return_types_str.end(), return_types.begin(), Type::str_to_type);
+            for (size_t i = 0; i < return_types.size(); i++) {
+                const std::string return_type_str(return_types_str.at(i));
+                const auto &return_type = file_node_ptr->file_namespace->get_type_from_str(return_type_str);
+                assert(return_type.has_value());
+                return_types[i] = return_type.value();
+            }
             if (argument_types != param_types) {
                 continue;
             }
@@ -546,47 +541,60 @@ Parser::create_call_or_initializer_base(         //
             }
             if (is_same) {
                 types error_types(error_types_str.size());
-                std::transform(error_types_str.begin(), error_types_str.end(), error_types.begin(), Type::str_to_type);
+                for (size_t i = 0; i < error_types.size(); i++) {
+                    const std::string error_type_str(error_types_str.at(i));
+                    const auto &error_type = file_node_ptr->file_namespace->get_type_from_str(error_type_str);
+                    assert(error_type.has_value());
+                    error_types[i] = error_type.value();
+                }
                 found_function = {param_types, return_types, error_types};
             }
         }
         if (!found_function.has_value()) {
             token_slice err_tokens = {tokens.first + arg_range.value().first - 2, tokens.first + arg_range.value().second + 1};
-            THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, err_tokens, function_name, argument_types);
+            THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_hash, err_tokens, function_name, argument_types);
             return std::nullopt;
         }
         auto &fn = found_function.value();
-        if (std::get<1>(fn).size() > 1) {
-            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(std::get<1>(fn));
-            if (!Type::add_type(group_type)) {
-                // The type was already present, so we set the type of the group expression to the already present type to minimize type
-                // duplication
-                group_type = Type::get_type_from_str(group_type->to_string()).value();
-            }
-            return std::make_tuple(function_name, std::move(arguments), group_type, false, std::get<2>(fn));
-        }
-        return std::make_tuple(function_name, std::move(arguments), std::get<1>(fn).front(), false, std::get<2>(fn));
-    }
-
-    // It's not a builtin call, so we need to get the function's name, either from `fc_NAME` or from `NAME` directly
-    // Let's try the `fc_NAME` first because internal functions are more likely than external function calls
-    auto function = get_function_from_call("fc_" + function_name, argument_types);
-    if (function.empty()) {
-        // Now we can try the `NAME` variation for external function calls
-        function = get_function_from_call(function_name, argument_types);
-        if (function.empty()) {
-            THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_name, tokens, function_name, argument_types);
+        const std::string &module_name = std::get<0>(builtin_function.value());
+        std::optional<FunctionNode *> function = file_node_ptr->file_namespace->find_core_function( //
+            module_name, function_name, argument_types                                              //
+        );
+        if (!function.has_value()) {
             return std::nullopt;
         }
+        if (std::get<1>(fn).size() > 1) {
+            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(std::get<1>(fn));
+            if (!file_node_ptr->file_namespace->add_type(group_type)) {
+                // The type was already present, so we set the type of the group expression to the already present type to minimize type
+                // duplication
+                group_type = file_node_ptr->file_namespace->get_type_from_str(group_type->to_string()).value();
+            }
+            return CreateCallOrInitializerBaseRet{
+                .args = std::move(arguments),
+                .type = group_type,
+                .is_initializer = false,
+                .function = function.value(),
+            };
+        }
+        return CreateCallOrInitializerBaseRet{
+            .args = std::move(arguments),
+            .type = std::get<1>(fn).front(),
+            .is_initializer = false,
+            .function = function.value(),
+        };
+    }
+
+    // It's not a builtin call, so we need to get the function from it's name
+    auto function = get_function_from_call(function_name, argument_types);
+    if (function.empty()) {
+        THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_hash, tokens, function_name, argument_types);
+        return std::nullopt;
     }
     if (function.size() > 1) {
         // Ambigue call to function, could be one of multiple called functions
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
-    }
-    // Check if the function has an extern alias and if it has overwrite the name
-    if (!function.front().first->is_extern) {
-        function_name = "fc_" + function_name;
     }
     // Check if the argument count does match the parameter count
     [[maybe_unused]] const unsigned int param_count = function.front().first->parameters.size();
@@ -617,7 +625,7 @@ Parser::create_call_or_initializer_base(         //
             auto tok = tokens.first;
             for (; tok != tokens.second; ++tok) {
                 // Get the function name
-                if (tok->token == TOK_IDENTIFIER && (tok->lexme == function_name || ("fc_" + std::string(tok->lexme)) == function_name)) {
+                if (tok->token == TOK_IDENTIFIER && tok->lexme == function_name) {
                     break;
                 }
             }
@@ -644,7 +652,7 @@ Parser::create_call_or_initializer_base(         //
             if (arguments[i].first->get_variation() == ExpressionNode::Variation::VARIABLE) {
                 const auto *variable_node = arguments[i].first->as<VariableNode>();
                 if (!std::get<2>(scope->variables.at(variable_node->name)) && std::get<2>(function.front().first->parameters[i])) {
-                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tok->line, tok->column, variable_node->name);
+                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tok->line, tok->column, variable_node->name);
                     return std::nullopt;
                 }
             }
@@ -652,17 +660,24 @@ Parser::create_call_or_initializer_base(         //
     }
 
     types return_types = function.front().first->return_types;
-    auto error_types = function.front().first->error_types;
+    std::shared_ptr<Type> return_type;
     if (return_types.empty()) {
-        return std::make_tuple(function_name, std::move(arguments), Type::get_primitive_type("void"), false, error_types);
+        return_type = Type::get_primitive_type("void");
     } else if (return_types.size() > 1) {
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(return_types);
-        if (!Type::add_type(group_type)) {
-            group_type = Type::get_type_from_str(group_type->to_string()).value();
+        if (!file_node_ptr->file_namespace->add_type(group_type)) {
+            group_type = file_node_ptr->file_namespace->get_type_from_str(group_type->to_string()).value();
         }
-        return std::make_tuple(function_name, std::move(arguments), group_type, false, error_types);
+        return_type = group_type;
+    } else {
+        return_type = return_types.front();
     }
-    return std::make_tuple(function_name, std::move(arguments), return_types.front(), false, error_types);
+    return CreateCallOrInitializerBaseRet{
+        .args = std::move(arguments),
+        .type = return_type,
+        .is_initializer = false,
+        .function = function.front().first,
+    };
 }
 
 std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base( //
@@ -792,8 +807,8 @@ Parser::create_field_access_base(     //
                     length_types.emplace_back(u64_type);
                 }
                 std::shared_ptr<Type> group_type = std::make_shared<GroupType>(length_types);
-                if (!Type::add_type(group_type)) {
-                    group_type = Type::get_type_from_str(group_type->to_string()).value();
+                if (!file_node_ptr->file_namespace->add_type(group_type)) {
+                    group_type = file_node_ptr->file_namespace->get_type_from_str(group_type->to_string()).value();
                 }
                 return std::make_tuple(std::move(base_expr.value()), "length", 1, group_type);
             }
@@ -846,7 +861,7 @@ Parser::create_field_access_base(     //
             const auto *tuple_type = base_type->as<TupleType>();
             if (field_id >= tuple_type->types.size()) {
                 auto it = base_expr_tokens.second + 1; // 'it' now is the $ symbol
-                THROW_ERR(ErrExprTupleAccessOOB, ERR_PARSING, file_name, it->line, it->column, "$" + std::to_string(field_id), base_type);
+                THROW_ERR(ErrExprTupleAccessOOB, ERR_PARSING, file_hash, it->line, it->column, "$" + std::to_string(field_id), base_type);
                 return std::nullopt;
             }
             const std::shared_ptr<Type> field_type = tuple_type->types.at(field_id);
@@ -1081,10 +1096,10 @@ bool Parser::ensure_castability_multiple(                      //
                     const std::vector<std::shared_ptr<Type>> types(n, to_type);
                     const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(types);
                     const std::shared_ptr<Type> expected_type;
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, group_type, expected_type);
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, group_type, expected_type);
                     return false;
                 }
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens, to_type, expr->type);
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, to_type, expr->type);
                 return false;
             }
             case CastDirection::Kind::CAST_LHS_TO_RHS:

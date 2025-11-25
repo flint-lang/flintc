@@ -28,6 +28,7 @@ set(LSP_SOURCES
     ../src/error/base_error.cpp
     ../src/error/err_expr_call_of_undefined_function.cpp
     ../src/parser/error_node.cpp
+    ../src/parser/namespace.cpp
     ../src/parser/parser.cpp
     ../src/parser/parser_definition.cpp
     ../src/parser/parser_expression.cpp

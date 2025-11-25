@@ -2,7 +2,6 @@
 #include "lexer/lexer.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "parser/parser.hpp"
-#include "resolver/resolver.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -11,13 +10,13 @@
 
 std::string BaseError::to_string() const {
     std::ostringstream oss;
-    if (file.empty()) {
+    if (hash.empty()) {
         oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << "unknown file" << DEFAULT << "\n" << "├┤E0000│\n";
         return oss.str();
     }
     oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN
-        << std::filesystem::relative(Resolver::get_path(file) / file, std::filesystem::current_path()).string() << ":" << line << ":"
-        << column << DEFAULT << "\n";
+        << std::filesystem::relative(hash.path, std::filesystem::current_path()).string() << ":" << line << ":" << column << DEFAULT
+        << "\n";
     if (error_type == ERR_LEXING) {
         // The lines have not been lexed and added to the parser instances yet, so trying to print the lines will cause an exception
         // Instead, we need to do minimal printing, without the file content
@@ -26,7 +25,7 @@ std::string BaseError::to_string() const {
     }
     // Print the lines in which the error happened as a stack, as we will add prior lines to the stack and then print it in reverse
     std::stack<std::string> lines_to_print;
-    std::optional<const Parser *> parser = Parser::get_instance_from_filename(file);
+    std::optional<const Parser *> parser = Parser::get_instance_from_hash(hash);
     assert(parser.has_value());
     const std::vector<std::pair<unsigned int, std::string_view>> &source_code_lines = parser.value()->get_source_code_lines();
     // First, we need to get the indent level of the line the error happened in
@@ -129,14 +128,15 @@ std::string BaseError::to_string() const {
 }
 
 Diagnostic BaseError::to_diagnostic() const {
-    if (file.empty()) {
-        return Diagnostic(std::make_tuple(0, 0, 0), DiagnosticLevel::Error, "NO_MESSAGE", file);
+    if (hash.empty()) {
+        return Diagnostic(std::make_tuple(0, 0, 0), DiagnosticLevel::Error, "NO_MESSAGE", "");
     }
     // We first need to get the correct character. The only character that spans wider is the \t, so we first need to get the indent lvl of
     // the line the error happened in and then substract INDENT_LVL * (TAB_WIDTH - 1) to get the correct character offset
-    int indent_lvl = Parser::get_instance_from_filename(file).value()->get_source_code_lines().at(line - 1).first;
+    const std::string &file_path_string = hash.path.string();
+    int indent_lvl = Parser::get_instance_from_hash(hash).value()->get_source_code_lines().at(line - 1).first;
     int character = column - 1 - (indent_lvl * (Lexer::TAB_SIZE - 1));
-    return Diagnostic(std::make_tuple(line - 1, character, length), DiagnosticLevel::Error, "NO_MESSAGE", file);
+    return Diagnostic(std::make_tuple(line - 1, character, length), DiagnosticLevel::Error, "NO_MESSAGE", file_path_string);
 }
 
 std::string BaseError::trim_right(const std::string &str) {

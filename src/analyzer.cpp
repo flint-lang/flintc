@@ -96,7 +96,12 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
             const auto *node = definition->as<FunctionNode>();
             Context local_ctx = ctx;
             local_ctx.level = node->is_extern ? ContextLevel::EXTERNAL : ContextLevel::INTERNAL;
-            local_ctx.column = node->name.length() + 3;
+            if (node->is_extern) {
+                // 7 characters for 'extern '
+                local_ctx.column += 7;
+            }
+            // 4 characters for 'def ' + name + 1 character for '('
+            local_ctx.column += node->name.length() + 5;
             // Analyze all parameter types
             for (const auto &param : node->parameters) {
                 if (std::get<2>(param)) {
@@ -111,7 +116,7 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
                     case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
                         THROW_ERR(                                                                //
                             ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING,          //
-                            std::get<0>(param), node->file_name, local_ctx.line, local_ctx.column //
+                            std::get<0>(param), node->file_hash, local_ctx.line, local_ctx.column //
                         );
                         return Result::ERR_HANDLED;
                 }
@@ -131,7 +136,7 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
                     case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
                         THROW_ERR(                                                       //
                             ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING, //
-                            ret, node->file_name, local_ctx.line, local_ctx.column       //
+                            ret, node->file_hash, local_ctx.line, local_ctx.column       //
                         );
                         return Result::ERR_HANDLED;
                 }
@@ -209,10 +214,10 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
             const auto *node = statement->as<CallNodeStatement>();
             for (const auto &arg : node->arguments) {
                 Context local_ctx = ctx;
-                if (node->function_name.size() > 3 && node->function_name.substr(0, 3) != "fc_") {
-                    local_ctx.level = ContextLevel::INTERNAL;
-                } else {
+                if (node->function->is_extern) {
                     local_ctx.level = ContextLevel::EXTERNAL;
+                } else {
+                    local_ctx.level = ContextLevel::INTERNAL;
                 }
                 result = analyze_expression(local_ctx, arg.first.get());
                 if (result != Result::OK) {
@@ -487,10 +492,10 @@ Analyzer::Result Analyzer::analyze_expression(const Context &ctx, const Expressi
         case ExpressionNode::Variation::CALL: {
             const auto *node = expression->as<CallNodeExpression>();
             Context local_ctx = ctx;
-            if (node->function_name.size() > 3 && node->function_name.substr(0, 3) != "fc_") {
-                local_ctx.level = ContextLevel::INTERNAL;
-            } else {
+            if (node->function->is_extern) {
                 local_ctx.level = ContextLevel::EXTERNAL;
+            } else {
+                local_ctx.level = ContextLevel::INTERNAL;
             }
             for (const auto &arg : node->arguments) {
                 result = analyze_expression(ctx, arg.first.get());

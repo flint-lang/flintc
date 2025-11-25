@@ -13,20 +13,19 @@
 ///     Because an entity can either be monolithic or modular, there are two possibilities for the entity
 class EntityNode : public DefinitionNode {
   public:
-    EntityNode() = default;
     explicit EntityNode(                                                   //
-        const std::string &file_name,                                      //
+        const Hash &file_hash,                                             //
         const unsigned int line,                                           //
         const unsigned int column,                                         //
         const unsigned int length,                                         //
-        std::string &name,                                                 //
+        const std::string &name,                                           //
         std::vector<std::string> &data_modules,                            //
         std::vector<std::string> &func_modules,                            //
-        std::vector<std::unique_ptr<LinkNode>> link_nodes,                 //
+        std::vector<std::unique_ptr<LinkNode>> &link_nodes,                //
         std::vector<std::pair<std::string, std::string>> &parent_entities, //
         std::vector<std::string> &constructor_order                        //
         ) :
-        DefinitionNode(file_name, line, column, length),
+        DefinitionNode(file_hash, line, column, length),
         name(name),
         data_modules(std::move(data_modules)),
         func_modules(std::move(func_modules)),

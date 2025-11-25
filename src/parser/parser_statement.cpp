@@ -35,16 +35,13 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_statement");
     token_slice tokens_mut = tokens;
-    auto call_node_args = create_call_or_initializer_base(_ctx_, scope, tokens_mut, alias_base);
-    if (!call_node_args.has_value()) {
+    auto ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, alias_base);
+    if (!ret.has_value()) {
         return std::nullopt;
     }
-    assert(!std::get<3>(call_node_args.value()));
+    assert(!ret->is_initializer);
     std::unique_ptr<CallNodeStatement> call_node = std::make_unique<CallNodeStatement>( //
-        std::get<0>(call_node_args.value()),                                            // name
-        std::move(std::get<1>(call_node_args.value())),                                 // args
-        std::get<4>(call_node_args.value()),                                            // can_throw
-        std::get<2>(call_node_args.value())                                             // type
+        ret->function, std::move(ret->args), ret->function->error_types, ret->type      //
     );
     call_node->scope_id = scope->scope_id;
     last_parsed_call = call_node.get();
@@ -70,7 +67,7 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, con
         return std::nullopt;
     }
     if (expr.value()->type->get_variation() != Type::Variation::ERROR_SET) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, expression_tokens, Type::get_primitive_type("anyerror"), expr.value()->type);
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, expression_tokens, Type::get_primitive_type("anyerror"), expr.value()->type);
         return std::nullopt;
     }
     if (expr.value()->get_variation() == ExpressionNode::Variation::VARIABLE) {
@@ -131,13 +128,17 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
     if (expr.value()->type->to_string() != return_type->to_string()) {
         // Check for implicit castability, if not implicitely castable, throw an error
         CastDirection castability = check_castability(return_type, expr.value()->type);
-        if (castability.kind != CastDirection::Kind::CAST_RHS_TO_LHS) {
-            // Its either not implicitely castable or only castable in the direction return_type -> expr_type
-            // but for the return expression to be implicitely castable we need the direction expr_type -> return_type
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
+        switch (castability.kind) {
+            default:
+                // Its either not implicitely castable or only castable in the direction return_type -> expr_type
+                // but for the return expression to be implicitely castable we need the direction expr_type -> return_type
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            case CastDirection::Kind::SAME_TYPE:
+                break;
+            case CastDirection::Kind::CAST_RHS_TO_LHS:
+                expr = std::make_unique<TypeCastNode>(return_type, expr.value());
         }
-        expr = std::make_unique<TypeCastNode>(return_type, expr.value());
     }
     return_expr = std::move(expr.value());
     return ReturnNode(return_expr);
@@ -187,7 +188,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
         return std::nullopt;
     }
     if (condition.value()->type->to_string() != "bool") {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, this_if_pair.first, Type::get_primitive_type("bool"),
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, this_if_pair.first, Type::get_primitive_type("bool"),
             condition.value()->type);
         return std::nullopt;
     }
@@ -208,7 +209,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
             // 'else'
             if (if_chain.size() > 1) {
                 // Dangling else or else if statement after last else statement
-                THROW_ERR(ErrStmtDanglingElse, ERR_PARSING, file_name, if_chain.at(1).first);
+                THROW_ERR(ErrStmtDanglingElse, ERR_PARSING, file_hash, if_chain.at(1).first);
                 return std::nullopt;
             }
             std::shared_ptr<Scope> else_scope_ptr = std::make_shared<Scope>(scope);
@@ -429,12 +430,12 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         const std::string tuple_name = std::get<std::string>(iterators);
         std::vector<std::shared_ptr<Type>> tuple_types = {Type::get_primitive_type("u64"), element_type};
         std::shared_ptr<Type> tuple_type = std::make_shared<TupleType>(tuple_types);
-        if (!Type::add_type(tuple_type)) {
-            tuple_type = Type::get_type_from_str(tuple_type->to_string()).value();
+        if (!file_node_ptr->file_namespace->add_type(tuple_type)) {
+            tuple_type = file_node_ptr->file_namespace->get_type_from_str(tuple_type->to_string()).value();
         }
         if (!definition_scope->add_variable(tuple_name, tuple_type, definition_scope->scope_id, false, true, true)) {
             auto tuple_it = definition_mut.first - 2;
-            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, tuple_it->line, tuple_it->column, tuple_name);
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, tuple_it->line, tuple_it->column, tuple_name);
             return std::nullopt;
         }
     } else {
@@ -446,14 +447,14 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         if (index_name.has_value()) {
             auto index_it = definition_mut.first - 5;
             if (!definition_scope->add_variable(index_name.value(), index_type, definition_scope->scope_id, false, false, true)) {
-                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, index_it->line, index_it->column, index_name.value());
+                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, index_it->line, index_it->column, index_name.value());
                 return std::nullopt;
             }
         }
         if (element_name.has_value()) {
             auto element_it = definition_mut.first - 3;
             if (!definition_scope->add_variable(element_name.value(), element_type, definition_scope->scope_id, true, false, true)) {
-                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, element_it->line, element_it->column, element_name.value());
+                THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, element_it->line, element_it->column, element_name.value());
                 return std::nullopt;
             }
         }
@@ -1124,6 +1125,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
 
         CastDirection cast_dir = check_primitive_castability(common_type, branch.expr->type);
         switch (cast_dir.kind) {
+            case CastDirection::Kind::NOT_CASTABLE:
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            case CastDirection::Kind::SAME_TYPE:
+                continue;
             case CastDirection::Kind::CAST_LHS_TO_RHS:
                 // Common type casts to branch type - branch type is "wider"
                 common_type = branch.expr->type;
@@ -1136,10 +1142,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
                 // Both cast to a third type (e.g., i32 + float → f32)
                 common_type = cast_dir.common_type;
                 break;
-            case CastDirection::Kind::NOT_CASTABLE:
-                // Not castable
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
         }
     }
     // Cast all branch expressions to the common type, only if the expression's type differs from the common type
@@ -1182,7 +1184,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     assert(catch_id.has_value());
     // A call is three tokens minimum: identifier(), so everything smaller than that means the catch stands alone
     if (catch_id.value() < definition.first + 3) {
-        THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_name, definition);
+        THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_hash, definition);
         return std::nullopt;
     }
 
@@ -1194,7 +1196,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     statements.emplace_back(std::move(lhs.value()));
     // Get the last parsed call and set the 'has_catch' property of the call node
     if (!last_parsed_call.has_value()) {
-        THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_name, definition);
+        THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_hash, definition);
         return std::nullopt;
     }
     CallNodeBase *catch_base_call = last_parsed_call.value();
@@ -1218,13 +1220,13 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         } else {
             const std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> var_or_list = error_types;
             err_variable_type = std::make_shared<VariantType>(var_or_list, true);
-            if (!Type::add_type(err_variable_type)) {
-                err_variable_type = Type::get_type_from_str(err_variable_type->to_string()).value();
+            if (!file_node_ptr->file_namespace->add_type(err_variable_type)) {
+                err_variable_type = file_node_ptr->file_namespace->get_type_from_str(err_variable_type->to_string()).value();
             }
         }
         if (!body_scope->add_variable(err_var.value(), err_variable_type, body_scope->scope_id, false, false)) {
             THROW_ERR(                                                                                                                //
-                ErrVarRedefinition, ERR_PARSING, file_name, right_of_catch.first->line, right_of_catch.first->column, err_var.value() //
+                ErrVarRedefinition, ERR_PARSING, file_hash, right_of_catch.first->line, right_of_catch.first->column, err_var.value() //
             );
         }
         auto body_statements = create_body(body_scope, body);
@@ -1243,8 +1245,8 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         std::vector<ESwitchBranch> e_branches;
         const std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> &var_or_list = catch_base_call->error_types;
         std::shared_ptr<Type> switcher_type = std::make_shared<VariantType>(var_or_list, true);
-        if (!Type::add_type(switcher_type)) {
-            switcher_type = Type::get_type_from_str(switcher_type->to_string()).value();
+        if (!file_node_ptr->file_namespace->add_type(switcher_type)) {
+            switcher_type = file_node_ptr->file_namespace->get_type_from_str(switcher_type->to_string()).value();
         }
         if (!body_scope->add_variable("__flint_value_err", switcher_type, body_scope->scope_id, false, false)) {
             assert(false);
@@ -1288,11 +1290,11 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
         const std::string it_lexme(it->lexme);
         // This element is the assignee
         if (scope->variables.find(it_lexme) == scope->variables.end()) {
-            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it_lexme);
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
             return std::nullopt;
         }
         if (!std::get<2>(scope->variables.at(it_lexme))) {
-            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it_lexme);
+            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
             return std::nullopt;
         }
         const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it_lexme));
@@ -1350,11 +1352,11 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
         const std::string it_lexme(it->lexme);
         // This element is the assignee
         if (scope->variables.find(it_lexme) == scope->variables.end()) {
-            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it_lexme);
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
             return std::nullopt;
         }
         if (!std::get<2>(scope->variables.at(it_lexme))) {
-            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it_lexme);
+            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
             return std::nullopt;
         }
         const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it_lexme));
@@ -1404,7 +1406,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
     for (const auto &[type, name] : assignees) {
         lhs_expressions.emplace_back(std::make_unique<VariableNode>(name, type));
     }
-    std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(lhs_expressions);
+    std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(file_hash, lhs_expressions);
 
     // The "real" expression of the assignment is a binop between the lhs and the "real" expression
     expr = std::make_unique<BinaryOpNode>( //
@@ -1430,11 +1432,11 @@ std::optional<AssignmentNode> Parser::create_assignment( //
             const std::string it_lexme(it->lexme);
             if (std::next(it)->token == TOK_EQUAL && ((it + 2) != tokens.second || rhs.has_value())) {
                 if (scope->variables.find(it_lexme) == scope->variables.end()) {
-                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it_lexme);
+                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
                 if (!std::get<2>(scope->variables.at(it_lexme))) {
-                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it_lexme);
+                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
                 std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it_lexme));
@@ -1472,11 +1474,11 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
             const std::string it_lexme(it->lexme);
             if (Matcher::token_match((it + 1)->token, Matcher::assignment_shorthand_operator) && (it + 2) != tokens.second) {
                 if (scope->variables.find(it_lexme) == scope->variables.end()) {
-                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_name, it->line, it->column, it_lexme);
+                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
                 if (!std::get<2>(scope->variables.at(it_lexme))) {
-                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, it->line, it->column, it_lexme);
+                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
                 std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it_lexme));
@@ -1585,7 +1587,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                 variables.at(i).first = types.at(i);
                 if (!scope->add_variable(variables.at(i).second, types.at(i), scope->scope_id, true, false)) {
                     // Variable shadowing
-                    THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column,
+                    THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, lhs_tokens.first->line, lhs_tokens.first->column,
                         variables.at(i).second);
                     return std::nullopt;
                 }
@@ -1597,9 +1599,9 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = multi_type->base_type;
                 if (!scope->add_variable(variables.at(i).second, multi_type->base_type, scope->scope_id, true, false)) {
-                    THROW_ERR( //
-                        ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column,
-                        variables.at(i).second //
+                    THROW_ERR(                                                                   //
+                        ErrVarRedefinition, ERR_PARSING, file_hash,                              //
+                        lhs_tokens.first->line, lhs_tokens.first->column, variables.at(i).second //
                     );
                     return std::nullopt;
                 }
@@ -1612,14 +1614,16 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                 group_type_str += multi_type->base_type->to_string();
             }
             group_type_str += ")";
-            std::optional<std::shared_ptr<Type>> expr_group_type = Type::get_type_from_str(group_type_str);
+            std::optional<std::shared_ptr<Type>> expr_group_type = file_node_ptr->file_namespace->get_type_from_str(group_type_str);
             if (!expr_group_type.has_value()) {
                 std::vector<std::shared_ptr<Type>> group_types;
                 for (unsigned int i = 0; i < multi_type->width; i++) {
                     group_types.emplace_back(multi_type->base_type);
                 }
                 expr_group_type = std::make_shared<GroupType>(group_types);
-                Type::add_type(expr_group_type.value());
+                if (!file_node_ptr->file_namespace->add_type(expr_group_type.value())) {
+                    expr_group_type = file_node_ptr->file_namespace->get_type_from_str(expr_group_type.value()->to_string()).value();
+                }
             }
             expression = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
             return GroupDeclarationNode(variables, expression.value());
@@ -1633,9 +1637,9 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = tuple_type->types[i];
                 if (!scope->add_variable(variables.at(i).second, tuple_type->types[i], scope->scope_id, true, false)) {
-                    THROW_ERR( //
-                        ErrVarRedefinition, ERR_PARSING, file_name, lhs_tokens.first->line, lhs_tokens.first->column,
-                        variables.at(i).second //
+                    THROW_ERR(                                                                   //
+                        ErrVarRedefinition, ERR_PARSING, file_hash,                              //
+                        lhs_tokens.first->line, lhs_tokens.first->column, variables.at(i).second //
                     );
                     return std::nullopt;
                 }
@@ -1648,14 +1652,16 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                 group_type_str += tuple_type->types[i]->to_string();
             }
             group_type_str += ")";
-            std::optional<std::shared_ptr<Type>> expr_group_type = Type::get_type_from_str(group_type_str);
+            std::optional<std::shared_ptr<Type>> expr_group_type = file_node_ptr->file_namespace->get_type_from_str(group_type_str);
             if (!expr_group_type.has_value()) {
                 std::vector<std::shared_ptr<Type>> group_types;
                 for (unsigned int i = 0; i < tuple_type->types.size(); i++) {
                     group_types.emplace_back(tuple_type->types[i]);
                 }
                 expr_group_type = std::make_shared<GroupType>(group_types);
-                Type::add_type(expr_group_type.value());
+                if (!file_node_ptr->file_namespace->add_type(expr_group_type.value())) {
+                    expr_group_type = file_node_ptr->file_namespace->get_type_from_str(expr_group_type.value()->to_string()).value();
+                }
             }
             expression = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
             return GroupDeclarationNode(variables, expression.value());
@@ -1707,7 +1713,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         assert(declared_type != nullptr);
         std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
         if (!scope->add_variable(name, declared_type, scope->scope_id, is_mutable, false)) {
-            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column,
+            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column,
                 name);
             return std::nullopt;
         }
@@ -1752,32 +1758,34 @@ std::optional<DeclarationNode> Parser::create_declaration( //
 
         if (rhs.value()->type != final_type) {
             CastDirection cast_dir = check_castability(final_type, rhs.value()->type);
-            switch (cast_dir.kind) {
-                default:
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_name, tokens_mut, final_type, rhs.value()->type);
-                    return std::nullopt;
-                case CastDirection::Kind::CAST_BIDIRECTIONAL:
-                case CastDirection::Kind::CAST_RHS_TO_LHS:
-                    break;
-            }
-            const std::string expr_type_str = rhs.value()->type->to_string();
-            const bool is_literal = expr_type_str == "int" || expr_type_str == "float";
-            const auto variation = final_type->get_variation();
-            const bool is_opt = variation == Type::Variation::OPTIONAL;
-            const bool is_var = variation == Type::Variation::VARIANT;
-            if (is_literal) {
-                // Literal: just update type
-                assert(!is_var);
-                if (is_opt) {
-                    const auto *opt_type = final_type->as<OptionalType>();
-                    rhs.value()->type = opt_type->base_type;
-                } else {
-                    rhs.value()->type = final_type;
+            if (cast_dir.kind != CastDirection::Kind::SAME_TYPE) {
+                switch (cast_dir.kind) {
+                    default:
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, final_type, rhs.value()->type);
+                        return std::nullopt;
+                    case CastDirection::Kind::CAST_BIDIRECTIONAL:
+                    case CastDirection::Kind::CAST_RHS_TO_LHS:
+                        break;
                 }
-            }
-            if (!is_literal || is_opt || is_var) {
-                // Non-literal or target is an optional: insert cast node
-                rhs = std::make_unique<TypeCastNode>(final_type, rhs.value());
+                const std::string expr_type_str = rhs.value()->type->to_string();
+                const bool is_literal = expr_type_str == "int" || expr_type_str == "float";
+                const auto variation = final_type->get_variation();
+                const bool is_opt = variation == Type::Variation::OPTIONAL;
+                const bool is_var = variation == Type::Variation::VARIANT;
+                if (is_literal) {
+                    // Literal: just update type
+                    assert(!is_var);
+                    if (is_opt) {
+                        const auto *opt_type = final_type->as<OptionalType>();
+                        rhs.value()->type = opt_type->base_type;
+                    } else {
+                        rhs.value()->type = final_type;
+                    }
+                }
+                if (!is_literal || is_opt || is_var) {
+                    // Non-literal or target is an optional: insert cast node
+                    rhs = std::make_unique<TypeCastNode>(final_type, rhs.value());
+                }
             }
         }
     }
@@ -1802,7 +1810,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
 
     // Add variable to scope
     if (!scope->add_variable(name, final_type, scope->scope_id, is_mutable, false)) {
-        THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_name, is_inferred ? lhs_tokens.first->line : std::next(lhs_tokens.first)->line,
+        THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, is_inferred ? lhs_tokens.first->line : std::next(lhs_tokens.first)->line,
             is_inferred ? lhs_tokens.first->column : std::next(lhs_tokens.first)->column, name);
         return std::nullopt;
     }
@@ -1867,24 +1875,28 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
     const auto *var_node = base_expr->as<VariableNode>();
     const std::string &var_name = var_node->name;
     if (!std::get<2>(scope->variables.at(var_name))) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_name);
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_name);
         return std::nullopt;
     }
 
     const auto &field_type = std::get<3>(field_access_base.value());
     if (field_type != expression.value()->type) {
         const CastDirection castability = check_castability(field_type, expression.value()->type);
-        if (castability.kind != CastDirection::Kind::CAST_RHS_TO_LHS) {
-            // Expression not castable to the field's type
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        const std::string type_str = expression.value()->type->to_string();
-        if (type_str == "int" || type_str == "float") {
-            PROFILE_CUMULATIVE("Parser::create_grouped_data_field_assignment");
-            expression.value()->type = field_type;
-        } else {
-            expression = std::make_unique<TypeCastNode>(field_type, expression.value());
+        switch (castability.kind) {
+            default:
+                // Expression not castable to the field's type
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            case CastDirection::Kind::SAME_TYPE:
+                break;
+            case CastDirection::Kind::CAST_RHS_TO_LHS:
+                const std::string type_str = expression.value()->type->to_string();
+                if (type_str == "int" || type_str == "float") {
+                    PROFILE_CUMULATIVE("Parser::create_grouped_data_field_assignment");
+                    expression.value()->type = field_type;
+                } else {
+                    expression = std::make_unique<TypeCastNode>(field_type, expression.value());
+                }
         }
     }
 
@@ -1938,7 +1950,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         return std::nullopt;
     }
     if (!std::get<2>(scope->variables.at(var_node->name))) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_node->name);
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_node->name);
         return std::nullopt;
     }
 
@@ -2010,13 +2022,14 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
 
     // Check if the data variable we try to mutate is marked as immutable
     if (!std::get<2>(scope->variables.at(var_node->name))) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, var_node->name);
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_node->name);
         return std::nullopt;
     }
 
     // Create the lhs of the binary op of the right side, which is the grouped data field access
     const std::shared_ptr<Type> &base_expr_type = std::get<0>(grouped_field_access_base.value())->type;
     std::unique_ptr<ExpressionNode> binop_lhs = std::make_unique<GroupedDataAccessNode>( //
+        file_hash,                                                                       //
         std::get<0>(grouped_field_access_base.value()),                                  // base_expr
         std::get<1>(grouped_field_access_base.value()),                                  // field_names
         std::get<2>(grouped_field_access_base.value()),                                  // field_ids
@@ -2391,7 +2404,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         assert(tokens_mut.first->token == TOK_IDENTIFIER && std::next(tokens_mut.first)->token == TOK_DOT);
         const std::string alias_base(tokens_mut.first->lexme);
         if (aliases.find(alias_base) == aliases.end()) {
-            THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_name, tokens.first->line, tokens.first->column, alias_base);
+            THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, alias_base);
             return std::nullopt;
         }
         tokens_mut.first += 2;
@@ -2418,7 +2431,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     if (!statement_node.has_value()) {
         return std::nullopt;
     }
-    statement_node.value()->file_name = file_name;
+    statement_node.value()->file_hash = file_hash;
     statement_node.value()->line = tokens.first->line;
     statement_node.value()->line = tokens.first->column;
     statement_node.value()->length = tokens.second->column - tokens.first->column;
@@ -2461,7 +2474,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         }
         if (line_it == scoped_body_begin) {
             // No body found after scoped statement definition line, so we go back to the definition's line
-            THROW_ERR(ErrMissingBody, ERR_PARSING, file_name, (line_it - 1)->tokens);
+            THROW_ERR(ErrMissingBody, ERR_PARSING, file_hash, (line_it - 1)->tokens);
             return std::nullopt;
         }
         std::vector<Line> scoped_body(scoped_body_begin, line_it);
@@ -2479,7 +2492,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     ) {
         if (Matcher::tokens_contain(definition, Matcher::token(TOK_ELSE))) {
             // else or else if at top of if chain
-            THROW_ERR(ErrStmtIfChainMissingIf, ERR_PARSING, file_name, definition);
+            THROW_ERR(ErrStmtIfChainMissingIf, ERR_PARSING, file_hash, definition);
             return std::nullopt;
         }
         std::vector<std::pair<token_slice, std::vector<Line>>> if_chain;

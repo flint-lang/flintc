@@ -8,13 +8,13 @@ class ErrParsUnexpectedToken : public BaseError {
   public:
     ErrParsUnexpectedToken(                 //
         const ErrorType error_type,         //
-        const std::string &file,            //
+        const Hash &file_hash,              //
         const unsigned int line,            //
         const unsigned int column,          //
         const std::vector<Token> &expected, //
         const Token &but_got                //
         ) :
-        BaseError(error_type, file, line, column, get_token_name(but_got).size()),
+        BaseError(error_type, file_hash, line, column, get_token_name(but_got).size()),
         expected(expected),
         but_got(but_got) {}
 

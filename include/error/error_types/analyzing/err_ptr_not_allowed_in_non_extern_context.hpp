@@ -6,7 +6,7 @@
 class ErrPtrNotAllowedInNonExternContext : public BaseError {
   public:
     ErrPtrNotAllowedInNonExternContext(const ErrorType error_type, const ExpressionNode *expr) :
-        BaseError(error_type, expr->file_name, expr->line, expr->column, expr->length) {}
+        BaseError(error_type, expr->file_hash, expr->line, expr->column, expr->length) {}
 
     [[nodiscard]]
     std::string to_string() const override {

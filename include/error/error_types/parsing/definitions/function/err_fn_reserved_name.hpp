@@ -8,11 +8,11 @@ class ErrFnReservedName : public BaseError {
   public:
     ErrFnReservedName(              //
         const ErrorType error_type, //
-        const std::string &file,    //
+        const Hash &file_hash,      //
         const token_slice &tokens,  //
         const std::string &name     //
         ) :
-        BaseError(error_type, file, tokens.first->line, tokens.first->column, name.size()),
+        BaseError(error_type, file_hash, tokens.first->line, tokens.first->column, name.size()),
         name(name) {}
 
     [[nodiscard]]

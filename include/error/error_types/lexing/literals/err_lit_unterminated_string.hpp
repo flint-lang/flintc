@@ -4,8 +4,13 @@
 
 class ErrLitUnterminatedString : public BaseError {
   public:
-    ErrLitUnterminatedString(const ErrorType error_type, const std::string &file, int line, int column) :
-        BaseError(error_type, file, line, column) {}
+    ErrLitUnterminatedString(       //
+        const ErrorType error_type, //
+        const Hash &file_hash,      //
+        const int line,             //
+        const int column            //
+        ) :
+        BaseError(error_type, file_hash, line, column) {}
 
     [[nodiscard]]
     std::string to_string() const override {

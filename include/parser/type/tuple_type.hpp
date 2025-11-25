@@ -2,6 +2,8 @@
 
 #include "parser/type/type.hpp"
 
+#include <vector>
+
 /// @class `TupleType`
 /// @brief Represents tuple types
 class TupleType : public Type {
@@ -11,6 +13,22 @@ class TupleType : public Type {
 
     Variation get_variation() const override {
         return Variation::TUPLE;
+    }
+
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::TUPLE) {
+            return false;
+        }
+        const TupleType *const other_type = other->as<TupleType>();
+        if (types.size() != other_type->types.size()) {
+            return false;
+        }
+        for (size_t i = 0; i < types.size(); i++) {
+            if (!types.at(i)->equals(other_type->types.at(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     std::string to_string() const override {

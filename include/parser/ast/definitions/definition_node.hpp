@@ -9,15 +9,16 @@
 class DefinitionNode : public ASTNode {
   protected:
     // constructor
-    DefinitionNode(                   //
-        const std::string &file_name, //
-        const unsigned int line,      //
-        const unsigned int column,    //
-        const unsigned int length     //
+    DefinitionNode(                //
+        const Hash &file_hash,     //
+        const unsigned int line,   //
+        const unsigned int column, //
+        const unsigned int length  //
         ) :
-        ASTNode(file_name, line, column, length) {}
-    DefinitionNode() :
-        ASTNode("NOFILE", 0, 0, 0) {}
+        ASTNode(file_hash, line, column, length) {}
+
+    // DefinitionNode() :
+    // ASTNode(Hash(std::string("")), 0, 0, 0) {}
 
   public:
     // destructor

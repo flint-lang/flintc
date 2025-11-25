@@ -13,6 +13,14 @@ class RangeType : public Type {
         return Variation::RANGE;
     }
 
+    bool equals(const std::shared_ptr<Type> &other) const override {
+        if (other->get_variation() != Variation::RANGE) {
+            return false;
+        }
+        const RangeType *const other_type = other->as<RangeType>();
+        return bound_type->equals(other_type->bound_type);
+    }
+
     std::string to_string() const override {
         return "range<" + bound_type->to_string() + ">";
     }

@@ -2,6 +2,7 @@
 
 #include "expression_node.hpp"
 #include "parser/type/group_type.hpp"
+#include "resolver/resolver.hpp"
 
 #include <memory>
 #include <vector>
@@ -10,19 +11,21 @@
 /// @brief Represents group expression values
 class GroupExpressionNode : public ExpressionNode {
   public:
-    explicit GroupExpressionNode(std::vector<std::unique_ptr<ExpressionNode>> &expressions) :
+    explicit GroupExpressionNode(const Hash &hash, std::vector<std::unique_ptr<ExpressionNode>> &expressions) :
+        ExpressionNode(hash),
         expressions(std::move(expressions)) {
         std::vector<std::shared_ptr<Type>> types;
         for (auto it = this->expressions.begin(); it != this->expressions.end(); ++it) {
             types.emplace_back((*it)->type);
         }
         std::shared_ptr<Type> group_type = std::make_shared<GroupType>(types);
-        if (Type::add_type(group_type)) {
+        Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
+        if (file_namespace->add_type(group_type)) {
             this->type = group_type;
         } else {
             // The type was already present, so we set the type of the group expression to the already present type to minimize type
             // duplication
-            this->type = Type::get_type_from_str(group_type->to_string()).value();
+            this->type = file_namespace->get_type_from_str(group_type->to_string()).value();
         }
     }
 

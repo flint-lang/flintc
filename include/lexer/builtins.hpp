@@ -9,10 +9,14 @@
 /// @brief A simple alias for a vector of string views
 using string_list = std::vector<std::string_view>;
 
+/// @typedef `string_pair_list`
+/// @brief A simple list of string pairs
+using string_pair_list = std::vector<std::pair<std::string_view, std::string_view>>;
+
 /// @typedef `overloads`
 /// @brief This type is used for all overloads of a function, it contains the argument and return types of a function and a list of all the
 /// error sets the function could throw
-using overloads = std::vector<std::tuple<string_list, string_list, string_list>>;
+using overloads = std::vector<std::tuple<string_pair_list, string_list, string_list>>;
 
 /// @typedef `function_overload_list`
 /// @brief A function list is a list of functions together with its signature overloads
@@ -20,21 +24,21 @@ using function_overload_list = std::unordered_map<std::string_view, overloads>;
 
 /// @var `core_module_functions`
 /// @brief A map containing all core modules and maps the module to its functions
-static inline std::map<std::string_view, function_overload_list> core_module_functions = {
+static const inline std::map<std::string_view, function_overload_list> core_module_functions = {
     {"print", // The 'print' module
         {
             {"print", // The 'print' function
                 {
-                    {{"i32"}, {"void"}, {}},                  // The 'i32' argument overload of the 'print' function
-                    {{"i64"}, {"void"}, {}},                  // The 'i64' argument overload of the 'print' function
-                    {{"u32"}, {"void"}, {}},                  // The 'u32' argument overload of the 'print' function
-                    {{"u64"}, {"void"}, {}},                  // The 'u64' argument overload of the 'print' function
-                    {{"f32"}, {"void"}, {}},                  // The 'f32' argument overload of the 'print' function
-                    {{"f64"}, {"void"}, {}},                  // The 'f64' argument overload of the 'print' function
-                    {{"u8"}, {"void"}, {}},                   // The 'u8' argument overload of the 'print' function
-                    {{"str"}, {"void"}, {}},                  // The 'str' argument overload of the 'print' function
-                    {{"__flint_type_str_lit"}, {"void"}, {}}, // The 'str' literal argument overload of the 'print' function
-                    {{"bool"}, {"void"}, {}},                 // The 'bool' argument overload of the 'print' function
+                    {{{"i32", "value"}}, {"void"}, {}},                  // The 'i32' argument overload of the 'print' function
+                    {{{"i64", "value"}}, {"void"}, {}},                  // The 'i64' argument overload of the 'print' function
+                    {{{"u32", "value"}}, {"void"}, {}},                  // The 'u32' argument overload of the 'print' function
+                    {{{"u64", "value"}}, {"void"}, {}},                  // The 'u64' argument overload of the 'print' function
+                    {{{"f32", "value"}}, {"void"}, {}},                  // The 'f32' argument overload of the 'print' function
+                    {{{"f64", "value"}}, {"void"}, {}},                  // The 'f64' argument overload of the 'print' function
+                    {{{"u8", "value"}}, {"void"}, {}},                   // The 'u8' argument overload of the 'print' function
+                    {{{"str", "value"}}, {"void"}, {}},                  // The 'str' argument overload of the 'print' function
+                    {{{"__flint_type_str_lit", "value"}}, {"void"}, {}}, // The 'str' literal argument overload of the 'print' function
+                    {{{"bool", "value"}}, {"void"}, {}},                 // The 'bool' argument overload of the 'print' function
                 }},
         }},  // End of the 'print' module
     {"read", // The 'read' module
@@ -72,97 +76,122 @@ static inline std::map<std::string_view, function_overload_list> core_module_fun
         {
             {"assert", // The 'assert' function
                 {
-                    {{"bool"}, {"void"}, {"ErrAssert"}}, // The single version of the 'assert' function
+                    {{{"bool", "condition"}}, {"void"}, {"ErrAssert"}}, // The single version of the 'assert' function
                 }},
         }},        // End of the 'assert' module
     {"filesystem", // The 'filesystem' module
         {
             {"read_file", // The 'read_file' function
                 {
-                    {{"str"}, {"str"}, {"ErrIO"}}, // The single version of the 'read_file' function
+                    {{{"str", "path"}}, {"str"}, {"ErrIO"}}, // The single version of the 'read_file' function
                 }},
             {"read_lines", // The 'read_lines' function
                 {
-                    {{"str"}, {"str[]"}, {"ErrFS"}}, // The single version of the 'read_lines' function
+                    {{{"str", "path"}}, {"str[]"}, {"ErrFS"}}, // The single version of the 'read_lines' function
                 }},
             {"file_exists", // The 'file_exists' function
                 {
-                    {{"str"}, {"bool"}, {}}, // The single version of the 'file_exists' function
+                    {{{"str", "path"}}, {"bool"}, {}}, // The single version of the 'file_exists' function
                 }},
             {"write_file", // The 'write_file' function
                 {
-                    {{"str", "str"}, {"void"}, {"ErrFS"}}, // The single version of the 'write_file' function
+                    {{{"str", "path"}, {"str", "value"}}, {"void"}, {"ErrFS"}}, // The single version of the 'write_file' function
                 }},
             {"append_file", // The 'append_file' function
                 {
-                    {{"str", "str"}, {"void"}, {"ErrFS"}}, // The single version of the 'append_file' function
+                    {{{"str", "path"}, {"str", "content"}}, {"void"}, {"ErrFS"}}, // The single version of the 'append_file' function
                 }},
             {"is_file", // The 'is_file' function
                 {
-                    {{"str"}, {"bool"}, {}}, // The single version of the 'is_file' function
+                    {{{"str", "path"}}, {"bool"}, {}}, // The single version of the 'is_file' function
                 }},
         }}, // End of the 'filesystem' module
     {"env", // The 'env' module
         {
             {"get_env", // The 'get_env' function
                 {
-                    {{"str"}, {"str"}, {"ErrEnv"}}, // The single version of the 'get_env' function
+                    {{{"str", "env_name"}}, {"str"}, {"ErrEnv"}}, // The single version of the 'get_env' function
                 }},
             {"set_env", // The 'set_env' function
                 {
-                    {{"str", "str", "bool"}, {"bool"}, {"ErrEnv"}}, // The single version of the 'set_env' function
+                    {{{"str", "env_name"}, {"str", "value"}, {"bool", "override"}}, {"bool"},
+                        {"ErrEnv"}}, // The single version of the 'set_env' function
                 }},
         }},    // End of the 'env' module
     {"system", // The 'system' module
         {
             {"system_command", // The 'system_command' function
                 {
-                    {{"str"}, {"i32", "str"}, {"ErrSystem"}}, // The single version of the 'system' function
+                    {{{"str", "command"}}, {"i32", "str"}, {"ErrSystem"}}, // The single version of the 'system' function
                 }},
         }},  // End of the 'system' module
     {"math", // The 'math' module
         {
             {"sin", // The 'sin' function
                 {
-                    {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'sin' function
-                    {{"f64"}, {"f64"}, {}}, // The 'f64' overload of the 'sin' function
+                    {{{"f32", "value"}}, {"f32"}, {}}, // The 'f32' overload of the 'sin' function
+                    {{{"f64", "value"}}, {"f64"}, {}}, // The 'f64' overload of the 'sin' function
                 }},
             {"cos", // The 'cos' function
                 {
-                    {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'cos' function
-                    {{"f64"}, {"f64"}, {}}, // The 'f64' overload of the 'cos' function
+                    {{{"f32", "value"}}, {"f32"}, {}}, // The 'f32' overload of the 'cos' function
+                    {{{"f64", "value"}}, {"f64"}, {}}, // The 'f64' overload of the 'cos' function
                 }},
             {"sqrt", // The 'sqrt' function
                 {
-                    {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'cos' function
-                    {{"f64"}, {"f64"}, {}}, // The 'f64' overload of the 'cos' function
+                    {{{"f32", "value"}}, {"f32"}, {}}, // The 'f32' overload of the 'cos' function
+                    {{{"f64", "value"}}, {"f64"}, {}}, // The 'f64' overload of the 'cos' function
                 }},
             {"abs", // The 'abs' function
                 {
-                    {{"i32"}, {"i32"}, {}}, // The 'i32' overload of the 'abs' function
-                    {{"i64"}, {"i64"}, {}}, // The 'i64' overload of the 'abs' function
-                    {{"f32"}, {"f32"}, {}}, // The 'f32' overload of the 'abs' function
-                    {{"f64"}, {"i64"}, {}}, // The 'f64' overload of the 'abs' function
+                    {{{"i32", "value"}}, {"i32"}, {}}, // The 'i32' overload of the 'abs' function
+                    {{{"i64", "value"}}, {"i64"}, {}}, // The 'i64' overload of the 'abs' function
+                    {{{"f32", "value"}}, {"f32"}, {}}, // The 'f32' overload of the 'abs' function
+                    {{{"f64", "value"}}, {"i64"}, {}}, // The 'f64' overload of the 'abs' function
                 }},
             {"min", // The 'min' function
                 {
-                    {{"u32", "u32"}, {"u32"}, {}}, // The 'u32' overload of the 'min' function
-                    {{"i32", "i32"}, {"i32"}, {}}, // The 'i32' overload of the 'min' function
-                    {{"f32", "f32"}, {"f32"}, {}}, // The 'f32' overload of the 'min' function
-                    {{"u64", "u64"}, {"u64"}, {}}, // The 'u64' overload of the 'min' function
-                    {{"i64", "i64"}, {"i64"}, {}}, // The 'i64' overload of the 'min' function
-                    {{"f64", "f64"}, {"f64"}, {}}, // The 'f64' overload of the 'min' function
+                    {{{"u32", "value1"}, {"u32", "value2"}}, {"u32"}, {}}, // The 'u32' overload of the 'min' function
+                    {{{"i32", "value1"}, {"i32", "value2"}}, {"i32"}, {}}, // The 'i32' overload of the 'min' function
+                    {{{"f32", "value1"}, {"f32", "value2"}}, {"f32"}, {}}, // The 'f32' overload of the 'min' function
+                    {{{"u64", "value1"}, {"u64", "value2"}}, {"u64"}, {}}, // The 'u64' overload of the 'min' function
+                    {{{"i64", "value1"}, {"i64", "value2"}}, {"i64"}, {}}, // The 'i64' overload of the 'min' function
+                    {{{"f64", "value1"}, {"f64", "value2"}}, {"f64"}, {}}, // The 'f64' overload of the 'min' function
                 }},
             {"max", // The 'max' function
                 {
-                    {{"u32", "u32"}, {"u32"}, {}}, // The 'u32' overload of the 'max' function
-                    {{"i32", "i32"}, {"i32"}, {}}, // The 'i32' overload of the 'max' function
-                    {{"f32", "f32"}, {"f32"}, {}}, // The 'f32' overload of the 'max' function
-                    {{"u64", "u64"}, {"u64"}, {}}, // The 'u64' overload of the 'max' function
-                    {{"i64", "i64"}, {"i64"}, {}}, // The 'i64' overload of the 'max' function
-                    {{"f64", "f64"}, {"f64"}, {}}, // The 'f64' overload of the 'max' function
+                    {{{"u32", "value1"}, {"u32", "value2"}}, {"u32"}, {}}, // The 'u32' overload of the 'max' function
+                    {{{"i32", "value1"}, {"i32", "value2"}}, {"i32"}, {}}, // The 'i32' overload of the 'max' function
+                    {{{"f32", "value1"}, {"f32", "value2"}}, {"f32"}, {}}, // The 'f32' overload of the 'max' function
+                    {{{"u64", "value1"}, {"u64", "value2"}}, {"u64"}, {}}, // The 'u64' overload of the 'max' function
+                    {{{"i64", "value1"}, {"i64", "value2"}}, {"i64"}, {}}, // The 'i64' overload of the 'max' function
+                    {{{"f64", "value1"}, {"f64", "value2"}}, {"f64"}, {}}, // The 'f64' overload of the 'max' function
                 }},
-        }}, // End of the 'math' module
+        }},  // End of the 'math' module
+    {"time", // The 'time' module
+        {
+            {"now", // The 'now' function
+                {
+                    {{}, {"TimeStamp"}, {}}, // The single version of the 'now' function
+                }},
+            {"duration", // The 'duration' function
+                {
+                    {{{"TimeStamp", "from"}, {"TimeStamp", "to"}}, {"Duration"}, {}}, // The single version of the 'duration' function
+                }},
+            {"as", // The 'as' function
+                {
+                    {{{"Duration", "duration"}, {"TimeUnit", "unit"}}, {"f64"}, {}}, // The single version of the 'as' function
+                }},
+            {"sleep", // The 'sleep' function
+                {
+                    {{{"Duration", "duration"}}, {}, {}},               // The first version of the 'sleep' function
+                    {{{"u64", "value"}, {"TimeUnit", "unit"}}, {}, {}}, // The second version of the 'sleep' function
+                }},
+            {"from", // The 'from' function
+                {
+                    {{{"u64", "value"}, {"TimeUnit", "unit"}}, {"Duration"}, {}}, // The single version of the 'from' function
+                }},
+        }} // End of the 'time' module
 };
 
 /// @typedef `error_value`
@@ -178,7 +207,7 @@ using error_set = std::tuple<std::string_view, std::string_view, std::vector<err
 
 /// @var `core_module_error_sets`
 /// @brief A map containing all core modules and maps the module to all the error sets it provides
-static inline std::unordered_map<std::string_view, std::vector<error_set>> core_module_error_sets = {
+static const inline std::unordered_map<std::string_view, std::vector<error_set>> core_module_error_sets = {
     {
         "assert",                  // The 'assert' module
         {{"ErrAssert", "anyerror", // The 'ErrAssert' error set, Value 0 is `anyerror`
@@ -230,6 +259,46 @@ static inline std::unordered_map<std::string_view, std::vector<error_set>> core_
                 {"SpawnFailed", "Process could not be created"}, // Value 0
             }}},
     }, // End of the 'system' module
+};
+
+/// @typedef `enum_type`
+/// @brief The type representation of an enum:
+///     The name of the enum type
+///     All values the enum could have
+using enum_type = std::pair<std::string_view, std::vector<std::string_view>>;
+
+/// @var `core_module_enum_types`
+/// @brief A map containing all core modules and maps each module to all enum types it provides
+static const inline std::unordered_map<std::string_view, std::vector<enum_type>> core_module_enum_types = {
+    {
+        "time", // The 'time' module
+        {
+            {"TimeUnit", {"NS", "US", "MS", "S"}}, // The 'TimeUnit' enum type
+        },
+    }, // End of the 'time' module
+};
+
+/// @typedef `data_field`
+/// @brief The field representation of a data field, being `type` and `name` of the fields
+using data_field = std::pair<std::string_view, std::string_view>;
+
+/// @typedef `data_type`
+/// @brief The type representation of data:
+///     The name of the data type
+///     A list of fields
+///     A list of the field's positions in the constructor of the data type, e.g. in which order to construct the fields
+using data_type = std::tuple<std::string_view, std::vector<data_field>, std::vector<size_t>>;
+
+/// @var `core_module_data_types`
+/// @brief A map containning all core modules and maps each module to all data types it provides
+static const inline std::unordered_map<std::string_view, std::vector<data_type>> core_module_data_types = {
+    {
+        "time", // The 'time' module
+        {
+            {"TimeStamp", {{"u64", "value"}}, {0}}, // The 'TimeStamp' data type
+            {"Duration", {{"u64", "value"}}, {0}},  // The 'Duration' data type
+        },
+    }, // End of the 'time' module
 };
 
 /// @enum `CFunctions`

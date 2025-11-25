@@ -5,8 +5,14 @@
 
 class ErrUnexpectedToken : public BaseError {
   public:
-    ErrUnexpectedToken(const ErrorType error_type, const std::string &file, int line, int column, const std::string &text) :
-        BaseError(error_type, file, line, column),
+    ErrUnexpectedToken(             //
+        const ErrorType error_type, //
+        const Hash &file_hash,      //
+        const int line,             //
+        const int column,           //
+        const std::string &text     //
+        ) :
+        BaseError(error_type, file_hash, line, column),
         text(text) {}
 
     [[nodiscard]]

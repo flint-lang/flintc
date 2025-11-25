@@ -6,7 +6,7 @@
 class ErrPtrNotAllowedInInternalFunction : public BaseError {
   public:
     ErrPtrNotAllowedInInternalFunction(const ErrorType error_type, const FunctionNode *function) :
-        BaseError(error_type, function->file_name, function->line, function->column, function->length) {}
+        BaseError(error_type, function->file_hash, function->line, function->column, function->length) {}
 
     [[nodiscard]]
     std::string to_string() const override {

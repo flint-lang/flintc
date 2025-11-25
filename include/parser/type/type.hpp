@@ -1,7 +1,5 @@
 #pragma once
 
-#include "types.hpp"
-
 #include <cassert>
 #include <memory>
 #include <optional>
@@ -18,6 +16,14 @@ class Type {
 
   public:
     virtual ~Type() = default;
+
+    /// @var `types`
+    /// @brief A global type register map to track all currently active types
+    static inline std::unordered_map<std::string, std::shared_ptr<Type>> types;
+
+    /// @var `types_mutex`
+    /// @brief A mutex for thread-safe access on the `types` and `unknown_types` map
+    static inline std::shared_mutex types_mutex;
 
     /// @enum `Variation`
     /// @brief A enum describing which type variations exist
@@ -42,6 +48,13 @@ class Type {
     ///
     /// @return `Variation` The variation of this type
     virtual Variation get_variation() const = 0;
+
+    /// @function `equals`
+    /// @brief Function to check whether this type is equal to a different type
+    ///
+    /// @param `other` The other type to compare this type against
+    /// @return `bool` Whether the types are equal
+    virtual bool equals(const std::shared_ptr<Type> &other) const = 0;
 
     /// @function `as`
     /// @brief Casts this type to the requested type, but the requested type must be a child type of this class
@@ -84,27 +97,12 @@ class Type {
     /// actually...not good
     static void clear_types();
 
-    /// @function `resolve_type`
-    /// @brief Resolves the given type so that the type does no longer contain any unknown types
-    ///
-    /// @param `type` The type to resolve
-    /// @return `bool` Whether the type could be resolved correctly
-    static bool resolve_type(std::shared_ptr<Type> &type);
-
     /// @function `add_type`
     /// @brief Adds the given type to the type list. Returns whether the type was already present
     ///
     /// @param `type_to_add` The type to add to the types map
     /// @return `bool` Whether the type was newly added (true) or already present (false)
     static bool add_type(const std::shared_ptr<Type> &type_to_add);
-
-    /// @function `get_type`
-    /// @brief Returns the type of a given token list, adds the type if it doesnt exist yet
-    ///
-    /// @param `tokens` The list of all tokens that represent the type
-    /// @param `mutex_already_locked` For recursive calls of `get_type` to prevent deadlocks
-    /// @return `std::optional<std::shared_ptr<Type>>` The shared pointer to the Type, nullopt if the creation of the type faied
-    static std::optional<std::shared_ptr<Type>> get_type(const token_slice &tokens, const bool mutex_already_locked = false);
 
     /// @function get_primitive_type`
     /// @brief Returns the primitive type of a given string type, adds the type if it doesnt exist yet
@@ -120,13 +118,6 @@ class Type {
     /// @return `std::optional<std::shared_ptr<Type>>` The type from the types map, nullopt if the given type does not exist
     static std::optional<std::shared_ptr<Type>> get_type_from_str(const std::string &type_str);
 
-    /// @function `str_to_type`
-    /// @brief Converts a string to the type. Its basically a wrapper around `get_type_from_str` that panics if the type cannot be converted
-    ///
-    /// @param `str` The string to convert
-    /// @return `std::shared_ptr<Type>` The converted type
-    static std::shared_ptr<Type> str_to_type(const std::string_view &str);
-
     /// @function `get_type_id_from_str`
     /// @brief Gets an u32 type id from the given name of the type through hashing. Will always produce the same type ID from the same name.
     /// The value `0` is reserved and will *never* be a result from this function. All other values within the 32 bits are valid hashes
@@ -135,29 +126,4 @@ class Type {
     /// @param `name` The name of the type to get a hash id from
     /// @return `uint32_t` A u32 hash value generated from the type's name
     static uint32_t get_type_id_from_str(const std::string &name);
-
-    /// @function `clear_unknown_types`
-    /// @brief Clears the map of all unknown types
-    static void clear_unknown_types();
-
-  private:
-    /// @var `types`
-    /// @brief A global type register map to track all currently active types
-    static inline std::unordered_map<std::string, std::shared_ptr<Type>> types;
-
-    /// @var `unknown_types`
-    /// @brief A global type register map to track all unknown types
-    static inline std::unordered_map<std::string, std::shared_ptr<Type>> unknown_types;
-
-    /// @var `types_mutex`
-    /// @brief A mutex for thread-safe access on the `types` and `unknown_types` map
-    static inline std::shared_mutex types_mutex;
-
-    /// @function `create_type`
-    /// @brief Creates a type from a given list of tokens
-    ///
-    /// @param `tokens` The list of tokens to create the type from
-    /// @param `mutex_already_locked` Whether the types mutex is already locked
-    /// @return `std::optional<Type>` The created type, nullopt if creation failed
-    static std::optional<std::shared_ptr<Type>> create_type(const token_slice &tokens, const bool mutex_already_locked = false);
 };

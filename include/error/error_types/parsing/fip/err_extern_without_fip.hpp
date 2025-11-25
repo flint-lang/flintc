@@ -7,12 +7,12 @@ class ErrExternWithoutFip : public BaseError {
   public:
     ErrExternWithoutFip(            //
         const ErrorType error_type, //
-        const std::string &file,    //
+        const Hash &file_hash,      //
         const unsigned int line,    //
         const unsigned int column,  //
         const unsigned int length   //
         ) :
-        BaseError(error_type, file, line, column, length) {}
+        BaseError(error_type, file_hash, line, column, length) {}
 
     [[nodiscard]]
     std::string to_string() const override {

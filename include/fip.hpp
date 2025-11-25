@@ -24,11 +24,14 @@ extern "C" {
 }
 #endif
 
-#include "parser/ast/definitions/function_node.hpp"
+#include "parser/type/type.hpp"
 
 #include <array>
 #include <filesystem>
+#include <string>
 #include <vector>
+
+class FunctionNode;
 
 /// @class `FIP`
 /// @brief Class to namespace and handle all FIP-related functionality
@@ -66,14 +69,6 @@ class FIP {
     /// @var `resolved_functions`
     /// @brief A list containing all functions which have been matched by FIP
     static inline std::vector<fake_function> resolved_functions;
-
-    /// @function `string_to_hash`
-    /// @brief Uses the `fip_create_hash` function implementation to create a 8-character hash from any given string input. The character
-    /// hash only has 61 possible characters and roughly a variation of a 48 bit integer.
-    ///
-    /// @param `input` The string to hash to a small 8-byte string
-    /// @return `std::array<char, 8>` The hash consisting of 8 characters from 61 possible characters (A-Z, a-z, 1-9)
-    static std::array<char, 8> string_to_hash(const std::string &input);
 
     /// @function `get_fip_path`
     /// @brief Returns the path to the 'fip' directory in which all modules are placed for example (in the 'modules' subdirectory)

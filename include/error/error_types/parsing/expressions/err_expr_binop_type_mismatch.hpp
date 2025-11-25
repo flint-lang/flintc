@@ -9,7 +9,7 @@ class ErrExprBinopTypeMismatch : public BaseError {
   public:
     ErrExprBinopTypeMismatch(          //
         const ErrorType error_type,    //
-        const std::string &file,       //
+        const Hash &file_hash,         //
         const token_slice &lhs_tokens, //
         const token_slice &rhs_tokens, //
         const Token &operator_token,   //
@@ -18,7 +18,7 @@ class ErrExprBinopTypeMismatch : public BaseError {
         ) :
         BaseError(                                               //
             error_type,                                          //
-            file,                                                //
+            file_hash,                                           //
             lhs_tokens.first->line,                              //
             lhs_tokens.first->column,                            //
             rhs_tokens.second->column - lhs_tokens.first->column //

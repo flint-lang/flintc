@@ -13,7 +13,7 @@
 class FuncNode : public DefinitionNode {
   public:
     explicit FuncNode(                                                   //
-        const std::string &file_name,                                    //
+        const Hash &file_hash,                                           //
         const unsigned int line,                                         //
         const unsigned int column,                                       //
         const unsigned int length,                                       //
@@ -21,7 +21,7 @@ class FuncNode : public DefinitionNode {
         std::vector<std::pair<std::string, std::string>> &required_data, //
         std::vector<std::unique_ptr<FunctionNode>> functions             //
         ) :
-        DefinitionNode(file_name, line, column, length),
+        DefinitionNode(file_hash, line, column, length),
         name(name),
         required_data(std::move(required_data)),
         functions(std::move(functions)) {}

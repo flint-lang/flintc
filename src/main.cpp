@@ -40,7 +40,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     // Parse the .ft file and resolve all inclusions
     Profiler::start_task("Parsing the program", true);
     Type::init_types();
-    Resolver::add_path(source_file_path.filename().string(), source_file_path.parent_path());
+    Parser::init_core_modules();
     std::optional<FileNode *> file = Parser::create(source_file_path)->parse();
     if (!file.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << source_file_path.filename() << DEFAULT
@@ -59,17 +59,22 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
                       << "' failed analyze step for unknown reason!" << std::endl;
             return std::nullopt;
     }
-    auto dep_graph = Resolver::create_dependency_graph(file.value(), source_file_path.parent_path(), parse_parallel);
+    auto dep_graph = Resolver::create_dependency_graph(file.value(), parse_parallel);
     if (!dep_graph.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to create dependency graph" << std::endl;
         return std::nullopt;
     }
     if (!Parser::main_function_parsed && !is_test) {
         // No main function found
-        THROW_ERR(ErrDefNoMainFunction, ERR_PARSING, source_file_path.filename().string());
+        THROW_ERR(ErrDefNoMainFunction, ERR_PARSING, Hash(source_file_path));
         return std::nullopt;
     }
-    Parser::resolve_all_unknown_types();
+    if (!Parser::resolve_all_imports()) {
+        return std::nullopt;
+    }
+    if (!Parser::resolve_all_unknown_types()) {
+        return std::nullopt;
+    }
     if (PRINT_DEP_TREE) {
         Debug::Dep::print_dep_tree(0, dep_graph.value());
     }

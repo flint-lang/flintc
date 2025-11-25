@@ -7,12 +7,12 @@ class ErrDefDataRedefinition : public BaseError {
   public:
     ErrDefDataRedefinition(          //
         const ErrorType error_type,  //
-        const std::string &file,     //
+        const Hash &file_file,       //
         const unsigned int line,     //
         const unsigned int column,   //
         const std::string &data_name //
         ) :
-        BaseError(error_type, file, line, column, data_name.size()),
+        BaseError(error_type, file_file, line, column, data_name.size()),
         data_name(data_name) {}
 
     [[nodiscard]]
