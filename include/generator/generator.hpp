@@ -2950,6 +2950,97 @@ class Generator {
             );
         };
 
+        /// @class `Parse`
+        /// @brief The class which is responsible for generating all functions related to the `Core.parse` module
+        /// @note This class cannot be initialized and all functions within this class are static
+        class Parse {
+          public:
+            // The constructor is deleted to make this class non-initializable
+            Parse() = delete;
+
+            /// @var `parse_functions`
+            /// @brief Map containing references to all parse functions
+            ///
+            /// This map exists to track the references to the builtin parse functions. They are being created at the beginning of the
+            /// program generation phase. Whenever a builtin parse function is being refernced this map is used to resolve it.
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the parse function
+            /// - **Value** `llvm::Function *` - The reference to the genereated print function
+            ///
+            /// @attention The parse functions are nullpointers until the `generate_parse_functions` function is called
+            /// @attention The map is not being cleared after the program module has been generated
+            static inline std::unordered_map<std::string_view, llvm::Function *> parse_functions = {
+                {"parse_u8", nullptr},
+                {"parse_i32", nullptr},
+                {"parse_u32", nullptr},
+                {"parse_i64", nullptr},
+                {"parse_u64", nullptr},
+                {"parse_f32", nullptr},
+                {"parse_f64", nullptr},
+            };
+
+            /// @function `generate_parse_functions`
+            /// @brief Generates all the functions of the Core.parse module
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the parse functions will be generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_parse_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_parse_int_function`
+            /// @brief Helper function to generate the parse_iX functions for the specified bit width
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the parse function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `bit_width` The width of the parsed signed integer
+            static void generate_parse_int_function( //
+                llvm::IRBuilder<> *builder,          //
+                llvm::Module *module,                //
+                const bool only_declarations,        //
+                const size_t bit_width               //
+            );
+
+            /// @function `generate_parse_uint_function`
+            /// @brief Helper function to generate the parse_uX functions for the specified bit width
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the parse function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `bit_width` The width of the parsed unsigned integer
+            static void generate_parse_uint_function( //
+                llvm::IRBuilder<> *builder,           //
+                llvm::Module *module,                 //
+                const bool only_declarations,         //
+                const size_t bit_width                //
+            );
+
+            /// @function `generate_parse_f32_function`
+            /// @brief Helper function to generate the parse_f32 function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the parse function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_parse_f32_function( //
+                llvm::IRBuilder<> *builder,          //
+                llvm::Module *module,                //
+                const bool only_declarations         //
+            );
+
+            /// @function `generate_parse_f64_function`
+            /// @brief Helper function to generate the parse_f32 function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the parse function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_parse_f64_function( //
+                llvm::IRBuilder<> *builder,          //
+                llvm::Module *module,                //
+                const bool only_declarations         //
+            );
+        }; // subclass Parse
+
         /// @class `Print`
         /// @brief The class which is responsible for generating everything related to print
         /// @note This class cannot be initialized and all functions within this class are static

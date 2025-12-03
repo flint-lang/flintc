@@ -463,6 +463,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             Module::System::generate_system_functions(nullptr, module.get(), true);
         } else if (core_module_name == "math") {
             Module::Math::generate_math_functions(nullptr, module.get(), true);
+        } else if (core_module_name == "parse") {
+            Module::Parse::generate_parse_functions(nullptr, module.get(), true);
         }
     }
     // Forward declare all functions from all files where this file has a weak reference to

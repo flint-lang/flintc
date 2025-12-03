@@ -1199,9 +1199,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
     if (builtin_function.has_value()) {
         std::vector<llvm::Value *> return_value;
         const std::string &module_name = std::get<0>(builtin_function.value());
-        if (module_name == "print" && function_name == "print" && call_node->arguments.size() == 1 &&     //
-            Module::Print::print_functions.find(call_node->arguments.front().first->type->to_string()) != //
-                Module::Print::print_functions.end()                                                      //
+        if (module_name == "print" && function_name == "print" && call_node->arguments.size() == 1        //
+            && Module::Print::print_functions.find(call_node->arguments.front().first->type->to_string()) //
+                != Module::Print::print_functions.end()                                                   //
         ) {
             // Call the builtin function 'print'
             const std::string type_str = call_node->arguments.front().first->type->to_string();
@@ -1210,8 +1210,8 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 return std::nullopt;
             }
             return return_value;
-        } else if (module_name == "read" && call_node->arguments.size() == 0 &&                    //
-            Module::Read::read_functions.find(function_name) != Module::Read::read_functions.end() //
+        } else if (module_name == "read" && call_node->arguments.size() == 0                          //
+            && Module::Read::read_functions.find(function_name) != Module::Read::read_functions.end() //
         ) {
             if (std::get<1>(builtin_function.value()).size() > 1) {
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1227,12 +1227,14 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
-        } else if (module_name == "assert" && call_node->arguments.size() == 1 &&
-            Module::Assert::assert_functions.find(function_name) != Module::Assert::assert_functions.end()) {
+        } else if (module_name == "assert" && call_node->arguments.size() == 1                                //
+            && Module::Assert::assert_functions.find(function_name) != Module::Assert::assert_functions.end() //
+        ) {
             func_decl = Module::Assert::assert_functions.at(function_name);
             function_origin = FunctionOrigin::BUILTIN;
-        } else if (module_name == "filesystem" &&
-            Module::FileSystem::fs_functions.find(function_name) != Module::FileSystem::fs_functions.end()) {
+        } else if (module_name == "filesystem"                                                                //
+            && Module::FileSystem::fs_functions.find(function_name) != Module::FileSystem::fs_functions.end() //
+        ) {
             if (std::get<1>(builtin_function.value()).size() > 1) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
@@ -1247,7 +1249,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
-        } else if (module_name == "env" && Module::Env::env_functions.find(function_name) != Module::Env::env_functions.end()) {
+        } else if (module_name == "env"                                                           //
+            && Module::Env::env_functions.find(function_name) != Module::Env::env_functions.end() //
+        ) {
             if (std::get<1>(builtin_function.value()).size() > 1) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
@@ -1262,8 +1266,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
-        } else if (module_name == "system" &&
-            Module::System::system_functions.find(function_name) != Module::System::system_functions.end()) {
+        } else if (module_name == "system"                                                                    //
+            && Module::System::system_functions.find(function_name) != Module::System::system_functions.end() //
+        ) {
             if (std::get<1>(builtin_function.value()).size() > 1) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
@@ -1324,6 +1329,23 @@ Generator::group_mapping Generator::Expression::generate_call( //
                     return_value.emplace_back(builder.CreateCall(func_decl, args));
                     return return_value;
                 }
+            }
+        } else if (module_name == "parse"                                                                 //
+            && Module::Parse::parse_functions.find(function_name) != Module::Parse::parse_functions.end() //
+        ) {
+            if (std::get<1>(builtin_function.value()).size() > 1) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            if (!std::get<2>(std::get<1>(builtin_function.value()).front()).empty()) {
+                // Function returns error
+                func_decl = Module::Parse::parse_functions.at(function_name);
+                function_origin = FunctionOrigin::BUILTIN;
+            } else {
+                // Function does not return error
+                func_decl = Module::Parse::parse_functions.at(function_name);
+                return_value.emplace_back(builder.CreateCall(func_decl, args));
+                return return_value;
             }
         } else {
             THROW_BASIC_ERR(ERR_GENERATING);

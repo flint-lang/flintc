@@ -1,10 +1,18 @@
 use Core.print
-
-use "imported.ft"
-
-def add(mut Vec3 v1, Vec3 v2):
-	v1.(x, y, z) += v2.(x, y, z);
+use Core.parse
 
 def main():
-	Vec3 v3 = Vec3(10, 20, 30);
-	print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");
+    f64 val = parse_f64("1e400") catch err:
+        print("OutOfBounds\n");
+    print($"val = {val}\n");
+
+    val = parse_f64("1e-400") catch err:
+        print("OutOfBounds\n");
+    print($"val = {val}\n");
+
+    val = parse_f64("3.4:8") catch err:
+        print("InvalidCharacter\n");
+    print($"val = {val}\n");
+
+    val = parse_f64("-34892.323");
+    print($"val = {val}\n");

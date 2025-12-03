@@ -167,7 +167,38 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                     {{{"i64", "value1"}, {"i64", "value2"}}, {"i64"}, {}}, // The 'i64' overload of the 'max' function
                     {{{"f64", "value1"}, {"f64", "value2"}}, {"f64"}, {}}, // The 'f64' overload of the 'max' function
                 }},
-        }},  // End of the 'math' module
+        }},   // End of the 'math' module
+    {"parse", // The 'parse' module
+        {
+            {"parse_u8", // The 'parse_u8' function
+                {
+                    {{{"str", "input"}}, {"u8"}, {"ErrParse"}}, // The single version of the 'parse_u8' function
+                }},
+            {"parse_i32", // The 'parse_i32' function
+                {
+                    {{{"str", "input"}}, {"i32"}, {"ErrParse"}}, // The single version of the 'parse_i32' function
+                }},
+            {"parse_i64", // The 'parse_i64' function
+                {
+                    {{{"str", "input"}}, {"i64"}, {"ErrParse"}}, // The single version of the 'parse_i64' function
+                }},
+            {"parse_u32", // The 'parse_u32' function
+                {
+                    {{{"str", "input"}}, {"u32"}, {"ErrParse"}}, // The single version of the 'parse_u32' function
+                }},
+            {"parse_u64", // The 'parse_u64' function
+                {
+                    {{{"str", "input"}}, {"u64"}, {"ErrParse"}}, // The single version of the 'parse_u64' function
+                }},
+            {"parse_f32", // The 'parse_f32' function
+                {
+                    {{{"str", "input"}}, {"f32"}, {"ErrParse"}}, // The single version of the 'parse_f32' function
+                }},
+            {"parse_f64", // The 'parse_f64' function
+                {
+                    {{{"str", "input"}}, {"f64"}, {"ErrParse"}}, // The single version of the 'parse_f64' function
+                }},
+        }},  // End of the 'parse' module
     {"time", // The 'time' module
         {
             {"now", // The 'now' function
@@ -259,6 +290,14 @@ static const inline std::unordered_map<std::string_view, std::vector<error_set>>
                 {"SpawnFailed", "Process could not be created"}, // Value 0
             }}},
     }, // End of the 'system' module
+    {
+        "parse",                  // The 'parse' module
+        {{"ErrParse", "anyerror", // The 'ErrParse' error set
+            {
+                {"OutOfBounds", "The input is out of the bounds of the result"},           // Value 0
+                {"InvalidCharacter", "The input contains one or more invalid characters"}, // Value 1
+            }}},
+    }, // End of the 'parse' module
 };
 
 /// @typedef `enum_type`

@@ -250,6 +250,8 @@ class CLIParserMain : public CLIParserBase {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::SYSTEM);
             } else if (arg == "--print-ir-math") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::MATH);
+            } else if (arg == "--print-ir-parse") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PARSE);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);
