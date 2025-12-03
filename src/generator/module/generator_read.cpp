@@ -760,7 +760,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     //         abort();
     //     }
     //     char *endptr = NULL;
-    //     double value = strtod(buffer, &endptr, 10);
+    //     double value = strtod(buffer, &endptr);
     //     // The whole string should have been parsed
     //     if (endptr < buffer + len) {
     //         printf("Not whole buffer read!\n");
@@ -830,9 +830,8 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
     IR::aligned_store(*builder, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
 
-    // Call strtod: double value = strtod(buffer, &endptr, 10)
-    llvm::Value *base = builder->getInt32(10);
-    llvm::Value *value = builder->CreateCall(strtod_fn, {buffer, endptr_ptr, base}, "value");
+    // Call strtod: double value = strtod(buffer, &endptr)
+    llvm::Value *value = builder->CreateCall(strtod_fn, {buffer, endptr_ptr}, "value");
 
     // Load the endptr value after strtod call
     llvm::Value *endptr = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");

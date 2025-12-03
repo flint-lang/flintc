@@ -353,11 +353,10 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *strtod_type = llvm::FunctionType::get( //
             llvm::Type::getDoubleTy(context),                      // return f64
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(),                 // char* buffer
-                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo(), // char** endptr
-                llvm::Type::getInt32Ty(context)                                 // i32 base
-            },                                                                  //
-            false                                                               // No vaarg
+                llvm::Type::getInt8Ty(context)->getPointerTo(),                // char* buffer
+                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo() // char** endptr
+            },                                                                 //
+            false                                                              // No vaarg
         );
         llvm::Function *strtod_fn = llvm::Function::Create(strtod_type, llvm::Function::ExternalLinkage, "strtod", module);
         c_functions[STRTOD] = strtod_fn;
