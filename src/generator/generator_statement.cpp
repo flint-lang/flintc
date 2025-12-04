@@ -1901,7 +1901,7 @@ bool Generator::Statement::generate_array_assignment( //
         return false;
     }
     llvm::Value *expression = expression_result.value().front();
-    if (array_assignment->expression->type != array_assignment->value_type) {
+    if (!array_assignment->expression->type->equals(array_assignment->value_type)) {
         expression =
             Expression::generate_type_cast(builder, ctx, expression, array_assignment->expression->type, array_assignment->value_type);
     }
@@ -1974,7 +1974,7 @@ bool Generator::Statement::generate_stacked_assignment( //
         return false;
     }
     llvm::Value *expression = expression_result.value().front();
-    if (stacked_assignment->expression->type != stacked_assignment->field_type) {
+    if (!stacked_assignment->expression->type->equals(stacked_assignment->field_type)) {
         expression = Expression::generate_type_cast(                                                       //
             builder, ctx, expression, stacked_assignment->expression->type, stacked_assignment->field_type //
         );

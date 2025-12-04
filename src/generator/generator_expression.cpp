@@ -2157,7 +2157,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
         }
         initializer_expression = initializer_mapping.value().front();
         std::shared_ptr<Type> init_expr_type = initializer->initializer_value->type;
-        if (init_expr_type != initializer->element_type) {
+        if (!init_expr_type->equals(initializer->element_type)) {
             initializer_expression = generate_type_cast(builder, ctx, initializer_expression, init_expr_type, initializer->element_type);
         }
     }
@@ -2243,7 +2243,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
         } else {
             index_expr = {index.value().front(), nullptr};
         }
-        if (from_type != to_type) {
+        if (!from_type->equals(to_type)) {
             index_expr[0] = generate_type_cast(builder, ctx, index_expr[0], from_type, to_type);
             if (index_expr[1] != nullptr) {
                 index_expr[1] = generate_type_cast(builder, ctx, index_expr[1], from_type, to_type);
@@ -3059,7 +3059,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             break;
         case Type::Variation::OPTIONAL: {
             const auto *to_opt_type = to_type->as<OptionalType>();
-            if (from_type != to_opt_type->base_type) {
+            if (!from_type->equals(to_opt_type->base_type)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
@@ -3294,7 +3294,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
     if (is_lhs_mult && is_rhs_mult) {
         const auto *lhs_mult = bin_op_node->left->type->as<MultiType>();
         const auto *rhs_mult = bin_op_node->right->type->as<MultiType>();
-        if (lhs_mult->base_type != rhs_mult->base_type) {
+        if (!lhs_mult->base_type->equals(rhs_mult->base_type)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }

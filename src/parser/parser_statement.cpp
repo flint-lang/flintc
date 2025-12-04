@@ -1152,7 +1152,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     }
     // Cast all branch expressions to the common type, only if the expression's type differs from the common type
     for (auto &branch : e_branches) {
-        if (branch.expr->type != common_type) {
+        if (!branch.expr->type->equals(common_type)) {
             const std::string &branch_expr_type_str = branch.expr->type->to_string();
             if (branch_expr_type_str == "int" || branch_expr_type_str == "float") {
                 branch.expr->type = common_type;
@@ -1447,7 +1447,7 @@ std::optional<AssignmentNode> Parser::create_assignment( //
                 }
                 std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it_lexme));
                 if (rhs.has_value()) {
-                    if (rhs.value()->type != expected_type) {
+                    if (!rhs.value()->type->equals(expected_type)) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
@@ -1762,7 +1762,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         // For explicit types, check compatibility and cast if needed
         final_type = declared_type;
 
-        if (rhs.value()->type != final_type) {
+        if (!rhs.value()->type->equals(final_type)) {
             CastDirection cast_dir = check_castability(final_type, rhs.value()->type);
             if (cast_dir.kind != CastDirection::Kind::SAME_TYPE) {
                 switch (cast_dir.kind) {
@@ -1806,7 +1806,6 @@ std::optional<DeclarationNode> Parser::create_declaration( //
 
             const std::string branch_type_str = branch.expr->type->to_string();
             if (branch_type_str == "int" || branch_type_str == "float") {
-                PROFILE_CUMULATIVE("Parser::create_unary_op_statement");
                 branch.expr->type = final_type;
             } else {
                 branch.expr = std::make_unique<TypeCastNode>(final_type, branch.expr);
@@ -1886,7 +1885,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
     }
 
     const auto &field_type = std::get<3>(field_access_base.value());
-    if (field_type != expression.value()->type) {
+    if (!field_type->equals(expression.value()->type)) {
         const CastDirection castability = check_castability(field_type, expression.value()->type);
         switch (castability.kind) {
             default:

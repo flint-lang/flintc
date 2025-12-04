@@ -264,7 +264,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                     // Now check if all types are equal
                     bool all_types_same = true;
                     for (const auto &subtype : subtypes) {
-                        if (subtype != first_type) {
+                        if (!subtype->equals(first_type)) {
                             all_types_same = false;
                             break;
                         }

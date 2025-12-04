@@ -381,7 +381,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         return std::nullopt;
                     }
                     const auto &field_type = std::get<1>(fields.at(i));
-                    if (field_type != arg_type) {
+                    if (!field_type->equals(arg_type)) {
                         if (arg_type->get_variation() == Type::Variation::PRIMITIVE) {
                             const std::string &arg_type_str = arg_type->to_string();
                             if (primitive_implicit_casting_table.find(arg_type_str) == primitive_implicit_casting_table.end()) {

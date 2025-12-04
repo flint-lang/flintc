@@ -34,296 +34,6 @@
 #include <memory>
 #include <variant>
 
-Parser::CastDirection Parser::check_primitive_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type) {
-    PROFILE_CUMULATIVE("Parser::check_primitive_castability");
-    const std::string lhs_str = lhs_type->to_string();
-    const std::string rhs_str = rhs_type->to_string();
-    assert(lhs_str != rhs_str);
-
-    // Check if both sides are literals, cast int to float in that case
-    if (lhs_str == "int" && rhs_str == "float") {
-        // Cast lhs (int) to rhs (float)
-        return CastDirection::lhs_to_rhs();
-    } else if (lhs_str == "float" && rhs_str == "int") {
-        // Cast rhs (int) to lhs (float)
-        return CastDirection::rhs_to_lhs();
-    }
-
-    // Check if lhs can implicitly cast to rhs
-    bool lhs_to_rhs_allowed = false;
-    auto lhs_cast_it = primitive_implicit_casting_table.find(lhs_str);
-    if (lhs_cast_it != primitive_implicit_casting_table.end()) {
-        const auto &lhs_targets = lhs_cast_it->second;
-        auto it = std::find(lhs_targets.begin(), lhs_targets.end(), rhs_str);
-        if (it != lhs_targets.end()) {
-            lhs_to_rhs_allowed = true;
-        }
-    }
-
-    // Check if rhs can implicitly cast to lhs
-    bool rhs_to_lhs_allowed = false;
-    auto rhs_cast_it = primitive_implicit_casting_table.find(rhs_str);
-    if (rhs_cast_it != primitive_implicit_casting_table.end()) {
-        const auto &rhs_targets = rhs_cast_it->second;
-        auto it = std::find(rhs_targets.begin(), rhs_targets.end(), lhs_str);
-        if (it != rhs_targets.end()) {
-            rhs_to_lhs_allowed = true;
-        }
-    }
-
-    // If only one direction is allowed, choose that
-    if (lhs_to_rhs_allowed && !rhs_to_lhs_allowed) {
-        return CastDirection::lhs_to_rhs();
-    }
-    if (rhs_to_lhs_allowed && !lhs_to_rhs_allowed) {
-        return CastDirection::rhs_to_lhs();
-    }
-    // If both directions are allowed, it's castable both ways (for example u8 <-> bool8)
-    if (rhs_to_lhs_allowed && lhs_to_rhs_allowed) {
-        return CastDirection::bidirectional();
-    }
-    // If neither direction is allowed, types are incompatible
-    if (!lhs_to_rhs_allowed && !rhs_to_lhs_allowed) {
-        return CastDirection::not_castable();
-    }
-
-    // Special case: concrete type + float literal
-    // Example: i32 + 3.0 -> both should become f32
-    if (rhs_str == "float") {
-        // rhs is unresolved float literal, lhs is concrete
-        if (lhs_str == "f32" || lhs_str == "f64") {
-            return CastDirection::rhs_to_lhs();
-        }
-        const std::shared_ptr<Type> f32_ty = Type::get_primitive_type("f32");
-        return CastDirection::both_to_common(f32_ty);
-    }
-    if (lhs_str == "float") {
-        // lhs is unresolved float literal, rhs is concrete
-        if (rhs_str == "f32" || rhs_str == "f64") {
-            return CastDirection::lhs_to_rhs();
-        }
-        const std::shared_ptr<Type> f32_ty = Type::get_primitive_type("f32");
-        return CastDirection::both_to_common(f32_ty);
-    }
-
-    // Prefer concrete types over int literals
-    if (lhs_str == "int") {
-        return CastDirection::lhs_to_rhs(); // int literal adopts concrete type
-    }
-    if (rhs_str == "int") {
-        return CastDirection::rhs_to_lhs(); // int literal adopts concrete type
-    }
-
-    // If no side is a literal or compile-time type, prefer widening conversions
-    // Check if one is strictly wider than the other
-    static const std::unordered_map<std::string_view, int> type_size = {
-        {"bool", 1},
-        {"bool8", 8},
-        {"u8", 8},
-        {"i32", 32},
-        {"u32", 32},
-        {"i64", 64},
-        {"u64", 64},
-        {"f32", 32},
-        {"f64", 64},
-    };
-    auto lhs_size_it = type_size.find(lhs_str);
-    auto rhs_size_it = type_size.find(rhs_str);
-    if (lhs_size_it != type_size.end() && rhs_size_it != type_size.end()) {
-        int lhs_bits = lhs_size_it->second;
-        int rhs_bits = rhs_size_it->second;
-
-        if (lhs_bits < rhs_bits) {
-            // Cast smaller lhs to larger rhs
-            return CastDirection::lhs_to_rhs();
-        }
-        if (rhs_bits < lhs_bits) {
-            // Cast smaller rhs to larger lhs
-            return CastDirection::rhs_to_lhs();
-        }
-    }
-
-    // Default fallback - cast lhs to rhs (left-to-right bias)
-    return CastDirection::lhs_to_rhs();
-}
-
-Parser::CastDirection Parser::check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type) {
-    PROFILE_CUMULATIVE("Parser::check_castability_type");
-    if (lhs_type->equals(rhs_type)) {
-        return CastDirection::same_type();
-    }
-    const GroupType *lhs_group = dynamic_cast<const GroupType *>(lhs_type.get());
-    const GroupType *rhs_group = dynamic_cast<const GroupType *>(rhs_type.get());
-    if (lhs_group == nullptr && rhs_group == nullptr) {
-        // Both single type
-        // If one of them is a multi-type, the other one has to be a single value with the same type as the base type of the mutli-type
-        const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get());
-        const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs_type.get());
-        if (lhs_mult != nullptr && rhs_mult == nullptr && lhs_mult->base_type == rhs_type) {
-            return CastDirection::rhs_to_lhs();
-        } else if (lhs_mult == nullptr && rhs_mult != nullptr && lhs_type == rhs_mult->base_type) {
-            return CastDirection::lhs_to_rhs();
-        }
-        if (lhs_type->to_string() == "__flint_type_str_lit" && rhs_type->to_string() == "str") {
-            return CastDirection::lhs_to_rhs();
-        } else if (lhs_type->to_string() == "str" && rhs_type->to_string() == "__flint_type_str_lit") {
-            return CastDirection::rhs_to_lhs();
-        }
-        // Check if one or both of the sides are variant types, the other side then needs to be one of the possible variant types
-        const VariantType *lhs_var = dynamic_cast<const VariantType *>(lhs_type.get());
-        const VariantType *rhs_var = dynamic_cast<const VariantType *>(rhs_type.get());
-        if (lhs_var != nullptr && rhs_var != nullptr) {
-            // Variants of different types cannot be cast to one another in any way
-            THROW_BASIC_ERR(ERR_PARSING);
-            return CastDirection::not_castable();
-        } else if (lhs_var != nullptr) {
-            const std::string lhs_type_str = lhs_type->to_string();
-            const std::string rhs_type_str = rhs_type->to_string();
-            for (const auto &[_, type] : lhs_var->get_possible_types()) {
-                const std::string type_str = type->to_string();
-                if (type == rhs_type) {
-                    return CastDirection::rhs_to_lhs();
-                }
-            }
-            return CastDirection::not_castable();
-        } else if (rhs_var != nullptr) {
-            const std::string lhs_type_str = lhs_type->to_string();
-            const std::string rhs_type_str = rhs_type->to_string();
-            for (const auto &[_, type] : rhs_var->get_possible_types()) {
-                const std::string type_str = type->to_string();
-                if (type == lhs_type) {
-                    return CastDirection::lhs_to_rhs();
-                }
-            }
-            return CastDirection::not_castable();
-        }
-        // Check one or both of the sides are optional types
-        const OptionalType *lhs_opt = dynamic_cast<const OptionalType *>(lhs_type.get());
-        const OptionalType *rhs_opt = dynamic_cast<const OptionalType *>(rhs_type.get());
-        if (lhs_opt != nullptr || rhs_opt != nullptr) {
-            // One of the sides is an optional, but first check if the lhs or rhs is a literal
-            const std::string lhs_str = lhs_type->to_string();
-            const std::string rhs_str = rhs_type->to_string();
-            if (lhs_str == "void?" || rhs_str == "void?") {
-                // If rhs is void? then rhs -> lhs, otherwise lhs -> rhs
-                return rhs_str == "void?" ? CastDirection::rhs_to_lhs() : CastDirection::lhs_to_rhs();
-            }
-            // None of the sides is a optional literal, so we need to check if one of the sides is the same type as the optional's base type
-            if (lhs_opt != nullptr) {
-                if (lhs_opt->base_type == rhs_type) {
-                    return CastDirection::rhs_to_lhs();
-                } else if ((rhs_str == "int" || rhs_str == "float")                                                           //
-                    && check_primitive_castability(lhs_opt->base_type, rhs_type).kind == CastDirection::Kind::CAST_RHS_TO_LHS //
-                ) {
-                    return CastDirection::rhs_to_lhs();
-                }
-                const CastDirection cast = check_castability(lhs_opt->base_type, rhs_type);
-                switch (cast.kind) {
-                    case CastDirection::Kind::SAME_TYPE:
-                        return CastDirection::same_type();
-                    case CastDirection::Kind::CAST_BIDIRECTIONAL:
-                    case CastDirection::Kind::CAST_RHS_TO_LHS:
-                        return CastDirection::rhs_to_lhs();
-                    default:
-                        return CastDirection::not_castable();
-                }
-            } else if (rhs_opt != nullptr) {
-                if (rhs_opt->base_type == lhs_type) {
-                    return CastDirection::lhs_to_rhs();
-                } else if ((lhs_str == "int" || lhs_str == "float")                                                           //
-                    && check_primitive_castability(rhs_opt->base_type, lhs_type).kind == CastDirection::Kind::CAST_RHS_TO_LHS //
-                ) {
-                    return CastDirection::lhs_to_rhs();
-                }
-                const CastDirection cast = check_castability(rhs_opt->base_type, lhs_type);
-                switch (cast.kind) {
-                    case CastDirection::Kind::SAME_TYPE:
-                        return CastDirection::same_type();
-                    case CastDirection::Kind::CAST_BIDIRECTIONAL:
-                    case CastDirection::Kind::CAST_LHS_TO_RHS:
-                        return CastDirection::lhs_to_rhs();
-                    default:
-                        break;
-                }
-            }
-        }
-        return check_primitive_castability(lhs_type, rhs_type);
-    } else if (lhs_group == nullptr && rhs_group != nullptr) {
-        // Left is no group, right is group
-        switch (lhs_type->get_variation()) {
-            default:
-                return CastDirection::not_castable();
-            case Type::Variation::MULTI: {
-                const auto *lhs_mult = lhs_type->as<MultiType>();
-                // If left is a multi-type, then the right is castable to the left
-                // The group must have the same size as the multi-type
-                if (lhs_mult->width != rhs_group->types.size()) {
-                    return CastDirection::not_castable();
-                }
-                // All elements in the group must have the same type as the multi-type
-                for (size_t i = 0; i < lhs_mult->width; i++) {
-                    if (lhs_mult->base_type != rhs_group->types[i]) {
-                        return CastDirection::not_castable();
-                    }
-                }
-                return CastDirection::rhs_to_lhs();
-            }
-            case Type::Variation::TUPLE: {
-                const auto *lhs_tup = lhs_type->as<TupleType>();
-                // If left is a tuple type then the right is castable to the left
-                if (lhs_tup->types.size() != rhs_group->types.size()) {
-                    return CastDirection::not_castable();
-                }
-                // All elements in the group must be castable or equal to the element of the tuple
-                for (size_t i = 0; i < lhs_tup->types.size(); i++) {
-                    const std::shared_ptr<Type> lhs_elem_type = lhs_tup->types[i];
-                    const std::shared_ptr<Type> rhs_elem_type = rhs_group->types[i];
-                    if (lhs_elem_type == rhs_elem_type) {
-                        continue;
-                    }
-                    const std::string rhs_elem_type_str = rhs_elem_type->to_string();
-                    const CastDirection elem_castability = check_castability(lhs_elem_type, rhs_elem_type);
-                    switch (elem_castability.kind) {
-                        default:
-                            return CastDirection::not_castable();
-                        case CastDirection::Kind::SAME_TYPE:
-                            return CastDirection::same_type();
-                        case CastDirection::Kind::CAST_RHS_TO_LHS:
-                            if (rhs_elem_type_str == "int" || rhs_elem_type_str == "float") {
-                                // TODO: We somehow need to change the type of the rhs expression directly, but that's not possible in this
-                                // function
-                            } else {
-                                // TODO: We somehow need to wrap the rhs in a TypeCastNode, but this is not possible in this function
-                            }
-                    }
-                }
-                return CastDirection::rhs_to_lhs();
-            }
-        }
-    } else if (lhs_group != nullptr && rhs_group == nullptr) {
-        // Left is group, right is no group, so we call the function itself and just swap the sides, this effectively executes the branch
-        // above, and then we just need to flip the result for the directional casts afterwards
-        CastDirection cast_dir = check_castability(rhs_type, lhs_type);
-        switch (cast_dir.kind) {
-            case CastDirection::Kind::CAST_LHS_TO_RHS:
-                cast_dir.kind = CastDirection::Kind::CAST_RHS_TO_LHS;
-                break;
-            case CastDirection::Kind::CAST_RHS_TO_LHS:
-                cast_dir.kind = CastDirection::Kind::CAST_LHS_TO_RHS;
-                break;
-            default:
-                break;
-        }
-        return cast_dir;
-    } else {
-        // Both group
-        // TODO
-        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-        return CastDirection::lhs_to_rhs();
-    }
-    return CastDirection::rhs_to_lhs();
-}
-
 bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
     PROFILE_CUMULATIVE("Parser::check_castability_expr");
     if (lhs->type == rhs->type) {
@@ -341,7 +51,7 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
                 // Just change the target type of the literal itself, marking it as "resolved"
                 lhs->type = rhs->type;
             } else {
-                lhs = std::make_unique<TypeCastNode>(rhs->type, lhs);
+                lhs = TypeCastNode::create(rhs->type, lhs).value();
             }
             return true;
         }
@@ -352,7 +62,7 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
                 // Just change the target type of the literal itself, marking it as "resolved"
                 rhs->type = lhs->type;
             } else {
-                rhs = std::make_unique<TypeCastNode>(lhs->type, rhs);
+                rhs = TypeCastNode::create(lhs->type, rhs).value();
             }
             return true;
         }
@@ -363,13 +73,13 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
                 // Just change the target type of the literal itself, marking it as "resolved"
                 lhs->type = castability.common_type;
             } else {
-                lhs = std::make_unique<TypeCastNode>(castability.common_type, lhs);
+                lhs = TypeCastNode::create(castability.common_type, lhs).value();
             }
             if (rhs_type_str == "int" || rhs_type_str == "float") {
                 // Just change the target type of the literal itself, marking it as "resolved"
                 rhs->type = castability.common_type;
             } else {
-                rhs = std::make_unique<TypeCastNode>(castability.common_type, rhs);
+                rhs = TypeCastNode::create(castability.common_type, rhs).value();
             }
             return true;
         }
@@ -1061,7 +771,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
         return expression;
     }
 
-    auto ret = std::make_unique<TypeCastNode>(to_type, expression.value());
+    auto ret = TypeCastNode::create(to_type, expression.value()).value();
     ret->line = tokens.first->line;
     ret->column = tokens.first->column;
     ret->length = (tokens.first + expr_range.value().second + 1)->column - tokens.first->column;
@@ -1131,10 +841,6 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
         const std::string type_str = expressions[i]->type->to_string();
         if (type_str == "__flint_type_str_lit") {
             expressions[i] = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expressions[i]);
-        } else if (type_str == "int") {
-            expressions[i]->type = Type::get_primitive_type("i32");
-        } else if (type_str == "float") {
-            expressions[i]->type = Type::get_primitive_type("f32");
         } else if (expressions[i]->type->get_variation() == Type::Variation::GROUP) {
             // Nested groups are not allowed
             const auto match_range = match_ranges[i];
@@ -1237,7 +943,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         LitValue rhs_zero = LitInt{.value = APInt("0")};
         rhs_expr = std::make_unique<LiteralNode>(rhs_zero, u64_ty);
     }
-    if (lhs_expr.value()->type != u64_ty) {
+    if (!lhs_expr.value()->type->equals(u64_ty)) {
         const CastDirection lhs_compatible = check_primitive_castability(lhs_expr.value()->type, u64_ty);
         switch (lhs_compatible.kind) {
             default:
@@ -1255,7 +961,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
             }
         }
     }
-    if (rhs_expr.value()->type != u64_ty) {
+    if (!rhs_expr.value()->type->equals(u64_ty)) {
         const CastDirection rhs_compatible = check_primitive_castability(rhs_expr.value()->type, u64_ty);
         switch (rhs_compatible.kind) {
             default:
@@ -1382,7 +1088,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
     if (!initializer.has_value()) {
         return std::nullopt;
     }
-    if (initializer.value()->type != element_type.value()) {
+    if (!initializer.value()->type->equals(element_type.value())) {
         const CastDirection init_cast = check_primitive_castability(initializer.value()->type, element_type.value());
         switch (init_cast.kind) {
             default:
@@ -1395,7 +1101,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
                 if (type_str == "int" || type_str == "float") {
                     initializer.value()->type = element_type.value();
                 } else {
-                    initializer = std::make_unique<TypeCastNode>(element_type.value(), initializer.value());
+                    initializer = TypeCastNode::create(element_type.value(), initializer.value());
                 }
                 break;
             }
@@ -2371,7 +2077,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     // Check if both sides of the binop match, if they don't then crash
-    if (lhs.value()->type != rhs.value()->type) {
+    if (!lhs.value()->type->equals(rhs.value()->type)) {
         // Check if the operator is a optional default, in this case we need to check whether the lhs is an optional and whether the rhs
         // is the base type of the optional, otherwise it is considered an error
         if (pivot_token == TOK_OPT_DEFAULT) {
@@ -2381,7 +2087,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             const auto *lhs_opt = lhs.value()->type->as<OptionalType>();
-            if (rhs.value()->type != lhs_opt->base_type) {
+            if (!rhs.value()->type->equals(lhs_opt->base_type)) {
                 // The rhs of the ?? operator must be the same or implicitely castable to the base type of the optional
                 const std::string rhs_type_str = rhs.value()->type->to_string();
                 // Check if the expression is implicitely castable to the base type of the optional
@@ -2399,12 +2105,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                             rhs.value()->type = lhs_opt->base_type;
                         }
                         // Cast the expression to the target optional type
-                        rhs = std::make_unique<TypeCastNode>(lhs.value()->type, rhs.value());
+                        rhs = TypeCastNode::create(lhs.value()->type, rhs.value());
                         break;
                 }
             }
             return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type);
-        } else if (!check_castability(lhs.value(), rhs.value())) {
+        } else {
             // Check if one of the sides is a homogeneous group variation of the other side
             // This only works if the *other side*s type is comparable at all. Only primitive types and enums are comparable
             bool is_castable = true;
@@ -2422,23 +2128,38 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             if (lhs_is_group && rhs_is_comparable) {
                 // All elements of the lhs group must match the rhs type, otherwise it's not a homogenous group
                 const GroupType *lhs_group_type = lhs_type->as<GroupType>();
+                const bool rhs_is_literal = rhs_type->to_string() == "int" || rhs_type->to_string() == "float";
+                const std::shared_ptr<Type> cmp_type = rhs_is_literal ? lhs_group_type->types.front() : rhs_type;
                 for (const auto &type : lhs_group_type->types) {
-                    if (type != rhs_type) {
+                    if (!type->equals(cmp_type)) {
                         is_castable = false;
                         break;
                     }
+                }
+                if (is_castable && rhs_is_literal) {
+                    // Set the type of the rhs literal to mark it as "resolved"
+                    rhs.value()->type = cmp_type;
                 }
             } else if (rhs_is_group && lhs_is_comparable) {
                 // All elements of the rhs group must match the lhs type, otherwise it's not a homogenous group
                 const GroupType *rhs_group_type = rhs_type->as<GroupType>();
+                const bool lhs_is_literal = lhs_type->to_string() == "int" || lhs_type->to_string() == "float";
+                const std::shared_ptr<Type> cmp_type = lhs_is_literal ? rhs_group_type->types.front() : lhs_type;
                 for (const auto &type : rhs_group_type->types) {
-                    if (type != lhs_type) {
+                    if (!type->equals(lhs_type)) {
                         is_castable = false;
                         break;
                     }
                 }
+                if (is_castable && lhs_is_literal) {
+                    // Set the type of the lhs literal to mark it as "resolved"
+                    lhs.value()->type = cmp_type;
+                }
+            } else if (lhs_is_group && rhs_is_group) {
+                // TODO:
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             } else {
-                is_castable = false;
+                is_castable = check_castability(lhs.value(), rhs.value());
             }
             if (!is_castable) {
                 THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_hash,                           //
@@ -2504,7 +2225,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                         auto *lit_node = expression.value()->as<LiteralNode>();
                         lit_node->type = expected_type.value();
                     } else {
-                        expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                        expression = TypeCastNode::create(expected_type.value(), expression.value());
                     }
                 } else if (expected_type.value()->to_string() == "anyerror") {
                     // Every error set type is castable to the anyerror type
@@ -2512,7 +2233,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                         return std::nullopt;
                     }
-                    expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                    expression = TypeCastNode::create(expected_type.value(), expression.value());
                 } else {
                     THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
@@ -2541,20 +2262,20 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
-                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                expression = TypeCastNode::create(expected_type.value(), expression.value());
                 break;
             }
             case Type::Variation::OPTIONAL: {
                 const auto *optional_type = expected_type.value()->as<OptionalType>();
                 if (expression.value()->type == optional_type->base_type) {
-                    expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                    expression = TypeCastNode::create(expected_type.value(), expression.value());
                 } else if (expression.value()->type->get_variation() == Type::Variation::OPTIONAL) {
                     const auto *expression_type = expression.value()->type->as<OptionalType>();
-                    if (expression_type->base_type != Type::get_primitive_type("void")) {
+                    if (!expression_type->base_type->equals(Type::get_primitive_type("void"))) {
                         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                         return std::nullopt;
                     }
-                    expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                    expression = TypeCastNode::create(expected_type.value(), expression.value());
                 } else {
                     const std::string expr_type_str = expression.value()->type->to_string();
                     // Check if the expression is implicitely castable to the base type of the optional
@@ -2572,7 +2293,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                                 expression.value()->type = optional_type->base_type;
                             }
                             // Cast the expression to the target optional type
-                            expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                            expression = TypeCastNode::create(expected_type.value(), expression.value());
                             break;
                     }
                 }
@@ -2589,7 +2310,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
-                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                std::optional<std::unique_ptr<TypeCastNode>> node = TypeCastNode::create(expected_type.value(), expression.value());
+                if (!node.has_value()) {
+                    return std::nullopt;
+                }
+                expression = std::move(node.value());
                 break;
             }
             case Type::Variation::VARIANT: {
@@ -2599,7 +2324,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     const std::string var_str = variation->to_string();
                     const std::string expr_str = expression.value()->type->to_string();
                     if (variation == expression.value()->type) {
-                        expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                        expression = TypeCastNode::create(expected_type.value(), expression.value());
                         viable_type_found = true;
                         break;
                     }
