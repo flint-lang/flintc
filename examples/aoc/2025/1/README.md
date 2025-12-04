@@ -63,7 +63,10 @@ Because the dial points at `0` a total of three times during this process, the p
 
 Analyze the rotations in your [attached](https://adventofcode.com/2025/day/1/input) document. **What's the actual password to open the door?**
 
-|| Answer: 995 ||
+<details>
+  <summary>Answer</summary>
+  995
+</details>
 
 ## Part 2
 
@@ -95,4 +98,7 @@ Be careful: if the dial were pointing at `50`, a single rotation like `R1000` wo
 
 Using password method 0x434C49434B, **what is the password to open the door?**
 
-|| Answer: 5847 ||
+<details>
+  <summary>Answer</summary>
+  5847
+</details>

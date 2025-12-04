@@ -63,4 +63,7 @@ The total output joltage is now much larger: `987654321111` + `811111111119` + `
 
 **What is the new total output joltage?**
 
-|| Answer: 167384358365132 ||
+<details>
+  <summary>Answer</summary>
+  167384358365132
+</details>
