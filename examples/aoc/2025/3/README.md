@@ -30,7 +30,10 @@ The total output joltage is the sum of the maximum joltage from each bank, so in
 
 There are many batteries in front of you. Find the maximum joltage possible from each bank; **what is the total output joltage?**
 
-|| Answer: 16927 ||
+<details>
+  <summary>Answer</summary>
+  16927
+</details>
 
 ## Part 2
 
