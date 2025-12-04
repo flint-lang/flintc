@@ -136,8 +136,14 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
                 return std::nullopt;
             case CastDirection::Kind::SAME_TYPE:
                 break;
-            case CastDirection::Kind::CAST_RHS_TO_LHS:
-                expr = std::make_unique<TypeCastNode>(return_type, expr.value());
+            case CastDirection::Kind::CAST_RHS_TO_LHS: {
+                const std::string &expr_type_str = expr.value()->type->to_string();
+                if (expr_type_str == "int" || expr_type_str == "float") {
+                    expr.value()->type = return_type;
+                } else {
+                    expr = std::make_unique<TypeCastNode>(return_type, expr.value());
+                }
+            }
         }
     }
     return_expr = std::move(expr.value());
