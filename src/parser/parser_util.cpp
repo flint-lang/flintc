@@ -785,18 +785,18 @@ Parser::create_field_access_base(     //
 
     // If the base expresion is of type `str`, the only valid access is its `length` variable
     if (base_type->to_string() == "str") {
-        if (field_name != "length") {
+        if (field_name != "length" && field_name != "len") {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_tuple(std::move(base_expr.value()), "length", 0, Type::get_primitive_type("u64"));
+        return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u64"));
     }
     switch (base_type->get_variation()) {
         default:
             break;
         case Type::Variation::ARRAY: {
             const auto *array_type = base_type->as<ArrayType>();
-            if (field_name != "length") {
+            if (field_name != "length" && field_name != "len") {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
@@ -810,9 +810,9 @@ Parser::create_field_access_base(     //
                 if (!file_node_ptr->file_namespace->add_type(group_type)) {
                     group_type = file_node_ptr->file_namespace->get_type_from_str(group_type->to_string()).value();
                 }
-                return std::make_tuple(std::move(base_expr.value()), "length", 1, group_type);
+                return std::make_tuple(std::move(base_expr.value()), field_name, 1, group_type);
             }
-            return std::make_tuple(std::move(base_expr.value()), "length", 1, Type::get_primitive_type("u64"));
+            return std::make_tuple(std::move(base_expr.value()), field_name, 1, Type::get_primitive_type("u64"));
         }
         case Type::Variation::DATA: {
             const DataNode *data_node = base_type->as<DataType>()->data_node;

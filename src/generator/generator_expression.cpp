@@ -2401,7 +2401,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
     llvm::Value *expr_val = base_expr.value().front();
     // Get the type of the data variable to access
     if (data_access->base_expr->type->to_string() == "str") {
-        if (data_access->field_name != "length") {
+        if (data_access->field_name != "length" && data_access->field_name != "len") {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
@@ -2419,7 +2419,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             break;
         case Type::Variation::ARRAY: {
             const auto *array_type = data_access->base_expr->type->as<ArrayType>();
-            if (data_access->field_name != "length") {
+            if (data_access->field_name != "length" && data_access->field_name != "len") {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
