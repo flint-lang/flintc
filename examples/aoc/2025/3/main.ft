@@ -1,0 +1,59 @@
+use Core.print
+use Core.filesystem
+use Core.assert
+
+def pretty_print_bank(str bank, u64[] indices):
+	assert(indices.length >= 2);
+	u64 begin_idx = indices[indices.length - 1];
+	if begin_idx > 0:
+		print(bank[0..begin_idx]);
+	for u64 i = indices.length; i > 0; i--:
+		u64 curr_idx = indices[i - 1];
+		print("\x1B[34m");
+		print(bank[curr_idx]);
+		print("\x1B[0m");
+		if i > 1:
+			u64 last_end = indices[i - 2] + 1;
+			if curr_idx + 1 < last_end - 1:
+				print(bank[(curr_idx + 1)..(last_end - 1)]);
+	u64 end_idx = indices[0];
+	if end_idx + 1 < bank.length:
+		print(bank[(end_idx + 1)..]);
+
+def calculate_joltage(str bank, u64[] indices) -> u64:
+	u64 bank_joltage = 0;
+	for (n, idx) in indices:
+		u64 batt_val = bank[idx] - '0';
+		u64 exponent = 10 ** n;
+		bank_joltage += batt_val * exponent;
+	return bank_joltage;
+
+def get_battery_indices(str bank, u64 batt_count) -> u64[]:
+	u64[] indices = u64[batt_count](0);
+	u64 begin_idx = 0;
+	for u64 n = batt_count; n > 0; n--:
+		str search_slice = bank[begin_idx..(bank.length - n + 1)];
+		u8 batt_value = 0;
+		u64 batt_idx = 0;
+		for (idx, batt) in search_slice:
+			if batt > batt_value:
+				batt_value = batt;
+				batt_idx = begin_idx + idx;
+		indices[n - 1] = batt_idx;
+		begin_idx = batt_idx + 1;
+	return indices;
+
+def calculate_total_joltage(str[] banks, u64 batt_count) -> u64:
+	u64 total_joltage = 0;
+	for (_, bank) in banks:
+		u64[] indices = get_battery_indices(bank, batt_count);
+		u64 bank_joltage = calculate_joltage(bank, indices);
+		pretty_print_bank(bank, indices);
+		print($" -> {bank_joltage}\n");
+		total_joltage += bank_joltage;
+	return total_joltage;
+
+def main():
+	str[] banks = read_lines("input.txt");
+	print($"part_1: {calculate_total_joltage(banks, 2)}\n");
+	print($"part_2: {calculate_total_joltage(banks, 12)}\n");

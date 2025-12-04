@@ -1,0 +1,46 @@
+use Core.print
+use Core.filesystem
+use Core.parse
+use Core.math
+
+def mod(i32 x, i32 y) -> i32:
+	return (x % y + y) % y;
+
+def part_1(i32[] numbers):
+	i32 dial = 50;
+	u32 count = 0;
+
+	for (_, num) in numbers:
+		dial = mod(dial + num, 100);
+		if dial == 0:
+			count++;
+
+	print($"part_1: {count}\n");
+
+def part_2(i32[] numbers):
+	i32 dial = 50;
+	u32 count = 0;
+
+	for (_, num) in numbers:
+		if dial > 0 and num < 0 and dial + num < 0:
+			count++;
+		count += u32(abs(dial + num) - 1) / 100;
+		dial = mod(dial + num, 100);
+		if dial == 0:
+			count++;
+
+	print($"part_1: {count}\n");
+
+def main():
+	str[] lines = read_lines("input.txt");
+	i32[] numbers = i32[lines.length](0);
+
+	for (idx, line) in lines:
+		u32 parsed_num = parse_u32(line[1..]);
+		if line[0] == 'L':
+			numbers[idx] = i32(parsed_num) * -1;
+		else:
+			numbers[idx] = i32(parsed_num);
+
+	part_1(numbers);
+	part_2(numbers);

@@ -1,0 +1,68 @@
+use Core.print
+use Core.filesystem
+use Core.parse
+
+def is_valid_part_1(str id) -> bool:
+	if id.length % 2 != 0:
+		return true;
+	u64 mid_point = id.length / 2;
+	str left = id[0..mid_point];
+	str right = id[mid_point..];
+	return left != right;
+
+def is_valid_part_2(str id) -> bool:
+	if id.length == 1:
+		return true;
+
+	// For a number with N digits the maximum number of re-appearing numbers is N
+	// The length of the re-appearing number must be integer-dividable to the length
+	// of the whole number, e.g. 9 digits only re-appearing numbers of length 1, 2 and 3
+	// are possible. We start at the biggest possible length, since there are less checks
+	// to make for them (less string slicing ops) and gradually move towards lower lengths.
+	// The length can be half the whole number at most, so we start at len / 2 then we move
+	// to len / 3 etc until we reach len / len. The len must be divisable by the divisor
+	// without any remainder.
+	u64 id_len = id.length;
+	for u64 div = id_len; div >= 2; div--:
+		if id_len % div != 0:
+			// Cannot repeat
+			continue;
+
+		u64 len = id_len / div;
+		str segment = id[0..len];
+		u64 same_count = 0;
+		for u64 i = 1; i < div; i++:
+			u64 next_start = i * len;
+			u64 next_end = (i + 1) * len;
+			str next_segment = id[next_start..next_end];
+			if segment == next_segment:
+				same_count++;
+		if same_count + 1 == div:
+			return false;
+	return true;
+
+def main():
+	str input = read_file("input.txt");
+	u64 invalid_id_sum_part_1 = 0;
+	u64 invalid_id_sum_part_2 = 0;
+	u64 idx_start = 0;
+	u64 start_id = 0;
+	for (idx, char) in input:
+		switch char:
+			'\n', ',':
+				str id_str = input[idx_start..idx];
+				u64 end_id = parse_u64(id_str);
+				for u64 i = start_id; i <= end_id; i++:
+					if not is_valid_part_1(str(i)):
+						invalid_id_sum_part_1 += i;
+					if not is_valid_part_2(str(i)):
+						invalid_id_sum_part_2 += i;
+				idx_start = idx + 1;
+			'-':
+				str id_str = input[idx_start..idx];
+				start_id = parse_u64(id_str);
+				idx_start = idx + 1;
+			else:
+				continue;
+	print($"part_1: {invalid_id_sum_part_1}\n");
+	print($"part_2: {invalid_id_sum_part_2}\n");
