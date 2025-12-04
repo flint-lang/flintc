@@ -2215,7 +2215,8 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
     const std::unique_ptr<ExpressionNode> &base_expr,                        //
     const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
 ) {
-    const bool is_slice = result_type->get_variation() == Type::Variation::ARRAY || result_type->to_string() == "str";
+    const bool is_slice = result_type->get_variation() == Type::Variation::ARRAY //
+        || (result_type->to_string() == "str" && base_expr->type->to_string() == "str");
     // First, generate the index expressions
     std::vector<std::array<llvm::Value *, 2>> index_expressions;
     for (auto &index_expression : indexing_expressions) {
