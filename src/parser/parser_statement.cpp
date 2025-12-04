@@ -2326,7 +2326,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             return std::nullopt;
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
-    } else if (Matcher::tokens_contain(tokens, Matcher::declaration_without_initializer)) {
+    } else if (Matcher::tokens_match(tokens, Matcher::declaration_without_initializer)) {
         std::optional<DeclarationNode> decl = create_declaration(scope, tokens, false, false, rhs);
         if (!decl.has_value()) {
             return std::nullopt;
