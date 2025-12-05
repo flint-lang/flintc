@@ -12,7 +12,7 @@ def append(mut IntList list, i32 value):
 		append(list.next!, value);
 
 def print_list(IntList list):
-	print($"{list.value}");
+	print(list.value);
 	if list.next != none:
 		print(" -> ");
 		print_list(list.next!);
