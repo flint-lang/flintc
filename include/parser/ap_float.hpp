@@ -13,7 +13,11 @@
 class APFloat {
   public:
     APFloat(const std::string &value) {
-        assert(!value.empty());
+        if (value.empty()) {
+            is_negative = false;
+            int_digits.clear();
+            frac_digits.clear();
+        }
         size_t index = 0;
         if (value[0] == '-') {
             assert(value.size() > 1);

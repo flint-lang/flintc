@@ -568,11 +568,11 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     return std::nullopt;
 }
 
-std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
-    const Context &ctx,                                                     //
-    std::shared_ptr<Scope> &scope,                                          //
-    const std::string &interpol_string,                                     //
-    const token_slice &tokens                                               //
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolation( //
+    const Context &ctx,                                                             //
+    std::shared_ptr<Scope> &scope,                                                  //
+    const std::string &interpol_string,                                             //
+    const token_slice &tokens                                                       //
 ) {
     PROFILE_CUMULATIVE("Parser::create_string_interpolation");
     // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
@@ -583,7 +583,7 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
     if (ranges.empty()) {
         LitValue lit_value = LitStr{.value = interpol_string};
         interpol_content.emplace_back(std::make_unique<LiteralNode>(lit_value, Type::get_primitive_type("str")));
-        return StringInterpolationNode(interpol_content);
+        return std::make_unique<StringInterpolationNode>(interpol_content);
     }
     // First, add all the strings from the begin to the first ranges begin to the interpolation content
     for (auto it = ranges.begin(); it != ranges.end(); ++it) {
@@ -658,7 +658,94 @@ std::optional<StringInterpolationNode> Parser::create_string_interpolation( //
             interpol_content.emplace_back(std::make_unique<LiteralNode>(std::move(lit.value())));
         }
     }
-    return StringInterpolationNode(interpol_content);
+
+    // Optimization: Collapse adjacent string literals and simplify if possible
+    std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> optimized_content;
+    std::string accumulated_string;
+    bool has_accumulated = false;
+
+    for (auto &elem : interpol_content) {
+        bool is_str_literal = false;
+        std::string literal_value;
+
+        // Check if element is ExpressionNode or LiteralNode variant
+        if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(elem)) {
+            auto &expr = std::get<std::unique_ptr<ExpressionNode>>(elem);
+
+            // Check if it's a __flint_type_str_lit literal (after our int/float->str conversion)
+            if (expr->type->to_string() == "__flint_type_str_lit" && expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+                auto *lit = expr->as<LiteralNode>();
+                const auto &lit_str = std::get<LitStr>(lit->value);
+                literal_value = lit_str.value;
+                is_str_literal = true;
+            }
+            // Check if it's a TypeCast wrapping a __flint_type_str_lit
+            else if (expr->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
+                auto *cast = expr->as<TypeCastNode>();
+                if (cast->expr->type->to_string() == "__flint_type_str_lit" &&
+                    cast->expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+                    auto *lit = cast->expr->as<LiteralNode>();
+                    const auto &lit_str = std::get<LitStr>(lit->value);
+                    literal_value = lit_str.value;
+                    is_str_literal = true;
+                }
+            }
+        } else { // std::unique_ptr<LiteralNode>
+            auto &lit_ptr = std::get<std::unique_ptr<LiteralNode>>(elem);
+            if (lit_ptr->type->to_string() == "__flint_type_str_lit" || lit_ptr->type->to_string() == "str") {
+                const auto &lit_str = std::get<LitStr>(lit_ptr->value);
+                literal_value = lit_str.value;
+                is_str_literal = true;
+            }
+        }
+
+        if (is_str_literal) {
+            // Accumulate string literals
+            accumulated_string += literal_value;
+            has_accumulated = true;
+        } else {
+            // Non-literal expression: flush accumulated strings first
+            if (has_accumulated) {
+                LitValue str_val = LitStr{accumulated_string};
+                auto lit_node = std::make_unique<LiteralNode>(str_val, Type::get_primitive_type("__flint_type_str_lit"));
+                optimized_content.emplace_back(std::move(lit_node));
+                accumulated_string.clear();
+                has_accumulated = false;
+            }
+            // Add the non-literal expression
+            optimized_content.emplace_back(std::move(elem));
+        }
+    }
+
+    // Flush any remaining accumulated strings
+    if (has_accumulated) {
+        LitValue str_val = LitStr{accumulated_string};
+        auto lit_node = std::make_unique<LiteralNode>(str_val, Type::get_primitive_type("__flint_type_str_lit"));
+        optimized_content.emplace_back(std::move(lit_node));
+    }
+
+    // If the result is a single string literal, cast to str and return directly
+    if (optimized_content.size() == 1) {
+        const std::shared_ptr<Type> str_type = Type::get_primitive_type("str");
+
+        if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(optimized_content[0])) {
+            auto expr = std::move(std::get<std::unique_ptr<ExpressionNode>>(optimized_content[0]));
+            if (expr->type->to_string() == "__flint_type_str_lit") {
+                check_castability(str_type, expr, true);
+                return expr;
+            }
+        } else {
+            auto lit = std::move(std::get<std::unique_ptr<LiteralNode>>(optimized_content[0]));
+            if (lit->type->to_string() == "__flint_type_str_lit") {
+                std::unique_ptr<ExpressionNode> expr = std::make_unique<LiteralNode>(std::move(*lit));
+                check_castability(str_type, expr, true);
+                return expr;
+            }
+        }
+    }
+
+    // Otherwise, return string interpolation with optimized content
+    return std::make_unique<StringInterpolationNode>(optimized_content);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( //
@@ -1691,13 +1778,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<LiteralNode>(std::move(lit.value()));
         } else if (Matcher::tokens_match(tokens_mut, Matcher::string_interpolation)) {
             assert(tokens_mut.first->token == TOK_DOLLAR && std::prev(tokens_mut.second)->token == TOK_STR_VALUE);
-            std::optional<StringInterpolationNode> interpol = create_string_interpolation( //
-                ctx, scope, std::string(std::prev(tokens_mut.second)->lexme), tokens_mut   //
+            std::optional<std::unique_ptr<ExpressionNode>> interpol = create_string_interpolation( //
+                ctx, scope, std::string(std::prev(tokens_mut.second)->lexme), tokens_mut           //
             );
             if (!interpol.has_value()) {
                 return std::nullopt;
             }
-            return std::make_unique<StringInterpolationNode>(std::move(interpol.value()));
+            return std::move(interpol.value());
         }
     }
 
