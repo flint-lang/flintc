@@ -15,6 +15,8 @@ class APInt {
         if (value.empty()) {
             is_negative = false;
             digits.clear();
+            digits.emplace_back(0);
+            return;
         }
         size_t index = 0;
         if (value[0] == '-') {
