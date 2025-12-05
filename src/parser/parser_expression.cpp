@@ -269,10 +269,10 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                 APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
                 if (std::holds_alternative<LitFloat>(rhs->value)) {
                     const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    lhs_float *= rhs_float;
+                    lhs_float /= rhs_float;
                 } else if (std::holds_alternative<LitInt>(rhs->value)) {
                     const APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    lhs_float *= rhs_int;
+                    lhs_float /= rhs_int;
                 } else {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
