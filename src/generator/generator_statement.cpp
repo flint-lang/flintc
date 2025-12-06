@@ -1931,7 +1931,15 @@ bool Generator::Statement::generate_array_assignment( //
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + array_assignment->variable_name;
     llvm::Value *const array_alloca = ctx.allocations.at(var_name);
     llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first->getPointerTo();
-    llvm::Value *array_ptr = IR::aligned_load(builder, arr_type, array_alloca, "array_ptr");
+    // Check if this is a function parameter - if so, use it directly without loading
+    llvm::Value *array_ptr;
+    if (std::get<3>(ctx.scope->variables.at(array_assignment->variable_name))) {
+        // It's a function parameter (or enhanced for loop variable), use the alloca directly
+        array_ptr = array_alloca;
+    } else {
+        // It's a local variable, load the pointer from the alloca
+        array_ptr = IR::aligned_load(builder, arr_type, array_alloca, "array_ptr");
+    }
     if (array_assignment->expression->type->to_string() == "str") {
         // This call returns a 'str**'
         llvm::Value *element_ptr = builder.CreateCall(             //
