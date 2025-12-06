@@ -381,29 +381,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         return std::nullopt;
                     }
                     const auto &field_type = std::get<1>(fields.at(i));
-                    if (!field_type->equals(arg_type)) {
-                        if (arg_type->get_variation() == Type::Variation::PRIMITIVE) {
-                            const std::string &arg_type_str = arg_type->to_string();
-                            if (primitive_implicit_casting_table.find(arg_type_str) == primitive_implicit_casting_table.end()) {
-                                THROW_BASIC_ERR(ERR_PARSING);
-                                return std::nullopt;
-                            }
-                            const auto &to_types = primitive_implicit_casting_table.at(arg_type_str);
-                            if (std::find(to_types.begin(), to_types.end(), field_type->to_string()) == to_types.end()) {
-                                THROW_BASIC_ERR(ERR_PARSING);
-                                return std::nullopt;
-                            }
-                            if (arg_type_str == "int" || arg_type_str == "float") {
-                                arguments[i].first->type = field_type;
-                            } else {
-                                arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
-                            }
-                        } else {
-                            const CastDirection castability = check_castability(field_type, arg_type);
-                            if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
-                                arguments[i].first = std::make_unique<TypeCastNode>(field_type, arguments[i].first);
-                            }
-                        }
+                    if (!check_castability(field_type, arguments.at(i).first)) {
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, field_type, arg_type);
+                        return std::nullopt;
                     }
                 }
                 return CreateCallOrInitializerBaseRet{
@@ -422,35 +402,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     return std::nullopt;
                 }
                 for (size_t i = 0; i < arguments.size(); i++) {
-                    std::shared_ptr<Type> &arg_type = arguments[i].first->type;
-                    if (arg_type == base_type) {
-                        continue;
-                    }
-                    if (arg_type->get_variation() == Type::Variation::GROUP) {
+                    if (!check_castability(base_type, arguments[i].first, true)) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
-                    }
-                    const CastDirection castability = check_castability(base_type, arg_type);
-                    if (castability.kind == CastDirection::Kind::SAME_TYPE) {
-                        continue;
-                    } else if (castability.kind == CastDirection::Kind::CAST_RHS_TO_LHS) {
-                        arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
-                    } else if (arg_type->get_variation() == Type::Variation::PRIMITIVE) {
-                        const std::string &arg_type_str = arg_type->to_string();
-                        if (primitive_implicit_casting_table.find(arg_type_str) == primitive_implicit_casting_table.end()) {
-                            THROW_BASIC_ERR(ERR_PARSING);
-                            return std::nullopt;
-                        }
-                        const auto &to_types = primitive_implicit_casting_table.at(arg_type_str);
-                        if (std::find(to_types.begin(), to_types.end(), base_type->to_string()) == to_types.end()) {
-                            THROW_BASIC_ERR(ERR_PARSING);
-                            return std::nullopt;
-                        }
-                        if (arg_type_str == "int" || arg_type_str == "float") {
-                            arguments[i].first->type = base_type;
-                        } else {
-                            arguments[i].first = std::make_unique<TypeCastNode>(base_type, arguments[i].first);
-                        }
                     }
                 }
                 return CreateCallOrInitializerBaseRet{

@@ -125,26 +125,9 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
             }
         }
     }
-    if (expr.value()->type->to_string() != return_type->to_string()) {
-        // Check for implicit castability, if not implicitely castable, throw an error
-        CastDirection castability = check_castability(return_type, expr.value()->type);
-        switch (castability.kind) {
-            default:
-                // Its either not implicitely castable or only castable in the direction return_type -> expr_type
-                // but for the return expression to be implicitely castable we need the direction expr_type -> return_type
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            case CastDirection::Kind::SAME_TYPE:
-                break;
-            case CastDirection::Kind::CAST_RHS_TO_LHS: {
-                const std::string &expr_type_str = expr.value()->type->to_string();
-                if (expr_type_str == "int" || expr_type_str == "float") {
-                    expr.value()->type = return_type;
-                } else {
-                    expr = std::make_unique<TypeCastNode>(return_type, expr.value());
-                }
-            }
-        }
+    if (!check_castability(return_type, expr.value())) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
     }
     return_expr = std::move(expr.value());
     return ReturnNode(return_expr);
@@ -604,7 +587,6 @@ bool Parser::create_switch_branches(            //
         if (!create_switch_branch_body(                                                                           //
                 scope, matches, s_branches, e_branches, line_it, body, tokens, match_range.value(), is_statement) //
         ) {
-            PROFILE_CUMULATIVE("Parser::create_enum_switch_branches");
             return false;
         }
     }
@@ -816,7 +798,6 @@ bool Parser::create_error_switch_branches(      //
     }
     const unsigned int value_count = error_node->get_value_count();
     if (is_default_present ^ (matched_ids.size() != value_count)) {
-        PROFILE_CUMULATIVE("Parser::create_optional_switch_branches");
         // Either we have a default branch and all error values are matched
         // Or we don't have a default branch and not all error values are matched
         // Either way, we don't have a branch for every possible value of the error set, so that's an error
@@ -895,7 +876,6 @@ bool Parser::create_optional_switch_branches(   //
             }
             value_branch_parsed = true;
         } else {
-            PROFILE_CUMULATIVE("Parser::create_variant_switch_branches");
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
@@ -1032,7 +1012,6 @@ bool Parser::create_variant_switch_branches(    //
         }
     }
     if (is_default_present ^ (branch_indices.size() != possible_types.size())) {
-        PROFILE_CUMULATIVE("Parser::create_switch_statement");
         // Either we have a default branch and all variant types are matched
         // Or we don't have a default branch and not all variant types are matched
         // Either way, we don't have a branch for every possible type of the variant, so that's an error
@@ -1152,19 +1131,14 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     }
     // Cast all branch expressions to the common type, only if the expression's type differs from the common type
     for (auto &branch : e_branches) {
-        if (!branch.expr->type->equals(common_type)) {
-            const std::string &branch_expr_type_str = branch.expr->type->to_string();
-            if (branch_expr_type_str == "int" || branch_expr_type_str == "float") {
-                branch.expr->type = common_type;
-                continue;
-            }
-            branch.expr = std::make_unique<TypeCastNode>(common_type, branch.expr);
+        if (!check_castability(common_type, branch.expr, true)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
     }
     auto switch_expr = std::make_unique<SwitchExpression>(switcher.value(), e_branches);
     // Now we need to parse the lhs of the switch *somehow*...
     token_slice lhs_tokens = {definition.first, switcher_tokens.first - 1};
-    PROFILE_CUMULATIVE("Parser::create_catch");
     assert(lhs_tokens.second->token == TOK_SWITCH);
     auto whole_statement = create_statement(scope, lhs_tokens, std::move(switch_expr));
     if (!whole_statement.has_value()) {
@@ -1259,7 +1233,6 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
             return std::nullopt;
         }
         if (!create_variant_switch_branches(body_scope, s_branches, e_branches, body, switcher_type, true, false)) {
-            PROFILE_CUMULATIVE("Parser::create_group_assignment");
             return std::nullopt;
         }
         std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>("__flint_value_err", switcher_type);
@@ -1321,7 +1294,6 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
     tokens_mut.first++;
     // The rest of the tokens now is the expression
     if (rhs.has_value()) {
-        PROFILE_CUMULATIVE("Parser::create_group_assignment_shorthand");
         return GroupAssignmentNode(assignees, rhs.value());
     }
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(_ctx_, scope, tokens_mut);
@@ -1413,6 +1385,10 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
         lhs_expressions.emplace_back(std::make_unique<VariableNode>(name, type));
     }
     std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(file_hash, lhs_expressions);
+    if (!check_castability(lhs_expr, expr.value())) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
 
     // The "real" expression of the assignment is a binop between the lhs and the "real" expression
     expr = std::make_unique<BinaryOpNode>( //
@@ -1455,7 +1431,6 @@ std::optional<AssignmentNode> Parser::create_assignment( //
                 }
                 // Parse the expression with the expected type passed into it
                 token_slice expression_tokens = {it + 2, tokens.second};
-                PROFILE_CUMULATIVE("Parser::create_assignment_shorthand");
                 std::optional<std::unique_ptr<ExpressionNode>> expression =
                     create_expression(_ctx_, scope, expression_tokens, expected_type);
                 if (!expression.has_value()) {
@@ -1523,7 +1498,6 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
                 );
                 return AssignmentNode(expected_type, it_lexme, bin_op, true);
             } else {
-                PROFILE_CUMULATIVE("Parser::create_group_declaration");
                 return std::nullopt;
             }
         }
@@ -1589,7 +1563,6 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             const std::vector<std::shared_ptr<Type>> &types = group_type->types;
             assert(variables.size() == types.size());
             for (unsigned int i = 0; i < variables.size(); i++) {
-                PROFILE_CUMULATIVE("Parser::create_declaration");
                 variables.at(i).first = types.at(i);
                 if (!scope->add_variable(variables.at(i).second, types.at(i), scope->scope_id, true, false)) {
                     // Variable shadowing
@@ -1631,7 +1604,10 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                     expr_group_type = file_node_ptr->file_namespace->get_type_from_str(expr_group_type.value()->to_string()).value();
                 }
             }
-            expression = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
+            if (!check_castability(expr_group_type.value(), expression.value())) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
             return GroupDeclarationNode(variables, expression.value());
         }
         case Type::Variation::TUPLE: {
@@ -1669,7 +1645,10 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                     expr_group_type = file_node_ptr->file_namespace->get_type_from_str(expr_group_type.value()->to_string()).value();
                 }
             }
-            expression = std::make_unique<TypeCastNode>(expr_group_type.value(), expression.value());
+            if (!check_castability(expr_group_type.value(), expression.value())) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
             return GroupDeclarationNode(variables, expression.value());
         }
     }
@@ -1741,74 +1720,32 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     }
 
     // Determine final type and handle conversions
-    std::shared_ptr<Type> final_type;
-
+    std::shared_ptr<Type> final_type = declared_type;
     if (is_inferred) {
         // Resolve literals to default types for inferred declarations
         const std::string type_str = rhs.value()->type->to_string();
         if (type_str == "int") {
             final_type = Type::get_primitive_type("i32");
-            rhs.value()->type = final_type;
         } else if (type_str == "float") {
             final_type = Type::get_primitive_type("f32");
-            rhs.value()->type = final_type;
         } else if (type_str == "__flint_type_str_lit") {
             final_type = Type::get_primitive_type("str");
-            rhs = std::make_unique<TypeCastNode>(final_type, rhs.value());
         } else {
             final_type = rhs.value()->type;
         }
-    } else {
-        // For explicit types, check compatibility and cast if needed
-        final_type = declared_type;
-
-        if (!rhs.value()->type->equals(final_type)) {
-            CastDirection cast_dir = check_castability(final_type, rhs.value()->type);
-            if (cast_dir.kind != CastDirection::Kind::SAME_TYPE) {
-                switch (cast_dir.kind) {
-                    default:
-                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, final_type, rhs.value()->type);
-                        return std::nullopt;
-                    case CastDirection::Kind::CAST_BIDIRECTIONAL:
-                    case CastDirection::Kind::CAST_RHS_TO_LHS:
-                        break;
-                }
-                const std::string expr_type_str = rhs.value()->type->to_string();
-                const bool is_literal = expr_type_str == "int" || expr_type_str == "float";
-                const auto variation = final_type->get_variation();
-                const bool is_opt = variation == Type::Variation::OPTIONAL;
-                const bool is_var = variation == Type::Variation::VARIANT;
-                if (is_literal) {
-                    // Literal: just update type
-                    assert(!is_var);
-                    if (is_opt) {
-                        const auto *opt_type = final_type->as<OptionalType>();
-                        rhs.value()->type = opt_type->base_type;
-                    } else {
-                        rhs.value()->type = final_type;
-                    }
-                }
-                if (!is_literal || is_opt || is_var) {
-                    // Non-literal or target is an optional: insert cast node
-                    rhs = std::make_unique<TypeCastNode>(final_type, rhs.value());
-                }
-            }
-        }
+    }
+    if (!check_castability(final_type, rhs.value())) {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, final_type, rhs.value()->type);
+        return std::nullopt;
     }
 
     // Special handling for switch expressions
     if (rhs.value()->get_variation() == ExpressionNode::Variation::SWITCH_EXPRESSION) {
         auto *switch_expr = rhs.value()->as<SwitchExpression>();
         for (auto &branch : switch_expr->branches) {
-            if (branch.expr->type == final_type) {
-                continue;
-            }
-
-            const std::string branch_type_str = branch.expr->type->to_string();
-            if (branch_type_str == "int" || branch_type_str == "float") {
-                branch.expr->type = final_type;
-            } else {
-                branch.expr = std::make_unique<TypeCastNode>(final_type, branch.expr);
+            if (!check_castability(final_type, branch.expr)) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
             }
         }
     }
@@ -1885,24 +1822,9 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
     }
 
     const auto &field_type = std::get<3>(field_access_base.value());
-    if (!field_type->equals(expression.value()->type)) {
-        const CastDirection castability = check_castability(field_type, expression.value()->type);
-        switch (castability.kind) {
-            default:
-                // Expression not castable to the field's type
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            case CastDirection::Kind::SAME_TYPE:
-                break;
-            case CastDirection::Kind::CAST_RHS_TO_LHS:
-                const std::string type_str = expression.value()->type->to_string();
-                if (type_str == "int" || type_str == "float") {
-                    PROFILE_CUMULATIVE("Parser::create_grouped_data_field_assignment");
-                    expression.value()->type = field_type;
-                } else {
-                    expression = std::make_unique<TypeCastNode>(field_type, expression.value());
-                }
-        }
+    if (!check_castability(field_type, expression.value())) {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, field_type, expression.value()->type);
+        return std::nullopt;
     }
 
     return DataFieldAssignmentNode(             //
@@ -1920,6 +1842,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     const token_slice &tokens,                                                              //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                                     //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_grouped_data_field_assignment");
     token_slice tokens_mut = tokens;
     token_slice lhs_tokens = {tokens.first, tokens.first};
     while (lhs_tokens.second->token != TOK_EQUAL) {
@@ -1947,7 +1870,6 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     if (rhs.has_value()) {
         expression = std::move(rhs.value());
     } else {
-        PROFILE_CUMULATIVE("Parser::create_grouped_data_field_assignment_shorthand");
         expression = create_expression(_ctx_, scope, tokens_mut);
     }
     if (!expression.has_value()) {
@@ -1958,13 +1880,19 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_node->name);
         return std::nullopt;
     }
+    const auto &field_types = std::get<3>(grouped_field_access_base.value());
+    const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(field_types);
+    if (!check_castability(group_type, expression.value())) {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, group_type, expression.value()->type);
+        return std::nullopt;
+    }
 
     return GroupedDataFieldAssignmentNode(                    //
         std::get<0>(grouped_field_access_base.value())->type, // data_type
         var_node->name,                                       // var_name
         std::get<1>(grouped_field_access_base.value()),       // field_names
         std::get<2>(grouped_field_access_base.value()),       // field_ids
-        std::get<3>(grouped_field_access_base.value()),       // field_types
+        field_types,                                          // field_types
         expression.value()                                    //
     );
 }
@@ -1974,6 +1902,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     const token_slice &tokens,                                                                        //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                                               //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_grouped_data_field_assignment_shorthand");
     token_slice tokens_mut = tokens;
     token_slice lhs_tokens = {tokens.first, tokens.first};
     while (!Matcher::token_match(lhs_tokens.second->token, Matcher::assignment_shorthand_operator)) {
@@ -2041,6 +1970,13 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         std::get<3>(grouped_field_access_base.value())                                   // field_types
     );
 
+    const auto &field_types = std::get<3>(grouped_field_access_base.value());
+    const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(field_types);
+    if (!check_castability(group_type, expression.value())) {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, group_type, expression.value()->type);
+        return std::nullopt;
+    }
+
     // The expression already is the rhs of the binop, so now we only need to check whether the types of the expression matches the types of
     // the assignment
     expression = std::make_unique<BinaryOpNode>( //
@@ -2056,7 +1992,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         var_node->name,                                 // var_name
         std::get<1>(grouped_field_access_base.value()), // field_names
         std::get<2>(grouped_field_access_base.value()), // field_ids
-        std::get<3>(grouped_field_access_base.value()), // field_types
+        field_types,                                    // field_types
         expression.value()                              //
     );
 }
@@ -2101,7 +2037,6 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
 
     auto indexing_expressions = create_group_expressions(_ctx_, scope, indexing_tokens);
     if (!indexing_expressions.has_value()) {
-        PROFILE_CUMULATIVE("Parser::create_stacked_statement");
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -2209,7 +2144,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
                             }
                         }
                         if (!field_found) {
-                            PROFILE_CUMULATIVE("Parser::create_statement");
                             // Use of non-present field in data type
                             THROW_BASIC_ERR(ERR_PARSING);
                             return std::nullopt;
@@ -2222,6 +2156,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
                 }
                 if (field_names.empty()) {
                     THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(field_types);
+                if (!check_castability(group_type, rhs_expr.value())) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, rhs_expr_tokens, group_type, rhs_expr.value()->type);
                     return std::nullopt;
                 }
                 return std::make_unique<StackedGroupedAssignmentNode>(                       //
@@ -2415,7 +2354,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         tokens_mut.first += 2;
         statement_node = create_call_statement(scope, tokens_mut, alias_base);
     } else if (Matcher::tokens_contain(tokens, Matcher::function_call)) {
-        PROFILE_CUMULATIVE("Parser::create_scoped_statement");
         statement_node = create_call_statement(scope, tokens, std::nullopt);
     } else if (Matcher::tokens_contain(tokens, Matcher::unary_op_expr)) {
         std::optional<UnaryOpStatement> unary_op = create_unary_op_statement(scope, tokens);
@@ -2544,7 +2482,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     } else if (Matcher::tokens_contain(definition, Matcher::catch_statement) //
         || Matcher::tokens_contain(definition, Matcher::token(TOK_CATCH))    //
     ) {
-        PROFILE_CUMULATIVE("Parser::create_body");
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body.value(), statements);
         if (!catch_node.has_value()) {
             return std::nullopt;

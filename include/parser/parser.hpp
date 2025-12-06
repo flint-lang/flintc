@@ -79,6 +79,59 @@ class Parser {
         ContextLevel level;
     };
 
+    /// @struct `CastDirection`
+    /// @brief A small helper structure representing the casting direction, it makes the whole system a lot easier and more extensible. I do
+    /// not think that it will ever be extended in the future, but it makes everything around castability so much more clear and more
+    /// readable that I just prefer this solution annyway
+    struct CastDirection {
+      public:
+        /// @enum `Kind`
+        /// @brief The kind of the cast direction, determining the direction in which to cast
+        enum class Kind {
+            NOT_CASTABLE,        // Types are incpomatible
+            SAME_TYPE,           // The two types are actually the exact same type, just present inside different shared pointer containers
+            CAST_LHS_TO_RHS,     // Cast left operand to right's type
+            CAST_RHS_TO_LHS,     // Cast right operand to left's type
+            CAST_BOTH_TO_COMMON, // Cast both operands to the common type below
+            CAST_BIDIRECTIONAL,  // Casting both ways is possible without a problem
+        };
+
+        /// @var `kind`
+        /// @brief The kind of this cast direction
+        Kind kind;
+
+        /// @var `common_type`
+        /// @brief The common type to cast to
+        ///
+        /// @attention This variable is **ONLY** meaningful if the Kind is `CAST_BOTH_TO_COMMON`, access to this value is UB in all other
+        /// cases
+        std::shared_ptr<Type> common_type;
+
+        static CastDirection not_castable() {
+            return {Kind::NOT_CASTABLE, nullptr};
+        }
+
+        static CastDirection same_type() {
+            return {Kind::SAME_TYPE, nullptr};
+        }
+
+        static CastDirection lhs_to_rhs() {
+            return {Kind::CAST_LHS_TO_RHS, nullptr};
+        }
+
+        static CastDirection rhs_to_lhs() {
+            return {Kind::CAST_RHS_TO_LHS, nullptr};
+        }
+
+        static CastDirection both_to_common(std::shared_ptr<Type> type) {
+            return {Kind::CAST_BOTH_TO_COMMON, std::move(type)};
+        }
+
+        static CastDirection bidirectional() {
+            return {Kind::CAST_BIDIRECTIONAL, nullptr};
+        }
+    };
+
     /// @var `_ctx_`
     /// @brief The default context for parsing, globally constructed at compile-time to reduce LoC wastage of context creation
     static constexpr Context _ctx_{.level = ContextLevel::INTERNAL};
@@ -116,7 +169,50 @@ class Parser {
     /// @brief Returns the source code lines from this parser's instance
     ///
     /// @return `std::vector<std::string_view>` The source code lines
-    std::vector<std::pair<unsigned int, std::string_view>> get_source_code_lines() const;
+    std::vector<std::pair<unsigned int, std::string_view>> get_source_code_lines() const {
+        return source_code_lines;
+    }
+
+    /// @function `check_primitive_castability`
+    /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast
+    ///
+    /// @param `lhs` The lhs type to check
+    /// @param `rhs` The rhs type to check
+    /// @param `is_implicit` Whether the cast is implicit or explicit
+    /// @return `CastDirection` The direction in which to cast indicating if/how types can be cast
+    static CastDirection check_primitive_castability( //
+        const std::shared_ptr<Type> &lhs_type,        //
+        const std::shared_ptr<Type> &rhs_type,        //
+        const bool is_implicit = true                 //
+    );
+
+    /// @function `check_castability`
+    /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast
+    ///
+    /// @param `lhs` The lhs type to check
+    /// @param `rhs` The rhs type to check
+    /// @param `is_implicit` Whether the cast is implicit or explicit
+    /// @return `CastDirection` The direction in which to cast indicating if/how types can be cast
+    static CastDirection check_castability(    //
+        const std::shared_ptr<Type> &lhs_type, //
+        const std::shared_ptr<Type> &rhs_type, //
+        const bool is_implicit = true          //
+    );
+
+    /// @function `check_castability`
+    /// @brief Checks whether the given expression can be cast to the target type and casts the expression to the type if needed. If the
+    /// expression is not castable to the given type the function will return false.
+    ///
+    /// @param `target_type` The type to cast towards, the target type of the expression
+    /// @param `expr` The expression to cast / check
+    /// @param `is_implicit` Whether casting is implicit or was explicit
+    ///
+    /// @note If the expression already is the target type this function will leave the expression unchanged and simply return true
+    bool check_castability(                       //
+        const std::shared_ptr<Type> &target_type, //
+        std::unique_ptr<ExpressionNode> &expr,    //
+        const bool is_implicit = true             //
+    );
 
     /// @function `resolve_all_imports`
     /// @brief Resolves all imports and puts all public symbols of imported files into the private symbol list of the file's namespace. This
@@ -319,59 +415,6 @@ class Parser {
         {TOK_OR, Associativity::LEFT},
         {TOK_AND, Associativity::LEFT},
         {TOK_EQUAL, Associativity::RIGHT},
-    };
-
-    /// @struct `CastDirection`
-    /// @brief A small helper structure representing the casting direction, it makes the whole system a lot easier and more extensible. I do
-    /// not think that it will ever be extended in the future, but it makes everything around castability so much more clear and more
-    /// readable that I just prefer this solution annyway
-    struct CastDirection {
-      public:
-        /// @enum `Kind`
-        /// @brief The kind of the cast direction, determining the direction in which to cast
-        enum class Kind {
-            NOT_CASTABLE,        // Types are incpomatible
-            SAME_TYPE,           // The two types are actually the exact same type, just present inside different shared pointer containers
-            CAST_LHS_TO_RHS,     // Cast left operand to right's type
-            CAST_RHS_TO_LHS,     // Cast right operand to left's type
-            CAST_BOTH_TO_COMMON, // Cast both operands to the common type below
-            CAST_BIDIRECTIONAL,  // Casting both ways is possible without a problem
-        };
-
-        /// @var `kind`
-        /// @brief The kind of this cast direction
-        Kind kind;
-
-        /// @var `common_type`
-        /// @brief The common type to cast to
-        ///
-        /// @attention This variable is **ONLY** meaningful if the Kind is `CAST_BOTH_TO_COMMON`, access to this value is UB in all other
-        /// cases
-        std::shared_ptr<Type> common_type;
-
-        static CastDirection not_castable() {
-            return {Kind::NOT_CASTABLE, nullptr};
-        }
-
-        static CastDirection same_type() {
-            return {Kind::SAME_TYPE, nullptr};
-        }
-
-        static CastDirection lhs_to_rhs() {
-            return {Kind::CAST_LHS_TO_RHS, nullptr};
-        }
-
-        static CastDirection rhs_to_lhs() {
-            return {Kind::CAST_RHS_TO_LHS, nullptr};
-        }
-
-        static CastDirection both_to_common(std::shared_ptr<Type> type) {
-            return {Kind::CAST_BOTH_TO_COMMON, std::move(type)};
-        }
-
-        static CastDirection bidirectional() {
-            return {Kind::CAST_BIDIRECTIONAL, nullptr};
-        }
     };
 
     /// @var `last_parsed_call`
@@ -779,22 +822,6 @@ class Parser {
      * @brief This region is responsible for parsing everything about expressions
      *************************************************************************************************************************************/
 
-    /// @function `check_primitive_castability`
-    /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast
-    ///
-    /// @param `lhs` The lhs type to check
-    /// @param `rhs` The rhs type to check
-    /// @return `CastDirection` The direction in which to cast indicating if/how types can be cast
-    static CastDirection check_primitive_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type);
-
-    /// @function `check_castability`
-    /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast
-    ///
-    /// @param `lhs` The lhs type to check
-    /// @param `rhs` The rhs type to check
-    /// @return `CastDirection` The direction in which to cast indicating if/how types can be cast
-    CastDirection check_castability(const std::shared_ptr<Type> &lhs_type, const std::shared_ptr<Type> &rhs_type);
-
     /// @function `check_castability`
     /// @brief Checks if one of the two expression can be implicitely cast to the other expression. If yes, it wraps the expression in a
     /// type cast
@@ -869,12 +896,12 @@ class Parser {
     /// @param `scope` The scope the string interpolation takes place in
     /// @param `interpol_string` The string from which the interpolation is created
     /// @param `tokens` The tokens which contain the string interpolation (needed for correct error output)
-    /// @retun `std::optional<StringInterpolationNode>` An optional StringInterpolationNode if creation was successful, nullopt otherwise
-    std::optional<StringInterpolationNode> create_string_interpolation( //
-        const Context &ctx,                                             //
-        std::shared_ptr<Scope> &scope,                                  //
-        const std::string &interpol_string,                             //
-        const token_slice &tokens                                       //
+    /// @retun `std::optional<std::unique_ptr<ExpressionNode>>` The string interpolation if creation was successful, nullopt otherwise
+    std::optional<std::unique_ptr<ExpressionNode>> create_string_interpolation( //
+        const Context &ctx,                                                     //
+        std::shared_ptr<Scope> &scope,                                          //
+        const std::string &interpol_string,                                     //
+        const token_slice &tokens                                               //
     );
 
     /// @function `create_call_expression`
