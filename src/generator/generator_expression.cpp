@@ -3027,6 +3027,30 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     } else if (from_type_str == "bool") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("bool_to_str"), {expr}, "bool_to_str_res");
+        } else if (to_type_str == "u8") {
+            return builder.CreateSelect(expr, builder.getInt8(1), builder.getInt8(0), "bool_to_u8");
+        } else if (to_type_str == "u32") {
+            return builder.CreateSelect(expr, builder.getInt32(1), builder.getInt32(0), "bool_to_u32");
+        } else if (to_type_str == "u64") {
+            return builder.CreateSelect(expr, builder.getInt64(1), builder.getInt64(0), "bool_to_u64");
+        } else if (to_type_str == "i32") {
+            return builder.CreateSelect(expr, builder.getInt32(1), builder.getInt32(0), "bool_to_i32");
+        } else if (to_type_str == "i64") {
+            return builder.CreateSelect(expr, builder.getInt64(1), builder.getInt64(0), "bool_to_i64");
+        } else if (to_type_str == "f32") {
+            return builder.CreateSelect(                          //
+                expr,                                             //
+                llvm::ConstantFP::get(builder.getFloatTy(), 1.0), //
+                llvm::ConstantFP::get(builder.getFloatTy(), 0.0), //
+                "bool_to_f32"                                     //
+            );
+        } else if (to_type_str == "f64") {
+            return builder.CreateSelect(                           //
+                expr,                                              //
+                llvm::ConstantFP::get(builder.getDoubleTy(), 1.0), //
+                llvm::ConstantFP::get(builder.getDoubleTy(), 0.0), //
+                "bool_to_f64"                                      //
+            );
         }
     } else if (from_type_str == "u8") {
         if (to_type_str == "str") {
