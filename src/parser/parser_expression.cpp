@@ -2180,8 +2180,42 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     lhs.value()->type = cmp_type;
                 }
             } else if (lhs_is_group && rhs_is_group) {
-                // TODO:
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                // Both sides are groups, each element of each side must be castable or equal to the other side
+                // For example the groups (int, i32) and (i64, int) should result in both sides being of type (i64, i32)
+                //
+                // Non-group expressions could also have a group type as their result. Only GroupExpressionNodes can be cast to other group
+                // types, for example if we do a function call which returns `(u32, i32)` then we cannot cast it's expressions directly. For
+                // this case the whole group needs to be cast. from `(u32, i32) -> (u64, i64)` for example. This means that we have three
+                // four distinct possibilities to account for:
+                // - both sides are group expressions
+                // - left group expression, right other expression returning a group
+                // - left some expression returning a group, right group expression
+                // - none of the sides are group expressions
+                const GroupType *lhs_group_type = lhs_type->as<GroupType>();
+                const GroupType *rhs_group_type = rhs_type->as<GroupType>();
+                GroupExpressionNode *lhs_group_expr = dynamic_cast<GroupExpressionNode *>(lhs.value().get());
+                GroupExpressionNode *rhs_group_expr = dynamic_cast<GroupExpressionNode *>(rhs.value().get());
+                if (lhs_group_type->types.size() == rhs_group_type->types.size()) {
+                    if (lhs_group_expr != nullptr && rhs_group_expr != nullptr) {
+                        // Both sides are group expressions
+                        for (size_t i = 0; i < lhs_group_type->types.size(); i++) {
+                            if (!check_castability(lhs_group_expr->expressions.at(i), rhs_group_expr->expressions.at(i))) {
+                                is_castable = false;
+                                break;
+                            }
+                        }
+                    } else if (lhs_group_expr != nullptr && rhs_group_expr == nullptr) {
+                        // Rhs is no group expr, lhs is a group expr
+                        is_castable = check_castability(rhs_type, lhs.value());
+                    } else if (lhs_group_expr == nullptr && rhs_group_expr != nullptr) {
+                        // Lhs is no group expr, rhs is a group expr
+                        is_castable = check_castability(lhs_type, rhs.value());
+                    } else {
+                        // TODO: Both sides are non-group expressions
+                        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                        is_castable = false;
+                    }
+                }
             } else {
                 is_castable = check_castability(lhs.value(), rhs.value());
             }

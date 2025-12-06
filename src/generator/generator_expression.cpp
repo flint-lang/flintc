@@ -3328,6 +3328,40 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
         }
         return_value.emplace_back(result.value());
     }
+    if (return_value.size() > 1) {
+        // It's a group containing multiple values, we then need to check if the operation is a comparison operation which should result in
+        // a boolean value, if it is then we must combine the results together to form the single value to return
+        switch (bin_op_node->operator_token) {
+            default:
+                break;
+            case TOK_NOT_EQUAL: {
+                // All return values need to be combined together with ors. Only one value can differ for the whole condition to become
+                // 'false'
+                llvm::Value *combined = return_value.front();
+                for (size_t i = 1; i < return_value.size(); i++) {
+                    combined = builder.CreateOr(combined, return_value.at(i));
+                }
+                combined->setName("combined_group_cond_neq");
+                return_value.clear();
+                return_value.emplace_back(combined);
+                break;
+            }
+            case TOK_EQUAL_EQUAL:
+            case TOK_LESS:
+            case TOK_LESS_EQUAL:
+            case TOK_GREATER:
+            case TOK_GREATER_EQUAL: {
+                // All return values need to be combined together with ands.
+                llvm::Value *combined = return_value.front();
+                for (size_t i = 1; i < return_value.size(); i++) {
+                    combined = builder.CreateAnd(combined, return_value.at(i));
+                }
+                return_value.clear();
+                return_value.emplace_back(combined);
+                break;
+            }
+        }
+    }
     return return_value;
 }
 
