@@ -49,6 +49,7 @@ void parser_cleanup() {
 }
 
 std::optional<FileNode *> LspServer::parse_program(const std::string &source_file_path, const std::optional<std::string> &file_content) {
+    log_info("Parsing file path: " + source_file_path);
     static std::mutex parsing_mutex;
     std::lock_guard<std::mutex> lock(parsing_mutex);
     std::filesystem::path file_path(source_file_path);
@@ -80,7 +81,14 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
         return std::nullopt;
     }
     auto dep_graph = Resolver::create_dependency_graph(file.value(), parse_parallel);
-    Parser::resolve_all_unknown_types();
+    if (!Parser::resolve_all_imports()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    if (!Parser::resolve_all_unknown_types()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
     bool parsed_successful = Parser::parse_all_open_functions(parse_parallel);
     if (!parsed_successful) {
         parser_cleanup();

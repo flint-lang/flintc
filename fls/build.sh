@@ -133,6 +133,8 @@ else
     exit 1
 fi
 
+echo "-- Copying executables..."
+
 # Copy executable to the 'build/out' dir of the flintc project
 if [ "$target_windows" = true ]; then
     if [ "$build_type" = "Debug" ]; then

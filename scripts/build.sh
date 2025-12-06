@@ -671,9 +671,6 @@ copy_executables() {
                 checked_copy "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/dynamic-tests-release.exe"
             fi
         fi
-        if [ "$build_fls" = "true" ]; then
-            checked_copy "$root/fls/build-windows/out/fls.exe" "$root/build/out/fls.exe"
-        fi
     fi
 
     if [ "$build_linux" = "true" ]; then
@@ -696,9 +693,6 @@ copy_executables() {
                 checked_copy "$root/build/linux/out/dynamic-flintc" "$root/build/out/dynamic-flintc-release"
                 checked_copy "$root/build/linux/out/dynamic-tests" "$root/build/out/dynamic-tests-release"
             fi
-        fi
-        if [ "$build_fls" = "true" ]; then
-            checked_copy "$root/fls/build-linux/out/fls" "$root/build/out/fls"
         fi
     fi
 }
