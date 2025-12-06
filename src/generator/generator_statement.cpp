@@ -16,6 +16,7 @@
 #include "parser/type/type.hpp"
 #include "parser/type/variant_type.hpp"
 
+#include <algorithm>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Metadata.h>
 #include <string>
@@ -1946,9 +1947,9 @@ bool Generator::Statement::generate_array_assignment( //
     const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
     expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
     // Call the `assign_at_val` function
-    builder.CreateCall(                                                       //
-        Module::Array::array_manip_functions.at("assign_arr_val_at"),         //
-        {array_ptr, builder.getInt64(expr_bitwidth / 8), indices, expression} //
+    builder.CreateCall(                                                                     //
+        Module::Array::array_manip_functions.at("assign_arr_val_at"),                       //
+        {array_ptr, builder.getInt64(std::max(1U, expr_bitwidth / 8)), indices, expression} //
     );
     return true;
 }
