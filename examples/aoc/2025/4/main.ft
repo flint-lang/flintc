@@ -1,0 +1,125 @@
+use Core.print
+use Core.filesystem
+
+def get_neighbour_count(bool[,] input, u32 x, u32 y) -> u32:
+	u32 neighbour_count = 0;
+	(X, Y) := input.len - (1, 1);
+	// Special case for the corners (The single points go counter-clockwise)
+	if (x, y) == (0, 0):
+		neighbour_count += u32(input[x, y + 1]);     // B
+		neighbour_count += u32(input[x + 1, y + 1]); // RB
+		neighbour_count += u32(input[x + 1, y]);     // R
+		return neighbour_count;
+	else if (x, y) == (0, Y):
+		neighbour_count += u32(input[x + 1, y]);     // R
+		neighbour_count += u32(input[x + 1, y - 1]); // RT
+		neighbour_count += u32(input[x, y - 1]);     // T
+		return neighbour_count;
+	else if (x, y) == (X, 0):
+		neighbour_count += u32(input[x - 1, y]);     // L
+		neighbour_count += u32(input[x - 1, y + 1]); // LB
+		neighbour_count += u32(input[x, y + 1]);     // B
+		return neighbour_count;
+	else if (x, y) == (X, Y):
+		neighbour_count += u32(input[x, y - 1]);     // T
+		neighbour_count += u32(input[x - 1, y - 1]); // LT
+		neighbour_count += u32(input[x - 1, y]);     // L
+		return neighbour_count;
+
+	// Special case for the edges
+	if x == 0:
+		neighbour_count += u32(input[x, y + 1]);     // B
+		neighbour_count += u32(input[x + 1, y + 1]); // RB
+		neighbour_count += u32(input[x + 1, y]);     // R
+		neighbour_count += u32(input[x + 1, y - 1]); // RT
+		neighbour_count += u32(input[x, y - 1]);     // T
+		return neighbour_count;
+	else if y == 0:
+		neighbour_count += u32(input[x + 1, y]);     // R
+		neighbour_count += u32(input[x + 1, y + 1]); // RB
+		neighbour_count += u32(input[x, y + 1]);     // B
+		neighbour_count += u32(input[x - 1, y + 1]); // LB
+		neighbour_count += u32(input[x - 1, y]);     // L
+		return neighbour_count;
+	else if x == X:
+		neighbour_count += u32(input[x, y + 1]);     // B
+		neighbour_count += u32(input[x - 1, y + 1]); // LB
+		neighbour_count += u32(input[x - 1, y]);     // L
+		neighbour_count += u32(input[x - 1, y - 1]); // LT
+		neighbour_count += u32(input[x, y - 1]);     // T
+		return neighbour_count;
+	else if y == Y:
+		neighbour_count += u32(input[x - 1, y]);     // L
+		neighbour_count += u32(input[x - 1, y - 1]); // LT
+		neighbour_count += u32(input[x, y - 1]);     // T
+		neighbour_count += u32(input[x + 1, y - 1]); // RT
+		neighbour_count += u32(input[x + 1, y]);     // R
+		return neighbour_count;
+
+	neighbour_count += u32(input[x, y - 1]);     // T
+	neighbour_count += u32(input[x + 1, y - 1]); // RT
+	neighbour_count += u32(input[x + 1, y]);     // R
+	neighbour_count += u32(input[x + 1, y + 1]); // RB
+	neighbour_count += u32(input[x, y + 1]);     // B
+	neighbour_count += u32(input[x - 1, y + 1]); // LB
+	neighbour_count += u32(input[x - 1, y]);     // L
+	neighbour_count += u32(input[x - 1, y - 1]); // LT
+	return neighbour_count;
+
+def part_1(bool[,] roll_map):
+	(X, Y) := roll_map.len;
+	u32 move_count = 0;
+	bool[,] output = bool[X, Y](false);
+	for u32 y = 0; y < Y; y++:
+		for u32 x = 0; x < X; x++:
+			if not roll_map[x, y]:
+				// Only check if we can remove a roll if there is a roll to remove
+				continue;
+			u32 neighbour_count = get_neighbour_count(roll_map, x, y);
+			if neighbour_count < 4:
+				output[x, y] = false;
+				move_count++;
+			else:
+				output[x, y] = true;
+	print($"part_1: {move_count}\n");
+
+def part_2(mut bool[,] roll_map):
+	(X, Y) := roll_map.len;
+	u32 move_count = 0;
+	bool roll_moved = true;
+	while roll_moved:
+		roll_moved = false;
+		for u32 y = 0; y < Y; y++:
+			for u32 x = 0; x < X; x++:
+				if not roll_map[x, y]:
+					// Only check if we can remove a roll if there is a roll to remove
+					continue;
+				u32 neighbour_count = get_neighbour_count(roll_map, x, y);
+				if neighbour_count < 4:
+					roll_map[x, y] = false;
+					move_count++;
+					roll_moved = true;
+	print($"part_2: {move_count}\n");
+
+def main():
+	str input = read_file("input.txt");
+
+	// Get the height and witdth of the input
+	u32 X = 0;
+	for (idx, elem) in input:
+		if elem == '\n':
+			X = u32(idx);
+			break;
+	const u32 Y = u32(input.len) / (X + 1);
+
+	// Initialize the roll map
+	bool[,] roll_map = bool[X, Y](false);
+	(lenx, leny) := roll_map.len;
+	for u32 y = 0; y < Y; y++:
+		for u32 x = 0; x < X; x++:
+			// We need to add y to it to skip each \n of each line end
+			const u32 offset = y * Y + x + y;
+			roll_map[x, y] = input[offset] == '@';
+
+	part_1(roll_map);
+	part_2(roll_map);
