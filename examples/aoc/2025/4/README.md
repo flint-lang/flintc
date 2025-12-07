@@ -1,4 +1,4 @@
-# Day 3: Printing Department
+# Day 4: Printing Department
 
 ## Part 1
 
