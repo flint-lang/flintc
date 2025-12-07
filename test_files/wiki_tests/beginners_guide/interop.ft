@@ -19,7 +19,7 @@ test "2_hello":
 test "3_signature_mismatch":
 	str path = "wiki_tests/beginners_guide/interop/3_signature_mismatch";
 	str file = "main.ft";
-	test_file_fail_in(path, file, "[\x1B[31mMaster\x1B[0m]:  The function 'add' could not be resolved\nParse Error at main.ft:4:1\n└─┬┤E0000│\n4 │ extern def add(i32 x, i32 y) -> i32;\n┌─┴─┘\n└─ Extern function could not be found in any FIP module\n");
+	test_file_fail_in(1, path, file, "Parse Error at main.ft:4:1\n└─┬┤E0000│\n4 │ extern def add(i32 x, i32 y) -> i32;\n┌─┴─┘\n└─ Extern function could not be found in any FIP module\n");
 
 test "4_signature_ok":
 	str path = "wiki_tests/beginners_guide/interop/4_signature_ok";

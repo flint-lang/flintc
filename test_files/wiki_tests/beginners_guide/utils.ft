@@ -74,6 +74,29 @@ def test_file_fail_in(str path, str file, str expected_output):
 	assert(exit_code == 1);
 	assert(starts_with(output, expected_output));
 
+/// @brief Executes a given command inside a subdirectory and expects a given output
+///        It skips the first `n` lines of the output and only compares the rest of the output.
+///        @asserts that `n` is at least 1
+///
+/// @param `path` The path in which to execute the command
+/// @param `file` The file to compile
+/// @param `n` The number of lines to skip before starting to check the output
+/// @param `expected_output` The expected output of the failing compilation 
+def test_file_fail_in(u32 n, str path, str file, str expected_output):
+	assert(n >= 1);
+	(unused, cwd) := system_command("echo -n $(pwd)");
+	(exit_code, output) := system_command($"cd {cwd}/{path}; flintc --no-colors --file {file}");
+	assert(exit_code == 1);
+	u64 start_idx = 0;
+	u64 lines_skipped = 0;
+	for (idx, char) in output:
+		if char == '\n':
+			lines_skipped++;
+			if lines_skipped == n:
+				start_idx = idx + 1;
+				break;
+	assert(starts_with(output[start_idx..], expected_output));
+
 /// @brief Tries to compile the given file, expecting compilation to succeed but the
 ///        compiled program to crash
 ///
