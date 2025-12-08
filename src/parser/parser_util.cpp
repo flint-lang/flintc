@@ -381,7 +381,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         return std::nullopt;
                     }
                     const auto &field_type = std::get<1>(fields.at(i));
-                    if (!check_castability(field_type, arguments.at(i).first)) {
+                    if (!check_castability(field_type, arguments.at(i).first, false)) {
                         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, field_type, arg_type);
                         return std::nullopt;
                     }
@@ -402,7 +402,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     return std::nullopt;
                 }
                 for (size_t i = 0; i < arguments.size(); i++) {
-                    if (!check_castability(base_type, arguments[i].first, true)) {
+                    if (!check_castability(base_type, arguments[i].first, false)) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
