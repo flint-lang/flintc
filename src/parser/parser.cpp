@@ -1137,10 +1137,10 @@ std::vector<std::pair<FunctionNode *, std::string>> Parser::get_function_from_ca
         // example)
         bool is_ok = true;
         for (size_t i = 0; i < arg_types.size(); i++) {
-            if (arg_types[i] == fn_arg_types[i]) {
+            if (arg_types[i]->equals(fn_arg_types[i])) {
                 continue;
             }
-            if (arg_types[i] != fn_arg_types[i] && arg_types[i]->to_string() != "int" && arg_types[i]->to_string() != "float") {
+            if (!arg_types[i]->equals(fn_arg_types[i]) && arg_types[i]->to_string() != "int" && arg_types[i]->to_string() != "float") {
                 is_ok = false;
                 break;
             }
