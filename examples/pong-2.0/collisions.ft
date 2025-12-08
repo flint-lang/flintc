@@ -7,20 +7,20 @@ enum GameState:
 	RUNNING, P1_WON, P2_WON;
 
 def check_collision(Ball ball, Player player, bool left) -> bool:
-	const bool below = ball.pos.y > player.pos.y + player.size.y / 2 + ball.radius / 2;
-	const bool above = ball.pos.y < player.pos.y - player.size.y / 2 - ball.radius / 2;
+	const bool below = ball.pos.y > player.pos.y + f32(player.size.y / 2) + ball.radius / 2.0;
+	const bool above = ball.pos.y < player.pos.y - f32(player.size.y / 2) - ball.radius / 2.0;
 	if below or above:
 		return false;
 
 	f32 x_player = player.pos.x;
 	f32 x_ball = ball.pos.x;
 	if left:
-		x_player += player.size.x / 2;
+		x_player += f32(player.size.x / 2);
 		x_ball -= ball.radius;
 		if x_ball < x_player:
 			return true;
 	else:
-		x_player -= player.size.x / 2;
+		x_player -= f32(player.size.x / 2);
 		x_ball += ball.radius;
 		if x_ball > x_player:
 			return true;

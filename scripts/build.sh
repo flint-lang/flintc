@@ -2,7 +2,7 @@
 set -e
 
 # Dependencies Commit Hashes
-FIP_HASH="1b072c58bc2c4d2ea4d730580a5d878750050092"
+FIP_HASH="c3dd049fdc10799334cb1bccf8b90da1b27083eb"
 JSON_MINI_HASH="a32d6e8319d90f5fa75f1651f30798c71464e4c6"
 
 print_usage() {

@@ -17,10 +17,10 @@ def draw_player(Player player):
 	DrawRectangleRounded(rec, 0.8, 0, player.color);
 
 def clamp_position(mut Player player):
-	if player.pos.y - player.size.y / 2 < 10.0:
-		player.pos = f32x2(player.pos.x, player.size.y / 2 + 10.0);
-	else if player.pos.y + player.size.y / 2 > GetScreenHeight() - 10.0:
-		player.pos = f32x2(player.pos.x, GetScreenHeight() - player.size.y / 2 - 10.0);
+	if player.pos.y - f32(player.size.y / 2) < 10.0:
+		player.pos = f32x2(player.pos.x, f32(player.size.y / 2) + 10.0);
+	else if player.pos.y + f32(player.size.y / 2) > f32(GetScreenHeight() - 10):
+		player.pos = f32x2(player.pos.x, GetScreenHeight() - player.size.y / 2 - 10);
 
 def update_player(mut Player player, f32 delta):
 	if IsKeyDown(265): // 265 is the KEY_UP key in Raylib

@@ -13,7 +13,7 @@ def draw_ball(Ball ball):
 
 def update_ball(mut Ball ball, f32 delta):
 	ball.pos = ball.pos + ball.dir * (delta * ball.speed, delta * ball.speed);
-	if (ball.pos.y + ball.radius > GetScreenHeight()) or (ball.pos.y - ball.radius < 0.0):
+	if (ball.pos.y + ball.radius > f32(GetScreenHeight())) or (ball.pos.y - ball.radius < 0.0):
 		ball.dir = ball.dir * (1.0, -1.0);
-	if (ball.pos.x + ball.radius > GetScreenWidth()) or (ball.pos.x - ball.radius < 0.0):
+	if (ball.pos.x + ball.radius > f32(GetScreenWidth())) or (ball.pos.x - ball.radius < 0.0):
 		ball.dir = ball.dir * (-1.0, 1.0);

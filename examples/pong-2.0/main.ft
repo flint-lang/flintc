@@ -12,7 +12,7 @@ def reset_objects(mut Ball ball, mut Player p1, mut Player p2):
 	i32 left_or_right = GetRandomValue(0, 1);
 	angle_deg += 180 * left_or_right;
 	const f32 pi = 3.141592;
-	const f32 angle_rad = (angle_deg * 180.0) / pi;
+	const f32 angle_rad = f32(angle_deg * 180) / pi;
 	f32x2 ball_dir = (cos(angle_rad), sin(angle_rad));
 	// Reset the ball values
 	ball.speed = 400.0;
