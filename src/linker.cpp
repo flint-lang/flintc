@@ -433,8 +433,8 @@ std::optional<std::vector<std::string>> Linker::get_linux_args( //
     } else {
         // For dynamic builds, use regular glibc
         args.push_back("--allow-multiple-definition");
-        args.push_back("--no-gc-sections"); // Prevent removal of unused sections
-        args.push_back("--no-relax");       // Disable relocation relaxation
+        args.push_back("--gc-sections"); // Prevent removal of unused sections
+        args.push_back("--no-relax");    // Disable relocation relaxation
         args.push_back("-g");
         for (const auto &obj_file : obj_files) {
             args.push_back(obj_file.string());

@@ -126,9 +126,9 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
         opt,                                           //
         llvm::Reloc::DynamicNoPIC                      //
     );
-    // Disable individual sections for functions and data
-    target_machine->Options.FunctionSections = false;
-    target_machine->Options.DataSections = false;
+    // Enable individual sections for functions and data
+    target_machine->Options.FunctionSections = true;
+    target_machine->Options.DataSections = true;
     module->setDataLayout(target_machine->createDataLayout());
 
     // Create an output file

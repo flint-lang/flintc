@@ -2347,7 +2347,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         token_slice tokens_mut = tokens;
         assert(tokens_mut.first->token == TOK_IDENTIFIER && std::next(tokens_mut.first)->token == TOK_DOT);
         const std::string alias_base(tokens_mut.first->lexme);
-        if (aliases.find(alias_base) == aliases.end()) {
+        const auto &aliased_imports = file_node_ptr->file_namespace->public_symbols.aliased_imports;
+        if (aliased_imports.find(alias_base) == aliased_imports.end()) {
             THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, alias_base);
             return std::nullopt;
         }
