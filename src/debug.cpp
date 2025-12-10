@@ -93,7 +93,12 @@ namespace Debug {
             if (tc->token == TOK_TYPE) {
                 std::cout << tc->type->to_string();
             } else if (tc->token == TOK_ALIAS) {
-                std::cout << tc->alias_namespace->file_node->file_name << ":" << tc->alias_namespace->namespace_hash.to_string();
+                if (tc->alias_namespace->file_node == nullptr) {
+                    std::cout << "Core";
+                } else {
+                    std::cout << tc->alias_namespace->file_node->file_name;
+                }
+                std::cout << ":" << tc->alias_namespace->namespace_hash.to_string();
             } else {
                 std::cout << tc->lexme;
             }
