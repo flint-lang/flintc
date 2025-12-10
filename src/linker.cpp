@@ -387,6 +387,8 @@ std::optional<std::vector<std::string>> Linker::get_linux_args( //
     if (is_static) {
         // For static builds with musl
         args.push_back("-static");
+        args.push_back("-L" + Generator::get_flintc_cache_path().string());
+        args.push_back("-lbuiltins");
 
         // Find musl libc.a - check multiple possible locations
         std::vector<std::string> possible_musl_paths = {
